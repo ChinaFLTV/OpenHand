@@ -60,10 +60,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       const Duration(seconds: 2),
       (_) => _refresh(),
     );
-    _fpsTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => _sampleFps(),
-    );
+    _fpsTimer = Timer.periodic(const Duration(seconds: 1), (_) => _sampleFps());
     _longTaskTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) => _sampleLongTasks(),
@@ -239,7 +236,12 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         _traceMinTs = parsed.minTs;
         _traceMaxTs = parsed.maxTs;
       } catch (error, stack) {
-        silentLog('web_reverse_dashboard_dialog', 'parseTraceLanes', error, stack);
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          'parseTraceLanes',
+          error,
+          stack,
+        );
         _traceLanes = const [];
       }
       if (mounted) setState(() {});
@@ -307,7 +309,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           Row(
             children: [
               Text(
-                isZh ? '实时性能指标（每 2s 刷新）' : 'Live Performance Metrics (refresh 2s)',
+                isZh
+                    ? '实时性能指标（每 2s 刷新）'
+                    : 'Live Performance Metrics (refresh 2s)',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -322,10 +326,22 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                         setState(() => _traceDuration = v);
                       },
                 items: const [
-                  DropdownMenuItem(value: Duration(seconds: 3), child: Text('3 s')),
-                  DropdownMenuItem(value: Duration(seconds: 5), child: Text('5 s')),
-                  DropdownMenuItem(value: Duration(seconds: 10), child: Text('10 s')),
-                  DropdownMenuItem(value: Duration(seconds: 30), child: Text('30 s')),
+                  DropdownMenuItem(
+                    value: Duration(seconds: 3),
+                    child: Text('3 s'),
+                  ),
+                  DropdownMenuItem(
+                    value: Duration(seconds: 5),
+                    child: Text('5 s'),
+                  ),
+                  DropdownMenuItem(
+                    value: Duration(seconds: 10),
+                    child: Text('10 s'),
+                  ),
+                  DropdownMenuItem(
+                    value: Duration(seconds: 30),
+                    child: Text('30 s'),
+                  ),
                 ],
               ),
               const SizedBox(width: 10),
@@ -352,8 +368,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
-                onPressed:
-                    (_fpsHistory.isEmpty && _longTasks.isEmpty) ? null : _exportCsv,
+                onPressed: (_fpsHistory.isEmpty && _longTasks.isEmpty)
+                    ? null
+                    : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
                 label: Text(isZh ? '导出 CSV' : 'Export CSV'),
               ),
@@ -394,9 +411,12 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('FPS',
-                          style: theme.textTheme.labelMedium
-                              ?.copyWith(color: cs.onSurfaceVariant)),
+                      Text(
+                        'FPS',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         _fpsHistory.isEmpty
@@ -407,10 +427,10 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                           color: _fpsHistory.isEmpty
                               ? cs.onSurfaceVariant
                               : (_fpsHistory.last >= 50
-                                  ? Colors.green
-                                  : (_fpsHistory.last >= 30
-                                      ? Colors.orange
-                                      : cs.error)),
+                                    ? Colors.green
+                                    : (_fpsHistory.last >= 30
+                                          ? Colors.orange
+                                          : cs.error)),
                         ),
                       ),
                     ],
@@ -455,8 +475,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                           mainAxisSpacing: 10,
                           childAspectRatio: 2.2,
                           children: _orderedMetrics(highlights).map((m) {
-                            final history =
-                                _history[m.$1] ?? const <double>[];
+                            final history = _history[m.$1] ?? const <double>[];
                             return AnimatedContainer(
                               duration: widget.reduceMotion
                                   ? Duration.zero
@@ -482,11 +501,11 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                     message: m.$1,
                                     child: Text(
                                       _localizedMetricName(m.$1, isZh),
-                                      style:
-                                          theme.textTheme.labelSmall?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -517,10 +536,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 // Long tasks 侧栏：固定 320 宽，紧凑列表 + 时长高亮。
                 SizedBox(
                   width: 320,
-                  child: _LongTasksPane(
-                    tasks: _longTasks,
-                    isZh: isZh,
-                  ),
+                  child: _LongTasksPane(tasks: _longTasks, isZh: isZh),
                 ),
               ],
             ),
@@ -539,8 +555,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   /// 按 [highlights] 顺序排前面的高优先级指标，剩余按字母顺序拼后面。
   List<(String, double)> _orderedMetrics(List<String> highlights) {
     final hi = _metrics.where((m) => highlights.contains(m.$1)).toList()
-      ..sort((a, b) =>
-          highlights.indexOf(a.$1).compareTo(highlights.indexOf(b.$1)));
+      ..sort(
+        (a, b) => highlights.indexOf(a.$1).compareTo(highlights.indexOf(b.$1)),
+      );
     final lo = _metrics.where((m) => !highlights.contains(m.$1)).toList()
       ..sort((a, b) => a.$1.compareTo(b.$1));
     return [...hi, ...lo];
@@ -807,8 +824,11 @@ class _LongTasksPane extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
             child: Row(
               children: [
-                Icon(Icons.warning_amber_rounded,
-                    size: 16, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -820,7 +840,9 @@ class _LongTasksPane extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainer,
                     borderRadius: BorderRadius.circular(999),
@@ -867,7 +889,7 @@ class _LongTasksPane extends StatelessWidget {
                       final attribution = t['attribution'];
                       final attribLabel = attribution is Map
                           ? '${attribution['containerType'] ?? ''} '
-                              '${attribution['containerName'] ?? attribution['containerSrc'] ?? ''}'
+                                '${attribution['containerName'] ?? attribution['containerSrc'] ?? ''}'
                           : '';
                       return Padding(
                         padding: const EdgeInsets.symmetric(
@@ -903,9 +925,9 @@ class _LongTasksPane extends StatelessWidget {
                                       attribLabel,
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        fontFamily: 'monospace',
-                                      ),
+                                            color: cs.onSurfaceVariant,
+                                            fontFamily: 'monospace',
+                                          ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -1028,7 +1050,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   double? _samplingLastUsed;
   // 采样收尾后的 top-N 函数。
   ({int totalSize, List<({String label, int size, List<String> stack})> top})?
-      _samplingResult;
+  _samplingResult;
   // ── 阈值告警 ─────────────────────────────────────────────────────────
   // 用户可通过 V8 卡片右侧滑块调整；触发后 60s 冷却防刷屏。
   double _heapWarnThresholdMb = 100;
@@ -1255,12 +1277,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         isZh ? '已保存到 ${location.path}' : 'Saved',
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'write heap',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', 'write heap', error, stack);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
         context,
@@ -1321,9 +1338,11 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                       : Icons.camera_alt_rounded,
                   size: 18,
                 ),
-                label: Text(_capturing
-                    ? (isZh ? '采集中…' : 'Capturing…')
-                    : (isZh ? '采集快照' : 'Capture Snapshot')),
+                label: Text(
+                  _capturing
+                      ? (isZh ? '采集中…' : 'Capturing…')
+                      : (isZh ? '采集快照' : 'Capture Snapshot'),
+                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
@@ -1453,8 +1472,11 @@ class _V8HeapLiveCard extends StatelessWidget {
                     ),
                     if (breached) ...[
                       const SizedBox(width: 6),
-                      Icon(Icons.warning_amber_rounded,
-                          size: 14, color: cs.error),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 14,
+                        color: cs.error,
+                      ),
                     ],
                   ],
                 ),
@@ -1497,8 +1519,11 @@ class _V8HeapLiveCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.tune_rounded,
-                          size: 13, color: cs.onSurfaceVariant),
+                      Icon(
+                        Icons.tune_rounded,
+                        size: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         isZh ? '阈值告警' : 'Threshold',
@@ -1764,12 +1789,8 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final peak = deltas.isEmpty
-        ? 0.0
-        : deltas.reduce((a, b) => a > b ? a : b);
-    final total = deltas.isEmpty
-        ? 0.0
-        : deltas.reduce((a, b) => a + b);
+    final peak = deltas.isEmpty ? 0.0 : deltas.reduce((a, b) => a > b ? a : b);
+    final total = deltas.isEmpty ? 0.0 : deltas.reduce((a, b) => a + b);
     final activeBorder = isSampling ? cs.primary : cs.outlineVariant;
     final activeBg = isSampling
         ? cs.primaryContainer.withValues(alpha: 0.18)
@@ -1779,10 +1800,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: activeBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: activeBorder,
-          width: isSampling ? 1.4 : 1,
-        ),
+        border: Border.all(color: activeBorder, width: isSampling ? 1.4 : 1),
       ),
       child: Row(
         children: [
@@ -1816,8 +1834,8 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                   isSampling
                       ? (isZh ? '采样中…' : 'Sampling…')
                       : (deltas.isEmpty
-                          ? (isZh ? '未开启' : 'Off')
-                          : (isZh ? '已停止' : 'Stopped')),
+                            ? (isZh ? '未开启' : 'Off')
+                            : (isZh ? '已停止' : 'Stopped')),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: isSampling ? cs.primary : cs.onSurface,
@@ -1929,8 +1947,9 @@ class _SamplingTopList extends StatelessWidget {
   const _SamplingTopList({required this.result, required this.isZh});
   final ({
     int totalSize,
-    List<({String label, int size, List<String> stack})> top
-  }) result;
+    List<({String label, int size, List<String> stack})> top,
+  })
+  result;
   final bool isZh;
 
   @override
@@ -2063,9 +2082,7 @@ class _SamplingTopList extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(
-            isZh ? '调用栈：${row.label}' : 'Call stack: ${row.label}',
-          ),
+          title: Text(isZh ? '调用栈：${row.label}' : 'Call stack: ${row.label}'),
           content: SizedBox(
             width: 720,
             height: 420,
@@ -2074,7 +2091,9 @@ class _SamplingTopList extends StatelessWidget {
                     child: Text(
                       isZh ? '(此节点无父级链)' : '(no parent stack)',
                       style: TextStyle(
-                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                        color: Theme.of(
+                          dialogContext,
+                        ).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   )
@@ -2193,8 +2212,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     List<Map<String, Object?>> cookies = const [];
     List<({String key, String value})> storage = const [];
     List<String> idbNames = const [];
-    var idbDescribed =
-        const <String, ({int version, List<String> stores})>{};
+    var idbDescribed = const <String, ({int version, List<String> stores})>{};
     List<String> cacheNames = const [];
     List<Map<String, Object?>> swVersions = const [];
     if (tab == _AppTab.cookies) {
@@ -2283,37 +2301,36 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
           Expanded(
             child: switch (_tab) {
               _AppTab.cookies => _CookiesTable(
-                  cookies: _cookies,
-                  controller: widget.controller,
-                  isZh: isZh,
-                  onChanged: _refresh,
-                ),
-              _AppTab.localStorage ||
-              _AppTab.sessionStorage =>
-                _StorageTable(
-                  rows: _storage,
-                  controller: widget.controller,
-                  origin: _origin,
-                  isLocalStorage: _tab == _AppTab.localStorage,
-                  isZh: isZh,
-                  onChanged: _refresh,
-                ),
+                cookies: _cookies,
+                controller: widget.controller,
+                isZh: isZh,
+                onChanged: _refresh,
+              ),
+              _AppTab.localStorage || _AppTab.sessionStorage => _StorageTable(
+                rows: _storage,
+                controller: widget.controller,
+                origin: _origin,
+                isLocalStorage: _tab == _AppTab.localStorage,
+                isZh: isZh,
+                onChanged: _refresh,
+              ),
               _AppTab.indexedDb => _IndexedDbTable(
-                  controller: widget.controller,
-                  names: _idbNames,
-                  described: _idbDescribed,
-                  isZh: isZh,
-                  onChanged: _refresh,
-                ),
-              _AppTab.cacheStorage =>
-                _NameListPanel(names: _cacheNames, isZh: isZh),
-              _AppTab.serviceWorkers =>
-                _ServiceWorkersTable(
-                  versions: _swVersions,
-                  controller: widget.controller,
-                  isZh: isZh,
-                  onChanged: _refresh,
-                ),
+                controller: widget.controller,
+                names: _idbNames,
+                described: _idbDescribed,
+                isZh: isZh,
+                onChanged: _refresh,
+              ),
+              _AppTab.cacheStorage => _NameListPanel(
+                names: _cacheNames,
+                isZh: isZh,
+              ),
+              _AppTab.serviceWorkers => _ServiceWorkersTable(
+                versions: _swVersions,
+                controller: widget.controller,
+                isZh: isZh,
+                onChanged: _refresh,
+              ),
             },
           ),
         ],
@@ -2322,13 +2339,13 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   }
 
   String _appTabLabel(_AppTab t, bool isZh) => switch (t) {
-        _AppTab.cookies => 'Cookies',
-        _AppTab.localStorage => 'Local Storage',
-        _AppTab.sessionStorage => 'Session Storage',
-        _AppTab.indexedDb => 'IndexedDB',
-        _AppTab.cacheStorage => 'Cache Storage',
-        _AppTab.serviceWorkers => 'Service Workers',
-      };
+    _AppTab.cookies => 'Cookies',
+    _AppTab.localStorage => 'Local Storage',
+    _AppTab.sessionStorage => 'Session Storage',
+    _AppTab.indexedDb => 'IndexedDB',
+    _AppTab.cacheStorage => 'Cache Storage',
+    _AppTab.serviceWorkers => 'Service Workers',
+  };
 }
 
 class _AppTabPill extends StatelessWidget {
@@ -2351,9 +2368,7 @@ class _AppTabPill extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_kToolbarRadius),
         side: BorderSide(
-          color: active
-              ? cs.primary.withValues(alpha: 0.4)
-              : cs.outlineVariant,
+          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
         ),
       ),
       child: InkWell(
@@ -2438,9 +2453,7 @@ class _CookiesTableState extends State<_CookiesTable> {
   Future<void> _deleteCookie(Map<String, Object?> c) async {
     await widget.controller.deleteCookie(
       name: '${c['name'] ?? ''}',
-      domain: '${c['domain'] ?? ''}'.trim().isEmpty
-          ? null
-          : '${c['domain']}',
+      domain: '${c['domain'] ?? ''}'.trim().isEmpty ? null : '${c['domain']}',
       path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
     );
     if (mounted) await widget.onChanged();
@@ -2473,9 +2486,7 @@ class _CookiesTableState extends State<_CookiesTable> {
     for (final c in List<Map<String, Object?>>.from(widget.cookies)) {
       await widget.controller.deleteCookie(
         name: '${c['name'] ?? ''}',
-        domain: '${c['domain'] ?? ''}'.trim().isEmpty
-            ? null
-            : '${c['domain']}',
+        domain: '${c['domain'] ?? ''}'.trim().isEmpty ? null : '${c['domain']}',
         path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
       );
     }
@@ -2528,8 +2539,9 @@ class _CookiesTableState extends State<_CookiesTable> {
               ? Center(
                   child: Text(
                     '(empty)',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : OpenHandSafeScrollbar(
@@ -2559,12 +2571,14 @@ class _CookiesTableState extends State<_CookiesTable> {
                               cells: [
                                 DataCell(_mono('${c['name'] ?? ''}')),
                                 DataCell(
-                                    _mono(_truncate('${c['value'] ?? ''}', 80))),
+                                  _mono(_truncate('${c['value'] ?? ''}', 80)),
+                                ),
                                 DataCell(_mono('${c['domain'] ?? ''}')),
                                 DataCell(_mono('${c['path'] ?? ''}')),
                                 DataCell(_mono(_formatExpires(c['expires']))),
                                 DataCell(
-                                    Text(c['httpOnly'] == true ? '✓' : '')),
+                                  Text(c['httpOnly'] == true ? '✓' : ''),
+                                ),
                                 DataCell(Text(c['secure'] == true ? '✓' : '')),
                                 DataCell(_mono('${c['sameSite'] ?? ''}')),
                                 DataCell(
@@ -2585,8 +2599,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                                       ),
                                       const SizedBox(width: 4),
                                       IconButton(
-                                        tooltip:
-                                            widget.isZh ? '删除' : 'Delete',
+                                        tooltip: widget.isZh ? '删除' : 'Delete',
                                         visualDensity: VisualDensity.compact,
                                         iconSize: 16,
                                         padding: const EdgeInsets.all(6),
@@ -2615,10 +2628,8 @@ class _CookiesTableState extends State<_CookiesTable> {
     );
   }
 
-  Widget _mono(String s) => Text(
-        s,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-      );
+  Widget _mono(String s) =>
+      Text(s, style: const TextStyle(fontFamily: 'monospace', fontSize: 12));
 
   String _truncate(String s, int n) =>
       s.length <= n ? s : '${s.substring(0, n)}…';
@@ -2645,8 +2656,9 @@ Future<Map<String, Object?>?> _showCookieEditor(
   final result = await showAnimatedDialog<Map<String, Object?>>(
     context: context,
     builder: (_) => AlertDialog(
-      title:
-          Text(isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie'),
+      title: Text(
+        isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie',
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
         child: Column(
@@ -2814,9 +2826,7 @@ class _StorageTableState extends State<_StorageTable> {
   }
 
   Future<void> _exportJson() async {
-    final map = <String, String>{
-      for (final r in widget.rows) r.key: r.value,
-    };
+    final map = <String, String>{for (final r in widget.rows) r.key: r.value};
     final encoded = const JsonEncoder.withIndent('  ').convert(map);
     await Clipboard.setData(ClipboardData(text: encoded));
     if (!mounted) return;
@@ -2863,8 +2873,9 @@ class _StorageTableState extends State<_StorageTable> {
               ? Center(
                   child: Text(
                     '(empty)',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -2978,9 +2989,9 @@ Future<({String key, String value})?> _showStorageEditor(
           label: isZh ? '取消' : 'Cancel',
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(context).pop(
-            (key: keyCtrl.text.trim(), value: valueCtrl.text),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop((key: keyCtrl.text.trim(), value: valueCtrl.text)),
           label: isZh ? '保存' : 'Save',
         ),
       ],
@@ -3069,9 +3080,11 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '删除数据库' : 'Delete database'),
-        content: Text(isZh
-            ? '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。'
-            : 'Delete database “$dbName” and all stores? Irreversible.'),
+        content: Text(
+          isZh
+              ? '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。'
+              : 'Delete database “$dbName” and all stores? Irreversible.',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -3121,9 +3134,11 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '清空 Object Store' : 'Clear object store'),
-        content: Text(isZh
-            ? '确定清空 “${selected.db} / ${selected.store}” 的全部记录？'
-            : 'Clear all records in “${selected.db} / ${selected.store}”?'),
+        content: Text(
+          isZh
+              ? '确定清空 “${selected.db} / ${selected.store}” 的全部记录？'
+              : 'Clear all records in “${selected.db} / ${selected.store}”?',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -3180,9 +3195,11 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(isZh ? '删除记录' : 'Delete record'),
-        content: Text(isZh
-            ? '确定删除 key = ${_describeRemoteObject(keyRaw)} ？'
-            : 'Delete record with key = ${_describeRemoteObject(keyRaw)}?'),
+        content: Text(
+          isZh
+              ? '确定删除 key = ${_describeRemoteObject(keyRaw)} ？'
+              : 'Delete record with key = ${_describeRemoteObject(keyRaw)}?',
+        ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -3246,9 +3263,12 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final cs = theme.colorScheme;
     if (widget.names.isEmpty) {
       return Center(
-        child: Text('(empty)',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant)),
+        child: Text(
+          '(empty)',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
       );
     }
     final selected = _selected;
@@ -3275,8 +3295,11 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.storage_rounded,
-                              size: 16, color: cs.primary),
+                          Icon(
+                            Icons.storage_rounded,
+                            size: 16,
+                            color: cs.primary,
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: SelectableText(
@@ -3297,9 +3320,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               ),
                             ),
                           IconButton(
-                            tooltip: widget.isZh
-                                ? '删除数据库'
-                                : 'Delete database',
+                            tooltip: widget.isZh ? '删除数据库' : 'Delete database',
                             iconSize: 14,
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -3328,7 +3349,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: selected != null &&
+                              color:
+                                  selected != null &&
                                       selected.db == name &&
                                       selected.store == s
                                   ? cs.primaryContainer
@@ -3337,8 +3359,11 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.table_rows_rounded,
-                                    size: 12, color: cs.onSurfaceVariant),
+                                Icon(
+                                  Icons.table_rows_rounded,
+                                  size: 12,
+                                  color: cs.onSurfaceVariant,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -3366,8 +3391,9 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
               ? Center(
                   child: Text(
                     '点击左侧 store 查看记录',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : Column(
@@ -3397,12 +3423,14 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                           if (_hasMore)
                             TextButton.icon(
                               onPressed: _loading ? null : _loadMore,
-                              icon: const Icon(Icons.expand_more_rounded,
-                                  size: 16),
+                              icon: const Icon(
+                                Icons.expand_more_rounded,
+                                size: 16,
+                              ),
                               label: Text(
-                                Localizations.localeOf(context)
-                                        .languageCode
-                                        .startsWith('zh')
+                                Localizations.localeOf(
+                                      context,
+                                    ).languageCode.startsWith('zh')
                                     ? '加载更多'
                                     : 'Load more',
                               ),
@@ -3413,8 +3441,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 : 'Clear current store',
                             iconSize: 16,
                             visualDensity: VisualDensity.compact,
-                            onPressed:
-                                _loading ? null : _confirmClearStore,
+                            onPressed: _loading ? null : _confirmClearStore,
                             icon: Icon(
                               Icons.delete_sweep_outlined,
                               color: cs.error,
@@ -3426,22 +3453,21 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                     Expanded(
                       child: _entries.isEmpty && !_loading
                           ? Center(
-                              child: Text('(empty)',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  )),
+                              child: Text(
+                                '(empty)',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
                             )
                           : ListView.separated(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
-                              itemCount:
-                                  _entries.length + (_loading ? 1 : 0),
-                              separatorBuilder: (_, _) => Divider(
-                                height: 1,
-                                color: cs.outlineVariant,
-                              ),
+                              itemCount: _entries.length + (_loading ? 1 : 0),
+                              separatorBuilder: (_, _) =>
+                                  Divider(height: 1, color: cs.outlineVariant),
                               itemBuilder: (_, i) {
                                 if (i >= _entries.length) {
                                   return const Padding(
@@ -3550,10 +3576,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                     height: 28,
                   ),
                   onPressed: widget.onDelete,
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: cs.error,
-                  ),
+                  icon: Icon(Icons.delete_outline_rounded, color: cs.error),
                 ),
               ],
             ),
@@ -3562,10 +3585,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 0, 0),
                 child: SelectableText(
                   const JsonEncoder.withIndent('  ').convert(entry),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                 ),
               ),
           ],
@@ -3597,9 +3617,12 @@ class _NameListPanel extends StatelessWidget {
     final cs = theme.colorScheme;
     if (names.isEmpty) {
       return Center(
-        child: Text('(empty)',
-            style:
-                theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        child: Text(
+          '(empty)',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
       );
     }
     return ListView.builder(
@@ -3683,8 +3706,9 @@ class _ServiceWorkersTable extends StatelessWidget {
               ? Center(
                   child: Text(
                     '(empty)',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -3693,8 +3717,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                       Divider(height: 1, color: cs.outlineVariant),
                   itemBuilder: (_, i) {
                     final v = versions[i];
-                    final status =
-                        '${v['runningStatus'] ?? v['status'] ?? ''}';
+                    final status = '${v['runningStatus'] ?? v['status'] ?? ''}';
                     final url = '${v['scriptURL'] ?? ''}';
                     final scope = '${v['scopeURL'] ?? ''}';
                     return Padding(
@@ -3713,7 +3736,8 @@ class _ServiceWorkersTable extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: status == 'running' ||
+                                  color:
+                                      status == 'running' ||
                                           status == 'activated'
                                       ? cs.primaryContainer
                                       : cs.surfaceContainerHigh,
@@ -3750,8 +3774,9 @@ class _ServiceWorkersTable extends StatelessWidget {
                                 onPressed: scope.isEmpty
                                     ? null
                                     : () async {
-                                        await controller
-                                            .updateServiceWorker(scope);
+                                        await controller.updateServiceWorker(
+                                          scope,
+                                        );
                                         await onChanged();
                                       },
                                 icon: const Icon(Icons.refresh_rounded),
@@ -3960,9 +3985,9 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(steps),
-      );
+      await File(
+        location.path,
+      ).writeAsString(const JsonEncoder.withIndent('  ').convert(steps));
       if (!mounted) return;
       OpenHandSnackBar.showSuccessOn(
         context,
@@ -3970,12 +3995,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         isZh ? '已保存到 ${location.path}' : 'Saved',
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'write recorder',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', 'write recorder', error, stack);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
         context,
@@ -4103,7 +4123,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   String _renderPuppeteerScript(List<Map<String, Object?>> steps) {
     final buf = StringBuffer()
       ..writeln(
-          '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）')
+        '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）',
+      )
       ..writeln("const puppeteer = require('puppeteer');")
       ..writeln('(async () => {')
       ..writeln('  const browser = await puppeteer.launch({headless: false});')
@@ -4120,7 +4141,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   String _renderPlaywrightScript(List<Map<String, Object?>> steps) {
     final buf = StringBuffer()
       ..writeln(
-          '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）')
+        '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）',
+      )
       ..writeln("const {chromium} = require('playwright');")
       ..writeln('(async () => {')
       ..writeln('  const browser = await chromium.launch({headless: false});')
@@ -4155,7 +4177,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         if (selector.isNotEmpty) {
           if (s['doubleClick'] == true) {
             buf.writeln(
-                "  await page.click('${esc(selector)}', {clickCount: 2});");
+              "  await page.click('${esc(selector)}', {clickCount: 2});",
+            );
           } else {
             buf.writeln("  await page.click('${esc(selector)}');");
           }
@@ -4164,10 +4187,16 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         if (selector.isNotEmpty && value is String) {
           if (framework == 'puppeteer') {
             buf
-              ..writeln("  await page.click('${esc(selector)}', {clickCount: 3});")
-              ..writeln("  await page.type('${esc(selector)}', '${esc(value)}');");
+              ..writeln(
+                "  await page.click('${esc(selector)}', {clickCount: 3});",
+              )
+              ..writeln(
+                "  await page.type('${esc(selector)}', '${esc(value)}');",
+              );
           } else {
-            buf.writeln("  await page.fill('${esc(selector)}', '${esc(value)}');");
+            buf.writeln(
+              "  await page.fill('${esc(selector)}', '${esc(value)}');",
+            );
           }
         }
       case 'change':
@@ -4175,10 +4204,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         if (value is String) {
           if (framework == 'puppeteer') {
             buf.writeln(
-                "  await page.select('${esc(selector)}', '${esc(value)}');");
+              "  await page.select('${esc(selector)}', '${esc(value)}');",
+            );
           } else {
             buf.writeln(
-                "  await page.selectOption('${esc(selector)}', '${esc(value)}');");
+              "  await page.selectOption('${esc(selector)}', '${esc(value)}');",
+            );
           }
         } else if (value is bool) {
           if (value) {
@@ -4189,20 +4220,24 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         if (selector.isNotEmpty) {
           if (framework == 'puppeteer') {
             buf.writeln(
-                "  await page.waitForFunction((sel, expected) => document.querySelector(sel) && document.querySelector(sel).textContent.includes(expected), {}, '${esc(selector)}', '${esc(expected)}');");
+              "  await page.waitForFunction((sel, expected) => document.querySelector(sel) && document.querySelector(sel).textContent.includes(expected), {}, '${esc(selector)}', '${esc(expected)}');",
+            );
           } else {
             buf.writeln(
-                "  await expect(page.locator('${esc(selector)}')).toContainText('${esc(expected)}');");
+              "  await expect(page.locator('${esc(selector)}')).toContainText('${esc(expected)}');",
+            );
           }
         }
       case 'assertVisible':
         if (selector.isNotEmpty) {
           if (framework == 'puppeteer') {
             buf.writeln(
-                "  await page.waitForSelector('${esc(selector)}', {visible: true});");
+              "  await page.waitForSelector('${esc(selector)}', {visible: true});",
+            );
           } else {
             buf.writeln(
-                "  await expect(page.locator('${esc(selector)}')).toBeVisible();");
+              "  await expect(page.locator('${esc(selector)}')).toBeVisible();",
+            );
           }
         }
     }
@@ -4292,25 +4327,28 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   size: 18,
                   color: ctrl.isRecording ? null : Colors.red,
                 ),
-                label: Text(ctrl.isRecording
-                    ? (isZh ? '停止录制' : 'Stop')
-                    : (isZh ? '开始录制' : 'Record')),
+                label: Text(
+                  ctrl.isRecording
+                      ? (isZh ? '停止录制' : 'Stop')
+                      : (isZh ? '开始录制' : 'Record'),
+                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed:
-                    (steps.isEmpty || ctrl.isRecording || _replaying)
-                        ? null
-                        : _replay,
+                onPressed: (steps.isEmpty || ctrl.isRecording || _replaying)
+                    ? null
+                    : _replay,
                 icon: Icon(
                   _replaying
                       ? Icons.hourglass_top_rounded
                       : Icons.play_circle_rounded,
                   size: 18,
                 ),
-                label: Text(_replaying
-                    ? (isZh ? '重放中…' : 'Replaying…')
-                    : (isZh ? '重放' : 'Replay')),
+                label: Text(
+                  _replaying
+                      ? (isZh ? '重放中…' : 'Replaying…')
+                      : (isZh ? '重放' : 'Replay'),
+                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
@@ -4457,7 +4495,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   }
 }
 
-
 /// 快照比较弹窗里的一行：左标签 / 中 A→B 数值 / 右 delta（带正负号）。
 class _DiffRow extends StatelessWidget {
   const _DiffRow({
@@ -4488,8 +4525,9 @@ class _DiffRow extends StatelessWidget {
             width: 110,
             child: Text(
               label,
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(
@@ -4511,7 +4549,6 @@ class _DiffRow extends StatelessWidget {
     );
   }
 }
-
 
 /// 把 Tracing.dataCollected JSON 转成简化火焰图的弹窗。
 ///
@@ -4563,21 +4600,25 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
         final ts = (item['ts'] as num?)?.toInt();
         final dur = (item['dur'] as num?)?.toInt();
         if (ts == null || dur == null || dur <= 0) continue;
-        all.add(_FlameEvent(
-          tid: '${item['tid'] ?? '0'}',
-          name: '${item['name'] ?? ''}',
-          ts: ts,
-          dur: dur,
-          cat: '${item['cat'] ?? ''}',
-          pid: '${item['pid'] ?? ''}',
-          args: item['args'] is Map
-              ? Map<String, Object?>.from(item['args'] as Map)
-              : const <String, Object?>{},
-        ));
+        all.add(
+          _FlameEvent(
+            tid: '${item['tid'] ?? '0'}',
+            name: '${item['name'] ?? ''}',
+            ts: ts,
+            dur: dur,
+            cat: '${item['cat'] ?? ''}',
+            pid: '${item['pid'] ?? ''}',
+            args: item['args'] is Map
+                ? Map<String, Object?>.from(item['args'] as Map)
+                : const <String, Object?>{},
+          ),
+        );
         if (ts < minT) minT = ts;
         if (ts + dur > maxT) maxT = ts + dur;
       }
-    } catch (_) {/* fall through */}
+    } catch (_) {
+      /* fall through */
+    }
     if (all.length > 3000) {
       final step = (all.length / 3000).ceil();
       _events = [for (var i = 0; i < all.length; i += step) all[i]];
@@ -4616,9 +4657,9 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),
@@ -4632,7 +4673,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
     final isZh = widget.isZh;
     // 计算 Top dur 30：按 dur 降序，给原索引一并保留（用于火焰图高亮）。
     final indexed = <(int, _FlameEvent)>[
-      for (var i = 0; i < _events.length; i++) (i, _events[i])
+      for (var i = 0; i < _events.length; i++) (i, _events[i]),
     ]..sort((a, b) => b.$2.dur.compareTo(a.$2.dur));
     final top = indexed.take(30).toList();
     return Dialog(
@@ -4647,16 +4688,16 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.local_fire_department_rounded,
-                      color: cs.primary),
+                  Icon(Icons.local_fire_department_rounded, color: cs.primary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isZh
                           ? '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）'
                           : 'Flame graph (${_events.length} ev · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -4675,8 +4716,9 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                         isZh
                             ? '没有可视化的完整事件（trace 内可能只含 metadata）。'
                             : 'No X-phase events to plot.',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : Row(
@@ -4694,8 +4736,10 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTapDown: (d) {
-                                  final hit = _hitTest(d.localPosition,
-                                      const Size(1600, 540));
+                                  final hit = _hitTest(
+                                    d.localPosition,
+                                    const Size(1600, 540),
+                                  );
                                   if (hit != null) _showEventDetail(hit);
                                 },
                                 child: CustomPaint(
@@ -4724,11 +4768,10 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isZh
-                                      ? '按耗时排序 Top 30'
-                                      : 'Top 30 by duration',
+                                  isZh ? '按耗时排序 Top 30' : 'Top 30 by duration',
                                   style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 Expanded(
@@ -4738,11 +4781,12 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                       final (idx, e) = top[i];
                                       final ms = e.dur / 1000;
                                       return InkWell(
-                                        onTap: () =>
-                                            _highlightFromTopList(idx),
+                                        onTap: () => _highlightFromTopList(idx),
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 4),
+                                            horizontal: 4,
+                                            vertical: 4,
+                                          ),
                                           child: Row(
                                             children: [
                                               SizedBox(
@@ -4750,15 +4794,16 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                                 child: Text(
                                                   '${ms.toStringAsFixed(2)}ms',
                                                   style: theme
-                                                      .textTheme.labelSmall
+                                                      .textTheme
+                                                      .labelSmall
                                                       ?.copyWith(
-                                                    fontFamily: 'monospace',
-                                                    fontWeight:
-                                                        FontWeight.w700,
-                                                    color: ms > 50
-                                                        ? cs.error
-                                                        : cs.primary,
-                                                  ),
+                                                        fontFamily: 'monospace',
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: ms > 50
+                                                            ? cs.error
+                                                            : cs.primary,
+                                                      ),
                                                 ),
                                               ),
                                               Expanded(
@@ -4767,11 +4812,12 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style:
-                                                      theme.textTheme.bodySmall
-                                                          ?.copyWith(
-                                                    fontFamily: 'monospace',
-                                                  ),
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        fontFamily: 'monospace',
+                                                      ),
                                                 ),
                                               ),
                                             ],
@@ -4889,10 +4935,7 @@ class _FlamePainter extends CustomPainter {
           ? tertiary
           : primary.withValues(alpha: 0.55);
       final color = isHit ? primary : baseColor;
-      canvas.drawRect(
-        Rect.fromLTWH(x, y, w, h),
-        Paint()..color = color,
-      );
+      canvas.drawRect(Rect.fromLTWH(x, y, w, h), Paint()..color = color);
       if (isHit) {
         canvas.drawRect(
           Rect.fromLTWH(x, y, w, h),
@@ -4955,7 +4998,6 @@ class _FlamePainter extends CustomPainter {
       old.hitIndex != hitIndex;
 }
 
-
 /// .heapsnapshot 解析结果：按 (typeName, constructorName) 聚合的两份对象
 /// 列表 + 排好序的 top growth。所有数值都是有限可序列化的纯类型，能跨
 /// isolate 安全传输。
@@ -5012,15 +5054,17 @@ _HeapDiffResult _heapDiffWorker(Map<String, String> input) {
       final bytesB = eb?.bytes ?? 0;
       final countA = ea?.count ?? 0;
       final countB = eb?.count ?? 0;
-      list.add(_HeapGrowthEntry(
-        label: k,
-        bytesDelta: bytesB - bytesA,
-        countDelta: countB - countA,
-        bytesA: bytesA,
-        bytesB: bytesB,
-        countA: countA,
-        countB: countB,
-      ));
+      list.add(
+        _HeapGrowthEntry(
+          label: k,
+          bytesDelta: bytesB - bytesA,
+          countDelta: countB - countA,
+          bytesA: bytesA,
+          bytesB: bytesB,
+          countA: countA,
+          countB: countB,
+        ),
+      );
     }
     list.sort((x, y) => y.bytesDelta.compareTo(x.bytesDelta));
     final top = list.take(40).toList(growable: false);
@@ -5066,7 +5110,8 @@ _HeapAggResult _aggregateHeap(String src) {
   final m = jsonDecode(src) as Map<String, Object?>;
   final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
   final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
-  final fields = (meta['node_fields'] as List?)?.cast<String>() ??
+  final fields =
+      (meta['node_fields'] as List?)?.cast<String>() ??
       const ['type', 'name', 'id', 'self_size', 'edge_count'];
   final fLen = fields.length;
   final iType = fields.indexOf('type');
@@ -5087,7 +5132,9 @@ _HeapAggResult _aggregateHeap(String src) {
     final type = (nodes[i + iType] as num).toInt();
     final nameIdx = iName >= 0 ? (nodes[i + iName] as num).toInt() : 0;
     final self = iSelf >= 0 ? (nodes[i + iSelf] as num).toInt() : 0;
-    final typeName = (type >= 0 && type < typeNames.length) ? typeNames[type] : '?';
+    final typeName = (type >= 0 && type < typeNames.length)
+        ? typeNames[type]
+        : '?';
     String label;
     if (typeName == 'object') {
       label = (nameIdx >= 0 && nameIdx < strings.length)
@@ -5110,7 +5157,8 @@ _HeapAggResult _aggregateHeap(String src) {
   }
   return _HeapAggResult(
     byCtor: byCtor,
-    nodeCount: (snapshot['node_count'] as num?)?.toInt() ??
+    nodeCount:
+        (snapshot['node_count'] as num?)?.toInt() ??
         (nodes.length ~/ (fLen == 0 ? 1 : fLen)),
     totalSelf: totalSelf,
   );
@@ -5208,8 +5256,9 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                   const SizedBox(width: 10),
                   Text(
                     isZh ? '堆快照对比' : 'Heap snapshot diff',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -5229,8 +5278,9 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     'A: ${widget.whenA.toLocal().toIso8601String().split(".").first}'
                     '   →   '
                     'B: ${widget.whenB.toLocal().toIso8601String().split(".").first}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontFamily: 'monospace'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _DiffRow(
@@ -5261,16 +5311,18 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 children: [
                   Text(
                     isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(
                     isZh
                         ? '点击任一行 → 右侧显示保持者链'
                         : 'Click row → retainer chain on the right',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                   const Spacer(),
                   if (result.error != null)
@@ -5278,8 +5330,9 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                       isZh
                           ? '解析失败：${result.error}'
                           : 'Parse error: ${result.error}',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: cs.error),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.error,
+                      ),
                     ),
                 ],
               ),
@@ -5290,8 +5343,9 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         isZh ? '无可见增长' : 'No growth detected',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : Row(
@@ -5301,8 +5355,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                           flex: 3,
                           child: Scrollbar(
                             child: SingleChildScrollView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 0, 12, 16),
+                              padding: const EdgeInsets.fromLTRB(20, 0, 12, 16),
                               child: DataTable(
                                 headingRowHeight: 32,
                                 dataRowMinHeight: 28,
@@ -5311,16 +5364,14 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                 showCheckboxColumn: false,
                                 columns: [
                                   DataColumn(
-                                      label:
-                                          Text(isZh ? '构造器' : 'Constructor')),
+                                    label: Text(isZh ? '构造器' : 'Constructor'),
+                                  ),
                                   DataColumn(
-                                    label:
-                                        Text(isZh ? '字节增量' : 'Δ bytes'),
+                                    label: Text(isZh ? '字节增量' : 'Δ bytes'),
                                     numeric: true,
                                   ),
                                   DataColumn(
-                                    label:
-                                        Text(isZh ? '节点增量' : 'Δ count'),
+                                    label: Text(isZh ? '节点增量' : 'Δ count'),
                                     numeric: true,
                                   ),
                                   DataColumn(
@@ -5339,51 +5390,65 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                       onSelectChanged: (_) =>
                                           _onRowTap(g.label),
                                       cells: [
-                                        DataCell(SelectableText(
-                                          g.label,
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        DataCell(
+                                          SelectableText(
+                                            g.label,
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        )),
-                                        DataCell(Text(
-                                          _SnapshotDiffDialog
-                                              ._fmtSignedBytes(g.bytesDelta),
-                                          style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: g.bytesDelta > 0
-                                                ? cs.error
-                                                : (g.bytesDelta < 0
-                                                    ? Colors.green
-                                                    : cs.onSurfaceVariant),
-                                            fontWeight: FontWeight.w700,
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtSignedBytes(
+                                              g.bytesDelta,
+                                            ),
+                                            style: TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                              color: g.bytesDelta > 0
+                                                  ? cs.error
+                                                  : (g.bytesDelta < 0
+                                                        ? Colors.green
+                                                        : cs.onSurfaceVariant),
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
-                                        )),
-                                        DataCell(Text(
-                                          _SnapshotDiffDialog._fmtSigned(
-                                              g.countDelta),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtSigned(
+                                              g.countDelta,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        )),
-                                        DataCell(Text(
-                                          _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesA),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesA,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        )),
-                                        DataCell(Text(
-                                          _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesB),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesB,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        )),
+                                        ),
                                       ],
                                     ),
                                 ],
@@ -5412,7 +5477,6 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
     );
   }
 }
-
 
 /// 单条 retainer 链：path 是从 root 到目标实例的节点链（label，从外到内）。
 /// shortest 字段单独保存最短链长度，方便上层渲染时排序。
@@ -5447,9 +5511,11 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     final m = jsonDecode(src) as Map<String, Object?>;
     final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
     final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
-    final nodeFields = (meta['node_fields'] as List?)?.cast<String>() ??
+    final nodeFields =
+        (meta['node_fields'] as List?)?.cast<String>() ??
         const ['type', 'name', 'id', 'self_size', 'edge_count'];
-    final edgeFields = (meta['edge_fields'] as List?)?.cast<String>() ??
+    final edgeFields =
+        (meta['edge_fields'] as List?)?.cast<String>() ??
         const ['type', 'name_or_index', 'to_node'];
     final nLen = nodeFields.length;
     final eLen = edgeFields.length;
@@ -5464,16 +5530,15 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
         : const <String>['object'];
     final nodes = (m['nodes'] as List?) ?? const [];
     final edges = (m['edges'] as List?) ?? const [];
-    final strings = (m['strings'] as List?)?.cast<String>() ??
-        const <String>[];
+    final strings = (m['strings'] as List?)?.cast<String>() ?? const <String>[];
 
     String labelOfNode(int nodeIdx) {
       final base = nodeIdx;
       final type = (nodes[base + iType] as num).toInt();
-      final nameIdx =
-          iName >= 0 ? (nodes[base + iName] as num).toInt() : 0;
-      final typeName =
-          (type >= 0 && type < typeNames.length) ? typeNames[type] : '?';
+      final nameIdx = iName >= 0 ? (nodes[base + iName] as num).toInt() : 0;
+      final typeName = (type >= 0 && type < typeNames.length)
+          ? typeNames[type]
+          : '?';
       final name = (nameIdx >= 0 && nameIdx < strings.length)
           ? strings[nameIdx]
           : '';
@@ -5556,7 +5621,7 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     final chains = <_RetainerChain>[];
     final visited = <int>{};
     final queue = <(int node, List<String> path)>[
-      (leader, [labelOfNode(leader * nLen)])
+      (leader, [labelOfNode(leader * nLen)]),
     ];
     while (queue.isNotEmpty && chains.length < 12) {
       final entry = queue.removeAt(0);
@@ -5624,16 +5689,14 @@ class _RetainerSidePanel extends StatelessWidget {
         children: [
           Text(
             isZh ? '保持者链' : 'Retainer chain',
-            style: theme.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
           SelectableText(
             ctorLabel,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-            ),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
           ),
           const SizedBox(height: 10),
           if (loading)
@@ -5644,29 +5707,30 @@ class _RetainerSidePanel extends StatelessWidget {
           else if (result == null)
             Text(
               isZh ? '尚未分析' : 'Not analyzed',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             )
           else if (result!.error != null)
             Text(
-              isZh
-                  ? '解析失败：${result!.error}'
-                  : 'Parse failed: ${result!.error}',
+              isZh ? '解析失败：${result!.error}' : 'Parse failed: ${result!.error}',
               style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             )
           else if (!result!.found)
             Text(
               isZh ? '快照中未找到该构造器实例' : 'Constructor not in snapshot',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             )
           else ...[
             Text(
               isZh
                   ? '找到 ${result!.totalInstances} 个实例 · 取自有大小最大的代表'
                   : '${result!.totalInstances} instances · using largest leader',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -5796,23 +5860,22 @@ _TraceLaneParseResult _parseTraceLanes(String json) {
     final durMs = dur / 1000.0;
     if (startMs < minTs) minTs = startMs;
     if (startMs + durMs > maxTs) maxTs = startMs + durMs;
-    out.add(_TraceLaneEvent(
-      startMs: startMs,
-      durMs: durMs,
-      lane: lane,
-      name: name,
-    ));
+    out.add(
+      _TraceLaneEvent(startMs: startMs, durMs: durMs, lane: lane, name: name),
+    );
     if (out.length >= 8000) break;
   }
   if (out.isEmpty) return _TraceLaneParseResult(const [], 0, 0);
   // 全部 startMs 归一到 0 起点
   final shifted = out
-      .map((e) => _TraceLaneEvent(
-            startMs: e.startMs - minTs,
-            durMs: e.durMs,
-            lane: e.lane,
-            name: e.name,
-          ))
+      .map(
+        (e) => _TraceLaneEvent(
+          startMs: e.startMs - minTs,
+          durMs: e.durMs,
+          lane: e.lane,
+          name: e.name,
+        ),
+      )
       .toList(growable: false);
   return _TraceLaneParseResult(shifted, 0, maxTs - minTs);
 }
@@ -5920,8 +5983,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
         children: [
           Row(
             children: [
-              Icon(Icons.timeline_rounded,
-                  size: 16, color: cs.primary),
+              Icon(Icons.timeline_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
                 isZh
@@ -5984,10 +6046,11 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                           top: (_hoverPos!.dy + 12).clamp(0, totalH - 60),
                           child: IgnorePointer(
                             child: Container(
-                              constraints:
-                                  const BoxConstraints(maxWidth: 240),
+                              constraints: const BoxConstraints(maxWidth: 240),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 6),
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: cs.inverseSurface,
                                 borderRadius: BorderRadius.circular(6),
@@ -6112,19 +6175,11 @@ class _TraceLanesPainter extends CustomPainter {
     final axisLine = Paint()
       ..color = outline
       ..strokeWidth = 1;
-    canvas.drawLine(
-      Offset(0, axisY),
-      Offset(width, axisY),
-      axisLine,
-    );
+    canvas.drawLine(Offset(0, axisY), Offset(width, axisY), axisLine);
     const tickCount = 6;
     for (var i = 0; i <= tickCount; i++) {
       final x = width * i / tickCount;
-      canvas.drawLine(
-        Offset(x, axisY),
-        Offset(x, axisY + 4),
-        axisLine,
-      );
+      canvas.drawLine(Offset(x, axisY), Offset(x, axisY + 4), axisLine);
       final tp = TextPainter(
         text: TextSpan(
           text: '${(totalMs * i / tickCount).toStringAsFixed(0)}ms',

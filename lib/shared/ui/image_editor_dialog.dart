@@ -870,24 +870,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           ),
         ),
         const SizedBox(width: 10),
-        SizedBox(
-          width: 132,
-          height: barHeight,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
-            onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-            child: Text(l10n.commonCancel),
-          ),
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 132,
-          height: barHeight,
-          child: FilledButton(
-            style: FilledButton.styleFrom(shape: const StadiumBorder()),
-            onPressed: _canEdit && !_isSaving ? _handleConfirmSave : null,
-            child: Text(l10n.commonSave),
-          ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _canEdit && !_isSaving ? _handleConfirmSave : null,
+          label: l10n.commonSave,
         ),
       ],
     );

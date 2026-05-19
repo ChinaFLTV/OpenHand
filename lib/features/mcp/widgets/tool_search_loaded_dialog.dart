@@ -1124,9 +1124,9 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
               ),
       ),
       actions: <Widget>[
-        TextButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.toolSearchLoadedHistoryImportDialogClose),
+          label: l10n.toolSearchLoadedHistoryImportDialogClose,
         ),
       ],
     );

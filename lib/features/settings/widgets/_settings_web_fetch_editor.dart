@@ -125,20 +125,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
-              ),
+              label: _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
             ),
-            FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                foregroundColor: Theme.of(dialogContext).colorScheme.error,
-              ),
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                _localizedText(dialogContext, zh: '确认清空', en: 'Clear'),
-              ),
+              label: _localizedText(dialogContext, zh: '确认清空', en: 'Clear'),
             ),
           ],
         );
@@ -328,20 +321,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
-              ),
+              label: _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
             ),
-            FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                foregroundColor: Theme.of(dialogContext).colorScheme.error,
-              ),
+            OpenHandDialogActionButton.destructive(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                _localizedText(dialogContext, zh: '确认清理', en: 'Clear'),
-              ),
+              label: _localizedText(dialogContext, zh: '确认清理', en: 'Clear'),
             ),
           ],
         );

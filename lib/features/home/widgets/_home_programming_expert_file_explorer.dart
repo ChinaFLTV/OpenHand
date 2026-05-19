@@ -9343,9 +9343,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
           ],
         );

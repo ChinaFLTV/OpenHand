@@ -2003,11 +2003,9 @@ class _FileMutationHistoryInspectorDialogState
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    child: Text(
-                      MaterialLocalizations.of(context).closeButtonLabel,
-                    ),
+                    label: MaterialLocalizations.of(context).closeButtonLabel,
                   ),
                 ],
               ),

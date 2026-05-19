@@ -482,9 +482,9 @@ class _SkillsViewState extends State<SkillsView> {
                     const SizedBox(height: 16),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: FilledButton(
+                      child: OpenHandDialogActionButton.primary(
                         onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: Text(l10n.skillsPreviewClose),
+                        label: l10n.skillsPreviewClose,
                       ),
                     ),
                   ],
@@ -875,24 +875,16 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: Text(l10n.skillsEditorCancel),
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      label: l10n.skillsEditorCancel,
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        child: Text(l10n.skillsEditorSave),
-                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _isSaving ? null : _handleSave,
+                      label: l10n.skillsEditorSave,
                     ),
                   ],
                 ),
@@ -1343,24 +1335,16 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: Text(l10n.commonCancel),
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      label: l10n.commonCancel,
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        child: Text(l10n.commonSave),
-                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _isSaving ? null : _handleSave,
+                      label: l10n.commonSave,
                     ),
                   ],
                 ),

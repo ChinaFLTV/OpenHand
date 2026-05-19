@@ -87,7 +87,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                             ? (isZh ? '搜索 URL / 文本' : 'Search URL / text')
                             : (isZh ? '搜索控制台' : 'Search console'),
                         onChanged: (v) => rebuildFromExternal(
-                            () => _networkFilter = v.trim()),
+                          () => _networkFilter = v.trim(),
+                        ),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -120,9 +121,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           if (!ok && mounted) {
                             OpenHandSnackBar.showError(
                               context,
-                              isZh
-                                  ? '节流设置失败'
-                                  : 'Failed to set throttling',
+                              isZh ? '节流设置失败' : 'Failed to set throttling',
                               duration: const Duration(seconds: 2),
                             );
                           }
@@ -153,18 +152,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh
-                          ? '截图（当前可视区）'
-                          : 'Screenshot (viewport)',
+                      tooltip: isZh ? '截图（当前可视区）' : 'Screenshot (viewport)',
                       icon: Icons.photo_camera_outlined,
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: false),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh
-                          ? '截图（整页滚动拼接）'
-                          : 'Screenshot (full page)',
+                      tooltip: isZh ? '截图（整页滚动拼接）' : 'Screenshot (full page)',
                       icon: Icons.picture_in_picture_rounded,
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: true),
@@ -228,44 +223,44 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   }
 
   String _tabLabel(_Tab t, bool isZh) => switch (t) {
-        _Tab.browser => isZh ? '浏览器' : 'Browser',
-        _Tab.overview => isZh ? '概览' : 'Overview',
-        _Tab.network => isZh ? '网络' : 'Network',
-        _Tab.console => isZh ? '控制台' : 'Console',
-        _Tab.sources => isZh ? '源码' : 'Sources',
-        _Tab.snippets => isZh ? '脚本' : 'Snippets',
-        _Tab.elements => isZh ? '元素' : 'Elements',
-        _Tab.hooks => isZh ? 'Hook' : 'Hooks',
-        _Tab.crons => isZh ? '定时' : 'Crons',
-        _Tab.breakpoints => isZh ? '断点' : 'Breakpoints',
-        _Tab.realtime => isZh ? '实时' : 'Realtime',
-        _Tab.crypto => isZh ? '工具' : 'Crypto',
-        _Tab.performance => isZh ? '性能' : 'Performance',
-        _Tab.memory => isZh ? '内存' : 'Memory',
-        _Tab.application => isZh ? '应用' : 'Application',
-        _Tab.security => isZh ? '安全' : 'Security',
-        _Tab.recorder => isZh ? '记录器' : 'Recorder',
-      };
+    _Tab.browser => isZh ? '浏览器' : 'Browser',
+    _Tab.overview => isZh ? '概览' : 'Overview',
+    _Tab.network => isZh ? '网络' : 'Network',
+    _Tab.console => isZh ? '控制台' : 'Console',
+    _Tab.sources => isZh ? '源码' : 'Sources',
+    _Tab.snippets => isZh ? '脚本' : 'Snippets',
+    _Tab.elements => isZh ? '元素' : 'Elements',
+    _Tab.hooks => isZh ? 'Hook' : 'Hooks',
+    _Tab.crons => isZh ? '定时' : 'Crons',
+    _Tab.breakpoints => isZh ? '断点' : 'Breakpoints',
+    _Tab.realtime => isZh ? '实时' : 'Realtime',
+    _Tab.crypto => isZh ? '工具' : 'Crypto',
+    _Tab.performance => isZh ? '性能' : 'Performance',
+    _Tab.memory => isZh ? '内存' : 'Memory',
+    _Tab.application => isZh ? '应用' : 'Application',
+    _Tab.security => isZh ? '安全' : 'Security',
+    _Tab.recorder => isZh ? '记录器' : 'Recorder',
+  };
 
   IconData _tabIcon(_Tab t) => switch (t) {
-        _Tab.browser => Icons.public_rounded,
-        _Tab.overview => Icons.dashboard_rounded,
-        _Tab.network => Icons.swap_horiz_rounded,
-        _Tab.console => Icons.terminal_rounded,
-        _Tab.sources => Icons.source_rounded,
-        _Tab.snippets => Icons.code_rounded,
-        _Tab.elements => Icons.account_tree_rounded,
-        _Tab.hooks => Icons.fingerprint_rounded,
-        _Tab.crons => Icons.schedule_rounded,
-        _Tab.breakpoints => Icons.bug_report_outlined,
-        _Tab.realtime => Icons.bolt_rounded,
-        _Tab.crypto => Icons.enhanced_encryption_rounded,
-        _Tab.performance => Icons.speed_rounded,
-        _Tab.memory => Icons.memory_rounded,
-        _Tab.application => Icons.apps_rounded,
-        _Tab.security => Icons.shield_outlined,
-        _Tab.recorder => Icons.fiber_manual_record_rounded,
-      };
+    _Tab.browser => Icons.public_rounded,
+    _Tab.overview => Icons.dashboard_rounded,
+    _Tab.network => Icons.swap_horiz_rounded,
+    _Tab.console => Icons.terminal_rounded,
+    _Tab.sources => Icons.source_rounded,
+    _Tab.snippets => Icons.code_rounded,
+    _Tab.elements => Icons.account_tree_rounded,
+    _Tab.hooks => Icons.fingerprint_rounded,
+    _Tab.crons => Icons.schedule_rounded,
+    _Tab.breakpoints => Icons.bug_report_outlined,
+    _Tab.realtime => Icons.bolt_rounded,
+    _Tab.crypto => Icons.enhanced_encryption_rounded,
+    _Tab.performance => Icons.speed_rounded,
+    _Tab.memory => Icons.memory_rounded,
+    _Tab.application => Icons.apps_rounded,
+    _Tab.security => Icons.shield_outlined,
+    _Tab.recorder => Icons.fiber_manual_record_rounded,
+  };
 
   int? _tabBadgeCount(_Tab t) {
     final c = widget.controller;
@@ -274,8 +269,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       _Tab.overview => null,
       _Tab.network => c.networkRequests.length,
       _Tab.console => c.consoleMessages.length,
-      _Tab.sources =>
-        c.parsedScripts.isEmpty ? null : c.parsedScripts.length,
+      _Tab.sources => c.parsedScripts.isEmpty ? null : c.parsedScripts.length,
       _Tab.snippets => c.snippets.isEmpty ? null : c.snippets.length,
       _ => null,
     };
@@ -427,17 +421,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool isZh,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
-    const typeGroup = XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
+    const typeGroup = XTypeGroup(
+      label: 'HAR',
+      extensions: <String>['har', 'json'],
+    );
     XFile? file;
     try {
       file = await openFile(acceptedTypeGroups: const [typeGroup]);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'openFile har',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', 'openFile har', error, stack);
     }
     if (file == null) return;
     // 当前缓冲非空时让用户选「替换」or「合并」；否则直接替换。
@@ -454,17 +446,17 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                 : 'Network list has ${ctrl.networkRequests.length} entries. Choose load mode:',
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-              child: Text(isZh ? '取消' : 'Cancel'),
+              label: isZh ? '取消' : 'Cancel',
             ),
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('merge'),
-              child: Text(isZh ? '合并' : 'Merge'),
+              label: isZh ? '合并' : 'Merge',
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop('replace'),
-              child: Text(isZh ? '替换' : 'Replace'),
+              label: isZh ? '替换' : 'Replace',
             ),
           ],
         ),
@@ -485,12 +477,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'parse har',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', 'parse har', error, stack);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
         context,
@@ -587,8 +574,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       ..sort();
     final onlyBKeys = setB.keys.toSet().difference(setA.keys.toSet()).toList()
       ..sort();
-    final shared =
-        setA.keys.toSet().intersection(setB.keys.toSet()).toList()..sort();
+    final shared = setA.keys.toSet().intersection(setB.keys.toSet()).toList()
+      ..sort();
     final changed = <_HarChange>[];
     var sameCount = 0;
     for (final k in shared) {
@@ -600,13 +587,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (!statusChanged && !sizeChanged && !textChanged) {
         sameCount++;
       } else {
-        changed.add(_HarChange(
-          a: ea,
-          b: eb,
-          statusChanged: statusChanged,
-          sizeChanged: sizeChanged,
-          textChanged: textChanged,
-        ));
+        changed.add(
+          _HarChange(
+            a: ea,
+            b: eb,
+            statusChanged: statusChanged,
+            sizeChanged: sizeChanged,
+            textChanged: textChanged,
+          ),
+        );
       }
     }
     if (!context.mounted) return;
@@ -662,9 +651,9 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),
@@ -682,20 +671,20 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isZh
-            ? '批量操作（${filtered.length} 条）'
-            : 'Batch (${filtered.length})'),
+        title: Text(
+          isZh ? '批量操作（${filtered.length} 条）' : 'Batch (${filtered.length})',
+        ),
         content: Text(
           isZh
               ? '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 20 条）或导出 curl 列表到剪贴板。'
               : 'Operate on the currently filtered ${filtered.length} requests.',
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          TextButton.icon(
+          OpenHandDialogActionButton.secondary(
             onPressed: filtered.isEmpty
                 ? null
                 : () async {
@@ -713,10 +702,10 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           : 'Blocked ${filtered.length} URLs',
                     );
                   },
-            icon: const Icon(Icons.block_rounded, size: 16),
-            label: Text(isZh ? '批量屏蔽' : 'Block all'),
+            icon: Icons.block_rounded,
+            label: isZh ? '批量屏蔽' : 'Block all',
           ),
-          TextButton.icon(
+          OpenHandDialogActionButton.secondary(
             onPressed: filtered.isEmpty
                 ? null
                 : () async {
@@ -737,10 +726,10 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           : 'Replayed $ok of $cap (cap 20)',
                     );
                   },
-            icon: const Icon(Icons.replay_rounded, size: 16),
-            label: Text(isZh ? '批量重放（≤20）' : 'Replay (≤20)'),
+            icon: Icons.replay_rounded,
+            label: isZh ? '批量重放（≤20）' : 'Replay (≤20)',
           ),
-          FilledButton.icon(
+          OpenHandDialogActionButton.primary(
             onPressed: filtered.isEmpty
                 ? null
                 : () async {
@@ -752,13 +741,17 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       buf.write('curl ');
                       if (e.method != 'GET') buf.write('-X ${e.method} ');
                       e.requestHeaders.forEach((k, v) {
-                        buf.write("-H '${k.replaceAll("'", r"\'")}: "
-                            "${v.replaceAll("'", r"\'")}' ");
+                        buf.write(
+                          "-H '${k.replaceAll("'", r"\'")}: "
+                          "${v.replaceAll("'", r"\'")}' ",
+                        );
                       });
                       if (e.requestPostData != null &&
                           e.requestPostData!.isNotEmpty) {
-                        buf.write("--data-raw '"
-                            "${e.requestPostData!.replaceAll("'", r"\'")}' ");
+                        buf.write(
+                          "--data-raw '"
+                          "${e.requestPostData!.replaceAll("'", r"\'")}' ",
+                        );
                       }
                       buf.writeln("'${e.url}'");
                       buf.writeln();
@@ -775,8 +768,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           : 'Copied ${filtered.length} curl entries',
                     );
                   },
-            icon: const Icon(Icons.copy_all_rounded, size: 16),
-            label: Text(isZh ? '复制 curl 列表' : 'Copy curl'),
+            icon: Icons.copy_all_rounded,
+            label: isZh ? '复制 curl 列表' : 'Copy curl',
           ),
         ],
       ),
@@ -788,16 +781,19 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   ) {
     final filter = _networkFilter.toLowerCase().trim();
     final type = _resourceFilter;
-    return ctrl.networkRequests.where((e) {
-      if (filter.isNotEmpty &&
-          !e.url.toLowerCase().contains(filter) &&
-          !(e.responseHeaders.values
-              .any((v) => v.toLowerCase().contains(filter)))) {
-        return false;
-      }
-      if (!type.matches(e)) return false;
-      return true;
-    }).toList(growable: false);
+    return ctrl.networkRequests
+        .where((e) {
+          if (filter.isNotEmpty &&
+              !e.url.toLowerCase().contains(filter) &&
+              !(e.responseHeaders.values.any(
+                (v) => v.toLowerCase().contains(filter),
+              ))) {
+            return false;
+          }
+          if (!type.matches(e)) return false;
+          return true;
+        })
+        .toList(growable: false);
   }
 
   /// 高级工具菜单：聚合体检报告 / 持久化 Header / CDP 命令面板 /
@@ -841,7 +837,9 @@ class _ToolbarTabPill extends StatelessWidget {
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: active ? cs.primaryContainer : Colors.transparent,
@@ -898,9 +896,7 @@ class _ToolbarTabPill extends StatelessWidget {
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures(),
-                            ],
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),
@@ -970,8 +966,9 @@ class _ToolbarTabDropdown extends StatelessWidget {
                   child: Text(
                     labelFor(t),
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          t == current ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: t == current
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       color: t == current ? cs.primary : cs.onSurface,
                     ),
                   ),
@@ -1005,8 +1002,9 @@ class _ToolbarTabDropdown extends StatelessWidget {
           ),
       ],
       child: AnimatedContainer(
-        duration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         height: _kToolbarHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1030,10 +1028,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
             if (count != null) ...[
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.surface.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(999),
@@ -1116,8 +1111,9 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
       width: 260,
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _focused
@@ -1187,8 +1183,10 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
               duration: reduceMotion
                   ? Duration.zero
                   : const Duration(milliseconds: 200),
-              transitionBuilder: (c, a) =>
-                  FadeTransition(opacity: a, child: ScaleTransition(scale: a, child: c)),
+              transitionBuilder: (c, a) => FadeTransition(
+                opacity: a,
+                child: ScaleTransition(scale: a, child: c),
+              ),
               child: _hasText
                   ? InkResponse(
                       key: const ValueKey('clear'),
@@ -1241,7 +1239,9 @@ class _ToolbarTogglePill extends StatelessWidget {
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           // 2026-05-17 — 与全局主色保持一致：选中态用 primaryContainer
@@ -1448,7 +1448,6 @@ class _ToolbarThrottleButton extends StatelessWidget {
   }
 }
 
-
 /// HAR diff 弹窗里的"only A / only B"单列：标题 + 计数 + 滚动列表。
 class _HarDiffColumn extends StatelessWidget {
   const _HarDiffColumn({
@@ -1475,13 +1474,17 @@ class _HarDiffColumn extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: 6),
               Text(
                 '$title (${items.length})',
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -1490,8 +1493,9 @@ class _HarDiffColumn extends StatelessWidget {
             child: items.isEmpty
                 ? Text(
                     '(empty)',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   )
                 : ListView.builder(
                     itemCount: items.length,
@@ -1513,7 +1517,6 @@ class _HarDiffColumn extends StatelessWidget {
     );
   }
 }
-
 
 /// HAR 单条请求摘要：HAR diff 的最小比较单元。bodyText 全文保留供二级
 /// diff 使用，超长内容会在 _HarChangedColumn 渲染时再做截断。
@@ -1577,19 +1580,21 @@ class _HarChangedColumn extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w800),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('${changes.length}',
-                    style: theme.textTheme.labelSmall),
+                child: Text(
+                  '${changes.length}',
+                  style: theme.textTheme.labelSmall,
+                ),
               ),
             ],
           ),
@@ -1599,8 +1604,9 @@ class _HarChangedColumn extends StatelessWidget {
                 ? Center(
                     child: Text(
                       isZh ? '同 URL 全部一致' : 'All shared URLs are identical',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -1639,8 +1645,9 @@ class _HarChangeRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: (sizeDelta > 0 ? cs.error : Colors.green)
-                .withValues(alpha: 0.18),
+            color: (sizeDelta > 0 ? cs.error : Colors.green).withValues(
+              alpha: 0.18,
+            ),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
@@ -1669,15 +1676,14 @@ class _HarChangeRow extends StatelessWidget {
           subtitle: SelectableText(
             '${c.a.method} ${c.a.url}',
             maxLines: 1,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-            ),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
           ),
           children: [
             // 2026-05-24 — body 文本不同时走行级 unified diff（LCS-based），
             // 两份都为空 / 同时只有一边有内容 → 退化到双列截断预览。
-            if (c.textChanged && c.a.bodyText.isNotEmpty && c.b.bodyText.isNotEmpty)
+            if (c.textChanged &&
+                c.a.bodyText.isNotEmpty &&
+                c.b.bodyText.isNotEmpty)
               _UnifiedBodyDiff(
                 titleA: 'A · ${c.a.mimeType}',
                 titleB: 'B · ${c.b.mimeType}',
@@ -1811,7 +1817,6 @@ class _BodyPreview extends StatelessWidget {
   }
 }
 
-
 /// HAR Diff 第三级：两份 body 行级 unified diff。基于 LCS 还原编辑序列，
 /// 渲染时按 git unified-diff 风格 ` `（context）、`+`（B 新增）、`-`（A 删
 /// 除）三色行；context 行折叠超过 ±3 行的连续相同段成 `… N lines …`，
@@ -1865,19 +1870,14 @@ class _UnifiedBodyDiff extends StatelessWidget {
             children: [
               Text(
                 '$titleA → $titleB',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 8),
-              _HarUnifiedStat(
-                label: '+${stats.added}',
-                color: Colors.green,
-              ),
+              _HarUnifiedStat(label: '+${stats.added}', color: Colors.green),
               const SizedBox(width: 4),
-              _HarUnifiedStat(
-                label: '-${stats.removed}',
-                color: cs.error,
-              ),
+              _HarUnifiedStat(label: '-${stats.removed}', color: cs.error),
             ],
           ),
           const SizedBox(height: 6),
@@ -1886,9 +1886,7 @@ class _UnifiedBodyDiff extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final row in folded) _renderRow(row, cs),
-                ],
+                children: [for (final row in folded) _renderRow(row, cs)],
               ),
             ),
           ),
@@ -1903,7 +1901,9 @@ class _UnifiedBodyDiff extends StatelessWidget {
         color: cs.surfaceContainerHighest,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
         child: Text(
-          isZh ? '… 折叠 ${row.foldedCount} 行 …' : '… ${row.foldedCount} hidden …',
+          isZh
+              ? '… 折叠 ${row.foldedCount} 行 …'
+              : '… ${row.foldedCount} hidden …',
           style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 10.5,
@@ -1944,15 +1944,16 @@ class _UnifiedBodyDiff extends StatelessWidget {
     final n = a.length;
     final m = b.length;
     // dp[i][j] = 前 i 行 a 与前 j 行 b 的 LCS 长度。
-    final dp = List<List<int>>.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
+    final dp = List<List<int>>.generate(
+      n + 1,
+      (_) => List<int>.filled(m + 1, 0),
+    );
     for (var i = 1; i <= n; i++) {
       for (var j = 1; j <= m; j++) {
         if (a[i - 1] == b[j - 1]) {
           dp[i][j] = dp[i - 1][j - 1] + 1;
         } else {
-          dp[i][j] = dp[i - 1][j] >= dp[i][j - 1]
-              ? dp[i - 1][j]
-              : dp[i][j - 1];
+          dp[i][j] = dp[i - 1][j] >= dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
         }
       }
     }
@@ -2004,21 +2005,25 @@ class _UnifiedBodyDiff extends StatelessWidget {
         continue;
       }
       if (foldStart >= 0) {
-        result.add(_HarUnifiedRow(
-          line: '',
-          kind: _HarUnifiedKind.fold,
-          foldedCount: i - foldStart,
-        ));
+        result.add(
+          _HarUnifiedRow(
+            line: '',
+            kind: _HarUnifiedKind.fold,
+            foldedCount: i - foldStart,
+          ),
+        );
         foldStart = -1;
       }
       result.add(ops[i]);
     }
     if (foldStart >= 0) {
-      result.add(_HarUnifiedRow(
-        line: '',
-        kind: _HarUnifiedKind.fold,
-        foldedCount: n - foldStart,
-      ));
+      result.add(
+        _HarUnifiedRow(
+          line: '',
+          kind: _HarUnifiedKind.fold,
+          foldedCount: n - foldStart,
+        ),
+      );
     }
     return result;
   }

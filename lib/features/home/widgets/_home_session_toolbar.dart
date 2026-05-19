@@ -1920,9 +1920,9 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           _localizedText(context, zh: '会话不存在或已被删除。', en: 'Session is gone.'),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).maybePop(),
-            child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+            label: _localizedText(context, zh: '关闭', en: 'Close'),
           ),
         ],
       );
@@ -2148,25 +2148,18 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         ),
       ),
       actions: [
-        FilledButton.tonalIcon(
+        OpenHandDialogActionButton.secondary(
           onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.close_rounded),
-          label: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+          icon: Icons.close_rounded,
+          label: _localizedText(context, zh: '关闭', en: 'Close'),
         ),
-        FilledButton.icon(
+        OpenHandDialogActionButton.primary(
           onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,
-          icon: _busy
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.compress_rounded),
-          label: Text(
-            _busy
-                ? _localizedText(context, zh: '正在压缩…', en: 'Compacting…')
-                : _localizedText(context, zh: '立即压缩', en: 'Compact now'),
-          ),
+          icon: Icons.compress_rounded,
+          busy: _busy,
+          label: _busy
+              ? _localizedText(context, zh: '正在压缩…', en: 'Compacting…')
+              : _localizedText(context, zh: '立即压缩', en: 'Compact now'),
         ),
       ],
     );
@@ -2323,7 +2316,6 @@ _ContextStatsBreakdown _computeMessageCharBreakdown(AiSession session) {
   );
 }
 
-
 /// Web 逆向专家会话的调试胶囊：实时显示「请求数 · 错误数 · 浏览器连接状态」，
 /// 点击打开 CDP 仪表盘弹窗。
 ///
@@ -2367,14 +2359,10 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
       return;
     }
     // 应用重启 / 切回旧会话：尝试根据 metadata 重启 controller。
-    final session = context
-        .read<AiSessionController>()
-        .sessions
-        .firstWhere(
-          (s) => s.id == widget.sessionId,
-          orElse: () =>
-              throw StateError('session ${widget.sessionId} not found'),
-        );
+    final session = context.read<AiSessionController>().sessions.firstWhere(
+      (s) => s.id == widget.sessionId,
+      orElse: () => throw StateError('session ${widget.sessionId} not found'),
+    );
     setState(() => _restoring = true);
     try {
       final restored = await state.restoreWebReverseSession(session);
@@ -2408,19 +2396,19 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final running = ctrl?.isRunning ?? false;
     final reqs = ctrl?.networkRequests.length ?? 0;
     final errs = ctrl?.errorCount ?? 0;
-    final dotColor = !running
-        ? cs.outline
-        : (errs > 0 ? cs.error : cs.primary);
+    final dotColor = !running ? cs.outline : (errs > 0 ? cs.error : cs.primary);
     final label = _restoring
         ? (isZh ? '启动中…' : 'starting…')
         : running
-            ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
-            : (isZh ? '点击连接' : 'click to connect');
+        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
+        : (isZh ? '点击连接' : 'click to connect');
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: AnimatedContainer(
-        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
@@ -2471,7 +2459,8 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
                     duration: reduceMotion
                         ? Duration.zero
                         : const Duration(milliseconds: 220),
-                    transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
+                    transitionBuilder: (c, a) =>
+                        FadeTransition(opacity: a, child: c),
                     child: Text(
                       label,
                       key: ValueKey<String>(label),
@@ -2491,7 +2480,6 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     );
   }
 }
-
 
 /// 顶栏「流式节流」状态指示胶囊。
 ///
@@ -2523,9 +2511,11 @@ class _StreamThrottlePill extends StatelessWidget {
         );
         final globalEnabled = settingsController.aiStreamThrottleEnabled;
         final effEnabled = override?.enabled ?? globalEnabled;
-        final effChars = override?.charsPerSecond ??
+        final effChars =
+            override?.charsPerSecond ??
             settingsController.effectiveStreamMaxCharsPerSecond(templateId);
-        final effCards = override?.cardsPerSecond ??
+        final effCards =
+            override?.cardsPerSecond ??
             settingsController.effectiveStreamMaxMessageCardsPerSecond(
               templateId,
             );
@@ -2535,10 +2525,9 @@ class _StreamThrottlePill extends StatelessWidget {
         //   * 否则该会话从未进入节流态 → 不显示。
         //   * `sessionWasInitiallyThrottled` 兜底持久化关闭场景。
         final hasOverride = override != null;
-        final wasInitiallyThrottled =
-            sessionController.sessionWasInitiallyThrottled(sessionId);
-        final globalActive =
-            globalEnabled && (effChars > 0 || effCards > 0);
+        final wasInitiallyThrottled = sessionController
+            .sessionWasInitiallyThrottled(sessionId);
+        final globalActive = globalEnabled && (effChars > 0 || effCards > 0);
         if (!hasOverride && !wasInitiallyThrottled && !globalActive) {
           return const SizedBox.shrink();
         }
@@ -2558,17 +2547,16 @@ class _StreamThrottlePill extends StatelessWidget {
         final iconColor = showAsGray
             ? scheme.outline
             : scheme.onTertiaryContainer;
-        final isZh =
-            Localizations.localeOf(context).languageCode.startsWith('zh');
+        final isZh = Localizations.localeOf(
+          context,
+        ).languageCode.startsWith('zh');
         final label = !effEnabled
             ? (isZh ? '节流·关' : 'Throttle·off')
             : disabled
-                ? (isZh ? '节流·关' : 'Throttle·off')
-                : durationExpired
-                    ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
-                    : (isZh
-                        ? '字$effChars·卡$effCards'
-                        : 'Ch$effChars·Cd$effCards');
+            ? (isZh ? '节流·关' : 'Throttle·off')
+            : durationExpired
+            ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
+            : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
         return MicroPressFeedback(
           child: Material(
             color: Colors.transparent,
@@ -2596,9 +2584,7 @@ class _StreamThrottlePill extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      showAsGray
-                          ? Icons.flash_off_rounded
-                          : Icons.bolt_rounded,
+                      showAsGray ? Icons.flash_off_rounded : Icons.bolt_rounded,
                       size: 14,
                       color: iconColor,
                     ),
@@ -2636,11 +2622,7 @@ class _StreamThrottlePill extends StatelessWidget {
                     ],
                     if (override != null) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.history_rounded,
-                        size: 13,
-                        color: iconColor,
-                      ),
+                      Icon(Icons.history_rounded, size: 13, color: iconColor),
                     ],
                   ],
                 ),
@@ -2769,8 +2751,9 @@ class _StreamThrottleSessionDialogState
               // 的字符也会立刻全速放出。
               Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.55),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.55,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 padding: const EdgeInsets.symmetric(
@@ -2795,11 +2778,11 @@ class _StreamThrottleSessionDialogState
                           Text(
                             _enabledOverride == null
                                 ? (isZh
-                                    ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
-                                    : 'Following global: ${globalEnabled ? 'on' : 'off'}')
+                                      ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
+                                      : 'Following global: ${globalEnabled ? 'on' : 'off'}')
                                 : (isZh
-                                    ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
-                                    : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
+                                      ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
+                                      : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -2943,7 +2926,6 @@ class _StreamThrottleSessionDialogState
   }
 }
 
-
 /// 节流 mini 仪表盘：30 秒滑动窗口的字符吞吐曲线图。
 ///
 /// 2026-05-18 — 让用户在节流弹窗里直接看到 AI 当前正以多快的速度流出
@@ -2964,8 +2946,7 @@ class _StreamThroughputMiniGauge extends StatefulWidget {
       _StreamThroughputMiniGaugeState();
 }
 
-class _StreamThroughputMiniGaugeState
-    extends State<_StreamThroughputMiniGauge>
+class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     with SingleTickerProviderStateMixin {
   Timer? _ticker;
   List<int> _samples = const <int>[];
@@ -2990,19 +2971,15 @@ class _StreamThroughputMiniGaugeState
   @override
   void initState() {
     super.initState();
-    _morph = AnimationController(
-      vsync: this,
-      duration: _kRefreshInterval,
-    )..addListener(_handleMorphTick);
+    _morph = AnimationController(vsync: this, duration: _kRefreshInterval)
+      ..addListener(_handleMorphTick);
     // 2026-05-19 — 直接 seed 第一帧 snapshot：initState 内禁止调用
     // `MediaQuery.maybeDisableAnimationsOf(context)`（它会触发
     // dependOnInheritedWidgetOfExactType<MediaQuery>() 断言），所以
     // 首次同步走 _morph.value=1.0 的"无动画跳变"路径；后续 Timer 触发的
     // _refresh 已在 build 帧之后，可安全读 MediaQuery。
     final controller = context.read<AiSessionController>();
-    _samples = controller.sessionStreamCharThroughputSnapshot(
-      widget.sessionId,
-    );
+    _samples = controller.sessionStreamCharThroughputSnapshot(widget.sessionId);
     _toSamples = <double>[for (final v in _samples) v.toDouble()];
     _fromSamples = List<double>.from(_toSamples);
     _morph.value = 1.0;
@@ -3088,8 +3065,9 @@ class _StreamThroughputMiniGaugeState
     // 视窗：anchored on now（samples.first = 当前秒），保留前 visibleN 个桶。
     final visibleN = fullSamples.isEmpty
         ? 0
-        : math.max(3, (fullSamples.length / _zoom).round())
-            .clamp(3, fullSamples.length);
+        : math
+              .max(3, (fullSamples.length / _zoom).round())
+              .clamp(3, fullSamples.length);
     final samples = fullSamples.isEmpty
         ? fullSamples
         : fullSamples.sublist(0, visibleN);
@@ -3098,10 +3076,7 @@ class _StreamThroughputMiniGaugeState
     final displaySamples = _currentDisplaySamples();
     final visibleDisplay = displaySamples.isEmpty
         ? const <double>[]
-        : displaySamples.sublist(
-            0,
-            math.min(visibleN, displaySamples.length),
-          );
+        : displaySamples.sublist(0, math.min(visibleN, displaySamples.length));
     final peak = samples.isEmpty ? 0 : samples.reduce(math.max);
     final current = samples.isEmpty ? 0 : samples.first;
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
@@ -3119,11 +3094,7 @@ class _StreamThroughputMiniGaugeState
         children: [
           Row(
             children: [
-              Icon(
-                Icons.show_chart_rounded,
-                size: 14,
-                color: scheme.primary,
-              ),
+              Icon(Icons.show_chart_rounded, size: 14, color: scheme.primary),
               const SizedBox(width: 6),
               Text(
                 isZh
@@ -3174,8 +3145,7 @@ class _StreamThroughputMiniGaugeState
                   if (n <= 1) return 0;
                   // 曲线模式：将 X 均匀分桶（n 段，n+1 个 anchor）。
                   final slotW = width / n;
-                  final visualSlot =
-                      (local.dx / slotW).floor().clamp(0, n - 1);
+                  final visualSlot = (local.dx / slotW).floor().clamp(0, n - 1);
                   // 视觉上 X=0 = 最老（samples[n-1]），X=width = 当前（samples[0]）
                   return n - 1 - visualSlot;
                 }
@@ -3186,8 +3156,10 @@ class _StreamThroughputMiniGaugeState
                   },
                   onPointerPanZoomUpdate: (event) {
                     if (fullSamples.isEmpty) return;
-                    final next = (_zoomBase * event.scale)
-                        .clamp(_kMinZoom, _kMaxZoom);
+                    final next = (_zoomBase * event.scale).clamp(
+                      _kMinZoom,
+                      _kMaxZoom,
+                    );
                     if ((next - _zoom).abs() > 0.01) {
                       setState(() => _zoom = next);
                     }
@@ -3200,80 +3172,85 @@ class _StreamThroughputMiniGaugeState
                     if (signal is PointerScrollEvent &&
                         HardwareKeyboard.instance.isControlPressed) {
                       final delta = -signal.scrollDelta.dy / 200.0;
-                      final next =
-                          (_zoom * (1.0 + delta)).clamp(_kMinZoom, _kMaxZoom);
+                      final next = (_zoom * (1.0 + delta)).clamp(
+                        _kMinZoom,
+                        _kMaxZoom,
+                      );
                       if ((next - _zoom).abs() > 0.01) {
                         setState(() => _zoom = next);
                       }
                     }
                   },
                   child: MouseRegion(
-                  onHover: (event) {
-                    final i = indexAt(event.localPosition);
-                    if (i != _hoveredIndex || event.localPosition != _hoverLocal) {
-                      setState(() {
-                        _hoveredIndex = i;
-                        _hoverLocal = event.localPosition;
-                      });
-                    }
-                  },
-                  onExit: (_) {
-                    if (_hoveredIndex != null) {
-                      setState(() {
+                    onHover: (event) {
+                      final i = indexAt(event.localPosition);
+                      if (i != _hoveredIndex ||
+                          event.localPosition != _hoverLocal) {
+                        setState(() {
+                          _hoveredIndex = i;
+                          _hoverLocal = event.localPosition;
+                        });
+                      }
+                    },
+                    onExit: (_) {
+                      if (_hoveredIndex != null) {
+                        setState(() {
+                          _hoveredIndex = null;
+                          _hoverLocal = null;
+                        });
+                      }
+                    },
+                    child: GestureDetector(
+                      onTapDown: (d) {
+                        final i = indexAt(d.localPosition);
+                        setState(() {
+                          _hoveredIndex = i;
+                          _hoverLocal = d.localPosition;
+                        });
+                      },
+                      onPanUpdate: (d) {
+                        final i = indexAt(d.localPosition);
+                        setState(() {
+                          _hoveredIndex = i;
+                          _hoverLocal = d.localPosition;
+                        });
+                      },
+                      onPanEnd: (_) => setState(() {
                         _hoveredIndex = null;
                         _hoverLocal = null;
-                      });
-                    }
-                  },
-                  child: GestureDetector(
-                    onTapDown: (d) {
-                      final i = indexAt(d.localPosition);
-                      setState(() {
-                        _hoveredIndex = i;
-                        _hoverLocal = d.localPosition;
-                      });
-                    },
-                    onPanUpdate: (d) {
-                      final i = indexAt(d.localPosition);
-                      setState(() {
-                        _hoveredIndex = i;
-                        _hoverLocal = d.localPosition;
-                      });
-                    },
-                    onPanEnd: (_) => setState(() {
-                      _hoveredIndex = null;
-                      _hoverLocal = null;
-                    }),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _ThroughputBarsPainter(
-                              samples: visibleDisplay,
-                              cap: cap,
-                              color: scheme.primary,
-                              gridColor: scheme.outlineVariant
-                                  .withValues(alpha: 0.6),
-                              limitColor:
-                                  scheme.tertiary.withValues(alpha: 0.45),
-                              limitValue: widget.maxRate,
-                              overLimitColor: scheme.error,
-                              hoveredIndex: _hoveredIndex,
-                              hoverHighlightColor: scheme.onSurface,
+                      }),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _ThroughputBarsPainter(
+                                samples: visibleDisplay,
+                                cap: cap,
+                                color: scheme.primary,
+                                gridColor: scheme.outlineVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                                limitColor: scheme.tertiary.withValues(
+                                  alpha: 0.45,
+                                ),
+                                limitValue: widget.maxRate,
+                                overLimitColor: scheme.error,
+                                hoveredIndex: _hoveredIndex,
+                                hoverHighlightColor: scheme.onSurface,
+                              ),
                             ),
                           ),
-                        ),
-                        if (_hoveredIndex != null && _hoverLocal != null)
-                          _ThroughputTooltip(
-                            samples: samples,
-                            hoveredIndex: _hoveredIndex!,
-                            anchor: _hoverLocal!,
-                            limitValue: widget.maxRate,
-                            isZh: isZh,
-                          ),
-                      ],
+                          if (_hoveredIndex != null && _hoverLocal != null)
+                            _ThroughputTooltip(
+                              samples: samples,
+                              hoveredIndex: _hoveredIndex!,
+                              anchor: _hoverLocal!,
+                              limitValue: widget.maxRate,
+                              isZh: isZh,
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 );
               },
@@ -3435,7 +3412,8 @@ class _ThroughputBarsPainter extends CustomPainter {
         hoveredIndex! < n &&
         hoverHighlightColor != null) {
       final hoverX = (n - 1 - hoveredIndex!) * stepX;
-      final hoverY = size.height -
+      final hoverY =
+          size.height -
           (samples[hoveredIndex!].clamp(0, cap) / cap) * size.height;
       final dashPaint = Paint()
         ..color = hoverHighlightColor!.withValues(alpha: 0.4)
@@ -3454,11 +3432,7 @@ class _ThroughputBarsPainter extends CustomPainter {
         3.4,
         Paint()..color = hoverHighlightColor!,
       );
-      canvas.drawCircle(
-        Offset(hoverX, hoverY),
-        2.0,
-        Paint()..color = color,
-      );
+      canvas.drawCircle(Offset(hoverX, hoverY), 2.0, Paint()..color = color);
     }
   }
 
@@ -3488,7 +3462,6 @@ class _ThroughputBarsPainter extends CustomPainter {
         old.hoverHighlightColor != hoverHighlightColor;
   }
 }
-
 
 /// 仪表盘 hover tooltip 气泡：固定 anchor.x ± 56 偏移，避免触屏点击
 /// 时手指挡住读数；超出右边界自动翻转到左侧。
@@ -3547,17 +3520,13 @@ class _ThroughputTooltip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  overLimit
-                      ? Icons.priority_high_rounded
-                      : Icons.bolt_rounded,
+                  overLimit ? Icons.priority_high_rounded : Icons.bolt_rounded,
                   size: 12,
                   color: color,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  isZh
-                      ? '$timeLabel · $value/s'
-                      : '$timeLabel · $value/s',
+                  isZh ? '$timeLabel · $value/s' : '$timeLabel · $value/s',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: fg,
                     fontWeight: FontWeight.w700,

@@ -1124,7 +1124,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
           ),
         ),
         actions: [
-          FilledButton.tonalIcon(
+          OpenHandDialogActionButton.secondary(
             onPressed: () async {
               final payload = <String, Object?>{
                 'message': message.toJson(),
@@ -1145,12 +1145,12 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 ),
               );
             },
-            icon: const Icon(Icons.copy_all_rounded, size: 18),
-            label: Text(AppLocalizations.of(context)!.auditCopyAuditSnapshot),
+            icon: Icons.copy_all_rounded,
+            label: AppLocalizations.of(context)!.auditCopyAuditSnapshot,
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.auditClose),
+            label: AppLocalizations.of(context)!.auditClose,
           ),
         ],
       ),
@@ -1613,9 +1613,9 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
           ),
         ),
         actions: [
-          FilledButton.tonal(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.auditClose),
+            label: AppLocalizations.of(context)!.auditClose,
           ),
         ],
       ),

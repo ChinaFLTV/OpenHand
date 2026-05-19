@@ -89,7 +89,10 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       final cur = widget.controller.snippets.firstWhere(
         (e) => e.id == _selectedId,
         orElse: () => const WebReverseSnippet(
-          id: '', name: '', code: '', updatedAt: null,
+          id: '',
+          name: '',
+          code: '',
+          updatedAt: null,
         ),
       );
       _dirty = cur.name != _nameCtrl.text || cur.code != _codeCtrl.text;
@@ -131,7 +134,8 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     final name = loc?.webReverseSnippetsNewName(time) ?? 'snippet $time';
     final s = widget.controller.addSnippet(
       name: name,
-      code: '// ${loc?.webReverseSnippetsDefaultCode ?? 'Write JS here. Runs in page context.'}\n',
+      code:
+          '// ${loc?.webReverseSnippetsDefaultCode ?? 'Write JS here. Runs in page context.'}\n',
     );
     widget.onPersist();
     setState(() {
@@ -167,8 +171,10 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       final r = await widget.controller.runSnippet(id);
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
-      setState(() => _lastResultPreview =
-          r ?? (loc?.webReverseSnippetsNoResult ?? '(no result)'));
+      setState(
+        () => _lastResultPreview =
+            r ?? (loc?.webReverseSnippetsNoResult ?? '(no result)'),
+      );
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -183,20 +189,21 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(loc?.webReverseSnippetsDeleteTitle ?? 'Delete snippet?'),
-        content: Text(loc?.webReverseSnippetsDeleteContent ??
-            'This cannot be undone.'),
+        content: Text(
+          loc?.webReverseSnippetsDeleteContent ?? 'This cannot be undone.',
+        ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(loc?.commonCancel ?? 'Cancel'),
+            label: loc?.commonCancel ?? 'Cancel',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () {
               widget.controller.removeSnippet(id);
               widget.onPersist();
               Navigator.of(ctx).pop();
             },
-            child: Text(loc?.webReverseSnippetsDelete ?? 'Delete'),
+            label: loc?.webReverseSnippetsDelete ?? 'Delete',
           ),
         ],
       ),
@@ -209,19 +216,20 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(loc?.webReverseHooksDiscardTitle ??
-            'Discard unsaved changes?'),
+        title: Text(
+          loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
+        ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(loc?.webReverseHooksKeepEditing ?? 'Keep editing'),
+            label: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () {
               Navigator.of(ctx).pop();
               onConfirm();
             },
-            child: Text(loc?.webReverseHooksDiscardConfirm ?? 'Discard'),
+            label: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
           ),
         ],
       ),
@@ -235,8 +243,10 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.snippets]
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0))
-          .compareTo(a.updatedAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+      );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       child: Row(
@@ -262,8 +272,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                         Expanded(
                           child: Text(
                             loc?.webReverseSnippetsTitle ?? 'Snippet pad',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         IconButton(
@@ -285,14 +296,16 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                     'No snippets yet.\nTap + to create one.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant),
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: list.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 2),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 2),
                             itemBuilder: (_, i) {
                               final s = list[i];
                               final selected = s.id == _selectedId;
@@ -325,8 +338,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                       child: Text(
                         loc?.webReverseSnippetsPickPrompt ??
                             'Pick a snippet or create one.',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : Column(
@@ -340,7 +354,8 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: loc?.webReverseHooksNameLabel ?? 'Name',
+                                  labelText:
+                                      loc?.webReverseHooksNameLabel ?? 'Name',
                                 ),
                               ),
                             ),
@@ -349,25 +364,39 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                               onPressed: _running ? null : _run,
                               icon: _running
                                   ? const SizedBox(
-                                      width: 14, height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
-                                  : const Icon(Icons.play_arrow_rounded, size: 18),
-                              label: Text(loc?.webReverseSnippetsRun ?? 'Run (⌘R)'),
+                                  : const Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                    ),
+                              label: Text(
+                                loc?.webReverseSnippetsRun ?? 'Run (⌘R)',
+                              ),
                             ),
                             const SizedBox(width: 6),
                             FilledButton.tonalIcon(
                               onPressed: _dirty ? _save : null,
                               icon: const Icon(Icons.save_rounded, size: 18),
-                              label: Text(_dirty
-                                  ? (loc?.webReverseSnippetsSaveDirty ?? 'Save *')
-                                  : (loc?.webReverseHooksSaved ?? 'Saved')),
+                              label: Text(
+                                _dirty
+                                    ? (loc?.webReverseSnippetsSaveDirty ??
+                                          'Save *')
+                                    : (loc?.webReverseHooksSaved ?? 'Saved'),
+                              ),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              tooltip: loc?.webReverseSnippetsDelete ?? 'Delete',
-                              icon: Icon(Icons.delete_outline_rounded,
-                                  color: cs.error),
+                              tooltip:
+                                  loc?.webReverseSnippetsDelete ?? 'Delete',
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: cs.error,
+                              ),
                               onPressed: _delete,
                             ),
                           ],
@@ -376,14 +405,30 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                         Expanded(
                           child: CallbackShortcuts(
                             bindings: <ShortcutActivator, VoidCallback>{
-                              const SingleActivator(LogicalKeyboardKey.keyR,
-                                  meta: true): () { if (!_running) _run(); },
-                              const SingleActivator(LogicalKeyboardKey.keyR,
-                                  control: true): () { if (!_running) _run(); },
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  meta: true): () { if (_dirty) _save(); },
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  control: true): () { if (_dirty) _save(); },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyR,
+                                meta: true,
+                              ): () {
+                                if (!_running) _run();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyR,
+                                control: true,
+                              ): () {
+                                if (!_running) _run();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                meta: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                control: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
                             },
                             child: Container(
                               decoration: BoxDecoration(
@@ -392,7 +437,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 border: Border.all(color: cs.outlineVariant),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               child: TextField(
                                 controller: _codeCtrl,
                                 focusNode: _codeFocus,
@@ -400,7 +447,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 expands: true,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 13),
+                                  fontFamily: 'monospace',
+                                  fontSize: 13,
+                                ),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   isDense: true,
@@ -410,7 +459,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                           ),
                         ),
                         AnimatedSize(
-                          duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : _kSwitchDuration,
                           curve: _kSwitchInCurve,
                           child: _lastResultPreview == null
                               ? const SizedBox.shrink()
@@ -423,21 +474,29 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                       color: cs.primary.withValues(alpha: 0.06),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                          color: cs.primary.withValues(alpha: 0.25)),
+                                        color: cs.primary.withValues(
+                                          alpha: 0.25,
+                                        ),
+                                      ),
                                     ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Icon(Icons.check_circle_outline_rounded,
-                                            size: 14, color: cs.primary),
+                                        Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 14,
+                                          color: cs.primary,
+                                        ),
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: SelectableText(
                                             _lastResultPreview!,
                                             maxLines: 6,
                                             style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 12),
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -494,7 +553,9 @@ class _SnippetTileState extends State<_SnippetTile> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -505,9 +566,11 @@ class _SnippetTileState extends State<_SnippetTile> {
           ),
           child: Row(
             children: [
-              Icon(Icons.javascript_rounded,
-                  size: 16,
-                  color: widget.selected ? cs.primary : cs.onSurfaceVariant),
+              Icon(
+                Icons.javascript_rounded,
+                size: 16,
+                color: widget.selected ? cs.primary : cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -515,16 +578,19 @@ class _SnippetTileState extends State<_SnippetTile> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight:
-                        widget.selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: widget.selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                   ),
                 ),
               ),
               if (tsText.isNotEmpty)
                 Text(
                   tsText,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant, fontSize: 11),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
                 ),
             ],
           ),

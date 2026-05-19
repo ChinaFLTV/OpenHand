@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 
 /// 截图导出前的注释面板。支持五种笔刷：
 ///   - draw：自由涂鸦
@@ -178,8 +179,9 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(widget.image),
-            child: Text(loc?.webReverseMarkupSaveWithout ??
-                'Save without markup'),
+            child: Text(
+              loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
+            ),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -188,9 +190,11 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
               _exporting ? Icons.hourglass_top_rounded : Icons.check_rounded,
               size: 18,
             ),
-            label: Text(_exporting
-                ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
-                : (loc?.webReverseMarkupDone ?? 'Done')),
+            label: Text(
+              _exporting
+                  ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
+                  : (loc?.webReverseMarkupDone ?? 'Done'),
+            ),
           ),
           const SizedBox(width: 6),
           IconButton(
@@ -210,91 +214,92 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     final loc = AppLocalizations.of(context);
     return Material(
       color: cs.surfaceContainerHighest,
-      shape: Border(
-        bottom: BorderSide(color: cs.outlineVariant),
-      ),
+      shape: Border(bottom: BorderSide(color: cs.outlineVariant)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-          for (final t in const [
-            (_MarkupTool.draw, Icons.edit_rounded),
-            (_MarkupTool.rect, Icons.crop_square_rounded),
-            (_MarkupTool.arrow, Icons.north_east_rounded),
-            (_MarkupTool.blur, Icons.blur_on_rounded),
-            (_MarkupTool.text, Icons.text_fields_rounded),
-          ]) ...[
-            _ToolButton(
-              icon: t.$2,
-              active: _tool == t.$1,
-              onTap: () => setState(() => _tool = t.$1),
-            ),
-            const SizedBox(width: 6),
-          ],
-          const SizedBox(width: 12),
-          // 颜色选择
-          for (final c in const [
-            Colors.redAccent,
-            Colors.amber,
-            Colors.lightGreenAccent,
-            Colors.cyanAccent,
-            Colors.white,
-          ]) ...[
-            GestureDetector(
-              onTap: () => setState(() => _color = c),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: c,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    // 深色模式下 outlineVariant 与小色块边缘融化，改用
-                    // outline 提升识别度。
-                    color: _color == c ? cs.primary : cs.outline,
-                    width: _color == c ? 2.4 : 1.2,
+            for (final t in const [
+              (_MarkupTool.draw, Icons.edit_rounded),
+              (_MarkupTool.rect, Icons.crop_square_rounded),
+              (_MarkupTool.arrow, Icons.north_east_rounded),
+              (_MarkupTool.blur, Icons.blur_on_rounded),
+              (_MarkupTool.text, Icons.text_fields_rounded),
+            ]) ...[
+              _ToolButton(
+                icon: t.$2,
+                active: _tool == t.$1,
+                onTap: () => setState(() => _tool = t.$1),
+              ),
+              const SizedBox(width: 6),
+            ],
+            const SizedBox(width: 12),
+            // 颜色选择
+            for (final c in const [
+              Colors.redAccent,
+              Colors.amber,
+              Colors.lightGreenAccent,
+              Colors.cyanAccent,
+              Colors.white,
+            ]) ...[
+              GestureDetector(
+                onTap: () => setState(() => _color = c),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      // 深色模式下 outlineVariant 与小色块边缘融化，改用
+                      // outline 提升识别度。
+                      color: _color == c ? cs.primary : cs.outline,
+                      width: _color == c ? 2.4 : 1.2,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 140,
-            child: Row(
-              children: [
-                Icon(Icons.line_weight_rounded,
-                    size: 16, color: cs.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Slider(
-                    min: 1,
-                    max: 16,
-                    divisions: 15,
-                    value: _thickness,
-                    onChanged: (v) => setState(() => _thickness = v),
+              const SizedBox(width: 6),
+            ],
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 140,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.line_weight_rounded,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Slider(
+                      min: 1,
+                      max: 16,
+                      divisions: 15,
+                      value: _thickness,
+                      onChanged: (v) => setState(() => _thickness = v),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Spacer(),
-          IconButton(
-            tooltip: loc?.webReverseMarkupUndo ?? 'Undo',
-            onPressed: _undo,
-            icon: const Icon(Icons.undo_rounded, size: 18),
-          ),
-          IconButton(
-            tooltip: loc?.webReverseMarkupClear ?? 'Clear',
-            onPressed: () => setState(() {
-              _strokes.clear();
-              _rects.clear();
-              _texts.clear();
-            }),
-            icon: const Icon(Icons.cleaning_services_rounded, size: 18),
-          ),
+            const Spacer(),
+            IconButton(
+              tooltip: loc?.webReverseMarkupUndo ?? 'Undo',
+              onPressed: _undo,
+              icon: const Icon(Icons.undo_rounded, size: 18),
+            ),
+            IconButton(
+              tooltip: loc?.webReverseMarkupClear ?? 'Clear',
+              onPressed: () => setState(() {
+                _strokes.clear();
+                _rects.clear();
+                _texts.clear();
+              }),
+              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+            ),
           ],
         ),
       ),
@@ -317,20 +322,13 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
 
   void _onPanStart(DragStartDetails d) {
     if (_tool == _MarkupTool.draw) {
-      final s = _Stroke(
-        tool: _tool,
-        color: _color,
-        thickness: _thickness,
-      )..points.add(d.localPosition);
+      final s = _Stroke(tool: _tool, color: _color, thickness: _thickness)
+        ..points.add(d.localPosition);
       setState(() => _activeStroke = s);
     } else if (_tool == _MarkupTool.rect ||
         _tool == _MarkupTool.arrow ||
         _tool == _MarkupTool.blur) {
-      final r = _RectShape(
-        tool: _tool,
-        color: _color,
-        thickness: _thickness,
-      )
+      final r = _RectShape(tool: _tool, color: _color, thickness: _thickness)
         ..start = d.localPosition
         ..end = d.localPosition;
       setState(() => _activeRect = r);
@@ -370,16 +368,17 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
           controller: ctrl,
           autofocus: true,
           decoration: InputDecoration(
-              hintText: loc?.webReverseMarkupLabelHint ?? 'Label'),
+            hintText: loc?.webReverseMarkupLabelHint ?? 'Label',
+          ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(loc?.commonCancel ?? 'Cancel'),
+            label: loc?.commonCancel ?? 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(ctrl.text.trim()),
-            child: Text(loc?.webReverseMarkupAdd ?? 'Add'),
+            label: loc?.webReverseMarkupAdd ?? 'Add',
           ),
         ],
       ),
@@ -393,8 +392,9 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   Future<void> _export() async {
     setState(() => _exporting = true);
     try {
-      final boundary = _boundary.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _boundary.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         if (mounted) Navigator.of(context).pop(widget.image);
         return;
@@ -476,9 +476,10 @@ class _MarkupPainter extends CustomPainter {
     // ── 模糊层先画：对原图的指定矩形区域用 ImageFilter.blur 单独渲染。
     // 这样后续的 stroke / rect / arrow / text 都能叠加在模糊层之上。
     void paintBlur(_RectShape r) {
-      final rect = Rect.fromPoints(r.start, r.end).intersect(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-      );
+      final rect = Rect.fromPoints(
+        r.start,
+        r.end,
+      ).intersect(Rect.fromLTWH(0, 0, size.width, size.height));
       if (rect.isEmpty) return;
       // saveLayer + ImageFilter 让模糊只作用于该 rect 范围内重新绘制的图。
       canvas.saveLayer(
@@ -602,7 +603,11 @@ class _MarkupPainter extends CustomPainter {
             fontSize: 18,
             fontWeight: FontWeight.w800,
             shadows: const [
-              Shadow(color: Colors.black87, offset: Offset(1, 1), blurRadius: 2),
+              Shadow(
+                color: Colors.black87,
+                offset: Offset(1, 1),
+                blurRadius: 2,
+              ),
             ],
           ),
         ),

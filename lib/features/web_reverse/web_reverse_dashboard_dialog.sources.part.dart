@@ -531,9 +531,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),

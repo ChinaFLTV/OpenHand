@@ -40,7 +40,8 @@ class _AdvancedMenuDialog extends StatelessWidget {
             );
           }
         },
-      ),      _AdvancedEntry(
+      ),
+      _AdvancedEntry(
         icon: Icons.add_link_rounded,
         title: isZh ? '持久注入 Headers' : 'Persistent Headers',
         subtitle: isZh
@@ -122,8 +123,8 @@ class _AdvancedMenuDialog extends StatelessWidget {
         title: controller.mitmproxyBridge == null
             ? (isZh ? '启动 mitmproxy 桥接' : 'Start mitmproxy bridge')
             : (isZh
-                ? '停止 mitmproxy 桥接（已抓 ${controller.mitmproxyCount}）'
-                : 'Stop mitmproxy bridge (${controller.mitmproxyCount})'),
+                  ? '停止 mitmproxy 桥接（已抓 ${controller.mitmproxyCount}）'
+                  : 'Stop mitmproxy bridge (${controller.mitmproxyCount})'),
         subtitle: isZh
             ? '系统级抓包：把 App 内嵌 webview / 第三方应用流量也接入 dashboard'
             : 'System-wide capture via mitmdump; routes 3rd-party app traffic into dashboard',
@@ -773,8 +774,9 @@ class _AdvancedMenuDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       isZh ? '高级工具' : 'Advanced tools',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -809,8 +811,9 @@ class _AdvancedMenuDialog extends StatelessWidget {
                                 children: [
                                   Text(
                                     e.title,
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -823,8 +826,10 @@ class _AdvancedMenuDialog extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded,
-                                color: cs.onSurfaceVariant),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: cs.onSurfaceVariant,
+                            ),
                           ],
                         ),
                       ),
@@ -917,7 +922,9 @@ Future<void> _showExtraHeadersDialog(
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      isZh ? '已注入 ${headers.length} 个 Header' : 'Injected ${headers.length} headers',
+      isZh
+          ? '已注入 ${headers.length} 个 Header'
+          : 'Injected ${headers.length} headers',
     );
   } else {
     OpenHandSnackBar.showErrorOn(
@@ -956,8 +963,7 @@ Future<void> _showCdpPaletteDialog(
                   hintText: 'Network.getAllCookies / DOM.querySelector',
                   border: OutlineInputBorder(),
                 ),
-                style:
-                    const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -968,8 +974,7 @@ Future<void> _showCdpPaletteDialog(
                   labelText: 'Params (JSON)',
                   border: OutlineInputBorder(),
                 ),
-                style:
-                    const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
               ),
               const SizedBox(height: 6),
               ValueListenableBuilder(
@@ -994,14 +999,15 @@ Future<void> _showCdpPaletteDialog(
                     : Container(
                         constraints: const BoxConstraints(maxHeight: 300),
                         decoration: BoxDecoration(
-                          color: Theme.of(dialogContext)
-                              .colorScheme
-                              .surfaceContainerHigh,
+                          color: Theme.of(
+                            dialogContext,
+                          ).colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: Theme.of(dialogContext)
-                                  .colorScheme
-                                  .outlineVariant),
+                            color: Theme.of(
+                              dialogContext,
+                            ).colorScheme.outlineVariant,
+                          ),
                         ),
                         padding: const EdgeInsets.all(10),
                         child: SingleChildScrollView(
@@ -1033,8 +1039,9 @@ Future<void> _showCdpPaletteDialog(
               paramsJson: params.text,
               useSession: useSession.value,
             );
-            result.value =
-                r == null ? '(null)' : const JsonEncoder.withIndent('  ').convert(r);
+            result.value = r == null
+                ? '(null)'
+                : const JsonEncoder.withIndent('  ').convert(r);
           },
           label: isZh ? '执行' : 'Run',
         ),
@@ -1060,9 +1067,11 @@ Future<void> _copyRecentRequestsForAi(
     return;
   }
   final buf = StringBuffer()
-    ..writeln(isZh
-        ? '请帮我分析这 ${entries.length} 条请求里哪些是关键加密参数（sign / token / encrypt 等），并指出可能的算法与种子。'
-        : 'Please identify the encryption-relevant fields (sign / token / encrypt) in these ${entries.length} requests and guess the algorithm.')
+    ..writeln(
+      isZh
+          ? '请帮我分析这 ${entries.length} 条请求里哪些是关键加密参数（sign / token / encrypt 等），并指出可能的算法与种子。'
+          : 'Please identify the encryption-relevant fields (sign / token / encrypt) in these ${entries.length} requests and guess the algorithm.',
+    )
     ..writeln('---');
   for (final e in entries) {
     buf
@@ -1075,11 +1084,13 @@ Future<void> _copyRecentRequestsForAi(
     }
     if (e.requestHeaders.isNotEmpty) {
       final keys = e.requestHeaders.keys
-          .where((k) =>
-              k.toLowerCase().contains('sign') ||
-              k.toLowerCase().contains('token') ||
-              k.toLowerCase().contains('auth') ||
-              k.toLowerCase().contains('x-'))
+          .where(
+            (k) =>
+                k.toLowerCase().contains('sign') ||
+                k.toLowerCase().contains('token') ||
+                k.toLowerCase().contains('auth') ||
+                k.toLowerCase().contains('x-'),
+          )
           .toList();
       if (keys.isNotEmpty) {
         for (final k in keys) {
@@ -1135,18 +1146,28 @@ Future<void> _showDiffPicker(
                         : (identical(e, b) ? 'B' : null);
                     return ListTile(
                       dense: true,
-                      title: Text('${e.method} ${e.url}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 12)),
-                      subtitle: Text('${e.statusCode ?? '-'} · ${e.resourceType}',
-                          style: const TextStyle(fontSize: 11)),
+                      title: Text(
+                        '${e.method} ${e.url}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${e.statusCode ?? '-'} · ${e.resourceType}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       trailing: selectedAs == null
                           ? null
-                          : Text(selectedAs,
+                          : Text(
+                              selectedAs,
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w800, fontSize: 12)),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
                       onTap: () {
                         setState(() {
                           if (a == null) {
@@ -1205,44 +1226,47 @@ class _DiffViewerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     Widget col(String label, CdpNetworkEntry e) => Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: cs.outlineVariant),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$label: ${e.method} ${e.url}',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$label: ${e.method} ${e.url}',
-                    style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 6),
-                Text(
-                    'status=${e.statusCode ?? '-'} mime=${e.mimeType ?? '-'}'),
-                const Divider(),
-                const Text('Request headers:',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      e.requestHeaders.entries
-                          .map((kv) => '${kv.key}: ${kv.value}')
-                          .join('\n'),
-                      style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 11),
-                    ),
-                  ),
+            const SizedBox(height: 6),
+            Text('status=${e.statusCode ?? '-'} mime=${e.mimeType ?? '-'}'),
+            const Divider(),
+            const Text(
+              'Request headers:',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  e.requestHeaders.entries
+                      .map((kv) => '${kv.key}: ${kv.value}')
+                      .join('\n'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                 ),
-              ],
+              ),
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
     return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 720),
@@ -1298,13 +1322,18 @@ Future<void> _showServiceWorkersDialog(
                   for (final w in list)
                     ListTile(
                       dense: true,
-                      title: Text('${w['scriptURL'] ?? w['url'] ?? ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 12)),
+                      title: Text(
+                        '${w['scriptURL'] ?? w['url'] ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
                       subtitle: Text(
-                          'state=${w['runningStatus'] ?? w['status'] ?? '-'}'),
+                        'state=${w['runningStatus'] ?? w['status'] ?? '-'}',
+                      ),
                     ),
                 ],
               ),
@@ -1344,7 +1373,6 @@ Future<void> _showServiceWorkersDialog(
     ),
   );
 }
-
 
 Future<void> _toggleHarReplayServer(
   BuildContext context,
@@ -1386,13 +1414,11 @@ Future<void> _toggleHarReplayServer(
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
         label: isZh ? '复制端口' : 'Copy port',
-        onPressed: () =>
-            Clipboard.setData(ClipboardData(text: '${r.port}')),
+        onPressed: () => Clipboard.setData(ClipboardData(text: '${r.port}')),
       ),
     ),
   );
 }
-
 
 Future<void> _toggleMitmproxyBridge(
   BuildContext context,
@@ -1422,10 +1448,10 @@ Future<void> _toggleMitmproxyBridge(
         content: Text(
           isZh
               ? '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
-                  '并把 mitmdump 加入 PATH。\n\n'
-                  '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
+                    '并把 mitmdump 加入 PATH。\n\n'
+                    '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
               : 'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
-                  'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
+                    'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
         ),
         actions: [
           OpenHandDialogActionButton.secondary(
@@ -1446,11 +1472,11 @@ Future<void> _toggleMitmproxyBridge(
       content: Text(
         isZh
             ? '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n'
-                '首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n'
-                '所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
+                  '首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n'
+                  '所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
             : 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\n'
-                'First time? Trust the CA via http://mitm.it.\n\n'
-                'Captured traffic shows up under the mitmproxy resource type.',
+                  'First time? Trust the CA via http://mitm.it.\n\n'
+                  'Captured traffic shows up under the mitmproxy resource type.',
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -1485,7 +1511,6 @@ Future<void> _toggleMitmproxyBridge(
     duration: const Duration(seconds: 6),
   );
 }
-
 
 Future<void> _toggleWebRtcCapture(
   BuildContext context,
@@ -1589,10 +1614,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 kind == 'datachannel' ||
                 kind == 'connectionstatechange' ||
                 kind == 'iceconnectionstatechange') {
-              _iceLog.putIfAbsent(id, () => <_IceEntry>[]).add(_IceEntry(
-                    kind: kind,
-                    payload: e,
-                  ));
+              _iceLog
+                  .putIfAbsent(id, () => <_IceEntry>[])
+                  .add(_IceEntry(kind: kind, payload: e));
             }
             if (kind == 'setLocalDescription:result' ||
                 kind == 'setRemoteDescription:result') {
@@ -1625,8 +1649,10 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final buf = StringBuffer()
-      ..writeln('pc_id,bucket_seconds_ago,bytes_sent,bytes_received,'
-          'packets_lost,rtt_ms');
+      ..writeln(
+        'pc_id,bucket_seconds_ago,bytes_sent,bytes_received,'
+        'packets_lost,rtt_ms',
+      );
     final ids = _series.keys.toList()..sort();
     for (final id in ids) {
       final samples = _series[id]!.samples;
@@ -1698,13 +1724,16 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   const SizedBox(width: 10),
                   Text(
                     isZh ? 'WebRTC 实时面板' : 'WebRTC live panel',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.primaryContainer.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(8),
@@ -1762,10 +1791,13 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     OutlinedButton.icon(
                       onPressed: () async {
                         final messenger = ScaffoldMessenger.of(context);
-                        await Clipboard.setData(ClipboardData(
-                          text: const JsonEncoder.withIndent('  ')
-                              .convert(_events),
-                        ));
+                        await Clipboard.setData(
+                          ClipboardData(
+                            text: const JsonEncoder.withIndent(
+                              '  ',
+                            ).convert(_events),
+                          ),
+                        );
                         if (!context.mounted) return;
                         OpenHandSnackBar.showSuccessOn(
                           context,
@@ -1812,8 +1844,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ? '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。'
                 : 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -1862,8 +1895,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               ),
               _RtcStatChip(
                 label: 'RTT',
-                value:
-                    '${(last?.rttMs ?? 0).toStringAsFixed(0)} ms',
+                value: '${(last?.rttMs ?? 0).toStringAsFixed(0)} ms',
                 color: cs.secondary,
               ),
             ],
@@ -1909,14 +1941,14 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         child: Center(
           child: Text(
             isZh ? '暂无 ICE 事件' : 'No ICE events',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
       );
     }
-    final selectedId =
-        _iceLog.containsKey(_selected) ? _selected : ids.first;
+    final selectedId = _iceLog.containsKey(_selected) ? _selected : ids.first;
     final entries = _iceLog[selectedId] ?? const <_IceEntry>[];
     return Padding(
       key: const ValueKey('ice'),
@@ -1955,9 +1987,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 selected: {_iceGraphMode},
                 onSelectionChanged: (s) =>
                     setState(() => _iceGraphMode = s.first),
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                ),
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
               ),
             ],
           ),
@@ -2000,7 +2030,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                               child: SelectableText(
                                 summary,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 11.5),
+                                  fontFamily: 'monospace',
+                                  fontSize: 11.5,
+                                ),
                               ),
                             ),
                           ],
@@ -2071,15 +2103,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             isZh
                 ? '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。'
                 : 'No SDP yet.',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
-    final selectedId =
-        _sdps.containsKey(_selected) ? _selected : ids.first;
+    final selectedId = _sdps.containsKey(_selected) ? _selected : ids.first;
     final pair = _sdps[selectedId]!;
     return Padding(
       key: const ValueKey('sdp'),
@@ -2137,8 +2169,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         child: Center(
           child: Text(
             isZh ? '暂无事件' : 'No events',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -2155,8 +2188,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: SelectableText(
               '[${e['kind']}] ${jsonEncode(e)}',
-              style:
-                  const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
             ),
           );
         },
@@ -2186,12 +2218,14 @@ class _RtcSeries {
     required double packetsLost,
     required double rttMs,
   }) {
-    samples.add(_RtcSample(
-      bytesSent: bytesSent,
-      bytesReceived: bytesReceived,
-      packetsLost: packetsLost,
-      rttMs: rttMs,
-    ));
+    samples.add(
+      _RtcSample(
+        bytesSent: bytesSent,
+        bytesReceived: bytesReceived,
+        packetsLost: packetsLost,
+        rttMs: rttMs,
+      ),
+    );
     if (samples.length > _capacity) {
       samples.removeRange(0, samples.length - _capacity);
     }
@@ -2285,8 +2319,7 @@ class _RtcStatChip extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration:
-                BoxDecoration(color: color, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(label, style: theme.textTheme.labelSmall),
@@ -2336,8 +2369,7 @@ class _RtcChartPainter extends CustomPainter {
       ..strokeWidth = 1;
     for (var i = 0; i <= 4; i++) {
       final y = h * i / 4;
-      canvas.drawLine(
-          Offset(origin.dx, y), Offset(origin.dx + w, y), gp);
+      canvas.drawLine(Offset(origin.dx, y), Offset(origin.dx + w, y), gp);
     }
     // 计算两组 axis：bytes 和 rtt/packets。
     var maxBytes = 1.0;
@@ -2371,8 +2403,7 @@ class _RtcChartPainter extends CustomPainter {
     }
 
     drawLine([
-      for (var i = 0; i < n; i++)
-        xy(i, series.samples[i].bytesSent, maxBytes),
+      for (var i = 0; i < n; i++) xy(i, series.samples[i].bytesSent, maxBytes),
     ], primary);
     drawLine([
       for (var i = 0; i < n; i++)
@@ -2381,10 +2412,14 @@ class _RtcChartPainter extends CustomPainter {
     drawLine([
       for (var i = 0; i < n; i++) xy(i, series.samples[i].rttMs, maxRtt),
     ], secondary);
-    drawLine([
-      for (var i = 0; i < n; i++)
-        xy(i, series.samples[i].packetsLost, maxLost),
-    ], error, sw: 1.2);
+    drawLine(
+      [
+        for (var i = 0; i < n; i++)
+          xy(i, series.samples[i].packetsLost, maxLost),
+      ],
+      error,
+      sw: 1.2,
+    );
 
     // 左侧 y 轴最大值标签。
     final tp = TextPainter(
@@ -2398,14 +2433,10 @@ class _RtcChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RtcChartPainter old) =>
-      old.series != series;
+  bool shouldRepaint(covariant _RtcChartPainter old) => old.series != series;
 }
 
-Future<void> _showWebcrackDialog(
-  BuildContext context,
-  bool isZh,
-) async {
+Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
   final input = TextEditingController();
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
@@ -2434,8 +2465,7 @@ Future<void> _showWebcrackDialog(
                   border: OutlineInputBorder(),
                   hintText: 'paste obfuscated js…',
                 ),
-                style:
-                    const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
               ),
             ),
             const SizedBox(height: 8),
@@ -2444,14 +2474,12 @@ Future<void> _showWebcrackDialog(
                 valueListenable: output,
                 builder: (_, v, _) => Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(dialogContext)
-                        .colorScheme
-                        .surfaceContainerHigh,
+                    color: Theme.of(
+                      dialogContext,
+                    ).colorScheme.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(dialogContext)
-                          .colorScheme
-                          .outlineVariant,
+                      color: Theme.of(dialogContext).colorScheme.outlineVariant,
                     ),
                   ),
                   padding: const EdgeInsets.all(10),
@@ -2462,7 +2490,9 @@ Future<void> _showWebcrackDialog(
                               ? '反混淆结果会显示在这里。'
                               : 'Deobfuscated result appears here.'),
                       style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 11.5),
+                        fontFamily: 'monospace',
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
                 ),
@@ -2508,13 +2538,7 @@ Future<String> _runWebcrack(String src) async {
     // npx 第一次需要联网拉包；--yes 跳过提示。
     final result = await runTrackedProcessOrFailed(
       'npx',
-      <String>[
-        '--yes',
-        'webcrack@latest',
-        input.path,
-        '-o',
-        tmpDir.path,
-      ],
+      <String>['--yes', 'webcrack@latest', input.path, '-o', tmpDir.path],
       runInShell: Platform.isWindows,
       timeout: const Duration(minutes: 5),
       tag: 'web_reverse.webcrack',
@@ -2548,7 +2572,6 @@ Future<String> _runWebcrack(String src) async {
     } catch (_) {}
   }
 }
-
 
 Future<void> _showInterceptRulesDialog(
   BuildContext context,
@@ -2593,10 +2616,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
         : _rules[index];
     final updated = await showAnimatedDialog<WebReverseInterceptRule>(
       context: context,
-      builder: (_) => _InterceptRuleEditor(
-        initial: initial,
-        isZh: widget.isZh,
-      ),
+      builder: (_) => _InterceptRuleEditor(initial: initial, isZh: widget.isZh),
     );
     if (updated == null) return;
     setState(() {
@@ -2630,8 +2650,9 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                   Expanded(
                     child: Text(
                       isZh ? '网络拦截规则' : 'Network intercept rules',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   TextButton.icon(
@@ -2651,8 +2672,9 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                         isZh
                             ? '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。'
                             : 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -2681,15 +2703,15 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             r.block
                                 ? (isZh ? '动作: 屏蔽' : 'Action: block')
                                 : r.replaceUrl != null &&
-                                        r.replaceUrl!.isNotEmpty
-                                    ? (isZh
-                                        ? '动作: 重定向到 ${r.replaceUrl}'
-                                        : 'Action: redirect → ${r.replaceUrl}')
-                                    : r.headerOverrides.isEmpty
-                                        ? (isZh ? '动作: 仅标记' : 'Action: tag only')
-                                        : (isZh
-                                            ? '动作: 注入 ${r.headerOverrides.length} 个 header'
-                                            : 'Action: inject ${r.headerOverrides.length} headers'),
+                                      r.replaceUrl!.isNotEmpty
+                                ? (isZh
+                                      ? '动作: 重定向到 ${r.replaceUrl}'
+                                      : 'Action: redirect → ${r.replaceUrl}')
+                                : r.headerOverrides.isEmpty
+                                ? (isZh ? '动作: 仅标记' : 'Action: tag only')
+                                : (isZh
+                                      ? '动作: 注入 ${r.headerOverrides.length} 个 header'
+                                      : 'Action: inject ${r.headerOverrides.length} headers'),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -2736,14 +2758,14 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(isZh ? '取消' : 'Cancel'),
+                    label: isZh ? '取消' : 'Cancel',
                   ),
                   const SizedBox(width: 8),
-                  FilledButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: _save,
-                    child: Text(isZh ? '保存' : 'Save'),
+                    label: isZh ? '保存' : 'Save',
                   ),
                 ],
               ),
@@ -2825,8 +2847,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               TextField(
                 controller: _replaceCtrl,
                 decoration: InputDecoration(
-                  labelText:
-                      isZh ? '重写 URL（可选）' : 'Replace URL (optional)',
+                  labelText: isZh ? '重写 URL（可选）' : 'Replace URL (optional)',
                   hintText: 'https://mock.local/v1/',
                 ),
               ),
@@ -2846,11 +2867,11 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () {
             final headers = <String, String>{};
             for (final line in _headersCtrl.text.split('\n')) {
@@ -2858,8 +2879,9 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               if (trimmed.isEmpty) continue;
               final idx = trimmed.indexOf(':');
               if (idx <= 0) continue;
-              headers[trimmed.substring(0, idx).trim()] =
-                  trimmed.substring(idx + 1).trim();
+              headers[trimmed.substring(0, idx).trim()] = trimmed
+                  .substring(idx + 1)
+                  .trim();
             }
             Navigator.of(context).pop(
               WebReverseInterceptRule(
@@ -2873,13 +2895,12 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
             );
           },
-          child: Text(isZh ? '保存' : 'Save'),
+          label: isZh ? '保存' : 'Save',
         ),
       ],
     );
   }
 }
-
 
 /// 单条 ICE 控制平面事件。kind = pc.create / track / datachannel /
 /// icecandidate / (ice)connectionstatechange，payload 是原始 JSON 行。
@@ -2931,8 +2952,9 @@ class _SdpDiffColumn extends StatelessWidget {
         ),
         child: Text(
           title,
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -2945,10 +2967,12 @@ class _SdpDiffColumn extends StatelessWidget {
     final curSet = curLines.toSet();
     final rows = <_SdpDiffRow>[];
     for (final ln in curLines) {
-      rows.add(_SdpDiffRow(
-        line: ln,
-        kind: prevSet.contains(ln) ? _DiffKind.same : _DiffKind.added,
-      ));
+      rows.add(
+        _SdpDiffRow(
+          line: ln,
+          kind: prevSet.contains(ln) ? _DiffKind.same : _DiffKind.added,
+        ),
+      );
     }
     if (prev != null) {
       for (final ln in prevLines) {
@@ -2971,21 +2995,18 @@ class _SdpDiffColumn extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
-                  cur.type,
-                  style: theme.textTheme.labelSmall,
-                ),
+                child: Text(cur.type, style: theme.textTheme.labelSmall),
               ),
             ],
           ),
@@ -2996,8 +3017,7 @@ class _SdpDiffColumn extends StatelessWidget {
               itemBuilder: (_, i) {
                 final r = rows[i];
                 final color = switch (r.kind) {
-                  _DiffKind.added =>
-                    Colors.green.withValues(alpha: 0.18),
+                  _DiffKind.added => Colors.green.withValues(alpha: 0.18),
                   _DiffKind.removed => cs.error.withValues(alpha: 0.18),
                   _DiffKind.same => Colors.transparent,
                 };
@@ -3009,7 +3029,9 @@ class _SdpDiffColumn extends StatelessWidget {
                 return Container(
                   color: color,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 1),
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   child: SelectableText(
                     '$prefix${r.line}',
                     style: const TextStyle(
@@ -3035,7 +3057,6 @@ class _SdpDiffRow {
   final String line;
   final _DiffKind kind;
 }
-
 
 /// ICE 拓扑有向图：把当前 PC 收到的 candidate / track / datachannel 节
 /// 点围着 PC 中心节点摆成放射状，根据来源画箭头。candidate 按 typ
@@ -3117,29 +3138,37 @@ class _IceTopologyGraph extends StatelessWidget {
           final cand = '${p['candidate'] ?? ''}';
           final m = RegExp(r'\btyp (\w+)').firstMatch(cand);
           final typ = m?.group(1) ?? '?';
-          final m2 = RegExp(r'\b(udp|tcp)\s+\d+\s+(\S+)\s+(\d+)',
-              caseSensitive: false).firstMatch(cand);
+          final m2 = RegExp(
+            r'\b(udp|tcp)\s+\d+\s+(\S+)\s+(\d+)',
+            caseSensitive: false,
+          ).firstMatch(cand);
           final ip = m2?.group(2) ?? '?';
           final port = m2?.group(3) ?? '';
-          candidates.add(_IceGraphNode(
-            kind: _IceNodeKind.candidate,
-            label: '$typ\n$ip:$port',
-            typ: typ,
-          ));
+          candidates.add(
+            _IceGraphNode(
+              kind: _IceNodeKind.candidate,
+              label: '$typ\n$ip:$port',
+              typ: typ,
+            ),
+          );
           break;
         case 'track':
-          tracks.add(_IceGraphNode(
-            kind: _IceNodeKind.track,
-            label: 'track\n${p['kind'] ?? '?'}',
-            typ: '${p['kind'] ?? ''}',
-          ));
+          tracks.add(
+            _IceGraphNode(
+              kind: _IceNodeKind.track,
+              label: 'track\n${p['kind'] ?? '?'}',
+              typ: '${p['kind'] ?? ''}',
+            ),
+          );
           break;
         case 'datachannel':
-          datachannels.add(_IceGraphNode(
-            kind: _IceNodeKind.datachannel,
-            label: 'dc\n${p['label'] ?? ''}',
-            typ: '',
-          ));
+          datachannels.add(
+            _IceGraphNode(
+              kind: _IceNodeKind.datachannel,
+              label: 'dc\n${p['label'] ?? ''}',
+              typ: '',
+            ),
+          );
           break;
         case 'connectionstatechange':
         case 'iceconnectionstatechange':
@@ -3208,27 +3237,28 @@ class _IceTopologyPainter extends CustomPainter {
     final others = nodes.skip(1).toList();
     final center = Offset(size.width / 2, size.height / 2);
     // 分组排布：candidate / track / datachannel 各自一段角度区间。
-    final candidates =
-        others.where((n) => n.kind == _IceNodeKind.candidate).toList();
-    final tracks =
-        others.where((n) => n.kind == _IceNodeKind.track).toList();
-    final datachannels =
-        others.where((n) => n.kind == _IceNodeKind.datachannel).toList();
+    final candidates = others
+        .where((n) => n.kind == _IceNodeKind.candidate)
+        .toList();
+    final tracks = others.where((n) => n.kind == _IceNodeKind.track).toList();
+    final datachannels = others
+        .where((n) => n.kind == _IceNodeKind.datachannel)
+        .toList();
     final positions = <_IceGraphNode, Offset>{};
     final radius = math.min(size.width, size.height) * 0.4;
     void place(List<_IceGraphNode> g, double startAngle, double endAngle) {
       if (g.isEmpty) return;
       if (g.length == 1) {
         final ang = (startAngle + endAngle) / 2;
-        positions[g.first] = center +
-            Offset(math.cos(ang) * radius, math.sin(ang) * radius);
+        positions[g.first] =
+            center + Offset(math.cos(ang) * radius, math.sin(ang) * radius);
         return;
       }
       final span = endAngle - startAngle;
       for (var i = 0; i < g.length; i++) {
         final ang = startAngle + span * i / (g.length - 1);
-        positions[g[i]] = center +
-            Offset(math.cos(ang) * radius, math.sin(ang) * radius);
+        positions[g[i]] =
+            center + Offset(math.cos(ang) * radius, math.sin(ang) * radius);
       }
     }
 
@@ -3278,9 +3308,11 @@ class _IceTopologyPainter extends CustomPainter {
     final ang = math.atan2(unit.dy, unit.dx);
     const arrowLen = 8.0;
     const arrowAng = 0.5;
-    final p1 = end -
+    final p1 =
+        end -
         Offset(math.cos(ang - arrowAng), math.sin(ang - arrowAng)) * arrowLen;
-    final p2 = end -
+    final p2 =
+        end -
         Offset(math.cos(ang + arrowAng), math.sin(ang + arrowAng)) * arrowLen;
     final tri = Path()
       ..moveTo(end.dx, end.dy)
@@ -3324,21 +3356,18 @@ class _IceTopologyPainter extends CustomPainter {
   void _drawNode(Canvas canvas, Offset pos, _IceGraphNode node) {
     final color = switch (node.kind) {
       _IceNodeKind.candidate => switch (node.typ) {
-          'host' => primary,
-          'srflx' => tertiary,
-          'relay' => error,
-          _ => secondary,
-        },
+        'host' => primary,
+        'srflx' => tertiary,
+        'relay' => error,
+        _ => secondary,
+      },
       _IceNodeKind.track => tertiary,
       _IceNodeKind.datachannel => secondary,
       _ => onSurface,
     };
     final box = Rect.fromCenter(center: pos, width: 110, height: 36);
     final rrect = RRect.fromRectAndRadius(box, const Radius.circular(8));
-    canvas.drawRRect(
-      rrect,
-      Paint()..color = color.withValues(alpha: 0.22),
-    );
+    canvas.drawRRect(rrect, Paint()..color = color.withValues(alpha: 0.22));
     canvas.drawRRect(
       rrect,
       Paint()

@@ -12,6 +12,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
@@ -471,40 +472,25 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           ),
         ),
         const SizedBox(width: 16),
-        SizedBox(
-          width: 132,
-          height: 52,
-          child: OutlinedButton(
-            onPressed: _isInstalling ? null : () => Navigator.of(context).pop(),
-            child: Text(l10n.commonCancel),
-          ),
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isInstalling ? null : () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 132,
-          height: 52,
-          child: FilledButton.icon(
-            onPressed:
-                selectedSkill == null || selectedSkillInstalled || _isInstalling
-                ? null
-                : _installSelectedSkill,
-            icon: _isInstalling
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : selectedSkillInstalled
-                ? const Icon(Icons.check_rounded)
-                : const Icon(Icons.download_rounded),
-            label: Text(
-              _isInstalling
-                  ? _t(context, zh: '安装中', en: 'Installing')
-                  : selectedSkillInstalled
-                  ? _t(context, zh: '已安装', en: 'Installed')
-                  : _t(context, zh: '安装', en: 'Install'),
-            ),
-          ),
+        OpenHandDialogActionButton.primary(
+          onPressed:
+              selectedSkill == null || selectedSkillInstalled || _isInstalling
+              ? null
+              : _installSelectedSkill,
+          icon: selectedSkillInstalled
+              ? Icons.check_rounded
+              : Icons.download_rounded,
+          busy: _isInstalling,
+          label: _isInstalling
+              ? _t(context, zh: '安装中', en: 'Installing')
+              : selectedSkillInstalled
+              ? _t(context, zh: '已安装', en: 'Installed')
+              : _t(context, zh: '安装', en: 'Install'),
         ),
       ],
     );
@@ -864,23 +850,15 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  SizedBox(
-                    width: 132,
-                    height: 52,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(l10n.commonCancel),
-                    ),
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    label: l10n.commonCancel,
                   ),
                   const SizedBox(width: 12),
-                  SizedBox(
-                    width: 132,
-                    height: 52,
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      icon: const Icon(Icons.download_rounded),
-                      label: Text(_t(context, zh: '确认安装', en: 'Install')),
-                    ),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: Icons.download_rounded,
+                    label: _t(context, zh: '确认安装', en: 'Install'),
                   ),
                 ],
               ),

@@ -99,12 +99,17 @@ class _CronsBodyState extends State<_CronsBody> {
       final cur = widget.controller.crons.firstWhere(
         (e) => e.id == id,
         orElse: () => const WebReverseCron(
-          id: '', name: '', code: '',
-          intervalSeconds: 0, enabled: false, updatedAt: null,
+          id: '',
+          name: '',
+          code: '',
+          intervalSeconds: 0,
+          enabled: false,
+          updatedAt: null,
         ),
       );
       final iv = int.tryParse(_intervalCtrl.text) ?? cur.intervalSeconds;
-      _dirty = cur.name != _nameCtrl.text ||
+      _dirty =
+          cur.name != _nameCtrl.text ||
           cur.code != _codeCtrl.text ||
           cur.intervalSeconds != iv;
     }
@@ -141,11 +146,13 @@ class _CronsBodyState extends State<_CronsBody> {
   Future<void> _doNew() async {
     final ts = DateTime.now();
     final isZh = widget.isZh;
-    final name = '${isZh ? "任务" : "cron"} '
+    final name =
+        '${isZh ? "任务" : "cron"} '
         '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
     final c = await widget.controller.addCron(
       name: name,
-      code: '// ${isZh ? "周期性 JS。例：刷新登录态、轮询接口、自动点续期" : "Periodic JS. Heartbeat / polling / auto-renew."}\n'
+      code:
+          '// ${isZh ? "周期性 JS。例：刷新登录态、轮询接口、自动点续期" : "Periodic JS. Heartbeat / polling / auto-renew."}\n'
           'console.log("tick", new Date().toISOString());\n',
       intervalSeconds: 60,
     );
@@ -181,10 +188,7 @@ class _CronsBodyState extends State<_CronsBody> {
     widget.onPersist();
     if (mounted) {
       setState(() => _dirty = false);
-      OpenHandSnackBar.showSuccess(
-        context,
-        widget.isZh ? '已保存' : 'Saved',
-      );
+      OpenHandSnackBar.showSuccess(context, widget.isZh ? '已保存' : 'Saved');
     }
   }
 
@@ -199,8 +203,10 @@ class _CronsBodyState extends State<_CronsBody> {
     try {
       final r = await widget.controller.runCronNow(id);
       if (!mounted) return;
-      setState(() => _lastResultPreview =
-          r ?? (widget.isZh ? '(无返回值)' : '(no result)'));
+      setState(
+        () =>
+            _lastResultPreview = r ?? (widget.isZh ? '(无返回值)' : '(no result)'),
+      );
     } finally {
       if (mounted) setState(() => _runningNow = false);
     }
@@ -222,17 +228,17 @@ class _CronsBodyState extends State<_CronsBody> {
         title: Text(isZh ? '删除任务？' : 'Delete cron?'),
         content: Text(isZh ? '将立即取消定时并不可撤销。' : 'Timer will be cancelled.'),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () async {
               await widget.controller.removeCron(id);
               widget.onPersist();
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
-            child: Text(isZh ? '删除' : 'Delete'),
+            label: isZh ? '删除' : 'Delete',
           ),
         ],
       ),
@@ -247,16 +253,16 @@ class _CronsBodyState extends State<_CronsBody> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?'),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '继续编辑' : 'Keep editing'),
+            label: isZh ? '继续编辑' : 'Keep editing',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () {
               Navigator.of(ctx).pop();
               onConfirm();
             },
-            child: Text(isZh ? '丢弃' : 'Discard'),
+            label: isZh ? '丢弃' : 'Discard',
           ),
         ],
       ),
@@ -281,8 +287,10 @@ class _CronsBodyState extends State<_CronsBody> {
     final isZh = widget.isZh;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.crons]
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0))
-          .compareTo(a.updatedAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+      );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       child: Row(
@@ -302,14 +310,18 @@ class _CronsBodyState extends State<_CronsBody> {
                     padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
                     child: Row(
                       children: [
-                        Icon(Icons.schedule_rounded,
-                            size: 16, color: cs.primary),
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 16,
+                          color: cs.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             isZh ? '定时任务' : 'Crons',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         IconButton(
@@ -331,8 +343,9 @@ class _CronsBodyState extends State<_CronsBody> {
                                     ? '暂无任务。\n点 + 新建第一个。'
                                     : 'No crons yet.\nTap + to create one.',
                                 textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           )
@@ -375,11 +388,10 @@ class _CronsBodyState extends State<_CronsBody> {
               child: _selectedId == null
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '从左侧选一个任务，或新建一个。'
-                            : 'Pick a cron or create one.',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        isZh ? '从左侧选一个任务，或新建一个。' : 'Pick a cron or create one.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : Column(
@@ -416,27 +428,35 @@ class _CronsBodyState extends State<_CronsBody> {
                               onPressed: _runningNow ? null : _runNow,
                               icon: _runningNow
                                   ? const SizedBox(
-                                      width: 14, height: 14,
+                                      width: 14,
+                                      height: 14,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Icon(
-                                      Icons.play_arrow_rounded, size: 18),
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                    ),
                               label: Text(isZh ? '立即跑' : 'Run now'),
                             ),
                             const SizedBox(width: 6),
                             FilledButton.tonalIcon(
                               onPressed: _dirty ? _save : null,
                               icon: const Icon(Icons.save_rounded, size: 18),
-                              label: Text(_dirty
-                                  ? (isZh ? '保存 (⌘S)' : 'Save (⌘S)')
-                                  : (isZh ? '已保存' : 'Saved')),
+                              label: Text(
+                                _dirty
+                                    ? (isZh ? '保存 (⌘S)' : 'Save (⌘S)')
+                                    : (isZh ? '已保存' : 'Saved'),
+                              ),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
                               tooltip: isZh ? '删除' : 'Delete',
-                              icon: Icon(Icons.delete_outline_rounded,
-                                  color: cs.error),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: cs.error,
+                              ),
                               onPressed: _delete,
                             ),
                           ],
@@ -445,14 +465,30 @@ class _CronsBodyState extends State<_CronsBody> {
                         Expanded(
                           child: CallbackShortcuts(
                             bindings: <ShortcutActivator, VoidCallback>{
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  meta: true): () { if (_dirty) _save(); },
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  control: true): () { if (_dirty) _save(); },
-                              const SingleActivator(LogicalKeyboardKey.keyR,
-                                  meta: true): () { if (!_runningNow) _runNow(); },
-                              const SingleActivator(LogicalKeyboardKey.keyR,
-                                  control: true): () { if (!_runningNow) _runNow(); },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                meta: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                control: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyR,
+                                meta: true,
+                              ): () {
+                                if (!_runningNow) _runNow();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyR,
+                                control: true,
+                              ): () {
+                                if (!_runningNow) _runNow();
+                              },
                             },
                             child: Container(
                               decoration: BoxDecoration(
@@ -461,7 +497,9 @@ class _CronsBodyState extends State<_CronsBody> {
                                 border: Border.all(color: cs.outlineVariant),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               child: TextField(
                                 controller: _codeCtrl,
                                 focusNode: _codeFocus,
@@ -469,7 +507,9 @@ class _CronsBodyState extends State<_CronsBody> {
                                 expands: true,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 13),
+                                  fontFamily: 'monospace',
+                                  fontSize: 13,
+                                ),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   isDense: true,
@@ -479,8 +519,9 @@ class _CronsBodyState extends State<_CronsBody> {
                           ),
                         ),
                         AnimatedSize(
-                          duration:
-                              reduceMotion ? Duration.zero : _kSwitchDuration,
+                          duration: reduceMotion
+                              ? Duration.zero
+                              : _kSwitchDuration,
                           curve: _kSwitchInCurve,
                           child: _lastResultPreview == null
                               ? const SizedBox.shrink()
@@ -493,26 +534,29 @@ class _CronsBodyState extends State<_CronsBody> {
                                       color: cs.primary.withValues(alpha: 0.06),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                          color: cs.primary
-                                              .withValues(alpha: 0.25)),
+                                        color: cs.primary.withValues(
+                                          alpha: 0.25,
+                                        ),
+                                      ),
                                     ),
                                     child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
                                         Icon(
-                                            Icons
-                                                .check_circle_outline_rounded,
-                                            size: 14,
-                                            color: cs.primary),
+                                          Icons.check_circle_outline_rounded,
+                                          size: 14,
+                                          color: cs.primary,
+                                        ),
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: SelectableText(
                                             _lastResultPreview!,
                                             maxLines: 6,
                                             style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 12),
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -569,8 +613,9 @@ class _CronTileState extends State<_CronTile> {
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration:
-              reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
@@ -582,7 +627,8 @@ class _CronTileState extends State<_CronTile> {
           child: Row(
             children: [
               Container(
-                width: 6, height: 6,
+                width: 6,
+                height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.cron.enabled
@@ -610,8 +656,9 @@ class _CronTileState extends State<_CronTile> {
                       'every ${widget.cron.intervalSeconds}s · ${widget.lastRunLabel}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),

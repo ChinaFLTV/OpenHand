@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import 'animated_dialog.dart';
+import 'openhand_dialog_action_button.dart';
 
 /// Listenable controller backing the export progress dialog. Holds the
 /// current progress payload, a cancellation token, and the latest result.
@@ -107,9 +108,9 @@ class ExportProgressDialog extends StatelessWidget {
             builder: (context, _) {
               final disabled =
                   controller.finished || controller.cancelToken.isCancelled;
-              return TextButton(
+              return OpenHandDialogActionButton.secondary(
                 onPressed: disabled ? null : controller.requestCancel,
-                child: Text(cancelLabel),
+                label: cancelLabel,
               );
             },
           ),

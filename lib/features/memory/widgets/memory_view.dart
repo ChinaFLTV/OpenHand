@@ -665,24 +665,16 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: Text(l10n.commonCancel),
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      label: l10n.commonCancel,
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        child: Text(l10n.commonSave),
-                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _isSaving ? null : _handleSave,
+                      label: l10n.commonSave,
                     ),
                   ],
                 ),

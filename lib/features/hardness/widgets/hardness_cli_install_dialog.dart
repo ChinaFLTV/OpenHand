@@ -597,12 +597,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       ),
       actions: [
         if (_running)
-          TextButton(
+          OpenHandDialogActionButton.destructive(
             onPressed: _cancel,
-            child: Text(
-              isZh ? '取消安装' : 'Cancel',
-              style: TextStyle(color: colorScheme.error),
-            ),
+            label: isZh ? '取消安装' : 'Cancel',
           )
         else ...[
           OpenHandDialogActionButton.secondary(

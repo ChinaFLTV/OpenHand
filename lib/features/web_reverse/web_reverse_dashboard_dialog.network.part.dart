@@ -20,19 +20,19 @@ enum _ResourceFilter {
   other;
 
   String label(bool isZh) => switch (this) {
-        _ResourceFilter.all => isZh ? '全部' : 'All',
-        _ResourceFilter.fetchXhr => 'Fetch/XHR',
-        _ResourceFilter.doc => isZh ? '文档' : 'Doc',
-        _ResourceFilter.css => 'CSS',
-        _ResourceFilter.js => 'JS',
-        _ResourceFilter.font => isZh ? '字体' : 'Font',
-        _ResourceFilter.img => isZh ? '图片' : 'Img',
-        _ResourceFilter.media => isZh ? '媒体' : 'Media',
-        _ResourceFilter.manifest => 'Manifest',
-        _ResourceFilter.ws => 'WS',
-        _ResourceFilter.wasm => 'Wasm',
-        _ResourceFilter.other => isZh ? '其他' : 'Other',
-      };
+    _ResourceFilter.all => isZh ? '全部' : 'All',
+    _ResourceFilter.fetchXhr => 'Fetch/XHR',
+    _ResourceFilter.doc => isZh ? '文档' : 'Doc',
+    _ResourceFilter.css => 'CSS',
+    _ResourceFilter.js => 'JS',
+    _ResourceFilter.font => isZh ? '字体' : 'Font',
+    _ResourceFilter.img => isZh ? '图片' : 'Img',
+    _ResourceFilter.media => isZh ? '媒体' : 'Media',
+    _ResourceFilter.manifest => 'Manifest',
+    _ResourceFilter.ws => 'WS',
+    _ResourceFilter.wasm => 'Wasm',
+    _ResourceFilter.other => isZh ? '其他' : 'Other',
+  };
 
   bool matches(CdpNetworkEntry e) {
     final t = e.resourceType.toLowerCase();
@@ -51,19 +51,19 @@ enum _ResourceFilter {
       _ResourceFilter.ws => t == 'websocket' || t == 'eventsource',
       _ResourceFilter.wasm => t == 'wasm' || m.contains('wasm'),
       _ResourceFilter.other => !(<String>[
-            'fetch',
-            'xhr',
-            'document',
-            'stylesheet',
-            'script',
-            'font',
-            'image',
-            'media',
-            'manifest',
-            'websocket',
-            'eventsource',
-            'wasm',
-          ]).contains(t),
+        'fetch',
+        'xhr',
+        'document',
+        'stylesheet',
+        'script',
+        'font',
+        'image',
+        'media',
+        'manifest',
+        'websocket',
+        'eventsource',
+        'wasm',
+      ]).contains(t),
     };
   }
 }
@@ -96,8 +96,7 @@ class _NetworkBody extends StatelessWidget {
           e.method.toLowerCase().contains(filterText);
     }
 
-    final filtered =
-        all.where(match).toList(growable: false);
+    final filtered = all.where(match).toList(growable: false);
     final selected = state._selectedRequest;
     final hasSelection =
         selected != null && _networkByIdContains(all, selected.requestId);
@@ -153,7 +152,8 @@ class _NetworkBody extends StatelessWidget {
                       listKey: state._networkListKey,
                       selectedId: selected.requestId,
                       onSelect: (e) => state.rebuildFromExternal(
-                          () => state._selectedRequest = e),
+                        () => state._selectedRequest = e,
+                      ),
                       onCopyUrl: (e) => _copyUrl(context, e, isZh),
                       controller: controller,
                       reduceMotion: reduceMotion,
@@ -165,7 +165,8 @@ class _NetworkBody extends StatelessWidget {
                       isZh: isZh,
                       reduceMotion: reduceMotion,
                       onClose: () => state.rebuildFromExternal(
-                          () => state._selectedRequest = null),
+                        () => state._selectedRequest = null,
+                      ),
                     ),
                   )
                 : _NetworkList(
@@ -174,7 +175,8 @@ class _NetworkBody extends StatelessWidget {
                     listKey: state._networkListKey,
                     selectedId: null,
                     onSelect: (e) => state.rebuildFromExternal(
-                        () => state._selectedRequest = e),
+                      () => state._selectedRequest = e,
+                    ),
                     onCopyUrl: (e) => _copyUrl(context, e, isZh),
                     controller: controller,
                     reduceMotion: reduceMotion,
@@ -265,9 +267,7 @@ class _FilterChipPill extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_kToolbarRadius),
         side: BorderSide(
-          color: active
-              ? cs.primary.withValues(alpha: 0.4)
-              : cs.outlineVariant,
+          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
         ),
       ),
       child: InkWell(
@@ -370,10 +370,7 @@ class _NetworkList extends StatelessWidget {
 /// 仅在第一次构建时做 fade+slide 入场，后续 rebuild 不再播。
 /// 用于列表项滚入视口时的丝滑感，不会因 list rebuild 抖动。
 class _AnimatedAppearOnce extends StatefulWidget {
-  const _AnimatedAppearOnce({
-    required this.child,
-    required this.duration,
-  });
+  const _AnimatedAppearOnce({required this.child, required this.duration});
 
   final Widget child;
   final Duration duration;
@@ -384,8 +381,10 @@ class _AnimatedAppearOnce extends StatefulWidget {
 
 class _AnimatedAppearOnceState extends State<_AnimatedAppearOnce>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _ac =
-      AnimationController(vsync: this, duration: widget.duration)..forward();
+  late final AnimationController _ac = AnimationController(
+    vsync: this,
+    duration: widget.duration,
+  )..forward();
 
   @override
   void dispose() {
@@ -445,17 +444,17 @@ class _NetworkRow extends StatelessWidget {
     final color = selected
         ? cs.primaryContainer
         : entry.isError
-            ? cs.errorContainer
-            : (entry.statusCode != null && entry.statusCode! >= 300
-                ? cs.tertiaryContainer
-                : cs.surfaceContainerHigh);
+        ? cs.errorContainer
+        : (entry.statusCode != null && entry.statusCode! >= 300
+              ? cs.tertiaryContainer
+              : cs.surfaceContainerHigh);
     final onColor = selected
         ? cs.onPrimaryContainer
         : entry.isError
-            ? cs.onErrorContainer
-            : (entry.statusCode != null && entry.statusCode! >= 300
-                ? cs.onTertiaryContainer
-                : cs.onSurface);
+        ? cs.onErrorContainer
+        : (entry.statusCode != null && entry.statusCode! >= 300
+              ? cs.onTertiaryContainer
+              : cs.onSurface);
     final fileName = _extractFileName(entry.url);
     final blocked = controller.blockedUrls.contains(entry.url);
     return Material(
@@ -529,11 +528,7 @@ class _NetworkRow extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 6),
                   child: Tooltip(
                     message: isZh ? '已屏蔽' : 'Blocked',
-                    child: Icon(
-                      Icons.block_rounded,
-                      size: 14,
-                      color: cs.error,
-                    ),
+                    child: Icon(Icons.block_rounded, size: 14, color: cs.error),
                   ),
                 ),
               if (entry.fromCache)
@@ -553,7 +548,8 @@ class _NetworkRow extends StatelessWidget {
   }
 
   Future<void> _showRowMenu(BuildContext context, Offset position) async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
     final blocked = controller.blockedUrls.contains(entry.url);
     final messenger = ScaffoldMessenger.of(context);
@@ -566,63 +562,77 @@ class _NetworkRow extends StatelessWidget {
       items: [
         PopupMenuItem(
           value: 'copy_url',
-          child: Row(children: [
-            const Icon(Icons.link_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(isZh ? '复制 URL' : 'Copy URL'),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.link_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制 URL' : 'Copy URL'),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: 'copy_curl',
-          child: Row(children: [
-            const Icon(Icons.terminal_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(isZh ? '复制为 cURL' : 'Copy as cURL'),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.terminal_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制为 cURL' : 'Copy as cURL'),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: 'copy_fetch',
-          child: Row(children: [
-            const Icon(Icons.code_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(isZh ? '复制为 fetch' : 'Copy as fetch'),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.code_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制为 fetch' : 'Copy as fetch'),
+            ],
+          ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'replay',
-          child: Row(children: [
-            const Icon(Icons.replay_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(isZh ? '重放此请求' : 'Replay XHR'),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.replay_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '重放此请求' : 'Replay XHR'),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: 'replayEdit',
-          child: Row(children: [
-            const Icon(Icons.edit_note_rounded, size: 16),
-            const SizedBox(width: 8),
-            Text(isZh ? '编辑后重放（改 URL / Header）' : 'Edit & replay'),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.edit_note_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '编辑后重放（改 URL / Header）' : 'Edit & replay'),
+            ],
+          ),
         ),
         const PopupMenuDivider(),
         if (blocked)
           PopupMenuItem(
             value: 'unblock',
-            child: Row(children: [
-              const Icon(Icons.lock_open_rounded, size: 16),
-              const SizedBox(width: 8),
-              Text(isZh ? '取消屏蔽该 URL' : 'Unblock URL'),
-            ]),
+            child: Row(
+              children: [
+                const Icon(Icons.lock_open_rounded, size: 16),
+                const SizedBox(width: 8),
+                Text(isZh ? '取消屏蔽该 URL' : 'Unblock URL'),
+              ],
+            ),
           )
         else
           PopupMenuItem(
             value: 'block',
-            child: Row(children: [
-              const Icon(Icons.block_rounded, size: 16),
-              const SizedBox(width: 8),
-              Text(isZh ? '屏蔽此 URL' : 'Block this URL'),
-            ]),
+            child: Row(
+              children: [
+                const Icon(Icons.block_rounded, size: 16),
+                const SizedBox(width: 8),
+                Text(isZh ? '屏蔽此 URL' : 'Block this URL'),
+              ],
+            ),
           ),
       ],
     );
@@ -688,10 +698,11 @@ class _NetworkRow extends StatelessWidget {
 
   Future<void> _replayWithOverridesAndShow(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final overrides = await showAnimatedDialog<({String url, Map<String, String> headers})>(
-      context: context,
-      builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
-    );
+    final overrides =
+        await showAnimatedDialog<({String url, Map<String, String> headers})>(
+          context: context,
+          builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
+        );
     if (overrides == null || !context.mounted) return;
     showAnimatedDialog<void>(
       context: context,
@@ -731,9 +742,7 @@ class _NetworkRow extends StatelessWidget {
           height: 360,
           child: SingleChildScrollView(
             child: SelectableText(
-              r.body.isEmpty
-                  ? (isZh ? '(响应体为空)' : '(empty body)')
-                  : r.body,
+              r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
@@ -784,9 +793,7 @@ class _NetworkRow extends StatelessWidget {
           height: 360,
           child: SingleChildScrollView(
             child: SelectableText(
-              r.body.isEmpty
-                  ? (isZh ? '(响应体为空)' : '(empty body)')
-                  : r.body,
+              r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
@@ -848,12 +855,14 @@ class _Waterfall extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final start = entry.timestamp.difference(earliest).inMilliseconds;
-    final mid = (entry.responseReceivedAt ?? entry.loadingFinishedAt ?? entry.timestamp)
-        .difference(earliest)
-        .inMilliseconds;
-    final end = (entry.loadingFinishedAt ?? entry.responseReceivedAt ?? entry.timestamp)
-        .difference(earliest)
-        .inMilliseconds;
+    final mid =
+        (entry.responseReceivedAt ?? entry.loadingFinishedAt ?? entry.timestamp)
+            .difference(earliest)
+            .inMilliseconds;
+    final end =
+        (entry.loadingFinishedAt ?? entry.responseReceivedAt ?? entry.timestamp)
+            .difference(earliest)
+            .inMilliseconds;
     return LayoutBuilder(
       builder: (context, c) {
         final w = c.maxWidth;
@@ -905,7 +914,6 @@ class _Waterfall extends StatelessWidget {
   }
 }
 
-
 /// 拦截模式横幅：列出待决策请求 + 全部放行/逐条 abort。
 /// 仅在 controller.isFetchInterceptEnabled 时显示。
 class _PendingFetchBanner extends StatelessWidget {
@@ -923,9 +931,7 @@ class _PendingFetchBanner extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: cs.tertiaryContainer.withValues(alpha: 0.55),
-        border: Border(
-          bottom: BorderSide(color: cs.outlineVariant),
-        ),
+        border: Border(bottom: BorderSide(color: cs.outlineVariant)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -996,34 +1002,33 @@ class _PendingFetchBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${p.method} ${p.url}',
-                    style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 12)),
+                Text(
+                  '${p.method} ${p.url}',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
-              child: Text(isZh ? '中止' : 'Abort'),
+              label: isZh ? '中止' : 'Abort',
             ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop('AccessDenied'),
-              child: const Text('AccessDenied'),
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop('AccessDenied'),
+              label: 'AccessDenied',
             ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop('TimedOut'),
-              child: const Text('TimedOut'),
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop('TimedOut'),
+              label: 'TimedOut',
             ),
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('edit'),
-              child: Text(isZh ? '修改放行' : 'Modify & continue'),
+              label: isZh ? '修改放行' : 'Modify & continue',
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop('continue'),
-              child: Text(isZh ? '继续' : 'Continue'),
+              label: isZh ? '继续' : 'Continue',
             ),
           ],
         ),
@@ -1087,8 +1092,9 @@ class _PendingFetchBanner extends StatelessWidget {
                   maxLines: 6,
                   minLines: 3,
                   decoration: InputDecoration(
-                    labelText:
-                        isZh ? 'Body（留空则保持原样）' : 'Body (empty = keep original)',
+                    labelText: isZh
+                        ? 'Body（留空则保持原样）'
+                        : 'Body (empty = keep original)',
                   ),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
@@ -1097,13 +1103,13 @@ class _PendingFetchBanner extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(isZh ? '放行' : 'Send'),
+            label: isZh ? '放行' : 'Send',
           ),
         ],
       ),
@@ -1116,8 +1122,7 @@ class _PendingFetchBanner extends StatelessWidget {
       for (final line in headersRaw.split('\n')) {
         final idx = line.indexOf(':');
         if (idx <= 0) continue;
-        headers[line.substring(0, idx).trim()] =
-            line.substring(idx + 1).trim();
+        headers[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
       }
     }
     final body = bodyCtrl.text;
@@ -1125,14 +1130,12 @@ class _PendingFetchBanner extends StatelessWidget {
     await controller.continueFetchRequestEdited(
       p.requestId,
       url: urlCtrl.text.trim().isEmpty ? null : urlCtrl.text.trim(),
-      method:
-          methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
+      method: methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
       headers: headers,
       postDataBase64: bodyB64,
     );
   }
 }
-
 
 /// 编辑后重放对话框：直接复刻 _InterceptRuleEditor 的字段设计（URL +
 /// header overrides），让用户先 rewrite 再 replay 一次单条请求；与拦截规则
@@ -1182,9 +1185,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
             children: [
               TextField(
                 controller: _urlCtrl,
-                decoration: InputDecoration(
-                  labelText: isZh ? '重放 URL' : 'URL',
-                ),
+                decoration: InputDecoration(labelText: isZh ? '重放 URL' : 'URL'),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -1202,11 +1203,11 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () {
             final headers = <String, String>{};
             for (final line in _headersCtrl.text.split('\n')) {
@@ -1214,14 +1215,15 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
               if (trimmed.isEmpty) continue;
               final idx = trimmed.indexOf(':');
               if (idx <= 0) continue;
-              headers[trimmed.substring(0, idx).trim()] =
-                  trimmed.substring(idx + 1).trim();
+              headers[trimmed.substring(0, idx).trim()] = trimmed
+                  .substring(idx + 1)
+                  .trim();
             }
-            Navigator.of(context).pop(
-              (url: _urlCtrl.text.trim(), headers: headers),
-            );
+            Navigator.of(
+              context,
+            ).pop((url: _urlCtrl.text.trim(), headers: headers));
           },
-          child: Text(isZh ? '重放' : 'Replay'),
+          label: isZh ? '重放' : 'Replay',
         ),
       ],
     );

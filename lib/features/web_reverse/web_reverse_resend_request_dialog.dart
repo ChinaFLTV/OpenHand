@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -44,7 +45,15 @@ class _ResendRequestDialog extends StatefulWidget {
 }
 
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
-  static const _kMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+  static const _kMethods = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'HEAD',
+    'OPTIONS',
+  ];
 
   late final TextEditingController _urlCtrl;
   late final TextEditingController _bodyCtrl;
@@ -60,18 +69,21 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   void initState() {
     super.initState();
     _urlCtrl = TextEditingController(text: widget.initial.url);
-    _bodyCtrl =
-        TextEditingController(text: widget.initial.requestPostData ?? '');
+    _bodyCtrl = TextEditingController(
+      text: widget.initial.requestPostData ?? '',
+    );
     _method = _kMethods.contains(widget.initial.method.toUpperCase())
         ? widget.initial.method.toUpperCase()
         : 'GET';
     widget.initial.requestHeaders.forEach((k, v) {
       if (k.startsWith(':')) return; // 跳过 HTTP/2 伪头
-      _headers.add(_HeaderRow(
-        name: TextEditingController(text: k),
-        value: TextEditingController(text: v),
-        enabled: true,
-      ));
+      _headers.add(
+        _HeaderRow(
+          name: TextEditingController(text: k),
+          value: TextEditingController(text: v),
+          enabled: true,
+        ),
+      );
     });
     if (_headers.isEmpty) _addBlankHeader();
   }
@@ -90,11 +102,13 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 
   void _addBlankHeader() {
     setState(() {
-      _headers.add(_HeaderRow(
-        name: TextEditingController(),
-        value: TextEditingController(),
-        enabled: true,
-      ));
+      _headers.add(
+        _HeaderRow(
+          name: TextEditingController(),
+          value: TextEditingController(),
+          enabled: true,
+        ),
+      );
     });
   }
 
@@ -240,12 +254,13 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (!h.enabled) continue;
       final n = h.name.text.trim();
       if (n.isEmpty) continue;
-      hbuf.writeln(
-          '    ${jsonEncode(n)}: ${jsonEncode(h.value.text)},');
+      hbuf.writeln('    ${jsonEncode(n)}: ${jsonEncode(h.value.text)},');
     }
     hbuf.write('}');
     final body = _bodyCtrl.text;
-    final dataLine = body.isEmpty ? '' : '    data=${jsonEncode(body)}.encode("utf-8"),\n';
+    final dataLine = body.isEmpty
+        ? ''
+        : '    data=${jsonEncode(body)}.encode("utf-8"),\n';
     return '''import requests
 
 resp = requests.request(
@@ -336,27 +351,28 @@ print(resp.text[:2000])''';
               child: Row(
                 children: [
                   Text(
-                    loc?.webReverseResendRequestFooterNote
-                        ?? 'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    loc?.webReverseResendRequestFooterNote ??
+                        'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                   const Spacer(),
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(loc?.webReverseResendRequestClose ?? 'Close'),
+                    label: loc?.webReverseResendRequestClose ?? 'Close',
                   ),
                   const SizedBox(width: 8),
                   _sending
-                      ? FilledButton.tonalIcon(
+                      ? OpenHandDialogActionButton.destructive(
                           onPressed: _abort,
-                          icon: const Icon(Icons.stop_rounded, size: 16),
-                          label: Text(loc?.webReverseResendRequestAbort ?? 'Abort'),
+                          icon: Icons.stop_rounded,
+                          label: loc?.webReverseResendRequestAbort ?? 'Abort',
                         )
-                      : FilledButton.icon(
+                      : OpenHandDialogActionButton.primary(
                           onPressed: _send,
-                          icon: const Icon(Icons.send_rounded, size: 16),
-                          label: Text(loc?.webReverseResendRequestSend ?? 'Send'),
+                          icon: Icons.send_rounded,
+                          label: loc?.webReverseResendRequestSend ?? 'Send',
                         ),
                 ],
               ),
@@ -376,8 +392,9 @@ print(resp.text[:2000])''';
           const SizedBox(width: 10),
           Text(
             loc?.webReverseResendRequestTitle ?? 'Resend / Edit',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const Spacer(),
           IconButton(
@@ -400,8 +417,10 @@ print(resp.text[:2000])''';
             initialValue: _method,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
             ),
             items: [
               for (final m in _kMethods)
@@ -429,7 +448,11 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildHeadersBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildHeadersBlock(
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
@@ -446,8 +469,9 @@ print(resp.text[:2000])''';
               const SizedBox(width: 6),
               Text(
                 loc?.webReverseResendRequestHeadersLabel ?? 'Headers',
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               TextButton.icon(
@@ -465,10 +489,9 @@ print(resp.text[:2000])''';
                 children: [
                   Checkbox(
                     value: _headers[i].enabled,
-                    onChanged: (v) => setState(
-                        () => _headers[i].enabled = v ?? true),
-                    materialTapTargetSize:
-                        MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (v) =>
+                        setState(() => _headers[i].enabled = v ?? true),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                   ),
                   Expanded(
@@ -481,7 +504,9 @@ print(resp.text[:2000])''';
                         hintText: 'name',
                       ),
                       style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 12),
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -495,12 +520,17 @@ print(resp.text[:2000])''';
                         hintText: 'value',
                       ),
                       style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 12),
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        size: 16, color: cs.onSurfaceVariant),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant,
+                    ),
                     onPressed: () => _removeHeader(i),
                     tooltip: loc?.webReverseResendRequestRemove ?? 'Remove',
                   ),
@@ -512,7 +542,11 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildBodyBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildBodyBlock(
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     final canBody = _method != 'GET' && _method != 'HEAD';
     return Container(
       decoration: BoxDecoration(
@@ -530,32 +564,39 @@ print(resp.text[:2000])''';
               const SizedBox(width: 6),
               Text(
                 loc?.webReverseResendRequestBodyLabel ?? 'Body',
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               if (!canBody)
                 Text(
-                  loc?.webReverseResendRequestHasNoBody(_method)
-                      ?? '$_method has no body',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  loc?.webReverseResendRequestHasNoBody(_method) ??
+                      '$_method has no body',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               if (canBody && _bodyCtrl.text.isNotEmpty)
                 TextButton.icon(
                   icon: const Icon(Icons.auto_fix_high_rounded, size: 14),
-                  label: Text(loc?.webReverseResendRequestBeautifyJson ?? 'Beautify JSON'),
+                  label: Text(
+                    loc?.webReverseResendRequestBeautifyJson ?? 'Beautify JSON',
+                  ),
                   onPressed: () {
                     final loc2 = AppLocalizations.of(context);
                     try {
                       final v = jsonDecode(_bodyCtrl.text);
-                      _bodyCtrl.text =
-                          const JsonEncoder.withIndent('  ').convert(v);
+                      _bodyCtrl.text = const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(v);
                       setState(() {});
                     } catch (_) {
-                      OpenHandSnackBar.showError(context,
-                          loc2?.webReverseResendRequestInvalidJson
-                              ?? 'Body is not valid JSON');
+                      OpenHandSnackBar.showError(
+                        context,
+                        loc2?.webReverseResendRequestInvalidJson ??
+                            'Body is not valid JSON',
+                      );
                     }
                   },
                 ),
@@ -579,7 +620,11 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildExportBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildExportBlock(
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     Widget chip(IconData icon, String label, VoidCallback onTap) {
       return OutlinedButton.icon(
         onPressed: onTap,
@@ -600,21 +645,35 @@ print(resp.text[:2000])''';
           padding: const EdgeInsets.only(right: 4),
           child: Text(
             loc?.webReverseResendRequestExportAs ?? 'Export as:',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
-        chip(Icons.terminal_rounded, 'curl',
-            () => _copy(_exportCurl(), 'curl')),
-        chip(Icons.code_rounded, 'Python requests',
-            () => _copy(_exportPython(), 'Python')),
-        chip(Icons.javascript_rounded, 'fetch',
-            () => _copy(_exportFetch(), 'fetch')),
+        chip(
+          Icons.terminal_rounded,
+          'curl',
+          () => _copy(_exportCurl(), 'curl'),
+        ),
+        chip(
+          Icons.code_rounded,
+          'Python requests',
+          () => _copy(_exportPython(), 'Python'),
+        ),
+        chip(
+          Icons.javascript_rounded,
+          'fetch',
+          () => _copy(_exportFetch(), 'fetch'),
+        ),
       ],
     );
   }
 
-  Widget _buildResultBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildResultBlock(
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     if (_lastError != null) {
       return Container(
         key: const ValueKey('err'),
@@ -660,32 +719,35 @@ print(resp.text[:2000])''';
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   '${r.status} ${r.reason}',
-                  style: TextStyle(
-                      color: color, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
                 ),
               ),
               const SizedBox(width: 8),
-              Text('${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
+              Text(
+                '${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               const Spacer(),
               IconButton(
-                tooltip: loc?.webReverseResendRequestCopyResponse ?? 'Copy response',
+                tooltip:
+                    loc?.webReverseResendRequestCopyResponse ?? 'Copy response',
                 icon: const Icon(Icons.content_copy_rounded, size: 14),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: r.body));
                   final loc2 = AppLocalizations.of(context);
                   OpenHandSnackBar.showSuccess(
                     context,
-                    loc2?.webReverseResendRequestResponseCopied ?? 'Response copied',
+                    loc2?.webReverseResendRequestResponseCopied ??
+                        'Response copied',
                     duration: const Duration(seconds: 1),
                   );
                 },
@@ -697,19 +759,23 @@ print(resp.text[:2000])''';
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
             title: Text(
-              loc?.webReverseResendRequestHeadersWithCount(r.headers.length)
-                  ?? 'Headers (${r.headers.length})',
+              loc?.webReverseResendRequestHeadersWithCount(r.headers.length) ??
+                  'Headers (${r.headers.length})',
               style: theme.textTheme.bodySmall,
             ),
             children: [
               for (final e in r.headers.entries)
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 2,
+                    horizontal: 6,
+                  ),
                   child: SelectableText(
                     '${e.key}: ${e.value}',
                     style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11),
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
                   ),
                 ),
             ],
@@ -717,11 +783,12 @@ print(resp.text[:2000])''';
           const Divider(height: 12),
           Text(
             r.bodyIsBase64
-                ? (loc?.webReverseResendRequestBase64Hint
-                    ?? 'Non-UTF8 response (base64 preview):')
+                ? (loc?.webReverseResendRequestBase64Hint ??
+                      'Non-UTF8 response (base64 preview):')
                 : (loc?.webReverseResendRequestBodyHint ?? 'Body:'),
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 4),
           Container(
@@ -737,8 +804,7 @@ print(resp.text[:2000])''';
                 r.body.length > 8000
                     ? '${r.body.substring(0, 8000)}\n…(truncated)'
                     : r.body,
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 11),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
               ),
             ),
           ),

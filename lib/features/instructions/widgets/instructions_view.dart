@@ -954,38 +954,18 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
-                    SizedBox(
-                      width: 88,
-                      height: 56,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          minimumSize: const Size(88, 56),
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: _saving
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: Text(l10n.commonCancel),
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      label: l10n.commonCancel,
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(
-                      width: 88,
-                      height: 56,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          minimumSize: const Size(88, 56),
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: _saving ? null : _save,
-                        child: Text(
-                          isEdit
-                              ? l10n.commonSave
-                              : l10n.instructionCreateAction,
-                        ),
-                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _saving ? null : _save,
+                      label: isEdit
+                          ? l10n.commonSave
+                          : l10n.instructionCreateAction,
                     ),
                   ],
                 ),
