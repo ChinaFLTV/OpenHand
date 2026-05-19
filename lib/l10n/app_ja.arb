@@ -5218,5 +5218,68 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWebauthnTitle": "WebAuthn 仮想認証器",
+  "@webReverseWebauthnTitle": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnDisabledBody": "右上のスイッチで WebAuthn 仮想ドメインを有効化すると、ハードウェアキー無しで navigator.credentials.create/get を完了できます。",
+  "@webReverseWebauthnDisabledBody": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdd": "仮想認証器を追加",
+  "@webReverseWebauthnAdd": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAddBtn": "追加",
+  "@webReverseWebauthnAddBtn": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnNone": "仮想認証器なし",
+  "@webReverseWebauthnNone": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnClose": "閉じる",
+  "@webReverseWebauthnClose": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRefreshCreds": "認証情報を更新",
+  "@webReverseWebauthnRefreshCreds": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRemove": "削除",
+  "@webReverseWebauthnRemove": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnUserVerified": "ユーザー検証済み",
+  "@webReverseWebauthnUserVerified": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdded": "authenticator {id} を追加",
+  "@webReverseWebauthnAdded": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWebauthnCreatedCount": "作成済み ({count})",
+  "@webReverseWebauthnCreatedCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWebauthnCredentialsCount": "認証情報 ({count})",
+  "@webReverseWebauthnCredentialsCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

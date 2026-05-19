@@ -7257,4 +7257,47 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseJwtFoundCount(int count) {
     return '発見した JWT ($count)';
   }
+
+  @override
+  String get webReverseWebauthnTitle => 'WebAuthn 仮想認証器';
+
+  @override
+  String get webReverseWebauthnDisabledBody =>
+      '右上のスイッチで WebAuthn 仮想ドメインを有効化すると、ハードウェアキー無しで navigator.credentials.create/get を完了できます。';
+
+  @override
+  String get webReverseWebauthnAdd => '仮想認証器を追加';
+
+  @override
+  String get webReverseWebauthnAddBtn => '追加';
+
+  @override
+  String get webReverseWebauthnNone => '仮想認証器なし';
+
+  @override
+  String get webReverseWebauthnClose => '閉じる';
+
+  @override
+  String get webReverseWebauthnRefreshCreds => '認証情報を更新';
+
+  @override
+  String get webReverseWebauthnRemove => '削除';
+
+  @override
+  String get webReverseWebauthnUserVerified => 'ユーザー検証済み';
+
+  @override
+  String webReverseWebauthnAdded(String id) {
+    return 'authenticator $id を追加';
+  }
+
+  @override
+  String webReverseWebauthnCreatedCount(int count) {
+    return '作成済み ($count)';
+  }
+
+  @override
+  String webReverseWebauthnCredentialsCount(int count) {
+    return '認証情報 ($count)';
+  }
 }

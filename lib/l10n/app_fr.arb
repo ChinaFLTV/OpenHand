@@ -5218,5 +5218,68 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWebauthnTitle": "Authenticator virtuel WebAuthn",
+  "@webReverseWebauthnTitle": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnDisabledBody": "Activez WebAuthn via le commutateur en haut à droite pour créer des authenticators virtuels ; navigator.credentials.create/get fonctionnera sans clé matérielle.",
+  "@webReverseWebauthnDisabledBody": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdd": "Ajouter un authenticator virtuel",
+  "@webReverseWebauthnAdd": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAddBtn": "Ajouter",
+  "@webReverseWebauthnAddBtn": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnNone": "Aucun authenticator pour l'instant",
+  "@webReverseWebauthnNone": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnClose": "Fermer",
+  "@webReverseWebauthnClose": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRefreshCreds": "Rafraîchir les credentials",
+  "@webReverseWebauthnRefreshCreds": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRemove": "Supprimer",
+  "@webReverseWebauthnRemove": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnUserVerified": "Utilisateur vérifié",
+  "@webReverseWebauthnUserVerified": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdded": "Authenticator {id} ajouté",
+  "@webReverseWebauthnAdded": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWebauthnCreatedCount": "Créés ({count})",
+  "@webReverseWebauthnCreatedCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWebauthnCredentialsCount": "Credentials ({count})",
+  "@webReverseWebauthnCredentialsCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

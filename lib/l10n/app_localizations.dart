@@ -13222,6 +13222,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已发现 JWT ({count})'**
   String webReverseJwtFoundCount(int count);
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebAuthn 虚拟认证器'**
+  String get webReverseWebauthnTitle;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。'**
+  String get webReverseWebauthnDisabledBody;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增虚拟认证器'**
+  String get webReverseWebauthnAdd;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加'**
+  String get webReverseWebauthnAddBtn;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无虚拟认证器'**
+  String get webReverseWebauthnNone;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseWebauthnClose;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新凭据列表'**
+  String get webReverseWebauthnRefreshCreds;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'移除'**
+  String get webReverseWebauthnRemove;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户已验证 (isUserVerified)'**
+  String get webReverseWebauthnUserVerified;
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已添加 authenticator {id}'**
+  String webReverseWebauthnAdded(String id);
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已创建 ({count})'**
+  String webReverseWebauthnCreatedCount(int count);
+
+  /// web_reverse: WebAuthn virtual authenticator dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'凭据 ({count})'**
+  String webReverseWebauthnCredentialsCount(int count);
 }
 
 class _AppLocalizationsDelegate

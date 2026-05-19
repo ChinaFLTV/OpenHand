@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -55,6 +56,7 @@ Future<void> showWebReverseWebAuthnDialog(
 class _WebAuthnDialog extends StatefulWidget {
   const _WebAuthnDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_WebAuthnDialog> createState() => _WebAuthnDialogState();
@@ -147,7 +149,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
             OpenHandSnackBar.showSuccessOn(
               context,
               messenger,
-              widget.isZh ? '已添加 authenticator $id' : 'Added $id',
+              AppLocalizations.of(context)?.webReverseWebauthnAdded(id) ??
+                  'Added $id',
             );
           }
         }
@@ -210,7 +213,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
 
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -231,7 +234,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'WebAuthn 虚拟认证器' : 'WebAuthn Virtual Authenticator',
+                          loc?.webReverseWebauthnTitle ??
+                              'WebAuthn Virtual Authenticator',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -261,9 +265,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          isZh
-                              ? '点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。'
-                              : 'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.',
+                          loc?.webReverseWebauthnDisabledBody ??
+                              'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium
                               ?.copyWith(color: cs.onSurfaceVariant),
@@ -276,7 +279,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isZh ? '新增虚拟认证器' : 'Add Virtual Authenticator',
+                            loc?.webReverseWebauthnAdd ??
+                                'Add Virtual Authenticator',
                             style: theme.textTheme.labelLarge
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
@@ -329,7 +333,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                               FilledButton.tonalIcon(
                                 onPressed: _busy ? null : _addAuthenticator,
                                 icon: const Icon(Icons.add_rounded),
-                                label: Text(isZh ? '添加' : 'Add'),
+                                label: Text(loc?.webReverseWebauthnAddBtn ?? 'Add'),
                               ),
                             ],
                           ),
@@ -355,21 +359,22 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                           Divider(color: cs.outlineVariant),
                           const SizedBox(height: 8),
                           Text(
-                            isZh ? '已创建 (${_auths.length})' : 'Authenticators (${_auths.length})',
+                            loc?.webReverseWebauthnCreatedCount(_auths.length) ??
+                                'Authenticators (${_auths.length})',
                             style: theme.textTheme.labelLarge
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
                           if (_auths.isEmpty)
                             Text(
-                              isZh ? '尚无虚拟认证器' : 'No authenticators yet',
+                              loc?.webReverseWebauthnNone ??
+                                  'No authenticators yet',
                               style: theme.textTheme.bodySmall
                                   ?.copyWith(color: cs.onSurfaceVariant),
                             ),
                           for (final a in _auths) _AuthCard(
                             auth: a,
                             busy: _busy,
-                            isZh: isZh,
                             onRemove: () => _removeAuthenticator(a),
                             onRefresh: () => _refreshCredentials(a),
                             onToggleVerified: (v) => _toggleUserVerified(a, v),
@@ -385,7 +390,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseWebauthnClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -419,14 +424,12 @@ class _AuthCard extends StatelessWidget {
   const _AuthCard({
     required this.auth,
     required this.busy,
-    required this.isZh,
     required this.onRemove,
     required this.onRefresh,
     required this.onToggleVerified,
   });
   final _VirtualAuth auth;
   final bool busy;
-  final bool isZh;
   final VoidCallback onRemove;
   final VoidCallback onRefresh;
   final ValueChanged<bool> onToggleVerified;
@@ -435,6 +438,7 @@ class _AuthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final loc = AppLocalizations.of(context);
     return Card(
       color: cs.surfaceContainerHigh,
       margin: const EdgeInsets.only(bottom: 10),
@@ -455,14 +459,15 @@ class _AuthCard extends StatelessWidget {
                   ),
                 ),
                 Tooltip(
-                  message: isZh ? '刷新凭据列表' : 'Refresh credentials',
+                  message: loc?.webReverseWebauthnRefreshCreds ??
+                      'Refresh credentials',
                   child: IconButton(
                     onPressed: busy ? null : onRefresh,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                   ),
                 ),
                 Tooltip(
-                  message: isZh ? '移除' : 'Remove',
+                  message: loc?.webReverseWebauthnRemove ?? 'Remove',
                   child: IconButton(
                     onPressed: busy ? null : onRemove,
                     icon: Icon(Icons.delete_outline_rounded,
@@ -490,7 +495,7 @@ class _AuthCard extends StatelessWidget {
                   onChanged: busy ? null : onToggleVerified,
                 ),
                 Text(
-                  isZh ? '用户已验证 (isUserVerified)' : 'User verified',
+                  loc?.webReverseWebauthnUserVerified ?? 'User verified',
                   style: theme.textTheme.labelMedium,
                 ),
               ],
@@ -498,9 +503,8 @@ class _AuthCard extends StatelessWidget {
             if (auth.credentials.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                isZh
-                    ? '凭据 (${auth.credentials.length})'
-                    : 'Credentials (${auth.credentials.length})',
+                loc?.webReverseWebauthnCredentialsCount(auth.credentials.length) ??
+                    'Credentials (${auth.credentials.length})',
                 style: theme.textTheme.labelMedium
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),

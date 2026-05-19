@@ -7161,6 +7161,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseJwtFoundCount(int count) {
     return '已发现 JWT ($count)';
   }
+
+  @override
+  String get webReverseWebauthnTitle => 'WebAuthn 虚拟认证器';
+
+  @override
+  String get webReverseWebauthnDisabledBody =>
+      '点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。';
+
+  @override
+  String get webReverseWebauthnAdd => '新增虚拟认证器';
+
+  @override
+  String get webReverseWebauthnAddBtn => '添加';
+
+  @override
+  String get webReverseWebauthnNone => '尚无虚拟认证器';
+
+  @override
+  String get webReverseWebauthnClose => '关闭';
+
+  @override
+  String get webReverseWebauthnRefreshCreds => '刷新凭据列表';
+
+  @override
+  String get webReverseWebauthnRemove => '移除';
+
+  @override
+  String get webReverseWebauthnUserVerified => '用户已验证 (isUserVerified)';
+
+  @override
+  String webReverseWebauthnAdded(String id) {
+    return '已添加 authenticator $id';
+  }
+
+  @override
+  String webReverseWebauthnCreatedCount(int count) {
+    return '已创建 ($count)';
+  }
+
+  @override
+  String webReverseWebauthnCredentialsCount(int count) {
+    return '凭据 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14320,6 +14363,49 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseJwtFoundCount(int count) {
     return '已发现 JWT ($count)';
   }
+
+  @override
+  String get webReverseWebauthnTitle => 'WebAuthn 虚拟认证器';
+
+  @override
+  String get webReverseWebauthnDisabledBody =>
+      '点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。';
+
+  @override
+  String get webReverseWebauthnAdd => '新增虚拟认证器';
+
+  @override
+  String get webReverseWebauthnAddBtn => '添加';
+
+  @override
+  String get webReverseWebauthnNone => '尚无虚拟认证器';
+
+  @override
+  String get webReverseWebauthnClose => '关闭';
+
+  @override
+  String get webReverseWebauthnRefreshCreds => '刷新凭据列表';
+
+  @override
+  String get webReverseWebauthnRemove => '移除';
+
+  @override
+  String get webReverseWebauthnUserVerified => '用户已验证 (isUserVerified)';
+
+  @override
+  String webReverseWebauthnAdded(String id) {
+    return '已添加 authenticator $id';
+  }
+
+  @override
+  String webReverseWebauthnCreatedCount(int count) {
+    return '已创建 ($count)';
+  }
+
+  @override
+  String webReverseWebauthnCredentialsCount(int count) {
+    return '凭据 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21477,5 +21563,48 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseJwtFoundCount(int count) {
     return '已发现 JWT ($count)';
+  }
+
+  @override
+  String get webReverseWebauthnTitle => 'WebAuthn 虚拟认证器';
+
+  @override
+  String get webReverseWebauthnDisabledBody =>
+      '点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。';
+
+  @override
+  String get webReverseWebauthnAdd => '新增虚拟认证器';
+
+  @override
+  String get webReverseWebauthnAddBtn => '添加';
+
+  @override
+  String get webReverseWebauthnNone => '尚无虚拟认证器';
+
+  @override
+  String get webReverseWebauthnClose => '关闭';
+
+  @override
+  String get webReverseWebauthnRefreshCreds => '刷新凭据列表';
+
+  @override
+  String get webReverseWebauthnRemove => '移除';
+
+  @override
+  String get webReverseWebauthnUserVerified => '用户已验证 (isUserVerified)';
+
+  @override
+  String webReverseWebauthnAdded(String id) {
+    return '已添加 authenticator $id';
+  }
+
+  @override
+  String webReverseWebauthnCreatedCount(int count) {
+    return '已创建 ($count)';
+  }
+
+  @override
+  String webReverseWebauthnCredentialsCount(int count) {
+    return '凭据 ($count)';
   }
 }

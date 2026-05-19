@@ -7455,4 +7455,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseJwtFoundCount(int count) {
     return 'JWTs ($count)';
   }
+
+  @override
+  String get webReverseWebauthnTitle => 'WebAuthn Virtual Authenticator';
+
+  @override
+  String get webReverseWebauthnDisabledBody =>
+      'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.';
+
+  @override
+  String get webReverseWebauthnAdd => 'Add Virtual Authenticator';
+
+  @override
+  String get webReverseWebauthnAddBtn => 'Add';
+
+  @override
+  String get webReverseWebauthnNone => 'No authenticators yet';
+
+  @override
+  String get webReverseWebauthnClose => 'Close';
+
+  @override
+  String get webReverseWebauthnRefreshCreds => 'Refresh credentials';
+
+  @override
+  String get webReverseWebauthnRemove => 'Remove';
+
+  @override
+  String get webReverseWebauthnUserVerified => 'User verified';
+
+  @override
+  String webReverseWebauthnAdded(String id) {
+    return 'Added $id';
+  }
+
+  @override
+  String webReverseWebauthnCreatedCount(int count) {
+    return 'Authenticators ($count)';
+  }
+
+  @override
+  String webReverseWebauthnCredentialsCount(int count) {
+    return 'Credentials ($count)';
+  }
 }

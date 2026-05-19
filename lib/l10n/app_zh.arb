@@ -5218,5 +5218,68 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWebauthnTitle": "WebAuthn 虚拟认证器",
+  "@webReverseWebauthnTitle": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnDisabledBody": "点击右上方开关启用 WebAuthn 虚拟域，然后即可创建虚拟认证器，让站点的 navigator.credentials.create / get 在无硬件密钥时也能完成。",
+  "@webReverseWebauthnDisabledBody": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdd": "新增虚拟认证器",
+  "@webReverseWebauthnAdd": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAddBtn": "添加",
+  "@webReverseWebauthnAddBtn": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnNone": "尚无虚拟认证器",
+  "@webReverseWebauthnNone": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnClose": "关闭",
+  "@webReverseWebauthnClose": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRefreshCreds": "刷新凭据列表",
+  "@webReverseWebauthnRefreshCreds": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnRemove": "移除",
+  "@webReverseWebauthnRemove": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnUserVerified": "用户已验证 (isUserVerified)",
+  "@webReverseWebauthnUserVerified": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog"
+  },
+  "webReverseWebauthnAdded": "已添加 authenticator {id}",
+  "@webReverseWebauthnAdded": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseWebauthnCreatedCount": "已创建 ({count})",
+  "@webReverseWebauthnCreatedCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWebauthnCredentialsCount": "凭据 ({count})",
+  "@webReverseWebauthnCredentialsCount": {
+    "description": "web_reverse: WebAuthn virtual authenticator dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
