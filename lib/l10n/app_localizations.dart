@@ -12131,6 +12131,108 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'失败：{reason}'**
   String webReverseWsInjectFailedReason(String reason);
+
+  /// No description provided for @webReversePmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'postMessage 追踪'**
+  String get webReversePmTitle;
+
+  /// No description provided for @webReversePmSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信'**
+  String get webReversePmSubtitle;
+
+  /// No description provided for @webReversePmHookInjected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已注入 postMessage hook'**
+  String get webReversePmHookInjected;
+
+  /// No description provided for @webReversePmHookStopped.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停止采集（页面 reload 后彻底解除 hook）'**
+  String get webReversePmHookStopped;
+
+  /// No description provided for @webReversePmStop.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReversePmStop;
+
+  /// No description provided for @webReversePmInject.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始注入'**
+  String get webReversePmInject;
+
+  /// No description provided for @webReversePmClear.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReversePmClear;
+
+  /// No description provided for @webReversePmCopyJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReversePmCopyJson;
+
+  /// No description provided for @webReversePmFilterHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'origin/target/data 子串过滤'**
+  String get webReversePmFilterHint;
+
+  /// No description provided for @webReversePmChipSend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送'**
+  String get webReversePmChipSend;
+
+  /// No description provided for @webReversePmChipRecv.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'接收'**
+  String get webReversePmChipRecv;
+
+  /// No description provided for @webReversePmWaiting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待 postMessage…'**
+  String get webReversePmWaiting;
+
+  /// No description provided for @webReversePmClickToCapture.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击「开始注入」后页面会开始上报'**
+  String get webReversePmClickToCapture;
+
+  /// No description provided for @webReversePmTagSend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送'**
+  String get webReversePmTagSend;
+
+  /// No description provided for @webReversePmTagRecv.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'接收'**
+  String get webReversePmTagRecv;
+
+  /// No description provided for @webReversePmClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReversePmClose;
+
+  /// No description provided for @webReversePmCopiedCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {count} 条'**
+  String webReversePmCopiedCount(int count);
 }
 
 class _AppLocalizationsDelegate

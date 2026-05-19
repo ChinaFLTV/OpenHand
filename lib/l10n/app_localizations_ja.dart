@@ -6653,4 +6653,58 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseWsInjectFailedReason(String reason) {
     return '失敗：$reason';
   }
+
+  @override
+  String get webReversePmTitle => 'postMessage 追跡';
+
+  @override
+  String get webReversePmSubtitle =>
+      'hook 注入 → リングバッファ → 800ms ごとに取得（iframe 越境含む）';
+
+  @override
+  String get webReversePmHookInjected => 'postMessage hook を注入';
+
+  @override
+  String get webReversePmHookStopped => '停止しました（リロード後に hook 完全解除）';
+
+  @override
+  String get webReversePmStop => '停止';
+
+  @override
+  String get webReversePmInject => '注入開始';
+
+  @override
+  String get webReversePmClear => 'クリア';
+
+  @override
+  String get webReversePmCopyJson => 'JSON コピー';
+
+  @override
+  String get webReversePmFilterHint => 'origin/target/data の部分一致';
+
+  @override
+  String get webReversePmChipSend => '送信';
+
+  @override
+  String get webReversePmChipRecv => '受信';
+
+  @override
+  String get webReversePmWaiting => 'postMessage を待機中…';
+
+  @override
+  String get webReversePmClickToCapture => '「注入開始」をクリックすると報告が始まります';
+
+  @override
+  String get webReversePmTagSend => '送信';
+
+  @override
+  String get webReversePmTagRecv => '受信';
+
+  @override
+  String get webReversePmClose => '閉じる';
+
+  @override
+  String webReversePmCopiedCount(int count) {
+    return '$count 件コピー';
+  }
 }

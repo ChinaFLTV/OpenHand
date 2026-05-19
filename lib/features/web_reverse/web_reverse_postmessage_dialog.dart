@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -128,6 +129,7 @@ Future<void> showWebReversePostMessageDialog(
 class _PmDialog extends StatefulWidget {
   const _PmDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_PmDialog> createState() => _PmDialogState();
@@ -182,7 +184,7 @@ class _PmDialogState extends State<_PmDialog> {
         if (mounted) {
           setState(() {
             _hooked = true;
-            _status = widget.isZh ? '已注入 postMessage hook' : 'Hook injected';
+            _status = AppLocalizations.of(context)?.webReversePmHookInjected ?? 'Hook injected';
           });
         }
       } else {
@@ -200,7 +202,7 @@ class _PmDialogState extends State<_PmDialog> {
         if (mounted) {
           setState(() {
             _hooked = false;
-            _status = widget.isZh ? '已停止采集（页面 reload 后彻底解除 hook）' : 'Stopped (full unhook after reload)';
+            _status = AppLocalizations.of(context)?.webReversePmHookStopped ?? 'Stopped (full unhook after reload)';
           });
         }
       }
@@ -276,7 +278,7 @@ class _PmDialogState extends State<_PmDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        widget.isZh ? '已复制 ${filtered.length} 条' : 'Copied ${filtered.length} records',
+        AppLocalizations.of(context)?.webReversePmCopiedCount(filtered.length) ?? 'Copied ${filtered.length} records',
       );
     }
   }
@@ -298,7 +300,7 @@ class _PmDialogState extends State<_PmDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final filtered = _filtered();
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -319,13 +321,12 @@ class _PmDialogState extends State<_PmDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'postMessage 追踪' : 'postMessage Trace',
+                          loc?.webReversePmTitle ?? 'postMessage Trace',
                           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信'
-                              : 'Inject hook → ring buffer → drain every 800ms (incl. iframe)',
+                          loc?.webReversePmSubtitle ??
+                              'Inject hook → ring buffer → drain every 800ms (incl. iframe)',
                           style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       ],
@@ -347,20 +348,20 @@ class _PmDialogState extends State<_PmDialog> {
                     onPressed: _busy ? null : _toggleHook,
                     icon: Icon(_hooked ? Icons.stop_rounded : Icons.play_arrow_rounded),
                     label: Text(_hooked
-                        ? (isZh ? '停止' : 'Stop')
-                        : (isZh ? '开始注入' : 'Inject')),
+                        ? (loc?.webReversePmStop ?? 'Stop')
+                        : (loc?.webReversePmInject ?? 'Inject')),
                   ),
                   const SizedBox(width: 10),
                   FilledButton.tonalIcon(
                     onPressed: _records.isEmpty ? null : _clear,
                     icon: const Icon(Icons.delete_outline_rounded),
-                    label: Text(isZh ? '清空' : 'Clear'),
+                    label: Text(loc?.webReversePmClear ?? 'Clear'),
                   ),
                   const SizedBox(width: 10),
                   FilledButton.tonalIcon(
                     onPressed: filtered.isEmpty ? null : _copy,
                     icon: const Icon(Icons.copy_all_rounded),
-                    label: Text(isZh ? '复制 JSON' : 'Copy JSON'),
+                    label: Text(loc?.webReversePmCopyJson ?? 'Copy JSON'),
                   ),
                   const Spacer(),
                   Text(
@@ -381,20 +382,20 @@ class _PmDialogState extends State<_PmDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: isZh ? 'origin/target/data 子串过滤' : 'filter by substring',
+                        hintText: loc?.webReversePmFilterHint ?? 'filter by substring',
                         border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   FilterChip(
-                    label: Text(isZh ? '发送' : 'Send'),
+                    label: Text(loc?.webReversePmChipSend ?? 'Send'),
                     selected: _showSend,
                     onSelected: (v) => setState(() => _showSend = v),
                   ),
                   const SizedBox(width: 6),
                   FilterChip(
-                    label: Text(isZh ? '接收' : 'Recv'),
+                    label: Text(loc?.webReversePmChipRecv ?? 'Recv'),
                     selected: _showRecv,
                     onSelected: (v) => setState(() => _showRecv = v),
                   ),
@@ -428,8 +429,8 @@ class _PmDialogState extends State<_PmDialog> {
                     ? Center(
                         child: Text(
                           _hooked
-                              ? (isZh ? '等待 postMessage…' : 'Waiting for postMessage…')
-                              : (isZh ? '点击「开始注入」后页面会开始上报' : 'Click Inject to start capturing'),
+                              ? (loc?.webReversePmWaiting ?? 'Waiting for postMessage…')
+                              : (loc?.webReversePmClickToCapture ?? 'Click Inject to start capturing'),
                           style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       )
@@ -456,7 +457,9 @@ class _PmDialogState extends State<_PmDialog> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        isSend ? (isZh ? '发送' : 'SEND') : (isZh ? '接收' : 'RECV'),
+                                        isSend
+                                            ? (loc?.webReversePmTagSend ?? 'SEND')
+                                            : (loc?.webReversePmTagRecv ?? 'RECV'),
                                         style: TextStyle(
                                           color: accent,
                                           fontWeight: FontWeight.w700,
@@ -505,7 +508,7 @@ class _PmDialogState extends State<_PmDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReversePmClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

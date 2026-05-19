@@ -4653,5 +4653,45 @@
         "type": "String"
       }
     }
+  },
+  "webReversePmTitle": "postMessage Trace",
+  "@webReversePmTitle": {},
+  "webReversePmSubtitle": "Inject hook → ring buffer → drain every 800ms (incl. iframe)",
+  "@webReversePmSubtitle": {},
+  "webReversePmHookInjected": "Hook injected",
+  "@webReversePmHookInjected": {},
+  "webReversePmHookStopped": "Stopped (full unhook after reload)",
+  "@webReversePmHookStopped": {},
+  "webReversePmStop": "Stop",
+  "@webReversePmStop": {},
+  "webReversePmInject": "Inject",
+  "@webReversePmInject": {},
+  "webReversePmClear": "Clear",
+  "@webReversePmClear": {},
+  "webReversePmCopyJson": "Copy JSON",
+  "@webReversePmCopyJson": {},
+  "webReversePmFilterHint": "filter by substring",
+  "@webReversePmFilterHint": {},
+  "webReversePmChipSend": "Send",
+  "@webReversePmChipSend": {},
+  "webReversePmChipRecv": "Recv",
+  "@webReversePmChipRecv": {},
+  "webReversePmWaiting": "Waiting for postMessage…",
+  "@webReversePmWaiting": {},
+  "webReversePmClickToCapture": "Click Inject to start capturing",
+  "@webReversePmClickToCapture": {},
+  "webReversePmTagSend": "SEND",
+  "@webReversePmTagSend": {},
+  "webReversePmTagRecv": "RECV",
+  "@webReversePmTagRecv": {},
+  "webReversePmClose": "Close",
+  "@webReversePmClose": {},
+  "webReversePmCopiedCount": "Copied {count} records",
+  "@webReversePmCopiedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -6555,6 +6555,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseWsInjectFailedReason(String reason) {
     return '失败：$reason';
   }
+
+  @override
+  String get webReversePmTitle => 'postMessage 追踪';
+
+  @override
+  String get webReversePmSubtitle =>
+      '注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信';
+
+  @override
+  String get webReversePmHookInjected => '已注入 postMessage hook';
+
+  @override
+  String get webReversePmHookStopped => '已停止采集（页面 reload 后彻底解除 hook）';
+
+  @override
+  String get webReversePmStop => '停止';
+
+  @override
+  String get webReversePmInject => '开始注入';
+
+  @override
+  String get webReversePmClear => '清空';
+
+  @override
+  String get webReversePmCopyJson => '复制 JSON';
+
+  @override
+  String get webReversePmFilterHint => 'origin/target/data 子串过滤';
+
+  @override
+  String get webReversePmChipSend => '发送';
+
+  @override
+  String get webReversePmChipRecv => '接收';
+
+  @override
+  String get webReversePmWaiting => '等待 postMessage…';
+
+  @override
+  String get webReversePmClickToCapture => '点击「开始注入」后页面会开始上报';
+
+  @override
+  String get webReversePmTagSend => '发送';
+
+  @override
+  String get webReversePmTagRecv => '接收';
+
+  @override
+  String get webReversePmClose => '关闭';
+
+  @override
+  String webReversePmCopiedCount(int count) {
+    return '已复制 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13108,6 +13162,60 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseWsInjectFailedReason(String reason) {
     return '失败：$reason';
   }
+
+  @override
+  String get webReversePmTitle => 'postMessage 追踪';
+
+  @override
+  String get webReversePmSubtitle =>
+      '注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信';
+
+  @override
+  String get webReversePmHookInjected => '已注入 postMessage hook';
+
+  @override
+  String get webReversePmHookStopped => '已停止采集（页面 reload 后彻底解除 hook）';
+
+  @override
+  String get webReversePmStop => '停止';
+
+  @override
+  String get webReversePmInject => '开始注入';
+
+  @override
+  String get webReversePmClear => '清空';
+
+  @override
+  String get webReversePmCopyJson => '复制 JSON';
+
+  @override
+  String get webReversePmFilterHint => 'origin/target/data 子串过滤';
+
+  @override
+  String get webReversePmChipSend => '发送';
+
+  @override
+  String get webReversePmChipRecv => '接收';
+
+  @override
+  String get webReversePmWaiting => '等待 postMessage…';
+
+  @override
+  String get webReversePmClickToCapture => '点击「开始注入」后页面会开始上报';
+
+  @override
+  String get webReversePmTagSend => '发送';
+
+  @override
+  String get webReversePmTagRecv => '接收';
+
+  @override
+  String get webReversePmClose => '关闭';
+
+  @override
+  String webReversePmCopiedCount(int count) {
+    return '已复制 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -19659,5 +19767,59 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseWsInjectFailedReason(String reason) {
     return '失败：$reason';
+  }
+
+  @override
+  String get webReversePmTitle => 'postMessage 追踪';
+
+  @override
+  String get webReversePmSubtitle =>
+      '注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信';
+
+  @override
+  String get webReversePmHookInjected => '已注入 postMessage hook';
+
+  @override
+  String get webReversePmHookStopped => '已停止采集（页面 reload 后彻底解除 hook）';
+
+  @override
+  String get webReversePmStop => '停止';
+
+  @override
+  String get webReversePmInject => '开始注入';
+
+  @override
+  String get webReversePmClear => '清空';
+
+  @override
+  String get webReversePmCopyJson => '复制 JSON';
+
+  @override
+  String get webReversePmFilterHint => 'origin/target/data 子串过滤';
+
+  @override
+  String get webReversePmChipSend => '发送';
+
+  @override
+  String get webReversePmChipRecv => '接收';
+
+  @override
+  String get webReversePmWaiting => '等待 postMessage…';
+
+  @override
+  String get webReversePmClickToCapture => '点击「开始注入」后页面会开始上报';
+
+  @override
+  String get webReversePmTagSend => '发送';
+
+  @override
+  String get webReversePmTagRecv => '接收';
+
+  @override
+  String get webReversePmClose => '关闭';
+
+  @override
+  String webReversePmCopiedCount(int count) {
+    return '已复制 $count 条';
   }
 }

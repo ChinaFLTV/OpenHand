@@ -4653,5 +4653,45 @@
         "type": "String"
       }
     }
+  },
+  "webReversePmTitle": "postMessage-Trace",
+  "@webReversePmTitle": {},
+  "webReversePmSubtitle": "Hook injizieren → Ringpuffer → alle 800 ms abrufen (inkl. iframe)",
+  "@webReversePmSubtitle": {},
+  "webReversePmHookInjected": "postMessage-Hook injiziert",
+  "@webReversePmHookInjected": {},
+  "webReversePmHookStopped": "Gestoppt (vollständig erst nach Reload)",
+  "@webReversePmHookStopped": {},
+  "webReversePmStop": "Stopp",
+  "@webReversePmStop": {},
+  "webReversePmInject": "Injizieren",
+  "@webReversePmInject": {},
+  "webReversePmClear": "Leeren",
+  "@webReversePmClear": {},
+  "webReversePmCopyJson": "JSON kopieren",
+  "@webReversePmCopyJson": {},
+  "webReversePmFilterHint": "Filter nach Teilstring",
+  "@webReversePmFilterHint": {},
+  "webReversePmChipSend": "Senden",
+  "@webReversePmChipSend": {},
+  "webReversePmChipRecv": "Empfangen",
+  "@webReversePmChipRecv": {},
+  "webReversePmWaiting": "Warte auf postMessage…",
+  "@webReversePmWaiting": {},
+  "webReversePmClickToCapture": "Auf „Injizieren“ klicken, um Aufzeichnung zu starten",
+  "@webReversePmClickToCapture": {},
+  "webReversePmTagSend": "SENDEN",
+  "@webReversePmTagSend": {},
+  "webReversePmTagRecv": "EMPF",
+  "@webReversePmTagRecv": {},
+  "webReversePmClose": "Schließen",
+  "@webReversePmClose": {},
+  "webReversePmCopiedCount": "{count} Einträge kopiert",
+  "@webReversePmCopiedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

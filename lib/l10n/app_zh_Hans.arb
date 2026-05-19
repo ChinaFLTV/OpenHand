@@ -4722,5 +4722,45 @@
         "type": "String"
       }
     }
+  },
+  "webReversePmTitle": "postMessage 追踪",
+  "@webReversePmTitle": {},
+  "webReversePmSubtitle": "注入 hook → ring buffer → 800ms 拉取队列；含 iframe 跨域通信",
+  "@webReversePmSubtitle": {},
+  "webReversePmHookInjected": "已注入 postMessage hook",
+  "@webReversePmHookInjected": {},
+  "webReversePmHookStopped": "已停止采集（页面 reload 后彻底解除 hook）",
+  "@webReversePmHookStopped": {},
+  "webReversePmStop": "停止",
+  "@webReversePmStop": {},
+  "webReversePmInject": "开始注入",
+  "@webReversePmInject": {},
+  "webReversePmClear": "清空",
+  "@webReversePmClear": {},
+  "webReversePmCopyJson": "复制 JSON",
+  "@webReversePmCopyJson": {},
+  "webReversePmFilterHint": "origin/target/data 子串过滤",
+  "@webReversePmFilterHint": {},
+  "webReversePmChipSend": "发送",
+  "@webReversePmChipSend": {},
+  "webReversePmChipRecv": "接收",
+  "@webReversePmChipRecv": {},
+  "webReversePmWaiting": "等待 postMessage…",
+  "@webReversePmWaiting": {},
+  "webReversePmClickToCapture": "点击「开始注入」后页面会开始上报",
+  "@webReversePmClickToCapture": {},
+  "webReversePmTagSend": "发送",
+  "@webReversePmTagSend": {},
+  "webReversePmTagRecv": "接收",
+  "@webReversePmTagRecv": {},
+  "webReversePmClose": "关闭",
+  "@webReversePmClose": {},
+  "webReversePmCopiedCount": "已复制 {count} 条",
+  "@webReversePmCopiedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -4653,5 +4653,45 @@
         "type": "String"
       }
     }
+  },
+  "webReversePmTitle": "postMessage 追跡",
+  "@webReversePmTitle": {},
+  "webReversePmSubtitle": "hook 注入 → リングバッファ → 800ms ごとに取得（iframe 越境含む）",
+  "@webReversePmSubtitle": {},
+  "webReversePmHookInjected": "postMessage hook を注入",
+  "@webReversePmHookInjected": {},
+  "webReversePmHookStopped": "停止しました（リロード後に hook 完全解除）",
+  "@webReversePmHookStopped": {},
+  "webReversePmStop": "停止",
+  "@webReversePmStop": {},
+  "webReversePmInject": "注入開始",
+  "@webReversePmInject": {},
+  "webReversePmClear": "クリア",
+  "@webReversePmClear": {},
+  "webReversePmCopyJson": "JSON コピー",
+  "@webReversePmCopyJson": {},
+  "webReversePmFilterHint": "origin/target/data の部分一致",
+  "@webReversePmFilterHint": {},
+  "webReversePmChipSend": "送信",
+  "@webReversePmChipSend": {},
+  "webReversePmChipRecv": "受信",
+  "@webReversePmChipRecv": {},
+  "webReversePmWaiting": "postMessage を待機中…",
+  "@webReversePmWaiting": {},
+  "webReversePmClickToCapture": "「注入開始」をクリックすると報告が始まります",
+  "@webReversePmClickToCapture": {},
+  "webReversePmTagSend": "送信",
+  "@webReversePmTagSend": {},
+  "webReversePmTagRecv": "受信",
+  "@webReversePmTagRecv": {},
+  "webReversePmClose": "閉じる",
+  "@webReversePmClose": {},
+  "webReversePmCopiedCount": "{count} 件コピー",
+  "@webReversePmCopiedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

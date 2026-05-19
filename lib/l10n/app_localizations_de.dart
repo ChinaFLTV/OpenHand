@@ -6903,4 +6903,60 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseWsInjectFailedReason(String reason) {
     return 'Fehler: $reason';
   }
+
+  @override
+  String get webReversePmTitle => 'postMessage-Trace';
+
+  @override
+  String get webReversePmSubtitle =>
+      'Hook injizieren → Ringpuffer → alle 800 ms abrufen (inkl. iframe)';
+
+  @override
+  String get webReversePmHookInjected => 'postMessage-Hook injiziert';
+
+  @override
+  String get webReversePmHookStopped =>
+      'Gestoppt (vollständig erst nach Reload)';
+
+  @override
+  String get webReversePmStop => 'Stopp';
+
+  @override
+  String get webReversePmInject => 'Injizieren';
+
+  @override
+  String get webReversePmClear => 'Leeren';
+
+  @override
+  String get webReversePmCopyJson => 'JSON kopieren';
+
+  @override
+  String get webReversePmFilterHint => 'Filter nach Teilstring';
+
+  @override
+  String get webReversePmChipSend => 'Senden';
+
+  @override
+  String get webReversePmChipRecv => 'Empfangen';
+
+  @override
+  String get webReversePmWaiting => 'Warte auf postMessage…';
+
+  @override
+  String get webReversePmClickToCapture =>
+      'Auf „Injizieren“ klicken, um Aufzeichnung zu starten';
+
+  @override
+  String get webReversePmTagSend => 'SENDEN';
+
+  @override
+  String get webReversePmTagRecv => 'EMPF';
+
+  @override
+  String get webReversePmClose => 'Schließen';
+
+  @override
+  String webReversePmCopiedCount(int count) {
+    return '$count Einträge kopiert';
+  }
 }
