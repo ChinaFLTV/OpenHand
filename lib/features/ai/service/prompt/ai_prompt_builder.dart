@@ -1060,7 +1060,8 @@ class AiPromptBuilder {
         buffer.writeln(
           'Capability invocation priority for the Web Reverse Expert template: '
           'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
-          'The browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
+          'When `web_reverse_runtime.cdp_runtime.browser_alive` is true, the browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
+          'When `browser_alive` is false, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
           'skill__* tools are auxiliary knowledge only. Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
@@ -1444,8 +1445,9 @@ class AiPromptBuilder {
       'source_of_truth':
           'Dashboard panels and AI-visible state are backed by the same OpenHand-managed Chrome CDP session plus local jsonl/HAR artifacts.',
       'cdp_first_required': true,
-      'fallback_policy':
-          'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+      'fallback_policy': cdpRuntimeDead
+          ? 'Live CDP MCP actions require browser_alive=true. With browser_alive=false, do not treat historical last_* values as live CDP state; use local jsonl/HAR artifacts, or ask the user to restart the browser before live browser operations. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after explaining that live CDP is unavailable.'
+          : 'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
       'cdp_runtime': cdpRuntime,
       if (cdpRuntimeDead)
