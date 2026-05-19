@@ -65,7 +65,8 @@ class AiTaskTool extends AiTool {
           (entry) =>
               entry.key != 'Task' &&
               entry.key != 'ExitPlanMode' &&
-              entry.key != 'bash',
+              entry.key != 'bash' &&
+              entry.value.builtinKind != AiBuiltinToolKind.toolSearch,
         )
         .toList(growable: false);
     final subagentCatalog = AiResolvedToolCatalog(
