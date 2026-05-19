@@ -5281,5 +5281,29 @@
         "type": "int"
       }
     }
+  },
+  "webReverseInstallTitle": "需要 Google Chrome（或同核浏览器）",
+  "@webReverseInstallTitle": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallClose": "关闭",
+  "@webReverseInstallClose": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallBody": "Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，通过 CDP（Chrome DevTools Protocol）通道驱动调试。检测到当前系统没有可用的同核浏览器。",
+  "@webReverseInstallBody": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallOpen": "在浏览器打开",
+  "@webReverseInstallOpen": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallHint": "建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，点击\"我已安装，重新检测\"。",
+  "@webReverseInstallHint": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallInstalled": "我已安装",
+  "@webReverseInstallInstalled": {
+    "description": "web_reverse: install guide dialog"
   }
 }

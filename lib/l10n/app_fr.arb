@@ -5281,5 +5281,29 @@
         "type": "int"
       }
     }
+  },
+  "webReverseInstallTitle": "Google Chrome requis",
+  "@webReverseInstallTitle": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallClose": "Fermer",
+  "@webReverseInstallClose": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallBody": "Web Reverse Expert nécessite un navigateur Chromium externe (Chrome / Edge / Brave / Chromium) piloté via CDP. Aucun n'a été détecté.",
+  "@webReverseInstallBody": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallOpen": "Ouvrir dans le navigateur",
+  "@webReverseInstallOpen": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallHint": "Installez Chrome puis réessayez. Si Edge / Brave / Chromium est déjà installé, cliquez sur «Déjà installé, revérifier».",
+  "@webReverseInstallHint": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallInstalled": "Déjà installé",
+  "@webReverseInstallInstalled": {
+    "description": "web_reverse: install guide dialog"
   }
 }

@@ -7602,4 +7602,24 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseWebauthnCredentialsCount(int count) {
     return 'Credentials ($count)';
   }
+
+  @override
+  String get webReverseInstallTitle => 'Google Chrome requis';
+
+  @override
+  String get webReverseInstallClose => 'Fermer';
+
+  @override
+  String get webReverseInstallBody =>
+      'Web Reverse Expert nécessite un navigateur Chromium externe (Chrome / Edge / Brave / Chromium) piloté via CDP. Aucun n\'a été détecté.';
+
+  @override
+  String get webReverseInstallOpen => 'Ouvrir dans le navigateur';
+
+  @override
+  String get webReverseInstallHint =>
+      'Installez Chrome puis réessayez. Si Edge / Brave / Chromium est déjà installé, cliquez sur «Déjà installé, revérifier».';
+
+  @override
+  String get webReverseInstallInstalled => 'Déjà installé';
 }

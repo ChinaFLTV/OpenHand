@@ -47,7 +47,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = _isZh(context);
+    final loc = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final url = _downloadUrl(context);
@@ -83,14 +83,14 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isZh ? '需要 Google Chrome（或同核浏览器）' : 'Google Chrome required',
+                      loc?.webReverseInstallTitle ?? 'Google Chrome required',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '关闭' : 'Close',
+                    tooltip: loc?.webReverseInstallClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(
                       WebReverseInstallGuideDecision.cancelled,
                     ),
@@ -100,12 +100,8 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                isZh
-                    ? 'Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，'
-                          '通过 CDP（Chrome DevTools Protocol）通道驱动调试。'
-                          '检测到当前系统没有可用的同核浏览器。'
-                    : 'The Web Reverse Expert relies on an external Chromium-based browser '
-                          '(Chrome / Edge / Brave / Chromium) driven via CDP. None was detected.',
+                loc?.webReverseInstallBody ??
+                    'The Web Reverse Expert relies on an external Chromium-based browser (Chrome / Edge / Brave / Chromium) driven via CDP. None was detected.',
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
               ),
               const SizedBox(height: 14),
@@ -133,18 +129,15 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () => _openDownloadUrl(context),
                       icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: Text(isZh ? '在浏览器打开' : 'Open'),
+                      label: Text(loc?.webReverseInstallOpen ?? 'Open'),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                isZh
-                    ? '建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，'
-                          '点击"我已安装，重新检测"。'
-                    : 'Install Chrome and retry. If Edge / Brave / Chromium is already installed, '
-                          'click "I have installed, recheck".',
+                loc?.webReverseInstallHint ??
+                    'Install Chrome and retry. If Edge / Brave / Chromium is already installed, click "I have installed, recheck".',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   height: 1.5,
@@ -158,15 +151,14 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(
                       WebReverseInstallGuideDecision.cancelled,
                     ),
-                    label: AppLocalizations.of(context)?.commonCancel ??
-                        (isZh ? '取消' : 'Cancel'),
+                    label: loc?.commonCancel ?? 'Cancel',
                   ),
                   const SizedBox(width: 12),
                   OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(context).pop(
                       WebReverseInstallGuideDecision.rechecked,
                     ),
-                    label: isZh ? '我已安装' : 'I Have Installed',
+                    label: loc?.webReverseInstallInstalled ?? 'I Have Installed',
                   ),
                 ],
               ),

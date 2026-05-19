@@ -13294,6 +13294,42 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'凭据 ({count})'**
   String webReverseWebauthnCredentialsCount(int count);
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需要 Google Chrome（或同核浏览器）'**
+  String get webReverseInstallTitle;
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseInstallClose;
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，通过 CDP（Chrome DevTools Protocol）通道驱动调试。检测到当前系统没有可用的同核浏览器。'**
+  String get webReverseInstallBody;
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在浏览器打开'**
+  String get webReverseInstallOpen;
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，点击\"我已安装，重新检测\"。'**
+  String get webReverseInstallHint;
+
+  /// web_reverse: install guide dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'我已安装'**
+  String get webReverseInstallInstalled;
 }
 
 class _AppLocalizationsDelegate

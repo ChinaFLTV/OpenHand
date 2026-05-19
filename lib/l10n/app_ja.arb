@@ -5281,5 +5281,29 @@
         "type": "int"
       }
     }
+  },
+  "webReverseInstallTitle": "Google Chrome が必要です",
+  "@webReverseInstallTitle": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallClose": "閉じる",
+  "@webReverseInstallClose": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallBody": "Web リバースエキスパートは外部の Chromium 系ブラウザ (Chrome / Edge / Brave / Chromium) を CDP 経由で制御します。現在のシステムでは見つかりませんでした。",
+  "@webReverseInstallBody": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallOpen": "ブラウザで開く",
+  "@webReverseInstallOpen": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallHint": "Chrome をインストール後に再試行してください。Edge / Brave / Chromium をインストール済みの場合は「インストール済み、再検出」をクリック。",
+  "@webReverseInstallHint": {
+    "description": "web_reverse: install guide dialog"
+  },
+  "webReverseInstallInstalled": "インストール済み",
+  "@webReverseInstallInstalled": {
+    "description": "web_reverse: install guide dialog"
   }
 }

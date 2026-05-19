@@ -7204,6 +7204,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseWebauthnCredentialsCount(int count) {
     return '凭据 ($count)';
   }
+
+  @override
+  String get webReverseInstallTitle => '需要 Google Chrome（或同核浏览器）';
+
+  @override
+  String get webReverseInstallClose => '关闭';
+
+  @override
+  String get webReverseInstallBody =>
+      'Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，通过 CDP（Chrome DevTools Protocol）通道驱动调试。检测到当前系统没有可用的同核浏览器。';
+
+  @override
+  String get webReverseInstallOpen => '在浏览器打开';
+
+  @override
+  String get webReverseInstallHint =>
+      '建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，点击\"我已安装，重新检测\"。';
+
+  @override
+  String get webReverseInstallInstalled => '我已安装';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14406,6 +14426,26 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseWebauthnCredentialsCount(int count) {
     return '凭据 ($count)';
   }
+
+  @override
+  String get webReverseInstallTitle => '需要 Google Chrome（或同核浏览器）';
+
+  @override
+  String get webReverseInstallClose => '关闭';
+
+  @override
+  String get webReverseInstallBody =>
+      'Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，通过 CDP（Chrome DevTools Protocol）通道驱动调试。检测到当前系统没有可用的同核浏览器。';
+
+  @override
+  String get webReverseInstallOpen => '在浏览器打开';
+
+  @override
+  String get webReverseInstallHint =>
+      '建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，点击\"我已安装，重新检测\"。';
+
+  @override
+  String get webReverseInstallInstalled => '我已安装';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21607,4 +21647,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseWebauthnCredentialsCount(int count) {
     return '凭据 ($count)';
   }
+
+  @override
+  String get webReverseInstallTitle => '需要 Google Chrome（或同核浏览器）';
+
+  @override
+  String get webReverseInstallClose => '关闭';
+
+  @override
+  String get webReverseInstallBody =>
+      'Web 逆向专家依赖外部 Chrome / Edge / Brave / Chromium 等同核浏览器，通过 CDP（Chrome DevTools Protocol）通道驱动调试。检测到当前系统没有可用的同核浏览器。';
+
+  @override
+  String get webReverseInstallOpen => '在浏览器打开';
+
+  @override
+  String get webReverseInstallHint =>
+      '建议安装 Chrome 正式版后重试。如已安装 Edge / Brave / Chromium，点击\"我已安装，重新检测\"。';
+
+  @override
+  String get webReverseInstallInstalled => '我已安装';
 }
