@@ -4073,5 +4073,82 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSetupTargetUrl": "Ziel-URL *",
+  "@webReverseSetupTargetUrl": {
+    "description": "web reverse setup dialog: webReverseSetupTargetUrl"
+  },
+  "webReverseSetupObjective": "Ziel *",
+  "@webReverseSetupObjective": {
+    "description": "web reverse setup dialog: webReverseSetupObjective"
+  },
+  "webReverseSetupObjectiveHint": "z. B. Wallpaper-Download-API rückentwickeln, curl-Skript ausgeben",
+  "@webReverseSetupObjectiveHint": {
+    "description": "web reverse setup dialog: webReverseSetupObjectiveHint"
+  },
+  "webReverseSetupTriggerActions": "Auslöseraktionen (optional)",
+  "@webReverseSetupTriggerActions": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerActions"
+  },
+  "webReverseSetupTriggerHint": "z. B. einloggen und dann auf „Original herunterladen“ klicken",
+  "@webReverseSetupTriggerHint": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerHint"
+  },
+  "webReverseSetupLoginMode": "Login-Modus",
+  "@webReverseSetupLoginMode": {
+    "description": "web reverse setup dialog: webReverseSetupLoginMode"
+  },
+  "webReverseSetupBrowser": "Browser (erkannt)",
+  "@webReverseSetupBrowser": {
+    "description": "web reverse setup dialog: webReverseSetupBrowser"
+  },
+  "webReverseSetupProxy": "Proxy (optional)",
+  "@webReverseSetupProxy": {
+    "description": "web reverse setup dialog: webReverseSetupProxy"
+  },
+  "webReverseSetupKeywords": "Schlüsselwörter (optional, kommagetrennt)",
+  "@webReverseSetupKeywords": {
+    "description": "web reverse setup dialog: webReverseSetupKeywords"
+  },
+  "webReverseSetupCreateThread": "Thread erstellen",
+  "@webReverseSetupCreateThread": {
+    "description": "web reverse setup dialog: webReverseSetupCreateThread"
+  },
+  "webReverseSetupHeaderTitle": "Neue Web-Reverse-Sitzung",
+  "@webReverseSetupHeaderTitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderTitle"
+  },
+  "webReverseSetupHeaderSubtitle": "Nach dem Start wird der Browser rechts neben dem Hauptfenster angedockt",
+  "@webReverseSetupHeaderSubtitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderSubtitle"
+  },
+  "webReverseSetupClose": "Schließen",
+  "@webReverseSetupClose": {
+    "description": "web reverse setup dialog: webReverseSetupClose"
+  },
+  "webReverseSetupProfileDir": "Profilverzeichnis",
+  "@webReverseSetupProfileDir": {
+    "description": "web reverse setup dialog: webReverseSetupProfileDir"
+  },
+  "webReverseSetupLockDetected": "Veraltete SingletonLock-/Lockfile erkannt — könnte den nächsten Start blockieren.",
+  "@webReverseSetupLockDetected": {
+    "description": "web reverse setup dialog: webReverseSetupLockDetected"
+  },
+  "webReverseSetupWorking": "Wird verarbeitet…",
+  "@webReverseSetupWorking": {
+    "description": "web reverse setup dialog: webReverseSetupWorking"
+  },
+  "webReverseSetupCooldown": "Abkühlung {seconds}s",
+  "@webReverseSetupCooldown": {
+    "description": "web reverse setup dialog: webReverseSetupCooldown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSetupResolveLock": "Profilkonflikt lösen",
+  "@webReverseSetupResolveLock": {
+    "description": "web reverse setup dialog: webReverseSetupResolveLock"
   }
 }

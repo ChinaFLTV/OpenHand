@@ -6180,4 +6180,63 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseSwDebugMethodOk(String method) {
     return '$method ok';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => 'ターゲット URL *';
+
+  @override
+  String get webReverseSetupObjective => '目的 *';
+
+  @override
+  String get webReverseSetupObjectiveHint =>
+      '例: 壁紙ダウンロード API をリバースし curl スクリプトを出力';
+
+  @override
+  String get webReverseSetupTriggerActions => 'トリガー動作（任意）';
+
+  @override
+  String get webReverseSetupTriggerHint => '例: ログイン後「原画ダウンロード」をクリック';
+
+  @override
+  String get webReverseSetupLoginMode => 'ログインモード';
+
+  @override
+  String get webReverseSetupBrowser => 'ブラウザ（検出済み）';
+
+  @override
+  String get webReverseSetupProxy => 'プロキシ（任意）';
+
+  @override
+  String get webReverseSetupKeywords => 'キーワード（任意、カンマ区切り）';
+
+  @override
+  String get webReverseSetupCreateThread => 'スレッド作成';
+
+  @override
+  String get webReverseSetupHeaderTitle => '新規 Web リバースセッション';
+
+  @override
+  String get webReverseSetupHeaderSubtitle =>
+      'セッション開始後、ブラウザがメインウィンドウの右側にドッキングします';
+
+  @override
+  String get webReverseSetupClose => '閉じる';
+
+  @override
+  String get webReverseSetupProfileDir => 'プロファイルディレクトリ';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      '残留した SingletonLock / lockfile を検出しました。次回起動を妨げる可能性があります。';
+
+  @override
+  String get webReverseSetupWorking => '処理中…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return 'クールダウン ${seconds}s';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => 'プロファイル競合を解決';
 }

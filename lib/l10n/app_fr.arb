@@ -4073,5 +4073,82 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSetupTargetUrl": "URL cible *",
+  "@webReverseSetupTargetUrl": {
+    "description": "web reverse setup dialog: webReverseSetupTargetUrl"
+  },
+  "webReverseSetupObjective": "Objectif *",
+  "@webReverseSetupObjective": {
+    "description": "web reverse setup dialog: webReverseSetupObjective"
+  },
+  "webReverseSetupObjectiveHint": "p. ex. rétro-ingénierie de l’API de téléchargement de fonds d’écran en script curl",
+  "@webReverseSetupObjectiveHint": {
+    "description": "web reverse setup dialog: webReverseSetupObjectiveHint"
+  },
+  "webReverseSetupTriggerActions": "Actions déclencheuses (facultatif)",
+  "@webReverseSetupTriggerActions": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerActions"
+  },
+  "webReverseSetupTriggerHint": "p. ex. se connecter puis cliquer sur « Télécharger l’original »",
+  "@webReverseSetupTriggerHint": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerHint"
+  },
+  "webReverseSetupLoginMode": "Mode de connexion",
+  "@webReverseSetupLoginMode": {
+    "description": "web reverse setup dialog: webReverseSetupLoginMode"
+  },
+  "webReverseSetupBrowser": "Navigateur (détecté)",
+  "@webReverseSetupBrowser": {
+    "description": "web reverse setup dialog: webReverseSetupBrowser"
+  },
+  "webReverseSetupProxy": "Proxy (facultatif)",
+  "@webReverseSetupProxy": {
+    "description": "web reverse setup dialog: webReverseSetupProxy"
+  },
+  "webReverseSetupKeywords": "Mots-clés (facultatif, séparés par des virgules)",
+  "@webReverseSetupKeywords": {
+    "description": "web reverse setup dialog: webReverseSetupKeywords"
+  },
+  "webReverseSetupCreateThread": "Créer le fil",
+  "@webReverseSetupCreateThread": {
+    "description": "web reverse setup dialog: webReverseSetupCreateThread"
+  },
+  "webReverseSetupHeaderTitle": "Nouvelle session Web Reverse",
+  "@webReverseSetupHeaderTitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderTitle"
+  },
+  "webReverseSetupHeaderSubtitle": "Après le démarrage, le navigateur s’ancre à droite de la fenêtre principale",
+  "@webReverseSetupHeaderSubtitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderSubtitle"
+  },
+  "webReverseSetupClose": "Fermer",
+  "@webReverseSetupClose": {
+    "description": "web reverse setup dialog: webReverseSetupClose"
+  },
+  "webReverseSetupProfileDir": "Répertoire de profil",
+  "@webReverseSetupProfileDir": {
+    "description": "web reverse setup dialog: webReverseSetupProfileDir"
+  },
+  "webReverseSetupLockDetected": "SingletonLock / lockfile résiduel détecté — peut bloquer le prochain lancement.",
+  "@webReverseSetupLockDetected": {
+    "description": "web reverse setup dialog: webReverseSetupLockDetected"
+  },
+  "webReverseSetupWorking": "Traitement…",
+  "@webReverseSetupWorking": {
+    "description": "web reverse setup dialog: webReverseSetupWorking"
+  },
+  "webReverseSetupCooldown": "Refroidissement {seconds}s",
+  "@webReverseSetupCooldown": {
+    "description": "web reverse setup dialog: webReverseSetupCooldown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSetupResolveLock": "Résoudre le conflit de profil",
+  "@webReverseSetupResolveLock": {
+    "description": "web reverse setup dialog: webReverseSetupResolveLock"
   }
 }

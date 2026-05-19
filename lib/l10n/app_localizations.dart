@@ -11273,6 +11273,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已执行 {method}'**
   String webReverseSwDebugMethodOk(String method);
+
+  /// web reverse setup dialog: webReverseSetupTargetUrl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'目标 URL *'**
+  String get webReverseSetupTargetUrl;
+
+  /// web reverse setup dialog: webReverseSetupObjective
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'逆向目标 *'**
+  String get webReverseSetupObjective;
+
+  /// web reverse setup dialog: webReverseSetupObjectiveHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如：复现壁纸下载接口，输出 curl 脚本'**
+  String get webReverseSetupObjectiveHint;
+
+  /// web reverse setup dialog: webReverseSetupTriggerActions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发动作（可选）'**
+  String get webReverseSetupTriggerActions;
+
+  /// web reverse setup dialog: webReverseSetupTriggerHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如：登录后点击“下载原图”按钮'**
+  String get webReverseSetupTriggerHint;
+
+  /// web reverse setup dialog: webReverseSetupLoginMode
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'登录态'**
+  String get webReverseSetupLoginMode;
+
+  /// web reverse setup dialog: webReverseSetupBrowser
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览器（已检测）'**
+  String get webReverseSetupBrowser;
+
+  /// web reverse setup dialog: webReverseSetupProxy
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代理（可选）'**
+  String get webReverseSetupProxy;
+
+  /// web reverse setup dialog: webReverseSetupKeywords
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关键关键字（可选，逗号分隔）'**
+  String get webReverseSetupKeywords;
+
+  /// web reverse setup dialog: webReverseSetupCreateThread
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建线程'**
+  String get webReverseSetupCreateThread;
+
+  /// web reverse setup dialog: webReverseSetupHeaderTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建 Web 逆向会话'**
+  String get webReverseSetupHeaderTitle;
+
+  /// web reverse setup dialog: webReverseSetupHeaderSubtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话启动后会拉起浏览器并吸附在主窗口右侧'**
+  String get webReverseSetupHeaderSubtitle;
+
+  /// web reverse setup dialog: webReverseSetupClose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseSetupClose;
+
+  /// web reverse setup dialog: webReverseSetupProfileDir
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Profile 目录'**
+  String get webReverseSetupProfileDir;
+
+  /// web reverse setup dialog: webReverseSetupLockDetected
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。'**
+  String get webReverseSetupLockDetected;
+
+  /// web reverse setup dialog: webReverseSetupWorking
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'处理中…'**
+  String get webReverseSetupWorking;
+
+  /// web reverse setup dialog: webReverseSetupCooldown
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'冷却中（{seconds}s）'**
+  String webReverseSetupCooldown(int seconds);
+
+  /// web reverse setup dialog: webReverseSetupResolveLock
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'解决 Profile 冲突'**
+  String get webReverseSetupResolveLock;
 }
 
 class _AppLocalizationsDelegate

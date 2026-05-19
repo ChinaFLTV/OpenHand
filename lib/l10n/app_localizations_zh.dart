@@ -6087,6 +6087,63 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseSwDebugMethodOk(String method) {
     return '已执行 $method';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => '目标 URL *';
+
+  @override
+  String get webReverseSetupObjective => '逆向目标 *';
+
+  @override
+  String get webReverseSetupObjectiveHint => '例如：复现壁纸下载接口，输出 curl 脚本';
+
+  @override
+  String get webReverseSetupTriggerActions => '触发动作（可选）';
+
+  @override
+  String get webReverseSetupTriggerHint => '例如：登录后点击“下载原图”按钮';
+
+  @override
+  String get webReverseSetupLoginMode => '登录态';
+
+  @override
+  String get webReverseSetupBrowser => '浏览器（已检测）';
+
+  @override
+  String get webReverseSetupProxy => '代理（可选）';
+
+  @override
+  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+
+  @override
+  String get webReverseSetupCreateThread => '创建线程';
+
+  @override
+  String get webReverseSetupHeaderTitle => '新建 Web 逆向会话';
+
+  @override
+  String get webReverseSetupHeaderSubtitle => '会话启动后会拉起浏览器并吸附在主窗口右侧';
+
+  @override
+  String get webReverseSetupClose => '关闭';
+
+  @override
+  String get webReverseSetupProfileDir => 'Profile 目录';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。';
+
+  @override
+  String get webReverseSetupWorking => '处理中…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return '冷却中（${seconds}s）';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => '解决 Profile 冲突';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12172,6 +12229,63 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseSwDebugMethodOk(String method) {
     return '已执行 $method';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => '目标 URL *';
+
+  @override
+  String get webReverseSetupObjective => '逆向目标 *';
+
+  @override
+  String get webReverseSetupObjectiveHint => '例如：复现壁纸下载接口，输出 curl 脚本';
+
+  @override
+  String get webReverseSetupTriggerActions => '触发动作（可选）';
+
+  @override
+  String get webReverseSetupTriggerHint => '例如：登录后点击“下载原图”按钮';
+
+  @override
+  String get webReverseSetupLoginMode => '登录态';
+
+  @override
+  String get webReverseSetupBrowser => '浏览器（已检测）';
+
+  @override
+  String get webReverseSetupProxy => '代理（可选）';
+
+  @override
+  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+
+  @override
+  String get webReverseSetupCreateThread => '创建线程';
+
+  @override
+  String get webReverseSetupHeaderTitle => '新建 Web 逆向会话';
+
+  @override
+  String get webReverseSetupHeaderSubtitle => '会话启动后会拉起浏览器并吸附在主窗口右侧';
+
+  @override
+  String get webReverseSetupClose => '关闭';
+
+  @override
+  String get webReverseSetupProfileDir => 'Profile 目录';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。';
+
+  @override
+  String get webReverseSetupWorking => '处理中…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return '冷却中（${seconds}s）';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => '解决 Profile 冲突';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18256,4 +18370,61 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseSwDebugMethodOk(String method) {
     return '已执行 $method';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => '目标 URL *';
+
+  @override
+  String get webReverseSetupObjective => '逆向目标 *';
+
+  @override
+  String get webReverseSetupObjectiveHint => '例如：复现壁纸下载接口，输出 curl 脚本';
+
+  @override
+  String get webReverseSetupTriggerActions => '触发动作（可选）';
+
+  @override
+  String get webReverseSetupTriggerHint => '例如：登录后点击“下载原图”按钮';
+
+  @override
+  String get webReverseSetupLoginMode => '登录态';
+
+  @override
+  String get webReverseSetupBrowser => '浏览器（已检测）';
+
+  @override
+  String get webReverseSetupProxy => '代理（可选）';
+
+  @override
+  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+
+  @override
+  String get webReverseSetupCreateThread => '创建线程';
+
+  @override
+  String get webReverseSetupHeaderTitle => '新建 Web 逆向会话';
+
+  @override
+  String get webReverseSetupHeaderSubtitle => '会话启动后会拉起浏览器并吸附在主窗口右侧';
+
+  @override
+  String get webReverseSetupClose => '关闭';
+
+  @override
+  String get webReverseSetupProfileDir => 'Profile 目录';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。';
+
+  @override
+  String get webReverseSetupWorking => '处理中…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return '冷却中（${seconds}s）';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => '解决 Profile 冲突';
 }

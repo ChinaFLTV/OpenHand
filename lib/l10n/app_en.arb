@@ -4073,5 +4073,82 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSetupTargetUrl": "Target URL *",
+  "@webReverseSetupTargetUrl": {
+    "description": "web reverse setup dialog: webReverseSetupTargetUrl"
+  },
+  "webReverseSetupObjective": "Objective *",
+  "@webReverseSetupObjective": {
+    "description": "web reverse setup dialog: webReverseSetupObjective"
+  },
+  "webReverseSetupObjectiveHint": "e.g. reverse the wallpaper download API into a curl script",
+  "@webReverseSetupObjectiveHint": {
+    "description": "web reverse setup dialog: webReverseSetupObjectiveHint"
+  },
+  "webReverseSetupTriggerActions": "Trigger actions (optional)",
+  "@webReverseSetupTriggerActions": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerActions"
+  },
+  "webReverseSetupTriggerHint": "e.g. log in then click \"Download Original\"",
+  "@webReverseSetupTriggerHint": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerHint"
+  },
+  "webReverseSetupLoginMode": "Login mode",
+  "@webReverseSetupLoginMode": {
+    "description": "web reverse setup dialog: webReverseSetupLoginMode"
+  },
+  "webReverseSetupBrowser": "Browser (detected)",
+  "@webReverseSetupBrowser": {
+    "description": "web reverse setup dialog: webReverseSetupBrowser"
+  },
+  "webReverseSetupProxy": "Proxy (optional)",
+  "@webReverseSetupProxy": {
+    "description": "web reverse setup dialog: webReverseSetupProxy"
+  },
+  "webReverseSetupKeywords": "Keywords (optional, comma-separated)",
+  "@webReverseSetupKeywords": {
+    "description": "web reverse setup dialog: webReverseSetupKeywords"
+  },
+  "webReverseSetupCreateThread": "Create Thread",
+  "@webReverseSetupCreateThread": {
+    "description": "web reverse setup dialog: webReverseSetupCreateThread"
+  },
+  "webReverseSetupHeaderTitle": "New Web Reverse Session",
+  "@webReverseSetupHeaderTitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderTitle"
+  },
+  "webReverseSetupHeaderSubtitle": "Browser will dock to the right of the main window after start",
+  "@webReverseSetupHeaderSubtitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderSubtitle"
+  },
+  "webReverseSetupClose": "Close",
+  "@webReverseSetupClose": {
+    "description": "web reverse setup dialog: webReverseSetupClose"
+  },
+  "webReverseSetupProfileDir": "User Data Dir",
+  "@webReverseSetupProfileDir": {
+    "description": "web reverse setup dialog: webReverseSetupProfileDir"
+  },
+  "webReverseSetupLockDetected": "Stale SingletonLock / lockfile detected — may block next launch.",
+  "@webReverseSetupLockDetected": {
+    "description": "web reverse setup dialog: webReverseSetupLockDetected"
+  },
+  "webReverseSetupWorking": "Working…",
+  "@webReverseSetupWorking": {
+    "description": "web reverse setup dialog: webReverseSetupWorking"
+  },
+  "webReverseSetupCooldown": "Cool-down {seconds}s",
+  "@webReverseSetupCooldown": {
+    "description": "web reverse setup dialog: webReverseSetupCooldown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSetupResolveLock": "Resolve profile lock",
+  "@webReverseSetupResolveLock": {
+    "description": "web reverse setup dialog: webReverseSetupResolveLock"
   }
 }

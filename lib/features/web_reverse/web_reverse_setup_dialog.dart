@@ -160,6 +160,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final loc = AppLocalizations.of(context);
     final isZh = _isZh();
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -170,7 +171,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(theme, cs, isZh),
+            _buildHeader(theme, cs, loc),
             Divider(height: 1, color: cs.outlineVariant),
             Flexible(
               child: SingleChildScrollView(
@@ -178,7 +179,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _LabelText(isZh ? '目标 URL *' : 'Target URL *'),
+                    _LabelText(loc?.webReverseSetupTargetUrl ?? 'Target URL *'),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _urlCtrl,
@@ -190,36 +191,34 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '逆向目标 *' : 'Objective *'),
+                    _LabelText(loc?.webReverseSetupObjective ?? 'Objective *'),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _objectiveCtrl,
                       maxLines: 3,
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: isZh
-                            ? '例如：复现壁纸下载接口，输出 curl 脚本'
-                            : 'e.g. reverse the wallpaper download API into a curl script',
+                        hintText: loc?.webReverseSetupObjectiveHint ??
+                            'e.g. reverse the wallpaper download API into a curl script',
                         border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '触发动作（可选）' : 'Trigger actions (optional)'),
+                    _LabelText(loc?.webReverseSetupTriggerActions ?? 'Trigger actions (optional)'),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _triggerCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: isZh
-                            ? '例如：登录后点击"下载原图"按钮'
-                            : 'e.g. log in then click "Download Original"',
+                        hintText: loc?.webReverseSetupTriggerHint ??
+                            'e.g. log in then click "Download Original"',
                         border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '登录态' : 'Login mode'),
+                    _LabelText(loc?.webReverseSetupLoginMode ?? 'Login mode'),
                     const SizedBox(height: 4),
                     SegmentedButton<WebReverseLoginMode>(
                       segments: WebReverseLoginMode.values
@@ -235,7 +234,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                           setState(() => _loginMode = s.first),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '浏览器（已检测）' : 'Browser (detected)'),
+                    _LabelText(loc?.webReverseSetupBrowser ?? 'Browser (detected)'),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<WebReverseBrowserProbeResult>(
                       initialValue: _selectedProbe,
@@ -273,7 +272,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '代理（可选）' : 'Proxy (optional)'),
+                    _LabelText(loc?.webReverseSetupProxy ?? 'Proxy (optional)'),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _proxyCtrl,
@@ -284,14 +283,14 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(isZh ? '关键关键字（可选，逗号分隔）' : 'Keywords (optional, comma-separated)'),
+                    _LabelText(loc?.webReverseSetupKeywords ?? 'Keywords (optional, comma-separated)'),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _keywordsCtrl,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         isDense: true,
-                        hintText: isZh ? 'sign, encrypt, _0x' : 'sign, encrypt, _0x',
-                        border: const OutlineInputBorder(),
+                        hintText: 'sign, encrypt, _0x',
+                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -311,13 +310,12 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: AppLocalizations.of(context)?.commonCancel ??
-                        (isZh ? '取消' : 'Cancel'),
+                    label: AppLocalizations.of(context)?.commonCancel ?? 'Cancel',
                   ),
                   const SizedBox(width: 12),
                   OpenHandDialogActionButton.primary(
                     onPressed: _canSubmit ? _submit : null,
-                    label: isZh ? '创建线程' : 'Create Thread',
+                    label: loc?.webReverseSetupCreateThread ?? 'Create Thread',
                   ),
                 ],
               ),
@@ -328,7 +326,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
       child: Row(
@@ -353,16 +351,15 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? '新建 Web 逆向会话' : 'New Web Reverse Session',
+                  loc?.webReverseSetupHeaderTitle ?? 'New Web Reverse Session',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isZh
-                      ? '会话启动后会拉起浏览器并吸附在主窗口右侧'
-                      : 'Browser will dock to the right of the main window after start',
+                  loc?.webReverseSetupHeaderSubtitle ??
+                      'Browser will dock to the right of the main window after start',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -371,7 +368,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
             ),
           ),
           IconButton(
-            tooltip: isZh ? '关闭' : 'Close',
+            tooltip: loc?.webReverseSetupClose ?? 'Close',
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),
@@ -487,7 +484,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final hasLock = _hasLock == true;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -515,7 +512,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isZh ? 'Profile 目录' : 'User Data Dir',
+                      loc?.webReverseSetupProfileDir ?? 'User Data Dir',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -534,9 +531,8 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
                     if (hasLock) ...[
                       const SizedBox(height: 4),
                       Text(
-                        isZh
-                            ? '检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。'
-                            : 'Stale SingletonLock / lockfile detected — may block next launch.',
+                        loc?.webReverseSetupLockDetected ??
+                            'Stale SingletonLock / lockfile detected — may block next launch.',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.error,
                           fontWeight: FontWeight.w700,
@@ -565,14 +561,12 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
               ),
               label: Text(
                 _busy
-                    ? (isZh ? '处理中…' : 'Working…')
+                    ? (loc?.webReverseSetupWorking ?? 'Working…')
                     : _onCooldown
-                        ? (isZh
-                            ? '冷却中（${_cooldownLeftSec}s）'
-                            : 'Cool-down ${_cooldownLeftSec}s')
-                        : (isZh
-                            ? '解决 Profile 冲突'
-                            : 'Resolve profile lock'),
+                        ? (loc?.webReverseSetupCooldown(_cooldownLeftSec) ??
+                            'Cool-down ${_cooldownLeftSec}s')
+                        : (loc?.webReverseSetupResolveLock ??
+                            'Resolve profile lock'),
               ),
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,

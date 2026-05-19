@@ -6417,4 +6417,65 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseSwDebugMethodOk(String method) {
     return '$method ok';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => 'Ziel-URL *';
+
+  @override
+  String get webReverseSetupObjective => 'Ziel *';
+
+  @override
+  String get webReverseSetupObjectiveHint =>
+      'z. B. Wallpaper-Download-API rückentwickeln, curl-Skript ausgeben';
+
+  @override
+  String get webReverseSetupTriggerActions => 'Auslöseraktionen (optional)';
+
+  @override
+  String get webReverseSetupTriggerHint =>
+      'z. B. einloggen und dann auf „Original herunterladen“ klicken';
+
+  @override
+  String get webReverseSetupLoginMode => 'Login-Modus';
+
+  @override
+  String get webReverseSetupBrowser => 'Browser (erkannt)';
+
+  @override
+  String get webReverseSetupProxy => 'Proxy (optional)';
+
+  @override
+  String get webReverseSetupKeywords =>
+      'Schlüsselwörter (optional, kommagetrennt)';
+
+  @override
+  String get webReverseSetupCreateThread => 'Thread erstellen';
+
+  @override
+  String get webReverseSetupHeaderTitle => 'Neue Web-Reverse-Sitzung';
+
+  @override
+  String get webReverseSetupHeaderSubtitle =>
+      'Nach dem Start wird der Browser rechts neben dem Hauptfenster angedockt';
+
+  @override
+  String get webReverseSetupClose => 'Schließen';
+
+  @override
+  String get webReverseSetupProfileDir => 'Profilverzeichnis';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      'Veraltete SingletonLock-/Lockfile erkannt — könnte den nächsten Start blockieren.';
+
+  @override
+  String get webReverseSetupWorking => 'Wird verarbeitet…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return 'Abkühlung ${seconds}s';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => 'Profilkonflikt lösen';
 }

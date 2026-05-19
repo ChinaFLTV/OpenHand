@@ -6363,4 +6363,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseSwDebugMethodOk(String method) {
     return '$method ok';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => 'Target URL *';
+
+  @override
+  String get webReverseSetupObjective => 'Objective *';
+
+  @override
+  String get webReverseSetupObjectiveHint =>
+      'e.g. reverse the wallpaper download API into a curl script';
+
+  @override
+  String get webReverseSetupTriggerActions => 'Trigger actions (optional)';
+
+  @override
+  String get webReverseSetupTriggerHint =>
+      'e.g. log in then click \"Download Original\"';
+
+  @override
+  String get webReverseSetupLoginMode => 'Login mode';
+
+  @override
+  String get webReverseSetupBrowser => 'Browser (detected)';
+
+  @override
+  String get webReverseSetupProxy => 'Proxy (optional)';
+
+  @override
+  String get webReverseSetupKeywords => 'Keywords (optional, comma-separated)';
+
+  @override
+  String get webReverseSetupCreateThread => 'Create Thread';
+
+  @override
+  String get webReverseSetupHeaderTitle => 'New Web Reverse Session';
+
+  @override
+  String get webReverseSetupHeaderSubtitle =>
+      'Browser will dock to the right of the main window after start';
+
+  @override
+  String get webReverseSetupClose => 'Close';
+
+  @override
+  String get webReverseSetupProfileDir => 'User Data Dir';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      'Stale SingletonLock / lockfile detected — may block next launch.';
+
+  @override
+  String get webReverseSetupWorking => 'Working…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return 'Cool-down ${seconds}s';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => 'Resolve profile lock';
 }

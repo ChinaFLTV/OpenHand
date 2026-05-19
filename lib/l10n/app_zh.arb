@@ -4073,5 +4073,82 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSetupTargetUrl": "目标 URL *",
+  "@webReverseSetupTargetUrl": {
+    "description": "web reverse setup dialog: webReverseSetupTargetUrl"
+  },
+  "webReverseSetupObjective": "逆向目标 *",
+  "@webReverseSetupObjective": {
+    "description": "web reverse setup dialog: webReverseSetupObjective"
+  },
+  "webReverseSetupObjectiveHint": "例如：复现壁纸下载接口，输出 curl 脚本",
+  "@webReverseSetupObjectiveHint": {
+    "description": "web reverse setup dialog: webReverseSetupObjectiveHint"
+  },
+  "webReverseSetupTriggerActions": "触发动作（可选）",
+  "@webReverseSetupTriggerActions": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerActions"
+  },
+  "webReverseSetupTriggerHint": "例如：登录后点击“下载原图”按钮",
+  "@webReverseSetupTriggerHint": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerHint"
+  },
+  "webReverseSetupLoginMode": "登录态",
+  "@webReverseSetupLoginMode": {
+    "description": "web reverse setup dialog: webReverseSetupLoginMode"
+  },
+  "webReverseSetupBrowser": "浏览器（已检测）",
+  "@webReverseSetupBrowser": {
+    "description": "web reverse setup dialog: webReverseSetupBrowser"
+  },
+  "webReverseSetupProxy": "代理（可选）",
+  "@webReverseSetupProxy": {
+    "description": "web reverse setup dialog: webReverseSetupProxy"
+  },
+  "webReverseSetupKeywords": "关键关键字（可选，逗号分隔）",
+  "@webReverseSetupKeywords": {
+    "description": "web reverse setup dialog: webReverseSetupKeywords"
+  },
+  "webReverseSetupCreateThread": "创建线程",
+  "@webReverseSetupCreateThread": {
+    "description": "web reverse setup dialog: webReverseSetupCreateThread"
+  },
+  "webReverseSetupHeaderTitle": "新建 Web 逆向会话",
+  "@webReverseSetupHeaderTitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderTitle"
+  },
+  "webReverseSetupHeaderSubtitle": "会话启动后会拉起浏览器并吸附在主窗口右侧",
+  "@webReverseSetupHeaderSubtitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderSubtitle"
+  },
+  "webReverseSetupClose": "关闭",
+  "@webReverseSetupClose": {
+    "description": "web reverse setup dialog: webReverseSetupClose"
+  },
+  "webReverseSetupProfileDir": "Profile 目录",
+  "@webReverseSetupProfileDir": {
+    "description": "web reverse setup dialog: webReverseSetupProfileDir"
+  },
+  "webReverseSetupLockDetected": "检测到 SingletonLock / lockfile 残留，可能阻止浏览器再次启动。",
+  "@webReverseSetupLockDetected": {
+    "description": "web reverse setup dialog: webReverseSetupLockDetected"
+  },
+  "webReverseSetupWorking": "处理中…",
+  "@webReverseSetupWorking": {
+    "description": "web reverse setup dialog: webReverseSetupWorking"
+  },
+  "webReverseSetupCooldown": "冷却中（{seconds}s）",
+  "@webReverseSetupCooldown": {
+    "description": "web reverse setup dialog: webReverseSetupCooldown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSetupResolveLock": "解决 Profile 冲突",
+  "@webReverseSetupResolveLock": {
+    "description": "web reverse setup dialog: webReverseSetupResolveLock"
   }
 }

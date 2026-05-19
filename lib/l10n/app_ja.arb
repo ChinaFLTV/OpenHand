@@ -4073,5 +4073,82 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSetupTargetUrl": "ターゲット URL *",
+  "@webReverseSetupTargetUrl": {
+    "description": "web reverse setup dialog: webReverseSetupTargetUrl"
+  },
+  "webReverseSetupObjective": "目的 *",
+  "@webReverseSetupObjective": {
+    "description": "web reverse setup dialog: webReverseSetupObjective"
+  },
+  "webReverseSetupObjectiveHint": "例: 壁紙ダウンロード API をリバースし curl スクリプトを出力",
+  "@webReverseSetupObjectiveHint": {
+    "description": "web reverse setup dialog: webReverseSetupObjectiveHint"
+  },
+  "webReverseSetupTriggerActions": "トリガー動作（任意）",
+  "@webReverseSetupTriggerActions": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerActions"
+  },
+  "webReverseSetupTriggerHint": "例: ログイン後「原画ダウンロード」をクリック",
+  "@webReverseSetupTriggerHint": {
+    "description": "web reverse setup dialog: webReverseSetupTriggerHint"
+  },
+  "webReverseSetupLoginMode": "ログインモード",
+  "@webReverseSetupLoginMode": {
+    "description": "web reverse setup dialog: webReverseSetupLoginMode"
+  },
+  "webReverseSetupBrowser": "ブラウザ（検出済み）",
+  "@webReverseSetupBrowser": {
+    "description": "web reverse setup dialog: webReverseSetupBrowser"
+  },
+  "webReverseSetupProxy": "プロキシ（任意）",
+  "@webReverseSetupProxy": {
+    "description": "web reverse setup dialog: webReverseSetupProxy"
+  },
+  "webReverseSetupKeywords": "キーワード（任意、カンマ区切り）",
+  "@webReverseSetupKeywords": {
+    "description": "web reverse setup dialog: webReverseSetupKeywords"
+  },
+  "webReverseSetupCreateThread": "スレッド作成",
+  "@webReverseSetupCreateThread": {
+    "description": "web reverse setup dialog: webReverseSetupCreateThread"
+  },
+  "webReverseSetupHeaderTitle": "新規 Web リバースセッション",
+  "@webReverseSetupHeaderTitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderTitle"
+  },
+  "webReverseSetupHeaderSubtitle": "セッション開始後、ブラウザがメインウィンドウの右側にドッキングします",
+  "@webReverseSetupHeaderSubtitle": {
+    "description": "web reverse setup dialog: webReverseSetupHeaderSubtitle"
+  },
+  "webReverseSetupClose": "閉じる",
+  "@webReverseSetupClose": {
+    "description": "web reverse setup dialog: webReverseSetupClose"
+  },
+  "webReverseSetupProfileDir": "プロファイルディレクトリ",
+  "@webReverseSetupProfileDir": {
+    "description": "web reverse setup dialog: webReverseSetupProfileDir"
+  },
+  "webReverseSetupLockDetected": "残留した SingletonLock / lockfile を検出しました。次回起動を妨げる可能性があります。",
+  "@webReverseSetupLockDetected": {
+    "description": "web reverse setup dialog: webReverseSetupLockDetected"
+  },
+  "webReverseSetupWorking": "処理中…",
+  "@webReverseSetupWorking": {
+    "description": "web reverse setup dialog: webReverseSetupWorking"
+  },
+  "webReverseSetupCooldown": "クールダウン {seconds}s",
+  "@webReverseSetupCooldown": {
+    "description": "web reverse setup dialog: webReverseSetupCooldown",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSetupResolveLock": "プロファイル競合を解決",
+  "@webReverseSetupResolveLock": {
+    "description": "web reverse setup dialog: webReverseSetupResolveLock"
   }
 }

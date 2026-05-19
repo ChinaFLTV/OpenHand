@@ -6443,4 +6443,66 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseSwDebugMethodOk(String method) {
     return '$method ok';
   }
+
+  @override
+  String get webReverseSetupTargetUrl => 'URL cible *';
+
+  @override
+  String get webReverseSetupObjective => 'Objectif *';
+
+  @override
+  String get webReverseSetupObjectiveHint =>
+      'p. ex. rétro-ingénierie de l’API de téléchargement de fonds d’écran en script curl';
+
+  @override
+  String get webReverseSetupTriggerActions =>
+      'Actions déclencheuses (facultatif)';
+
+  @override
+  String get webReverseSetupTriggerHint =>
+      'p. ex. se connecter puis cliquer sur « Télécharger l’original »';
+
+  @override
+  String get webReverseSetupLoginMode => 'Mode de connexion';
+
+  @override
+  String get webReverseSetupBrowser => 'Navigateur (détecté)';
+
+  @override
+  String get webReverseSetupProxy => 'Proxy (facultatif)';
+
+  @override
+  String get webReverseSetupKeywords =>
+      'Mots-clés (facultatif, séparés par des virgules)';
+
+  @override
+  String get webReverseSetupCreateThread => 'Créer le fil';
+
+  @override
+  String get webReverseSetupHeaderTitle => 'Nouvelle session Web Reverse';
+
+  @override
+  String get webReverseSetupHeaderSubtitle =>
+      'Après le démarrage, le navigateur s’ancre à droite de la fenêtre principale';
+
+  @override
+  String get webReverseSetupClose => 'Fermer';
+
+  @override
+  String get webReverseSetupProfileDir => 'Répertoire de profil';
+
+  @override
+  String get webReverseSetupLockDetected =>
+      'SingletonLock / lockfile résiduel détecté — peut bloquer le prochain lancement.';
+
+  @override
+  String get webReverseSetupWorking => 'Traitement…';
+
+  @override
+  String webReverseSetupCooldown(int seconds) {
+    return 'Refroidissement ${seconds}s';
+  }
+
+  @override
+  String get webReverseSetupResolveLock => 'Résoudre le conflit de profil';
 }
