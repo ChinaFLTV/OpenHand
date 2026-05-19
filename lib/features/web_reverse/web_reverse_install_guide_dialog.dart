@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -41,7 +42,12 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
     final url = _downloadUrl(context);
     if (Platform.isMacOS) {
       // open URL via system 'open'，避免引入额外依赖。
-      await Process.run('/usr/bin/open', [url]);
+      await runTrackedProcessOrFailed(
+        '/usr/bin/open',
+        [url],
+        timeout: const Duration(seconds: 5),
+        tag: 'web_reverse.install_guide_open',
+      );
     }
   }
 

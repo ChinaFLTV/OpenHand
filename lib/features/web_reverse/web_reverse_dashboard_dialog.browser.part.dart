@@ -1334,11 +1334,26 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         if (url == null || url.isEmpty) return;
         try {
           if (Platform.isMacOS) {
-            await Process.run('/usr/bin/open', [url]);
+            await runTrackedProcessOrFailed(
+              '/usr/bin/open',
+              [url],
+              timeout: const Duration(seconds: 5),
+              tag: 'web_reverse.open_external',
+            );
           } else if (Platform.isWindows) {
-            await Process.run('cmd', ['/c', 'start', '', url]);
+            await runTrackedProcessOrFailed(
+              'cmd',
+              ['/c', 'start', '', url],
+              timeout: const Duration(seconds: 5),
+              tag: 'web_reverse.open_external',
+            );
           } else if (Platform.isLinux) {
-            await Process.run('xdg-open', [url]);
+            await runTrackedProcessOrFailed(
+              'xdg-open',
+              [url],
+              timeout: const Duration(seconds: 5),
+              tag: 'web_reverse.open_external',
+            );
           }
         } catch (_) {}
       case 'saveFrame':

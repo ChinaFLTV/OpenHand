@@ -30,10 +30,12 @@ class PluginScannerService {
     script.writeln('export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"');
     script.writeln('export PATH="\$VOLTA_HOME/bin:\$PATH"');
     script.writeln(command);
-    return Process.run(_pickShell(), [
-      '-c',
-      script.toString(),
-    ]).timeout(const Duration(seconds: 15));
+    return runTrackedProcessOrFailed(
+      _pickShell(),
+      ['-c', script.toString()],
+      timeout: const Duration(seconds: 15),
+      tag: 'plugin_scanner.shell_probe',
+    );
   }
 
   /// 直接从 nvm 目录结构解析当前默认 Node 版本（不依赖 shell）。

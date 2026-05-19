@@ -453,10 +453,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (processInfo.isRunning && processInfo.pid != null) {
       // 验证进程是否仍然存活（发送 signal 0 不会杀死进程，只检查是否存在）
       try {
-        final checkResult = await Process.run('kill', [
-          '-0',
-          '${processInfo.pid}',
-        ]).timeout(const Duration(seconds: 2));
+        final checkResult = await runTrackedProcessOrFailed(
+          'kill',
+          ['-0', '${processInfo.pid}'],
+          timeout: const Duration(seconds: 2),
+          tag: 'mcp_tool_discovery.kill0',
+        );
         if (checkResult.exitCode == 0) return; // 进程存活，健康
       } catch (_) {}
     }

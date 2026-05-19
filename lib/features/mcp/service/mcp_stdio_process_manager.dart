@@ -591,12 +591,12 @@ class McpStdioProcessManager extends ChangeNotifier {
     // 尝试获取进程内存信息（macOS/Linux）
     if (managed?.info.pid != null && !Platform.isWindows) {
       try {
-        final result = await Process.run('ps', [
-          '-o',
-          'rss=',
-          '-p',
-          '${managed!.info.pid}',
-        ]).timeout(const Duration(seconds: 3));
+        final result = await runTrackedProcessOrFailed(
+          'ps',
+          ['-o', 'rss=', '-p', '${managed!.info.pid}'],
+          timeout: const Duration(seconds: 3),
+          tag: 'mcp_stdio.ps_rss',
+        );
         if (result.exitCode == 0) {
           final rssKb = int.tryParse(result.stdout.toString().trim());
           if (rssKb != null) {
@@ -607,11 +607,12 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 获取线程数
       try {
-        final result = await Process.run('ps', [
-          '-M',
-          '-p',
-          '${managed!.info.pid}',
-        ]).timeout(const Duration(seconds: 3));
+        final result = await runTrackedProcessOrFailed(
+          'ps',
+          ['-M', '-p', '${managed!.info.pid}'],
+          timeout: const Duration(seconds: 3),
+          tag: 'mcp_stdio.ps_threads',
+        );
         if (result.exitCode == 0) {
           final lines = result.stdout.toString().trim().split('\n');
           info['线程数'] = '${lines.length - 1}'; // 减去 header 行
@@ -918,11 +919,12 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
   // 策略 3：通过 login shell 查询（兜底）
   try {
     final shell = _pickShellForLaunch();
-    final result = await Process.run(shell, [
-      '-l',
-      '-c',
-      'which node && npm root -g',
-    ]).timeout(const Duration(seconds: 8));
+    final result = await runTrackedProcessOrFailed(
+      shell,
+      ['-l', '-c', 'which node && npm root -g'],
+      timeout: const Duration(seconds: 8),
+      tag: 'mcp_stdio.login_shell_probe',
+    );
     if (result.exitCode == 0) {
       final lines = result.stdout.toString().trim().split('\n');
       if (lines.length >= 2) {

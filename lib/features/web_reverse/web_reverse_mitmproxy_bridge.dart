@@ -56,7 +56,12 @@ class WebReverseMitmproxyBridge {
     ];
     for (final c in candidates) {
       try {
-        final r = await Process.run(c, const ['--version']);
+        final r = await runTrackedProcessOrFailed(
+          c,
+          const ['--version'],
+          timeout: const Duration(seconds: 5),
+          tag: 'mitmproxy.version_probe',
+        );
         if (r.exitCode == 0) return c;
       } catch (_) {}
     }

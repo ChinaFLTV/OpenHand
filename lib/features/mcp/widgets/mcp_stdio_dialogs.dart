@@ -938,11 +938,13 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
       _addLog('[${_ts()}] 预热隔离缓存…');
       final cacheRoot = mcpStdioIsolatedCacheRoot();
       try {
-        await Process.run(
+        await runTrackedProcessOrFailed(
           'npm',
           ['cache', 'add', cleanPkg],
           environment: {'npm_config_cache': '$cacheRoot/npm'},
-        ).timeout(const Duration(seconds: 30));
+          timeout: const Duration(seconds: 30),
+          tag: 'mcp_stdio.npm_cache_add',
+        );
         _addLog('[${_ts()}] ✓ 缓存预热完成');
       } catch (e) {
         _addLog('[${_ts()}] 缓存预热跳过: $e');

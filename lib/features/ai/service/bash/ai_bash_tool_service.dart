@@ -1280,10 +1280,12 @@ class AiBashToolService {
       }
       // 最后兜底：通过 `command -v setsid` 在 PATH 里找。
       try {
-        final result = await Process.run('/bin/sh', <String>[
-          '-lc',
-          'command -v setsid 2>/dev/null',
-        ]).timeout(const Duration(seconds: 2));
+        final result = await runTrackedProcessOrFailed(
+          '/bin/sh',
+          <String>['-lc', 'command -v setsid 2>/dev/null'],
+          timeout: const Duration(seconds: 2),
+          tag: 'ai_bash.setsid_probe',
+        );
         final stdout = (result.stdout as String).trim();
         if (stdout.isNotEmpty && File(stdout).existsSync()) return stdout;
       } catch (_) {}

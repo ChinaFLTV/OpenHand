@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
@@ -6016,10 +6017,12 @@ class WebReverseSessionController extends ChangeNotifier {
       // 这里直接用 zip 工具命令行，跨平台都有：macOS / Linux 用 zip；
       // Windows 用 PowerShell Compress-Archive。失败时降级为复制目录。
       if (Platform.isMacOS || Platform.isLinux) {
-        final r = await Process.run(
+        final r = await runTrackedProcessOrFailed(
           'zip',
           ['-r', out.path, src.path.split('/').last],
           workingDirectory: src.parent.path,
+          timeout: const Duration(minutes: 2),
+          tag: 'web_reverse.zip_archive',
         );
         if (r.exitCode != 0) {
           silentLog(
@@ -6031,12 +6034,14 @@ class WebReverseSessionController extends ChangeNotifier {
           return null;
         }
       } else if (Platform.isWindows) {
-        final r = await Process.run(
+        final r = await runTrackedProcessOrFailed(
           'powershell',
           [
             '-Command',
             'Compress-Archive -Path "${src.path}\\*" -DestinationPath "${out.path}" -Force',
           ],
+          timeout: const Duration(minutes: 2),
+          tag: 'web_reverse.compress_archive',
         );
         if (r.exitCode != 0) {
           silentLog(

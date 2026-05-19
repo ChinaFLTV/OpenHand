@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -1103,11 +1104,26 @@ Future<void> _openOfficialDevToolsForController(
   final url = frontendUrl ?? 'http://127.0.0.1:$port/json/list';
   try {
     if (Platform.isMacOS) {
-      await Process.run('/usr/bin/open', [url]);
+      await runTrackedProcessOrFailed(
+        '/usr/bin/open',
+        [url],
+        timeout: const Duration(seconds: 5),
+        tag: 'web_reverse.open_devtools',
+      );
     } else if (Platform.isWindows) {
-      await Process.run('cmd', ['/c', 'start', '', url]);
+      await runTrackedProcessOrFailed(
+        'cmd',
+        ['/c', 'start', '', url],
+        timeout: const Duration(seconds: 5),
+        tag: 'web_reverse.open_devtools',
+      );
     } else if (Platform.isLinux) {
-      await Process.run('xdg-open', [url]);
+      await runTrackedProcessOrFailed(
+        'xdg-open',
+        [url],
+        timeout: const Duration(seconds: 5),
+        tag: 'web_reverse.open_devtools',
+      );
     }
   } catch (error, stack) {
     silentLog(

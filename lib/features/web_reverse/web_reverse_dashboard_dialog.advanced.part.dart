@@ -2506,7 +2506,7 @@ Future<String> _runWebcrack(String src) async {
   await input.writeAsString(src);
   try {
     // npx 第一次需要联网拉包；--yes 跳过提示。
-    final result = await Process.run(
+    final result = await runTrackedProcessOrFailed(
       'npx',
       <String>[
         '--yes',
@@ -2516,6 +2516,8 @@ Future<String> _runWebcrack(String src) async {
         tmpDir.path,
       ],
       runInShell: Platform.isWindows,
+      timeout: const Duration(minutes: 5),
+      tag: 'web_reverse.webcrack',
     );
     if (result.exitCode != 0) {
       return '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}';
