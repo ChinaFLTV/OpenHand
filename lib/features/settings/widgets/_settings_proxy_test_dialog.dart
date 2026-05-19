@@ -124,10 +124,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollGuard.followToBottom(
-        _scrollController,
-        animated: true,
-      );
+      _scrollGuard.followToBottom(_scrollController, animated: true);
     });
   }
 
@@ -1083,13 +1080,13 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 const Spacer(),
               const SizedBox(width: 8),
               if (!_running)
-                TextButton.icon(
+                OpenHandDialogActionButton.secondary(
                   onPressed: _rerun,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(l10n.proxyTestConsoleRerun),
+                  icon: Icons.refresh,
+                  label: l10n.proxyTestConsoleRerun,
                 ),
               const SizedBox(width: 4),
-              TextButton(
+              OpenHandDialogActionButton.primary(
                 onPressed: _running
                     ? null
                     : () => Navigator.of(context).pop(
@@ -1098,7 +1095,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                           summary: _finalSummary ?? '',
                         ),
                       ),
-                child: Text(l10n.proxyTestConsoleClose),
+                label: l10n.proxyTestConsoleClose,
               ),
             ],
           ),

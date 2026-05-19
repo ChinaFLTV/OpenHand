@@ -177,24 +177,19 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
               ),
             ),
           ),
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(widget.image),
-            child: Text(
-              loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
-            ),
+            label: loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
+          OpenHandDialogActionButton.primary(
             onPressed: _exporting ? null : _export,
-            icon: Icon(
-              _exporting ? Icons.hourglass_top_rounded : Icons.check_rounded,
-              size: 18,
-            ),
-            label: Text(
-              _exporting
-                  ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
-                  : (loc?.webReverseMarkupDone ?? 'Done'),
-            ),
+            icon: _exporting
+                ? Icons.hourglass_top_rounded
+                : Icons.check_rounded,
+            label: _exporting
+                ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
+                : (loc?.webReverseMarkupDone ?? 'Done'),
           ),
           const SizedBox(width: 6),
           IconButton(

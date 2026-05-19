@@ -936,50 +936,20 @@ class _HeSteeringFileEditorDialogState
                           ),
                         ),
                       ),
-                    // Both buttons use the same style/size so they are
-                    // visually consistent.
-                    OutlinedButton(
+                    OpenHandDialogActionButton.secondary(
                       onPressed: () async {
                         if (await _confirmDiscard()) {
                           if (context.mounted) Navigator.of(context).pop();
                         }
                       },
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(88, 40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                      ),
-                      child: Text(widget.isZh ? '关闭' : 'Close'),
+                      label: widget.isZh ? '关闭' : 'Close',
                     ),
                     const SizedBox(width: 8),
-                    FilledButton(
+                    OpenHandDialogActionButton.primary(
                       onPressed: _dirty && !_saving ? _save : null,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(88, 40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                      ),
-                      child: _saving
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.onPrimary,
-                              ),
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.save_rounded, size: 17),
-                                const SizedBox(width: 6),
-                                Text(widget.isZh ? '保存' : 'Save'),
-                              ],
-                            ),
+                      icon: Icons.save_rounded,
+                      busy: _saving,
+                      label: widget.isZh ? '保存' : 'Save',
                     ),
                   ],
                 ),

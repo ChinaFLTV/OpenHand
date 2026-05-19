@@ -5068,9 +5068,9 @@ class _McpStateCard extends StatelessWidget {
                 ),
                 if (primaryActionLabel != null && onPrimaryAction != null) ...[
                   const SizedBox(height: 20),
-                  FilledButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: onPrimaryAction,
-                    child: Text(primaryActionLabel!),
+                    label: primaryActionLabel!,
                   ),
                 ],
               ],
