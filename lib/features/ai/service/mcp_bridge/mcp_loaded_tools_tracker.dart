@@ -97,7 +97,7 @@ class McpLoadedToolsTracker {
   }
 
   /// 吸收 ToolSearch 工具结果中 `tool_search_loaded_names` 元数据，更新累计
-  /// 集合并广播事件。返回新增（去重前）的名字，若无可吸收则返回空。
+  /// 集合并广播事件。返回本次真正新增的名字，若无新增则返回空。
   List<String> absorb({
     required String sessionId,
     required Object? loadedNamesRaw,
@@ -111,8 +111,9 @@ class McpLoadedToolsTracker {
     final addedNames = <String>[];
     for (final entry in loadedNamesRaw) {
       if (entry is String && entry.isNotEmpty) {
-        bucket.add(entry);
-        addedNames.add(entry);
+        if (bucket.add(entry)) {
+          addedNames.add(entry);
+        }
       }
     }
     if (addedNames.isEmpty) return const <String>[];

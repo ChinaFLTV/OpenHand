@@ -215,7 +215,7 @@ class HardnessApiPhaseRunner {
         : 'hardness-phase-${phase.storageValue}';
     return guardedRunPhase<HardnessApiPhaseResult>(
       phaseSessionId: phaseSessionId,
-      onPhaseEnded: onPhaseEnded,
+      onPhaseEnded: _handlePhaseEnded,
       run: () => _runPhaseInner(
         model: model,
         phase: phase,
@@ -228,6 +228,11 @@ class HardnessApiPhaseRunner {
         phaseSessionId: phaseSessionId,
       ),
     );
+  }
+
+  void _handlePhaseEnded({required String phaseSessionId}) {
+    _loadedMcpToolsBySession.remove(phaseSessionId);
+    onPhaseEnded?.call(phaseSessionId: phaseSessionId);
   }
 
   /// 公开的 try/finally 包装：保证 [onPhaseEnded] 会在 [run] 结束时
@@ -627,8 +632,9 @@ class HardnessApiPhaseRunner {
             final addedNames = <String>[];
             for (final name in loadedNames) {
               if (name is String && name.isNotEmpty) {
-                bucket.add(name);
-                addedNames.add(name);
+                if (bucket.add(name)) {
+                  addedNames.add(name);
+                }
               }
             }
             final cb = onToolSearchLoaded;
