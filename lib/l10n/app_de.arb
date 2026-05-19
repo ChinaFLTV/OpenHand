@@ -2733,5 +2733,199 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHarTitle": "HAR Persistence",
+  "@webReverseHarTitle": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarTitle"
+  },
+  "webReverseHarSubtitle": "Save now / Load back / Periodic rotation",
+  "@webReverseHarSubtitle": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSubtitle"
+  },
+  "webReverseHarOpenSaveDialogFail": "Failed to open save dialog",
+  "@webReverseHarOpenSaveDialogFail": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarOpenSaveDialogFail"
+  },
+  "webReverseHarExporting": "Exporting...",
+  "@webReverseHarExporting": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExporting"
+  },
+  "webReverseHarExportFailedNoDraft": "Export failed (no HAR draft)",
+  "@webReverseHarExportFailedNoDraft": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportFailedNoDraft"
+  },
+  "webReverseHarExportFailed": "Export failed",
+  "@webReverseHarExportFailed": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportFailed"
+  },
+  "webReverseHarWrotePrefix": "Wrote: ",
+  "@webReverseHarWrotePrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarWrotePrefix"
+  },
+  "webReverseHarSaved": "HAR saved",
+  "@webReverseHarSaved": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSaved"
+  },
+  "webReverseHarExportErrorShort": "Export error",
+  "@webReverseHarExportErrorShort": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportErrorShort"
+  },
+  "webReverseHarOpenFileDialogFail": "Failed to open file dialog",
+  "@webReverseHarOpenFileDialogFail": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarOpenFileDialogFail"
+  },
+  "webReverseHarParsing": "Parsing HAR...",
+  "@webReverseHarParsing": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarParsing"
+  },
+  "webReverseHarModeMerge": "merge",
+  "@webReverseHarModeMerge": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarModeMerge"
+  },
+  "webReverseHarModeReplace": "replace",
+  "@webReverseHarModeReplace": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarModeReplace"
+  },
+  "webReverseHarLoaded": "HAR loaded",
+  "@webReverseHarLoaded": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoaded"
+  },
+  "webReverseHarLoadErrorShort": "Load error",
+  "@webReverseHarLoadErrorShort": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadErrorShort"
+  },
+  "webReverseHarSelect": "Select",
+  "@webReverseHarSelect": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSelect"
+  },
+  "webReverseHarChooseFolderFirst": "Choose a folder first",
+  "@webReverseHarChooseFolderFirst": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarChooseFolderFirst"
+  },
+  "webReverseHarAutoStarted": "Auto-rotate started",
+  "@webReverseHarAutoStarted": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoStarted"
+  },
+  "webReverseHarAutoStopped": "Auto-rotate stopped",
+  "@webReverseHarAutoStopped": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoStopped"
+  },
+  "webReverseHarSessionStatus": "Session status",
+  "@webReverseHarSessionStatus": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSessionStatus"
+  },
+  "webReverseHarManual": "Manual",
+  "@webReverseHarManual": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarManual"
+  },
+  "webReverseHarSaveNow": "Save HAR now",
+  "@webReverseHarSaveNow": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSaveNow"
+  },
+  "webReverseHarLoadExternal": "Load external HAR",
+  "@webReverseHarLoadExternal": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadExternal"
+  },
+  "webReverseHarMergeLabel": "Merge (no clear)",
+  "@webReverseHarMergeLabel": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarMergeLabel"
+  },
+  "webReverseHarLastHarPrefix": "Last HAR: ",
+  "@webReverseHarLastHarPrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLastHarPrefix"
+  },
+  "webReverseHarAutoRotate": "Auto-rotate",
+  "@webReverseHarAutoRotate": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoRotate"
+  },
+  "webReverseHarIntervalLabel": "Interval:",
+  "@webReverseHarIntervalLabel": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarIntervalLabel"
+  },
+  "webReverseHarChooseFolder": "Choose folder",
+  "@webReverseHarChooseFolder": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarChooseFolder"
+  },
+  "webReverseHarFolderNotChosen": "(not chosen)",
+  "@webReverseHarFolderNotChosen": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarFolderNotChosen"
+  },
+  "webReverseHarStart": "Start",
+  "@webReverseHarStart": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarStart"
+  },
+  "webReverseHarStop": "Stop",
+  "@webReverseHarStop": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarStop"
+  },
+  "webReverseHarNotes": "Notes",
+  "@webReverseHarNotes": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarNotes"
+  },
+  "webReverseHarClose": "Close",
+  "@webReverseHarClose": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarClose"
+  },
+  "webReverseHarLastFilePrefix": "Last: ",
+  "@webReverseHarLastFilePrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLastFilePrefix"
+  },
+  "webReverseHarNotesBody": "· Save now: copy internal HAR draft to chosen .har path.\n· Load external HAR: parse HAR 1.2 and write back to networkRequests; merge optional.\n· Auto-rotate: writes current snapshot to folder with ISO-timestamped .har every N minutes; survives dialog close — stop manually.",
+  "@webReverseHarNotesBody": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarNotesBody"
+  },
+  "webReverseHarExportException": "Export error: {error}",
+  "@webReverseHarExportException": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportException",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarLoadException": "Load error: {error}",
+  "@webReverseHarLoadException": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadException",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarLoadResult": "Loaded: {loaded} / skipped {skipped} ({mode})",
+  "@webReverseHarLoadResult": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadResult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarCapturedEntries": "Captured entries: {count}",
+  "@webReverseHarCapturedEntries": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarCapturedEntries",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHarRunningInfo": "Running · {rotations} rotations · next in {remaining}",
+  "@webReverseHarRunningInfo": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarRunningInfo",
+    "placeholders": {
+      "rotations": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "String"
+      }
+    }
   }
 }

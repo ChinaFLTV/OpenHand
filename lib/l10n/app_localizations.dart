@@ -9605,6 +9605,246 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'{method} 异常: {error}'**
   String webReverseAnimationsBulkError(String method, String error);
+
+  /// web_reverse: HAR persistence dialog · webReverseHarTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 全量持久化'**
+  String get webReverseHarTitle;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarSubtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'立即落盘 / 反向加载 / 周期自动轮转'**
+  String get webReverseHarSubtitle;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarOpenSaveDialogFail
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开保存对话框失败'**
+  String get webReverseHarOpenSaveDialogFail;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarExporting
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出中...'**
+  String get webReverseHarExporting;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarExportFailedNoDraft
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出失败（无 HAR 草稿）'**
+  String get webReverseHarExportFailedNoDraft;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarExportFailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出失败'**
+  String get webReverseHarExportFailed;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarWrotePrefix
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已写出: '**
+  String get webReverseHarWrotePrefix;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarSaved
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 已保存'**
+  String get webReverseHarSaved;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarExportErrorShort
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出异常'**
+  String get webReverseHarExportErrorShort;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarOpenFileDialogFail
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开文件对话框失败'**
+  String get webReverseHarOpenFileDialogFail;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarParsing
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'解析 HAR...'**
+  String get webReverseHarParsing;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarModeMerge
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'合并'**
+  String get webReverseHarModeMerge;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarModeReplace
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'替换'**
+  String get webReverseHarModeReplace;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLoaded
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HAR 已加载'**
+  String get webReverseHarLoaded;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLoadErrorShort
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载异常'**
+  String get webReverseHarLoadErrorShort;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarSelect
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择'**
+  String get webReverseHarSelect;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarChooseFolderFirst
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先选择目录'**
+  String get webReverseHarChooseFolderFirst;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarAutoStarted
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已启动自动轮转'**
+  String get webReverseHarAutoStarted;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarAutoStopped
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停止自动轮转'**
+  String get webReverseHarAutoStopped;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarSessionStatus
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话状态'**
+  String get webReverseHarSessionStatus;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarManual
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动操作'**
+  String get webReverseHarManual;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarSaveNow
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'立即保存 HAR'**
+  String get webReverseHarSaveNow;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLoadExternal
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载外部 HAR'**
+  String get webReverseHarLoadExternal;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarMergeLabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'合并（不清空）'**
+  String get webReverseHarMergeLabel;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLastHarPrefix
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上次 HAR: '**
+  String get webReverseHarLastHarPrefix;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarAutoRotate
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'周期自动轮转'**
+  String get webReverseHarAutoRotate;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarIntervalLabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'间隔:'**
+  String get webReverseHarIntervalLabel;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarChooseFolder
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择目录'**
+  String get webReverseHarChooseFolder;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarFolderNotChosen
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'（未选择）'**
+  String get webReverseHarFolderNotChosen;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarStart
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动'**
+  String get webReverseHarStart;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarStop
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReverseHarStop;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarNotes
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'说明'**
+  String get webReverseHarNotes;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarClose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseHarClose;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLastFilePrefix
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近一份: '**
+  String get webReverseHarLastFilePrefix;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarNotesBody
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。'**
+  String get webReverseHarNotesBody;
+
+  /// web_reverse: HAR persistence dialog · webReverseHarExportException
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出异常: {error}'**
+  String webReverseHarExportException(String error);
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLoadException
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载异常: {error}'**
+  String webReverseHarLoadException(String error);
+
+  /// web_reverse: HAR persistence dialog · webReverseHarLoadResult
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载完成: {loaded} 条 / 跳过 {skipped} 条（{mode}）'**
+  String webReverseHarLoadResult(int loaded, int skipped, String mode);
+
+  /// web_reverse: HAR persistence dialog · webReverseHarCapturedEntries
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓包条目: {count}'**
+  String webReverseHarCapturedEntries(int count);
+
+  /// web_reverse: HAR persistence dialog · webReverseHarRunningInfo
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中 · 已轮转 {rotations} 次 · 下次 {remaining} 后'**
+  String webReverseHarRunningInfo(int rotations, String remaining);
 }
 
 class _AppLocalizationsDelegate

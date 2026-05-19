@@ -5171,6 +5171,137 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseAnimationsBulkError(String method, String error) {
     return '$method 异常: $error';
   }
+
+  @override
+  String get webReverseHarTitle => 'HAR 全量持久化';
+
+  @override
+  String get webReverseHarSubtitle => '立即落盘 / 反向加载 / 周期自动轮转';
+
+  @override
+  String get webReverseHarOpenSaveDialogFail => '打开保存对话框失败';
+
+  @override
+  String get webReverseHarExporting => '导出中...';
+
+  @override
+  String get webReverseHarExportFailedNoDraft => '导出失败（无 HAR 草稿）';
+
+  @override
+  String get webReverseHarExportFailed => '导出失败';
+
+  @override
+  String get webReverseHarWrotePrefix => '已写出: ';
+
+  @override
+  String get webReverseHarSaved => 'HAR 已保存';
+
+  @override
+  String get webReverseHarExportErrorShort => '导出异常';
+
+  @override
+  String get webReverseHarOpenFileDialogFail => '打开文件对话框失败';
+
+  @override
+  String get webReverseHarParsing => '解析 HAR...';
+
+  @override
+  String get webReverseHarModeMerge => '合并';
+
+  @override
+  String get webReverseHarModeReplace => '替换';
+
+  @override
+  String get webReverseHarLoaded => 'HAR 已加载';
+
+  @override
+  String get webReverseHarLoadErrorShort => '加载异常';
+
+  @override
+  String get webReverseHarSelect => '选择';
+
+  @override
+  String get webReverseHarChooseFolderFirst => '请先选择目录';
+
+  @override
+  String get webReverseHarAutoStarted => '已启动自动轮转';
+
+  @override
+  String get webReverseHarAutoStopped => '已停止自动轮转';
+
+  @override
+  String get webReverseHarSessionStatus => '当前会话状态';
+
+  @override
+  String get webReverseHarManual => '手动操作';
+
+  @override
+  String get webReverseHarSaveNow => '立即保存 HAR';
+
+  @override
+  String get webReverseHarLoadExternal => '加载外部 HAR';
+
+  @override
+  String get webReverseHarMergeLabel => '合并（不清空）';
+
+  @override
+  String get webReverseHarLastHarPrefix => '上次 HAR: ';
+
+  @override
+  String get webReverseHarAutoRotate => '周期自动轮转';
+
+  @override
+  String get webReverseHarIntervalLabel => '间隔:';
+
+  @override
+  String get webReverseHarChooseFolder => '选择目录';
+
+  @override
+  String get webReverseHarFolderNotChosen => '（未选择）';
+
+  @override
+  String get webReverseHarStart => '启动';
+
+  @override
+  String get webReverseHarStop => '停止';
+
+  @override
+  String get webReverseHarNotes => '说明';
+
+  @override
+  String get webReverseHarClose => '关闭';
+
+  @override
+  String get webReverseHarLastFilePrefix => '最近一份: ';
+
+  @override
+  String get webReverseHarNotesBody =>
+      '· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。';
+
+  @override
+  String webReverseHarExportException(String error) {
+    return '导出异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadException(String error) {
+    return '加载异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadResult(int loaded, int skipped, String mode) {
+    return '加载完成: $loaded 条 / 跳过 $skipped 条（$mode）';
+  }
+
+  @override
+  String webReverseHarCapturedEntries(int count) {
+    return '抓包条目: $count';
+  }
+
+  @override
+  String webReverseHarRunningInfo(int rotations, String remaining) {
+    return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -10340,6 +10471,137 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseAnimationsBulkError(String method, String error) {
     return '$method 异常: $error';
   }
+
+  @override
+  String get webReverseHarTitle => 'HAR 全量持久化';
+
+  @override
+  String get webReverseHarSubtitle => '立即落盘 / 反向加载 / 周期自动轮转';
+
+  @override
+  String get webReverseHarOpenSaveDialogFail => '打开保存对话框失败';
+
+  @override
+  String get webReverseHarExporting => '导出中...';
+
+  @override
+  String get webReverseHarExportFailedNoDraft => '导出失败（无 HAR 草稿）';
+
+  @override
+  String get webReverseHarExportFailed => '导出失败';
+
+  @override
+  String get webReverseHarWrotePrefix => '已写出: ';
+
+  @override
+  String get webReverseHarSaved => 'HAR 已保存';
+
+  @override
+  String get webReverseHarExportErrorShort => '导出异常';
+
+  @override
+  String get webReverseHarOpenFileDialogFail => '打开文件对话框失败';
+
+  @override
+  String get webReverseHarParsing => '解析 HAR...';
+
+  @override
+  String get webReverseHarModeMerge => '合并';
+
+  @override
+  String get webReverseHarModeReplace => '替换';
+
+  @override
+  String get webReverseHarLoaded => 'HAR 已加载';
+
+  @override
+  String get webReverseHarLoadErrorShort => '加载异常';
+
+  @override
+  String get webReverseHarSelect => '选择';
+
+  @override
+  String get webReverseHarChooseFolderFirst => '请先选择目录';
+
+  @override
+  String get webReverseHarAutoStarted => '已启动自动轮转';
+
+  @override
+  String get webReverseHarAutoStopped => '已停止自动轮转';
+
+  @override
+  String get webReverseHarSessionStatus => '当前会话状态';
+
+  @override
+  String get webReverseHarManual => '手动操作';
+
+  @override
+  String get webReverseHarSaveNow => '立即保存 HAR';
+
+  @override
+  String get webReverseHarLoadExternal => '加载外部 HAR';
+
+  @override
+  String get webReverseHarMergeLabel => '合并（不清空）';
+
+  @override
+  String get webReverseHarLastHarPrefix => '上次 HAR: ';
+
+  @override
+  String get webReverseHarAutoRotate => '周期自动轮转';
+
+  @override
+  String get webReverseHarIntervalLabel => '间隔:';
+
+  @override
+  String get webReverseHarChooseFolder => '选择目录';
+
+  @override
+  String get webReverseHarFolderNotChosen => '（未选择）';
+
+  @override
+  String get webReverseHarStart => '启动';
+
+  @override
+  String get webReverseHarStop => '停止';
+
+  @override
+  String get webReverseHarNotes => '说明';
+
+  @override
+  String get webReverseHarClose => '关闭';
+
+  @override
+  String get webReverseHarLastFilePrefix => '最近一份: ';
+
+  @override
+  String get webReverseHarNotesBody =>
+      '· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。';
+
+  @override
+  String webReverseHarExportException(String error) {
+    return '导出异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadException(String error) {
+    return '加载异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadResult(int loaded, int skipped, String mode) {
+    return '加载完成: $loaded 条 / 跳过 $skipped 条（$mode）';
+  }
+
+  @override
+  String webReverseHarCapturedEntries(int count) {
+    return '抓包条目: $count';
+  }
+
+  @override
+  String webReverseHarRunningInfo(int rotations, String remaining) {
+    return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -15507,5 +15769,136 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseAnimationsBulkError(String method, String error) {
     return '$method 异常: $error';
+  }
+
+  @override
+  String get webReverseHarTitle => 'HAR 全量持久化';
+
+  @override
+  String get webReverseHarSubtitle => '立即落盘 / 反向加载 / 周期自动轮转';
+
+  @override
+  String get webReverseHarOpenSaveDialogFail => '打开保存对话框失败';
+
+  @override
+  String get webReverseHarExporting => '导出中...';
+
+  @override
+  String get webReverseHarExportFailedNoDraft => '导出失败（无 HAR 草稿）';
+
+  @override
+  String get webReverseHarExportFailed => '导出失败';
+
+  @override
+  String get webReverseHarWrotePrefix => '已写出: ';
+
+  @override
+  String get webReverseHarSaved => 'HAR 已保存';
+
+  @override
+  String get webReverseHarExportErrorShort => '导出异常';
+
+  @override
+  String get webReverseHarOpenFileDialogFail => '打开文件对话框失败';
+
+  @override
+  String get webReverseHarParsing => '解析 HAR...';
+
+  @override
+  String get webReverseHarModeMerge => '合并';
+
+  @override
+  String get webReverseHarModeReplace => '替换';
+
+  @override
+  String get webReverseHarLoaded => 'HAR 已加载';
+
+  @override
+  String get webReverseHarLoadErrorShort => '加载异常';
+
+  @override
+  String get webReverseHarSelect => '选择';
+
+  @override
+  String get webReverseHarChooseFolderFirst => '请先选择目录';
+
+  @override
+  String get webReverseHarAutoStarted => '已启动自动轮转';
+
+  @override
+  String get webReverseHarAutoStopped => '已停止自动轮转';
+
+  @override
+  String get webReverseHarSessionStatus => '当前会话状态';
+
+  @override
+  String get webReverseHarManual => '手动操作';
+
+  @override
+  String get webReverseHarSaveNow => '立即保存 HAR';
+
+  @override
+  String get webReverseHarLoadExternal => '加载外部 HAR';
+
+  @override
+  String get webReverseHarMergeLabel => '合并（不清空）';
+
+  @override
+  String get webReverseHarLastHarPrefix => '上次 HAR: ';
+
+  @override
+  String get webReverseHarAutoRotate => '周期自动轮转';
+
+  @override
+  String get webReverseHarIntervalLabel => '间隔:';
+
+  @override
+  String get webReverseHarChooseFolder => '选择目录';
+
+  @override
+  String get webReverseHarFolderNotChosen => '（未选择）';
+
+  @override
+  String get webReverseHarStart => '启动';
+
+  @override
+  String get webReverseHarStop => '停止';
+
+  @override
+  String get webReverseHarNotes => '说明';
+
+  @override
+  String get webReverseHarClose => '关闭';
+
+  @override
+  String get webReverseHarLastFilePrefix => '最近一份: ';
+
+  @override
+  String get webReverseHarNotesBody =>
+      '· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。';
+
+  @override
+  String webReverseHarExportException(String error) {
+    return '导出异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadException(String error) {
+    return '加载异常: $error';
+  }
+
+  @override
+  String webReverseHarLoadResult(int loaded, int skipped, String mode) {
+    return '加载完成: $loaded 条 / 跳过 $skipped 条（$mode）';
+  }
+
+  @override
+  String webReverseHarCapturedEntries(int count) {
+    return '抓包条目: $count';
+  }
+
+  @override
+  String webReverseHarRunningInfo(int rotations, String remaining) {
+    return '运行中 · 已轮转 $rotations 次 · 下次 $remaining 后';
   }
 }

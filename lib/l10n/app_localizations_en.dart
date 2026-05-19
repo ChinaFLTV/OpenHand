@@ -5435,4 +5435,136 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseAnimationsBulkError(String method, String error) {
     return '$method error: $error';
   }
+
+  @override
+  String get webReverseHarTitle => 'HAR Persistence';
+
+  @override
+  String get webReverseHarSubtitle =>
+      'Save now / Load back / Periodic rotation';
+
+  @override
+  String get webReverseHarOpenSaveDialogFail => 'Failed to open save dialog';
+
+  @override
+  String get webReverseHarExporting => 'Exporting...';
+
+  @override
+  String get webReverseHarExportFailedNoDraft => 'Export failed (no HAR draft)';
+
+  @override
+  String get webReverseHarExportFailed => 'Export failed';
+
+  @override
+  String get webReverseHarWrotePrefix => 'Wrote: ';
+
+  @override
+  String get webReverseHarSaved => 'HAR saved';
+
+  @override
+  String get webReverseHarExportErrorShort => 'Export error';
+
+  @override
+  String get webReverseHarOpenFileDialogFail => 'Failed to open file dialog';
+
+  @override
+  String get webReverseHarParsing => 'Parsing HAR...';
+
+  @override
+  String get webReverseHarModeMerge => 'merge';
+
+  @override
+  String get webReverseHarModeReplace => 'replace';
+
+  @override
+  String get webReverseHarLoaded => 'HAR loaded';
+
+  @override
+  String get webReverseHarLoadErrorShort => 'Load error';
+
+  @override
+  String get webReverseHarSelect => 'Select';
+
+  @override
+  String get webReverseHarChooseFolderFirst => 'Choose a folder first';
+
+  @override
+  String get webReverseHarAutoStarted => 'Auto-rotate started';
+
+  @override
+  String get webReverseHarAutoStopped => 'Auto-rotate stopped';
+
+  @override
+  String get webReverseHarSessionStatus => 'Session status';
+
+  @override
+  String get webReverseHarManual => 'Manual';
+
+  @override
+  String get webReverseHarSaveNow => 'Save HAR now';
+
+  @override
+  String get webReverseHarLoadExternal => 'Load external HAR';
+
+  @override
+  String get webReverseHarMergeLabel => 'Merge (no clear)';
+
+  @override
+  String get webReverseHarLastHarPrefix => 'Last HAR: ';
+
+  @override
+  String get webReverseHarAutoRotate => 'Auto-rotate';
+
+  @override
+  String get webReverseHarIntervalLabel => 'Interval:';
+
+  @override
+  String get webReverseHarChooseFolder => 'Choose folder';
+
+  @override
+  String get webReverseHarFolderNotChosen => '(not chosen)';
+
+  @override
+  String get webReverseHarStart => 'Start';
+
+  @override
+  String get webReverseHarStop => 'Stop';
+
+  @override
+  String get webReverseHarNotes => 'Notes';
+
+  @override
+  String get webReverseHarClose => 'Close';
+
+  @override
+  String get webReverseHarLastFilePrefix => 'Last: ';
+
+  @override
+  String get webReverseHarNotesBody =>
+      '· Save now: copy internal HAR draft to chosen .har path.\n· Load external HAR: parse HAR 1.2 and write back to networkRequests; merge optional.\n· Auto-rotate: writes current snapshot to folder with ISO-timestamped .har every N minutes; survives dialog close — stop manually.';
+
+  @override
+  String webReverseHarExportException(String error) {
+    return 'Export error: $error';
+  }
+
+  @override
+  String webReverseHarLoadException(String error) {
+    return 'Load error: $error';
+  }
+
+  @override
+  String webReverseHarLoadResult(int loaded, int skipped, String mode) {
+    return 'Loaded: $loaded / skipped $skipped ($mode)';
+  }
+
+  @override
+  String webReverseHarCapturedEntries(int count) {
+    return 'Captured entries: $count';
+  }
+
+  @override
+  String webReverseHarRunningInfo(int rotations, String remaining) {
+    return 'Running · $rotations rotations · next in $remaining';
+  }
 }

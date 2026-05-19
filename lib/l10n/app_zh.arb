@@ -2733,5 +2733,199 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHarTitle": "HAR 全量持久化",
+  "@webReverseHarTitle": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarTitle"
+  },
+  "webReverseHarSubtitle": "立即落盘 / 反向加载 / 周期自动轮转",
+  "@webReverseHarSubtitle": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSubtitle"
+  },
+  "webReverseHarOpenSaveDialogFail": "打开保存对话框失败",
+  "@webReverseHarOpenSaveDialogFail": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarOpenSaveDialogFail"
+  },
+  "webReverseHarExporting": "导出中...",
+  "@webReverseHarExporting": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExporting"
+  },
+  "webReverseHarExportFailedNoDraft": "导出失败（无 HAR 草稿）",
+  "@webReverseHarExportFailedNoDraft": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportFailedNoDraft"
+  },
+  "webReverseHarExportFailed": "导出失败",
+  "@webReverseHarExportFailed": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportFailed"
+  },
+  "webReverseHarWrotePrefix": "已写出: ",
+  "@webReverseHarWrotePrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarWrotePrefix"
+  },
+  "webReverseHarSaved": "HAR 已保存",
+  "@webReverseHarSaved": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSaved"
+  },
+  "webReverseHarExportErrorShort": "导出异常",
+  "@webReverseHarExportErrorShort": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportErrorShort"
+  },
+  "webReverseHarOpenFileDialogFail": "打开文件对话框失败",
+  "@webReverseHarOpenFileDialogFail": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarOpenFileDialogFail"
+  },
+  "webReverseHarParsing": "解析 HAR...",
+  "@webReverseHarParsing": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarParsing"
+  },
+  "webReverseHarModeMerge": "合并",
+  "@webReverseHarModeMerge": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarModeMerge"
+  },
+  "webReverseHarModeReplace": "替换",
+  "@webReverseHarModeReplace": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarModeReplace"
+  },
+  "webReverseHarLoaded": "HAR 已加载",
+  "@webReverseHarLoaded": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoaded"
+  },
+  "webReverseHarLoadErrorShort": "加载异常",
+  "@webReverseHarLoadErrorShort": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadErrorShort"
+  },
+  "webReverseHarSelect": "选择",
+  "@webReverseHarSelect": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSelect"
+  },
+  "webReverseHarChooseFolderFirst": "请先选择目录",
+  "@webReverseHarChooseFolderFirst": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarChooseFolderFirst"
+  },
+  "webReverseHarAutoStarted": "已启动自动轮转",
+  "@webReverseHarAutoStarted": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoStarted"
+  },
+  "webReverseHarAutoStopped": "已停止自动轮转",
+  "@webReverseHarAutoStopped": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoStopped"
+  },
+  "webReverseHarSessionStatus": "当前会话状态",
+  "@webReverseHarSessionStatus": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSessionStatus"
+  },
+  "webReverseHarManual": "手动操作",
+  "@webReverseHarManual": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarManual"
+  },
+  "webReverseHarSaveNow": "立即保存 HAR",
+  "@webReverseHarSaveNow": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarSaveNow"
+  },
+  "webReverseHarLoadExternal": "加载外部 HAR",
+  "@webReverseHarLoadExternal": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadExternal"
+  },
+  "webReverseHarMergeLabel": "合并（不清空）",
+  "@webReverseHarMergeLabel": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarMergeLabel"
+  },
+  "webReverseHarLastHarPrefix": "上次 HAR: ",
+  "@webReverseHarLastHarPrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLastHarPrefix"
+  },
+  "webReverseHarAutoRotate": "周期自动轮转",
+  "@webReverseHarAutoRotate": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarAutoRotate"
+  },
+  "webReverseHarIntervalLabel": "间隔:",
+  "@webReverseHarIntervalLabel": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarIntervalLabel"
+  },
+  "webReverseHarChooseFolder": "选择目录",
+  "@webReverseHarChooseFolder": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarChooseFolder"
+  },
+  "webReverseHarFolderNotChosen": "（未选择）",
+  "@webReverseHarFolderNotChosen": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarFolderNotChosen"
+  },
+  "webReverseHarStart": "启动",
+  "@webReverseHarStart": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarStart"
+  },
+  "webReverseHarStop": "停止",
+  "@webReverseHarStop": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarStop"
+  },
+  "webReverseHarNotes": "说明",
+  "@webReverseHarNotes": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarNotes"
+  },
+  "webReverseHarClose": "关闭",
+  "@webReverseHarClose": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarClose"
+  },
+  "webReverseHarLastFilePrefix": "最近一份: ",
+  "@webReverseHarLastFilePrefix": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLastFilePrefix"
+  },
+  "webReverseHarNotesBody": "· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。",
+  "@webReverseHarNotesBody": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarNotesBody"
+  },
+  "webReverseHarExportException": "导出异常: {error}",
+  "@webReverseHarExportException": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarExportException",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarLoadException": "加载异常: {error}",
+  "@webReverseHarLoadException": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadException",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarLoadResult": "加载完成: {loaded} 条 / 跳过 {skipped} 条（{mode}）",
+  "@webReverseHarLoadResult": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarLoadResult",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseHarCapturedEntries": "抓包条目: {count}",
+  "@webReverseHarCapturedEntries": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarCapturedEntries",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHarRunningInfo": "运行中 · 已轮转 {rotations} 次 · 下次 {remaining} 后",
+  "@webReverseHarRunningInfo": {
+    "description": "web_reverse: HAR persistence dialog · webReverseHarRunningInfo",
+    "placeholders": {
+      "rotations": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -16,6 +16,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -78,7 +79,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
 
   Future<void> _saveNow() async {
     if (_busy) return;
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
@@ -95,34 +96,36 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
       silentLog('web_reverse_har_persistence', 'getSaveLocation', e, s);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
-          context, messenger, isZh ? '打开保存对话框失败' : 'Failed to open save dialog');
+          context, messenger, loc0?.webReverseHarOpenSaveDialogFail ?? 'Failed to open save dialog');
       return;
     }
     if (loc == null) return;
     setState(() {
       _busy = true;
-      _status = isZh ? '导出中...' : 'Exporting...';
+      _status = loc0?.webReverseHarExporting ?? 'Exporting...';
     });
     try {
       final written = await widget.controller
           .exportHarToPath(loc.path)
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
+      final loc1 = AppLocalizations.of(context);
       if (written == null) {
-        setState(() => _status = isZh ? '导出失败（无 HAR 草稿）' : 'Export failed (no HAR draft)');
+        setState(() => _status = loc1?.webReverseHarExportFailedNoDraft ?? 'Export failed (no HAR draft)');
         OpenHandSnackBar.showErrorOn(
-            context, messenger, isZh ? '导出失败' : 'Export failed');
+            context, messenger, loc1?.webReverseHarExportFailed ?? 'Export failed');
       } else {
-        setState(() => _status = (isZh ? '已写出: ' : 'Wrote: ') + written);
+        setState(() => _status = (loc1?.webReverseHarWrotePrefix ?? 'Wrote: ') + written);
         OpenHandSnackBar.showSuccessOn(
-            context, messenger, isZh ? 'HAR 已保存' : 'HAR saved');
+            context, messenger, loc1?.webReverseHarSaved ?? 'HAR saved');
       }
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'exportHarToPath', e, s);
       if (!mounted) return;
-      setState(() => _status = isZh ? '导出异常: $e' : 'Export error: $e');
+      final loc1 = AppLocalizations.of(context);
+      setState(() => _status = loc1?.webReverseHarExportException(e.toString()) ?? 'Export error: $e');
       OpenHandSnackBar.showErrorOn(
-          context, messenger, isZh ? '导出异常' : 'Export error');
+          context, messenger, loc1?.webReverseHarExportErrorShort ?? 'Export error');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -130,7 +133,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
 
   Future<void> _loadHar() async {
     if (_busy) return;
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     const tg = XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
     XFile? file;
@@ -140,39 +143,43 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
       silentLog('web_reverse_har_persistence', 'openFile', e, s);
       if (!mounted) return;
       OpenHandSnackBar.showErrorOn(
-          context, messenger, isZh ? '打开文件对话框失败' : 'Failed to open file dialog');
+          context, messenger, loc0?.webReverseHarOpenFileDialogFail ?? 'Failed to open file dialog');
       return;
     }
     if (file == null) return;
     setState(() {
       _busy = true;
-      _status = isZh ? '解析 HAR...' : 'Parsing HAR...';
+      _status = loc0?.webReverseHarParsing ?? 'Parsing HAR...';
     });
     try {
       final bytes = await file.readAsBytes();
       final r = widget.controller.loadHarBytes(bytes, merge: _mergeOnLoad);
       if (!mounted) return;
-      setState(() => _status = isZh
-          ? '加载完成: ${r.loaded} 条 / 跳过 ${r.skipped} 条（${_mergeOnLoad ? '合并' : '替换'}）'
-          : 'Loaded: ${r.loaded} / skipped ${r.skipped} (${_mergeOnLoad ? 'merge' : 'replace'})');
+      final loc1 = AppLocalizations.of(context);
+      final mode = _mergeOnLoad
+          ? (loc1?.webReverseHarModeMerge ?? 'merge')
+          : (loc1?.webReverseHarModeReplace ?? 'replace');
+      setState(() => _status = loc1?.webReverseHarLoadResult(r.loaded, r.skipped, mode)
+          ?? 'Loaded: ${r.loaded} / skipped ${r.skipped} ($mode)');
       OpenHandSnackBar.showSuccessOn(
-          context, messenger, isZh ? 'HAR 已加载' : 'HAR loaded');
+          context, messenger, loc1?.webReverseHarLoaded ?? 'HAR loaded');
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'loadHarBytes', e, s);
       if (!mounted) return;
-      setState(() => _status = isZh ? '加载异常: $e' : 'Load error: $e');
+      final loc1 = AppLocalizations.of(context);
+      setState(() => _status = loc1?.webReverseHarLoadException(e.toString()) ?? 'Load error: $e');
       OpenHandSnackBar.showErrorOn(
-          context, messenger, isZh ? '加载异常' : 'Load error');
+          context, messenger, loc1?.webReverseHarLoadErrorShort ?? 'Load error');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _pickFolder() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     try {
       final dir = await getDirectoryPath(
-        confirmButtonText: isZh ? '选择' : 'Select',
+        confirmButtonText: loc?.webReverseHarSelect ?? 'Select',
       );
       if (dir == null) return;
       setState(() => _folder = dir);
@@ -182,12 +189,12 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
   }
 
   void _startAutoRotate() {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final folder = _folder;
     if (folder == null || folder.isEmpty) {
       OpenHandSnackBar.showErrorOn(
-          context, messenger, isZh ? '请先选择目录' : 'Choose a folder first');
+          context, messenger, loc?.webReverseHarChooseFolderFirst ?? 'Choose a folder first');
       return;
     }
     _autoRotate.timer?.cancel();
@@ -216,7 +223,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     });
     setState(() {});
     OpenHandSnackBar.showSuccessOn(
-        context, messenger, isZh ? '已启动自动轮转' : 'Auto-rotate started');
+        context, messenger, loc?.webReverseHarAutoStarted ?? 'Auto-rotate started');
   }
 
   void _stopAutoRotate() {
@@ -227,7 +234,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
-          context, m, widget.isZh ? '已停止自动轮转' : 'Auto-rotate stopped');
+          context, m, AppLocalizations.of(context)?.webReverseHarAutoStopped ?? 'Auto-rotate stopped');
     }
   }
 
@@ -235,7 +242,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final entryCount = widget.controller.networkRequests.length;
     final lastHar = widget.controller.lastHarPath;
     final running = _autoRotate.timer != null;
@@ -269,14 +276,13 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'HAR 全量持久化' : 'HAR Persistence',
+                          loc?.webReverseHarTitle ?? 'HAR Persistence',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '立即落盘 / 反向加载 / 周期自动轮转'
-                              : 'Save now / Load back / Periodic rotation',
+                          loc?.webReverseHarSubtitle ??
+                              'Save now / Load back / Periodic rotation',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -309,22 +315,20 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isZh ? '当前会话状态' : 'Session status',
+                            loc?.webReverseHarSessionStatus ?? 'Session status',
                             style: theme.textTheme.labelLarge
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            isZh
-                                ? '抓包条目: $entryCount'
-                                : 'Captured entries: $entryCount',
+                            loc?.webReverseHarCapturedEntries(entryCount) ?? 'Captured entries: $entryCount',
                             style: theme.textTheme.bodySmall,
                           ),
                           if (lastHar != null && lastHar.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
                               child: Text(
-                                (isZh ? '上次 HAR: ' : 'Last HAR: ') + lastHar,
+                                (loc?.webReverseHarLastHarPrefix ?? 'Last HAR: ') + lastHar,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     fontFamily: 'monospace',
                                     color: cs.onSurfaceVariant),
@@ -335,7 +339,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      isZh ? '手动操作' : 'Manual',
+                      loc?.webReverseHarManual ?? 'Manual',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -353,12 +357,12 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.download_rounded, size: 18),
-                          label: Text(isZh ? '立即保存 HAR' : 'Save HAR now'),
+                          label: Text(loc?.webReverseHarSaveNow ?? 'Save HAR now'),
                         ),
                         OutlinedButton.icon(
                           onPressed: _busy ? null : _loadHar,
                           icon: const Icon(Icons.upload_file_rounded, size: 18),
-                          label: Text(isZh ? '加载外部 HAR' : 'Load external HAR'),
+                          label: Text(loc?.webReverseHarLoadExternal ?? 'Load external HAR'),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -368,21 +372,21 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                               onChanged: (v) =>
                                   setState(() => _mergeOnLoad = v ?? false),
                             ),
-                            Text(isZh ? '合并（不清空）' : 'Merge (no clear)'),
+                            Text(loc?.webReverseHarMergeLabel ?? 'Merge (no clear)'),
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      isZh ? '周期自动轮转' : 'Auto-rotate',
+                      loc?.webReverseHarAutoRotate ?? 'Auto-rotate',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Text(isZh ? '间隔:' : 'Interval:'),
+                        Text(loc?.webReverseHarIntervalLabel ?? 'Interval:'),
                         const SizedBox(width: 8),
                         DropdownButton<Duration>(
                           value: _interval,
@@ -412,12 +416,12 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                         OutlinedButton.icon(
                           onPressed: running ? null : _pickFolder,
                           icon: const Icon(Icons.folder_rounded, size: 18),
-                          label: Text(isZh ? '选择目录' : 'Choose folder'),
+                          label: Text(loc?.webReverseHarChooseFolder ?? 'Choose folder'),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            _folder ?? (isZh ? '（未选择）' : '(not chosen)'),
+                            _folder ?? (loc?.webReverseHarFolderNotChosen ?? '(not chosen)'),
                             style: theme.textTheme.bodySmall?.copyWith(
                                 fontFamily: 'monospace',
                                 color: cs.onSurfaceVariant),
@@ -433,7 +437,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                           FilledButton.icon(
                             onPressed: _startAutoRotate,
                             icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                            label: Text(isZh ? '启动' : 'Start'),
+                            label: Text(loc?.webReverseHarStart ?? 'Start'),
                           )
                         else
                           FilledButton.icon(
@@ -442,7 +446,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                                 backgroundColor: cs.errorContainer,
                                 foregroundColor: cs.onErrorContainer),
                             icon: const Icon(Icons.stop_rounded, size: 18),
-                            label: Text(isZh ? '停止' : 'Stop'),
+                            label: Text(loc?.webReverseHarStop ?? 'Stop'),
                           ),
                       ],
                     ),
@@ -460,15 +464,14 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isZh
-                                  ? '运行中 · 已轮转 ${_autoRotate.rotations} 次 · 下次 $remaining 后'
-                                  : 'Running · ${_autoRotate.rotations} rotations · next in $remaining',
+                              loc?.webReverseHarRunningInfo(_autoRotate.rotations, remaining)
+                                  ?? 'Running · ${_autoRotate.rotations} rotations · next in $remaining',
                               style: theme.textTheme.bodySmall,
                             ),
                             if (_autoRotate.lastFile != null) ...[
                               const SizedBox(height: 4),
                               Text(
-                                (isZh ? '最近一份: ' : 'Last: ') +
+                                (loc?.webReverseHarLastFilePrefix ?? 'Last: ') +
                                     _autoRotate.lastFile!,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     fontFamily: 'monospace',
@@ -497,17 +500,14 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      isZh ? '说明' : 'Notes',
+                      loc?.webReverseHarNotes ?? 'Notes',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      isZh
-                          ? '· 立即保存：把内部 HAR 草稿复制到你选择的 .har 路径。\n'
-                              '· 加载外部 HAR：解析 HAR 1.2 并写回 networkRequests，可选合并到现有列表。\n'
-                              '· 自动轮转：每 N 分钟把当前快照写到目录下带 ISO 时间戳的 .har 文件；对话框关闭后继续运行，需手动停止。'
-                          : '· Save now: copy internal HAR draft to chosen .har path.\n'
+                      loc?.webReverseHarNotesBody ??
+                          '· Save now: copy internal HAR draft to chosen .har path.\n'
                               '· Load external HAR: parse HAR 1.2 and write back to networkRequests; merge optional.\n'
                               '· Auto-rotate: writes current snapshot to folder with ISO-timestamped .har every N minutes; survives dialog close — stop manually.',
                       style: theme.textTheme.labelSmall
@@ -524,7 +524,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseHarClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
