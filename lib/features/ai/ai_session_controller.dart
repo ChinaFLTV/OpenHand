@@ -2059,19 +2059,6 @@ class AiSessionController extends ChangeNotifier {
     Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
         const <String, McpToolCatalog>{},
   }) {
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    if (!adapter.supportsToolCalls) {
-      return AiRuntimeToolPreview(
-        sessionMode: session.mode,
-        awaitingPlanApproval: session.awaitingPlanApproval,
-        planRecoveryInspectionRequired: false,
-        planExecutionApproved: false,
-        toolNames: const <String>[],
-        notices: const <String>[],
-        gateReason: 'model_no_tool_support',
-        supportsToolCalls: false,
-      );
-    }
     final latestUserMessageId = _latestActiveUserMessageId(session);
     final recoveryInspectionRequired = _shouldRequirePlanModeRecoveryInspection(
       session: session,
