@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -114,6 +115,7 @@ class _WsRow {
 class _WsInjectDialog extends StatefulWidget {
   const _WsInjectDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_WsInjectDialog> createState() => _WsInjectDialogState();
@@ -222,6 +224,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     if (id == null) return;
     final raw = _payloadCtrl.text;
     if (raw.isEmpty) return;
+    final loc = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
       final encoded = jsonEncode(raw);
@@ -246,25 +249,28 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
           at: DateTime.now(),
           ok: ok,
           summary: ok
-              ? (widget.isZh ? '已注入 ${raw.length} 字节' : 'Sent ${raw.length} bytes')
-              : (widget.isZh ? '失败：$value' : 'Failed: $value'),
+              ? (loc?.webReverseWsInjectSentBytes(raw.length) ??
+                  'Sent ${raw.length} bytes')
+              : (loc?.webReverseWsInjectFailedReason('$value') ??
+                  'Failed: $value'),
           payload: raw,
         ),
       );
       if (_log.length > 60) _log.removeLast();
+      if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         if (ok) {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            widget.isZh ? '注入成功' : 'Injected',
+            loc?.webReverseWsInjectInjected ?? 'Injected',
           );
         } else {
           OpenHandSnackBar.showErrorOn(
             context,
             m,
-            widget.isZh ? '注入失败' : 'Inject failed',
+            loc?.webReverseWsInjectInjectFailed ?? 'Inject failed',
           );
         }
       }
@@ -279,7 +285,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
 
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -300,14 +306,13 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'WebSocket 主动注入' : 'WebSocket Inject',
+                          loc?.webReverseWsInjectTitle ?? 'WebSocket Inject',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧'
-                              : 'All page-created WebSockets are proxied → pick one → inject any text frame',
+                          loc?.webReverseWsInjectSubtitle ??
+                              'All page-created WebSockets are proxied → pick one → inject any text frame',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -325,7 +330,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        isZh ? '已注入代理' : 'PROXY ON',
+                        loc?.webReverseWsInjectProxyOn ?? 'PROXY ON',
                         style: TextStyle(
                           color: cs.onPrimaryContainer,
                           fontWeight: FontWeight.w800,
@@ -351,7 +356,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${isZh ? '注入安装失败' : 'Install failed'}: $_installError',
+                    '${loc?.webReverseWsInjectInstallFailed ?? 'Install failed'}: $_installError',
                     style: TextStyle(color: cs.onErrorContainer, fontSize: 12),
                   ),
                 ),
@@ -361,16 +366,15 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               child: Row(
                 children: [
                   Text(
-                    isZh
-                        ? '已发现 ${_rows.length} 个 WebSocket'
-                        : '${_rows.length} live WebSocket(s)',
+                    loc?.webReverseWsInjectLiveCount(_rows.length) ??
+                        '${_rows.length} live WebSocket(s)',
                     style: theme.textTheme.labelMedium,
                   ),
                   const Spacer(),
                   TextButton.icon(
                     onPressed: _busy ? null : _refresh,
                     icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(isZh ? '刷新' : 'Refresh'),
+                    label: Text(loc?.webReverseWsInjectRefresh ?? 'Refresh'),
                   ),
                 ],
               ),
@@ -380,9 +384,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               child: _rows.isEmpty
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。'
-                            : 'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
+                        loc?.webReverseWsInjectNoLive ??
+                            'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
@@ -463,7 +466,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 maxLines: 8,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 decoration: InputDecoration(
-                  labelText: isZh ? '要发送的文本帧 / JSON' : 'Text frame / JSON',
+                  labelText: loc?.webReverseWsInjectPayloadLabel ??
+                      'Text frame / JSON',
                   border: const OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -481,13 +485,13 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                       }
                     },
                     icon: const Icon(Icons.paste_rounded, size: 16),
-                    label: Text(isZh ? '粘贴' : 'Paste'),
+                    label: Text(loc?.webReverseWsInjectPaste ?? 'Paste'),
                   ),
                   const Spacer(),
                   Text(
                     _selectedId == null
-                        ? (isZh ? '请选择目标连接' : 'Pick a target')
-                        : '${isZh ? '目标' : 'Target'}: #$_selectedId',
+                        ? (loc?.webReverseWsInjectPickTarget ?? 'Pick a target')
+                        : '${loc?.webReverseWsInjectTargetLabel ?? 'Target'}: #$_selectedId',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
@@ -505,7 +509,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 child: _log.isEmpty
                     ? Center(
                         child: Text(
-                          isZh ? '注入日志会出现在这里' : 'Inject log appears here',
+                          loc?.webReverseWsInjectLogEmpty ??
+                              'Inject log appears here',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -570,12 +575,12 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseWsInjectClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '注入' : 'Send',
+                    label: loc?.webReverseWsInjectSend ?? 'Send',
                     onPressed: _selectedId == null ||
                             _payloadCtrl.text.isEmpty ||
                             _busy

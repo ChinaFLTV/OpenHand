@@ -6591,4 +6591,66 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseReqBpHitsCount(int count) {
     return 'ヒット (最近 $count)';
   }
+
+  @override
+  String get webReverseWsInjectTitle => 'WebSocket インジェクト';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      'ページ作成の WebSocket はすべてプロキシ経由 → 対象選択 → 任意テキストフレーム注入';
+
+  @override
+  String get webReverseWsInjectProxyOn => 'プロキシ稼働中';
+
+  @override
+  String get webReverseWsInjectInstallFailed => '注入インストール失敗';
+
+  @override
+  String get webReverseWsInjectRefresh => '更新';
+
+  @override
+  String get webReverseWsInjectNoLive =>
+      'アクティブな WebSocket はありません。\nページを再読み込みしてプロキシに新規接続を取らせてください。';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => '送信するテキストフレーム / JSON';
+
+  @override
+  String get webReverseWsInjectPaste => '貼り付け';
+
+  @override
+  String get webReverseWsInjectPickTarget => '対象接続を選択してください';
+
+  @override
+  String get webReverseWsInjectTargetLabel => '対象';
+
+  @override
+  String get webReverseWsInjectLogEmpty => '注入ログがここに表示されます';
+
+  @override
+  String get webReverseWsInjectClose => '閉じる';
+
+  @override
+  String get webReverseWsInjectSend => '送信';
+
+  @override
+  String get webReverseWsInjectInjected => '注入成功';
+
+  @override
+  String get webReverseWsInjectInjectFailed => '注入失敗';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '$count 個のライブ WebSocket';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return '$count バイト送信';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return '失敗：$reason';
+  }
 }

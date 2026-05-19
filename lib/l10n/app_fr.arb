@@ -4599,5 +4599,59 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWsInjectTitle": "Injection WebSocket",
+  "@webReverseWsInjectTitle": {},
+  "webReverseWsInjectSubtitle": "Tous les WebSockets de la page passent par proxy → choisir la cible → injecter un frame texte",
+  "@webReverseWsInjectSubtitle": {},
+  "webReverseWsInjectProxyOn": "PROXY ACTIF",
+  "@webReverseWsInjectProxyOn": {},
+  "webReverseWsInjectInstallFailed": "Échec d'installation",
+  "@webReverseWsInjectInstallFailed": {},
+  "webReverseWsInjectRefresh": "Actualiser",
+  "@webReverseWsInjectRefresh": {},
+  "webReverseWsInjectNoLive": "Aucun WebSocket actif.\nRechargez la page pour laisser le proxy intercepter les nouvelles connexions.",
+  "@webReverseWsInjectNoLive": {},
+  "webReverseWsInjectPayloadLabel": "Frame texte / JSON à envoyer",
+  "@webReverseWsInjectPayloadLabel": {},
+  "webReverseWsInjectPaste": "Coller",
+  "@webReverseWsInjectPaste": {},
+  "webReverseWsInjectPickTarget": "Choisir une cible",
+  "@webReverseWsInjectPickTarget": {},
+  "webReverseWsInjectTargetLabel": "Cible",
+  "@webReverseWsInjectTargetLabel": {},
+  "webReverseWsInjectLogEmpty": "Le journal d'injection apparaîtra ici",
+  "@webReverseWsInjectLogEmpty": {},
+  "webReverseWsInjectClose": "Fermer",
+  "@webReverseWsInjectClose": {},
+  "webReverseWsInjectSend": "Envoyer",
+  "@webReverseWsInjectSend": {},
+  "webReverseWsInjectInjected": "Injecté",
+  "@webReverseWsInjectInjected": {},
+  "webReverseWsInjectInjectFailed": "Échec d'injection",
+  "@webReverseWsInjectInjectFailed": {},
+  "webReverseWsInjectLiveCount": "{count} WebSocket(s) actif(s)",
+  "@webReverseWsInjectLiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectSentBytes": "{count} octets envoyés",
+  "@webReverseWsInjectSentBytes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectFailedReason": "Échec : {reason}",
+  "@webReverseWsInjectFailedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

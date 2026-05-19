@@ -4599,5 +4599,59 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWsInjectTitle": "WebSocket インジェクト",
+  "@webReverseWsInjectTitle": {},
+  "webReverseWsInjectSubtitle": "ページ作成の WebSocket はすべてプロキシ経由 → 対象選択 → 任意テキストフレーム注入",
+  "@webReverseWsInjectSubtitle": {},
+  "webReverseWsInjectProxyOn": "プロキシ稼働中",
+  "@webReverseWsInjectProxyOn": {},
+  "webReverseWsInjectInstallFailed": "注入インストール失敗",
+  "@webReverseWsInjectInstallFailed": {},
+  "webReverseWsInjectRefresh": "更新",
+  "@webReverseWsInjectRefresh": {},
+  "webReverseWsInjectNoLive": "アクティブな WebSocket はありません。\nページを再読み込みしてプロキシに新規接続を取らせてください。",
+  "@webReverseWsInjectNoLive": {},
+  "webReverseWsInjectPayloadLabel": "送信するテキストフレーム / JSON",
+  "@webReverseWsInjectPayloadLabel": {},
+  "webReverseWsInjectPaste": "貼り付け",
+  "@webReverseWsInjectPaste": {},
+  "webReverseWsInjectPickTarget": "対象接続を選択してください",
+  "@webReverseWsInjectPickTarget": {},
+  "webReverseWsInjectTargetLabel": "対象",
+  "@webReverseWsInjectTargetLabel": {},
+  "webReverseWsInjectLogEmpty": "注入ログがここに表示されます",
+  "@webReverseWsInjectLogEmpty": {},
+  "webReverseWsInjectClose": "閉じる",
+  "@webReverseWsInjectClose": {},
+  "webReverseWsInjectSend": "送信",
+  "@webReverseWsInjectSend": {},
+  "webReverseWsInjectInjected": "注入成功",
+  "@webReverseWsInjectInjected": {},
+  "webReverseWsInjectInjectFailed": "注入失敗",
+  "@webReverseWsInjectInjectFailed": {},
+  "webReverseWsInjectLiveCount": "{count} 個のライブ WebSocket",
+  "@webReverseWsInjectLiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectSentBytes": "{count} バイト送信",
+  "@webReverseWsInjectSentBytes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectFailedReason": "失敗：{reason}",
+  "@webReverseWsInjectFailedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

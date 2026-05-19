@@ -6871,4 +6871,67 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseReqBpHitsCount(int count) {
     return 'Déclenchements (récents $count)';
   }
+
+  @override
+  String get webReverseWsInjectTitle => 'Injection WebSocket';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      'Tous les WebSockets de la page passent par proxy → choisir la cible → injecter un frame texte';
+
+  @override
+  String get webReverseWsInjectProxyOn => 'PROXY ACTIF';
+
+  @override
+  String get webReverseWsInjectInstallFailed => 'Échec d\'installation';
+
+  @override
+  String get webReverseWsInjectRefresh => 'Actualiser';
+
+  @override
+  String get webReverseWsInjectNoLive =>
+      'Aucun WebSocket actif.\nRechargez la page pour laisser le proxy intercepter les nouvelles connexions.';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => 'Frame texte / JSON à envoyer';
+
+  @override
+  String get webReverseWsInjectPaste => 'Coller';
+
+  @override
+  String get webReverseWsInjectPickTarget => 'Choisir une cible';
+
+  @override
+  String get webReverseWsInjectTargetLabel => 'Cible';
+
+  @override
+  String get webReverseWsInjectLogEmpty =>
+      'Le journal d\'injection apparaîtra ici';
+
+  @override
+  String get webReverseWsInjectClose => 'Fermer';
+
+  @override
+  String get webReverseWsInjectSend => 'Envoyer';
+
+  @override
+  String get webReverseWsInjectInjected => 'Injecté';
+
+  @override
+  String get webReverseWsInjectInjectFailed => 'Échec d\'injection';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '$count WebSocket(s) actif(s)';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return '$count octets envoyés';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return 'Échec : $reason';
+  }
 }

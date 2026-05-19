@@ -12023,6 +12023,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'命中事件（最近 {count}）'**
   String webReverseReqBpHitsCount(int count);
+
+  /// No description provided for @webReverseWsInjectTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebSocket 主动注入'**
+  String get webReverseWsInjectTitle;
+
+  /// No description provided for @webReverseWsInjectSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧'**
+  String get webReverseWsInjectSubtitle;
+
+  /// No description provided for @webReverseWsInjectProxyOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已注入代理'**
+  String get webReverseWsInjectProxyOn;
+
+  /// No description provided for @webReverseWsInjectInstallFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入安装失败'**
+  String get webReverseWsInjectInstallFailed;
+
+  /// No description provided for @webReverseWsInjectRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseWsInjectRefresh;
+
+  /// No description provided for @webReverseWsInjectNoLive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。'**
+  String get webReverseWsInjectNoLive;
+
+  /// No description provided for @webReverseWsInjectPayloadLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'要发送的文本帧 / JSON'**
+  String get webReverseWsInjectPayloadLabel;
+
+  /// No description provided for @webReverseWsInjectPaste.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'粘贴'**
+  String get webReverseWsInjectPaste;
+
+  /// No description provided for @webReverseWsInjectPickTarget.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请选择目标连接'**
+  String get webReverseWsInjectPickTarget;
+
+  /// No description provided for @webReverseWsInjectTargetLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'目标'**
+  String get webReverseWsInjectTargetLabel;
+
+  /// No description provided for @webReverseWsInjectLogEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入日志会出现在这里'**
+  String get webReverseWsInjectLogEmpty;
+
+  /// No description provided for @webReverseWsInjectClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseWsInjectClose;
+
+  /// No description provided for @webReverseWsInjectSend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入'**
+  String get webReverseWsInjectSend;
+
+  /// No description provided for @webReverseWsInjectInjected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入成功'**
+  String get webReverseWsInjectInjected;
+
+  /// No description provided for @webReverseWsInjectInjectFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入失败'**
+  String get webReverseWsInjectInjectFailed;
+
+  /// No description provided for @webReverseWsInjectLiveCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已发现 {count} 个 WebSocket'**
+  String webReverseWsInjectLiveCount(int count);
+
+  /// No description provided for @webReverseWsInjectSentBytes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已注入 {count} 字节'**
+  String webReverseWsInjectSentBytes(int count);
+
+  /// No description provided for @webReverseWsInjectFailedReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败：{reason}'**
+  String webReverseWsInjectFailedReason(String reason);
 }
 
 class _AppLocalizationsDelegate

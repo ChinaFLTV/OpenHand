@@ -4599,5 +4599,59 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWsInjectTitle": "WebSocket Inject",
+  "@webReverseWsInjectTitle": {},
+  "webReverseWsInjectSubtitle": "All page-created WebSockets are proxied → pick one → inject any text frame",
+  "@webReverseWsInjectSubtitle": {},
+  "webReverseWsInjectProxyOn": "PROXY ON",
+  "@webReverseWsInjectProxyOn": {},
+  "webReverseWsInjectInstallFailed": "Install failed",
+  "@webReverseWsInjectInstallFailed": {},
+  "webReverseWsInjectRefresh": "Refresh",
+  "@webReverseWsInjectRefresh": {},
+  "webReverseWsInjectNoLive": "No live WebSockets.\nRefresh the page to let the proxy intercept new ones.",
+  "@webReverseWsInjectNoLive": {},
+  "webReverseWsInjectPayloadLabel": "Text frame / JSON",
+  "@webReverseWsInjectPayloadLabel": {},
+  "webReverseWsInjectPaste": "Paste",
+  "@webReverseWsInjectPaste": {},
+  "webReverseWsInjectPickTarget": "Pick a target",
+  "@webReverseWsInjectPickTarget": {},
+  "webReverseWsInjectTargetLabel": "Target",
+  "@webReverseWsInjectTargetLabel": {},
+  "webReverseWsInjectLogEmpty": "Inject log appears here",
+  "@webReverseWsInjectLogEmpty": {},
+  "webReverseWsInjectClose": "Close",
+  "@webReverseWsInjectClose": {},
+  "webReverseWsInjectSend": "Send",
+  "@webReverseWsInjectSend": {},
+  "webReverseWsInjectInjected": "Injected",
+  "@webReverseWsInjectInjected": {},
+  "webReverseWsInjectInjectFailed": "Inject failed",
+  "@webReverseWsInjectInjectFailed": {},
+  "webReverseWsInjectLiveCount": "{count} live WebSocket(s)",
+  "@webReverseWsInjectLiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectSentBytes": "Sent {count} bytes",
+  "@webReverseWsInjectSentBytes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectFailedReason": "Failed: {reason}",
+  "@webReverseWsInjectFailedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

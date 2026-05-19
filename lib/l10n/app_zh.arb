@@ -4599,5 +4599,59 @@
         "type": "int"
       }
     }
+  },
+  "webReverseWsInjectTitle": "WebSocket 主动注入",
+  "@webReverseWsInjectTitle": {},
+  "webReverseWsInjectSubtitle": "所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧",
+  "@webReverseWsInjectSubtitle": {},
+  "webReverseWsInjectProxyOn": "已注入代理",
+  "@webReverseWsInjectProxyOn": {},
+  "webReverseWsInjectInstallFailed": "注入安装失败",
+  "@webReverseWsInjectInstallFailed": {},
+  "webReverseWsInjectRefresh": "刷新",
+  "@webReverseWsInjectRefresh": {},
+  "webReverseWsInjectNoLive": "当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。",
+  "@webReverseWsInjectNoLive": {},
+  "webReverseWsInjectPayloadLabel": "要发送的文本帧 / JSON",
+  "@webReverseWsInjectPayloadLabel": {},
+  "webReverseWsInjectPaste": "粘贴",
+  "@webReverseWsInjectPaste": {},
+  "webReverseWsInjectPickTarget": "请选择目标连接",
+  "@webReverseWsInjectPickTarget": {},
+  "webReverseWsInjectTargetLabel": "目标",
+  "@webReverseWsInjectTargetLabel": {},
+  "webReverseWsInjectLogEmpty": "注入日志会出现在这里",
+  "@webReverseWsInjectLogEmpty": {},
+  "webReverseWsInjectClose": "关闭",
+  "@webReverseWsInjectClose": {},
+  "webReverseWsInjectSend": "注入",
+  "@webReverseWsInjectSend": {},
+  "webReverseWsInjectInjected": "注入成功",
+  "@webReverseWsInjectInjected": {},
+  "webReverseWsInjectInjectFailed": "注入失败",
+  "@webReverseWsInjectInjectFailed": {},
+  "webReverseWsInjectLiveCount": "已发现 {count} 个 WebSocket",
+  "@webReverseWsInjectLiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectSentBytes": "已注入 {count} 字节",
+  "@webReverseWsInjectSentBytes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseWsInjectFailedReason": "失败：{reason}",
+  "@webReverseWsInjectFailedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

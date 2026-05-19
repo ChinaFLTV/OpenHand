@@ -6780,4 +6780,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseReqBpHitsCount(int count) {
     return 'Hits (recent $count)';
   }
+
+  @override
+  String get webReverseWsInjectTitle => 'WebSocket Inject';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      'All page-created WebSockets are proxied → pick one → inject any text frame';
+
+  @override
+  String get webReverseWsInjectProxyOn => 'PROXY ON';
+
+  @override
+  String get webReverseWsInjectInstallFailed => 'Install failed';
+
+  @override
+  String get webReverseWsInjectRefresh => 'Refresh';
+
+  @override
+  String get webReverseWsInjectNoLive =>
+      'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => 'Text frame / JSON';
+
+  @override
+  String get webReverseWsInjectPaste => 'Paste';
+
+  @override
+  String get webReverseWsInjectPickTarget => 'Pick a target';
+
+  @override
+  String get webReverseWsInjectTargetLabel => 'Target';
+
+  @override
+  String get webReverseWsInjectLogEmpty => 'Inject log appears here';
+
+  @override
+  String get webReverseWsInjectClose => 'Close';
+
+  @override
+  String get webReverseWsInjectSend => 'Send';
+
+  @override
+  String get webReverseWsInjectInjected => 'Injected';
+
+  @override
+  String get webReverseWsInjectInjectFailed => 'Inject failed';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '$count live WebSocket(s)';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return 'Sent $count bytes';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return 'Failed: $reason';
+  }
 }

@@ -6494,6 +6494,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseReqBpHitsCount(int count) {
     return '命中事件（最近 $count）';
   }
+
+  @override
+  String get webReverseWsInjectTitle => 'WebSocket 主动注入';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      '所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧';
+
+  @override
+  String get webReverseWsInjectProxyOn => '已注入代理';
+
+  @override
+  String get webReverseWsInjectInstallFailed => '注入安装失败';
+
+  @override
+  String get webReverseWsInjectRefresh => '刷新';
+
+  @override
+  String get webReverseWsInjectNoLive => '当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => '要发送的文本帧 / JSON';
+
+  @override
+  String get webReverseWsInjectPaste => '粘贴';
+
+  @override
+  String get webReverseWsInjectPickTarget => '请选择目标连接';
+
+  @override
+  String get webReverseWsInjectTargetLabel => '目标';
+
+  @override
+  String get webReverseWsInjectLogEmpty => '注入日志会出现在这里';
+
+  @override
+  String get webReverseWsInjectClose => '关闭';
+
+  @override
+  String get webReverseWsInjectSend => '注入';
+
+  @override
+  String get webReverseWsInjectInjected => '注入成功';
+
+  @override
+  String get webReverseWsInjectInjectFailed => '注入失败';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '已发现 $count 个 WebSocket';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return '已注入 $count 字节';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return '失败：$reason';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12986,6 +13047,67 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseReqBpHitsCount(int count) {
     return '命中事件（最近 $count）';
   }
+
+  @override
+  String get webReverseWsInjectTitle => 'WebSocket 主动注入';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      '所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧';
+
+  @override
+  String get webReverseWsInjectProxyOn => '已注入代理';
+
+  @override
+  String get webReverseWsInjectInstallFailed => '注入安装失败';
+
+  @override
+  String get webReverseWsInjectRefresh => '刷新';
+
+  @override
+  String get webReverseWsInjectNoLive => '当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => '要发送的文本帧 / JSON';
+
+  @override
+  String get webReverseWsInjectPaste => '粘贴';
+
+  @override
+  String get webReverseWsInjectPickTarget => '请选择目标连接';
+
+  @override
+  String get webReverseWsInjectTargetLabel => '目标';
+
+  @override
+  String get webReverseWsInjectLogEmpty => '注入日志会出现在这里';
+
+  @override
+  String get webReverseWsInjectClose => '关闭';
+
+  @override
+  String get webReverseWsInjectSend => '注入';
+
+  @override
+  String get webReverseWsInjectInjected => '注入成功';
+
+  @override
+  String get webReverseWsInjectInjectFailed => '注入失败';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '已发现 $count 个 WebSocket';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return '已注入 $count 字节';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return '失败：$reason';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -19476,5 +19598,66 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseReqBpHitsCount(int count) {
     return '命中事件（最近 $count）';
+  }
+
+  @override
+  String get webReverseWsInjectTitle => 'WebSocket 主动注入';
+
+  @override
+  String get webReverseWsInjectSubtitle =>
+      '所有页面创建的 WebSocket 实例都会被代理 → 选择目标 → 注入任意文本帧';
+
+  @override
+  String get webReverseWsInjectProxyOn => '已注入代理';
+
+  @override
+  String get webReverseWsInjectInstallFailed => '注入安装失败';
+
+  @override
+  String get webReverseWsInjectRefresh => '刷新';
+
+  @override
+  String get webReverseWsInjectNoLive => '当前没有活跃 WebSocket。\n刷新页面让代理接管新连接。';
+
+  @override
+  String get webReverseWsInjectPayloadLabel => '要发送的文本帧 / JSON';
+
+  @override
+  String get webReverseWsInjectPaste => '粘贴';
+
+  @override
+  String get webReverseWsInjectPickTarget => '请选择目标连接';
+
+  @override
+  String get webReverseWsInjectTargetLabel => '目标';
+
+  @override
+  String get webReverseWsInjectLogEmpty => '注入日志会出现在这里';
+
+  @override
+  String get webReverseWsInjectClose => '关闭';
+
+  @override
+  String get webReverseWsInjectSend => '注入';
+
+  @override
+  String get webReverseWsInjectInjected => '注入成功';
+
+  @override
+  String get webReverseWsInjectInjectFailed => '注入失败';
+
+  @override
+  String webReverseWsInjectLiveCount(int count) {
+    return '已发现 $count 个 WebSocket';
+  }
+
+  @override
+  String webReverseWsInjectSentBytes(int count) {
+    return '已注入 $count 字节';
+  }
+
+  @override
+  String webReverseWsInjectFailedReason(String reason) {
+    return '失败：$reason';
   }
 }
