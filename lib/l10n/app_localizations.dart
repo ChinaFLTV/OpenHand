@@ -11381,6 +11381,108 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'解决 Profile 冲突'**
   String get webReverseSetupResolveLock;
+
+  /// No description provided for @webReverseSignatureDiffHeaderTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'签名字段变量定位器'**
+  String get webReverseSignatureDiffHeaderTitle;
+
+  /// No description provided for @webReverseSignatureDiffHeaderSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段'**
+  String get webReverseSignatureDiffHeaderSubtitle;
+
+  /// No description provided for @webReverseSignatureDiffRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseSignatureDiffRefresh;
+
+  /// No description provided for @webReverseSignatureDiffSearchHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索 endpoint'**
+  String get webReverseSignatureDiffSearchHint;
+
+  /// No description provided for @webReverseSignatureDiffNoGroups.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无可分析的请求组（需 ≥2 次）'**
+  String get webReverseSignatureDiffNoGroups;
+
+  /// No description provided for @webReverseSignatureDiffEmptyHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在 Network 面板里多次触发同一 API，再回来这里分析。'**
+  String get webReverseSignatureDiffEmptyHint;
+
+  /// No description provided for @webReverseSignatureDiffCopyReport.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制报告'**
+  String get webReverseSignatureDiffCopyReport;
+
+  /// No description provided for @webReverseSignatureDiffStable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'稳定'**
+  String get webReverseSignatureDiffStable;
+
+  /// No description provided for @webReverseSignatureDiffDynamic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'动态'**
+  String get webReverseSignatureDiffDynamic;
+
+  /// No description provided for @webReverseSignatureDiffIncreasing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'递增'**
+  String get webReverseSignatureDiffIncreasing;
+
+  /// No description provided for @webReverseSignatureDiffFixedHash.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定长哈希'**
+  String get webReverseSignatureDiffFixedHash;
+
+  /// No description provided for @webReverseSignatureDiffSectionQuery.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Query 参数'**
+  String get webReverseSignatureDiffSectionQuery;
+
+  /// No description provided for @webReverseSignatureDiffSectionHeaders.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求 Header'**
+  String get webReverseSignatureDiffSectionHeaders;
+
+  /// No description provided for @webReverseSignatureDiffSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求体 JSON 字段'**
+  String get webReverseSignatureDiffSectionBody;
+
+  /// No description provided for @webReverseSignatureDiffReportTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'签名字段分析'**
+  String get webReverseSignatureDiffReportTitle;
+
+  /// No description provided for @webReverseSignatureDiffReportSamples.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'样本数'**
+  String get webReverseSignatureDiffReportSamples;
+
+  /// No description provided for @webReverseSignatureDiffReportCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'报告已复制到剪贴板'**
+  String get webReverseSignatureDiffReportCopied;
 }
 
 class _AppLocalizationsDelegate

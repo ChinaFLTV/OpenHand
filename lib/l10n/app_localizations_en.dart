@@ -6423,4 +6423,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseSetupResolveLock => 'Resolve profile lock';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle => 'Signature Field Locator';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      'Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint';
+
+  @override
+  String get webReverseSignatureDiffRefresh => 'Refresh';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => 'Search endpoint';
+
+  @override
+  String get webReverseSignatureDiffNoGroups =>
+      'No analyzable groups (need ≥2 samples)';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      'Hit the same API multiple times in Network panel, then return to analyze.';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => 'Copy report';
+
+  @override
+  String get webReverseSignatureDiffStable => 'Stable';
+
+  @override
+  String get webReverseSignatureDiffDynamic => 'Dynamic';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => 'Increasing';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => 'Fixed-len hash';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => 'Headers';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => 'Body fields';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => 'Signature Diff';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => 'samples';
+
+  @override
+  String get webReverseSignatureDiffReportCopied =>
+      'Report copied to clipboard';
 }

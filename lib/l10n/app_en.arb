@@ -4150,5 +4150,22 @@
   "webReverseSetupResolveLock": "Resolve profile lock",
   "@webReverseSetupResolveLock": {
     "description": "web reverse setup dialog: webReverseSetupResolveLock"
-  }
+  },
+  "webReverseSignatureDiffHeaderTitle": "Signature Field Locator",
+  "webReverseSignatureDiffHeaderSubtitle": "Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint",
+  "webReverseSignatureDiffRefresh": "Refresh",
+  "webReverseSignatureDiffSearchHint": "Search endpoint",
+  "webReverseSignatureDiffNoGroups": "No analyzable groups (need ≥2 samples)",
+  "webReverseSignatureDiffEmptyHint": "Hit the same API multiple times in Network panel, then return to analyze.",
+  "webReverseSignatureDiffCopyReport": "Copy report",
+  "webReverseSignatureDiffStable": "Stable",
+  "webReverseSignatureDiffDynamic": "Dynamic",
+  "webReverseSignatureDiffIncreasing": "Increasing",
+  "webReverseSignatureDiffFixedHash": "Fixed-len hash",
+  "webReverseSignatureDiffSectionQuery": "Query",
+  "webReverseSignatureDiffSectionHeaders": "Headers",
+  "webReverseSignatureDiffSectionBody": "Body fields",
+  "webReverseSignatureDiffReportTitle": "Signature Diff",
+  "webReverseSignatureDiffReportSamples": "samples",
+  "webReverseSignatureDiffReportCopied": "Report copied to clipboard"
 }

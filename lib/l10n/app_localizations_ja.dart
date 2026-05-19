@@ -6239,4 +6239,57 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseSetupResolveLock => 'プロファイル競合を解決';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle => '署名フィールド変数ロケータ';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      '同じエンドポイントを複数回キャプチャし、動的フィールド（sign / ts / nonce）と固定フィールドを自動識別';
+
+  @override
+  String get webReverseSignatureDiffRefresh => '更新';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => 'エンドポイントを検索';
+
+  @override
+  String get webReverseSignatureDiffNoGroups => '解析可能なリクエストグループがありません（≥2 件必要）';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      'Network パネルで同じ API を複数回呼び出してから、ここに戻って解析してください。';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => 'レポートをコピー';
+
+  @override
+  String get webReverseSignatureDiffStable => '安定';
+
+  @override
+  String get webReverseSignatureDiffDynamic => '動的';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => '増加';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => '固定長ハッシュ';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query パラメータ';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => 'リクエストヘッダー';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => 'リクエストボディ JSON フィールド';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => '署名フィールド解析';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => 'サンプル数';
+
+  @override
+  String get webReverseSignatureDiffReportCopied => 'レポートをクリップボードにコピーしました';
 }

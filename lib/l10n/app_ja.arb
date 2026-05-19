@@ -4150,5 +4150,22 @@
   "webReverseSetupResolveLock": "プロファイル競合を解決",
   "@webReverseSetupResolveLock": {
     "description": "web reverse setup dialog: webReverseSetupResolveLock"
-  }
+  },
+  "webReverseSignatureDiffHeaderTitle": "署名フィールド変数ロケータ",
+  "webReverseSignatureDiffHeaderSubtitle": "同じエンドポイントを複数回キャプチャし、動的フィールド（sign / ts / nonce）と固定フィールドを自動識別",
+  "webReverseSignatureDiffRefresh": "更新",
+  "webReverseSignatureDiffSearchHint": "エンドポイントを検索",
+  "webReverseSignatureDiffNoGroups": "解析可能なリクエストグループがありません（≥2 件必要）",
+  "webReverseSignatureDiffEmptyHint": "Network パネルで同じ API を複数回呼び出してから、ここに戻って解析してください。",
+  "webReverseSignatureDiffCopyReport": "レポートをコピー",
+  "webReverseSignatureDiffStable": "安定",
+  "webReverseSignatureDiffDynamic": "動的",
+  "webReverseSignatureDiffIncreasing": "増加",
+  "webReverseSignatureDiffFixedHash": "固定長ハッシュ",
+  "webReverseSignatureDiffSectionQuery": "Query パラメータ",
+  "webReverseSignatureDiffSectionHeaders": "リクエストヘッダー",
+  "webReverseSignatureDiffSectionBody": "リクエストボディ JSON フィールド",
+  "webReverseSignatureDiffReportTitle": "署名フィールド解析",
+  "webReverseSignatureDiffReportSamples": "サンプル数",
+  "webReverseSignatureDiffReportCopied": "レポートをクリップボードにコピーしました"
 }

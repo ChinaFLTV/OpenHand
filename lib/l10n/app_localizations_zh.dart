@@ -6144,6 +6144,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseSetupResolveLock => '解决 Profile 冲突';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle => '签名字段变量定位器';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段';
+
+  @override
+  String get webReverseSignatureDiffRefresh => '刷新';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => '搜索 endpoint';
+
+  @override
+  String get webReverseSignatureDiffNoGroups => '暂无可分析的请求组（需 ≥2 次）';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      '在 Network 面板里多次触发同一 API，再回来这里分析。';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => '复制报告';
+
+  @override
+  String get webReverseSignatureDiffStable => '稳定';
+
+  @override
+  String get webReverseSignatureDiffDynamic => '动态';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => '递增';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => '定长哈希';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query 参数';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => '请求 Header';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => '请求体 JSON 字段';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => '签名字段分析';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => '样本数';
+
+  @override
+  String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12286,6 +12339,59 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseSetupResolveLock => '解决 Profile 冲突';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle => '签名字段变量定位器';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段';
+
+  @override
+  String get webReverseSignatureDiffRefresh => '刷新';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => '搜索 endpoint';
+
+  @override
+  String get webReverseSignatureDiffNoGroups => '暂无可分析的请求组（需 ≥2 次）';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      '在 Network 面板里多次触发同一 API，再回来这里分析。';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => '复制报告';
+
+  @override
+  String get webReverseSignatureDiffStable => '稳定';
+
+  @override
+  String get webReverseSignatureDiffDynamic => '动态';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => '递增';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => '定长哈希';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query 参数';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => '请求 Header';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => '请求体 JSON 字段';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => '签名字段分析';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => '样本数';
+
+  @override
+  String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18427,4 +18533,57 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseSetupResolveLock => '解决 Profile 冲突';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle => '签名字段变量定位器';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段';
+
+  @override
+  String get webReverseSignatureDiffRefresh => '刷新';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => '搜索 endpoint';
+
+  @override
+  String get webReverseSignatureDiffNoGroups => '暂无可分析的请求组（需 ≥2 次）';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      '在 Network 面板里多次触发同一 API，再回来这里分析。';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => '复制报告';
+
+  @override
+  String get webReverseSignatureDiffStable => '稳定';
+
+  @override
+  String get webReverseSignatureDiffDynamic => '动态';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => '递增';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => '定长哈希';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query 参数';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => '请求 Header';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => '请求体 JSON 字段';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => '签名字段分析';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => '样本数';
+
+  @override
+  String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
 }

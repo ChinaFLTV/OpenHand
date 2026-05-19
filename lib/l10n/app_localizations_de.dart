@@ -6478,4 +6478,60 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseSetupResolveLock => 'Profilkonflikt lösen';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle =>
+      'Signaturfeld-Variablenlokalisierer';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      'Identifiziert dynamische (sign / ts / nonce) vs. stabile Felder über mehrere Captures desselben Endpoints';
+
+  @override
+  String get webReverseSignatureDiffRefresh => 'Aktualisieren';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => 'Endpoint suchen';
+
+  @override
+  String get webReverseSignatureDiffNoGroups =>
+      'Keine analysierbaren Gruppen (≥2 Samples nötig)';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      'Rufe dieselbe API im Network-Panel mehrfach auf und kehre dann zur Analyse zurück.';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => 'Bericht kopieren';
+
+  @override
+  String get webReverseSignatureDiffStable => 'Stabil';
+
+  @override
+  String get webReverseSignatureDiffDynamic => 'Dynamisch';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => 'Aufsteigend';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => 'Fixe Länge Hash';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Query-Parameter';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => 'Request-Header';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => 'Request-Body JSON-Felder';
+
+  @override
+  String get webReverseSignatureDiffReportTitle => 'Signaturfeld-Analyse';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => 'Samples';
+
+  @override
+  String get webReverseSignatureDiffReportCopied =>
+      'Bericht in die Zwischenablage kopiert';
 }

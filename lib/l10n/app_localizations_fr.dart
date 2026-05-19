@@ -6505,4 +6505,61 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseSetupResolveLock => 'Résoudre le conflit de profil';
+
+  @override
+  String get webReverseSignatureDiffHeaderTitle =>
+      'Localisateur de variable de champ de signature';
+
+  @override
+  String get webReverseSignatureDiffHeaderSubtitle =>
+      'Identifie les champs dynamiques (sign / ts / nonce) vs. stables à travers plusieurs captures du même endpoint';
+
+  @override
+  String get webReverseSignatureDiffRefresh => 'Actualiser';
+
+  @override
+  String get webReverseSignatureDiffSearchHint => 'Rechercher un endpoint';
+
+  @override
+  String get webReverseSignatureDiffNoGroups =>
+      'Aucun groupe analysable (≥2 échantillons requis)';
+
+  @override
+  String get webReverseSignatureDiffEmptyHint =>
+      'Déclenchez la même API plusieurs fois dans le panneau Network, puis revenez ici pour analyser.';
+
+  @override
+  String get webReverseSignatureDiffCopyReport => 'Copier le rapport';
+
+  @override
+  String get webReverseSignatureDiffStable => 'Stable';
+
+  @override
+  String get webReverseSignatureDiffDynamic => 'Dynamique';
+
+  @override
+  String get webReverseSignatureDiffIncreasing => 'Croissant';
+
+  @override
+  String get webReverseSignatureDiffFixedHash => 'Hash longueur fixe';
+
+  @override
+  String get webReverseSignatureDiffSectionQuery => 'Paramètres Query';
+
+  @override
+  String get webReverseSignatureDiffSectionHeaders => 'En-têtes de requête';
+
+  @override
+  String get webReverseSignatureDiffSectionBody => 'Champs JSON du corps';
+
+  @override
+  String get webReverseSignatureDiffReportTitle =>
+      'Analyse des champs de signature';
+
+  @override
+  String get webReverseSignatureDiffReportSamples => 'échantillons';
+
+  @override
+  String get webReverseSignatureDiffReportCopied =>
+      'Rapport copié dans le presse-papiers';
 }

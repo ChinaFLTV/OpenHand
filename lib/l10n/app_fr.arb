@@ -4150,5 +4150,22 @@
   "webReverseSetupResolveLock": "Résoudre le conflit de profil",
   "@webReverseSetupResolveLock": {
     "description": "web reverse setup dialog: webReverseSetupResolveLock"
-  }
+  },
+  "webReverseSignatureDiffHeaderTitle": "Localisateur de variable de champ de signature",
+  "webReverseSignatureDiffHeaderSubtitle": "Identifie les champs dynamiques (sign / ts / nonce) vs. stables à travers plusieurs captures du même endpoint",
+  "webReverseSignatureDiffRefresh": "Actualiser",
+  "webReverseSignatureDiffSearchHint": "Rechercher un endpoint",
+  "webReverseSignatureDiffNoGroups": "Aucun groupe analysable (≥2 échantillons requis)",
+  "webReverseSignatureDiffEmptyHint": "Déclenchez la même API plusieurs fois dans le panneau Network, puis revenez ici pour analyser.",
+  "webReverseSignatureDiffCopyReport": "Copier le rapport",
+  "webReverseSignatureDiffStable": "Stable",
+  "webReverseSignatureDiffDynamic": "Dynamique",
+  "webReverseSignatureDiffIncreasing": "Croissant",
+  "webReverseSignatureDiffFixedHash": "Hash longueur fixe",
+  "webReverseSignatureDiffSectionQuery": "Paramètres Query",
+  "webReverseSignatureDiffSectionHeaders": "En-têtes de requête",
+  "webReverseSignatureDiffSectionBody": "Champs JSON du corps",
+  "webReverseSignatureDiffReportTitle": "Analyse des champs de signature",
+  "webReverseSignatureDiffReportSamples": "échantillons",
+  "webReverseSignatureDiffReportCopied": "Rapport copié dans le presse-papiers"
 }

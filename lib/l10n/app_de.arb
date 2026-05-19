@@ -4150,5 +4150,22 @@
   "webReverseSetupResolveLock": "Profilkonflikt lösen",
   "@webReverseSetupResolveLock": {
     "description": "web reverse setup dialog: webReverseSetupResolveLock"
-  }
+  },
+  "webReverseSignatureDiffHeaderTitle": "Signaturfeld-Variablenlokalisierer",
+  "webReverseSignatureDiffHeaderSubtitle": "Identifiziert dynamische (sign / ts / nonce) vs. stabile Felder über mehrere Captures desselben Endpoints",
+  "webReverseSignatureDiffRefresh": "Aktualisieren",
+  "webReverseSignatureDiffSearchHint": "Endpoint suchen",
+  "webReverseSignatureDiffNoGroups": "Keine analysierbaren Gruppen (≥2 Samples nötig)",
+  "webReverseSignatureDiffEmptyHint": "Rufe dieselbe API im Network-Panel mehrfach auf und kehre dann zur Analyse zurück.",
+  "webReverseSignatureDiffCopyReport": "Bericht kopieren",
+  "webReverseSignatureDiffStable": "Stabil",
+  "webReverseSignatureDiffDynamic": "Dynamisch",
+  "webReverseSignatureDiffIncreasing": "Aufsteigend",
+  "webReverseSignatureDiffFixedHash": "Fixe Länge Hash",
+  "webReverseSignatureDiffSectionQuery": "Query-Parameter",
+  "webReverseSignatureDiffSectionHeaders": "Request-Header",
+  "webReverseSignatureDiffSectionBody": "Request-Body JSON-Felder",
+  "webReverseSignatureDiffReportTitle": "Signaturfeld-Analyse",
+  "webReverseSignatureDiffReportSamples": "Samples",
+  "webReverseSignatureDiffReportCopied": "Bericht in die Zwischenablage kopiert"
 }

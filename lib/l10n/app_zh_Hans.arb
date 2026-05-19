@@ -4219,5 +4219,22 @@
   "webReverseSetupResolveLock": "解决 Profile 冲突",
   "@webReverseSetupResolveLock": {
     "description": "web reverse setup dialog: webReverseSetupResolveLock"
-  }
+  },
+  "webReverseSignatureDiffHeaderTitle": "签名字段变量定位器",
+  "webReverseSignatureDiffHeaderSubtitle": "同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段",
+  "webReverseSignatureDiffRefresh": "刷新",
+  "webReverseSignatureDiffSearchHint": "搜索 endpoint",
+  "webReverseSignatureDiffNoGroups": "暂无可分析的请求组（需 ≥2 次）",
+  "webReverseSignatureDiffEmptyHint": "在 Network 面板里多次触发同一 API，再回来这里分析。",
+  "webReverseSignatureDiffCopyReport": "复制报告",
+  "webReverseSignatureDiffStable": "稳定",
+  "webReverseSignatureDiffDynamic": "动态",
+  "webReverseSignatureDiffIncreasing": "递增",
+  "webReverseSignatureDiffFixedHash": "定长哈希",
+  "webReverseSignatureDiffSectionQuery": "Query 参数",
+  "webReverseSignatureDiffSectionHeaders": "请求 Header",
+  "webReverseSignatureDiffSectionBody": "请求体 JSON 字段",
+  "webReverseSignatureDiffReportTitle": "签名字段分析",
+  "webReverseSignatureDiffReportSamples": "样本数",
+  "webReverseSignatureDiffReportCopied": "报告已复制到剪贴板"
 }

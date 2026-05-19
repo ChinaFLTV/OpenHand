@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
@@ -41,6 +42,7 @@ Future<void> showWebReverseSignatureDiffDialog(
 class _SignatureDiffDialog extends StatefulWidget {
   const _SignatureDiffDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_SignatureDiffDialog> createState() => _SignatureDiffDialogState();
@@ -79,7 +81,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final filtered = _filter.isEmpty
         ? _groups
         : _groups
@@ -94,20 +96,20 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(theme, cs, isZh),
+            _buildHeader(theme, cs, loc),
             Divider(height: 1, color: cs.outlineVariant),
             Expanded(
               child: Row(
                 children: [
                   SizedBox(
                     width: 360,
-                    child: _buildGroupList(theme, cs, isZh, filtered),
+                    child: _buildGroupList(theme, cs, loc, filtered),
                   ),
                   VerticalDivider(width: 1, color: cs.outlineVariant),
                   Expanded(
                     child: _selected == null || _selected!.samples.isEmpty
-                        ? _buildEmpty(theme, cs, isZh)
-                        : _buildDetail(theme, cs, isZh, _selected!),
+                        ? _buildEmpty(theme, cs, loc)
+                        : _buildDetail(theme, cs, loc, _selected!),
                   ),
                 ],
               ),
@@ -118,7 +120,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
       child: Row(
@@ -130,15 +132,14 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? '签名字段变量定位器' : 'Signature Field Locator',
+                  loc?.webReverseSignatureDiffHeaderTitle ?? 'Signature Field Locator',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
-                  isZh
-                      ? '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）与稳定字段'
-                      : 'Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint',
+                  loc?.webReverseSignatureDiffHeaderSubtitle ??
+                      'Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -147,7 +148,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             ),
           ),
           IconButton(
-            tooltip: isZh ? '刷新' : 'Refresh',
+            tooltip: loc?.webReverseSignatureDiffRefresh ?? 'Refresh',
             onPressed: _refresh,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -163,7 +164,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
   Widget _buildGroupList(
     ThemeData theme,
     ColorScheme cs,
-    bool isZh,
+    AppLocalizations? loc,
     List<_EndpointGroup> filtered,
   ) {
     return Column(
@@ -175,7 +176,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             decoration: InputDecoration(
               isDense: true,
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
-              hintText: isZh ? '搜索 endpoint' : 'Search endpoint',
+              hintText: loc?.webReverseSignatureDiffSearchHint ?? 'Search endpoint',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -186,7 +187,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
           child: filtered.isEmpty
               ? Center(
                   child: Text(
-                    isZh ? '暂无可分析的请求组（需 ≥2 次）' : 'No analyzable groups (need ≥2 samples)',
+                    loc?.webReverseSignatureDiffNoGroups ?? 'No analyzable groups (need ≥2 samples)',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -298,7 +299,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     );
   }
 
-  Widget _buildEmpty(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -308,9 +309,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             Icon(Icons.insights_rounded, size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
-              isZh
-                  ? '在 Network 面板里多次触发同一 API，再回来这里分析。'
-                  : 'Hit the same API multiple times in Network panel, then return to analyze.',
+              loc?.webReverseSignatureDiffEmptyHint ??
+                  'Hit the same API multiple times in Network panel, then return to analyze.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -325,7 +325,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
   Widget _buildDetail(
     ThemeData theme,
     ColorScheme cs,
-    bool isZh,
+    AppLocalizations? loc,
     _EndpointGroup g,
   ) {
     return Column(
@@ -345,9 +345,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => _copyReport(g, isZh),
+                onPressed: () => _copyReport(g, loc),
                 icon: const Icon(Icons.copy_rounded, size: 16),
-                label: Text(isZh ? '复制报告' : 'Copy report'),
+                label: Text(loc?.webReverseSignatureDiffCopyReport ?? 'Copy report'),
               ),
             ],
           ),
@@ -360,28 +360,28 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             children: [
               _summaryChip(
                 cs,
-                isZh ? '稳定' : 'Stable',
+                loc?.webReverseSignatureDiffStable ?? 'Stable',
                 g.stableCount,
                 cs.secondaryContainer,
                 cs.onSecondaryContainer,
               ),
               _summaryChip(
                 cs,
-                isZh ? '动态' : 'Dynamic',
+                loc?.webReverseSignatureDiffDynamic ?? 'Dynamic',
                 g.dynamicCount,
                 cs.errorContainer,
                 cs.onErrorContainer,
               ),
               _summaryChip(
                 cs,
-                isZh ? '递增' : 'Increasing',
+                loc?.webReverseSignatureDiffIncreasing ?? 'Increasing',
                 g.increasingCount,
                 cs.tertiaryContainer,
                 cs.onTertiaryContainer,
               ),
               _summaryChip(
                 cs,
-                isZh ? '定长哈希' : 'Fixed-len hash',
+                loc?.webReverseSignatureDiffFixedHash ?? 'Fixed-len hash',
                 g.fixedHashCount,
                 cs.primaryContainer,
                 cs.onPrimaryContainer,
@@ -395,11 +395,11 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             padding: const EdgeInsets.all(12),
             children: [
               if (g.queryFields.isNotEmpty)
-                _section(theme, cs, isZh ? 'Query 参数' : 'Query', g.queryFields),
+                _section(theme, cs, loc?.webReverseSignatureDiffSectionQuery ?? 'Query', g.queryFields),
               if (g.headerFields.isNotEmpty)
-                _section(theme, cs, isZh ? '请求 Header' : 'Headers', g.headerFields),
+                _section(theme, cs, loc?.webReverseSignatureDiffSectionHeaders ?? 'Headers', g.headerFields),
               if (g.bodyFields.isNotEmpty)
-                _section(theme, cs, isZh ? '请求体 JSON 字段' : 'Body fields', g.bodyFields),
+                _section(theme, cs, loc?.webReverseSignatureDiffSectionBody ?? 'Body fields', g.bodyFields),
             ],
           ),
         ),
@@ -551,10 +551,10 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     return '$shown$more';
   }
 
-  void _copyReport(_EndpointGroup g, bool isZh) {
+  void _copyReport(_EndpointGroup g, AppLocalizations? loc) {
     final buf = StringBuffer()
-      ..writeln('# ${isZh ? "签名字段分析" : "Signature Diff"}: ${g.key}')
-      ..writeln('${isZh ? "样本数" : "samples"}: ${g.samples.length}')
+      ..writeln('# ${loc?.webReverseSignatureDiffReportTitle ?? 'Signature Diff'}: ${g.key}')
+      ..writeln('${loc?.webReverseSignatureDiffReportSamples ?? 'samples'}: ${g.samples.length}')
       ..writeln();
     void dumpSection(String title, List<_FieldStat> fields) {
       if (fields.isEmpty) return;
@@ -570,15 +570,15 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       }
       buf.writeln();
     }
-    dumpSection(isZh ? 'Query' : 'Query', g.queryFields);
-    dumpSection(isZh ? 'Headers' : 'Headers', g.headerFields);
-    dumpSection(isZh ? 'Body' : 'Body', g.bodyFields);
+    dumpSection('Query', g.queryFields);
+    dumpSection('Headers', g.headerFields);
+    dumpSection('Body', g.bodyFields);
     Clipboard.setData(ClipboardData(text: buf.toString()));
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      isZh ? '报告已复制到剪贴板' : 'Report copied to clipboard',
+      loc?.webReverseSignatureDiffReportCopied ?? 'Report copied to clipboard',
       duration: const Duration(seconds: 2),
     );
   }
