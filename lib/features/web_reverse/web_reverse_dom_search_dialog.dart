@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -28,6 +29,7 @@ Future<void> showWebReverseDomSearchDialog(
 class _DomSearchDialog extends StatefulWidget {
   const _DomSearchDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_DomSearchDialog> createState() => _DomSearchDialogState();
@@ -55,12 +57,12 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
   }
 
   Future<void> _runSearch() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final q = _queryCtrl.text.trim();
     if (q.isEmpty) return;
     setState(() {
       _busy = true;
-      _status = isZh ? '搜索中...' : 'Searching...';
+      _status = loc?.webReverseDomSearchSearching ?? 'Searching...';
       _hits = [];
     });
     try {
@@ -73,9 +75,10 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = isZh
-              ? '搜索失败: ${r?['error'] ?? 'unknown'}'
-              : 'Failed: ${r?['error'] ?? 'unknown'}';
+          _status = loc?.webReverseDomSearchFailed(
+                '${r?['error'] ?? 'unknown'}',
+              ) ??
+              'Failed: ${r?['error'] ?? 'unknown'}';
         });
         return;
       }
@@ -85,7 +88,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = isZh ? '无匹配结果' : 'No matches';
+          _status = loc?.webReverseDomSearchNoMatches ?? 'No matches';
         });
         return;
       }
@@ -103,8 +106,10 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status =
-              isZh ? '获取结果失败: ${batch?['error']}' : 'getSearchResults failed';
+          _status = loc?.webReverseDomSearchGetFailed(
+                '${batch?['error']}',
+              ) ??
+              'getSearchResults failed';
         });
         return;
       }
@@ -161,9 +166,11 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
       setState(() {
         _busy = false;
         _hits = hits;
-        _status = isZh
-            ? '命中 $_resultCount 个，展示前 ${hits.length} 条'
-            : 'Matched $_resultCount, showing top ${hits.length}';
+        _status = loc?.webReverseDomSearchHitCount(
+              _resultCount,
+              hits.length,
+            ) ??
+            'Matched $_resultCount, showing top ${hits.length}';
       });
     } catch (e, st) {
       silentLog('web-reverse', 'dom-search.run', e, st);
@@ -188,7 +195,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -208,7 +215,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'DOM 选择器搜索' : 'DOM Selector Search',
+                          loc?.webReverseDomSearchTitle ??
+                              'DOM Selector Search',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -237,9 +245,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                       controller: _queryCtrl,
                       autofocus: true,
                       decoration: InputDecoration(
-                        hintText: isZh
-                            ? '输入 selector / 文本 / XPath，回车搜索'
-                            : 'selector / text / XPath, Enter to run',
+                        hintText: loc?.webReverseDomSearchHint ??
+                            'selector / text / XPath, Enter to run',
                         prefixIcon: const Icon(Icons.search_rounded),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -251,7 +258,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                   FilledButton.icon(
                     onPressed: _busy ? null : _runSearch,
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(isZh ? '搜索' : 'Run'),
+                    label: Text(loc?.webReverseDomSearchRun ?? 'Run'),
                   ),
                 ],
               ),
@@ -263,9 +270,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                   ? Center(
                       child: Text(
                         _status.isEmpty
-                            ? (isZh
-                                ? '示例: button[data-action] · #login · //a[contains(@href,"docs")]'
-                                : 'e.g. button[data-action] · #login · //a[contains(@href,"docs")]')
+                            ? (loc?.webReverseDomSearchExample ??
+                                'e.g. button[data-action] · #login · //a[contains(@href,"docs")]')
                             : _status,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
@@ -330,8 +336,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                               IconButton(
                                 onPressed: () => _highlight(h.nodeId),
                                 icon: const Icon(Icons.center_focus_strong_rounded),
-                                tooltip:
-                                    isZh ? '在页面高亮' : 'Highlight in page',
+                                tooltip: loc?.webReverseDomSearchHighlight ??
+                                    'Highlight in page',
                               ),
                             ],
                           ),
@@ -355,7 +361,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.commonClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

@@ -5475,5 +5475,63 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDomSearchTitle": "DOM 选择器搜索",
+  "@webReverseDomSearchTitle": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchSearching": "搜索中...",
+  "@webReverseDomSearchSearching": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchNoMatches": "无匹配结果",
+  "@webReverseDomSearchNoMatches": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHint": "输入 selector / 文本 / XPath，回车搜索",
+  "@webReverseDomSearchHint": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchRun": "搜索",
+  "@webReverseDomSearchRun": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchExample": "示例: button[data-action] · #login · //a[contains(@href,\"docs\")]",
+  "@webReverseDomSearchExample": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHighlight": "在页面高亮",
+  "@webReverseDomSearchHighlight": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchFailed": "搜索失败: {error}",
+  "@webReverseDomSearchFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchGetFailed": "获取结果失败: {error}",
+  "@webReverseDomSearchGetFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchHitCount": "命中 {total} 个，展示前 {shown} 条",
+  "@webReverseDomSearchHitCount": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "int"
+      }
+    }
   }
 }

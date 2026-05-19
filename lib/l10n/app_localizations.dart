@@ -13516,6 +13516,66 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'… 还有 {count} 条'**
   String webReverseConsoleClusterMore(int count);
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'DOM 选择器搜索'**
+  String get webReverseDomSearchTitle;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索中...'**
+  String get webReverseDomSearchSearching;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无匹配结果'**
+  String get webReverseDomSearchNoMatches;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 selector / 文本 / XPath，回车搜索'**
+  String get webReverseDomSearchHint;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索'**
+  String get webReverseDomSearchRun;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'示例: button[data-action] · #login · //a[contains(@href,\"docs\")]'**
+  String get webReverseDomSearchExample;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在页面高亮'**
+  String get webReverseDomSearchHighlight;
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索失败: {error}'**
+  String webReverseDomSearchFailed(String error);
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取结果失败: {error}'**
+  String webReverseDomSearchGetFailed(String error);
+
+  /// web_reverse: dom search dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命中 {total} 个，展示前 {shown} 条'**
+  String webReverseDomSearchHitCount(int total, int shown);
 }
 
 class _AppLocalizationsDelegate

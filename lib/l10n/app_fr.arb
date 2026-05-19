@@ -5475,5 +5475,63 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDomSearchTitle": "Recherche par sélecteur DOM",
+  "@webReverseDomSearchTitle": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchSearching": "Recherche…",
+  "@webReverseDomSearchSearching": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchNoMatches": "Aucun résultat",
+  "@webReverseDomSearchNoMatches": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHint": "sélecteur / texte / XPath, Entrée pour exécuter",
+  "@webReverseDomSearchHint": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchRun": "Exécuter",
+  "@webReverseDomSearchRun": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchExample": "ex. : button[data-action] · #login · //a[contains(@href,\"docs\")]",
+  "@webReverseDomSearchExample": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHighlight": "Mettre en évidence sur la page",
+  "@webReverseDomSearchHighlight": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchFailed": "Échec : {error}",
+  "@webReverseDomSearchFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchGetFailed": "Échec de la récupération : {error}",
+  "@webReverseDomSearchGetFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchHitCount": "{total} correspondances, {shown} affichées",
+  "@webReverseDomSearchHitCount": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "int"
+      }
+    }
   }
 }

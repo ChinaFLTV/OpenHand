@@ -5475,5 +5475,63 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDomSearchTitle": "DOM Selector Search",
+  "@webReverseDomSearchTitle": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchSearching": "Searching...",
+  "@webReverseDomSearchSearching": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchNoMatches": "No matches",
+  "@webReverseDomSearchNoMatches": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHint": "selector / text / XPath, Enter to run",
+  "@webReverseDomSearchHint": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchRun": "Run",
+  "@webReverseDomSearchRun": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchExample": "e.g. button[data-action] · #login · //a[contains(@href,\"docs\")]",
+  "@webReverseDomSearchExample": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHighlight": "Highlight in page",
+  "@webReverseDomSearchHighlight": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchFailed": "Failed: {error}",
+  "@webReverseDomSearchFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchGetFailed": "getSearchResults failed: {error}",
+  "@webReverseDomSearchGetFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchHitCount": "Matched {total}, showing top {shown}",
+  "@webReverseDomSearchHitCount": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "int"
+      }
+    }
   }
 }

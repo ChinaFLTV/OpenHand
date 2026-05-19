@@ -7434,4 +7434,41 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseConsoleClusterMore(int count) {
     return '… ほか $count 件';
   }
+
+  @override
+  String get webReverseDomSearchTitle => 'DOM セレクタ検索';
+
+  @override
+  String get webReverseDomSearchSearching => '検索中...';
+
+  @override
+  String get webReverseDomSearchNoMatches => '一致なし';
+
+  @override
+  String get webReverseDomSearchHint => 'セレクタ／テキスト／XPath を入力、Enter で実行';
+
+  @override
+  String get webReverseDomSearchRun => '実行';
+
+  @override
+  String get webReverseDomSearchExample =>
+      '例: button[data-action] · #login · //a[contains(@href,\"docs\")]';
+
+  @override
+  String get webReverseDomSearchHighlight => 'ページ内をハイライト';
+
+  @override
+  String webReverseDomSearchFailed(String error) {
+    return '検索失敗: $error';
+  }
+
+  @override
+  String webReverseDomSearchGetFailed(String error) {
+    return '結果の取得に失敗: $error';
+  }
+
+  @override
+  String webReverseDomSearchHitCount(int total, int shown) {
+    return '$total 件ヒット、上位 $shown 件を表示';
+  }
 }

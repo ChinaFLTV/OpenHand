@@ -7335,6 +7335,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseConsoleClusterMore(int count) {
     return '… 还有 $count 条';
   }
+
+  @override
+  String get webReverseDomSearchTitle => 'DOM 选择器搜索';
+
+  @override
+  String get webReverseDomSearchSearching => '搜索中...';
+
+  @override
+  String get webReverseDomSearchNoMatches => '无匹配结果';
+
+  @override
+  String get webReverseDomSearchHint => '输入 selector / 文本 / XPath，回车搜索';
+
+  @override
+  String get webReverseDomSearchRun => '搜索';
+
+  @override
+  String get webReverseDomSearchExample =>
+      '示例: button[data-action] · #login · //a[contains(@href,\"docs\")]';
+
+  @override
+  String get webReverseDomSearchHighlight => '在页面高亮';
+
+  @override
+  String webReverseDomSearchFailed(String error) {
+    return '搜索失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchGetFailed(String error) {
+    return '获取结果失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchHitCount(int total, int shown) {
+    return '命中 $total 个，展示前 $shown 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14668,6 +14705,43 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseConsoleClusterMore(int count) {
     return '… 还有 $count 条';
   }
+
+  @override
+  String get webReverseDomSearchTitle => 'DOM 选择器搜索';
+
+  @override
+  String get webReverseDomSearchSearching => '搜索中...';
+
+  @override
+  String get webReverseDomSearchNoMatches => '无匹配结果';
+
+  @override
+  String get webReverseDomSearchHint => '输入 selector / 文本 / XPath，回车搜索';
+
+  @override
+  String get webReverseDomSearchRun => '搜索';
+
+  @override
+  String get webReverseDomSearchExample =>
+      '示例: button[data-action] · #login · //a[contains(@href,\"docs\")]';
+
+  @override
+  String get webReverseDomSearchHighlight => '在页面高亮';
+
+  @override
+  String webReverseDomSearchFailed(String error) {
+    return '搜索失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchGetFailed(String error) {
+    return '获取结果失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchHitCount(int total, int shown) {
+    return '命中 $total 个，展示前 $shown 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21999,5 +22073,42 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseConsoleClusterMore(int count) {
     return '… 还有 $count 条';
+  }
+
+  @override
+  String get webReverseDomSearchTitle => 'DOM 选择器搜索';
+
+  @override
+  String get webReverseDomSearchSearching => '搜索中...';
+
+  @override
+  String get webReverseDomSearchNoMatches => '无匹配结果';
+
+  @override
+  String get webReverseDomSearchHint => '输入 selector / 文本 / XPath，回车搜索';
+
+  @override
+  String get webReverseDomSearchRun => '搜索';
+
+  @override
+  String get webReverseDomSearchExample =>
+      '示例: button[data-action] · #login · //a[contains(@href,\"docs\")]';
+
+  @override
+  String get webReverseDomSearchHighlight => '在页面高亮';
+
+  @override
+  String webReverseDomSearchFailed(String error) {
+    return '搜索失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchGetFailed(String error) {
+    return '获取结果失败: $error';
+  }
+
+  @override
+  String webReverseDomSearchHitCount(int total, int shown) {
+    return '命中 $total 个，展示前 $shown 条';
   }
 }

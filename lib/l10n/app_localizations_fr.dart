@@ -7738,4 +7738,42 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseConsoleClusterMore(int count) {
     return '… et $count de plus';
   }
+
+  @override
+  String get webReverseDomSearchTitle => 'Recherche par sélecteur DOM';
+
+  @override
+  String get webReverseDomSearchSearching => 'Recherche…';
+
+  @override
+  String get webReverseDomSearchNoMatches => 'Aucun résultat';
+
+  @override
+  String get webReverseDomSearchHint =>
+      'sélecteur / texte / XPath, Entrée pour exécuter';
+
+  @override
+  String get webReverseDomSearchRun => 'Exécuter';
+
+  @override
+  String get webReverseDomSearchExample =>
+      'ex. : button[data-action] · #login · //a[contains(@href,\"docs\")]';
+
+  @override
+  String get webReverseDomSearchHighlight => 'Mettre en évidence sur la page';
+
+  @override
+  String webReverseDomSearchFailed(String error) {
+    return 'Échec : $error';
+  }
+
+  @override
+  String webReverseDomSearchGetFailed(String error) {
+    return 'Échec de la récupération : $error';
+  }
+
+  @override
+  String webReverseDomSearchHitCount(int total, int shown) {
+    return '$total correspondances, $shown affichées';
+  }
 }

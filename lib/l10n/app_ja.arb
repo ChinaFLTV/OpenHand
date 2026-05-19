@@ -5475,5 +5475,63 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDomSearchTitle": "DOM セレクタ検索",
+  "@webReverseDomSearchTitle": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchSearching": "検索中...",
+  "@webReverseDomSearchSearching": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchNoMatches": "一致なし",
+  "@webReverseDomSearchNoMatches": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHint": "セレクタ／テキスト／XPath を入力、Enter で実行",
+  "@webReverseDomSearchHint": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchRun": "実行",
+  "@webReverseDomSearchRun": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchExample": "例: button[data-action] · #login · //a[contains(@href,\"docs\")]",
+  "@webReverseDomSearchExample": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchHighlight": "ページ内をハイライト",
+  "@webReverseDomSearchHighlight": {
+    "description": "web_reverse: dom search dialog"
+  },
+  "webReverseDomSearchFailed": "検索失敗: {error}",
+  "@webReverseDomSearchFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchGetFailed": "結果の取得に失敗: {error}",
+  "@webReverseDomSearchGetFailed": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomSearchHitCount": "{total} 件ヒット、上位 {shown} 件を表示",
+  "@webReverseDomSearchHitCount": {
+    "description": "web_reverse: dom search dialog",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "int"
+      }
+    }
   }
 }
