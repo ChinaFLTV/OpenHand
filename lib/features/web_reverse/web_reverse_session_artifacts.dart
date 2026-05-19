@@ -36,6 +36,7 @@ class WebReverseSessionArtifacts {
   final Map<String, _HarEntryDraft> _harDrafts = <String, _HarEntryDraft>{};
 
   Future<void> init() async {
+    if (_ready) return;
     try {
       await Directory(rootDir).create(recursive: true);
       await Directory('$rootDir/network').create(recursive: true);

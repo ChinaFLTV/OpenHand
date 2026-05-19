@@ -73,11 +73,12 @@ class WebReverseSessionController extends ChangeNotifier {
   String? _lastHarPath;
   String? get lastHarPath => _lastHarPath;
 
-  bool get isRunning => _started && !_stopped;
+  bool get isRunning => _started && !_stopped && isBrowserAlive;
 
   /// 真实判定外部浏览器进程是否还活着。CDP WebSocket 自身有重连，但当
   /// `_closed=true` 时表示重连已彻底失败 → 浏览器多半被用户手动关掉了。
-  /// `isRunning && isBrowserAlive` 同时为真才是「画面应该有响应」。
+  /// `isRunning` 只在浏览器 CDP 仍可用时为真，断连后 UI / Prompt 都应
+  /// 明确进入可重启状态，而不是继续暴露一个已经失效的运行中端口。
   bool get isBrowserAlive {
     if (_stopped) return false;
     final cdp = _browserCdp;

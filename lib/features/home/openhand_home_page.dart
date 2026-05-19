@@ -2756,6 +2756,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Map<String, Object?> _webReverseRuntimeMetadata(
     WebReverseSessionController controller,
   ) {
+    final browserAlive = controller.isBrowserAlive;
     final port = controller.cdpPort;
     final browserVersion = controller.browserVersion?.trim();
     final currentTargetId = controller.currentPageTargetId;
@@ -2771,8 +2772,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return <String, Object?>{
       'source': 'OpenHand WebReverseSessionController',
       'is_running': controller.isRunning,
-      'browser_alive': controller.isBrowserAlive,
-      if (port != null) ...<String, Object?>{
+      'browser_alive': browserAlive,
+      if (port != null && !browserAlive) 'last_cdp_port': port,
+      if (port != null && browserAlive) ...<String, Object?>{
         'cdp_port': port,
         'cdp_host': '127.0.0.1',
         'cdp_http_endpoint': 'http://127.0.0.1:$port',
