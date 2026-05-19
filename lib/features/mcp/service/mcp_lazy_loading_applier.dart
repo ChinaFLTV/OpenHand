@@ -12,6 +12,7 @@ class McpLazyLoadingApplier {
     required AiSessionRuntimeContext runtimeContext,
     required AiToolRuntimeService toolRuntimeService,
     Set<String> alreadyLoadedNames = const <String>{},
+    Set<String> forceVisibleNames = const <String>{},
   }) {
     final mode = runtimeContext.mcpLazyLoadingMode;
     final mcpEntries = catalog.toolsByName.entries
@@ -47,7 +48,11 @@ class McpLazyLoadingApplier {
     }
 
     final deferredEntries = mcpEntries
-        .where((entry) => !alreadyLoadedNames.contains(entry.key))
+        .where(
+          (entry) =>
+              !alreadyLoadedNames.contains(entry.key) &&
+              !forceVisibleNames.contains(entry.key),
+        )
         .toList(growable: false);
     if (toolSearchTool is AiToolSearchTool) {
       toolSearchTool.deferredToolNames = deferredEntries

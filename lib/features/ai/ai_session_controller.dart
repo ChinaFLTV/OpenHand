@@ -3015,11 +3015,16 @@ class AiSessionController extends ChangeNotifier {
         assistantBootstrapStopwatch.elapsedMilliseconds;
     final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
     final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
+    final forceVisibleMcpToolNames = _forceVisibleMcpToolNamesForSession(
+      session: session,
+      catalog: fullCatalog,
+    );
     final toolCatalog = McpLazyLoadingApplier.apply(
       catalog: fullCatalog,
       runtimeContext: runtimeContext,
       toolRuntimeService: _toolRuntimeService,
       alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(session.id),
+      forceVisibleNames: forceVisibleMcpToolNames,
     );
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
@@ -5749,6 +5754,45 @@ class AiSessionController extends ChangeNotifier {
   /// are documented on that helper. AiSessionController only needs to
   /// supply `_loadedMcpToolsTracker.rawSetForSession(session.id)` so
   /// already-pulled tools stay live across turns.
+
+  Set<String> _forceVisibleMcpToolNamesForSession({
+    required AiSession session,
+    required AiResolvedToolCatalog catalog,
+  }) {
+    if (session.templateId != 'web_reverse_expert') {
+      return const <String>{};
+    }
+    final names = <String>{};
+    for (final entry in catalog.toolsByName.entries) {
+      final tool = entry.value;
+      if (tool.source != AiRuntimeToolSource.mcp) {
+        continue;
+      }
+      final serverName = tool.mcpServer?.name ?? '';
+      final mcpTool = tool.mcpTool;
+      final haystack = <String>[
+        entry.key,
+        serverName,
+        mcpTool?.id ?? '',
+        mcpTool?.name ?? '',
+        mcpTool?.description ?? '',
+        tool.definition.description,
+      ].join('\n').toLowerCase();
+      final isCdp =
+          haystack.contains('cdp') ||
+          haystack.contains('chrome-devtools') ||
+          haystack.contains('chrome_devtools') ||
+          haystack.contains('chrome devtools') ||
+          haystack.contains('devtools protocol') ||
+          (serverName.toLowerCase().contains('chrome') &&
+              haystack.contains('devtools'));
+      final isBrowserAutomationFallback = haystack.contains('playwright');
+      if (isCdp && !isBrowserAutomationFallback) {
+        names.add(entry.key);
+      }
+    }
+    return names;
+  }
 
   AiResolvedToolCatalog _toolCatalogForRound({
     required AiSession session,
