@@ -97,10 +97,6 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     setState(() => _decoded = frame.image);
   }
 
-  bool _isZh() =>
-      // ignore: unused_element
-      Localizations.localeOf(context).languageCode.startsWith('zh');
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
