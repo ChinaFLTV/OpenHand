@@ -2656,10 +2656,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
     var launchOk = false;
+    var runtimePersisted = false;
     try {
       await controller.start();
       launchOk = true;
-      await _persistWebReverseRuntimeMetadata(session.id, controller);
+      runtimePersisted = await _persistWebReverseRuntimeMetadata(
+        session.id,
+        controller,
+      );
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
         'openhand_home_page',
@@ -2700,6 +2704,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       controller.dispose();
       return created;
     }
+    if (!runtimePersisted) {
+      return created;
+    }
     if (!mounted) return created;
     // 替换 composer 文本并发送首条 prompt。
     _replaceComposerText(setup.config.toRequestTemplate());
@@ -2731,20 +2738,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  Future<void> _persistWebReverseRuntimeMetadata(
+  Future<bool> _persistWebReverseRuntimeMetadata(
     String sessionId,
     WebReverseSessionController controller,
   ) async {
-    if (!mounted) return;
+    if (!mounted) return false;
     final metadata = _webReverseRuntimeMetadata(controller);
     final signature = jsonEncode(metadata);
-    if (_webReverseRuntimeMetadataSignatures[sessionId] == signature) return;
+    if (_webReverseRuntimeMetadataSignatures[sessionId] == signature) {
+      return true;
+    }
     try {
-      await context.read<AiSessionController>().updateSessionMetadata(
-        sessionId,
-        <String, Object?>{'web_reverse_cdp_runtime': metadata},
-      );
+      final updated = await context
+          .read<AiSessionController>()
+          .updateSessionMetadata(sessionId, <String, Object?>{
+            'web_reverse_cdp_runtime': metadata,
+          });
+      if (!updated) return false;
       _webReverseRuntimeMetadataSignatures[sessionId] = signature;
+      return true;
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
@@ -2752,6 +2764,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         error,
         stack,
       );
+      return false;
     }
   }
 
