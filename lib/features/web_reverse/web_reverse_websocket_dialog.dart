@@ -6,6 +6,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -69,7 +70,7 @@ class _WsDialogState extends State<_WsDialog> {
         ClipboardData(text: const JsonEncoder.withIndent('  ').convert(data)),
       );
     } catch (err, st) {
-      silentLog('web-reverse', 'ws.copy', err, st);
+      silentLog('web_reverse_websocket_dialog', 'copy', err, st);
       return;
     }
     if (!mounted) return;
@@ -186,7 +187,7 @@ class _WsDialogState extends State<_WsDialog> {
                 : 'Failed: sent=$sent err=${res['error']}');
       });
     } catch (err, st) {
-      silentLog('web-reverse', 'ws.replay', err, st);
+      silentLog('web_reverse_websocket_dialog', 'replay', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -210,6 +211,462 @@ class _WsDialogState extends State<_WsDialog> {
       default:
         return 'op$op';
     }
+  }
+
+  /// 在页面里开一条新 WebSocket，按顺序发送 [frames]，可选间隔 [delayMs]。
+  /// 返回 `{ok, sent, received, error?}`。
+  Future<Map<String, Object?>?> _evalSendFrames(
+    String url,
+    List<String> frames, {
+    int delayMs = 30,
+    int timeoutMs = 8000,
+  }) async {
+    final js = '''
+(async () => {
+  try {
+    const url = ${jsonEncode(url)};
+    const frames = ${jsonEncode(frames)};
+    const delay = ${jsonEncode(delayMs)};
+    const ws = new WebSocket(url);
+    const result = await new Promise((resolve) => {
+      let sent = 0;
+      const received = [];
+      let timer = null;
+      ws.addEventListener('open', () => {
+        const tick = () => {
+          if (sent >= frames.length) {
+            timer = setTimeout(() => {
+              try { ws.close(); } catch (_) {}
+              resolve({ ok: true, sent, received });
+            }, 800);
+            return;
+          }
+          try { ws.send(frames[sent]); } catch (err) {
+            resolve({ ok: false, sent, error: String(err), received });
+            return;
+          }
+          sent += 1;
+          setTimeout(tick, delay);
+        };
+        tick();
+      });
+      ws.addEventListener('message', (ev) => {
+        if (received.length < 32) {
+          const data = typeof ev.data === 'string' ? ev.data : '<binary>';
+          received.push(data.length > 512 ? data.slice(0, 512) + '…' : data);
+        }
+      });
+      ws.addEventListener('error', () => {
+        if (timer) clearTimeout(timer);
+        resolve({ ok: false, sent, error: 'ws error', received });
+      });
+      setTimeout(() => {
+        if (timer) clearTimeout(timer);
+        try { ws.close(); } catch (_) {}
+        resolve({ ok: true, sent, received, timeout: true });
+      }, ${jsonEncode(timeoutMs)});
+    });
+    return JSON.stringify(result);
+  } catch (err) {
+    return JSON.stringify({ ok: false, error: String(err) });
+  }
+})()
+''';
+    final r = await widget.controller.sendRawCdp(
+      method: 'Runtime.evaluate',
+      paramsJson: jsonEncode({
+        'expression': js,
+        'awaitPromise': true,
+        'returnByValue': true,
+      }),
+    );
+    final raw = (r?['result'] as Map?)?['value'];
+    if (raw is! String) return null;
+    return jsonDecode(raw) as Map<String, Object?>;
+  }
+
+  Future<void> _editAndSend(String basePayload) async {
+    final e = _selected;
+    if (e == null) return;
+    final edited = await _showEditFrameDialog(basePayload);
+    if (edited == null) return;
+    final isZh = widget.isZh;
+    setState(() {
+      _busy = true;
+      _status = isZh ? '发送单帧...' : 'Sending edited frame...';
+    });
+    try {
+      final res = await _evalSendFrames(e.url, [edited], timeoutMs: 5000);
+      if (!mounted) return;
+      if (res == null) {
+        setState(() {
+          _busy = false;
+          _status = isZh ? '发送失败：返回值异常' : 'Bad eval result';
+        });
+        return;
+      }
+      final ok = res['ok'] == true;
+      final recv = (res['received'] as List?)?.length ?? 0;
+      setState(() {
+        _busy = false;
+        _status = ok
+            ? (isZh ? '已发送 1 条，收到 $recv 条' : 'Sent 1, received $recv')
+            : (isZh ? '失败：${res['error']}' : 'Failed: ${res['error']}');
+      });
+    } catch (err, st) {
+      silentLog('web_reverse_websocket_dialog', 'editAndSend', err, st);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = 'Error: $err';
+      });
+    }
+  }
+
+  Future<void> _fuzz(String basePayload) async {
+    final e = _selected;
+    if (e == null) return;
+    final cfg = await _showFuzzConfigDialog(basePayload);
+    if (cfg == null) return;
+    final isZh = widget.isZh;
+    final mutated = <String>[];
+    final rng = Random();
+    for (var i = 0; i < cfg.count; i++) {
+      mutated.add(_mutatePayload(basePayload, rng, intensity: cfg.intensity));
+    }
+    setState(() {
+      _busy = true;
+      _status = isZh ? 'Fuzz 中：发送 ${cfg.count} 条变异帧...' : 'Fuzzing ${cfg.count}...';
+    });
+    try {
+      final res = await _evalSendFrames(
+        e.url,
+        mutated,
+        delayMs: cfg.delayMs,
+        timeoutMs: 4000 + cfg.count * cfg.delayMs + 2000,
+      );
+      if (!mounted) return;
+      if (res == null) {
+        setState(() {
+          _busy = false;
+          _status = isZh ? 'Fuzz 失败：返回值异常' : 'Fuzz bad eval';
+        });
+        return;
+      }
+      final ok = res['ok'] == true;
+      final sent = (res['sent'] is num) ? (res['sent'] as num).toInt() : 0;
+      final recv = (res['received'] as List?)?.length ?? 0;
+      setState(() {
+        _busy = false;
+        _status = ok
+            ? (isZh ? 'Fuzz 完成：发送 $sent 条，收到 $recv 条' : 'Fuzz done: sent $sent, recv $recv')
+            : (isZh ? 'Fuzz 失败：sent=$sent err=${res['error']}' : 'Fuzz failed: $sent err=${res['error']}');
+      });
+    } catch (err, st) {
+      silentLog('web_reverse_websocket_dialog', 'fuzz', err, st);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = 'Error: $err';
+      });
+    }
+  }
+
+  /// 按 [intensity] (1-5) 对 [payload] 做随机变异。
+  /// 优先把 payload 当 JSON：随机挑一个叶子值改成边界值/类型反转。
+  /// 否则按字节随机翻转 / 插入 / 截断。
+  String _mutatePayload(String payload, Random rng, {int intensity = 2}) {
+    Object? parsed;
+    try {
+      parsed = jsonDecode(payload);
+    } catch (_) {
+      parsed = null;
+    }
+    if (parsed is Map || parsed is List) {
+      final rounds = intensity.clamp(1, 5);
+      for (var i = 0; i < rounds; i++) {
+        _mutateJsonInPlace(parsed!, rng);
+      }
+      try {
+        return jsonEncode(parsed);
+      } catch (_) {/* fallthrough */}
+    }
+    // 字节级 fuzz
+    final bytes = utf8.encode(payload).toList();
+    if (bytes.isEmpty) return payload;
+    final ops = intensity.clamp(1, 5);
+    for (var i = 0; i < ops; i++) {
+      final pick = rng.nextInt(4);
+      switch (pick) {
+        case 0: // 翻转
+          final pos = rng.nextInt(bytes.length);
+          bytes[pos] = bytes[pos] ^ (1 << rng.nextInt(8)) & 0xff;
+        case 1: // 插入
+          bytes.insert(rng.nextInt(bytes.length + 1), rng.nextInt(256));
+        case 2: // 删除
+          if (bytes.length > 1) bytes.removeAt(rng.nextInt(bytes.length));
+        case 3: // 截断或填充
+          if (rng.nextBool() && bytes.length > 4) {
+            bytes.length = rng.nextInt(bytes.length);
+          } else {
+            bytes.addAll(List.generate(4 + rng.nextInt(16), (_) => rng.nextInt(256)));
+          }
+      }
+    }
+    try {
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return String.fromCharCodes(bytes);
+    }
+  }
+
+  void _mutateJsonInPlace(Object node, Random rng) {
+    final boundaries = <Object?>[
+      null, 0, -1, 1, 2147483647, -2147483648,
+      9007199254740993, 1.7e308, double.nan, double.infinity,
+      '', '<script>alert(1)</script>', "' OR 1=1--",
+      'A' * 1024, true, false, <Object?>[], <String, Object?>{},
+    ];
+    if (node is Map<String, Object?>) {
+      if (node.isEmpty) return;
+      final keys = node.keys.toList();
+      final key = keys[rng.nextInt(keys.length)];
+      final v = node[key];
+      if (v is Map || v is List) {
+        _mutateJsonInPlace(v!, rng);
+      } else {
+        node[key] = boundaries[rng.nextInt(boundaries.length)];
+      }
+    } else if (node is List) {
+      if (node.isEmpty) return;
+      final idx = rng.nextInt(node.length);
+      final v = node[idx];
+      if (v is Map || v is List) {
+        _mutateJsonInPlace(v!, rng);
+      } else {
+        node[idx] = boundaries[rng.nextInt(boundaries.length)];
+      }
+    }
+  }
+
+  Future<String?> _showEditFrameDialog(String initial) async {
+    final ctrl = TextEditingController(text: initial);
+    final isZh = widget.isZh;
+    return showAnimatedDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Dialog(
+          backgroundColor: cs.surfaceContainer,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 560),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_note_rounded, color: cs.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isZh ? '编辑单帧再发送' : 'Edit frame & send',
+                          style: Theme.of(ctx)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: TextField(
+                      controller: ctrl,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: isZh ? '在这里修改 payload，然后点发送' : 'Edit payload, then send',
+                        filled: true,
+                        fillColor: cs.surface,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: cs.outlineVariant),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OpenHandDialogActionButton.secondary(
+                          label: isZh ? '取消' : 'Cancel',
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OpenHandDialogActionButton.primary(
+                          icon: Icons.send_rounded,
+                          label: isZh ? '发送' : 'Send',
+                          onPressed: () => Navigator.of(ctx).pop(ctrl.text),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<_FuzzConfig?> _showFuzzConfigDialog(String basePayload) async {
+    final countCtrl = TextEditingController(text: '20');
+    final delayCtrl = TextEditingController(text: '50');
+    var intensity = 2;
+    final isZh = widget.isZh;
+    return showAnimatedDialog<_FuzzConfig>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          final cs = Theme.of(ctx).colorScheme;
+          return Dialog(
+            backgroundColor: cs.surfaceContainer,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bug_report_rounded, color: cs.tertiary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
+                            style: Theme.of(ctx)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: cs.outlineVariant),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh
+                              ? '基准 payload 长度：${basePayload.length} 字符'
+                              : 'Base payload: ${basePayload.length} chars',
+                          style: Theme.of(ctx).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: countCtrl,
+                                decoration: InputDecoration(
+                                  labelText: isZh ? '发送次数 (1-200)' : 'Count (1-200)',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: delayCtrl,
+                                decoration: InputDecoration(
+                                  labelText: isZh ? '间隔 ms (10-1000)' : 'Delay ms (10-1000)',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(isZh ? '变异强度' : 'Intensity',
+                            style: Theme.of(ctx).textTheme.labelSmall),
+                        Slider(
+                          value: intensity.toDouble(),
+                          min: 1,
+                          max: 5,
+                          divisions: 4,
+                          label: '$intensity',
+                          onChanged: (v) => setLocal(() => intensity = v.round()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: cs.outlineVariant),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OpenHandDialogActionButton.secondary(
+                            label: isZh ? '取消' : 'Cancel',
+                            onPressed: () => Navigator.of(ctx).pop(),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OpenHandDialogActionButton.primary(
+                            icon: Icons.play_arrow_rounded,
+                            label: isZh ? '开始 Fuzz' : 'Start Fuzz',
+                            onPressed: () {
+                              final c = int.tryParse(countCtrl.text.trim()) ?? 20;
+                              final d = int.tryParse(delayCtrl.text.trim()) ?? 50;
+                              Navigator.of(ctx).pop(_FuzzConfig(
+                                count: c.clamp(1, 200),
+                                delayMs: d.clamp(10, 1000),
+                                intensity: intensity,
+                              ));
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
   }
 
   @override
@@ -471,6 +928,57 @@ class _WsDialogState extends State<_WsDialog> {
                                                       ),
                                                     ),
                                                   ),
+                                                if (!isErr &&
+                                                    f.payload.isNotEmpty)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 4),
+                                                    child: Row(
+                                                      children: [
+                                                        _MiniFrameAction(
+                                                          icon: Icons
+                                                              .replay_rounded,
+                                                          tooltip: isZh
+                                                              ? '重发此帧'
+                                                              : 'Resend',
+                                                          onTap: _busy
+                                                              ? null
+                                                              : () => _editAndSend(
+                                                                  f.payload)
+                                                                  // 直接重发=编辑窗预填，用户点发送即可；
+                                                                  // 若想免确认重发可改成 _replaySingle
+                                                          ,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        _MiniFrameAction(
+                                                          icon: Icons
+                                                              .edit_rounded,
+                                                          tooltip: isZh
+                                                              ? '编辑并发送'
+                                                              : 'Edit & send',
+                                                          onTap: _busy
+                                                              ? null
+                                                              : () => _editAndSend(
+                                                                  f.payload),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        _MiniFrameAction(
+                                                          icon: Icons
+                                                              .bug_report_rounded,
+                                                          tooltip: isZh
+                                                              ? 'Fuzz 此帧'
+                                                              : 'Fuzz',
+                                                          onTap: _busy
+                                                              ? null
+                                                              : () => _fuzz(
+                                                                  f.payload),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           );
@@ -505,6 +1013,49 @@ class _WsDialogState extends State<_WsDialog> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FuzzConfig {
+  const _FuzzConfig({
+    required this.count,
+    required this.delayMs,
+    required this.intensity,
+  });
+  final int count;
+  final int delayMs;
+  final int intensity;
+}
+
+class _MiniFrameAction extends StatelessWidget {
+  const _MiniFrameAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            icon,
+            size: 14,
+            color: enabled ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.35),
+          ),
         ),
       ),
     );
