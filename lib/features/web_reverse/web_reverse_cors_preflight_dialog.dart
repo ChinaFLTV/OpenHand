@@ -70,7 +70,6 @@ class _CorsDialogState extends State<_CorsDialog> {
   }
 
   Future<void> _run() async {
-    final loc = AppLocalizations.of(context)!;
     final loc = AppLocalizations.of(context);
     final url = _urlCtl.text.trim();
     if (url.isEmpty) {
@@ -229,7 +228,6 @@ class _CorsDialogState extends State<_CorsDialog> {
   }
 
   Future<void> _copy() async {
-    final loc = AppLocalizations.of(context)!;
     final res = _result;
     if (res == null) return;
     final loc = AppLocalizations.of(context);
