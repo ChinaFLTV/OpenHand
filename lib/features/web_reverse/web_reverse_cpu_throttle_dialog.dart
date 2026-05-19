@@ -56,7 +56,8 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
     setState(() {
       _rate = rate;
       _busy = true;
-      _status = loc?.webReverseCpuThrottleApplying(rateStr) ??
+      _status =
+          loc?.webReverseCpuThrottleApplying(rateStr) ??
           'Throttling ${rate}x...';
     });
     Map<String, Object?>? r;
@@ -73,8 +74,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
       final err = '${r?['error'] ?? 'unknown'}';
       setState(() {
         _busy = false;
-        _status =
-            loc?.webReverseCpuThrottleFailed(err) ?? 'Failed: $err';
+        _status = loc?.webReverseCpuThrottleFailed(err) ?? 'Failed: $err';
       });
       return;
     }
@@ -83,7 +83,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
       _status = rate <= 1
           ? (loc?.webReverseCpuThrottleOff ?? 'CPU throttle off')
           : (loc?.webReverseCpuThrottleCurrent(rateStr) ??
-              'CPU throttled $rateStr×');
+                'CPU throttled $rateStr×');
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
@@ -93,7 +93,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
         rate <= 1
             ? (loc?.webReverseCpuThrottleResetDone ?? 'Reset')
             : (loc?.webReverseCpuThrottleApplied(rateStr) ??
-                'Applied $rateStr× throttle'),
+                  'Applied $rateStr× throttle'),
       );
     }
   }
@@ -123,13 +123,15 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                       children: [
                         Text(
                           loc?.webReverseCpuThrottleTitle ?? 'CPU Throttling',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           'Emulation.setCPUThrottlingRate',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -148,26 +150,29 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loc?.webReverseCpuThrottlePresets ?? 'Presets',
-                        style: theme.textTheme.labelLarge),
+                    Text(
+                      loc?.webReverseCpuThrottlePresets ?? 'Presets',
+                      style: theme.textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _presets
-                          .map((p) => ChoiceChip(
-                                label: Text(p.$1),
-                                selected: (_rate - p.$2).abs() < 1e-3,
-                                onSelected: _busy
-                                    ? null
-                                    : (_) => _apply(p.$2),
-                              ))
+                          .map(
+                            (p) => ChoiceChip(
+                              label: Text(p.$1),
+                              selected: (_rate - p.$2).abs() < 1e-3,
+                              onSelected: _busy ? null : (_) => _apply(p.$2),
+                            ),
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: 22),
                     Text(
                       loc?.webReverseCpuThrottleSliderLabel(
-                              _rate.toStringAsFixed(1)) ??
+                            _rate.toStringAsFixed(1),
+                          ) ??
                           'Slider ${_rate.toStringAsFixed(1)}×',
                       style: theme.textTheme.labelLarge,
                     ),
@@ -194,8 +199,9 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                       child: Text(
                         loc?.webReverseCpuThrottleNote ??
                             'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
@@ -209,20 +215,19 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Row(
                 children: [
-                  FilledButton.tonalIcon(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: _busy ? null : () => _apply(1),
-                    icon: const Icon(Icons.restore_rounded),
-                    label: Text(
-                      loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
-                    ),
+                    icon: Icons.restore_rounded,
+                    label: loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
                   ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(

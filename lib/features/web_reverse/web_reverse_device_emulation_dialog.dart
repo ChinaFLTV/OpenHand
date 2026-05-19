@@ -62,7 +62,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = loc?.webReverseDeviceEmuApplyingPreset(p.label) ??
+      _status =
+          loc?.webReverseDeviceEmuApplyingPreset(p.label) ??
           'Applying ${p.label}...';
       _w.text = '${p.width}';
       _h.text = '${p.height}';
@@ -79,12 +80,16 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     setState(() {
       _busy = false;
       _status =
-          loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}';
+          loc?.webReverseDeviceEmuAppliedPreset(p.label) ??
+          'Applied ${p.label}';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
-      OpenHandSnackBar.showSuccessOn(context, m,
-          loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}');
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        m,
+        loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}',
+      );
     }
   }
 
@@ -94,13 +99,15 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     final h = int.tryParse(_h.text.trim()) ?? 0;
     final dpr = double.tryParse(_dpr.text.trim()) ?? 1;
     if (w < 100 || h < 100) {
-      setState(() => _status =
-          loc?.webReverseDeviceEmuMinSize ?? 'min 100×100');
+      setState(
+        () => _status = loc?.webReverseDeviceEmuMinSize ?? 'min 100×100',
+      );
       return;
     }
     setState(() {
       _busy = true;
-      _status = loc?.webReverseDeviceEmuApplyingCustom ??
+      _status =
+          loc?.webReverseDeviceEmuApplyingCustom ??
           'Applying custom metrics...';
     });
     try {
@@ -120,14 +127,17 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = loc?.webReverseDeviceEmuAppliedCustomSize(
-              w, h, dpr.toString()) ??
+      _status =
+          loc?.webReverseDeviceEmuAppliedCustomSize(w, h, dpr.toString()) ??
           'Applied $w×$h @ ${dpr}x';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
-          context, m, loc?.webReverseDeviceEmuApplied ?? 'Applied');
+        context,
+        m,
+        loc?.webReverseDeviceEmuApplied ?? 'Applied',
+      );
     }
   }
 
@@ -135,8 +145,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = loc?.webReverseDeviceEmuClearingOverrides ??
-          'Clearing overrides...';
+      _status =
+          loc?.webReverseDeviceEmuClearingOverrides ?? 'Clearing overrides...';
     });
     try {
       await widget.controller.setDeviceMetricsPreset(null);
@@ -175,13 +185,15 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       children: [
                         Text(
                           loc?.webReverseDeviceEmuTitle ?? 'Device Emulation',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           'Emulation.setDeviceMetricsOverride + setUserAgentOverride',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -200,29 +212,36 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loc?.webReverseDeviceEmuPresets ?? 'Presets',
-                        style: theme.textTheme.labelLarge),
+                    Text(
+                      loc?.webReverseDeviceEmuPresets ?? 'Presets',
+                      style: theme.textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _presets
-                          .map((p) => OutlinedButton.icon(
-                                onPressed: _busy ? null : () => _applyPreset(p),
-                                icon: Icon(
-                                  p.mobile
-                                      ? Icons.phone_iphone_rounded
-                                      : Icons.desktop_windows_rounded,
-                                  size: 16,
-                                ),
-                                label: Text(
-                                    '${p.label} · ${p.width}×${p.height}@${p.deviceScaleFactor}x'),
-                              ))
+                          .map(
+                            (p) => OutlinedButton.icon(
+                              onPressed: _busy ? null : () => _applyPreset(p),
+                              icon: Icon(
+                                p.mobile
+                                    ? Icons.phone_iphone_rounded
+                                    : Icons.desktop_windows_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                '${p.label} · ${p.width}×${p.height}@${p.deviceScaleFactor}x',
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: 18),
-                    Text(loc?.webReverseDeviceEmuCustom ?? 'Custom',
-                        style: theme.textTheme.labelLarge),
+                    Text(
+                      loc?.webReverseDeviceEmuCustom ?? 'Custom',
+                      style: theme.textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -230,9 +249,11 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           child: TextField(
                             controller: _w,
                             decoration: InputDecoration(
-                              labelText: loc?.webReverseDeviceEmuWidth ?? 'Width',
+                              labelText:
+                                  loc?.webReverseDeviceEmuWidth ?? 'Width',
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             keyboardType: TextInputType.number,
                           ),
@@ -242,9 +263,11 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           child: TextField(
                             controller: _h,
                             decoration: InputDecoration(
-                              labelText: loc?.webReverseDeviceEmuHeight ?? 'Height',
+                              labelText:
+                                  loc?.webReverseDeviceEmuHeight ?? 'Height',
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             keyboardType: TextInputType.number,
                           ),
@@ -256,7 +279,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                             decoration: InputDecoration(
                               labelText: 'DPR',
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             keyboardType: TextInputType.number,
                           ),
@@ -269,8 +293,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       onChanged: _busy
                           ? null
                           : (v) => setState(() => _mobile = v),
-                      title: Text(loc?.webReverseDeviceEmuMobileMode ??
-                          'mobile'),
+                      title: Text(
+                        loc?.webReverseDeviceEmuMobileMode ?? 'mobile',
+                      ),
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -279,28 +304,32 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       controller: _ua,
                       decoration: InputDecoration(
                         labelText: 'User-Agent (override)',
-                        hintText: loc?.webReverseDeviceEmuUaHint ??
+                        hintText:
+                            loc?.webReverseDeviceEmuUaHint ??
                             'leave empty to keep default',
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       minLines: 2,
                       maxLines: 4,
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        FilledButton.icon(
+                        OpenHandDialogActionButton.primary(
                           onPressed: _busy ? null : _applyCustom,
-                          icon: const Icon(Icons.check_circle_rounded),
-                          label: Text(loc?.webReverseDeviceEmuApplyCustom ??
-                              'Apply Custom'),
+                          icon: Icons.check_circle_rounded,
+                          label:
+                              loc?.webReverseDeviceEmuApplyCustom ??
+                              'Apply Custom',
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton.tonalIcon(
+                        OpenHandDialogActionButton.secondary(
                           onPressed: _busy ? null : _reset,
-                          icon: const Icon(Icons.restore_rounded),
-                          label: Text(loc?.webReverseDeviceEmuReset ?? 'Reset'),
+                          icon: Icons.restore_rounded,
+                          label: loc?.webReverseDeviceEmuReset ?? 'Reset',
                         ),
                       ],
                     ),
@@ -315,8 +344,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             Padding(

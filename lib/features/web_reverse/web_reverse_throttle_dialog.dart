@@ -48,61 +48,68 @@ class _Preset {
 
 const _presets = <_Preset>[
   _Preset(
-      id: 'no-throttle',
-      zh: '不限速',
-      en: 'No throttle',
-      offline: false,
-      downKbps: 0,
-      upKbps: 0,
-      latencyMs: 0),
+    id: 'no-throttle',
+    zh: '不限速',
+    en: 'No throttle',
+    offline: false,
+    downKbps: 0,
+    upKbps: 0,
+    latencyMs: 0,
+  ),
   _Preset(
-      id: 'offline',
-      zh: '离线',
-      en: 'Offline',
-      offline: true,
-      downKbps: 0,
-      upKbps: 0,
-      latencyMs: 0),
+    id: 'offline',
+    zh: '离线',
+    en: 'Offline',
+    offline: true,
+    downKbps: 0,
+    upKbps: 0,
+    latencyMs: 0,
+  ),
   _Preset(
-      id: 'gprs',
-      zh: 'GPRS (50/20kbps, 500ms)',
-      en: 'GPRS (50/20kbps, 500ms)',
-      offline: false,
-      downKbps: 50,
-      upKbps: 20,
-      latencyMs: 500),
+    id: 'gprs',
+    zh: 'GPRS (50/20kbps, 500ms)',
+    en: 'GPRS (50/20kbps, 500ms)',
+    offline: false,
+    downKbps: 50,
+    upKbps: 20,
+    latencyMs: 500,
+  ),
   _Preset(
-      id: 'slow-3g',
-      zh: '慢速 3G (400/400kbps, 400ms)',
-      en: 'Slow 3G (400/400kbps, 400ms)',
-      offline: false,
-      downKbps: 400,
-      upKbps: 400,
-      latencyMs: 400),
+    id: 'slow-3g',
+    zh: '慢速 3G (400/400kbps, 400ms)',
+    en: 'Slow 3G (400/400kbps, 400ms)',
+    offline: false,
+    downKbps: 400,
+    upKbps: 400,
+    latencyMs: 400,
+  ),
   _Preset(
-      id: 'fast-3g',
-      zh: '快速 3G (1.6/750kbps, 150ms)',
-      en: 'Fast 3G (1.6/750kbps, 150ms)',
-      offline: false,
-      downKbps: 1600,
-      upKbps: 750,
-      latencyMs: 150),
+    id: 'fast-3g',
+    zh: '快速 3G (1.6/750kbps, 150ms)',
+    en: 'Fast 3G (1.6/750kbps, 150ms)',
+    offline: false,
+    downKbps: 1600,
+    upKbps: 750,
+    latencyMs: 150,
+  ),
   _Preset(
-      id: '4g',
-      zh: '4G (4/3 Mbps, 80ms)',
-      en: '4G (4/3 Mbps, 80ms)',
-      offline: false,
-      downKbps: 4000,
-      upKbps: 3000,
-      latencyMs: 80),
+    id: '4g',
+    zh: '4G (4/3 Mbps, 80ms)',
+    en: '4G (4/3 Mbps, 80ms)',
+    offline: false,
+    downKbps: 4000,
+    upKbps: 3000,
+    latencyMs: 80,
+  ),
   _Preset(
-      id: 'wifi',
-      zh: '弱 Wi-Fi (10/5 Mbps, 40ms)',
-      en: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
-      offline: false,
-      downKbps: 10000,
-      upKbps: 5000,
-      latencyMs: 40),
+    id: 'wifi',
+    zh: '弱 Wi-Fi (10/5 Mbps, 40ms)',
+    en: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
+    offline: false,
+    downKbps: 10000,
+    upKbps: 5000,
+    latencyMs: 40,
+  ),
 ];
 
 class _ThrottleDialog extends StatefulWidget {
@@ -136,7 +143,8 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _applying = true;
-      _status = loc?.webReverseThrottleEnableNetwork ?? 'Enable Network domain...';
+      _status =
+          loc?.webReverseThrottleEnableNetwork ?? 'Enable Network domain...';
     });
     try {
       // 先确保 Network 域已开启。
@@ -178,14 +186,20 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       );
       if (!mounted) return;
       if (r == null || r['error'] != null) {
-        final reason = (r?['error']?.toString()) ??
+        final reason =
+            (r?['error']?.toString()) ??
             (loc?.webReverseThrottleUnknownError ?? 'unknown');
-        setState(() => _status =
-            loc?.webReverseThrottleStatusFailed(reason) ?? 'Failed: $reason');
+        setState(
+          () => _status =
+              loc?.webReverseThrottleStatusFailed(reason) ?? 'Failed: $reason',
+        );
         final m = ScaffoldMessenger.maybeOf(context);
         if (m != null) {
           OpenHandSnackBar.showErrorOn(
-              context, m, loc?.webReverseThrottleApplyFailed ?? 'Apply failed');
+            context,
+            m,
+            loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
+          );
         }
         return;
       }
@@ -194,12 +208,17 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
           : 'down=${downKbps}kbps · up=${upKbps}kbps · ${latencyMs}ms';
       final body = '$summary · cache=${_disableCache ? 'disabled' : 'enabled'}';
       setState(() {
-        _status = loc?.webReverseThrottleStatusApplied(body) ?? 'Applied: $body';
+        _status =
+            loc?.webReverseThrottleStatusApplied(body) ?? 'Applied: $body';
       });
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
-        OpenHandSnackBar.showSuccessOn(context, m,
-            loc?.webReverseThrottleConditionsApplied ?? 'Network conditions applied');
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          loc?.webReverseThrottleConditionsApplied ??
+              'Network conditions applied',
+        );
       }
     } finally {
       if (mounted) setState(() => _applying = false);
@@ -249,14 +268,16 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                       children: [
                         Text(
                           loc?.webReverseThrottleTitle ?? 'Network Throttling',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseThrottleSubtitle ??
                               'Network.emulateNetworkConditions: presets or custom kbps/latency',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -277,8 +298,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                   children: [
                     Text(
                       loc?.webReverseThrottlePresets ?? 'Presets',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -304,8 +326,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                     const SizedBox(height: 18),
                     Text(
                       loc?.webReverseThrottleCustom ?? 'Custom',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -316,7 +339,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: loc?.webReverseThrottleDownKbps ?? 'Down kbps (0=∞)',
+                              labelText:
+                                  loc?.webReverseThrottleDownKbps ??
+                                  'Down kbps (0=∞)',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -328,7 +353,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: loc?.webReverseThrottleUpKbps ?? 'Up kbps (0=∞)',
+                              labelText:
+                                  loc?.webReverseThrottleUpKbps ??
+                                  'Up kbps (0=∞)',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -340,7 +367,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: loc?.webReverseThrottleLatencyMs ?? 'Latency ms',
+                              labelText:
+                                  loc?.webReverseThrottleLatencyMs ??
+                                  'Latency ms',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -362,33 +391,36 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                           onChanged: (v) =>
                               setState(() => _disableCache = v ?? false),
                         ),
-                        Text(loc?.webReverseThrottleDisableCache ?? 'Disable cache'),
+                        Text(
+                          loc?.webReverseThrottleDisableCache ??
+                              'Disable cache',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        FilledButton.tonalIcon(
+                        OpenHandDialogActionButton.primary(
                           onPressed: _applying
                               ? null
                               : () {
                                   setState(() => _selectedId = 'custom');
                                   _apply();
                                 },
-                          icon: _applying
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.play_arrow_rounded, size: 18),
-                          label: Text(loc?.webReverseThrottleApplyCustom ?? 'Apply custom'),
+                          icon: Icons.play_arrow_rounded,
+                          busy: _applying,
+                          label:
+                              loc?.webReverseThrottleApplyCustom ??
+                              'Apply custom',
                         ),
-                        const SizedBox(width: 10),
-                        OutlinedButton.icon(
+                        OpenHandDialogActionButton.secondary(
                           onPressed: _applying ? null : _reset,
-                          icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                          label: Text(loc?.webReverseThrottleReset ?? 'Reset (no throttle)'),
+                          icon: Icons.restart_alt_rounded,
+                          label:
+                              loc?.webReverseThrottleReset ??
+                              'Reset (no throttle)',
                         ),
                       ],
                     ),
@@ -403,16 +435,18 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                         ),
                         child: Text(
                           _status,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(fontFamily: 'monospace'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
                         ),
                       ),
                     ],
                     const SizedBox(height: 18),
                     Text(
                       loc?.webReverseThrottleNotes ?? 'Notes',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -420,8 +454,9 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                           '· Throttle applies to the entire session of current target; reset or close to restore.\n'
                               '· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n'
                               '· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),

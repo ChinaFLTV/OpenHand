@@ -84,10 +84,10 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     if (r == null || r['error'] != null) {
       setState(() {
         _busy = false;
-        _err = AppLocalizations.of(context)
-                ?.webReverseFrameTreeFailed(
-                  '${r?['error'] ?? 'unknown'}',
-                ) ??
+        _err =
+            AppLocalizations.of(
+              context,
+            )?.webReverseFrameTreeFailed('${r?['error'] ?? 'unknown'}') ??
             'Failed: ${r?['error'] ?? 'unknown'}';
       });
       return;
@@ -103,16 +103,18 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     final frame = (node['frame'] is Map)
         ? (node['frame']! as Map).cast<String, Object?>()
         : const <String, Object?>{};
-    _rows.add(_FrameRow(
-      depth: depth,
-      id: (frame['id'] ?? '').toString(),
-      name: (frame['name'] ?? '').toString(),
-      url: (frame['url'] ?? '').toString(),
-      origin: (frame['securityOrigin'] ?? '').toString(),
-      mimeType: (frame['mimeType'] ?? '').toString(),
-      unreachableUrl: (frame['unreachableUrl'] ?? '').toString(),
-      loaderId: (frame['loaderId'] ?? '').toString(),
-    ));
+    _rows.add(
+      _FrameRow(
+        depth: depth,
+        id: (frame['id'] ?? '').toString(),
+        name: (frame['name'] ?? '').toString(),
+        url: (frame['url'] ?? '').toString(),
+        origin: (frame['securityOrigin'] ?? '').toString(),
+        mimeType: (frame['mimeType'] ?? '').toString(),
+        unreachableUrl: (frame['unreachableUrl'] ?? '').toString(),
+        loaderId: (frame['loaderId'] ?? '').toString(),
+      ),
+    );
     final children = node['childFrames'];
     if (children is List) {
       for (final c in children.whereType<Map>()) {
@@ -141,16 +143,18 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
 
   Future<void> _copyJson() async {
     final lines = _rows
-        .map((r) => {
-              'depth': r.depth,
-              'id': r.id,
-              'name': r.name,
-              'url': r.url,
-              'origin': r.origin,
-              'mimeType': r.mimeType,
-              'unreachableUrl': r.unreachableUrl,
-              'loaderId': r.loaderId,
-            })
+        .map(
+          (r) => {
+            'depth': r.depth,
+            'id': r.id,
+            'name': r.name,
+            'url': r.url,
+            'origin': r.origin,
+            'mimeType': r.mimeType,
+            'unreachableUrl': r.unreachableUrl,
+            'loaderId': r.loaderId,
+          },
+        )
         .toList();
     await _copy(const JsonEncoder.withIndent('  ').convert(lines));
   }
@@ -180,14 +184,16 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                       children: [
                         Text(
                           loc?.webReverseFrameTreeTitle ?? 'Frame Tree',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseFrameTreeSubtitle ??
                               'Page.getFrameTree · main + nested iframes',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -215,28 +221,26 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                 width: double.infinity,
                 color: cs.errorContainer,
                 padding: const EdgeInsets.all(10),
-                child: Text(
-                  _err,
-                  style: TextStyle(color: cs.onErrorContainer),
-                ),
+                child: Text(_err, style: TextStyle(color: cs.onErrorContainer)),
               ),
             Expanded(
               child: _busy
                   ? const Center(child: CircularProgressIndicator())
                   : _rows.isEmpty
-                      ? Center(
-                          child: Text(
-                            loc?.webReverseFrameTreeEmpty ?? 'No frames',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          itemCount: _rows.length,
-                          itemBuilder: (_, i) =>
-                              _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
+                  ? Center(
+                      child: Text(
+                        loc?.webReverseFrameTreeEmpty ?? 'No frames',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      itemCount: _rows.length,
+                      itemBuilder: (_, i) =>
+                          _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -246,16 +250,14 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                     child: Text(
                       loc?.webReverseFrameTreeCount(_rows.length) ??
                           '${_rows.length} frames',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                  SizedBox(
-                    width: 160,
-                    child: OpenHandDialogActionButton.primary(
-                      label: loc?.commonClose ?? 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                  OpenHandDialogActionButton.primary(
+                    label: loc?.commonClose ?? 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -275,8 +277,7 @@ class _FrameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(
-          bottom: 8, left: (row.depth * 16).toDouble()),
+      margin: EdgeInsets.only(bottom: 8, left: (row.depth * 16).toDouble()),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
@@ -300,8 +301,10 @@ class _FrameTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.secondaryContainer,
                       borderRadius: BorderRadius.circular(4),
@@ -309,7 +312,9 @@ class _FrameTile extends StatelessWidget {
                     child: Text(
                       row.name,
                       style: TextStyle(
-                          fontSize: 10.5, color: cs.onSecondaryContainer),
+                        fontSize: 10.5,
+                        color: cs.onSecondaryContainer,
+                      ),
                     ),
                   ),
                 ),
@@ -317,8 +322,10 @@ class _FrameTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.tertiaryContainer,
                       borderRadius: BorderRadius.circular(4),
@@ -326,7 +333,9 @@ class _FrameTile extends StatelessWidget {
                     child: Text(
                       row.mimeType,
                       style: TextStyle(
-                          fontSize: 10.5, color: cs.onTertiaryContainer),
+                        fontSize: 10.5,
+                        color: cs.onTertiaryContainer,
+                      ),
                     ),
                   ),
                 ),
@@ -347,8 +356,7 @@ class _FrameTile extends StatelessWidget {
               Expanded(
                 child: SelectableText(
                   row.url.isEmpty ? '(empty url)' : row.url,
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
               if (row.url.isNotEmpty)
@@ -357,8 +365,11 @@ class _FrameTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.copy_rounded,
-                        size: 14, color: cs.onSurfaceVariant),
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 14,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
             ],
@@ -383,10 +394,7 @@ class _FrameTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'unreachable: ${row.unreachableUrl}',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: cs.error,
-                        ),
+                        style: TextStyle(fontSize: 10.5, color: cs.error),
                       ),
                     ),
                 ],

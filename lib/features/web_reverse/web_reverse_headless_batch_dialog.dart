@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_headless_batch.dart';
 import 'web_reverse_session_controller.dart';
@@ -32,26 +33,29 @@ class _HeadlessBatchDialog extends StatefulWidget {
 }
 
 class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
-  final TextEditingController _urlsCtrl = TextEditingController();
+  final _urlsCtrl = TextEditingController();
   String? _outDir;
-  bool _captureScreenshot = true;
   bool _captureNetwork = true;
   bool _captureConsole = true;
+  bool _captureScreenshot = true;
   bool _running = false;
   WebReverseHeadlessBatch? _runner;
-  final List<HeadlessBatchProgress> _progress = <HeadlessBatchProgress>[];
+  final List<HeadlessBatchProgress> _progress = [];
   List<HeadlessBatchUrlResult>? _results;
 
   @override
   void dispose() {
+    _runner?.cancel();
     _urlsCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickOutDir() async {
     final loc = AppLocalizations.of(context);
-    final path = await getDirectoryPath(confirmButtonText:
-        loc?.webReverseHeadlessBatchPickOutputDir ?? 'Pick output dir');
+    final path = await getDirectoryPath(
+      confirmButtonText:
+          loc?.webReverseHeadlessBatchPickOutputDir ?? 'Pick output dir',
+    );
     if (path != null && mounted) setState(() => _outDir = path);
   }
 
@@ -59,8 +63,11 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     return _urlsCtrl.text
         .split(RegExp(r'[\r\n]+'))
         .map((e) => e.trim())
-        .where((e) => e.isNotEmpty &&
-            (e.startsWith('http://') || e.startsWith('https://')))
+        .where(
+          (e) =>
+              e.isNotEmpty &&
+              (e.startsWith('http://') || e.startsWith('https://')),
+        )
         .toList();
   }
 
@@ -73,8 +80,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        loc0?.webReverseHeadlessBatchNeedUrlAndDir
-            ?? 'Need at least one http(s):// URL and an output directory',
+        loc0?.webReverseHeadlessBatchNeedUrlAndDir ??
+            'Need at least one http(s):// URL and an output directory',
         duration: const Duration(seconds: 3),
       );
       return;
@@ -84,8 +91,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        loc0?.webReverseHeadlessBatchBrowserNotReady
-            ?? 'Browser is not running yet — start a session first',
+        loc0?.webReverseHeadlessBatchBrowserNotReady ??
+            'Browser is not running yet — start a session first',
         duration: const Duration(seconds: 3),
       );
       return;
@@ -117,8 +124,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      loc1?.webReverseHeadlessBatchFinished(ok, results.length)
-          ?? 'Batch finished: $ok/${results.length} ok',
+      loc1?.webReverseHeadlessBatchFinished(ok, results.length) ??
+          'Batch finished: $ok/${results.length} ok',
       duration: const Duration(seconds: 3),
     );
   }
@@ -145,13 +152,14 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.dynamic_feed_rounded,
-                      size: 22, color: cs.primary),
+                  Icon(Icons.dynamic_feed_rounded, size: 22, color: cs.primary),
                   const SizedBox(width: 10),
                   Text(
-                    loc?.webReverseHeadlessBatchTitle ?? 'Headless batch capture',
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    loc?.webReverseHeadlessBatchTitle ??
+                        'Headless batch capture',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -165,10 +173,12 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                loc?.webReverseHeadlessBatchDesc
-                    ?? 'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant, height: 1.45),
+                loc?.webReverseHeadlessBatchDesc ??
+                    'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -177,9 +187,11 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 maxLines: 10,
                 enabled: !_running,
                 decoration: InputDecoration(
-                  labelText: loc?.webReverseHeadlessBatchUrlsLabel
-                      ?? 'URL list (one per line)',
-                  hintText: 'https://example.com/page1\nhttps://example.com/page2',
+                  labelText:
+                      loc?.webReverseHeadlessBatchUrlsLabel ??
+                      'URL list (one per line)',
+                  hintText:
+                      'https://example.com/page1\nhttps://example.com/page2',
                   border: const OutlineInputBorder(),
                 ),
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -190,12 +202,15 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   Expanded(
                     child: InputDecorator(
                       decoration: InputDecoration(
-                        labelText: loc?.webReverseHeadlessBatchOutputDirLabel
-                            ?? 'Output directory',
+                        labelText:
+                            loc?.webReverseHeadlessBatchOutputDirLabel ??
+                            'Output directory',
                         border: const OutlineInputBorder(),
                       ),
                       child: Text(
-                        _outDir ?? (loc?.webReverseHeadlessBatchNotSelected ?? '(not selected)'),
+                        _outDir ??
+                            (loc?.webReverseHeadlessBatchNotSelected ??
+                                '(not selected)'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontFamily: 'monospace'),
@@ -217,21 +232,27 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 children: [
                   FilterChip(
                     selected: _captureNetwork,
-                    label: Text(loc?.webReverseHeadlessBatchNetwork ?? 'Network'),
+                    label: Text(
+                      loc?.webReverseHeadlessBatchNetwork ?? 'Network',
+                    ),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureNetwork = v),
                   ),
                   FilterChip(
                     selected: _captureConsole,
-                    label: Text(loc?.webReverseHeadlessBatchConsole ?? 'Console'),
+                    label: Text(
+                      loc?.webReverseHeadlessBatchConsole ?? 'Console',
+                    ),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureConsole = v),
                   ),
                   FilterChip(
                     selected: _captureScreenshot,
-                    label: Text(loc?.webReverseHeadlessBatchScreenshot ?? 'Screenshot'),
+                    label: Text(
+                      loc?.webReverseHeadlessBatchScreenshot ?? 'Screenshot',
+                    ),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureScreenshot = v),
@@ -239,27 +260,31 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  FilledButton.icon(
+                  OpenHandDialogActionButton.primary(
                     onPressed: _running ? null : _start,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(loc?.webReverseHeadlessBatchStart ?? 'Start batch'),
+                    icon: Icons.play_arrow_rounded,
+                    label: loc?.webReverseHeadlessBatchStart ?? 'Start batch',
                   ),
-                  const SizedBox(width: 8),
                   if (_running)
-                    FilledButton.tonalIcon(
+                    OpenHandDialogActionButton.destructive(
                       onPressed: _cancel,
-                      icon: const Icon(Icons.stop_rounded, size: 18),
-                      label: Text(loc?.webReverseHeadlessBatchStop ?? 'Stop'),
+                      icon: Icons.stop_rounded,
+                      label: loc?.webReverseHeadlessBatchStop ?? 'Stop',
                     ),
-                  const Spacer(),
                   Text(
                     loc?.webReverseHeadlessBatchEventCount(
-                            _progress.length, _parsedUrls().length)
-                        ?? '${_progress.length} / ${_parsedUrls().length} events',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                          _progress.length,
+                          _parsedUrls().length,
+                        ) ??
+                        '${_progress.length} / ${_parsedUrls().length} events',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -274,16 +299,21 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   child: _progress.isEmpty && _results == null
                       ? Center(
                           child: Text(
-                            loc?.webReverseHeadlessBatchNoProgress ?? 'No progress yet',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            loc?.webReverseHeadlessBatchNoProgress ??
+                                'No progress yet',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           reverse: true,
-                          itemCount: _progress.length +
+                          itemCount:
+                              _progress.length +
                               (_results == null ? 0 : _results!.length),
                           itemBuilder: (ctx, i) {
                             final results = _results;
@@ -303,13 +333,18 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                      fontFamily: 'monospace', fontSize: 12),
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 subtitle: Text(
                                   r.ok
                                       ? (loc?.webReverseHeadlessBatchResultStats(
-                                              r.networkCount, r.consoleCount, r.outDir ?? "")
-                                          ?? '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}')
+                                              r.networkCount,
+                                              r.consoleCount,
+                                              r.outDir ?? "",
+                                            ) ??
+                                            '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}')
                                       : (r.error ?? 'failed'),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -317,10 +352,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                 ),
                               );
                             }
-                            final idx = i -
-                                (results == null ? 0 : results.length);
-                            final p =
-                                _progress[_progress.length - 1 - idx];
+                            final idx =
+                                i - (results == null ? 0 : results.length);
+                            final p = _progress[_progress.length - 1 - idx];
                             return ListTile(
                               dense: true,
                               leading: _phaseIcon(p.phase, cs),
@@ -329,7 +363,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 12),
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
                               ),
                               subtitle: Text(
                                 _phaseLabel(p.phase, loc) +
@@ -355,16 +391,17 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       case HeadlessBatchPhase.starting:
         return Icon(Icons.hourglass_top_rounded, size: 18, color: cs.primary);
       case HeadlessBatchPhase.navigating:
-        return Icon(Icons.travel_explore_rounded,
-            size: 18, color: cs.primary);
+        return Icon(Icons.travel_explore_rounded, size: 18, color: cs.primary);
       case HeadlessBatchPhase.waitingLoad:
-        return Icon(Icons.cloud_download_outlined,
-            size: 18, color: cs.primary);
+        return Icon(Icons.cloud_download_outlined, size: 18, color: cs.primary);
       case HeadlessBatchPhase.capturingScreenshot:
         return Icon(Icons.camera_alt_outlined, size: 18, color: cs.primary);
       case HeadlessBatchPhase.done:
-        return const Icon(Icons.check_circle_outline_rounded,
-            size: 18, color: Colors.green);
+        return const Icon(
+          Icons.check_circle_outline_rounded,
+          size: 18,
+          color: Colors.green,
+        );
       case HeadlessBatchPhase.failed:
         return Icon(Icons.error_outline_rounded, size: 18, color: cs.error);
       case HeadlessBatchPhase.cancelled:
@@ -381,8 +418,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       case HeadlessBatchPhase.waitingLoad:
         return loc?.webReverseHeadlessBatchPhaseWaitingLoad ?? 'Waiting load';
       case HeadlessBatchPhase.capturingScreenshot:
-        return loc?.webReverseHeadlessBatchPhaseCapturingScreenshot
-            ?? 'Capturing screenshot';
+        return loc?.webReverseHeadlessBatchPhaseCapturingScreenshot ??
+            'Capturing screenshot';
       case HeadlessBatchPhase.done:
         return loc?.webReverseHeadlessBatchPhaseDone ?? 'Done';
       case HeadlessBatchPhase.failed:
