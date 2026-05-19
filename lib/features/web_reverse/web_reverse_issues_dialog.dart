@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_cdp_client.dart';
 import 'web_reverse_session_controller.dart';
 
 // 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
@@ -158,10 +159,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
         ClipboardData(text: const JsonEncoder.withIndent('  ').convert(e.raw)),
       );
       if (mounted) {
-        openHandSnackBar(
-          context,
-          message: _isZh ? '已复制 issue JSON' : 'Issue JSON copied',
-        );
+        final m = ScaffoldMessenger.maybeOf(context);
+        if (m != null) {
+          OpenHandSnackBar.showSuccessOn(
+            context,
+            m,
+            _isZh ? '已复制 issue JSON' : 'Issue JSON copied',
+          );
+        }
       }
     } catch (err, st) {
       silentLog('web_reverse_issues_dialog', 'copy', err, st);

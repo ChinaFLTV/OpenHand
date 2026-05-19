@@ -182,10 +182,14 @@ class _RenderingDialogState extends State<_RenderingDialog> {
       'features': const <Map<String, Object?>>[],
     });
     if (mounted) {
-      openHandSnackBar(
-        context,
-        message: _isZh ? '已重置全部 Rendering 开关' : 'Rendering overrides reset',
-      );
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          _isZh ? '已重置全部 Rendering 开关' : 'Rendering overrides reset',
+        );
+      }
     }
   }
 
