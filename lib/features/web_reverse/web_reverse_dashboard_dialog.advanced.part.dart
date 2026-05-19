@@ -575,6 +575,21 @@ class _AdvancedMenuDialog extends StatelessWidget {
         },
       ),
       _AdvancedEntry(
+        icon: Icons.speed_rounded,
+        title: isZh ? 'Web Vitals 报告' : 'Web Vitals',
+        subtitle: isZh
+            ? 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB 实时采集'
+            : 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseVitalsDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
+      _AdvancedEntry(
         icon: Icons.replay_circle_filled_rounded,
         title: isZh ? '网络请求重放器' : 'Network Replayer',
         subtitle: isZh
