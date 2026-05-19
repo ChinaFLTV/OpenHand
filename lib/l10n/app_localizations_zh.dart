@@ -5742,6 +5742,85 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseResendRequestHeadersWithCount(int count) {
     return '响应头 ($count)';
   }
+
+  @override
+  String get webReverseMockRulesTitle => '本地 Mock 拦截';
+
+  @override
+  String get webReverseMockRulesSubtitle =>
+      'URL 通配命中 → Fetch.fulfillRequest 直接返回假数据';
+
+  @override
+  String get webReverseMockRulesExportJson => '导出 JSON';
+
+  @override
+  String get webReverseMockRulesImportJson => '从剪贴板导入';
+
+  @override
+  String get webReverseMockRulesListLabel => '规则';
+
+  @override
+  String get webReverseMockRulesAdd => '新增';
+
+  @override
+  String get webReverseMockRulesEmptyRules => '尚无规则';
+
+  @override
+  String get webReverseMockRulesDelete => '删除';
+
+  @override
+  String get webReverseMockRulesNewRule => '新规则';
+
+  @override
+  String get webReverseMockRulesJsonCopied => '已复制 JSON';
+
+  @override
+  String get webReverseMockRulesPickRule => '左侧选择规则编辑';
+
+  @override
+  String get webReverseMockRulesHits => '命中记录';
+
+  @override
+  String get webReverseMockRulesClear => '清空';
+
+  @override
+  String get webReverseMockRulesNoHits => '尚未命中';
+
+  @override
+  String get webReverseMockRulesClose => '关闭';
+
+  @override
+  String get webReverseMockRulesSaveApply => '保存并应用';
+
+  @override
+  String get webReverseMockRulesRuleName => '规则名';
+
+  @override
+  String get webReverseMockRulesUrlPattern => 'URL 通配（* / ?）';
+
+  @override
+  String get webReverseMockRulesMethodLabel => 'Method（空=全部）';
+
+  @override
+  String get webReverseMockRulesExtraHeaders => '额外响应头（每行 Key: Value）';
+
+  @override
+  String get webReverseMockRulesResponseBody => '响应体';
+
+  @override
+  String webReverseMockRulesSavedCount(int count) {
+    return '已保存 $count 条规则';
+  }
+
+  @override
+  String webReverseMockRulesImportedCount(int count) {
+    return '已导入 $count 条';
+  }
+
+  @override
+  String webReverseMockRulesImportFailed(String error) {
+    return '导入失败：$error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11482,6 +11561,85 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseResendRequestHeadersWithCount(int count) {
     return '响应头 ($count)';
   }
+
+  @override
+  String get webReverseMockRulesTitle => '本地 Mock 拦截';
+
+  @override
+  String get webReverseMockRulesSubtitle =>
+      'URL 通配命中 → Fetch.fulfillRequest 直接返回假数据';
+
+  @override
+  String get webReverseMockRulesExportJson => '导出 JSON';
+
+  @override
+  String get webReverseMockRulesImportJson => '从剪贴板导入';
+
+  @override
+  String get webReverseMockRulesListLabel => '规则';
+
+  @override
+  String get webReverseMockRulesAdd => '新增';
+
+  @override
+  String get webReverseMockRulesEmptyRules => '尚无规则';
+
+  @override
+  String get webReverseMockRulesDelete => '删除';
+
+  @override
+  String get webReverseMockRulesNewRule => '新规则';
+
+  @override
+  String get webReverseMockRulesJsonCopied => '已复制 JSON';
+
+  @override
+  String get webReverseMockRulesPickRule => '左侧选择规则编辑';
+
+  @override
+  String get webReverseMockRulesHits => '命中记录';
+
+  @override
+  String get webReverseMockRulesClear => '清空';
+
+  @override
+  String get webReverseMockRulesNoHits => '尚未命中';
+
+  @override
+  String get webReverseMockRulesClose => '关闭';
+
+  @override
+  String get webReverseMockRulesSaveApply => '保存并应用';
+
+  @override
+  String get webReverseMockRulesRuleName => '规则名';
+
+  @override
+  String get webReverseMockRulesUrlPattern => 'URL 通配（* / ?）';
+
+  @override
+  String get webReverseMockRulesMethodLabel => 'Method（空=全部）';
+
+  @override
+  String get webReverseMockRulesExtraHeaders => '额外响应头（每行 Key: Value）';
+
+  @override
+  String get webReverseMockRulesResponseBody => '响应体';
+
+  @override
+  String webReverseMockRulesSavedCount(int count) {
+    return '已保存 $count 条规则';
+  }
+
+  @override
+  String webReverseMockRulesImportedCount(int count) {
+    return '已导入 $count 条';
+  }
+
+  @override
+  String webReverseMockRulesImportFailed(String error) {
+    return '导入失败：$error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -17220,5 +17378,84 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseResendRequestHeadersWithCount(int count) {
     return '响应头 ($count)';
+  }
+
+  @override
+  String get webReverseMockRulesTitle => '本地 Mock 拦截';
+
+  @override
+  String get webReverseMockRulesSubtitle =>
+      'URL 通配命中 → Fetch.fulfillRequest 直接返回假数据';
+
+  @override
+  String get webReverseMockRulesExportJson => '导出 JSON';
+
+  @override
+  String get webReverseMockRulesImportJson => '从剪贴板导入';
+
+  @override
+  String get webReverseMockRulesListLabel => '规则';
+
+  @override
+  String get webReverseMockRulesAdd => '新增';
+
+  @override
+  String get webReverseMockRulesEmptyRules => '尚无规则';
+
+  @override
+  String get webReverseMockRulesDelete => '删除';
+
+  @override
+  String get webReverseMockRulesNewRule => '新规则';
+
+  @override
+  String get webReverseMockRulesJsonCopied => '已复制 JSON';
+
+  @override
+  String get webReverseMockRulesPickRule => '左侧选择规则编辑';
+
+  @override
+  String get webReverseMockRulesHits => '命中记录';
+
+  @override
+  String get webReverseMockRulesClear => '清空';
+
+  @override
+  String get webReverseMockRulesNoHits => '尚未命中';
+
+  @override
+  String get webReverseMockRulesClose => '关闭';
+
+  @override
+  String get webReverseMockRulesSaveApply => '保存并应用';
+
+  @override
+  String get webReverseMockRulesRuleName => '规则名';
+
+  @override
+  String get webReverseMockRulesUrlPattern => 'URL 通配（* / ?）';
+
+  @override
+  String get webReverseMockRulesMethodLabel => 'Method（空=全部）';
+
+  @override
+  String get webReverseMockRulesExtraHeaders => '额外响应头（每行 Key: Value）';
+
+  @override
+  String get webReverseMockRulesResponseBody => '响应体';
+
+  @override
+  String webReverseMockRulesSavedCount(int count) {
+    return '已保存 $count 条规则';
+  }
+
+  @override
+  String webReverseMockRulesImportedCount(int count) {
+    return '已导入 $count 条';
+  }
+
+  @override
+  String webReverseMockRulesImportFailed(String error) {
+    return '导入失败：$error';
   }
 }

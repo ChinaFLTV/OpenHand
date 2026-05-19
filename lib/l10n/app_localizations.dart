@@ -10637,6 +10637,150 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'响应头 ({count})'**
   String webReverseResendRequestHeadersWithCount(int count);
+
+  /// web_reverse: Mock rules dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本地 Mock 拦截'**
+  String get webReverseMockRulesTitle;
+
+  /// web_reverse: Mock rules dialog · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 通配命中 → Fetch.fulfillRequest 直接返回假数据'**
+  String get webReverseMockRulesSubtitle;
+
+  /// web_reverse: Mock rules dialog · exportjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出 JSON'**
+  String get webReverseMockRulesExportJson;
+
+  /// web_reverse: Mock rules dialog · importjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从剪贴板导入'**
+  String get webReverseMockRulesImportJson;
+
+  /// web_reverse: Mock rules dialog · listlabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'规则'**
+  String get webReverseMockRulesListLabel;
+
+  /// web_reverse: Mock rules dialog · add
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增'**
+  String get webReverseMockRulesAdd;
+
+  /// web_reverse: Mock rules dialog · emptyrules
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无规则'**
+  String get webReverseMockRulesEmptyRules;
+
+  /// web_reverse: Mock rules dialog · delete
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseMockRulesDelete;
+
+  /// web_reverse: Mock rules dialog · newrule
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新规则'**
+  String get webReverseMockRulesNewRule;
+
+  /// web_reverse: Mock rules dialog · jsoncopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 JSON'**
+  String get webReverseMockRulesJsonCopied;
+
+  /// web_reverse: Mock rules dialog · pickrule
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'左侧选择规则编辑'**
+  String get webReverseMockRulesPickRule;
+
+  /// web_reverse: Mock rules dialog · hits
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命中记录'**
+  String get webReverseMockRulesHits;
+
+  /// web_reverse: Mock rules dialog · clear
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseMockRulesClear;
+
+  /// web_reverse: Mock rules dialog · nohits
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未命中'**
+  String get webReverseMockRulesNoHits;
+
+  /// web_reverse: Mock rules dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseMockRulesClose;
+
+  /// web_reverse: Mock rules dialog · saveapply
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存并应用'**
+  String get webReverseMockRulesSaveApply;
+
+  /// web_reverse: Mock rules dialog · rulename
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'规则名'**
+  String get webReverseMockRulesRuleName;
+
+  /// web_reverse: Mock rules dialog · urlpattern
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 通配（* / ?）'**
+  String get webReverseMockRulesUrlPattern;
+
+  /// web_reverse: Mock rules dialog · methodlabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Method（空=全部）'**
+  String get webReverseMockRulesMethodLabel;
+
+  /// web_reverse: Mock rules dialog · extraheaders
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'额外响应头（每行 Key: Value）'**
+  String get webReverseMockRulesExtraHeaders;
+
+  /// web_reverse: Mock rules dialog · responsebody
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应体'**
+  String get webReverseMockRulesResponseBody;
+
+  /// web_reverse: Mock rules dialog · savedcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存 {count} 条规则'**
+  String webReverseMockRulesSavedCount(int count);
+
+  /// web_reverse: Mock rules dialog · importedcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已导入 {count} 条'**
+  String webReverseMockRulesImportedCount(int count);
+
+  /// web_reverse: Mock rules dialog · importfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导入失败：{error}'**
+  String webReverseMockRulesImportFailed(String error);
 }
 
 class _AppLocalizationsDelegate

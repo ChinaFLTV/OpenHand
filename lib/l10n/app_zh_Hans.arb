@@ -3643,5 +3643,116 @@
         "type": "int"
       }
     }
+  },
+  "webReverseMockRulesTitle": "本地 Mock 拦截",
+  "@webReverseMockRulesTitle": {
+    "description": "web_reverse: Mock rules dialog · title"
+  },
+  "webReverseMockRulesSubtitle": "URL 通配命中 → Fetch.fulfillRequest 直接返回假数据",
+  "@webReverseMockRulesSubtitle": {
+    "description": "web_reverse: Mock rules dialog · subtitle"
+  },
+  "webReverseMockRulesExportJson": "导出 JSON",
+  "@webReverseMockRulesExportJson": {
+    "description": "web_reverse: Mock rules dialog · exportjson"
+  },
+  "webReverseMockRulesImportJson": "从剪贴板导入",
+  "@webReverseMockRulesImportJson": {
+    "description": "web_reverse: Mock rules dialog · importjson"
+  },
+  "webReverseMockRulesListLabel": "规则",
+  "@webReverseMockRulesListLabel": {
+    "description": "web_reverse: Mock rules dialog · listlabel"
+  },
+  "webReverseMockRulesAdd": "新增",
+  "@webReverseMockRulesAdd": {
+    "description": "web_reverse: Mock rules dialog · add"
+  },
+  "webReverseMockRulesEmptyRules": "尚无规则",
+  "@webReverseMockRulesEmptyRules": {
+    "description": "web_reverse: Mock rules dialog · emptyrules"
+  },
+  "webReverseMockRulesDelete": "删除",
+  "@webReverseMockRulesDelete": {
+    "description": "web_reverse: Mock rules dialog · delete"
+  },
+  "webReverseMockRulesNewRule": "新规则",
+  "@webReverseMockRulesNewRule": {
+    "description": "web_reverse: Mock rules dialog · newrule"
+  },
+  "webReverseMockRulesJsonCopied": "已复制 JSON",
+  "@webReverseMockRulesJsonCopied": {
+    "description": "web_reverse: Mock rules dialog · jsoncopied"
+  },
+  "webReverseMockRulesPickRule": "左侧选择规则编辑",
+  "@webReverseMockRulesPickRule": {
+    "description": "web_reverse: Mock rules dialog · pickrule"
+  },
+  "webReverseMockRulesHits": "命中记录",
+  "@webReverseMockRulesHits": {
+    "description": "web_reverse: Mock rules dialog · hits"
+  },
+  "webReverseMockRulesClear": "清空",
+  "@webReverseMockRulesClear": {
+    "description": "web_reverse: Mock rules dialog · clear"
+  },
+  "webReverseMockRulesNoHits": "尚未命中",
+  "@webReverseMockRulesNoHits": {
+    "description": "web_reverse: Mock rules dialog · nohits"
+  },
+  "webReverseMockRulesClose": "关闭",
+  "@webReverseMockRulesClose": {
+    "description": "web_reverse: Mock rules dialog · close"
+  },
+  "webReverseMockRulesSaveApply": "保存并应用",
+  "@webReverseMockRulesSaveApply": {
+    "description": "web_reverse: Mock rules dialog · saveapply"
+  },
+  "webReverseMockRulesRuleName": "规则名",
+  "@webReverseMockRulesRuleName": {
+    "description": "web_reverse: Mock rules dialog · rulename"
+  },
+  "webReverseMockRulesUrlPattern": "URL 通配（* / ?）",
+  "@webReverseMockRulesUrlPattern": {
+    "description": "web_reverse: Mock rules dialog · urlpattern"
+  },
+  "webReverseMockRulesMethodLabel": "Method（空=全部）",
+  "@webReverseMockRulesMethodLabel": {
+    "description": "web_reverse: Mock rules dialog · methodlabel"
+  },
+  "webReverseMockRulesExtraHeaders": "额外响应头（每行 Key: Value）",
+  "@webReverseMockRulesExtraHeaders": {
+    "description": "web_reverse: Mock rules dialog · extraheaders"
+  },
+  "webReverseMockRulesResponseBody": "响应体",
+  "@webReverseMockRulesResponseBody": {
+    "description": "web_reverse: Mock rules dialog · responsebody"
+  },
+  "webReverseMockRulesSavedCount": "已保存 {count} 条规则",
+  "@webReverseMockRulesSavedCount": {
+    "description": "web_reverse: Mock rules dialog · savedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseMockRulesImportedCount": "已导入 {count} 条",
+  "@webReverseMockRulesImportedCount": {
+    "description": "web_reverse: Mock rules dialog · importedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseMockRulesImportFailed": "导入失败：{error}",
+  "@webReverseMockRulesImportFailed": {
+    "description": "web_reverse: Mock rules dialog · importfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

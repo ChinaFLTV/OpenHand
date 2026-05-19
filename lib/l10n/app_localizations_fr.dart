@@ -6090,4 +6090,84 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseResendRequestHeadersWithCount(int count) {
     return 'Headers ($count)';
   }
+
+  @override
+  String get webReverseMockRulesTitle => 'Local Mock';
+
+  @override
+  String get webReverseMockRulesSubtitle =>
+      'URL pattern match → Fetch.fulfillRequest returns a canned response';
+
+  @override
+  String get webReverseMockRulesExportJson => 'Export JSON';
+
+  @override
+  String get webReverseMockRulesImportJson => 'Import JSON';
+
+  @override
+  String get webReverseMockRulesListLabel => 'Rules';
+
+  @override
+  String get webReverseMockRulesAdd => 'Add';
+
+  @override
+  String get webReverseMockRulesEmptyRules => 'No rules';
+
+  @override
+  String get webReverseMockRulesDelete => 'Delete';
+
+  @override
+  String get webReverseMockRulesNewRule => 'New rule';
+
+  @override
+  String get webReverseMockRulesJsonCopied => 'JSON copied';
+
+  @override
+  String get webReverseMockRulesPickRule => 'Pick a rule on the left';
+
+  @override
+  String get webReverseMockRulesHits => 'Hits';
+
+  @override
+  String get webReverseMockRulesClear => 'Clear';
+
+  @override
+  String get webReverseMockRulesNoHits => 'No hits yet';
+
+  @override
+  String get webReverseMockRulesClose => 'Close';
+
+  @override
+  String get webReverseMockRulesSaveApply => 'Save & Apply';
+
+  @override
+  String get webReverseMockRulesRuleName => 'Name';
+
+  @override
+  String get webReverseMockRulesUrlPattern => 'URL pattern (* / ?)';
+
+  @override
+  String get webReverseMockRulesMethodLabel => 'Method (blank=ALL)';
+
+  @override
+  String get webReverseMockRulesExtraHeaders =>
+      'Extra headers (Key: Value per line)';
+
+  @override
+  String get webReverseMockRulesResponseBody => 'Response body';
+
+  @override
+  String webReverseMockRulesSavedCount(int count) {
+    return 'Saved $count rule(s)';
+  }
+
+  @override
+  String webReverseMockRulesImportedCount(int count) {
+    return 'Imported $count';
+  }
+
+  @override
+  String webReverseMockRulesImportFailed(String error) {
+    return 'Import failed: $error';
+  }
 }

@@ -3574,5 +3574,116 @@
         "type": "int"
       }
     }
+  },
+  "webReverseMockRulesTitle": "Local Mock",
+  "@webReverseMockRulesTitle": {
+    "description": "web_reverse: Mock rules dialog · title"
+  },
+  "webReverseMockRulesSubtitle": "URL pattern match → Fetch.fulfillRequest returns a canned response",
+  "@webReverseMockRulesSubtitle": {
+    "description": "web_reverse: Mock rules dialog · subtitle"
+  },
+  "webReverseMockRulesExportJson": "Export JSON",
+  "@webReverseMockRulesExportJson": {
+    "description": "web_reverse: Mock rules dialog · exportjson"
+  },
+  "webReverseMockRulesImportJson": "Import JSON",
+  "@webReverseMockRulesImportJson": {
+    "description": "web_reverse: Mock rules dialog · importjson"
+  },
+  "webReverseMockRulesListLabel": "Rules",
+  "@webReverseMockRulesListLabel": {
+    "description": "web_reverse: Mock rules dialog · listlabel"
+  },
+  "webReverseMockRulesAdd": "Add",
+  "@webReverseMockRulesAdd": {
+    "description": "web_reverse: Mock rules dialog · add"
+  },
+  "webReverseMockRulesEmptyRules": "No rules",
+  "@webReverseMockRulesEmptyRules": {
+    "description": "web_reverse: Mock rules dialog · emptyrules"
+  },
+  "webReverseMockRulesDelete": "Delete",
+  "@webReverseMockRulesDelete": {
+    "description": "web_reverse: Mock rules dialog · delete"
+  },
+  "webReverseMockRulesNewRule": "New rule",
+  "@webReverseMockRulesNewRule": {
+    "description": "web_reverse: Mock rules dialog · newrule"
+  },
+  "webReverseMockRulesJsonCopied": "JSON copied",
+  "@webReverseMockRulesJsonCopied": {
+    "description": "web_reverse: Mock rules dialog · jsoncopied"
+  },
+  "webReverseMockRulesPickRule": "Pick a rule on the left",
+  "@webReverseMockRulesPickRule": {
+    "description": "web_reverse: Mock rules dialog · pickrule"
+  },
+  "webReverseMockRulesHits": "Hits",
+  "@webReverseMockRulesHits": {
+    "description": "web_reverse: Mock rules dialog · hits"
+  },
+  "webReverseMockRulesClear": "Clear",
+  "@webReverseMockRulesClear": {
+    "description": "web_reverse: Mock rules dialog · clear"
+  },
+  "webReverseMockRulesNoHits": "No hits yet",
+  "@webReverseMockRulesNoHits": {
+    "description": "web_reverse: Mock rules dialog · nohits"
+  },
+  "webReverseMockRulesClose": "Close",
+  "@webReverseMockRulesClose": {
+    "description": "web_reverse: Mock rules dialog · close"
+  },
+  "webReverseMockRulesSaveApply": "Save & Apply",
+  "@webReverseMockRulesSaveApply": {
+    "description": "web_reverse: Mock rules dialog · saveapply"
+  },
+  "webReverseMockRulesRuleName": "Name",
+  "@webReverseMockRulesRuleName": {
+    "description": "web_reverse: Mock rules dialog · rulename"
+  },
+  "webReverseMockRulesUrlPattern": "URL pattern (* / ?)",
+  "@webReverseMockRulesUrlPattern": {
+    "description": "web_reverse: Mock rules dialog · urlpattern"
+  },
+  "webReverseMockRulesMethodLabel": "Method (blank=ALL)",
+  "@webReverseMockRulesMethodLabel": {
+    "description": "web_reverse: Mock rules dialog · methodlabel"
+  },
+  "webReverseMockRulesExtraHeaders": "Extra headers (Key: Value per line)",
+  "@webReverseMockRulesExtraHeaders": {
+    "description": "web_reverse: Mock rules dialog · extraheaders"
+  },
+  "webReverseMockRulesResponseBody": "Response body",
+  "@webReverseMockRulesResponseBody": {
+    "description": "web_reverse: Mock rules dialog · responsebody"
+  },
+  "webReverseMockRulesSavedCount": "Saved {count} rule(s)",
+  "@webReverseMockRulesSavedCount": {
+    "description": "web_reverse: Mock rules dialog · savedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseMockRulesImportedCount": "Imported {count}",
+  "@webReverseMockRulesImportedCount": {
+    "description": "web_reverse: Mock rules dialog · importedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseMockRulesImportFailed": "Import failed: {error}",
+  "@webReverseMockRulesImportFailed": {
+    "description": "web_reverse: Mock rules dialog · importfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -62,19 +63,22 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     widget.controller.setMockRules(_draft);
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
+      final loc = AppLocalizations.of(context);
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已保存 ${_draft.length} 条规则' : 'Saved ${_draft.length} rule(s)',
+        loc?.webReverseMockRulesSavedCount(_draft.length)
+            ?? 'Saved ${_draft.length} rule(s)',
       );
     }
   }
 
   void _addRule() {
+    final loc = AppLocalizations.of(context);
     setState(() {
       _draft.add(WebReverseMockRule(
         id: 'mk_${DateTime.now().microsecondsSinceEpoch}',
-        name: widget.isZh ? '新规则' : 'New rule',
+        name: loc?.webReverseMockRulesNewRule ?? 'New rule',
         urlPattern: 'https://api.example.com/*',
       ));
       _selected = _draft.length - 1;
@@ -91,18 +95,20 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   Future<void> _exportJson() async {
     final out =
         const JsonEncoder.withIndent('  ').convert(_draft.map((e) => e.toJson()).toList());
+    final loc = AppLocalizations.of(context);
     await Clipboard.setData(ClipboardData(text: out));
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制 JSON' : 'JSON copied',
+        loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
       );
     }
   }
 
   Future<void> _importJson() async {
+    final loc = AppLocalizations.of(context);
     final m = ScaffoldMessenger.maybeOf(context);
     try {
       final data = await Clipboard.getData('text/plain');
@@ -121,7 +127,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          widget.isZh ? '已导入 ${_draft.length} 条' : 'Imported ${_draft.length}',
+          loc?.webReverseMockRulesImportedCount(_draft.length)
+              ?? 'Imported ${_draft.length}',
         );
       }
     } catch (e, st) {
@@ -130,7 +137,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           m,
-          widget.isZh ? '导入失败：$e' : 'Import failed: $e',
+          loc?.webReverseMockRulesImportFailed('$e') ?? 'Import failed: $e',
         );
       }
     }
@@ -140,7 +147,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final hits = widget.controller.mockHits;
 
     return Dialog(
@@ -162,14 +169,13 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '本地 Mock 拦截' : 'Local Mock',
+                          loc?.webReverseMockRulesTitle ?? 'Local Mock',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'URL 通配命中 → Fetch.fulfillRequest 直接返回假数据'
-                              : 'URL pattern match → Fetch.fulfillRequest returns a canned response',
+                          loc?.webReverseMockRulesSubtitle
+                              ?? 'URL pattern match → Fetch.fulfillRequest returns a canned response',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -177,12 +183,12 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '导出 JSON' : 'Export JSON',
+                    tooltip: loc?.webReverseMockRulesExportJson ?? 'Export JSON',
                     onPressed: _exportJson,
                     icon: const Icon(Icons.upload_rounded),
                   ),
                   IconButton(
-                    tooltip: isZh ? '从剪贴板导入' : 'Import JSON',
+                    tooltip: loc?.webReverseMockRulesImportJson ?? 'Import JSON',
                     onPressed: _importJson,
                     icon: const Icon(Icons.download_rounded),
                   ),
@@ -206,12 +212,12 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                           child: Row(
                             children: [
                               Text(
-                                '${isZh ? '规则' : 'Rules'} (${_draft.length})',
+                                '${loc?.webReverseMockRulesListLabel ?? 'Rules'} (${_draft.length})',
                                 style: theme.textTheme.labelMedium,
                               ),
                               const Spacer(),
                               IconButton(
-                                tooltip: isZh ? '新增' : 'Add',
+                                tooltip: loc?.webReverseMockRulesAdd ?? 'Add',
                                 onPressed: _addRule,
                                 icon: const Icon(Icons.add_rounded),
                               ),
@@ -222,7 +228,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                           child: _draft.isEmpty
                               ? Center(
                                   child: Text(
-                                    isZh ? '尚无规则' : 'No rules',
+                                    loc?.webReverseMockRulesEmptyRules ?? 'No rules',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant,
                                     ),
@@ -293,7 +299,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                                 ),
                                               ),
                                               IconButton(
-                                                tooltip: isZh ? '删除' : 'Delete',
+                                                tooltip: loc?.webReverseMockRulesDelete ?? 'Delete',
                                                 onPressed: () => _removeAt(i),
                                                 icon: const Icon(
                                                     Icons.delete_outline,
@@ -315,7 +321,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                     child: _selected < 0 || _selected >= _draft.length
                         ? Center(
                             child: Text(
-                              isZh ? '左侧选择规则编辑' : 'Pick a rule on the left',
+                              loc?.webReverseMockRulesPickRule ?? 'Pick a rule on the left',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
@@ -324,7 +330,6 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                         : _RuleEditor(
                             key: ValueKey(_draft[_selected].id),
                             rule: _draft[_selected],
-                            isZh: isZh,
                             onChanged: (updated) {
                               setState(() => _draft[_selected] = updated);
                             },
@@ -344,7 +349,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                     Row(
                       children: [
                         Text(
-                          isZh ? '命中记录' : 'Hits',
+                          loc?.webReverseMockRulesHits ?? 'Hits',
                           style: theme.textTheme.labelMedium,
                         ),
                         const SizedBox(width: 6),
@@ -356,7 +361,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                             onPressed: widget.controller.clearMockHits,
                             icon: const Icon(Icons.cleaning_services_rounded,
                                 size: 14),
-                            label: Text(isZh ? '清空' : 'Clear'),
+                            label: Text(loc?.webReverseMockRulesClear ?? 'Clear'),
                           ),
                       ],
                     ),
@@ -364,7 +369,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                       child: hits.isEmpty
                           ? Center(
                               child: Text(
-                                isZh ? '尚未命中' : 'No hits yet',
+                                loc?.webReverseMockRulesNoHits ?? 'No hits yet',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                     color: cs.onSurfaceVariant),
                               ),
@@ -394,12 +399,12 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseMockRulesClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '保存并应用' : 'Save & Apply',
+                    label: loc?.webReverseMockRulesSaveApply ?? 'Save & Apply',
                     onPressed: _commit,
                   ),
                 ],
@@ -419,11 +424,9 @@ class _RuleEditor extends StatefulWidget {
   const _RuleEditor({
     super.key,
     required this.rule,
-    required this.isZh,
     required this.onChanged,
   });
   final WebReverseMockRule rule;
-  final bool isZh;
   final ValueChanged<WebReverseMockRule> onChanged;
   @override
   State<_RuleEditor> createState() => _RuleEditorState();
@@ -488,7 +491,7 @@ class _RuleEditorState extends State<_RuleEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -498,7 +501,7 @@ class _RuleEditorState extends State<_RuleEditor> {
             controller: _name,
             onChanged: (_) => _push(),
             decoration: InputDecoration(
-              labelText: isZh ? '规则名' : 'Name',
+              labelText: loc?.webReverseMockRulesRuleName ?? 'Name',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -509,7 +512,7 @@ class _RuleEditorState extends State<_RuleEditor> {
             onChanged: (_) => _push(),
             style: const TextStyle(fontFamily: 'monospace'),
             decoration: InputDecoration(
-              labelText: isZh ? 'URL 通配（* / ?）' : 'URL pattern (* / ?)',
+              labelText: loc?.webReverseMockRulesUrlPattern ?? 'URL pattern (* / ?)',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -523,7 +526,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                   controller: _method,
                   onChanged: (_) => _push(),
                   decoration: InputDecoration(
-                    labelText: isZh ? 'Method（空=全部）' : 'Method (blank=ALL)',
+                    labelText: loc?.webReverseMockRulesMethodLabel ?? 'Method (blank=ALL)',
                     border: const OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -565,9 +568,8 @@ class _RuleEditorState extends State<_RuleEditor> {
             maxLines: 4,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              labelText: isZh
-                  ? '额外响应头（每行 Key: Value）'
-                  : 'Extra headers (Key: Value per line)',
+              labelText: loc?.webReverseMockRulesExtraHeaders
+                  ?? 'Extra headers (Key: Value per line)',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -580,7 +582,7 @@ class _RuleEditorState extends State<_RuleEditor> {
             maxLines: 18,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              labelText: isZh ? '响应体' : 'Response body',
+              labelText: loc?.webReverseMockRulesResponseBody ?? 'Response body',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
