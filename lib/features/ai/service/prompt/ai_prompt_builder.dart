@@ -1423,6 +1423,9 @@ class AiPromptBuilder {
 
     Object? meta(String key) =>
         _boundedWebReverseMetadataValue(session.metadata[key]);
+    final cdpRuntime = _sanitizeWebReverseCdpRuntime(
+      meta('web_reverse_cdp_runtime'),
+    );
 
     final rootDir = p.join(
       OpenHandPaths.defaultRootDirectoryPath(),
@@ -1442,7 +1445,7 @@ class AiPromptBuilder {
       'fallback_policy':
           'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
-      'cdp_runtime': meta('web_reverse_cdp_runtime'),
+      'cdp_runtime': cdpRuntime,
       'dashboard_state': <String, Object?>{
         'last_tab': meta('web_reverse_dashboard_last_tab'),
         'browser_tab_order': meta('web_reverse_browser_tab_order'),
@@ -1521,6 +1524,24 @@ class AiPromptBuilder {
       return result;
     }
     return '$value';
+  }
+
+  Object? _sanitizeWebReverseCdpRuntime(Object? value) {
+    if (value is! Map) return value;
+    final runtime = Map<String, Object?>.from(value);
+    if (runtime['browser_alive'] != false) return runtime;
+
+    final lastPort = runtime['last_cdp_port'] ?? runtime['cdp_port'];
+    runtime
+      ..remove('cdp_port')
+      ..remove('cdp_host')
+      ..remove('cdp_http_endpoint')
+      ..remove('json_version_url')
+      ..remove('json_list_url');
+    if (lastPort != null) {
+      runtime['last_cdp_port'] = lastPort;
+    }
+    return runtime;
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {

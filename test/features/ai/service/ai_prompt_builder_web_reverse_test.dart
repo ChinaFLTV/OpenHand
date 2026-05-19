@@ -17,32 +17,9 @@ void main() {
         content: 'Start reversing https://example.test',
         createdAt: now,
       );
-      final session = AiSession(
-        id: 'session-1',
-        title: 'Web Reverse',
-        templateId: 'web_reverse_expert',
-        templateName: 'Web Reverse Expert',
-        templateIconName: 'travel_explore_rounded',
-        templateInternalVersion: '1.1.0',
-        createdAt: now,
-        updatedAt: now,
-        messages: <AiSessionMessage>[latestUserMessage],
-        environment: const AiSessionEnvironment(
-          localeTag: 'zh-CN',
-          platform: 'macos',
-          appVersion: '0.1.0',
-          appBuildNumber: '1',
-          applicationDirectory: '/tmp/openhand',
-          homeDirectory: '/tmp',
-          settingsFilePath: '/tmp/openhand/settings.json',
-          skillsStoragePath: '/tmp/openhand/skills',
-          mcpServersFilePath: '/tmp/openhand/mcp_servers.json',
-          userMemoryFilePath: '/tmp/openhand/memory.json',
-          sessionsDirectoryPath: '/tmp/openhand/sessions',
-          compressionThresholdChars: 100000,
-        ),
-        statistics: const AiSessionStatistics.initial(),
-        recentErrors: const <AiSessionErrorRecord>[],
+      final session = _webReverseSession(
+        now: now,
+        latestUserMessage: latestUserMessage,
         metadata: const <String, Object?>{
           'web_reverse_config': <String, Object?>{
             'target_url': 'https://example.test',
@@ -62,50 +39,7 @@ void main() {
         },
       );
 
-      final result = const AiPromptBuilder().buildConversationPrompt(
-        templateBundle: const AiPromptTemplateBundle(
-          template: AiThreadTemplate(
-            id: 'web_reverse_expert',
-            name: 'Web Reverse Expert',
-            iconName: 'travel_explore_rounded',
-            description: 'Reverse a browser target through CDP.',
-            internalVersion: '1.1.0',
-            promptAssetDirectory: 'assets/prompts/web_reverse_expert',
-          ),
-          systemInstructions: 'system',
-          developerInstructions: 'developer',
-          compressionSummaryInstructions: 'compress',
-        ),
-        session: session,
-        model: const AiModelConfig(
-          id: 'test-model',
-          baseUrl: 'http://localhost/v1',
-          authScheme: AiAuthScheme.none,
-          token: '',
-          modelId: 'openhand-test-model',
-          protocolType: AiProtocolType.openai,
-        ),
-        runtimeContext: const AiSessionRuntimeContext(
-          localeTag: 'zh-CN',
-          appVersion: '0.1.0',
-          appBuildNumber: '1',
-          settingsFilePath: '/tmp/openhand/settings.json',
-          skillsStoragePath: '/tmp/openhand/skills',
-          mcpServersFilePath: '/tmp/openhand/mcp_servers.json',
-          userMemoryFilePath: '/tmp/openhand/memory.json',
-          compressionThresholdChars: 100000,
-          memoryEnabled: false,
-          memoryEntries: <Never>[],
-          templateId: 'web_reverse_expert',
-          platformName: 'macos',
-          workingDirectory: '/tmp/openhand',
-          todayLocalDate: '2026-05-19',
-          timeZoneName: 'UTC',
-        ),
-        memoryEntries: const <Never>[],
-        historyMessages: const <AiSessionMessage>[],
-        latestUserMessage: latestUserMessage,
-      );
+      final result = _buildWebReversePrompt(session, latestUserMessage);
 
       final webReverseRuntime = result.metadata['web_reverse_runtime'];
       expect(webReverseRuntime, isA<Map<String, Object?>>());
@@ -144,5 +78,144 @@ void main() {
       expect(fullPromptText, isNot(contains('OpenHand CDP Bridge')));
       expect(fullPromptText, isNot(contains('CDP Bridge')));
     },
+  );
+
+  test('strips live CDP endpoints when Web Reverse browser is dead', () {
+    final now = DateTime.utc(2026, 5, 19);
+    final latestUserMessage = AiSessionMessage.user(
+      id: 'user-1',
+      content: 'Continue reversing https://example.test',
+      createdAt: now,
+    );
+    final session = _webReverseSession(
+      now: now,
+      latestUserMessage: latestUserMessage,
+      metadata: const <String, Object?>{
+        'web_reverse_config': <String, Object?>{
+          'target_url': 'https://example.test',
+          'cdp_port': 9222,
+        },
+        'web_reverse_cdp_runtime': <String, Object?>{
+          'cdp_port': 9233,
+          'cdp_host': '127.0.0.1',
+          'cdp_http_endpoint': 'http://127.0.0.1:9233',
+          'json_version_url': 'http://127.0.0.1:9233/json/version',
+          'json_list_url': 'http://127.0.0.1:9233/json/list',
+          'browser_alive': false,
+          'is_running': false,
+        },
+      },
+    );
+
+    final result = _buildWebReversePrompt(session, latestUserMessage);
+
+    final runtimeMap =
+        result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+    final cdpRuntime = runtimeMap['cdp_runtime']! as Map<String, Object?>;
+    expect(cdpRuntime['browser_alive'], false);
+    expect(cdpRuntime['is_running'], false);
+    expect(cdpRuntime['last_cdp_port'], 9233);
+    expect(cdpRuntime, isNot(contains('cdp_port')));
+    expect(cdpRuntime, isNot(contains('cdp_http_endpoint')));
+    expect(cdpRuntime, isNot(contains('json_version_url')));
+    expect(cdpRuntime, isNot(contains('json_list_url')));
+
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    expect(promptText, contains('"browser_alive": false'));
+    expect(promptText, contains('"last_cdp_port": 9233'));
+    expect(promptText, isNot(contains('http://127.0.0.1:9233')));
+  });
+}
+
+const _templateBundle = AiPromptTemplateBundle(
+  template: AiThreadTemplate(
+    id: 'web_reverse_expert',
+    name: 'Web Reverse Expert',
+    iconName: 'travel_explore_rounded',
+    description: 'Reverse a browser target through CDP.',
+    internalVersion: '1.1.0',
+    promptAssetDirectory: 'assets/prompts/web_reverse_expert',
+  ),
+  systemInstructions: 'system',
+  developerInstructions: 'developer',
+  compressionSummaryInstructions: 'compress',
+);
+
+const _model = AiModelConfig(
+  id: 'test-model',
+  baseUrl: 'http://localhost/v1',
+  authScheme: AiAuthScheme.none,
+  token: '',
+  modelId: 'openhand-test-model',
+  protocolType: AiProtocolType.openai,
+);
+
+const _environment = AiSessionEnvironment(
+  localeTag: 'zh-CN',
+  platform: 'macos',
+  appVersion: '0.1.0',
+  appBuildNumber: '1',
+  applicationDirectory: '/tmp/openhand',
+  homeDirectory: '/tmp',
+  settingsFilePath: '/tmp/openhand/settings.json',
+  skillsStoragePath: '/tmp/openhand/skills',
+  mcpServersFilePath: '/tmp/openhand/mcp_servers.json',
+  userMemoryFilePath: '/tmp/openhand/memory.json',
+  sessionsDirectoryPath: '/tmp/openhand/sessions',
+  compressionThresholdChars: 100000,
+);
+
+const _runtimeContext = AiSessionRuntimeContext(
+  localeTag: 'zh-CN',
+  appVersion: '0.1.0',
+  appBuildNumber: '1',
+  settingsFilePath: '/tmp/openhand/settings.json',
+  skillsStoragePath: '/tmp/openhand/skills',
+  mcpServersFilePath: '/tmp/openhand/mcp_servers.json',
+  userMemoryFilePath: '/tmp/openhand/memory.json',
+  compressionThresholdChars: 100000,
+  memoryEnabled: false,
+  memoryEntries: <Never>[],
+  templateId: 'web_reverse_expert',
+  platformName: 'macos',
+  workingDirectory: '/tmp/openhand',
+  todayLocalDate: '2026-05-19',
+  timeZoneName: 'UTC',
+);
+
+AiSession _webReverseSession({
+  required DateTime now,
+  required AiSessionMessage latestUserMessage,
+  required Map<String, Object?> metadata,
+}) {
+  return AiSession(
+    id: 'session-1',
+    title: 'Web Reverse',
+    templateId: 'web_reverse_expert',
+    templateName: 'Web Reverse Expert',
+    templateIconName: 'travel_explore_rounded',
+    templateInternalVersion: '1.1.0',
+    createdAt: now,
+    updatedAt: now,
+    messages: <AiSessionMessage>[latestUserMessage],
+    environment: _environment,
+    statistics: const AiSessionStatistics.initial(),
+    recentErrors: const <AiSessionErrorRecord>[],
+    metadata: metadata,
+  );
+}
+
+AiPromptBuildResult _buildWebReversePrompt(
+  AiSession session,
+  AiSessionMessage latestUserMessage,
+) {
+  return const AiPromptBuilder().buildConversationPrompt(
+    templateBundle: _templateBundle,
+    session: session,
+    model: _model,
+    runtimeContext: _runtimeContext,
+    memoryEntries: const <Never>[],
+    historyMessages: const <AiSessionMessage>[],
+    latestUserMessage: latestUserMessage,
   );
 }
