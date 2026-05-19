@@ -1059,7 +1059,7 @@ class AiPromptBuilder {
       } else if (isWebReverse) {
         buffer.writeln(
           'Capability invocation priority for the Web Reverse Expert template: '
-          'CDP MCP tools and the OpenHand CDP Bridge are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
+          'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
           'The browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
           'skill__* tools are auxiliary knowledge only. Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
@@ -1440,7 +1440,7 @@ class AiPromptBuilder {
           'Dashboard panels and AI-visible state are backed by the same OpenHand-managed Chrome CDP session plus local jsonl/HAR artifacts.',
       'cdp_first_required': true,
       'fallback_policy':
-          'Use CDP MCP / OpenHand CDP Bridge first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+          'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
       'cdp_runtime': meta('web_reverse_cdp_runtime'),
       'dashboard_state': <String, Object?>{

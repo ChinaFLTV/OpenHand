@@ -137,6 +137,12 @@ void main() {
       expect(sessionStateText, contains('"cdp_runtime"'));
       expect(sessionStateText, contains('http://127.0.0.1:9233/json/list'));
       expect(sessionStateText, contains('"browser_current_target"'));
+
+      final fullPromptText = result.messages
+          .map((turn) => turn.content)
+          .join('\n');
+      expect(fullPromptText, isNot(contains('OpenHand CDP Bridge')));
+      expect(fullPromptText, isNot(contains('CDP Bridge')));
     },
   );
 }

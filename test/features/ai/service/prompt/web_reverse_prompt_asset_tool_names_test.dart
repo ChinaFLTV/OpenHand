@@ -7,6 +7,7 @@ void main() {
     'Web Reverse prompt assets do not hard-code unavailable cdp tool names',
     () {
       final files = <String>[
+        'assets/prompts/web_reverse_expert/system_instructions.md',
         'assets/prompts/web_reverse_expert/developer_instructions.md',
         'assets/prompts/web_reverse_expert/snippets/hook_payload.js',
       ];
@@ -22,6 +23,10 @@ void main() {
         'cdp_get_response_body',
         'cdp_close_pages',
       ];
+      const ambiguousToolLikeNames = <String>[
+        'OpenHand CDP Bridge',
+        'CDP Bridge',
+      ];
 
       for (final file in files) {
         final content = File(file).readAsStringSync();
@@ -30,6 +35,13 @@ void main() {
             content,
             isNot(contains(name)),
             reason: '$file must not name $name',
+          );
+        }
+        for (final name in ambiguousToolLikeNames) {
+          expect(
+            content,
+            isNot(contains(name)),
+            reason: '$file must not imply $name is callable',
           );
         }
       }
