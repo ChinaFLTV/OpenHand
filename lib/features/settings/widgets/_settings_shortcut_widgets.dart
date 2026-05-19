@@ -42,52 +42,80 @@ class _ShortcutBindingTile extends StatelessWidget {
                 ),
               ],
             );
+            // 2026-05-19 — 三件控件统一高度 40：原来 Container 自由撑高、
+            // OutlinedButton.icon ≈40、IconButton ≈48，视觉错位。Wrap 每个
+            // 子控件到 SizedBox(height: kCtrlHeight) 并把 IconButton 拉成
+            // 正方形 40x40，整体协调。
+            const double kCtrlHeight = 40;
             final controls = Wrap(
               spacing: 10,
               runSpacing: 10,
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Container(
-                  key: ValueKey<String>('shortcut-value-$actionStorageKey'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colorScheme.outlineVariant),
-                  ),
-                  child: Text(
-                    value,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                SizedBox(
+                  height: kCtrlHeight,
+                  child: Container(
+                    key: ValueKey<String>('shortcut-value-$actionStorageKey'),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: Text(
+                      value,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-                OutlinedButton.icon(
-                  key: ValueKey<String>('shortcut-record-$actionStorageKey'),
-                  onPressed: onRecord,
-                  icon: const Icon(Icons.keyboard_alt_rounded),
-                  label: Text(
-                    Localizations.localeOf(
-                          context,
-                        ).languageCode.startsWith('zh')
-                        ? '录制'
-                        : 'Record',
+                SizedBox(
+                  height: kCtrlHeight,
+                  child: OutlinedButton.icon(
+                    key: ValueKey<String>('shortcut-record-$actionStorageKey'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, kCtrlHeight),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: onRecord,
+                    icon: const Icon(Icons.keyboard_alt_rounded, size: 18),
+                    label: Text(
+                      Localizations.localeOf(
+                            context,
+                          ).languageCode.startsWith('zh')
+                          ? '录制'
+                          : 'Record',
+                    ),
                   ),
                 ),
-                IconButton(
-                  key: ValueKey<String>('shortcut-reset-$actionStorageKey'),
-                  onPressed: onReset,
-                  tooltip:
-                      Localizations.localeOf(
-                        context,
-                      ).languageCode.startsWith('zh')
-                      ? '恢复默认'
-                      : 'Reset to default',
-                  icon: const Icon(Icons.restart_alt_rounded),
+                SizedBox(
+                  height: kCtrlHeight,
+                  width: kCtrlHeight,
+                  child: IconButton(
+                    key: ValueKey<String>('shortcut-reset-$actionStorageKey'),
+                    onPressed: onReset,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    tooltip:
+                        Localizations.localeOf(
+                          context,
+                        ).languageCode.startsWith('zh')
+                        ? '恢复默认'
+                        : 'Reset to default',
+                    icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                  ),
                 ),
               ],
             );

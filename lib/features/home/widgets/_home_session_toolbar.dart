@@ -2722,13 +2722,22 @@ class _StreamThrottleSessionDialogState
     final theme = Theme.of(context);
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final settings = context.watch<SettingsController>();
-    final session = context.read<AiSessionController>();
+    final session = context.watch<AiSessionController>();
     final globalChars = settings.effectiveStreamMaxCharsPerSecond(
       widget.templateId,
     );
     final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond(
       widget.templateId,
     );
+    // 2026-05-19 — 当前会话「真正生效」的速率：会话级覆盖 > 全局。
+    // 弹窗的 "当前生效" 标签和 mini 仪表盘上限都按这个值显示，避免
+    // 用户已在文本框里输入了新数字、但标签仍停留在全局值导致的
+    // 「我设置了为什么没生效」错觉。
+    final sessionOverride = session.sessionStreamThrottleOverride(
+      widget.sessionId,
+    );
+    final effectiveChars = sessionOverride?.charsPerSecond ?? globalChars;
+    final effectiveCards = sessionOverride?.cardsPerSecond ?? globalCards;
     // 2026-05-19 — 当前生效的启用态：会话级 > 全局。
     final globalEnabled = settings.aiStreamThrottleEnabled;
     final effectiveEnabled = _enabledOverride ?? globalEnabled;
@@ -2828,7 +2837,7 @@ class _StreamThrottleSessionDialogState
               // 一个柱；柱高 = chars/sec / max。流式过程中持续刷新。
               _StreamThroughputMiniGauge(
                 sessionId: widget.sessionId,
-                maxRate: globalChars <= 0 ? 1 : globalChars,
+                maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -2839,8 +2848,8 @@ class _StreamThrottleSessionDialogState
                 ],
                 decoration: InputDecoration(
                   labelText: isZh
-                      ? '字符 / 秒（当前生效：$globalChars）'
-                      : 'Chars / Sec (current: $globalChars)',
+                      ? '字符 / 秒（当前生效：$effectiveChars）'
+                      : 'Chars / Sec (current: $effectiveChars)',
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                 ),
@@ -2852,6 +2861,9 @@ class _StreamThrottleSessionDialogState
                     widget.sessionId,
                     _parse(value),
                   );
+                  // 2026-05-19 — 重新读 override 给“当前生效”标签、gauge
+                  // 上限、文本框下方状态提示马上刷新。
+                  if (mounted) setState(() {});
                 },
               ),
               const SizedBox(height: 12),
@@ -2863,8 +2875,8 @@ class _StreamThrottleSessionDialogState
                 ],
                 decoration: InputDecoration(
                   labelText: isZh
-                      ? '卡片 / 秒（当前生效：$globalCards）'
-                      : 'Cards / Sec (current: $globalCards)',
+                      ? '卡片 / 秒（当前生效：$effectiveCards）'
+                      : 'Cards / Sec (current: $effectiveCards)',
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
                 ),
@@ -2873,6 +2885,7 @@ class _StreamThrottleSessionDialogState
                     widget.sessionId,
                     _parse(value),
                   );
+                  if (mounted) setState(() {});
                 },
               ),
               const SizedBox(height: 20),

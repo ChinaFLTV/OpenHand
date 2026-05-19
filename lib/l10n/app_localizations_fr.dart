@@ -2466,6 +2466,20 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmRowByKind => 'Répartition';
 
   @override
+  String get inputRepairTitle => 'Réparation de saisie';
+
+  @override
+  String get inputRepairBody =>
+      'Corrige les problèmes de saisie, copier/coller ou ESC non réactif dans les dialogues';
+
+  @override
+  String get inputRepairButton => 'Réparer la saisie';
+
+  @override
+  String get inputRepairDone =>
+      'Réparation tentée, veuillez réessayer la saisie';
+
+  @override
   String get proxySectionTitle => 'Système';
 
   @override

@@ -2296,6 +2296,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tsmRowByKind => '占比';
 
   @override
+  String get inputRepairTitle => '输入修复';
+
+  @override
+  String get inputRepairBody => '修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题';
+
+  @override
+  String get inputRepairButton => '修复输入';
+
+  @override
+  String get inputRepairDone => '已尝试修复，请重新输入';
+
+  @override
   String get proxySectionTitle => '系统';
 
   @override
@@ -10030,6 +10042,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tsmRowByKind => '占比';
 
   @override
+  String get inputRepairTitle => '输入修复';
+
+  @override
+  String get inputRepairBody => '修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题';
+
+  @override
+  String get inputRepairButton => '修复输入';
+
+  @override
+  String get inputRepairDone => '已尝试修复，请重新输入';
+
+  @override
   String get proxySectionTitle => '系统';
 
   @override
@@ -17761,6 +17785,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tsmRowByKind => '佔比';
+
+  @override
+  String get inputRepairTitle => '輸入修復';
+
+  @override
+  String get inputRepairBody => '修復無法輸入、複製、貼上或彈窗 ESC 關閉失效的問題';
+
+  @override
+  String get inputRepairButton => '修復輸入';
+
+  @override
+  String get inputRepairDone => '已嘗試修復，請重新輸入';
 
   @override
   String get proxySectionTitle => '系統';

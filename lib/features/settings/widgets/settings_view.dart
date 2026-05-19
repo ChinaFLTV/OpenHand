@@ -780,7 +780,11 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.system => _SettingsGroupCard(
         title: l10n.proxySectionTitle,
         description: l10n.proxySectionBody,
-        children: [_SystemProxySection(controller: settingsController)],
+        children: [
+          _SystemProxySection(controller: settingsController),
+          const SizedBox(height: 12),
+          const _InputRepairSection(),
+        ],
       ),
       _SettingsSection.about => _SettingsGroupCard(
         title: l10n.aboutSectionTitle,
@@ -1292,6 +1296,10 @@ class _SettingsViewState extends State<SettingsView> {
             context,
           )!.settingsConfigureDefaultBehaviourForNewSessions,
           child: Column(
+            // 2026-05-19 — 强制左对齐：默认 CrossAxisAlignment.center 会
+            // 把"节流参数"独立的 title / body Text 居中渲染，与上下方
+            // _ResponsiveSettingRow（内部 Row+Column start 对齐）视觉断裂。
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsSendTimeoutS,
@@ -1978,6 +1986,10 @@ class _SettingsViewState extends State<SettingsView> {
                               settingsController.updateProviderActiveModel(
                                 aiModels[index].id,
                                 modelId,
+                                // 2026-05-19 — 设置页里点"模型胶囊"只切换
+                                // 该 provider 的默认活跃模型，不把该 provider
+                                // 顺手升为活跃 provider。
+                                alsoSelectProvider: false,
                               ),
                         ),
                       );

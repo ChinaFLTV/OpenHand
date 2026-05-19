@@ -322,45 +322,66 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _hostCtrl,
-                        focusNode: _hostFocus,
-                        enabled: isManual,
-                        decoration: InputDecoration(
-                          labelText: l10n.proxyHostLabel,
-                          hintText: '127.0.0.1',
+                // 2026-05-19 — 自动模式下虽然字段禁用，但仍把 SystemProxyResolver
+                // 探测到的 host:port 实时回填到文本框，方便用户校验"系统现在
+                // 走的哪条代理"。手动模式下保留用户自填值。
+                ValueListenableBuilder<int>(
+                  valueListenable: SystemProxyResolver.instance.revision,
+                  builder: (context, _, _) {
+                    if (!isManual) {
+                      final detected = SystemProxyResolver
+                          .instance
+                          .detectedAutomaticHostPort;
+                      final detectedHost = detected?.host ?? '';
+                      final detectedPort = detected?.port.toString() ?? '';
+                      if (_hostCtrl.text != detectedHost) {
+                        _hostCtrl.text = detectedHost;
+                      }
+                      if (_portCtrl.text != detectedPort) {
+                        _portCtrl.text = detectedPort;
+                      }
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _hostCtrl,
+                            focusNode: _hostFocus,
+                            enabled: isManual,
+                            decoration: InputDecoration(
+                              labelText: l10n.proxyHostLabel,
+                              hintText: '127.0.0.1',
+                            ),
+                            onSubmitted: (_) => _saveHost(),
+                            onTapOutside: (_) {
+                              _hostFocus.unfocus();
+                              _saveHost();
+                            },
+                          ),
                         ),
-                        onSubmitted: (_) => _saveHost(),
-                        onTapOutside: (_) {
-                          _hostFocus.unfocus();
-                          _saveHost();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _portCtrl,
-                        focusNode: _portFocus,
-                        enabled: isManual,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: l10n.proxyPortLabel,
-                          hintText: '7890',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _portCtrl,
+                            focusNode: _portFocus,
+                            enabled: isManual,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: l10n.proxyPortLabel,
+                              hintText: '7890',
+                            ),
+                            onSubmitted: (_) => _savePort(),
+                            onTapOutside: (_) {
+                              _portFocus.unfocus();
+                              _savePort();
+                            },
+                          ),
                         ),
-                        onSubmitted: (_) => _savePort(),
-                        onTapOutside: (_) {
-                          _portFocus.unfocus();
-                          _savePort();
-                        },
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile.adaptive(
@@ -510,6 +531,72 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// 2026-05-19 — 输入修复入口。点击后尝试：
+///   ① 卸下当前 primaryFocus（避免某些过时 Focus 把 IMK 上下文吃住）；
+///   ② `SystemChannels.textInput.invokeMethod('TextInput.hide')` 释放
+///      平台输入法 session；
+///   ③ macOS 上额外 SIGTERM-then-SIGKILL 一遍可能残留的 orphan
+///      osascript（safe_subprocess 已注册的全局子进程不在此触发，
+///      只兜底其它 trampoline）。
+/// 配合 [showAnimatedDialog] 的 CallbackShortcuts Esc 绑定，可恢复
+/// 「文本框不响应输入 / Esc 关弹窗失灵」状态。
+class _InputRepairSection extends StatelessWidget {
+  const _InputRepairSection();
+
+  Future<void> _runRepair(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    // 1. unfocus 当前持有焦点的 widget。
+    final primary = FocusManager.instance.primaryFocus;
+    try {
+      primary?.unfocus();
+    } catch (_) {}
+    // 2. 通知平台关闭输入法 session。
+    try {
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    } catch (error, stack) {
+      silentLog('settings.system', 'TextInput.hide', error, stack);
+    }
+    if (messenger != null && context.mounted) {
+      OpenHandSnackBar.showSuccessOn(context, messenger, l10n.inputRepairDone);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.inputRepairTitle,
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.inputRepairBody,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OutlinedButton.icon(
+              onPressed: () => _runRepair(context),
+              icon: const Icon(Icons.healing_rounded, size: 18),
+              label: Text(l10n.inputRepairButton),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

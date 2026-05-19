@@ -2326,6 +2326,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmRowByKind => '種類別';
 
   @override
+  String get inputRepairTitle => '入力修復';
+
+  @override
+  String get inputRepairBody => 'テキスト入力、コピー/ペースト、ダイアログのESCが効かない問題を修復';
+
+  @override
+  String get inputRepairButton => '入力を修復';
+
+  @override
+  String get inputRepairDone => '修復を試みました。もう一度入力してください';
+
+  @override
   String get proxySectionTitle => 'システム';
 
   @override

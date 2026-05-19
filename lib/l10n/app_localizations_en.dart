@@ -2420,6 +2420,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tsmRowByKind => 'By kind';
 
   @override
+  String get inputRepairTitle => 'Input Repair';
+
+  @override
+  String get inputRepairBody =>
+      'Fix issues with text input, copy/paste, or unresponsive ESC in dialogs';
+
+  @override
+  String get inputRepairButton => 'Repair Input';
+
+  @override
+  String get inputRepairDone => 'Repair attempted, please try input again';
+
+  @override
   String get proxySectionTitle => 'System';
 
   @override

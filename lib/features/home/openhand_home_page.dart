@@ -1759,6 +1759,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _selectSection(AppSection section) {
     setState(() {
       _selectedSection = section;
+      // 2026-05-19 — 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
+      // 当用户从 workspace（曾经触发过一次 prep 流程）切到其他板块、再
+      // 切回 workspace 时，`_WorkspaceView` 是一棵刚 mount 的全新子树，
+      // 老 `_SessionTranscript` 早已被 dispose。新 transcript 在
+      // initState 里就会同步物化 render entries 并 jumpToBottom，根本
+      // 不需要再走 prep placeholder；但如果 `_preparingTranscriptSessionId`
+      // 还指向当前 session（比如刚才 prep 还没走完就被切走、frame 回调
+      // 提前 return），新 transcript 会被 AnimatedOpacity 覆盖成空白
+      // `SizedBox.expand()`，呈现"消息卡片消失"的错觉。
+      if (section == AppSection.workspace &&
+          _preparingTranscriptSessionId != null) {
+        _preparingTranscriptSessionId = null;
+        _transcriptPreparationGeneration += 1;
+      }
     });
   }
 

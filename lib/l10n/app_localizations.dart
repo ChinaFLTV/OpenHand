@@ -4394,6 +4394,30 @@ abstract class AppLocalizations {
   /// **'占比'**
   String get tsmRowByKind;
 
+  /// No description provided for @inputRepairTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入修复'**
+  String get inputRepairTitle;
+
+  /// No description provided for @inputRepairBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题'**
+  String get inputRepairBody;
+
+  /// No description provided for @inputRepairButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'修复输入'**
+  String get inputRepairButton;
+
+  /// No description provided for @inputRepairDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已尝试修复，请重新输入'**
+  String get inputRepairDone;
+
   /// No description provided for @proxySectionTitle.
   ///
   /// In zh_Hans, this message translates to:

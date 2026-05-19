@@ -71,6 +71,25 @@ class SystemProxyResolver {
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
+  /// 2026-05-19 — 自动模式下从环境变量 / `scutil --proxy` 推断到的端点
+  /// （格式 `host:port`），供"系统设置 → 代理"卡片在禁用文本框里
+  /// 实时回填显示。优先级：HTTPS > HTTP > SOCKS。无任何探测结果返回 null。
+  String? get detectedAutomaticEndpoint {
+    return _httpsProxy ?? _httpProxy ?? _socksProxy;
+  }
+
+  /// 自动模式探测端点拆分为 (host, port)；解析失败返回 null。
+  ({String host, int port})? get detectedAutomaticHostPort {
+    final raw = detectedAutomaticEndpoint;
+    if (raw == null || raw.isEmpty) return null;
+    final idx = raw.lastIndexOf(':');
+    if (idx <= 0 || idx == raw.length - 1) return null;
+    final host = raw.substring(0, idx).trim();
+    final port = int.tryParse(raw.substring(idx + 1).trim());
+    if (host.isEmpty || port == null || port < 1 || port > 65535) return null;
+    return (host: host, port: port);
+  }
+
   /// Best-effort discovery. Safe to call multiple times — each call
   /// re-reads env + scutil so callers can refresh on demand.
   Future<void> initialize() async {

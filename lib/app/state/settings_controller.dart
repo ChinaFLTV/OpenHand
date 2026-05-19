@@ -1947,12 +1947,17 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Updates the active model ID for a specific provider config, and
-  /// simultaneously selects that provider as the current one.
+  /// Updates the active model ID for a specific provider config.
+  ///
+  /// [alsoSelectProvider]：是否同时把当前活跃 provider 切到该条目。从首页
+  /// composer 切模型时默认 true（隐式切 provider）；从设置页内"模型胶囊"
+  /// 切默认模型时必须传 false，否则会顺便把该 provider 升为活跃，造成
+  /// 用户预期外的"一次点击改两件事"。
   Future<bool> updateProviderActiveModel(
     String providerConfigId,
-    String modelId,
-  ) async {
+    String modelId, {
+    bool alsoSelectProvider = true,
+  }) async {
     return _commitMutation(() {
       final index = _aiModels.indexWhere((item) => item.id == providerConfigId);
       if (index == -1) {
@@ -1970,7 +1975,9 @@ class SettingsController extends ChangeNotifier {
       );
       _aiModels = updatedModels;
       _cachedAiModelsView = null;
-      _selectedAiModelId = providerConfigId;
+      if (alsoSelectProvider) {
+        _selectedAiModelId = providerConfigId;
+      }
       return _MutationDisposition.apply;
     });
   }

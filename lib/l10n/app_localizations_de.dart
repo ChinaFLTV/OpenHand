@@ -2450,6 +2450,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmRowByKind => 'Aufteilung';
 
   @override
+  String get inputRepairTitle => 'Eingabe-Reparatur';
+
+  @override
+  String get inputRepairBody =>
+      'Behebt Probleme mit Texteingabe, Kopieren/Einfügen oder ESC in Dialogen';
+
+  @override
+  String get inputRepairButton => 'Eingabe reparieren';
+
+  @override
+  String get inputRepairDone => 'Reparatur versucht, bitte erneut eingeben';
+
+  @override
   String get proxySectionTitle => 'System';
 
   @override
