@@ -60,6 +60,84 @@ void main() {
     );
     expect(searchTool.deferredToolDefinitions, isNot(contains('cdp_evaluate')));
   });
+
+  test('keeps ToolSearch-loaded MCP tools visible on next catalog build', () {
+    final runtimeService = AiToolRuntimeService(
+      bashToolService: AiBashToolService(),
+      hookService: AiClaudeHookService(),
+      mcpToolService: _FakeMcpToolDiscoveryService(),
+      backgroundChatClient: _FakeChatClient(),
+    );
+    final catalog = AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[
+        _toolSearch.definition,
+        _mcpDefinition('mcp__chrome_devtools__navigate_page'),
+        _mcpDefinition('mcp__browserless__playwright_run'),
+      ],
+      toolsByName: <String, AiResolvedTool>{
+        'ToolSearch': _toolSearch,
+        'mcp__chrome_devtools__navigate_page': _mcpTool(
+          'mcp__chrome_devtools__navigate_page',
+        ),
+        'mcp__browserless__playwright_run': _mcpTool(
+          'mcp__browserless__playwright_run',
+        ),
+      },
+    );
+
+    final result = McpLazyLoadingApplier.apply(
+      catalog: catalog,
+      runtimeContext: _runtimeContext,
+      toolRuntimeService: runtimeService,
+      alreadyLoadedNames: const <String>{'mcp__chrome_devtools__navigate_page'},
+    );
+
+    expect(result.toolsByName, contains('ToolSearch'));
+    expect(result.toolsByName, contains('mcp__chrome_devtools__navigate_page'));
+    expect(
+      result.toolsByName,
+      isNot(contains('mcp__browserless__playwright_run')),
+    );
+
+    final toolSearch = runtimeService.toolRegistry.getTool(
+      AiBuiltinToolKind.toolSearch,
+    );
+    final searchTool = toolSearch! as AiToolSearchTool;
+    expect(
+      searchTool.deferredToolNames,
+      isNot(contains('mcp__chrome_devtools__navigate_page')),
+    );
+    expect(
+      searchTool.deferredToolNames,
+      contains('mcp__browserless__playwright_run'),
+    );
+  });
+
+  test('ToolSearch select query uses comma-separated multi-select', () {
+    final tool = AiToolSearchTool()
+      ..deferredToolNames = const <String>[
+        'mcp__chrome_devtools__navigate_page',
+        'mcp__chrome_devtools__list_network_requests',
+      ];
+
+    expect(
+      tool.debugRunSearch(
+        query:
+            'select:mcp__chrome_devtools__navigate_page,mcp__chrome_devtools__list_network_requests',
+      ),
+      <String>[
+        'mcp__chrome_devtools__navigate_page',
+        'mcp__chrome_devtools__list_network_requests',
+      ],
+    );
+    expect(
+      tool.debugRunSearch(
+        query:
+            'select:mcp__chrome_devtools__navigate_page mcp__chrome_devtools__list_network_requests',
+      ),
+      isEmpty,
+    );
+  });
 }
 
 const AiResolvedTool _toolSearch = AiResolvedTool(

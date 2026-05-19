@@ -1062,7 +1062,7 @@ class AiPromptBuilder {
           'CDP MCP tools and the OpenHand CDP Bridge are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
           'The browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
-          'skill__* tools are auxiliary knowledge only. Playwright or other automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
+          'skill__* tools are auxiliary knowledge only. Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
       } else {
@@ -1119,9 +1119,9 @@ class AiPromptBuilder {
           'folded to save context. Names + one-line summaries live inside the '
           '`ToolSearch` tool description below. To use any deferred MCP tool, '
           'first call `ToolSearch` with `select:<exact_name>` (multi-select '
-          'supported, e.g. `select:mcp__a__b mcp__c__d`) or with a keyword '
+          'supported, e.g. `select:mcp__a__b,mcp__c__d`) or with a keyword '
           'query — the runtime will inject full JSONSchema and the tool '
-          'becomes callable from the next turn onward. Do NOT invent MCP '
+          'becomes callable from the next model request onward. Do NOT invent MCP '
           'tool names; pick from the deferred list.',
         );
       if (isWebReverse) {
@@ -1440,7 +1440,7 @@ class AiPromptBuilder {
           'Dashboard panels and AI-visible state are backed by the same OpenHand-managed Chrome CDP session plus local jsonl/HAR artifacts.',
       'cdp_first_required': true,
       'fallback_policy':
-          'Use CDP MCP / OpenHand CDP Bridge first. Use Playwright or other automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+          'Use CDP MCP / OpenHand CDP Bridge first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
       'cdp_runtime': meta('web_reverse_cdp_runtime'),
       'dashboard_state': <String, Object?>{

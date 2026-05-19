@@ -3020,14 +3020,20 @@ class AiSessionController extends ChangeNotifier {
       session: session,
       catalog: fullCatalog,
     );
-    final toolCatalog = McpLazyLoadingApplier.apply(
-      catalog: fullCatalog,
-      runtimeContext: runtimeContext,
-      toolRuntimeService: _toolRuntimeService,
-      alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(session.id),
-      forceVisibleNames: forceVisibleMcpToolNames,
-    );
     var workingSession = session;
+    AiResolvedToolCatalog applyMcpLazyLoadingForCurrentSession() {
+      return McpLazyLoadingApplier.apply(
+        catalog: fullCatalog,
+        runtimeContext: runtimeContext,
+        toolRuntimeService: _toolRuntimeService,
+        alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(
+          workingSession.id,
+        ),
+        forceVisibleNames: forceVisibleMcpToolNames,
+      );
+    }
+
+    var toolCatalog = applyMcpLazyLoadingForCurrentSession();
     var activeLatestUserMessageId = latestUserMessageId;
     // 2026-05-04 阶段⑰：累积本轮（=单次助手对话直至产出最终自然回复）
     // 内全部工具调用 id，用于回合结束时统一向 ledger 反查文件变动并
@@ -3079,6 +3085,7 @@ class AiSessionController extends ChangeNotifier {
         _debugSessionLog(workingSession.id, 'assistant_conversation_stopped');
         return true;
       }
+      toolCatalog = applyMcpLazyLoadingForCurrentSession();
       final toolCatalogForRound = workingSession.awaitingPlanApproval
           ? const AiResolvedToolCatalog(
               definitions: <AiToolDefinition>[],
