@@ -118,11 +118,19 @@
   "mcpStdioMirrorModeStatusInjected": "Active: injecting npmmirror / Tsinghua PyPI",
   "mcpStdioMirrorModeStatusBypassed": "Active: official registry, no mirror injection",
   "mcpStdioMirrorModeStatusReason": "Source: {reason}",
-  "@mcpStdioMirrorModeStatusReason": { "placeholders": { "reason": {} } },
+  "@mcpStdioMirrorModeStatusReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
   "mcpStdioMirrorModeReasonEnv": "OPENHAND_MCP_MIRROR env var",
   "mcpStdioMirrorModeReasonSetting": "Settings override",
   "mcpStdioMirrorModeReasonLocale": "System locale ({locale})",
-  "@mcpStdioMirrorModeReasonLocale": { "placeholders": { "locale": {} } },
+  "@mcpStdioMirrorModeReasonLocale": {
+    "placeholders": {
+      "locale": {}
+    }
+  },
   "mcpStdioMirrorModeReconnectAction": "Reconnect enabled servers with new setting",
   "mcpStdioMirrorModeReconnectDone": "Reconnect triggered. Next call will respawn the process with the new mirror.",
   "mcpAutoProbeConcurrencyLabel": "MCP check/fetch concurrency",
@@ -141,7 +149,13 @@
   "mcpKeywordIndexIntervalUnitMinute": "Minute(s)",
   "mcpKeywordIndexIntervalUnitHour": "Hour(s)",
   "mcpKeywordIndexIntervalUnitDay": "Day(s)",
-  "@mcpKeywordIndexScheduledLabel": {"placeholders": {"time": {"type": "String"}}},
+  "@mcpKeywordIndexScheduledLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "mcpKeywordIndexScheduledLabel": "Rebuild daily at {time}",
   "mcpKeywordIndexScheduledPickAction": "Pick time",
   "commonClose": "Close",
@@ -150,11 +164,43 @@
   "mcpKeywordIndexBuildTitle": "Building keyword inverted index",
   "mcpKeywordIndexBuildStarting": "Preparing…",
   "mcpKeywordIndexBuildProgress": "{idx}/{count}: {server} ({tools} tools scanned)",
-  "@mcpKeywordIndexBuildProgress": { "placeholders": { "idx": {"type":"int"}, "count": {"type":"int"}, "server": {}, "tools": {"type":"int"} } },
+  "@mcpKeywordIndexBuildProgress": {
+    "placeholders": {
+      "idx": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "server": {},
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildSummary": "Indexed {servers} servers, {tools} tools, {keys} keywords in {sec}s",
-  "@mcpKeywordIndexBuildSummary": { "placeholders": { "servers": {"type":"int"}, "tools": {"type":"int"}, "keys": {"type":"int"}, "sec": {} } },
+  "@mcpKeywordIndexBuildSummary": {
+    "placeholders": {
+      "servers": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      },
+      "keys": {
+        "type": "int"
+      },
+      "sec": {}
+    }
+  },
   "mcpKeywordIndexBuildSkipped": "Skipped {n} servers without a ready tool catalog",
-  "@mcpKeywordIndexBuildSkipped": { "placeholders": { "n": {"type":"int"} } },
+  "@mcpKeywordIndexBuildSkipped": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildFailed": "Build failed:",
   "mcpLazyLoadingModeLabel": "MCP tool lazy loading",
   "mcpLazyLoadingModeBody": "Controls whether MCP tool descriptions are collapsed out of the system prompt: Off = always expanded; On = always collapsed and fetched on demand via ToolSearch; Auto collapses only when the estimated token cost exceeds the threshold.",
@@ -1430,9 +1476,21 @@
   "tlCallChangedFile": "Changed File",
   "fileMutationSection": "File changes",
   "fileMutationFilesChanged": "{count, plural, =1{1 file changed} other{{count} files changed}}",
-  "@fileMutationFilesChanged": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesChanged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationFilesCount": "{count, plural, =1{1 file} other{{count} files}}",
-  "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationUndoAll": "Undo all",
   "fileMutationRefresh": "Refresh",
   "fileMutationCopyAllDiff": "Copy all diffs",
@@ -1441,7 +1499,13 @@
   "fileMutationCopyPath": "Copy file path",
   "fileMutationPathCopied": "Path copied",
   "fileMutationRevealMore": "{count} more {count, plural, =1{change} other{changes}} hidden — tap to reveal next batch",
-  "@fileMutationRevealMore": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationRevealMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationRevealAll": "Reveal all",
   "fileMutationHistoryInspector": "History inspector",
   "fileMutationHistoryInspectorTitle": "Session file history",
@@ -2359,5 +2423,41 @@
   "aiThrottleSettingsBody": "Unified streaming throttle: master switch, auto mode, char/card rates, duration.",
   "@aiThrottleSettingsBody": {
     "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
+  },
+  "webReverseVitalsInstalling": "Installing observers…",
+  "@webReverseVitalsInstalling": {
+    "description": "web_reverse: Vitals dialog status while injecting PerformanceObserver."
+  },
+  "webReverseVitalsResetting": "Resetting…",
+  "@webReverseVitalsResetting": {
+    "description": "web_reverse: Vitals dialog status while resetting collected metrics."
+  },
+  "webReverseVitalsReportCopied": "Report JSON copied",
+  "@webReverseVitalsReportCopied": {
+    "description": "web_reverse: Vitals snack bar after copying report JSON."
+  },
+  "webReverseVitalsTitle": "Web Vitals",
+  "@webReverseVitalsTitle": {
+    "description": "web_reverse: Vitals dialog title."
+  },
+  "webReverseVitalsSubtitle": "PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live",
+  "@webReverseVitalsSubtitle": {
+    "description": "web_reverse: Vitals dialog subtitle describing data sources."
+  },
+  "webReverseVitalsCopyJson": "Copy JSON",
+  "@webReverseVitalsCopyJson": {
+    "description": "web_reverse: Vitals tooltip for copy JSON button."
+  },
+  "webReverseVitalsReset": "Reset",
+  "@webReverseVitalsReset": {
+    "description": "web_reverse: Vitals tooltip for reset button."
+  },
+  "webReverseVitalsClose": "Close",
+  "@webReverseVitalsClose": {
+    "description": "web_reverse: Vitals tooltip / button label to close the dialog."
+  },
+  "webReverseVitalsThresholdsHint": "Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.",
+  "@webReverseVitalsThresholdsHint": {
+    "description": "web_reverse: Vitals footer explaining web.dev thresholds."
   }
 }

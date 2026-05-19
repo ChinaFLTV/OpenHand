@@ -118,11 +118,19 @@
   "mcpStdioMirrorModeStatusInjected": "当前生效：将注入 npmmirror / 清华 PyPI",
   "mcpStdioMirrorModeStatusBypassed": "当前生效：不注入镜像源，走官方 registry",
   "mcpStdioMirrorModeStatusReason": "依据：{reason}",
-  "@mcpStdioMirrorModeStatusReason": { "placeholders": { "reason": {} } },
+  "@mcpStdioMirrorModeStatusReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
   "mcpStdioMirrorModeReasonEnv": "环变 OPENHAND_MCP_MIRROR",
   "mcpStdioMirrorModeReasonSetting": "设置项强制",
   "mcpStdioMirrorModeReasonLocale": "跟随语言 ({locale})",
-  "@mcpStdioMirrorModeReasonLocale": { "placeholders": { "locale": {} } },
+  "@mcpStdioMirrorModeReasonLocale": {
+    "placeholders": {
+      "locale": {}
+    }
+  },
   "mcpStdioMirrorModeReconnectAction": "按新设置重拉已启用的 server",
   "mcpStdioMirrorModeReconnectDone": "已触发重拉，下一次调用会用新镜像源重新启动进程。",
   "mcpAutoProbeConcurrencyLabel": "MCP 检查/拉取并发数",
@@ -141,7 +149,13 @@
   "mcpKeywordIndexIntervalUnitMinute": "分钟",
   "mcpKeywordIndexIntervalUnitHour": "小时",
   "mcpKeywordIndexIntervalUnitDay": "天",
-  "@mcpKeywordIndexScheduledLabel": {"placeholders": {"time": {"type": "String"}}},
+  "@mcpKeywordIndexScheduledLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "mcpKeywordIndexScheduledLabel": "每日 {time} 自动重建",
   "mcpKeywordIndexScheduledPickAction": "选择时间",
   "commonClose": "关闭",
@@ -150,11 +164,43 @@
   "mcpKeywordIndexBuildTitle": "构建关键词倒排索引",
   "mcpKeywordIndexBuildStarting": "正在准备…",
   "mcpKeywordIndexBuildProgress": "{idx}/{count}：{server}（已扫 {tools} 个工具）",
-  "@mcpKeywordIndexBuildProgress": { "placeholders": { "idx": {"type":"int"}, "count": {"type":"int"}, "server": {}, "tools": {"type":"int"} } },
+  "@mcpKeywordIndexBuildProgress": {
+    "placeholders": {
+      "idx": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "server": {},
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildSummary": "已索引 {servers} 个服务、{tools} 个工具，关键词 {keys} 个，用时 {sec}s",
-  "@mcpKeywordIndexBuildSummary": { "placeholders": { "servers": {"type":"int"}, "tools": {"type":"int"}, "keys": {"type":"int"}, "sec": {} } },
+  "@mcpKeywordIndexBuildSummary": {
+    "placeholders": {
+      "servers": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      },
+      "keys": {
+        "type": "int"
+      },
+      "sec": {}
+    }
+  },
   "mcpKeywordIndexBuildSkipped": "跳过 {n} 个未就绪服务",
-  "@mcpKeywordIndexBuildSkipped": { "placeholders": { "n": {"type":"int"} } },
+  "@mcpKeywordIndexBuildSkipped": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildFailed": "构建失败：",
   "mcpLazyLoadingModeLabel": "MCP 工具懒加载",
   "mcpLazyLoadingModeBody": "控制是否在系统提示中折叠 MCP 工具描述：关闭时全部展开；开启时全部折叠为 ToolSearch 可按需取回；自动模式下当总 token 估算超过阈值才折叠。",
@@ -1489,9 +1535,21 @@
   "tlCallChangedFile": "文件变动",
   "fileMutationSection": "文件变动",
   "fileMutationFilesChanged": "{count, plural, other{{count} 个文件已更改}}",
-  "@fileMutationFilesChanged": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesChanged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationFilesCount": "{count, plural, other{{count} 个文件}}",
-  "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationUndoAll": "撤销全部",
   "fileMutationRefresh": "刷新状态",
   "fileMutationCopyAllDiff": "复制全部 diff",
@@ -1500,7 +1558,13 @@
   "fileMutationCopyPath": "复制文件路径",
   "fileMutationPathCopied": "路径已复制",
   "fileMutationRevealMore": "还有 {count} 条变更未展示，点击继续展开",
-  "@fileMutationRevealMore": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationRevealMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationRevealAll": "全部展开",
   "fileMutationHistoryInspector": "历史检查器",
   "fileMutationHistoryInspectorTitle": "会话文件变更历史",
@@ -2428,5 +2492,41 @@
   "aiThrottleSettingsBody": "统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。",
   "@aiThrottleSettingsBody": {
     "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
+  },
+  "webReverseVitalsInstalling": "注入 PerformanceObserver…",
+  "@webReverseVitalsInstalling": {
+    "description": "web_reverse: Vitals dialog status while injecting PerformanceObserver."
+  },
+  "webReverseVitalsResetting": "重置中…",
+  "@webReverseVitalsResetting": {
+    "description": "web_reverse: Vitals dialog status while resetting collected metrics."
+  },
+  "webReverseVitalsReportCopied": "报告 JSON 已复制",
+  "@webReverseVitalsReportCopied": {
+    "description": "web_reverse: Vitals snack bar after copying report JSON."
+  },
+  "webReverseVitalsTitle": "Web Vitals 报告",
+  "@webReverseVitalsTitle": {
+    "description": "web_reverse: Vitals dialog title."
+  },
+  "webReverseVitalsSubtitle": "PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新",
+  "@webReverseVitalsSubtitle": {
+    "description": "web_reverse: Vitals dialog subtitle describing data sources."
+  },
+  "webReverseVitalsCopyJson": "复制报告 JSON",
+  "@webReverseVitalsCopyJson": {
+    "description": "web_reverse: Vitals tooltip for copy JSON button."
+  },
+  "webReverseVitalsReset": "重置采集",
+  "@webReverseVitalsReset": {
+    "description": "web_reverse: Vitals tooltip for reset button."
+  },
+  "webReverseVitalsClose": "关闭",
+  "@webReverseVitalsClose": {
+    "description": "web_reverse: Vitals tooltip / button label to close the dialog."
+  },
+  "webReverseVitalsThresholdsHint": "阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。",
+  "@webReverseVitalsThresholdsHint": {
+    "description": "web_reverse: Vitals footer explaining web.dev thresholds."
   }
 }

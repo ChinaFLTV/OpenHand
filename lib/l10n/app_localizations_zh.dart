@@ -4944,6 +4944,35 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
+
+  @override
+  String get webReverseVitalsInstalling => '注入 PerformanceObserver…';
+
+  @override
+  String get webReverseVitalsResetting => '重置中…';
+
+  @override
+  String get webReverseVitalsReportCopied => '报告 JSON 已复制';
+
+  @override
+  String get webReverseVitalsTitle => 'Web Vitals 报告';
+
+  @override
+  String get webReverseVitalsSubtitle =>
+      'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新';
+
+  @override
+  String get webReverseVitalsCopyJson => '复制报告 JSON';
+
+  @override
+  String get webReverseVitalsReset => '重置采集';
+
+  @override
+  String get webReverseVitalsClose => '关闭';
+
+  @override
+  String get webReverseVitalsThresholdsHint =>
+      '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -9886,6 +9915,35 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
+
+  @override
+  String get webReverseVitalsInstalling => '注入 PerformanceObserver…';
+
+  @override
+  String get webReverseVitalsResetting => '重置中…';
+
+  @override
+  String get webReverseVitalsReportCopied => '报告 JSON 已复制';
+
+  @override
+  String get webReverseVitalsTitle => 'Web Vitals 报告';
+
+  @override
+  String get webReverseVitalsSubtitle =>
+      'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新';
+
+  @override
+  String get webReverseVitalsCopyJson => '复制报告 JSON';
+
+  @override
+  String get webReverseVitalsReset => '重置采集';
+
+  @override
+  String get webReverseVitalsClose => '关闭';
+
+  @override
+  String get webReverseVitalsThresholdsHint =>
+      '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -14827,4 +14885,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiThrottleSettingsBody => '统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。';
+
+  @override
+  String get webReverseVitalsInstalling => '注入 PerformanceObserver…';
+
+  @override
+  String get webReverseVitalsResetting => '重置中…';
+
+  @override
+  String get webReverseVitalsReportCopied => '报告 JSON 已复制';
+
+  @override
+  String get webReverseVitalsTitle => 'Web Vitals 报告';
+
+  @override
+  String get webReverseVitalsSubtitle =>
+      'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新';
+
+  @override
+  String get webReverseVitalsCopyJson => '复制报告 JSON';
+
+  @override
+  String get webReverseVitalsReset => '重置采集';
+
+  @override
+  String get webReverseVitalsClose => '关闭';
+
+  @override
+  String get webReverseVitalsThresholdsHint =>
+      '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
 }

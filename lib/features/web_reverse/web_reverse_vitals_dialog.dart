@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -69,8 +70,6 @@ class _VitalsDialogState extends State<_VitalsDialog> {
     _MetricBucket('load', 'Load', 'ms', 3000, 6000),
   ];
 
-  bool get _isZh => widget.isZh;
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +86,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   Future<void> _bootstrap() async {
     setState(() {
       _busy = true;
-      _status = _isZh ? '注入 PerformanceObserver…' : 'Installing observers…';
+      _status = AppLocalizations.of(context)?.webReverseVitalsInstalling ?? 'Installing observers…';
     });
     const installer = '''
 (function(){
@@ -186,7 +185,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   Future<void> _reset() async {
     setState(() {
       _busy = true;
-      _status = _isZh ? '重置中…' : 'Resetting…';
+      _status = AppLocalizations.of(context)?.webReverseVitalsResetting ?? 'Resetting…';
     });
     try {
       await widget.controller.sendRawCdp(
@@ -231,7 +230,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            _isZh ? '报告 JSON 已复制' : 'Report JSON copied',
+            AppLocalizations.of(context)?.webReverseVitalsReportCopied ?? 'Report JSON copied',
           );
         }
       }
@@ -294,15 +293,14 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isZh ? 'Web Vitals 报告' : 'Web Vitals',
+                          AppLocalizations.of(context)?.webReverseVitalsTitle ?? 'Web Vitals',
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          _isZh
-                              ? 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新'
-                              : 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live',
+                          AppLocalizations.of(context)?.webReverseVitalsSubtitle ??
+                              'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live',
                           style: tt.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -311,17 +309,17 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '复制报告 JSON' : 'Copy JSON',
+                    tooltip: AppLocalizations.of(context)?.webReverseVitalsCopyJson ?? 'Copy JSON',
                     onPressed: _copyReport,
                     icon: const Icon(Icons.copy_rounded),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '重置采集' : 'Reset',
+                    tooltip: AppLocalizations.of(context)?.webReverseVitalsReset ?? 'Reset',
                     onPressed: _busy ? null : _reset,
                     icon: const Icon(Icons.restart_alt_rounded),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '关闭' : 'Close',
+                    tooltip: AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -349,9 +347,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      _isZh
-                          ? '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。'
-                          : 'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.',
+                      AppLocalizations.of(context)?.webReverseVitalsThresholdsHint ??
+                          'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.',
                       style: tt.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -376,7 +373,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                     ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(
-                    label: _isZh ? '关闭' : 'Close',
+                    label: AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

@@ -118,11 +118,19 @@
   "mcpStdioMirrorModeStatusInjected": "Aktiv: npmmirror / Tsinghua PyPI werden injiziert",
   "mcpStdioMirrorModeStatusBypassed": "Aktiv: offizielles Registry, kein Mirror",
   "mcpStdioMirrorModeStatusReason": "Quelle: {reason}",
-  "@mcpStdioMirrorModeStatusReason": { "placeholders": { "reason": {} } },
+  "@mcpStdioMirrorModeStatusReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
   "mcpStdioMirrorModeReasonEnv": "Umgebungsvariable OPENHAND_MCP_MIRROR",
   "mcpStdioMirrorModeReasonSetting": "Einstellung erzwungen",
   "mcpStdioMirrorModeReasonLocale": "Systemsprache ({locale})",
-  "@mcpStdioMirrorModeReasonLocale": { "placeholders": { "locale": {} } },
+  "@mcpStdioMirrorModeReasonLocale": {
+    "placeholders": {
+      "locale": {}
+    }
+  },
   "mcpStdioMirrorModeReconnectAction": "Aktivierte Server mit neuer Einstellung neu verbinden",
   "mcpStdioMirrorModeReconnectDone": "Reconnect ausgelöst. Beim nächsten Aufruf wird der Prozess mit dem neuen Mirror neu gestartet.",
   "mcpAutoProbeConcurrencyLabel": "MCP Check/Fetch Parallelität",
@@ -141,7 +149,13 @@
   "mcpKeywordIndexIntervalUnitMinute": "Minute(n)",
   "mcpKeywordIndexIntervalUnitHour": "Stunde(n)",
   "mcpKeywordIndexIntervalUnitDay": "Tag(e)",
-  "@mcpKeywordIndexScheduledLabel": {"placeholders": {"time": {"type": "String"}}},
+  "@mcpKeywordIndexScheduledLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "mcpKeywordIndexScheduledLabel": "Täglich um {time} neu erstellen",
   "mcpKeywordIndexScheduledPickAction": "Zeit wählen",
   "commonClose": "Schließen",
@@ -150,11 +164,43 @@
   "mcpKeywordIndexBuildTitle": "Stichwort-Invertindex wird erstellt",
   "mcpKeywordIndexBuildStarting": "Vorbereitung…",
   "mcpKeywordIndexBuildProgress": "{idx}/{count}: {server} ({tools} Tools gescannt)",
-  "@mcpKeywordIndexBuildProgress": { "placeholders": { "idx": {"type":"int"}, "count": {"type":"int"}, "server": {}, "tools": {"type":"int"} } },
+  "@mcpKeywordIndexBuildProgress": {
+    "placeholders": {
+      "idx": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "server": {},
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildSummary": "Indexiert: {servers} Server, {tools} Tools, {keys} Stichwörter in {sec}s",
-  "@mcpKeywordIndexBuildSummary": { "placeholders": { "servers": {"type":"int"}, "tools": {"type":"int"}, "keys": {"type":"int"}, "sec": {} } },
+  "@mcpKeywordIndexBuildSummary": {
+    "placeholders": {
+      "servers": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      },
+      "keys": {
+        "type": "int"
+      },
+      "sec": {}
+    }
+  },
   "mcpKeywordIndexBuildSkipped": "{n} Server ohne bereiten Katalog übersprungen",
-  "@mcpKeywordIndexBuildSkipped": { "placeholders": { "n": {"type":"int"} } },
+  "@mcpKeywordIndexBuildSkipped": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildFailed": "Erstellung fehlgeschlagen:",
   "mcpLazyLoadingModeLabel": "MCP-Tool Lazy Loading",
   "mcpLazyLoadingModeBody": "Legt fest, ob MCP-Tool-Beschreibungen aus dem System-Prompt ausgelagert werden: Aus = immer geladen; Ein = immer ausgelagert und bei Bedarf via ToolSearch geholt; Auto lagert nur aus, wenn die geschätzten Tokens den Schwellenwert überschreiten.",
@@ -1430,9 +1476,21 @@
   "tlCallChangedFile": "Geänderte Datei",
   "fileMutationSection": "Dateiänderungen",
   "fileMutationFilesChanged": "{count, plural, =1{1 Datei geändert} other{{count} Dateien geändert}}",
-  "@fileMutationFilesChanged": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesChanged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationFilesCount": "{count, plural, =1{1 Datei} other{{count} Dateien}}",
-  "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationUndoAll": "Alle rückgängig",
   "fileMutationRefresh": "Aktualisieren",
   "fileMutationCopyAllDiff": "Alle Diffs kopieren",
@@ -1441,7 +1499,13 @@
   "fileMutationCopyPath": "Dateipfad kopieren",
   "fileMutationPathCopied": "Pfad kopiert",
   "fileMutationRevealMore": "{count} weitere {count, plural, =1{Änderung} other{Änderungen}} ausgeblendet — antippen für nächste Charge",
-  "@fileMutationRevealMore": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationRevealMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationRevealAll": "Alle anzeigen",
   "fileMutationHistoryInspector": "Verlaufs-Inspektor",
   "fileMutationHistoryInspectorTitle": "Dateiänderungsverlauf der Sitzung",
@@ -2359,5 +2423,41 @@
   "aiThrottleSettingsBody": "Vereinheitlichte Streaming-Drosselung: Hauptschalter, Automatik, Zeichen-/Kartenrate, Dauer.",
   "@aiThrottleSettingsBody": {
     "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
+  },
+  "webReverseVitalsInstalling": "Installing observers…",
+  "@webReverseVitalsInstalling": {
+    "description": "web_reverse: Vitals dialog status while injecting PerformanceObserver."
+  },
+  "webReverseVitalsResetting": "Resetting…",
+  "@webReverseVitalsResetting": {
+    "description": "web_reverse: Vitals dialog status while resetting collected metrics."
+  },
+  "webReverseVitalsReportCopied": "Report JSON copied",
+  "@webReverseVitalsReportCopied": {
+    "description": "web_reverse: Vitals snack bar after copying report JSON."
+  },
+  "webReverseVitalsTitle": "Web Vitals",
+  "@webReverseVitalsTitle": {
+    "description": "web_reverse: Vitals dialog title."
+  },
+  "webReverseVitalsSubtitle": "PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live",
+  "@webReverseVitalsSubtitle": {
+    "description": "web_reverse: Vitals dialog subtitle describing data sources."
+  },
+  "webReverseVitalsCopyJson": "Copy JSON",
+  "@webReverseVitalsCopyJson": {
+    "description": "web_reverse: Vitals tooltip for copy JSON button."
+  },
+  "webReverseVitalsReset": "Reset",
+  "@webReverseVitalsReset": {
+    "description": "web_reverse: Vitals tooltip for reset button."
+  },
+  "webReverseVitalsClose": "Close",
+  "@webReverseVitalsClose": {
+    "description": "web_reverse: Vitals tooltip / button label to close the dialog."
+  },
+  "webReverseVitalsThresholdsHint": "Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.",
+  "@webReverseVitalsThresholdsHint": {
+    "description": "web_reverse: Vitals footer explaining web.dev thresholds."
   }
 }

@@ -5266,4 +5266,33 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get aiThrottleSettingsBody =>
       'Vereinheitlichte Streaming-Drosselung: Hauptschalter, Automatik, Zeichen-/Kartenrate, Dauer.';
+
+  @override
+  String get webReverseVitalsInstalling => 'Installing observers…';
+
+  @override
+  String get webReverseVitalsResetting => 'Resetting…';
+
+  @override
+  String get webReverseVitalsReportCopied => 'Report JSON copied';
+
+  @override
+  String get webReverseVitalsTitle => 'Web Vitals';
+
+  @override
+  String get webReverseVitalsSubtitle =>
+      'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live';
+
+  @override
+  String get webReverseVitalsCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseVitalsReset => 'Reset';
+
+  @override
+  String get webReverseVitalsClose => 'Close';
+
+  @override
+  String get webReverseVitalsThresholdsHint =>
+      'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.';
 }

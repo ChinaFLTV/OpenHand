@@ -9209,6 +9209,60 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'统一控制流式输出节流：开关、自动模式、字符 / 卡片速率、持续时长。'**
   String get aiThrottleSettingsBody;
+
+  /// web_reverse: Vitals dialog status while injecting PerformanceObserver.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入 PerformanceObserver…'**
+  String get webReverseVitalsInstalling;
+
+  /// web_reverse: Vitals dialog status while resetting collected metrics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置中…'**
+  String get webReverseVitalsResetting;
+
+  /// web_reverse: Vitals snack bar after copying report JSON.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'报告 JSON 已复制'**
+  String get webReverseVitalsReportCopied;
+
+  /// web_reverse: Vitals dialog title.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Web Vitals 报告'**
+  String get webReverseVitalsTitle;
+
+  /// web_reverse: Vitals dialog subtitle describing data sources.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · 实时刷新'**
+  String get webReverseVitalsSubtitle;
+
+  /// web_reverse: Vitals tooltip for copy JSON button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制报告 JSON'**
+  String get webReverseVitalsCopyJson;
+
+  /// web_reverse: Vitals tooltip for reset button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置采集'**
+  String get webReverseVitalsReset;
+
+  /// web_reverse: Vitals tooltip / button label to close the dialog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseVitalsClose;
+
+  /// web_reverse: Vitals footer explaining web.dev thresholds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。'**
+  String get webReverseVitalsThresholdsHint;
 }
 
 class _AppLocalizationsDelegate

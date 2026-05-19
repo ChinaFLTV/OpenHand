@@ -118,11 +118,19 @@
   "mcpStdioMirrorModeStatusInjected": "現在有効：npmmirror / Tsinghua PyPI を注入",
   "mcpStdioMirrorModeStatusBypassed": "現在有効：ミラー未注入、公式 registry を使用",
   "mcpStdioMirrorModeStatusReason": "根拠：{reason}",
-  "@mcpStdioMirrorModeStatusReason": { "placeholders": { "reason": {} } },
+  "@mcpStdioMirrorModeStatusReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
   "mcpStdioMirrorModeReasonEnv": "OPENHAND_MCP_MIRROR 環境変数",
   "mcpStdioMirrorModeReasonSetting": "設定で強制",
   "mcpStdioMirrorModeReasonLocale": "システム言語 ({locale})",
-  "@mcpStdioMirrorModeReasonLocale": { "placeholders": { "locale": {} } },
+  "@mcpStdioMirrorModeReasonLocale": {
+    "placeholders": {
+      "locale": {}
+    }
+  },
   "mcpStdioMirrorModeReconnectAction": "新しい設定で有効 server を再接続",
   "mcpStdioMirrorModeReconnectDone": "再接続をトリガーしました。次回呼び出し時に新しいミラーでプロセスを再起動します。",
   "mcpAutoProbeConcurrencyLabel": "MCP チェック/取得の並列数",
@@ -141,7 +149,13 @@
   "mcpKeywordIndexIntervalUnitMinute": "分",
   "mcpKeywordIndexIntervalUnitHour": "時間",
   "mcpKeywordIndexIntervalUnitDay": "日",
-  "@mcpKeywordIndexScheduledLabel": {"placeholders": {"time": {"type": "String"}}},
+  "@mcpKeywordIndexScheduledLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "mcpKeywordIndexScheduledLabel": "毎日 {time} に再構築",
   "mcpKeywordIndexScheduledPickAction": "時刻を選択",
   "commonClose": "閉じる",
@@ -150,11 +164,43 @@
   "mcpKeywordIndexBuildTitle": "キーワード逆引き索引を構築中",
   "mcpKeywordIndexBuildStarting": "準備中…",
   "mcpKeywordIndexBuildProgress": "{idx}/{count}: {server}（{tools} 件のツールをスキャン）",
-  "@mcpKeywordIndexBuildProgress": { "placeholders": { "idx": {"type":"int"}, "count": {"type":"int"}, "server": {}, "tools": {"type":"int"} } },
+  "@mcpKeywordIndexBuildProgress": {
+    "placeholders": {
+      "idx": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "server": {},
+      "tools": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildSummary": "{servers} サーバ・{tools} ツール・{keys} キーワードを索引化（{sec}s）",
-  "@mcpKeywordIndexBuildSummary": { "placeholders": { "servers": {"type":"int"}, "tools": {"type":"int"}, "keys": {"type":"int"}, "sec": {} } },
+  "@mcpKeywordIndexBuildSummary": {
+    "placeholders": {
+      "servers": {
+        "type": "int"
+      },
+      "tools": {
+        "type": "int"
+      },
+      "keys": {
+        "type": "int"
+      },
+      "sec": {}
+    }
+  },
   "mcpKeywordIndexBuildSkipped": "未準備の {n} サーバをスキップ",
-  "@mcpKeywordIndexBuildSkipped": { "placeholders": { "n": {"type":"int"} } },
+  "@mcpKeywordIndexBuildSkipped": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexBuildFailed": "構築失敗：",
   "mcpLazyLoadingModeLabel": "MCPツールの遅延読み込み",
   "mcpLazyLoadingModeBody": "システムプロンプト内でMCPツールの説明を折り畳むかを制御します。オフ＝常に展開、オン＝常に折り畳みToolSearchで取得、自動＝推定トークン数がしきい値を超えた場合のみ折り畳みます。",
@@ -1430,9 +1476,21 @@
   "tlCallChangedFile": "変更されたファイル",
   "fileMutationSection": "ファイル変更",
   "fileMutationFilesChanged": "{count, plural, other{{count} 件のファイルを変更しました}}",
-  "@fileMutationFilesChanged": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesChanged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationFilesCount": "{count, plural, other{{count} 件のファイル}}",
-  "@fileMutationFilesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationFilesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationUndoAll": "すべて元に戻す",
   "fileMutationRefresh": "更新",
   "fileMutationCopyAllDiff": "すべての diff をコピー",
@@ -1441,7 +1499,13 @@
   "fileMutationCopyPath": "ファイルパスをコピー",
   "fileMutationPathCopied": "パスをコピーしました",
   "fileMutationRevealMore": "残り {count} 件の変更があります — タップして次のバッチを表示",
-  "@fileMutationRevealMore": {"placeholders": {"count": {"type": "int"}}},
+  "@fileMutationRevealMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fileMutationRevealAll": "すべて表示",
   "fileMutationHistoryInspector": "履歴インスペクター",
   "fileMutationHistoryInspectorTitle": "セッションのファイル履歴",
@@ -2359,5 +2423,41 @@
   "aiThrottleSettingsBody": "ストリーミングスロットル一元管理：マスタースイッチ、自動モード、文字／カード速度、継続時間。",
   "@aiThrottleSettingsBody": {
     "description": "Settings → AI: subtitle that summarises what the unified streaming throttle controls cover."
+  },
+  "webReverseVitalsInstalling": "Installing observers…",
+  "@webReverseVitalsInstalling": {
+    "description": "web_reverse: Vitals dialog status while injecting PerformanceObserver."
+  },
+  "webReverseVitalsResetting": "Resetting…",
+  "@webReverseVitalsResetting": {
+    "description": "web_reverse: Vitals dialog status while resetting collected metrics."
+  },
+  "webReverseVitalsReportCopied": "Report JSON copied",
+  "@webReverseVitalsReportCopied": {
+    "description": "web_reverse: Vitals snack bar after copying report JSON."
+  },
+  "webReverseVitalsTitle": "Web Vitals",
+  "@webReverseVitalsTitle": {
+    "description": "web_reverse: Vitals dialog title."
+  },
+  "webReverseVitalsSubtitle": "PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live",
+  "@webReverseVitalsSubtitle": {
+    "description": "web_reverse: Vitals dialog subtitle describing data sources."
+  },
+  "webReverseVitalsCopyJson": "Copy JSON",
+  "@webReverseVitalsCopyJson": {
+    "description": "web_reverse: Vitals tooltip for copy JSON button."
+  },
+  "webReverseVitalsReset": "Reset",
+  "@webReverseVitalsReset": {
+    "description": "web_reverse: Vitals tooltip for reset button."
+  },
+  "webReverseVitalsClose": "Close",
+  "@webReverseVitalsClose": {
+    "description": "web_reverse: Vitals tooltip / button label to close the dialog."
+  },
+  "webReverseVitalsThresholdsHint": "Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.",
+  "@webReverseVitalsThresholdsHint": {
+    "description": "web_reverse: Vitals footer explaining web.dev thresholds."
   }
 }
