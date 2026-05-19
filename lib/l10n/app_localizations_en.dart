@@ -7587,4 +7587,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseReplRun => 'Run';
+
+  @override
+  String get webReverseConsoleEvalFailed => 'Eval failed';
+
+  @override
+  String get webReverseConsoleEmpty => 'No console output yet.';
+
+  @override
+  String get webReverseConsolePausedHint =>
+      'Debugger paused · expressions evaluate in the top frame scope';
+
+  @override
+  String get webReverseConsoleReplHint => 'JS expression; ↑↓ history';
 }

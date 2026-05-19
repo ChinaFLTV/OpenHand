@@ -13438,6 +13438,30 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'执行'**
   String get webReverseReplRun;
+
+  /// web_reverse: console panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行失败'**
+  String get webReverseConsoleEvalFailed;
+
+  /// web_reverse: console panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无控制台输出。'**
+  String get webReverseConsoleEmpty;
+
+  /// web_reverse: console panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调试器已暂停 · 表达式将在当前栈帧的作用域内求值'**
+  String get webReverseConsolePausedHint;
+
+  /// web_reverse: console panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 JS 表达式回车执行；↑↓ 浏览历史'**
+  String get webReverseConsoleReplHint;
 }
 
 class _AppLocalizationsDelegate

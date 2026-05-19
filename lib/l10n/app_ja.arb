@@ -5402,5 +5402,21 @@
   "webReverseReplRun": "実行",
   "@webReverseReplRun": {
     "description": "web_reverse: repl dialog"
+  },
+  "webReverseConsoleEvalFailed": "評価失敗",
+  "@webReverseConsoleEvalFailed": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleEmpty": "コンソール出力はまだありません。",
+  "@webReverseConsoleEmpty": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsolePausedHint": "デバッガが一時停止中 · 式は最上位スタックフレームのスコープで評価されます",
+  "@webReverseConsolePausedHint": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleReplHint": "JS 式を入力 ↵ で実行；↑↓ 履歴",
+  "@webReverseConsoleReplHint": {
+    "description": "web_reverse: console panel"
   }
 }

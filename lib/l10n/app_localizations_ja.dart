@@ -7388,4 +7388,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseReplRun => '実行';
+
+  @override
+  String get webReverseConsoleEvalFailed => '評価失敗';
+
+  @override
+  String get webReverseConsoleEmpty => 'コンソール出力はまだありません。';
+
+  @override
+  String get webReverseConsolePausedHint =>
+      'デバッガが一時停止中 · 式は最上位スタックフレームのスコープで評価されます';
+
+  @override
+  String get webReverseConsoleReplHint => 'JS 式を入力 ↵ で実行；↑↓ 履歴';
 }

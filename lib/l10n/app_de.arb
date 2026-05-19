@@ -5402,5 +5402,21 @@
   "webReverseReplRun": "Ausführen",
   "@webReverseReplRun": {
     "description": "web_reverse: repl dialog"
+  },
+  "webReverseConsoleEvalFailed": "Auswertung fehlgeschlagen",
+  "@webReverseConsoleEvalFailed": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleEmpty": "Noch keine Konsolenausgabe.",
+  "@webReverseConsoleEmpty": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsolePausedHint": "Debugger pausiert · Ausdrücke werden im obersten Frame-Scope ausgewertet",
+  "@webReverseConsolePausedHint": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleReplHint": "JS-Ausdruck; ↑↓ Verlauf",
+  "@webReverseConsoleReplHint": {
+    "description": "web_reverse: console panel"
   }
 }

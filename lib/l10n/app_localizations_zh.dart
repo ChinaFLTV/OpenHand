@@ -7290,6 +7290,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseReplRun => '执行';
+
+  @override
+  String get webReverseConsoleEvalFailed => '执行失败';
+
+  @override
+  String get webReverseConsoleEmpty => '暂无控制台输出。';
+
+  @override
+  String get webReverseConsolePausedHint => '调试器已暂停 · 表达式将在当前栈帧的作用域内求值';
+
+  @override
+  String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14578,6 +14590,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseReplRun => '执行';
+
+  @override
+  String get webReverseConsoleEvalFailed => '执行失败';
+
+  @override
+  String get webReverseConsoleEmpty => '暂无控制台输出。';
+
+  @override
+  String get webReverseConsolePausedHint => '调试器已暂停 · 表达式将在当前栈帧的作用域内求值';
+
+  @override
+  String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21865,4 +21889,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseReplRun => '执行';
+
+  @override
+  String get webReverseConsoleEvalFailed => '执行失败';
+
+  @override
+  String get webReverseConsoleEmpty => '暂无控制台输出。';
+
+  @override
+  String get webReverseConsolePausedHint => '调试器已暂停 · 表达式将在当前栈帧的作用域内求值';
+
+  @override
+  String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
 }

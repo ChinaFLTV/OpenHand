@@ -10,6 +10,7 @@ class _ConsoleBody extends StatefulWidget {
 
   final WebReverseSessionController controller;
   final String filter;
+  // ignore: unused_field
   final bool isZh;
   final bool reduceMotion;
 
@@ -132,11 +133,11 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     dashState?.persistConsoleReplHistory();
     final r = await widget.controller.runReplExpression(raw);
     if (!mounted) return;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     if (r == null) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '执行失败' : 'Eval failed',
+        loc?.webReverseConsoleEvalFailed ?? 'Eval failed',
         duration: const Duration(seconds: 2),
       );
     }
@@ -177,7 +178,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     _syncSlots();
     final filter = widget.filter.toLowerCase();
     // _slots 当前是 controller 顺序（旧 → 新）+ 已退场槽位；UI 想要新在
@@ -199,7 +200,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(
-                      isZh ? '暂无控制台输出。' : 'No console output yet.',
+                      loc?.webReverseConsoleEmpty ??
+                          'No console output yet.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -315,9 +317,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    isZh
-                        ? '调试器已暂停 · 表达式将在当前栈帧的作用域内求值'
-                        : 'Debugger paused · expressions evaluate in the top frame scope',
+                    loc?.webReverseConsolePausedHint ??
+                        'Debugger paused · expressions evaluate in the top frame scope',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onErrorContainer),
                   ),
@@ -344,9 +345,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     ),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh
-                          ? '输入 JS 表达式回车执行；↑↓ 浏览历史'
-                          : 'JS expression; ↑↓ history',
+                      hintText: loc?.webReverseConsoleReplHint ??
+                          'JS expression; ↑↓ history',
                       border: const OutlineInputBorder(),
                     ),
                     onSubmitted: _runExpr,
@@ -357,7 +357,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
               FilledButton.icon(
                 onPressed: () => _runExpr(_replCtrl.text),
                 icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: Text(isZh ? '执行' : 'Run'),
+                label: Text(loc?.webReverseReplRun ?? 'Run'),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),

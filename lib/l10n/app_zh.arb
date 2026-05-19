@@ -5402,5 +5402,21 @@
   "webReverseReplRun": "执行",
   "@webReverseReplRun": {
     "description": "web_reverse: repl dialog"
+  },
+  "webReverseConsoleEvalFailed": "执行失败",
+  "@webReverseConsoleEvalFailed": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleEmpty": "暂无控制台输出。",
+  "@webReverseConsoleEmpty": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsolePausedHint": "调试器已暂停 · 表达式将在当前栈帧的作用域内求值",
+  "@webReverseConsolePausedHint": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleReplHint": "输入 JS 表达式回车执行；↑↓ 浏览历史",
+  "@webReverseConsoleReplHint": {
+    "description": "web_reverse: console panel"
   }
 }

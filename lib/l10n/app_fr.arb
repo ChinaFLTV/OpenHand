@@ -5402,5 +5402,21 @@
   "webReverseReplRun": "Exécuter",
   "@webReverseReplRun": {
     "description": "web_reverse: repl dialog"
+  },
+  "webReverseConsoleEvalFailed": "Échec de l'évaluation",
+  "@webReverseConsoleEvalFailed": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleEmpty": "Aucune sortie console pour le moment.",
+  "@webReverseConsoleEmpty": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsolePausedHint": "Débogueur en pause · les expressions sont évaluées dans la portée de la frame supérieure",
+  "@webReverseConsolePausedHint": {
+    "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleReplHint": "Expression JS ; ↑↓ historique",
+  "@webReverseConsoleReplHint": {
+    "description": "web_reverse: console panel"
   }
 }
