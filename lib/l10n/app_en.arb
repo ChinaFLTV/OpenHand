@@ -4798,5 +4798,45 @@
   "webReverseDomMutPressStart": "Press Start",
   "@webReverseDomMutPressStart": {},
   "webReverseDomMutClose": "Close",
-  "@webReverseDomMutClose": {}
+  "@webReverseDomMutClose": {},
+  "webReverseSmTitle": "SourceMap Resolver",
+  "@webReverseSmTitle": {},
+  "webReverseSmSubtitle": "min file:line:col → original source:line:col",
+  "@webReverseSmSubtitle": {},
+  "webReverseSmInvalidInput": "invalid input",
+  "@webReverseSmInvalidInput": {},
+  "webReverseSmFetching": "Fetching sourcemap...",
+  "@webReverseSmFetching": {},
+  "webReverseSmFetchFailed": "Fetch failed: {error}",
+  "@webReverseSmFetchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseSmBadEvalResult": "Bad eval result",
+  "@webReverseSmBadEvalResult": {},
+  "webReverseSmNoMapping": "No mapping segment",
+  "@webReverseSmNoMapping": {},
+  "webReverseSmResolved": "Resolved",
+  "@webReverseSmResolved": {},
+  "webReverseSmCopied": "Copied",
+  "@webReverseSmCopied": {},
+  "webReverseSmUrlLabel": "Minified file URL",
+  "@webReverseSmUrlLabel": {},
+  "webReverseSmLineLabel": "Line (1-based)",
+  "@webReverseSmLineLabel": {},
+  "webReverseSmColLabel": "Column (0-based)",
+  "@webReverseSmColLabel": {},
+  "webReverseSmResolve": "Resolve",
+  "@webReverseSmResolve": {},
+  "webReverseSmEmptyHint": "Enter URL + position, then resolve",
+  "@webReverseSmEmptyHint": {},
+  "webReverseSmCopyTooltip": "Copy",
+  "@webReverseSmCopyTooltip": {},
+  "webReverseSmNameLabel": "name",
+  "@webReverseSmNameLabel": {},
+  "webReverseSmClose": "Close",
+  "@webReverseSmClose": {}
 }

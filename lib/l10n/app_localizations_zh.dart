@@ -6730,6 +6730,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseDomMutClose => '关闭';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap 反解析';
+
+  @override
+  String get webReverseSmSubtitle => '压缩 file:line:col → 原始 source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => '请输入合法 URL 与行号';
+
+  @override
+  String get webReverseSmFetching => '抓取 sourcemap...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => '返回值异常';
+
+  @override
+  String get webReverseSmNoMapping => '未找到对应映射段';
+
+  @override
+  String get webReverseSmResolved => '解析成功';
+
+  @override
+  String get webReverseSmCopied => '已复制';
+
+  @override
+  String get webReverseSmUrlLabel => '压缩文件 URL';
+
+  @override
+  String get webReverseSmLineLabel => '行 (1-based)';
+
+  @override
+  String get webReverseSmColLabel => '列 (0-based)';
+
+  @override
+  String get webReverseSmResolve => '解析';
+
+  @override
+  String get webReverseSmEmptyHint => '输入文件 URL 与位置后点击解析';
+
+  @override
+  String get webReverseSmCopyTooltip => '复制';
+
+  @override
+  String get webReverseSmNameLabel => '名称';
+
+  @override
+  String get webReverseSmClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13458,6 +13511,59 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseDomMutClose => '关闭';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap 反解析';
+
+  @override
+  String get webReverseSmSubtitle => '压缩 file:line:col → 原始 source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => '请输入合法 URL 与行号';
+
+  @override
+  String get webReverseSmFetching => '抓取 sourcemap...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => '返回值异常';
+
+  @override
+  String get webReverseSmNoMapping => '未找到对应映射段';
+
+  @override
+  String get webReverseSmResolved => '解析成功';
+
+  @override
+  String get webReverseSmCopied => '已复制';
+
+  @override
+  String get webReverseSmUrlLabel => '压缩文件 URL';
+
+  @override
+  String get webReverseSmLineLabel => '行 (1-based)';
+
+  @override
+  String get webReverseSmColLabel => '列 (0-based)';
+
+  @override
+  String get webReverseSmResolve => '解析';
+
+  @override
+  String get webReverseSmEmptyHint => '输入文件 URL 与位置后点击解析';
+
+  @override
+  String get webReverseSmCopyTooltip => '复制';
+
+  @override
+  String get webReverseSmNameLabel => '名称';
+
+  @override
+  String get webReverseSmClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20185,4 +20291,57 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseDomMutClose => '关闭';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap 反解析';
+
+  @override
+  String get webReverseSmSubtitle => '压缩 file:line:col → 原始 source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => '请输入合法 URL 与行号';
+
+  @override
+  String get webReverseSmFetching => '抓取 sourcemap...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return '获取失败: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => '返回值异常';
+
+  @override
+  String get webReverseSmNoMapping => '未找到对应映射段';
+
+  @override
+  String get webReverseSmResolved => '解析成功';
+
+  @override
+  String get webReverseSmCopied => '已复制';
+
+  @override
+  String get webReverseSmUrlLabel => '压缩文件 URL';
+
+  @override
+  String get webReverseSmLineLabel => '行 (1-based)';
+
+  @override
+  String get webReverseSmColLabel => '列 (0-based)';
+
+  @override
+  String get webReverseSmResolve => '解析';
+
+  @override
+  String get webReverseSmEmptyHint => '输入文件 URL 与位置后点击解析';
+
+  @override
+  String get webReverseSmCopyTooltip => '复制';
+
+  @override
+  String get webReverseSmNameLabel => '名称';
+
+  @override
+  String get webReverseSmClose => '关闭';
 }

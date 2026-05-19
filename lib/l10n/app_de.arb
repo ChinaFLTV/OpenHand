@@ -4798,5 +4798,45 @@
   "webReverseDomMutPressStart": "Start drücken",
   "@webReverseDomMutPressStart": {},
   "webReverseDomMutClose": "Schließen",
-  "@webReverseDomMutClose": {}
+  "@webReverseDomMutClose": {},
+  "webReverseSmTitle": "SourceMap-Resolver",
+  "@webReverseSmTitle": {},
+  "webReverseSmSubtitle": "min file:line:col → original source:line:col",
+  "@webReverseSmSubtitle": {},
+  "webReverseSmInvalidInput": "ungültige Eingabe",
+  "@webReverseSmInvalidInput": {},
+  "webReverseSmFetching": "Sourcemap wird geladen...",
+  "@webReverseSmFetching": {},
+  "webReverseSmFetchFailed": "Laden fehlgeschlagen: {error}",
+  "@webReverseSmFetchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseSmBadEvalResult": "Ungültiges Evaluierungsergebnis",
+  "@webReverseSmBadEvalResult": {},
+  "webReverseSmNoMapping": "Kein Mapping-Segment gefunden",
+  "@webReverseSmNoMapping": {},
+  "webReverseSmResolved": "Aufgelöst",
+  "@webReverseSmResolved": {},
+  "webReverseSmCopied": "Kopiert",
+  "@webReverseSmCopied": {},
+  "webReverseSmUrlLabel": "Minifizierte Datei-URL",
+  "@webReverseSmUrlLabel": {},
+  "webReverseSmLineLabel": "Zeile (1-basiert)",
+  "@webReverseSmLineLabel": {},
+  "webReverseSmColLabel": "Spalte (0-basiert)",
+  "@webReverseSmColLabel": {},
+  "webReverseSmResolve": "Auflösen",
+  "@webReverseSmResolve": {},
+  "webReverseSmEmptyHint": "URL und Position eingeben, dann auflösen",
+  "@webReverseSmEmptyHint": {},
+  "webReverseSmCopyTooltip": "Kopieren",
+  "@webReverseSmCopyTooltip": {},
+  "webReverseSmNameLabel": "Name",
+  "@webReverseSmNameLabel": {},
+  "webReverseSmClose": "Schließen",
+  "@webReverseSmClose": {}
 }

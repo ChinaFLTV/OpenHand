@@ -7018,4 +7018,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseDomMutClose => 'Close';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap Resolver';
+
+  @override
+  String get webReverseSmSubtitle =>
+      'min file:line:col → original source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => 'invalid input';
+
+  @override
+  String get webReverseSmFetching => 'Fetching sourcemap...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return 'Fetch failed: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => 'Bad eval result';
+
+  @override
+  String get webReverseSmNoMapping => 'No mapping segment';
+
+  @override
+  String get webReverseSmResolved => 'Resolved';
+
+  @override
+  String get webReverseSmCopied => 'Copied';
+
+  @override
+  String get webReverseSmUrlLabel => 'Minified file URL';
+
+  @override
+  String get webReverseSmLineLabel => 'Line (1-based)';
+
+  @override
+  String get webReverseSmColLabel => 'Column (0-based)';
+
+  @override
+  String get webReverseSmResolve => 'Resolve';
+
+  @override
+  String get webReverseSmEmptyHint => 'Enter URL + position, then resolve';
+
+  @override
+  String get webReverseSmCopyTooltip => 'Copy';
+
+  @override
+  String get webReverseSmNameLabel => 'name';
+
+  @override
+  String get webReverseSmClose => 'Close';
 }

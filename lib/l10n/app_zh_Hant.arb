@@ -4798,5 +4798,45 @@
   "webReverseDomMutPressStart": "点击开始录制",
   "@webReverseDomMutPressStart": {},
   "webReverseDomMutClose": "关闭",
-  "@webReverseDomMutClose": {}
+  "@webReverseDomMutClose": {},
+  "webReverseSmTitle": "SourceMap 反解析",
+  "@webReverseSmTitle": {},
+  "webReverseSmSubtitle": "压缩 file:line:col → 原始 source:line:col",
+  "@webReverseSmSubtitle": {},
+  "webReverseSmInvalidInput": "请输入合法 URL 与行号",
+  "@webReverseSmInvalidInput": {},
+  "webReverseSmFetching": "抓取 sourcemap...",
+  "@webReverseSmFetching": {},
+  "webReverseSmFetchFailed": "获取失败: {error}",
+  "@webReverseSmFetchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseSmBadEvalResult": "返回值异常",
+  "@webReverseSmBadEvalResult": {},
+  "webReverseSmNoMapping": "未找到对应映射段",
+  "@webReverseSmNoMapping": {},
+  "webReverseSmResolved": "解析成功",
+  "@webReverseSmResolved": {},
+  "webReverseSmCopied": "已复制",
+  "@webReverseSmCopied": {},
+  "webReverseSmUrlLabel": "压缩文件 URL",
+  "@webReverseSmUrlLabel": {},
+  "webReverseSmLineLabel": "行 (1-based)",
+  "@webReverseSmLineLabel": {},
+  "webReverseSmColLabel": "列 (0-based)",
+  "@webReverseSmColLabel": {},
+  "webReverseSmResolve": "解析",
+  "@webReverseSmResolve": {},
+  "webReverseSmEmptyHint": "输入文件 URL 与位置后点击解析",
+  "@webReverseSmEmptyHint": {},
+  "webReverseSmCopyTooltip": "复制",
+  "@webReverseSmCopyTooltip": {},
+  "webReverseSmNameLabel": "名称",
+  "@webReverseSmNameLabel": {},
+  "webReverseSmClose": "关闭",
+  "@webReverseSmClose": {}
 }

@@ -7114,4 +7114,59 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseDomMutClose => 'Fermer';
+
+  @override
+  String get webReverseSmTitle => 'Résolveur SourceMap';
+
+  @override
+  String get webReverseSmSubtitle =>
+      'min file:line:col → source originale:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => 'saisie invalide';
+
+  @override
+  String get webReverseSmFetching => 'Récupération de la sourcemap...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return 'Échec de récupération : $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => 'Résultat d\'évaluation invalide';
+
+  @override
+  String get webReverseSmNoMapping => 'Aucun segment de mappage';
+
+  @override
+  String get webReverseSmResolved => 'Résolu';
+
+  @override
+  String get webReverseSmCopied => 'Copié';
+
+  @override
+  String get webReverseSmUrlLabel => 'URL du fichier minifié';
+
+  @override
+  String get webReverseSmLineLabel => 'Ligne (basée sur 1)';
+
+  @override
+  String get webReverseSmColLabel => 'Colonne (basée sur 0)';
+
+  @override
+  String get webReverseSmResolve => 'Résoudre';
+
+  @override
+  String get webReverseSmEmptyHint =>
+      'Entrez l\'URL + la position, puis résolvez';
+
+  @override
+  String get webReverseSmCopyTooltip => 'Copier';
+
+  @override
+  String get webReverseSmNameLabel => 'nom';
+
+  @override
+  String get webReverseSmClose => 'Fermer';
 }

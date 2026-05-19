@@ -12449,6 +12449,108 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'关闭'**
   String get webReverseDomMutClose;
+
+  /// No description provided for @webReverseSmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'SourceMap 反解析'**
+  String get webReverseSmTitle;
+
+  /// No description provided for @webReverseSmSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩 file:line:col → 原始 source:line:col'**
+  String get webReverseSmSubtitle;
+
+  /// No description provided for @webReverseSmInvalidInput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入合法 URL 与行号'**
+  String get webReverseSmInvalidInput;
+
+  /// No description provided for @webReverseSmFetching.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓取 sourcemap...'**
+  String get webReverseSmFetching;
+
+  /// No description provided for @webReverseSmFetchFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取失败: {error}'**
+  String webReverseSmFetchFailed(String error);
+
+  /// No description provided for @webReverseSmBadEvalResult.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'返回值异常'**
+  String get webReverseSmBadEvalResult;
+
+  /// No description provided for @webReverseSmNoMapping.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未找到对应映射段'**
+  String get webReverseSmNoMapping;
+
+  /// No description provided for @webReverseSmResolved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'解析成功'**
+  String get webReverseSmResolved;
+
+  /// No description provided for @webReverseSmCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseSmCopied;
+
+  /// No description provided for @webReverseSmUrlLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩文件 URL'**
+  String get webReverseSmUrlLabel;
+
+  /// No description provided for @webReverseSmLineLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'行 (1-based)'**
+  String get webReverseSmLineLabel;
+
+  /// No description provided for @webReverseSmColLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'列 (0-based)'**
+  String get webReverseSmColLabel;
+
+  /// No description provided for @webReverseSmResolve.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'解析'**
+  String get webReverseSmResolve;
+
+  /// No description provided for @webReverseSmEmptyHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入文件 URL 与位置后点击解析'**
+  String get webReverseSmEmptyHint;
+
+  /// No description provided for @webReverseSmCopyTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制'**
+  String get webReverseSmCopyTooltip;
+
+  /// No description provided for @webReverseSmNameLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称'**
+  String get webReverseSmNameLabel;
+
+  /// No description provided for @webReverseSmClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseSmClose;
 }
 
 class _AppLocalizationsDelegate

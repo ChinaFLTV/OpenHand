@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -32,6 +33,7 @@ Future<void> showWebReverseSourceMapDialog(
 class _SmDialog extends StatefulWidget {
   const _SmDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_SmDialog> createState() => _SmDialogState();
@@ -69,17 +71,17 @@ class _SmDialogState extends State<_SmDialog> {
   }
 
   Future<void> _resolve() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final url = _url.text.trim();
     final line = int.tryParse(_line.text.trim()) ?? 0;
     final col = int.tryParse(_col.text.trim()) ?? 0;
     if (url.isEmpty || line < 1) {
-      setState(() => _status = isZh ? '请输入合法 URL 与行号' : 'invalid input');
+      setState(() => _status = loc?.webReverseSmInvalidInput ?? 'invalid input');
       return;
     }
     setState(() {
       _busy = true;
-      _status = isZh ? '抓取 sourcemap...' : 'Fetching sourcemap...';
+      _status = loc?.webReverseSmFetching ?? 'Fetching sourcemap...';
       _result = null;
     });
     try {
@@ -117,7 +119,7 @@ class _SmDialogState extends State<_SmDialog> {
         setState(() {
           _busy = false;
           _status =
-              isZh ? '获取失败: ${r?['error']}' : 'Fetch failed: ${r?['error']}';
+              loc?.webReverseSmFetchFailed('${r?['error']}') ?? 'Fetch failed: ${r?['error']}';
         });
         return;
       }
@@ -126,7 +128,7 @@ class _SmDialogState extends State<_SmDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = isZh ? '返回值异常' : 'Bad eval result';
+          _status = loc?.webReverseSmBadEvalResult ?? 'Bad eval result';
         });
         return;
       }
@@ -164,7 +166,7 @@ class _SmDialogState extends State<_SmDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = isZh ? '未找到对应映射段' : 'No mapping segment';
+          _status = loc?.webReverseSmNoMapping ?? 'No mapping segment';
         });
         return;
       }
@@ -208,7 +210,7 @@ class _SmDialogState extends State<_SmDialog> {
               : null,
           snippet: snippet,
         );
-        _status = isZh ? '解析成功' : 'Resolved';
+        _status = loc?.webReverseSmResolved ?? 'Resolved';
       });
     } catch (e, st) {
       silentLog('web-reverse', 'sourcemap.resolve', e, st);
@@ -274,6 +276,7 @@ class _SmDialogState extends State<_SmDialog> {
   }
 
   Future<void> _copy() async {
+    final loc = AppLocalizations.of(context);
     final r = _result;
     if (r == null) return;
     final text =
@@ -290,7 +293,7 @@ class _SmDialogState extends State<_SmDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制' : 'Copied',
+        loc?.webReverseSmCopied ?? 'Copied',
       );
     }
   }
@@ -299,7 +302,7 @@ class _SmDialogState extends State<_SmDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final r = _result;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -320,14 +323,12 @@ class _SmDialogState extends State<_SmDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'SourceMap 反解析' : 'SourceMap Resolver',
+                          loc?.webReverseSmTitle ?? 'SourceMap Resolver',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '压缩 file:line:col → 原始 source:line:col'
-                              : 'min file:line:col → original source:line:col',
+                          loc?.webReverseSmSubtitle ?? 'min file:line:col → original source:line:col',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -350,7 +351,7 @@ class _SmDialogState extends State<_SmDialog> {
                     controller: _url,
                     autofocus: true,
                     decoration: InputDecoration(
-                      labelText: isZh ? '压缩文件 URL' : 'Minified file URL',
+                      labelText: loc?.webReverseSmUrlLabel ?? 'Minified file URL',
                       hintText: 'https://.../app.min.js',
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10)),
@@ -363,7 +364,7 @@ class _SmDialogState extends State<_SmDialog> {
                         child: TextField(
                           controller: _line,
                           decoration: InputDecoration(
-                            labelText: isZh ? '行 (1-based)' : 'Line (1-based)',
+                            labelText: loc?.webReverseSmLineLabel ?? 'Line (1-based)',
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10)),
                           ),
@@ -375,7 +376,7 @@ class _SmDialogState extends State<_SmDialog> {
                         child: TextField(
                           controller: _col,
                           decoration: InputDecoration(
-                            labelText: isZh ? '列 (0-based)' : 'Column (0-based)',
+                            labelText: loc?.webReverseSmColLabel ?? 'Column (0-based)',
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10)),
                           ),
@@ -386,7 +387,7 @@ class _SmDialogState extends State<_SmDialog> {
                       FilledButton.icon(
                         onPressed: _busy ? null : _resolve,
                         icon: const Icon(Icons.search_rounded),
-                        label: Text(isZh ? '解析' : 'Resolve'),
+                        label: Text(loc?.webReverseSmResolve ?? 'Resolve'),
                       ),
                     ],
                   ),
@@ -399,9 +400,7 @@ class _SmDialogState extends State<_SmDialog> {
                   ? Center(
                       child: Text(
                         _status.isEmpty
-                            ? (isZh
-                                ? '输入文件 URL 与位置后点击解析'
-                                : 'Enter URL + position, then resolve')
+                            ? (loc?.webReverseSmEmptyHint ?? 'Enter URL + position, then resolve')
                             : _status,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
@@ -428,7 +427,7 @@ class _SmDialogState extends State<_SmDialog> {
                               IconButton(
                                 onPressed: _copy,
                                 icon: const Icon(Icons.copy_rounded),
-                                tooltip: isZh ? '复制' : 'Copy',
+                                tooltip: loc?.webReverseSmCopyTooltip ?? 'Copy',
                               ),
                             ],
                           ),
@@ -436,7 +435,7 @@ class _SmDialogState extends State<_SmDialog> {
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                '${isZh ? '名称' : 'name'}: ${r.name}',
+                                '${loc?.webReverseSmNameLabel ?? 'name'}: ${r.name}',
                                 style: theme.textTheme.labelMedium,
                               ),
                             ),
@@ -479,7 +478,7 @@ class _SmDialogState extends State<_SmDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseSmClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

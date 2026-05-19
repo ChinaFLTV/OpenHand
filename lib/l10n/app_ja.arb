@@ -4798,5 +4798,45 @@
   "webReverseDomMutPressStart": "開始を押してください",
   "@webReverseDomMutPressStart": {},
   "webReverseDomMutClose": "閉じる",
-  "@webReverseDomMutClose": {}
+  "@webReverseDomMutClose": {},
+  "webReverseSmTitle": "SourceMap リゾルバ",
+  "@webReverseSmTitle": {},
+  "webReverseSmSubtitle": "minified file:line:col → 元の source:line:col",
+  "@webReverseSmSubtitle": {},
+  "webReverseSmInvalidInput": "URL と行番号が不正です",
+  "@webReverseSmInvalidInput": {},
+  "webReverseSmFetching": "sourcemap を取得中...",
+  "@webReverseSmFetching": {},
+  "webReverseSmFetchFailed": "取得失敗: {error}",
+  "@webReverseSmFetchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseSmBadEvalResult": "戻り値が不正です",
+  "@webReverseSmBadEvalResult": {},
+  "webReverseSmNoMapping": "対応するマッピングなし",
+  "@webReverseSmNoMapping": {},
+  "webReverseSmResolved": "解決済み",
+  "@webReverseSmResolved": {},
+  "webReverseSmCopied": "コピーしました",
+  "@webReverseSmCopied": {},
+  "webReverseSmUrlLabel": "minified ファイル URL",
+  "@webReverseSmUrlLabel": {},
+  "webReverseSmLineLabel": "行 (1-based)",
+  "@webReverseSmLineLabel": {},
+  "webReverseSmColLabel": "列 (0-based)",
+  "@webReverseSmColLabel": {},
+  "webReverseSmResolve": "解決",
+  "@webReverseSmResolve": {},
+  "webReverseSmEmptyHint": "URL と位置を入力して解決を押してください",
+  "@webReverseSmEmptyHint": {},
+  "webReverseSmCopyTooltip": "コピー",
+  "@webReverseSmCopyTooltip": {},
+  "webReverseSmNameLabel": "名前",
+  "@webReverseSmNameLabel": {},
+  "webReverseSmClose": "閉じる",
+  "@webReverseSmClose": {}
 }

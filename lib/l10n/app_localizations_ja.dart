@@ -6827,4 +6827,58 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseDomMutClose => '閉じる';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap リゾルバ';
+
+  @override
+  String get webReverseSmSubtitle =>
+      'minified file:line:col → 元の source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => 'URL と行番号が不正です';
+
+  @override
+  String get webReverseSmFetching => 'sourcemap を取得中...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return '取得失敗: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => '戻り値が不正です';
+
+  @override
+  String get webReverseSmNoMapping => '対応するマッピングなし';
+
+  @override
+  String get webReverseSmResolved => '解決済み';
+
+  @override
+  String get webReverseSmCopied => 'コピーしました';
+
+  @override
+  String get webReverseSmUrlLabel => 'minified ファイル URL';
+
+  @override
+  String get webReverseSmLineLabel => '行 (1-based)';
+
+  @override
+  String get webReverseSmColLabel => '列 (0-based)';
+
+  @override
+  String get webReverseSmResolve => '解決';
+
+  @override
+  String get webReverseSmEmptyHint => 'URL と位置を入力して解決を押してください';
+
+  @override
+  String get webReverseSmCopyTooltip => 'コピー';
+
+  @override
+  String get webReverseSmNameLabel => '名前';
+
+  @override
+  String get webReverseSmClose => '閉じる';
 }

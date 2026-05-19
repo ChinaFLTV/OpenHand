@@ -7082,4 +7082,59 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseDomMutClose => 'Schließen';
+
+  @override
+  String get webReverseSmTitle => 'SourceMap-Resolver';
+
+  @override
+  String get webReverseSmSubtitle =>
+      'min file:line:col → original source:line:col';
+
+  @override
+  String get webReverseSmInvalidInput => 'ungültige Eingabe';
+
+  @override
+  String get webReverseSmFetching => 'Sourcemap wird geladen...';
+
+  @override
+  String webReverseSmFetchFailed(String error) {
+    return 'Laden fehlgeschlagen: $error';
+  }
+
+  @override
+  String get webReverseSmBadEvalResult => 'Ungültiges Evaluierungsergebnis';
+
+  @override
+  String get webReverseSmNoMapping => 'Kein Mapping-Segment gefunden';
+
+  @override
+  String get webReverseSmResolved => 'Aufgelöst';
+
+  @override
+  String get webReverseSmCopied => 'Kopiert';
+
+  @override
+  String get webReverseSmUrlLabel => 'Minifizierte Datei-URL';
+
+  @override
+  String get webReverseSmLineLabel => 'Zeile (1-basiert)';
+
+  @override
+  String get webReverseSmColLabel => 'Spalte (0-basiert)';
+
+  @override
+  String get webReverseSmResolve => 'Auflösen';
+
+  @override
+  String get webReverseSmEmptyHint =>
+      'URL und Position eingeben, dann auflösen';
+
+  @override
+  String get webReverseSmCopyTooltip => 'Kopieren';
+
+  @override
+  String get webReverseSmNameLabel => 'Name';
+
+  @override
+  String get webReverseSmClose => 'Schließen';
 }
