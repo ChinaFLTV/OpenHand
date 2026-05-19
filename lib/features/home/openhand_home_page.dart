@@ -2685,6 +2685,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     if (!launchOk) {
+      await _persistWebReverseRuntimeMetadata(session.id, controller);
       // 启动失败则把 dead controller 摘除，避免胶囊点击拿到残骸。
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
@@ -2929,6 +2930,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     if (!launchOk) {
+      await _persistWebReverseRuntimeMetadata(session.id, controller);
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
