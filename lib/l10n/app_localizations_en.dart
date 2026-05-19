@@ -6536,4 +6536,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseCoverageSampledCount(int count) {
     return 'Sampled $count scripts';
   }
+
+  @override
+  String get webReverseDeviceEmuTitle => 'Device Emulation';
+
+  @override
+  String get webReverseDeviceEmuPresets => 'Presets';
+
+  @override
+  String get webReverseDeviceEmuCustom => 'Custom';
+
+  @override
+  String get webReverseDeviceEmuWidth => 'Width';
+
+  @override
+  String get webReverseDeviceEmuHeight => 'Height';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => 'mobile';
+
+  @override
+  String get webReverseDeviceEmuUaHint => 'leave empty to keep default';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => 'Apply Custom';
+
+  @override
+  String get webReverseDeviceEmuReset => 'Reset';
+
+  @override
+  String get webReverseDeviceEmuClose => 'Close';
+
+  @override
+  String get webReverseDeviceEmuMinSize => 'min 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => 'Reset to default';
+
+  @override
+  String get webReverseDeviceEmuApplied => 'Applied';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides => 'Clearing overrides...';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom => 'Applying custom metrics...';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return 'Applying $label...';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return 'Applied $label';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return 'Applied $w×$h @ ${dpr}x';
+  }
 }

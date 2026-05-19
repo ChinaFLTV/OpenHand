@@ -4244,5 +4244,98 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDeviceEmuTitle": "设备模拟",
+  "@webReverseDeviceEmuTitle": {
+    "description": "device-emu dialog: webReverseDeviceEmuTitle"
+  },
+  "webReverseDeviceEmuPresets": "预设",
+  "@webReverseDeviceEmuPresets": {
+    "description": "device-emu dialog: webReverseDeviceEmuPresets"
+  },
+  "webReverseDeviceEmuCustom": "自定义",
+  "@webReverseDeviceEmuCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuCustom"
+  },
+  "webReverseDeviceEmuWidth": "宽度",
+  "@webReverseDeviceEmuWidth": {
+    "description": "device-emu dialog: webReverseDeviceEmuWidth"
+  },
+  "webReverseDeviceEmuHeight": "高度",
+  "@webReverseDeviceEmuHeight": {
+    "description": "device-emu dialog: webReverseDeviceEmuHeight"
+  },
+  "webReverseDeviceEmuMobileMode": "移动模式 (touch + meta viewport)",
+  "@webReverseDeviceEmuMobileMode": {
+    "description": "device-emu dialog: webReverseDeviceEmuMobileMode"
+  },
+  "webReverseDeviceEmuUaHint": "留空保持默认 UA",
+  "@webReverseDeviceEmuUaHint": {
+    "description": "device-emu dialog: webReverseDeviceEmuUaHint"
+  },
+  "webReverseDeviceEmuApplyCustom": "应用自定义",
+  "@webReverseDeviceEmuApplyCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyCustom"
+  },
+  "webReverseDeviceEmuReset": "清除模拟",
+  "@webReverseDeviceEmuReset": {
+    "description": "device-emu dialog: webReverseDeviceEmuReset"
+  },
+  "webReverseDeviceEmuClose": "关闭",
+  "@webReverseDeviceEmuClose": {
+    "description": "device-emu dialog: webReverseDeviceEmuClose"
+  },
+  "webReverseDeviceEmuMinSize": "尺寸至少 100×100",
+  "@webReverseDeviceEmuMinSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuMinSize"
+  },
+  "webReverseDeviceEmuResetDone": "已恢复默认",
+  "@webReverseDeviceEmuResetDone": {
+    "description": "device-emu dialog: webReverseDeviceEmuResetDone"
+  },
+  "webReverseDeviceEmuApplied": "已应用",
+  "@webReverseDeviceEmuApplied": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplied"
+  },
+  "webReverseDeviceEmuClearingOverrides": "清除设备模拟...",
+  "@webReverseDeviceEmuClearingOverrides": {
+    "description": "device-emu dialog: webReverseDeviceEmuClearingOverrides"
+  },
+  "webReverseDeviceEmuApplyingCustom": "应用自定义尺寸...",
+  "@webReverseDeviceEmuApplyingCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingCustom"
+  },
+  "webReverseDeviceEmuApplyingPreset": "应用预设 {label}...",
+  "@webReverseDeviceEmuApplyingPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedPreset": "已应用 {label}",
+  "@webReverseDeviceEmuAppliedPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedCustomSize": "已应用 {w}×{h} @ {dpr}x",
+  "@webReverseDeviceEmuAppliedCustomSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedCustomSize",
+    "placeholders": {
+      "w": {
+        "type": "int"
+      },
+      "h": {
+        "type": "int"
+      },
+      "dpr": {
+        "type": "String"
+      }
+    }
   }
 }

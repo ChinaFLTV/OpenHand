@@ -11591,6 +11591,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'采样完成 {count} 个脚本'**
   String webReverseCoverageSampledCount(int count);
+
+  /// device-emu dialog: webReverseDeviceEmuTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设备模拟'**
+  String get webReverseDeviceEmuTitle;
+
+  /// device-emu dialog: webReverseDeviceEmuPresets
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'预设'**
+  String get webReverseDeviceEmuPresets;
+
+  /// device-emu dialog: webReverseDeviceEmuCustom
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义'**
+  String get webReverseDeviceEmuCustom;
+
+  /// device-emu dialog: webReverseDeviceEmuWidth
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'宽度'**
+  String get webReverseDeviceEmuWidth;
+
+  /// device-emu dialog: webReverseDeviceEmuHeight
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'高度'**
+  String get webReverseDeviceEmuHeight;
+
+  /// device-emu dialog: webReverseDeviceEmuMobileMode
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'移动模式 (touch + meta viewport)'**
+  String get webReverseDeviceEmuMobileMode;
+
+  /// device-emu dialog: webReverseDeviceEmuUaHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'留空保持默认 UA'**
+  String get webReverseDeviceEmuUaHint;
+
+  /// device-emu dialog: webReverseDeviceEmuApplyCustom
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用自定义'**
+  String get webReverseDeviceEmuApplyCustom;
+
+  /// device-emu dialog: webReverseDeviceEmuReset
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清除模拟'**
+  String get webReverseDeviceEmuReset;
+
+  /// device-emu dialog: webReverseDeviceEmuClose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseDeviceEmuClose;
+
+  /// device-emu dialog: webReverseDeviceEmuMinSize
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尺寸至少 100×100'**
+  String get webReverseDeviceEmuMinSize;
+
+  /// device-emu dialog: webReverseDeviceEmuResetDone
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已恢复默认'**
+  String get webReverseDeviceEmuResetDone;
+
+  /// device-emu dialog: webReverseDeviceEmuApplied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用'**
+  String get webReverseDeviceEmuApplied;
+
+  /// device-emu dialog: webReverseDeviceEmuClearingOverrides
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清除设备模拟...'**
+  String get webReverseDeviceEmuClearingOverrides;
+
+  /// device-emu dialog: webReverseDeviceEmuApplyingCustom
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用自定义尺寸...'**
+  String get webReverseDeviceEmuApplyingCustom;
+
+  /// device-emu dialog: webReverseDeviceEmuApplyingPreset
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用预设 {label}...'**
+  String webReverseDeviceEmuApplyingPreset(String label);
+
+  /// device-emu dialog: webReverseDeviceEmuAppliedPreset
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用 {label}'**
+  String webReverseDeviceEmuAppliedPreset(String label);
+
+  /// device-emu dialog: webReverseDeviceEmuAppliedCustomSize
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用 {w}×{h} @ {dpr}x'**
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr);
 }
 
 class _AppLocalizationsDelegate

@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -27,6 +28,7 @@ Future<void> showWebReverseDeviceEmulationDialog(
 class _DeviceEmuDialog extends StatefulWidget {
   const _DeviceEmuDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_DeviceEmuDialog> createState() => _DeviceEmuDialogState();
@@ -57,10 +59,11 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
   }
 
   Future<void> _applyPreset(WebReverseDevicePreset p) async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = isZh ? '应用预设 ${p.label}...' : 'Applying ${p.label}...';
+      _status = loc?.webReverseDeviceEmuApplyingPreset(p.label) ??
+          'Applying ${p.label}...';
       _w.text = '${p.width}';
       _h.text = '${p.height}';
       _dpr.text = '${p.deviceScaleFactor}';
@@ -75,27 +78,30 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = isZh ? '已应用 ${p.label}' : 'Applied ${p.label}';
+      _status =
+          loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(context, m,
-          isZh ? '已应用 ${p.label}' : 'Applied ${p.label}');
+          loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}');
     }
   }
 
   Future<void> _applyCustom() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final w = int.tryParse(_w.text.trim()) ?? 0;
     final h = int.tryParse(_h.text.trim()) ?? 0;
     final dpr = double.tryParse(_dpr.text.trim()) ?? 1;
     if (w < 100 || h < 100) {
-      setState(() => _status = isZh ? '尺寸至少 100×100' : 'min 100×100');
+      setState(() => _status =
+          loc?.webReverseDeviceEmuMinSize ?? 'min 100×100');
       return;
     }
     setState(() {
       _busy = true;
-      _status = isZh ? '应用自定义尺寸...' : 'Applying custom metrics...';
+      _status = loc?.webReverseDeviceEmuApplyingCustom ??
+          'Applying custom metrics...';
     });
     try {
       final preset = WebReverseDevicePreset(
@@ -114,19 +120,23 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = isZh ? '已应用 $w×$h @ ${dpr}x' : 'Applied $w×$h @ ${dpr}x';
+      _status = loc?.webReverseDeviceEmuAppliedCustomSize(
+              w, h, dpr.toString()) ??
+          'Applied $w×$h @ ${dpr}x';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
-      OpenHandSnackBar.showSuccessOn(context, m, isZh ? '已应用' : 'Applied');
+      OpenHandSnackBar.showSuccessOn(
+          context, m, loc?.webReverseDeviceEmuApplied ?? 'Applied');
     }
   }
 
   Future<void> _reset() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = isZh ? '清除设备模拟...' : 'Clearing overrides...';
+      _status = loc?.webReverseDeviceEmuClearingOverrides ??
+          'Clearing overrides...';
     });
     try {
       await widget.controller.setDeviceMetricsPreset(null);
@@ -136,7 +146,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = isZh ? '已恢复默认' : 'Reset to default';
+      _status = loc?.webReverseDeviceEmuResetDone ?? 'Reset to default';
     });
   }
 
@@ -144,7 +154,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -164,7 +174,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '设备模拟' : 'Device Emulation',
+                          loc?.webReverseDeviceEmuTitle ?? 'Device Emulation',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -190,7 +200,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(isZh ? '预设' : 'Presets',
+                    Text(loc?.webReverseDeviceEmuPresets ?? 'Presets',
                         style: theme.textTheme.labelLarge),
                     const SizedBox(height: 6),
                     Wrap(
@@ -211,7 +221,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           .toList(),
                     ),
                     const SizedBox(height: 18),
-                    Text(isZh ? '自定义' : 'Custom',
+                    Text(loc?.webReverseDeviceEmuCustom ?? 'Custom',
                         style: theme.textTheme.labelLarge),
                     const SizedBox(height: 6),
                     Row(
@@ -220,7 +230,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           child: TextField(
                             controller: _w,
                             decoration: InputDecoration(
-                              labelText: isZh ? '宽度' : 'Width',
+                              labelText: loc?.webReverseDeviceEmuWidth ?? 'Width',
                               border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10)),
                             ),
@@ -232,7 +242,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           child: TextField(
                             controller: _h,
                             decoration: InputDecoration(
-                              labelText: isZh ? '高度' : 'Height',
+                              labelText: loc?.webReverseDeviceEmuHeight ?? 'Height',
                               border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10)),
                             ),
@@ -259,7 +269,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       onChanged: _busy
                           ? null
                           : (v) => setState(() => _mobile = v),
-                      title: Text(isZh ? '移动模式 (touch + meta viewport)' : 'mobile'),
+                      title: Text(loc?.webReverseDeviceEmuMobileMode ??
+                          'mobile'),
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -268,8 +279,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       controller: _ua,
                       decoration: InputDecoration(
                         labelText: 'User-Agent (override)',
-                        hintText:
-                            isZh ? '留空保持默认 UA' : 'leave empty to keep default',
+                        hintText: loc?.webReverseDeviceEmuUaHint ??
+                            'leave empty to keep default',
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
@@ -282,13 +293,14 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                         FilledButton.icon(
                           onPressed: _busy ? null : _applyCustom,
                           icon: const Icon(Icons.check_circle_rounded),
-                          label: Text(isZh ? '应用自定义' : 'Apply Custom'),
+                          label: Text(loc?.webReverseDeviceEmuApplyCustom ??
+                              'Apply Custom'),
                         ),
                         const SizedBox(width: 8),
                         FilledButton.tonalIcon(
                           onPressed: _busy ? null : _reset,
                           icon: const Icon(Icons.restore_rounded),
-                          label: Text(isZh ? '清除模拟' : 'Reset'),
+                          label: Text(loc?.webReverseDeviceEmuReset ?? 'Reset'),
                         ),
                       ],
                     ),
@@ -312,7 +324,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseDeviceEmuClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

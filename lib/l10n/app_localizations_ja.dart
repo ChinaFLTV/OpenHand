@@ -6348,4 +6348,64 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCoverageSampledCount(int count) {
     return '$count 件のスクリプトをサンプリングしました';
   }
+
+  @override
+  String get webReverseDeviceEmuTitle => 'デバイスエミュレーション';
+
+  @override
+  String get webReverseDeviceEmuPresets => 'プリセット';
+
+  @override
+  String get webReverseDeviceEmuCustom => 'カスタム';
+
+  @override
+  String get webReverseDeviceEmuWidth => '幅';
+
+  @override
+  String get webReverseDeviceEmuHeight => '高さ';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => 'モバイル (touch + meta viewport)';
+
+  @override
+  String get webReverseDeviceEmuUaHint => '空欄でデフォルト UA を維持';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => 'カスタムを適用';
+
+  @override
+  String get webReverseDeviceEmuReset => 'リセット';
+
+  @override
+  String get webReverseDeviceEmuClose => '閉じる';
+
+  @override
+  String get webReverseDeviceEmuMinSize => 'サイズは最低 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => 'デフォルトに戻しました';
+
+  @override
+  String get webReverseDeviceEmuApplied => '適用しました';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides => 'オーバーライドを解除中…';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom => 'カスタム指標を適用中…';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return '$label を適用中…';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return '$label を適用しました';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return '$w×$h @ ${dpr}x を適用しました';
+  }
 }

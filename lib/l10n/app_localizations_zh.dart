@@ -6253,6 +6253,66 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCoverageSampledCount(int count) {
     return '采样完成 $count 个脚本';
   }
+
+  @override
+  String get webReverseDeviceEmuTitle => '设备模拟';
+
+  @override
+  String get webReverseDeviceEmuPresets => '预设';
+
+  @override
+  String get webReverseDeviceEmuCustom => '自定义';
+
+  @override
+  String get webReverseDeviceEmuWidth => '宽度';
+
+  @override
+  String get webReverseDeviceEmuHeight => '高度';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => '移动模式 (touch + meta viewport)';
+
+  @override
+  String get webReverseDeviceEmuUaHint => '留空保持默认 UA';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseDeviceEmuReset => '清除模拟';
+
+  @override
+  String get webReverseDeviceEmuClose => '关闭';
+
+  @override
+  String get webReverseDeviceEmuMinSize => '尺寸至少 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => '已恢复默认';
+
+  @override
+  String get webReverseDeviceEmuApplied => '已应用';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides => '清除设备模拟...';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom => '应用自定义尺寸...';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return '应用预设 $label...';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return '已应用 $label';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return '已应用 $w×$h @ ${dpr}x';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12504,6 +12564,66 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCoverageSampledCount(int count) {
     return '采样完成 $count 个脚本';
   }
+
+  @override
+  String get webReverseDeviceEmuTitle => '设备模拟';
+
+  @override
+  String get webReverseDeviceEmuPresets => '预设';
+
+  @override
+  String get webReverseDeviceEmuCustom => '自定义';
+
+  @override
+  String get webReverseDeviceEmuWidth => '宽度';
+
+  @override
+  String get webReverseDeviceEmuHeight => '高度';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => '移动模式 (touch + meta viewport)';
+
+  @override
+  String get webReverseDeviceEmuUaHint => '留空保持默认 UA';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseDeviceEmuReset => '清除模拟';
+
+  @override
+  String get webReverseDeviceEmuClose => '关闭';
+
+  @override
+  String get webReverseDeviceEmuMinSize => '尺寸至少 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => '已恢复默认';
+
+  @override
+  String get webReverseDeviceEmuApplied => '已应用';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides => '清除设备模拟...';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom => '应用自定义尺寸...';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return '应用预设 $label...';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return '已应用 $label';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return '已应用 $w×$h @ ${dpr}x';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18753,5 +18873,65 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCoverageSampledCount(int count) {
     return '采样完成 $count 个脚本';
+  }
+
+  @override
+  String get webReverseDeviceEmuTitle => '设备模拟';
+
+  @override
+  String get webReverseDeviceEmuPresets => '预设';
+
+  @override
+  String get webReverseDeviceEmuCustom => '自定义';
+
+  @override
+  String get webReverseDeviceEmuWidth => '宽度';
+
+  @override
+  String get webReverseDeviceEmuHeight => '高度';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => '移动模式 (touch + meta viewport)';
+
+  @override
+  String get webReverseDeviceEmuUaHint => '留空保持默认 UA';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseDeviceEmuReset => '清除模拟';
+
+  @override
+  String get webReverseDeviceEmuClose => '关闭';
+
+  @override
+  String get webReverseDeviceEmuMinSize => '尺寸至少 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => '已恢复默认';
+
+  @override
+  String get webReverseDeviceEmuApplied => '已应用';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides => '清除设备模拟...';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom => '应用自定义尺寸...';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return '应用预设 $label...';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return '已应用 $label';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return '已应用 $w×$h @ ${dpr}x';
   }
 }

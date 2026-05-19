@@ -4244,5 +4244,98 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDeviceEmuTitle": "デバイスエミュレーション",
+  "@webReverseDeviceEmuTitle": {
+    "description": "device-emu dialog: webReverseDeviceEmuTitle"
+  },
+  "webReverseDeviceEmuPresets": "プリセット",
+  "@webReverseDeviceEmuPresets": {
+    "description": "device-emu dialog: webReverseDeviceEmuPresets"
+  },
+  "webReverseDeviceEmuCustom": "カスタム",
+  "@webReverseDeviceEmuCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuCustom"
+  },
+  "webReverseDeviceEmuWidth": "幅",
+  "@webReverseDeviceEmuWidth": {
+    "description": "device-emu dialog: webReverseDeviceEmuWidth"
+  },
+  "webReverseDeviceEmuHeight": "高さ",
+  "@webReverseDeviceEmuHeight": {
+    "description": "device-emu dialog: webReverseDeviceEmuHeight"
+  },
+  "webReverseDeviceEmuMobileMode": "モバイル (touch + meta viewport)",
+  "@webReverseDeviceEmuMobileMode": {
+    "description": "device-emu dialog: webReverseDeviceEmuMobileMode"
+  },
+  "webReverseDeviceEmuUaHint": "空欄でデフォルト UA を維持",
+  "@webReverseDeviceEmuUaHint": {
+    "description": "device-emu dialog: webReverseDeviceEmuUaHint"
+  },
+  "webReverseDeviceEmuApplyCustom": "カスタムを適用",
+  "@webReverseDeviceEmuApplyCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyCustom"
+  },
+  "webReverseDeviceEmuReset": "リセット",
+  "@webReverseDeviceEmuReset": {
+    "description": "device-emu dialog: webReverseDeviceEmuReset"
+  },
+  "webReverseDeviceEmuClose": "閉じる",
+  "@webReverseDeviceEmuClose": {
+    "description": "device-emu dialog: webReverseDeviceEmuClose"
+  },
+  "webReverseDeviceEmuMinSize": "サイズは最低 100×100",
+  "@webReverseDeviceEmuMinSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuMinSize"
+  },
+  "webReverseDeviceEmuResetDone": "デフォルトに戻しました",
+  "@webReverseDeviceEmuResetDone": {
+    "description": "device-emu dialog: webReverseDeviceEmuResetDone"
+  },
+  "webReverseDeviceEmuApplied": "適用しました",
+  "@webReverseDeviceEmuApplied": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplied"
+  },
+  "webReverseDeviceEmuClearingOverrides": "オーバーライドを解除中…",
+  "@webReverseDeviceEmuClearingOverrides": {
+    "description": "device-emu dialog: webReverseDeviceEmuClearingOverrides"
+  },
+  "webReverseDeviceEmuApplyingCustom": "カスタム指標を適用中…",
+  "@webReverseDeviceEmuApplyingCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingCustom"
+  },
+  "webReverseDeviceEmuApplyingPreset": "{label} を適用中…",
+  "@webReverseDeviceEmuApplyingPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedPreset": "{label} を適用しました",
+  "@webReverseDeviceEmuAppliedPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedCustomSize": "{w}×{h} @ {dpr}x を適用しました",
+  "@webReverseDeviceEmuAppliedCustomSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedCustomSize",
+    "placeholders": {
+      "w": {
+        "type": "int"
+      },
+      "h": {
+        "type": "int"
+      },
+      "dpr": {
+        "type": "String"
+      }
+    }
   }
 }

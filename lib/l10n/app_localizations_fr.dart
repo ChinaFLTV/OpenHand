@@ -6620,4 +6620,67 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseCoverageSampledCount(int count) {
     return '$count scripts échantillonnés';
   }
+
+  @override
+  String get webReverseDeviceEmuTitle => 'Émulation d\'appareil';
+
+  @override
+  String get webReverseDeviceEmuPresets => 'Préréglages';
+
+  @override
+  String get webReverseDeviceEmuCustom => 'Personnalisé';
+
+  @override
+  String get webReverseDeviceEmuWidth => 'Largeur';
+
+  @override
+  String get webReverseDeviceEmuHeight => 'Hauteur';
+
+  @override
+  String get webReverseDeviceEmuMobileMode => 'Mobile (touch + meta viewport)';
+
+  @override
+  String get webReverseDeviceEmuUaHint =>
+      'Laisser vide pour conserver l\'UA par défaut';
+
+  @override
+  String get webReverseDeviceEmuApplyCustom => 'Appliquer personnalisé';
+
+  @override
+  String get webReverseDeviceEmuReset => 'Réinitialiser';
+
+  @override
+  String get webReverseDeviceEmuClose => 'Fermer';
+
+  @override
+  String get webReverseDeviceEmuMinSize => 'Taille minimale 100×100';
+
+  @override
+  String get webReverseDeviceEmuResetDone => 'Réinitialisé par défaut';
+
+  @override
+  String get webReverseDeviceEmuApplied => 'Appliqué';
+
+  @override
+  String get webReverseDeviceEmuClearingOverrides =>
+      'Suppression des remplacements…';
+
+  @override
+  String get webReverseDeviceEmuApplyingCustom =>
+      'Application des métriques personnalisées…';
+
+  @override
+  String webReverseDeviceEmuApplyingPreset(String label) {
+    return 'Application de $label…';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedPreset(String label) {
+    return '$label appliqué';
+  }
+
+  @override
+  String webReverseDeviceEmuAppliedCustomSize(int w, int h, String dpr) {
+    return '$w×$h @ ${dpr}x appliqué';
+  }
 }

@@ -4244,5 +4244,98 @@
         "type": "int"
       }
     }
+  },
+  "webReverseDeviceEmuTitle": "Geräteemulation",
+  "@webReverseDeviceEmuTitle": {
+    "description": "device-emu dialog: webReverseDeviceEmuTitle"
+  },
+  "webReverseDeviceEmuPresets": "Voreinstellungen",
+  "@webReverseDeviceEmuPresets": {
+    "description": "device-emu dialog: webReverseDeviceEmuPresets"
+  },
+  "webReverseDeviceEmuCustom": "Benutzerdefiniert",
+  "@webReverseDeviceEmuCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuCustom"
+  },
+  "webReverseDeviceEmuWidth": "Breite",
+  "@webReverseDeviceEmuWidth": {
+    "description": "device-emu dialog: webReverseDeviceEmuWidth"
+  },
+  "webReverseDeviceEmuHeight": "Höhe",
+  "@webReverseDeviceEmuHeight": {
+    "description": "device-emu dialog: webReverseDeviceEmuHeight"
+  },
+  "webReverseDeviceEmuMobileMode": "Mobil (touch + meta viewport)",
+  "@webReverseDeviceEmuMobileMode": {
+    "description": "device-emu dialog: webReverseDeviceEmuMobileMode"
+  },
+  "webReverseDeviceEmuUaHint": "Leer lassen, um Standard-UA beizubehalten",
+  "@webReverseDeviceEmuUaHint": {
+    "description": "device-emu dialog: webReverseDeviceEmuUaHint"
+  },
+  "webReverseDeviceEmuApplyCustom": "Benutzerdefiniert anwenden",
+  "@webReverseDeviceEmuApplyCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyCustom"
+  },
+  "webReverseDeviceEmuReset": "Zurücksetzen",
+  "@webReverseDeviceEmuReset": {
+    "description": "device-emu dialog: webReverseDeviceEmuReset"
+  },
+  "webReverseDeviceEmuClose": "Schließen",
+  "@webReverseDeviceEmuClose": {
+    "description": "device-emu dialog: webReverseDeviceEmuClose"
+  },
+  "webReverseDeviceEmuMinSize": "Mindestgröße 100×100",
+  "@webReverseDeviceEmuMinSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuMinSize"
+  },
+  "webReverseDeviceEmuResetDone": "Auf Standard zurückgesetzt",
+  "@webReverseDeviceEmuResetDone": {
+    "description": "device-emu dialog: webReverseDeviceEmuResetDone"
+  },
+  "webReverseDeviceEmuApplied": "Angewendet",
+  "@webReverseDeviceEmuApplied": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplied"
+  },
+  "webReverseDeviceEmuClearingOverrides": "Überschreibungen werden gelöscht…",
+  "@webReverseDeviceEmuClearingOverrides": {
+    "description": "device-emu dialog: webReverseDeviceEmuClearingOverrides"
+  },
+  "webReverseDeviceEmuApplyingCustom": "Benutzerdefinierte Metriken werden angewendet…",
+  "@webReverseDeviceEmuApplyingCustom": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingCustom"
+  },
+  "webReverseDeviceEmuApplyingPreset": "{label} wird angewendet…",
+  "@webReverseDeviceEmuApplyingPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuApplyingPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedPreset": "{label} angewendet",
+  "@webReverseDeviceEmuAppliedPreset": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedPreset",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDeviceEmuAppliedCustomSize": "{w}×{h} @ {dpr}x angewendet",
+  "@webReverseDeviceEmuAppliedCustomSize": {
+    "description": "device-emu dialog: webReverseDeviceEmuAppliedCustomSize",
+    "placeholders": {
+      "w": {
+        "type": "int"
+      },
+      "h": {
+        "type": "int"
+      },
+      "dpr": {
+        "type": "String"
+      }
+    }
   }
 }
