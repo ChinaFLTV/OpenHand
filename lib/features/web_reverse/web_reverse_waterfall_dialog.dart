@@ -9,9 +9,11 @@
 /// 支持 URL 子串过滤、按耗时排序、点击复制 URL。
 library;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -135,6 +137,16 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     onPressed: () => setState(() {}),
                     icon: const Icon(Icons.refresh_rounded),
                     tooltip: isZh ? '刷新' : 'Refresh',
+                  ),
+                  IconButton(
+                    onPressed: () => _importHar(isZh),
+                    icon: const Icon(Icons.file_upload_outlined),
+                    tooltip: isZh ? '导入 HAR' : 'Import HAR',
+                  ),
+                  IconButton(
+                    onPressed: entries.isEmpty ? null : () => _exportHar(isZh),
+                    icon: const Icon(Icons.file_download_outlined),
+                    tooltip: isZh ? '导出 HAR' : 'Export HAR',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -376,6 +388,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       ),
                     ),
                   ),
+                  _initiatorBadge(theme, cs, e, isZh),
                   Expanded(
                     child: Text(
                       _shortUrl(e.url),
@@ -450,6 +463,349 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         ),
       ),
     );
+  }
+
+  /// Initiator 入口徽标：有调用栈/url 时高亮，可点击展开详情并跳转 Sources。
+  Widget _initiatorBadge(
+    ThemeData theme,
+    ColorScheme cs,
+    CdpNetworkEntry e,
+    bool isZh,
+  ) {
+    final hasAny = (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty) ||
+        e.initiatorStack.isNotEmpty ||
+        (e.initiatorType != null && e.initiatorType!.isNotEmpty);
+    final type = (e.initiatorType ?? 'other').toLowerCase();
+    final letter = switch (type) {
+      'script' => 'S',
+      'parser' => 'P',
+      'preflight' => 'F',
+      _ => 'O',
+    };
+    final color = hasAny ? cs.primary : cs.outlineVariant;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Tooltip(
+        message: hasAny
+            ? (isZh
+                ? '发起方：$type${e.initiatorUrl != null ? "\n${e.initiatorUrl}" : ""}'
+                : 'Initiator: $type${e.initiatorUrl != null ? "\n${e.initiatorUrl}" : ""}')
+            : (isZh ? '无 Initiator 信息' : 'No initiator info'),
+        child: InkWell(
+          onTap: hasAny ? () => _showInitiator(e, isZh) : null,
+          borderRadius: BorderRadius.circular(3),
+          child: Container(
+            width: 16,
+            height: 14,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: color, width: 1),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              letter,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                color: color,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showInitiator(CdpNetworkEntry e, bool isZh) async {
+    final ctrl = widget.controller;
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final cs = theme.colorScheme;
+        final frames = e.initiatorStack;
+        return Dialog(
+          backgroundColor: cs.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SizedBox(
+            width: 720,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 8, 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_tree_rounded, color: cs.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isZh ? '请求发起方' : 'Request Initiator',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: cs.outlineVariant),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${isZh ? "类型" : "Type"}: ${e.initiatorType ?? "—"}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const Spacer(),
+                      if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            ctrl.requestSourceJump(
+                              url: e.initiatorUrl!,
+                              line: e.initiatorLineNumber ?? 0,
+                              col: e.initiatorColumnNumber ?? 0,
+                            );
+                            Navigator.of(dialogContext).pop();
+                            if (mounted) Navigator.of(context).pop();
+                          },
+                          icon: const Icon(Icons.launch_rounded, size: 14),
+                          label: Text(isZh ? '跳到 Sources' : 'Open in Sources'),
+                        ),
+                    ],
+                  ),
+                ),
+                if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                    child: Text(
+                      '${e.initiatorUrl}:${(e.initiatorLineNumber ?? 0) + 1}:${(e.initiatorColumnNumber ?? 0) + 1}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                Divider(height: 1, color: cs.outlineVariant),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: frames.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Text(
+                            isZh
+                                ? '没有 JavaScript 调用栈（parser/preflight 类型常见）'
+                                : 'No JavaScript stack (typical for parser/preflight)',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: frames.length,
+                          separatorBuilder: (_, __) =>
+                              Divider(height: 1, color: cs.outlineVariant),
+                          itemBuilder: (_, i) {
+                            final f = frames[i];
+                            final fn = (f['functionName'] as String?) ?? '';
+                            final url = (f['url'] as String?) ?? '';
+                            final line =
+                                ((f['lineNumber'] as num?)?.toInt() ?? 0) + 1;
+                            final col =
+                                ((f['columnNumber'] as num?)?.toInt() ?? 0) + 1;
+                            return InkWell(
+                              onTap: url.isEmpty
+                                  ? null
+                                  : () {
+                                      ctrl.requestSourceJump(
+                                        url: url,
+                                        line:
+                                            (f['lineNumber'] as num?)?.toInt() ??
+                                                0,
+                                        col:
+                                            (f['columnNumber'] as num?)?.toInt() ??
+                                                0,
+                                      );
+                                      Navigator.of(dialogContext).pop();
+                                      if (mounted) Navigator.of(context).pop();
+                                    },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 18, vertical: 6),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      fn.isEmpty ? '(anonymous)' : fn,
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (url.isNotEmpty)
+                                      Text(
+                                        '$url:$line:$col',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 10,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OpenHandDialogActionButton.secondary(
+                        label: isZh ? '关闭' : 'Close',
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _importHar(bool isZh) async {
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup =
+        XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
+    XFile? file;
+    try {
+      file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    } catch (error, stack) {
+      silentLog('web_reverse_waterfall_dialog', 'openFile har', error, stack);
+    }
+    if (file == null) return;
+    bool merge = false;
+    final existing = widget.controller.networkRequests.length;
+    if (existing > 0 && mounted) {
+      final mode = await showAnimatedDialog<String>(
+        context: context,
+        builder: (dctx) => AlertDialog(
+          title: Text(isZh ? '加载 HAR' : 'Load HAR'),
+          content: Text(
+            isZh
+                ? '当前已有 $existing 条记录，选择加载方式：'
+                : 'Network list has $existing entries. Choose load mode:',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dctx).pop('cancel'),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dctx).pop('merge'),
+              child: Text(isZh ? '合并' : 'Merge'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dctx).pop('replace'),
+              child: Text(isZh ? '替换' : 'Replace'),
+            ),
+          ],
+        ),
+      );
+      if (mode == null || mode == 'cancel') return;
+      merge = mode == 'merge';
+    }
+    try {
+      final bytes = await file.readAsBytes();
+      final r = widget.controller.loadHarBytes(bytes, merge: merge);
+      if (!mounted) return;
+      setState(() {});
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh
+            ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条'
+            : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
+        duration: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_waterfall_dialog', 'parse har', error, stack);
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'HAR 解析失败' : 'HAR parse failed',
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  Future<void> _exportHar(bool isZh) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll('.', '-');
+    const typeGroup = XTypeGroup(label: 'HAR', extensions: <String>['har']);
+    FileSaveLocation? loc;
+    try {
+      loc = await getSaveLocation(
+        suggestedName: 'web-reverse-$ts.har',
+        acceptedTypeGroups: const <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_waterfall_dialog', 'getSaveLocation har', error,
+          stack);
+    }
+    if (loc == null) return;
+    String? written;
+    try {
+      written = await widget.controller
+          .exportHarToPath(loc.path)
+          .timeout(const Duration(seconds: 10));
+    } catch (error, stack) {
+      silentLog(
+          'web_reverse_waterfall_dialog', 'exportHarToPath', error, stack);
+    }
+    if (!mounted) return;
+    if (written == null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'HAR 保存失败或超时' : 'HAR save failed or timed out',
+        duration: const Duration(seconds: 3),
+      );
+    } else {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written',
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   String _shortUrl(String url) {
