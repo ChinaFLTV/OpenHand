@@ -346,7 +346,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                       frame: f,
                       icon: _dirIcon(f.direction),
                       color: _dirColor(f.direction, cs),
-                      label: _dirLabel(f.direction),
+                      label: _dirLabel(f.direction, loc),
                       onCopy: () => _copyFrame(f),
                     );
                   },
