@@ -4522,5 +4522,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseReqBpNewBreakpoint": "Neuer Breakpoint",
+  "@webReverseReqBpNewBreakpoint": {
+    "description": "webReverseReqBpNewBreakpoint"
+  },
+  "webReverseReqBpTitle": "Request-Breakpoints",
+  "@webReverseReqBpTitle": {
+    "description": "webReverseReqBpTitle"
+  },
+  "webReverseReqBpSubtitle": "Treffer per URL-/Body-Teilstring protokollieren + optional JS auswerten. Erst „Intercept“ in der Toolbar aktivieren.",
+  "@webReverseReqBpSubtitle": {
+    "description": "webReverseReqBpSubtitle"
+  },
+  "webReverseReqBpInterceptOff": "Intercept AUS",
+  "@webReverseReqBpInterceptOff": {
+    "description": "webReverseReqBpInterceptOff"
+  },
+  "webReverseReqBpAdd": "Hinzufügen",
+  "@webReverseReqBpAdd": {
+    "description": "webReverseReqBpAdd"
+  },
+  "webReverseReqBpEmptyHint": "Oben rechts auf + tippen, um den ersten Breakpoint anzulegen",
+  "@webReverseReqBpEmptyHint": {
+    "description": "webReverseReqBpEmptyHint"
+  },
+  "webReverseReqBpUnnamed": "(unbenannt)",
+  "@webReverseReqBpUnnamed": {
+    "description": "webReverseReqBpUnnamed"
+  },
+  "webReverseReqBpPickHint": "Links einen Breakpoint zum Bearbeiten wählen",
+  "@webReverseReqBpPickHint": {
+    "description": "webReverseReqBpPickHint"
+  },
+  "webReverseReqBpClear": "Leeren",
+  "@webReverseReqBpClear": {
+    "description": "webReverseReqBpClear"
+  },
+  "webReverseReqBpNoHits": "Noch keine Treffer",
+  "@webReverseReqBpNoHits": {
+    "description": "webReverseReqBpNoHits"
+  },
+  "webReverseReqBpNameField": "Name",
+  "@webReverseReqBpNameField": {
+    "description": "webReverseReqBpNameField"
+  },
+  "webReverseReqBpAnyMethod": "Beliebig",
+  "@webReverseReqBpAnyMethod": {
+    "description": "webReverseReqBpAnyMethod"
+  },
+  "webReverseReqBpUrlContains": "URL enthält",
+  "@webReverseReqBpUrlContains": {
+    "description": "webReverseReqBpUrlContains"
+  },
+  "webReverseReqBpBodyContains": "Body enthält",
+  "@webReverseReqBpBodyContains": {
+    "description": "webReverseReqBpBodyContains"
+  },
+  "webReverseReqBpEvalOnHit": "Bei Treffer ausführen (optional)",
+  "@webReverseReqBpEvalOnHit": {
+    "description": "webReverseReqBpEvalOnHit"
+  },
+  "webReverseReqBpEvalHint": "z. B. debugger; oder console.trace(\"hit\", new Error().stack)",
+  "@webReverseReqBpEvalHint": {
+    "description": "webReverseReqBpEvalHint"
+  },
+  "webReverseReqBpDeleteBreakpoint": "Breakpoint löschen",
+  "@webReverseReqBpDeleteBreakpoint": {
+    "description": "webReverseReqBpDeleteBreakpoint"
+  },
+  "webReverseReqBpHitsCount": "Treffer (zuletzt {count})",
+  "@webReverseReqBpHitsCount": {
+    "description": "webReverseReqBpHitsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

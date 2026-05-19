@@ -4522,5 +4522,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseReqBpNewBreakpoint": "Nouveau point d'arrêt",
+  "@webReverseReqBpNewBreakpoint": {
+    "description": "webReverseReqBpNewBreakpoint"
+  },
+  "webReverseReqBpTitle": "Points d'arrêt de requête",
+  "@webReverseReqBpTitle": {
+    "description": "webReverseReqBpTitle"
+  },
+  "webReverseReqBpSubtitle": "Correspondance par sous-chaîne URL/Body → journal + éval JS facultative. Activez d'abord « Intercept ».",
+  "@webReverseReqBpSubtitle": {
+    "description": "webReverseReqBpSubtitle"
+  },
+  "webReverseReqBpInterceptOff": "Intercept OFF",
+  "@webReverseReqBpInterceptOff": {
+    "description": "webReverseReqBpInterceptOff"
+  },
+  "webReverseReqBpAdd": "Ajouter",
+  "@webReverseReqBpAdd": {
+    "description": "webReverseReqBpAdd"
+  },
+  "webReverseReqBpEmptyHint": "Cliquez sur + en haut à droite pour créer votre premier point d'arrêt",
+  "@webReverseReqBpEmptyHint": {
+    "description": "webReverseReqBpEmptyHint"
+  },
+  "webReverseReqBpUnnamed": "(sans nom)",
+  "@webReverseReqBpUnnamed": {
+    "description": "webReverseReqBpUnnamed"
+  },
+  "webReverseReqBpPickHint": "Sélectionnez un point d'arrêt à gauche pour le modifier",
+  "@webReverseReqBpPickHint": {
+    "description": "webReverseReqBpPickHint"
+  },
+  "webReverseReqBpClear": "Effacer",
+  "@webReverseReqBpClear": {
+    "description": "webReverseReqBpClear"
+  },
+  "webReverseReqBpNoHits": "Aucun déclenchement",
+  "@webReverseReqBpNoHits": {
+    "description": "webReverseReqBpNoHits"
+  },
+  "webReverseReqBpNameField": "Nom",
+  "@webReverseReqBpNameField": {
+    "description": "webReverseReqBpNameField"
+  },
+  "webReverseReqBpAnyMethod": "Toutes",
+  "@webReverseReqBpAnyMethod": {
+    "description": "webReverseReqBpAnyMethod"
+  },
+  "webReverseReqBpUrlContains": "L'URL contient",
+  "@webReverseReqBpUrlContains": {
+    "description": "webReverseReqBpUrlContains"
+  },
+  "webReverseReqBpBodyContains": "Le corps contient",
+  "@webReverseReqBpBodyContains": {
+    "description": "webReverseReqBpBodyContains"
+  },
+  "webReverseReqBpEvalOnHit": "Exécuter au déclenchement (facultatif)",
+  "@webReverseReqBpEvalOnHit": {
+    "description": "webReverseReqBpEvalOnHit"
+  },
+  "webReverseReqBpEvalHint": "ex. debugger; ou console.trace(\"hit\", new Error().stack)",
+  "@webReverseReqBpEvalHint": {
+    "description": "webReverseReqBpEvalHint"
+  },
+  "webReverseReqBpDeleteBreakpoint": "Supprimer ce point d'arrêt",
+  "@webReverseReqBpDeleteBreakpoint": {
+    "description": "webReverseReqBpDeleteBreakpoint"
+  },
+  "webReverseReqBpHitsCount": "Déclenchements (récents {count})",
+  "@webReverseReqBpHitsCount": {
+    "description": "webReverseReqBpHitsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -6436,6 +6436,64 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '共 $count 份';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => '新断点';
+
+  @override
+  String get webReverseReqBpTitle => '报文条件断点';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」';
+
+  @override
+  String get webReverseReqBpInterceptOff => '拦截未开启';
+
+  @override
+  String get webReverseReqBpAdd => '新增';
+
+  @override
+  String get webReverseReqBpEmptyHint => '点右上 + 新建第一个断点';
+
+  @override
+  String get webReverseReqBpUnnamed => '(未命名)';
+
+  @override
+  String get webReverseReqBpPickHint => '左侧选一条断点开始编辑';
+
+  @override
+  String get webReverseReqBpClear => '清空';
+
+  @override
+  String get webReverseReqBpNoHits => '暂无命中';
+
+  @override
+  String get webReverseReqBpNameField => '名称';
+
+  @override
+  String get webReverseReqBpAnyMethod => '任意方法';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL 包含';
+
+  @override
+  String get webReverseReqBpBodyContains => '请求体包含';
+
+  @override
+  String get webReverseReqBpEvalOnHit => '命中后执行（可选）';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      '例如 debugger; 或 console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => '删除此断点';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return '命中事件（最近 $count）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12870,6 +12928,64 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '共 $count 份';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => '新断点';
+
+  @override
+  String get webReverseReqBpTitle => '报文条件断点';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」';
+
+  @override
+  String get webReverseReqBpInterceptOff => '拦截未开启';
+
+  @override
+  String get webReverseReqBpAdd => '新增';
+
+  @override
+  String get webReverseReqBpEmptyHint => '点右上 + 新建第一个断点';
+
+  @override
+  String get webReverseReqBpUnnamed => '(未命名)';
+
+  @override
+  String get webReverseReqBpPickHint => '左侧选一条断点开始编辑';
+
+  @override
+  String get webReverseReqBpClear => '清空';
+
+  @override
+  String get webReverseReqBpNoHits => '暂无命中';
+
+  @override
+  String get webReverseReqBpNameField => '名称';
+
+  @override
+  String get webReverseReqBpAnyMethod => '任意方法';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL 包含';
+
+  @override
+  String get webReverseReqBpBodyContains => '请求体包含';
+
+  @override
+  String get webReverseReqBpEvalOnHit => '命中后执行（可选）';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      '例如 debugger; 或 console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => '删除此断点';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return '命中事件（最近 $count）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -19302,5 +19418,63 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '共 $count 份';
+  }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => '新断点';
+
+  @override
+  String get webReverseReqBpTitle => '报文条件断点';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」';
+
+  @override
+  String get webReverseReqBpInterceptOff => '拦截未开启';
+
+  @override
+  String get webReverseReqBpAdd => '新增';
+
+  @override
+  String get webReverseReqBpEmptyHint => '点右上 + 新建第一个断点';
+
+  @override
+  String get webReverseReqBpUnnamed => '(未命名)';
+
+  @override
+  String get webReverseReqBpPickHint => '左侧选一条断点开始编辑';
+
+  @override
+  String get webReverseReqBpClear => '清空';
+
+  @override
+  String get webReverseReqBpNoHits => '暂无命中';
+
+  @override
+  String get webReverseReqBpNameField => '名称';
+
+  @override
+  String get webReverseReqBpAnyMethod => '任意方法';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL 包含';
+
+  @override
+  String get webReverseReqBpBodyContains => '请求体包含';
+
+  @override
+  String get webReverseReqBpEvalOnHit => '命中后执行（可选）';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      '例如 debugger; 或 console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => '删除此断点';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return '命中事件（最近 $count）';
   }
 }

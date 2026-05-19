@@ -4522,5 +4522,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseReqBpNewBreakpoint": "新規ブレークポイント",
+  "@webReverseReqBpNewBreakpoint": {
+    "description": "webReverseReqBpNewBreakpoint"
+  },
+  "webReverseReqBpTitle": "リクエスト条件ブレークポイント",
+  "@webReverseReqBpTitle": {
+    "description": "webReverseReqBpTitle"
+  },
+  "webReverseReqBpSubtitle": "URL/Body 部分一致でヒットを記録し JS 式を実行。先にツールバーの「リクエスト傍受」を有効化してください",
+  "@webReverseReqBpSubtitle": {
+    "description": "webReverseReqBpSubtitle"
+  },
+  "webReverseReqBpInterceptOff": "傍受 OFF",
+  "@webReverseReqBpInterceptOff": {
+    "description": "webReverseReqBpInterceptOff"
+  },
+  "webReverseReqBpAdd": "追加",
+  "@webReverseReqBpAdd": {
+    "description": "webReverseReqBpAdd"
+  },
+  "webReverseReqBpEmptyHint": "右上の + で最初のブレークポイントを作成",
+  "@webReverseReqBpEmptyHint": {
+    "description": "webReverseReqBpEmptyHint"
+  },
+  "webReverseReqBpUnnamed": "(無名)",
+  "@webReverseReqBpUnnamed": {
+    "description": "webReverseReqBpUnnamed"
+  },
+  "webReverseReqBpPickHint": "左側でブレークポイントを選択して編集",
+  "@webReverseReqBpPickHint": {
+    "description": "webReverseReqBpPickHint"
+  },
+  "webReverseReqBpClear": "クリア",
+  "@webReverseReqBpClear": {
+    "description": "webReverseReqBpClear"
+  },
+  "webReverseReqBpNoHits": "ヒットなし",
+  "@webReverseReqBpNoHits": {
+    "description": "webReverseReqBpNoHits"
+  },
+  "webReverseReqBpNameField": "名前",
+  "@webReverseReqBpNameField": {
+    "description": "webReverseReqBpNameField"
+  },
+  "webReverseReqBpAnyMethod": "任意",
+  "@webReverseReqBpAnyMethod": {
+    "description": "webReverseReqBpAnyMethod"
+  },
+  "webReverseReqBpUrlContains": "URL 部分一致",
+  "@webReverseReqBpUrlContains": {
+    "description": "webReverseReqBpUrlContains"
+  },
+  "webReverseReqBpBodyContains": "ボディ部分一致",
+  "@webReverseReqBpBodyContains": {
+    "description": "webReverseReqBpBodyContains"
+  },
+  "webReverseReqBpEvalOnHit": "ヒット時に実行（任意）",
+  "@webReverseReqBpEvalOnHit": {
+    "description": "webReverseReqBpEvalOnHit"
+  },
+  "webReverseReqBpEvalHint": "例: debugger; や console.trace(\"hit\", new Error().stack)",
+  "@webReverseReqBpEvalHint": {
+    "description": "webReverseReqBpEvalHint"
+  },
+  "webReverseReqBpDeleteBreakpoint": "このブレークポイントを削除",
+  "@webReverseReqBpDeleteBreakpoint": {
+    "description": "webReverseReqBpDeleteBreakpoint"
+  },
+  "webReverseReqBpHitsCount": "ヒット (最近 {count})",
+  "@webReverseReqBpHitsCount": {
+    "description": "webReverseReqBpHitsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

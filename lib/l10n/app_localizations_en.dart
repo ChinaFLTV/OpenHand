@@ -6722,4 +6722,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '$count total';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => 'New breakpoint';
+
+  @override
+  String get webReverseReqBpTitle => 'Request Breakpoints';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'Match by URL/body substring → log hit + optional JS eval. Toggle \"Intercept\" first.';
+
+  @override
+  String get webReverseReqBpInterceptOff => 'Intercept OFF';
+
+  @override
+  String get webReverseReqBpAdd => 'Add';
+
+  @override
+  String get webReverseReqBpEmptyHint => 'Click + to add your first breakpoint';
+
+  @override
+  String get webReverseReqBpUnnamed => '(unnamed)';
+
+  @override
+  String get webReverseReqBpPickHint => 'Pick a breakpoint to edit';
+
+  @override
+  String get webReverseReqBpClear => 'Clear';
+
+  @override
+  String get webReverseReqBpNoHits => 'No hits yet';
+
+  @override
+  String get webReverseReqBpNameField => 'Name';
+
+  @override
+  String get webReverseReqBpAnyMethod => 'Any';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL contains';
+
+  @override
+  String get webReverseReqBpBodyContains => 'Body contains';
+
+  @override
+  String get webReverseReqBpEvalOnHit => 'Eval on hit (optional)';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      'e.g. debugger; or console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => 'Delete breakpoint';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return 'Hits (recent $count)';
+  }
 }

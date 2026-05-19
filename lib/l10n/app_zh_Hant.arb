@@ -4522,5 +4522,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseReqBpNewBreakpoint": "新断点",
+  "@webReverseReqBpNewBreakpoint": {
+    "description": "webReverseReqBpNewBreakpoint"
+  },
+  "webReverseReqBpTitle": "报文条件断点",
+  "@webReverseReqBpTitle": {
+    "description": "webReverseReqBpTitle"
+  },
+  "webReverseReqBpSubtitle": "URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」",
+  "@webReverseReqBpSubtitle": {
+    "description": "webReverseReqBpSubtitle"
+  },
+  "webReverseReqBpInterceptOff": "拦截未开启",
+  "@webReverseReqBpInterceptOff": {
+    "description": "webReverseReqBpInterceptOff"
+  },
+  "webReverseReqBpAdd": "新增",
+  "@webReverseReqBpAdd": {
+    "description": "webReverseReqBpAdd"
+  },
+  "webReverseReqBpEmptyHint": "点右上 + 新建第一个断点",
+  "@webReverseReqBpEmptyHint": {
+    "description": "webReverseReqBpEmptyHint"
+  },
+  "webReverseReqBpUnnamed": "(未命名)",
+  "@webReverseReqBpUnnamed": {
+    "description": "webReverseReqBpUnnamed"
+  },
+  "webReverseReqBpPickHint": "左侧选一条断点开始编辑",
+  "@webReverseReqBpPickHint": {
+    "description": "webReverseReqBpPickHint"
+  },
+  "webReverseReqBpClear": "清空",
+  "@webReverseReqBpClear": {
+    "description": "webReverseReqBpClear"
+  },
+  "webReverseReqBpNoHits": "暂无命中",
+  "@webReverseReqBpNoHits": {
+    "description": "webReverseReqBpNoHits"
+  },
+  "webReverseReqBpNameField": "名称",
+  "@webReverseReqBpNameField": {
+    "description": "webReverseReqBpNameField"
+  },
+  "webReverseReqBpAnyMethod": "任意方法",
+  "@webReverseReqBpAnyMethod": {
+    "description": "webReverseReqBpAnyMethod"
+  },
+  "webReverseReqBpUrlContains": "URL 包含",
+  "@webReverseReqBpUrlContains": {
+    "description": "webReverseReqBpUrlContains"
+  },
+  "webReverseReqBpBodyContains": "请求体包含",
+  "@webReverseReqBpBodyContains": {
+    "description": "webReverseReqBpBodyContains"
+  },
+  "webReverseReqBpEvalOnHit": "命中后执行（可选）",
+  "@webReverseReqBpEvalOnHit": {
+    "description": "webReverseReqBpEvalOnHit"
+  },
+  "webReverseReqBpEvalHint": "例如 debugger; 或 console.trace(\"hit\", new Error().stack)",
+  "@webReverseReqBpEvalHint": {
+    "description": "webReverseReqBpEvalHint"
+  },
+  "webReverseReqBpDeleteBreakpoint": "删除此断点",
+  "@webReverseReqBpDeleteBreakpoint": {
+    "description": "webReverseReqBpDeleteBreakpoint"
+  },
+  "webReverseReqBpHitsCount": "命中事件（最近 {count}）",
+  "@webReverseReqBpHitsCount": {
+    "description": "webReverseReqBpHitsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

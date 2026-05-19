@@ -11915,6 +11915,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'共 {count} 份'**
   String webReverseAccountSnapSnapshotsCount(int count);
+
+  /// webReverseReqBpNewBreakpoint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新断点'**
+  String get webReverseReqBpNewBreakpoint;
+
+  /// webReverseReqBpTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'报文条件断点'**
+  String get webReverseReqBpTitle;
+
+  /// webReverseReqBpSubtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」'**
+  String get webReverseReqBpSubtitle;
+
+  /// webReverseReqBpInterceptOff
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拦截未开启'**
+  String get webReverseReqBpInterceptOff;
+
+  /// webReverseReqBpAdd
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增'**
+  String get webReverseReqBpAdd;
+
+  /// webReverseReqBpEmptyHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点右上 + 新建第一个断点'**
+  String get webReverseReqBpEmptyHint;
+
+  /// webReverseReqBpUnnamed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(未命名)'**
+  String get webReverseReqBpUnnamed;
+
+  /// webReverseReqBpPickHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'左侧选一条断点开始编辑'**
+  String get webReverseReqBpPickHint;
+
+  /// webReverseReqBpClear
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseReqBpClear;
+
+  /// webReverseReqBpNoHits
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无命中'**
+  String get webReverseReqBpNoHits;
+
+  /// webReverseReqBpNameField
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称'**
+  String get webReverseReqBpNameField;
+
+  /// webReverseReqBpAnyMethod
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'任意方法'**
+  String get webReverseReqBpAnyMethod;
+
+  /// webReverseReqBpUrlContains
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 包含'**
+  String get webReverseReqBpUrlContains;
+
+  /// webReverseReqBpBodyContains
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求体包含'**
+  String get webReverseReqBpBodyContains;
+
+  /// webReverseReqBpEvalOnHit
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命中后执行（可选）'**
+  String get webReverseReqBpEvalOnHit;
+
+  /// webReverseReqBpEvalHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如 debugger; 或 console.trace(\"hit\", new Error().stack)'**
+  String get webReverseReqBpEvalHint;
+
+  /// webReverseReqBpDeleteBreakpoint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除此断点'**
+  String get webReverseReqBpDeleteBreakpoint;
+
+  /// webReverseReqBpHitsCount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命中事件（最近 {count}）'**
+  String webReverseReqBpHitsCount(int count);
 }
 
 class _AppLocalizationsDelegate

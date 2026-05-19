@@ -6810,4 +6810,65 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '$count au total';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => 'Nouveau point d\'arrêt';
+
+  @override
+  String get webReverseReqBpTitle => 'Points d\'arrêt de requête';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'Correspondance par sous-chaîne URL/Body → journal + éval JS facultative. Activez d\'abord « Intercept ».';
+
+  @override
+  String get webReverseReqBpInterceptOff => 'Intercept OFF';
+
+  @override
+  String get webReverseReqBpAdd => 'Ajouter';
+
+  @override
+  String get webReverseReqBpEmptyHint =>
+      'Cliquez sur + en haut à droite pour créer votre premier point d\'arrêt';
+
+  @override
+  String get webReverseReqBpUnnamed => '(sans nom)';
+
+  @override
+  String get webReverseReqBpPickHint =>
+      'Sélectionnez un point d\'arrêt à gauche pour le modifier';
+
+  @override
+  String get webReverseReqBpClear => 'Effacer';
+
+  @override
+  String get webReverseReqBpNoHits => 'Aucun déclenchement';
+
+  @override
+  String get webReverseReqBpNameField => 'Nom';
+
+  @override
+  String get webReverseReqBpAnyMethod => 'Toutes';
+
+  @override
+  String get webReverseReqBpUrlContains => 'L\'URL contient';
+
+  @override
+  String get webReverseReqBpBodyContains => 'Le corps contient';
+
+  @override
+  String get webReverseReqBpEvalOnHit =>
+      'Exécuter au déclenchement (facultatif)';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      'ex. debugger; ou console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => 'Supprimer ce point d\'arrêt';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return 'Déclenchements (récents $count)';
+  }
 }

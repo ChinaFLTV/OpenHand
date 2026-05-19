@@ -6781,4 +6781,64 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '$count insgesamt';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => 'Neuer Breakpoint';
+
+  @override
+  String get webReverseReqBpTitle => 'Request-Breakpoints';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'Treffer per URL-/Body-Teilstring protokollieren + optional JS auswerten. Erst „Intercept“ in der Toolbar aktivieren.';
+
+  @override
+  String get webReverseReqBpInterceptOff => 'Intercept AUS';
+
+  @override
+  String get webReverseReqBpAdd => 'Hinzufügen';
+
+  @override
+  String get webReverseReqBpEmptyHint =>
+      'Oben rechts auf + tippen, um den ersten Breakpoint anzulegen';
+
+  @override
+  String get webReverseReqBpUnnamed => '(unbenannt)';
+
+  @override
+  String get webReverseReqBpPickHint =>
+      'Links einen Breakpoint zum Bearbeiten wählen';
+
+  @override
+  String get webReverseReqBpClear => 'Leeren';
+
+  @override
+  String get webReverseReqBpNoHits => 'Noch keine Treffer';
+
+  @override
+  String get webReverseReqBpNameField => 'Name';
+
+  @override
+  String get webReverseReqBpAnyMethod => 'Beliebig';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL enthält';
+
+  @override
+  String get webReverseReqBpBodyContains => 'Body enthält';
+
+  @override
+  String get webReverseReqBpEvalOnHit => 'Bei Treffer ausführen (optional)';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      'z. B. debugger; oder console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => 'Breakpoint löschen';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return 'Treffer (zuletzt $count)';
+  }
 }

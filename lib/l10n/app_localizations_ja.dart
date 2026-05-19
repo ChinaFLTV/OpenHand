@@ -6533,4 +6533,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseAccountSnapSnapshotsCount(int count) {
     return '合計 $count 件';
   }
+
+  @override
+  String get webReverseReqBpNewBreakpoint => '新規ブレークポイント';
+
+  @override
+  String get webReverseReqBpTitle => 'リクエスト条件ブレークポイント';
+
+  @override
+  String get webReverseReqBpSubtitle =>
+      'URL/Body 部分一致でヒットを記録し JS 式を実行。先にツールバーの「リクエスト傍受」を有効化してください';
+
+  @override
+  String get webReverseReqBpInterceptOff => '傍受 OFF';
+
+  @override
+  String get webReverseReqBpAdd => '追加';
+
+  @override
+  String get webReverseReqBpEmptyHint => '右上の + で最初のブレークポイントを作成';
+
+  @override
+  String get webReverseReqBpUnnamed => '(無名)';
+
+  @override
+  String get webReverseReqBpPickHint => '左側でブレークポイントを選択して編集';
+
+  @override
+  String get webReverseReqBpClear => 'クリア';
+
+  @override
+  String get webReverseReqBpNoHits => 'ヒットなし';
+
+  @override
+  String get webReverseReqBpNameField => '名前';
+
+  @override
+  String get webReverseReqBpAnyMethod => '任意';
+
+  @override
+  String get webReverseReqBpUrlContains => 'URL 部分一致';
+
+  @override
+  String get webReverseReqBpBodyContains => 'ボディ部分一致';
+
+  @override
+  String get webReverseReqBpEvalOnHit => 'ヒット時に実行（任意）';
+
+  @override
+  String get webReverseReqBpEvalHint =>
+      '例: debugger; や console.trace(\"hit\", new Error().stack)';
+
+  @override
+  String get webReverseReqBpDeleteBreakpoint => 'このブレークポイントを削除';
+
+  @override
+  String webReverseReqBpHitsCount(int count) {
+    return 'ヒット (最近 $count)';
+  }
 }

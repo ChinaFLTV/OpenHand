@@ -4522,5 +4522,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseReqBpNewBreakpoint": "New breakpoint",
+  "@webReverseReqBpNewBreakpoint": {
+    "description": "webReverseReqBpNewBreakpoint"
+  },
+  "webReverseReqBpTitle": "Request Breakpoints",
+  "@webReverseReqBpTitle": {
+    "description": "webReverseReqBpTitle"
+  },
+  "webReverseReqBpSubtitle": "Match by URL/body substring → log hit + optional JS eval. Toggle \"Intercept\" first.",
+  "@webReverseReqBpSubtitle": {
+    "description": "webReverseReqBpSubtitle"
+  },
+  "webReverseReqBpInterceptOff": "Intercept OFF",
+  "@webReverseReqBpInterceptOff": {
+    "description": "webReverseReqBpInterceptOff"
+  },
+  "webReverseReqBpAdd": "Add",
+  "@webReverseReqBpAdd": {
+    "description": "webReverseReqBpAdd"
+  },
+  "webReverseReqBpEmptyHint": "Click + to add your first breakpoint",
+  "@webReverseReqBpEmptyHint": {
+    "description": "webReverseReqBpEmptyHint"
+  },
+  "webReverseReqBpUnnamed": "(unnamed)",
+  "@webReverseReqBpUnnamed": {
+    "description": "webReverseReqBpUnnamed"
+  },
+  "webReverseReqBpPickHint": "Pick a breakpoint to edit",
+  "@webReverseReqBpPickHint": {
+    "description": "webReverseReqBpPickHint"
+  },
+  "webReverseReqBpClear": "Clear",
+  "@webReverseReqBpClear": {
+    "description": "webReverseReqBpClear"
+  },
+  "webReverseReqBpNoHits": "No hits yet",
+  "@webReverseReqBpNoHits": {
+    "description": "webReverseReqBpNoHits"
+  },
+  "webReverseReqBpNameField": "Name",
+  "@webReverseReqBpNameField": {
+    "description": "webReverseReqBpNameField"
+  },
+  "webReverseReqBpAnyMethod": "Any",
+  "@webReverseReqBpAnyMethod": {
+    "description": "webReverseReqBpAnyMethod"
+  },
+  "webReverseReqBpUrlContains": "URL contains",
+  "@webReverseReqBpUrlContains": {
+    "description": "webReverseReqBpUrlContains"
+  },
+  "webReverseReqBpBodyContains": "Body contains",
+  "@webReverseReqBpBodyContains": {
+    "description": "webReverseReqBpBodyContains"
+  },
+  "webReverseReqBpEvalOnHit": "Eval on hit (optional)",
+  "@webReverseReqBpEvalOnHit": {
+    "description": "webReverseReqBpEvalOnHit"
+  },
+  "webReverseReqBpEvalHint": "e.g. debugger; or console.trace(\"hit\", new Error().stack)",
+  "@webReverseReqBpEvalHint": {
+    "description": "webReverseReqBpEvalHint"
+  },
+  "webReverseReqBpDeleteBreakpoint": "Delete breakpoint",
+  "@webReverseReqBpDeleteBreakpoint": {
+    "description": "webReverseReqBpDeleteBreakpoint"
+  },
+  "webReverseReqBpHitsCount": "Hits (recent {count})",
+  "@webReverseReqBpHitsCount": {
+    "description": "webReverseReqBpHitsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

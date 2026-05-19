@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -32,6 +33,7 @@ class _RequestBreakpointsDialog extends StatefulWidget {
     required this.isZh,
   });
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_RequestBreakpointsDialog> createState() =>
@@ -52,7 +54,8 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     final id = 'bp_${DateTime.now().microsecondsSinceEpoch}';
     final bp = WebReverseRequestBreakpoint(
       id: id,
-      name: widget.isZh ? '新断点' : 'New breakpoint',
+      name: AppLocalizations.of(context)?.webReverseReqBpNewBreakpoint ??
+          'New breakpoint',
       enabled: true,
       methodFilter: '',
       urlContains: '',
@@ -86,7 +89,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) => Dialog(
@@ -97,23 +100,23 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
           constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 720),
           child: Column(
             children: [
-              _buildHeader(theme, cs, isZh),
+              _buildHeader(theme, cs, loc),
               Divider(height: 1, color: cs.outlineVariant),
               Expanded(
                 child: Row(
                   children: [
                     SizedBox(
                       width: 340,
-                      child: _buildList(theme, cs, isZh),
+                      child: _buildList(theme, cs, loc),
                     ),
                     VerticalDivider(width: 1, color: cs.outlineVariant),
                     Expanded(
                       child: _selected == null
-                          ? _buildEmpty(theme, cs, isZh)
+                          ? _buildEmpty(theme, cs, loc)
                           : _BreakpointEditor(
                               key: ValueKey(_selected!.id),
                               breakpoint: _selected!,
-                              isZh: isZh,
+                              isZh: widget.isZh,
                               onChange: _update,
                               onDelete: () => _delete(_selected!),
                             ),
@@ -122,7 +125,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 ),
               ),
               Divider(height: 1, color: cs.outlineVariant),
-              _buildHits(theme, cs, isZh),
+              _buildHits(theme, cs, loc),
             ],
           ),
         ),
@@ -130,7 +133,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final ctrl = widget.controller;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
@@ -143,14 +146,13 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? '报文条件断点' : 'Request Breakpoints',
+                  loc?.webReverseReqBpTitle ?? 'Request Breakpoints',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  isZh
-                      ? 'URL/Body 子串命中即记录 + 触发 JS 表达式；需提前开启工具栏「请求拦截」'
-                      : 'Match by URL/body substring → log hit + optional JS eval. Toggle "Intercept" first.',
+                  loc?.webReverseReqBpSubtitle ??
+                      'Match by URL/body substring → log hit + optional JS eval. Toggle "Intercept" first.',
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -165,7 +167,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                isZh ? '拦截未开启' : 'Intercept OFF',
+                loc?.webReverseReqBpInterceptOff ?? 'Intercept OFF',
                 style: TextStyle(
                   color: cs.onErrorContainer,
                   fontWeight: FontWeight.w700,
@@ -174,7 +176,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
               ),
             ),
           IconButton(
-            tooltip: isZh ? '新增' : 'Add',
+            tooltip: loc?.webReverseReqBpAdd ?? 'Add',
             onPressed: _add,
             icon: const Icon(Icons.add_rounded),
           ),
@@ -187,7 +189,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     );
   }
 
-  Widget _buildList(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildList(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final list = widget.controller.requestBreakpoints;
     if (list.isEmpty) {
       return Center(
@@ -199,7 +201,8 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
               Icon(Icons.bookmark_add_rounded, size: 40, color: cs.onSurfaceVariant),
               const SizedBox(height: 10),
               Text(
-                isZh ? '点右上 + 新建第一个断点' : 'Click + to add your first breakpoint',
+                loc?.webReverseReqBpEmptyHint ??
+                    'Click + to add your first breakpoint',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: cs.onSurfaceVariant),
                 textAlign: TextAlign.center,
@@ -238,7 +241,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                       children: [
                         Text(
                           bp.name.isEmpty
-                              ? (isZh ? '(未命名)' : '(unnamed)')
+                              ? (loc?.webReverseReqBpUnnamed ?? '(unnamed)')
                               : bp.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -272,16 +275,16 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     );
   }
 
-  Widget _buildEmpty(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Center(
       child: Text(
-        isZh ? '左侧选一条断点开始编辑' : 'Pick a breakpoint to edit',
+        loc?.webReverseReqBpPickHint ?? 'Pick a breakpoint to edit',
         style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
     );
   }
 
-  Widget _buildHits(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHits(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final hits = widget.controller.requestBreakpointHits;
     return SizedBox(
       height: 180,
@@ -294,7 +297,8 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 Icon(Icons.bolt_rounded, size: 16, color: cs.primary),
                 const SizedBox(width: 6),
                 Text(
-                  isZh ? '命中事件（最近 ${hits.length}）' : 'Hits (recent ${hits.length})',
+                  loc?.webReverseReqBpHitsCount(hits.length) ??
+                      'Hits (recent ${hits.length})',
                   style: theme.textTheme.labelMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
@@ -302,7 +306,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 if (hits.isNotEmpty)
                   TextButton.icon(
                     icon: const Icon(Icons.clear_all_rounded, size: 16),
-                    label: Text(isZh ? '清空' : 'Clear'),
+                    label: Text(loc?.webReverseReqBpClear ?? 'Clear'),
                     onPressed: widget.controller.clearRequestBreakpointHits,
                   ),
               ],
@@ -312,7 +316,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
             child: hits.isEmpty
                 ? Center(
                     child: Text(
-                      isZh ? '暂无命中' : 'No hits yet',
+                      loc?.webReverseReqBpNoHits ?? 'No hits yet',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: cs.onSurfaceVariant),
                     ),
@@ -404,6 +408,7 @@ class _BreakpointEditor extends StatefulWidget {
     required this.onDelete,
   });
   final WebReverseRequestBreakpoint breakpoint;
+  // ignore: unused_field
   final bool isZh;
   final ValueChanged<WebReverseRequestBreakpoint> onChange;
   final VoidCallback onDelete;
@@ -451,7 +456,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: ListView(
@@ -459,7 +464,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           TextField(
             controller: _nameCtrl,
             decoration: InputDecoration(
-              labelText: isZh ? '名称' : 'Name',
+              labelText: loc?.webReverseReqBpNameField ?? 'Name',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -471,7 +476,9 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             children: [
               for (final m in const ['', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
                 ChoiceChip(
-                  label: Text(m.isEmpty ? (isZh ? '任意方法' : 'Any') : m),
+                  label: Text(m.isEmpty
+                      ? (loc?.webReverseReqBpAnyMethod ?? 'Any')
+                      : m),
                   selected: _method == m,
                   onSelected: (_) {
                     setState(() => _method = m);
@@ -484,7 +491,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           TextField(
             controller: _urlCtrl,
             decoration: InputDecoration(
-              labelText: isZh ? 'URL 包含' : 'URL contains',
+              labelText: loc?.webReverseReqBpUrlContains ?? 'URL contains',
               hintText: '/api/v1/sign',
               border: const OutlineInputBorder(),
               isDense: true,
@@ -495,7 +502,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           TextField(
             controller: _bodyCtrl,
             decoration: InputDecoration(
-              labelText: isZh ? '请求体包含' : 'Body contains',
+              labelText: loc?.webReverseReqBpBodyContains ?? 'Body contains',
               hintText: '"action":"login"',
               border: const OutlineInputBorder(),
               isDense: true,
@@ -504,7 +511,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           ),
           const SizedBox(height: 16),
           Text(
-            isZh ? '命中后执行（可选）' : 'Eval on hit (optional)',
+            loc?.webReverseReqBpEvalOnHit ?? 'Eval on hit (optional)',
             style: theme.textTheme.labelMedium
                 ?.copyWith(fontWeight: FontWeight.w800),
           ),
@@ -515,9 +522,8 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             maxLines: 10,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              hintText: isZh
-                  ? '例如 debugger; 或 console.trace("hit", new Error().stack)'
-                  : 'e.g. debugger; or console.trace("hit", new Error().stack)',
+              hintText: loc?.webReverseReqBpEvalHint ??
+                  'e.g. debugger; or console.trace("hit", new Error().stack)',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -528,7 +534,8 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               OpenHandDialogActionButton.destructive(
-                label: isZh ? '删除此断点' : 'Delete breakpoint',
+                label: loc?.webReverseReqBpDeleteBreakpoint ??
+                    'Delete breakpoint',
                 onPressed: widget.onDelete,
               ),
             ],
