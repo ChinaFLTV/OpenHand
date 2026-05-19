@@ -47,6 +47,13 @@ class McpLazyLoadingApplier {
       return _stripToolSearch(catalog);
     }
 
+    final forceVisibleEntryNames = mcpEntries
+        .where((entry) => forceVisibleNames.contains(entry.key))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    final forceVisibleNotice = forceVisibleEntryNames.isEmpty
+        ? null
+        : 'MCP lazy loading policy kept ${forceVisibleEntryNames.length} MCP tool(s) directly visible: ${forceVisibleEntryNames.join(', ')}.';
     final deferredEntries = mcpEntries
         .where(
           (entry) =>
@@ -63,7 +70,17 @@ class McpLazyLoadingApplier {
       };
     }
     if (deferredEntries.isEmpty) {
-      return _stripToolSearch(catalog);
+      final strippedCatalog = _stripToolSearch(catalog);
+      if (forceVisibleNotice == null) {
+        return strippedCatalog;
+      }
+      return AiResolvedToolCatalog(
+        definitions: strippedCatalog.definitions,
+        toolsByName: strippedCatalog.toolsByName,
+        notices: <String>[...strippedCatalog.notices, forceVisibleNotice],
+        mcpServerInstructionsByName:
+            strippedCatalog.mcpServerInstructionsByName,
+      );
     }
 
     final deferredKeys = deferredEntries.map((entry) => entry.key).toSet();
@@ -93,7 +110,11 @@ class McpLazyLoadingApplier {
           .map((entry) => entry.value.definition)
           .toList(growable: false),
       toolsByName: Map<String, AiResolvedTool>.fromEntries(keptEntries),
-      notices: <String>[...catalog.notices, notice],
+      notices: <String>[
+        ...catalog.notices,
+        notice,
+        if (forceVisibleNotice != null) forceVisibleNotice,
+      ],
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
     );
   }
