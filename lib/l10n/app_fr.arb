@@ -5929,5 +5929,78 @@
         "type": "int"
       }
     }
+  },
+  "webReverseHooksDefaultCode": "S'exécute avant chaque chargement du document ; patche window/fetch, etc.",
+  "@webReverseHooksDefaultCode": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSavedToast": "Enregistré et rechargé",
+  "@webReverseHooksSavedToast": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteTitle": "Supprimer le hook ?",
+  "@webReverseHooksDeleteTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteContent": "Sera désinstallé immédiatement et de manière irréversible.",
+  "@webReverseHooksDeleteContent": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDelete": "Supprimer",
+  "@webReverseHooksDelete": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardTitle": "Abandonner les modifications non enregistrées ?",
+  "@webReverseHooksDiscardTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksKeepEditing": "Continuer l'édition",
+  "@webReverseHooksKeepEditing": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardConfirm": "Abandonner",
+  "@webReverseHooksDiscardConfirm": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksLibrary": "Bibliothèque de hooks",
+  "@webReverseHooksLibrary": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNew": "Nouveau hook",
+  "@webReverseHooksNew": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksEmpty": "Aucun hook.\nAppuyez sur + pour en créer un.",
+  "@webReverseHooksEmpty": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksPickPrompt": "Sélectionnez un hook à gauche ou créez-en un.",
+  "@webReverseHooksPickPrompt": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNameLabel": "Nom",
+  "@webReverseHooksNameLabel": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSave": "Enregistrer (⌘S)",
+  "@webReverseHooksSave": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSaved": "Enregistré",
+  "@webReverseHooksSaved": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksInfo": "Enregistrer recharge instantanément. S'exécute avant chaque chargement ; persiste après changement d'onglet/recharge.",
+  "@webReverseHooksInfo": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNewName": "hook {time}",
+  "@webReverseHooksNewName": {
+    "description": "web_reverse: hooks",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

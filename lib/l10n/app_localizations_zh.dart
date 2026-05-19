@@ -7645,6 +7645,59 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return '字符 $chars / 字节 $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode => '在每个文档加载前执行；可 patch window/fetch 等';
+
+  @override
+  String get webReverseHooksSavedToast => '已保存并热重载';
+
+  @override
+  String get webReverseHooksDeleteTitle => '删除 hook？';
+
+  @override
+  String get webReverseHooksDeleteContent => '将立即卸载并不可撤销。';
+
+  @override
+  String get webReverseHooksDelete => '删除';
+
+  @override
+  String get webReverseHooksDiscardTitle => '丢弃未保存改动？';
+
+  @override
+  String get webReverseHooksKeepEditing => '继续编辑';
+
+  @override
+  String get webReverseHooksDiscardConfirm => '丢弃';
+
+  @override
+  String get webReverseHooksLibrary => 'JS Hook 库';
+
+  @override
+  String get webReverseHooksNew => '新建 hook';
+
+  @override
+  String get webReverseHooksEmpty => '暂无 hook。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseHooksPickPrompt => '从左侧选一个 hook，或新建一个。';
+
+  @override
+  String get webReverseHooksNameLabel => '名称';
+
+  @override
+  String get webReverseHooksSave => '保存 (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => '已保存';
+
+  @override
+  String get webReverseHooksInfo => '保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return '钩子 $time';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15288,6 +15341,59 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return '字符 $chars / 字节 $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode => '在每个文档加载前执行；可 patch window/fetch 等';
+
+  @override
+  String get webReverseHooksSavedToast => '已保存并热重载';
+
+  @override
+  String get webReverseHooksDeleteTitle => '删除 hook？';
+
+  @override
+  String get webReverseHooksDeleteContent => '将立即卸载并不可撤销。';
+
+  @override
+  String get webReverseHooksDelete => '删除';
+
+  @override
+  String get webReverseHooksDiscardTitle => '丢弃未保存改动？';
+
+  @override
+  String get webReverseHooksKeepEditing => '继续编辑';
+
+  @override
+  String get webReverseHooksDiscardConfirm => '丢弃';
+
+  @override
+  String get webReverseHooksLibrary => 'JS Hook 库';
+
+  @override
+  String get webReverseHooksNew => '新建 hook';
+
+  @override
+  String get webReverseHooksEmpty => '暂无 hook。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseHooksPickPrompt => '从左侧选一个 hook，或新建一个。';
+
+  @override
+  String get webReverseHooksNameLabel => '名称';
+
+  @override
+  String get webReverseHooksSave => '保存 (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => '已保存';
+
+  @override
+  String get webReverseHooksInfo => '保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return '钩子 $time';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22929,5 +23035,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return '字符 $chars / 字节 $bytes';
+  }
+
+  @override
+  String get webReverseHooksDefaultCode => '在每个文档加载前执行；可 patch window/fetch 等';
+
+  @override
+  String get webReverseHooksSavedToast => '已保存并热重载';
+
+  @override
+  String get webReverseHooksDeleteTitle => '删除 hook？';
+
+  @override
+  String get webReverseHooksDeleteContent => '将立即卸载并不可撤销。';
+
+  @override
+  String get webReverseHooksDelete => '删除';
+
+  @override
+  String get webReverseHooksDiscardTitle => '丢弃未保存改动？';
+
+  @override
+  String get webReverseHooksKeepEditing => '继续编辑';
+
+  @override
+  String get webReverseHooksDiscardConfirm => '丢弃';
+
+  @override
+  String get webReverseHooksLibrary => 'JS Hook 库';
+
+  @override
+  String get webReverseHooksNew => '新建 hook';
+
+  @override
+  String get webReverseHooksEmpty => '暂无 hook。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseHooksPickPrompt => '从左侧选一个 hook，或新建一个。';
+
+  @override
+  String get webReverseHooksNameLabel => '名称';
+
+  @override
+  String get webReverseHooksSave => '保存 (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => '已保存';
+
+  @override
+  String get webReverseHooksInfo => '保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return '钩子 $time';
   }
 }

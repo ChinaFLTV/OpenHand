@@ -7744,4 +7744,58 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return '文字 $chars / バイト $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode =>
+      '各ドキュメント読込前に実行；window/fetch などを patch 可能';
+
+  @override
+  String get webReverseHooksSavedToast => '保存してホットリロードしました';
+
+  @override
+  String get webReverseHooksDeleteTitle => 'hook を削除しますか？';
+
+  @override
+  String get webReverseHooksDeleteContent => '即座にアンロードされ、取り消せません。';
+
+  @override
+  String get webReverseHooksDelete => '削除';
+
+  @override
+  String get webReverseHooksDiscardTitle => '未保存の変更を破棄しますか？';
+
+  @override
+  String get webReverseHooksKeepEditing => '編集を続ける';
+
+  @override
+  String get webReverseHooksDiscardConfirm => '破棄';
+
+  @override
+  String get webReverseHooksLibrary => 'Hook ライブラリ';
+
+  @override
+  String get webReverseHooksNew => '新規 hook';
+
+  @override
+  String get webReverseHooksEmpty => 'hook がありません。\n+ をタップして作成。';
+
+  @override
+  String get webReverseHooksPickPrompt => '左から hook を選ぶか新規作成してください。';
+
+  @override
+  String get webReverseHooksNameLabel => '名前';
+
+  @override
+  String get webReverseHooksSave => '保存 (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => '保存済み';
+
+  @override
+  String get webReverseHooksInfo => '保存で即再装着。各ドキュメント読込前に実行；タブ切替/再読込後も有効。';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return 'フック $time';
+  }
 }

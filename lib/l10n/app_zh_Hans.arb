@@ -5998,5 +5998,78 @@
         "type": "int"
       }
     }
+  },
+  "webReverseHooksDefaultCode": "在每个文档加载前执行；可 patch window/fetch 等",
+  "@webReverseHooksDefaultCode": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSavedToast": "已保存并热重载",
+  "@webReverseHooksSavedToast": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteTitle": "删除 hook？",
+  "@webReverseHooksDeleteTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteContent": "将立即卸载并不可撤销。",
+  "@webReverseHooksDeleteContent": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDelete": "删除",
+  "@webReverseHooksDelete": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardTitle": "丢弃未保存改动？",
+  "@webReverseHooksDiscardTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksKeepEditing": "继续编辑",
+  "@webReverseHooksKeepEditing": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardConfirm": "丢弃",
+  "@webReverseHooksDiscardConfirm": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksLibrary": "JS Hook 库",
+  "@webReverseHooksLibrary": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNew": "新建 hook",
+  "@webReverseHooksNew": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksEmpty": "暂无 hook。\n点 + 新建第一个。",
+  "@webReverseHooksEmpty": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksPickPrompt": "从左侧选一个 hook，或新建一个。",
+  "@webReverseHooksPickPrompt": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNameLabel": "名称",
+  "@webReverseHooksNameLabel": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSave": "保存 (⌘S)",
+  "@webReverseHooksSave": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSaved": "已保存",
+  "@webReverseHooksSaved": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksInfo": "保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。",
+  "@webReverseHooksInfo": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNewName": "钩子 {time}",
+  "@webReverseHooksNewName": {
+    "description": "web_reverse: hooks",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

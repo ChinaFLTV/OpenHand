@@ -8057,4 +8057,63 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return 'car. $chars / octets $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode =>
+      'S\'exécute avant chaque chargement du document ; patche window/fetch, etc.';
+
+  @override
+  String get webReverseHooksSavedToast => 'Enregistré et rechargé';
+
+  @override
+  String get webReverseHooksDeleteTitle => 'Supprimer le hook ?';
+
+  @override
+  String get webReverseHooksDeleteContent =>
+      'Sera désinstallé immédiatement et de manière irréversible.';
+
+  @override
+  String get webReverseHooksDelete => 'Supprimer';
+
+  @override
+  String get webReverseHooksDiscardTitle =>
+      'Abandonner les modifications non enregistrées ?';
+
+  @override
+  String get webReverseHooksKeepEditing => 'Continuer l\'édition';
+
+  @override
+  String get webReverseHooksDiscardConfirm => 'Abandonner';
+
+  @override
+  String get webReverseHooksLibrary => 'Bibliothèque de hooks';
+
+  @override
+  String get webReverseHooksNew => 'Nouveau hook';
+
+  @override
+  String get webReverseHooksEmpty =>
+      'Aucun hook.\nAppuyez sur + pour en créer un.';
+
+  @override
+  String get webReverseHooksPickPrompt =>
+      'Sélectionnez un hook à gauche ou créez-en un.';
+
+  @override
+  String get webReverseHooksNameLabel => 'Nom';
+
+  @override
+  String get webReverseHooksSave => 'Enregistrer (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => 'Enregistré';
+
+  @override
+  String get webReverseHooksInfo =>
+      'Enregistrer recharge instantanément. S\'exécute avant chaque chargement ; persiste après changement d\'onglet/recharge.';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return 'hook $time';
+  }
 }

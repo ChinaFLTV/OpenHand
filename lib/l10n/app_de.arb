@@ -5929,5 +5929,78 @@
         "type": "int"
       }
     }
+  },
+  "webReverseHooksDefaultCode": "Wird vor jedem Laden des Dokuments ausgeführt; patcht window/fetch usw.",
+  "@webReverseHooksDefaultCode": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSavedToast": "Gespeichert und neu geladen",
+  "@webReverseHooksSavedToast": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteTitle": "Hook löschen?",
+  "@webReverseHooksDeleteTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDeleteContent": "Wird sofort entladen und kann nicht rückgängig gemacht werden.",
+  "@webReverseHooksDeleteContent": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDelete": "Löschen",
+  "@webReverseHooksDelete": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardTitle": "Nicht gespeicherte Änderungen verwerfen?",
+  "@webReverseHooksDiscardTitle": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksKeepEditing": "Weiter bearbeiten",
+  "@webReverseHooksKeepEditing": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksDiscardConfirm": "Verwerfen",
+  "@webReverseHooksDiscardConfirm": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksLibrary": "Hook-Bibliothek",
+  "@webReverseHooksLibrary": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNew": "Neuer Hook",
+  "@webReverseHooksNew": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksEmpty": "Noch keine Hooks.\nTippe + zum Erstellen.",
+  "@webReverseHooksEmpty": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksPickPrompt": "Wähle links einen Hook oder erstelle einen neuen.",
+  "@webReverseHooksPickPrompt": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNameLabel": "Name",
+  "@webReverseHooksNameLabel": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSave": "Speichern (⌘S)",
+  "@webReverseHooksSave": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksSaved": "Gespeichert",
+  "@webReverseHooksSaved": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksInfo": "Speichern lädt sofort neu. Läuft vor jedem Dokumentladen; bleibt nach Tab-Wechsel/Reload aktiv.",
+  "@webReverseHooksInfo": {
+    "description": "web_reverse: hooks pad"
+  },
+  "webReverseHooksNewName": "Hook {time}",
+  "@webReverseHooksNewName": {
+    "description": "web_reverse: hooks",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

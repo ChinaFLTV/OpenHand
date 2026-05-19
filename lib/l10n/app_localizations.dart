@@ -14056,6 +14056,108 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'字符 {chars} / 字节 {bytes}'**
   String webReverseCryptoLengthValue(int chars, int bytes);
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在每个文档加载前执行；可 patch window/fetch 等'**
+  String get webReverseHooksDefaultCode;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存并热重载'**
+  String get webReverseHooksSavedToast;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 hook？'**
+  String get webReverseHooksDeleteTitle;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将立即卸载并不可撤销。'**
+  String get webReverseHooksDeleteContent;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseHooksDelete;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'丢弃未保存改动？'**
+  String get webReverseHooksDiscardTitle;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'继续编辑'**
+  String get webReverseHooksKeepEditing;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'丢弃'**
+  String get webReverseHooksDiscardConfirm;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JS Hook 库'**
+  String get webReverseHooksLibrary;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建 hook'**
+  String get webReverseHooksNew;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无 hook。\n点 + 新建第一个。'**
+  String get webReverseHooksEmpty;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从左侧选一个 hook，或新建一个。'**
+  String get webReverseHooksPickPrompt;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称'**
+  String get webReverseHooksNameLabel;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存 (⌘S)'**
+  String get webReverseHooksSave;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存'**
+  String get webReverseHooksSaved;
+
+  /// web_reverse: hooks pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。'**
+  String get webReverseHooksInfo;
+
+  /// web_reverse: hooks
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'钩子 {time}'**
+  String webReverseHooksNewName(String time);
 }
 
 class _AppLocalizationsDelegate

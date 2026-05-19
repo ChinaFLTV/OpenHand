@@ -8020,4 +8020,63 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return 'Zeichen $chars / Bytes $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode =>
+      'Wird vor jedem Laden des Dokuments ausgeführt; patcht window/fetch usw.';
+
+  @override
+  String get webReverseHooksSavedToast => 'Gespeichert und neu geladen';
+
+  @override
+  String get webReverseHooksDeleteTitle => 'Hook löschen?';
+
+  @override
+  String get webReverseHooksDeleteContent =>
+      'Wird sofort entladen und kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get webReverseHooksDelete => 'Löschen';
+
+  @override
+  String get webReverseHooksDiscardTitle =>
+      'Nicht gespeicherte Änderungen verwerfen?';
+
+  @override
+  String get webReverseHooksKeepEditing => 'Weiter bearbeiten';
+
+  @override
+  String get webReverseHooksDiscardConfirm => 'Verwerfen';
+
+  @override
+  String get webReverseHooksLibrary => 'Hook-Bibliothek';
+
+  @override
+  String get webReverseHooksNew => 'Neuer Hook';
+
+  @override
+  String get webReverseHooksEmpty =>
+      'Noch keine Hooks.\nTippe + zum Erstellen.';
+
+  @override
+  String get webReverseHooksPickPrompt =>
+      'Wähle links einen Hook oder erstelle einen neuen.';
+
+  @override
+  String get webReverseHooksNameLabel => 'Name';
+
+  @override
+  String get webReverseHooksSave => 'Speichern (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => 'Gespeichert';
+
+  @override
+  String get webReverseHooksInfo =>
+      'Speichern lädt sofort neu. Läuft vor jedem Dokumentladen; bleibt nach Tab-Wechsel/Reload aktiv.';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return 'Hook $time';
+  }
 }

@@ -7944,4 +7944,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseCryptoLengthValue(int chars, int bytes) {
     return 'chars $chars / bytes $bytes';
   }
+
+  @override
+  String get webReverseHooksDefaultCode =>
+      'Runs before every document load; patch window/fetch etc.';
+
+  @override
+  String get webReverseHooksSavedToast => 'Saved and reloaded';
+
+  @override
+  String get webReverseHooksDeleteTitle => 'Delete hook?';
+
+  @override
+  String get webReverseHooksDeleteContent => 'Will be uninstalled immediately.';
+
+  @override
+  String get webReverseHooksDelete => 'Delete';
+
+  @override
+  String get webReverseHooksDiscardTitle => 'Discard unsaved changes?';
+
+  @override
+  String get webReverseHooksKeepEditing => 'Keep editing';
+
+  @override
+  String get webReverseHooksDiscardConfirm => 'Discard';
+
+  @override
+  String get webReverseHooksLibrary => 'Hook library';
+
+  @override
+  String get webReverseHooksNew => 'New hook';
+
+  @override
+  String get webReverseHooksEmpty => 'No hooks yet.\nTap + to create one.';
+
+  @override
+  String get webReverseHooksPickPrompt => 'Pick a hook or create one.';
+
+  @override
+  String get webReverseHooksNameLabel => 'Name';
+
+  @override
+  String get webReverseHooksSave => 'Save (⌘S)';
+
+  @override
+  String get webReverseHooksSaved => 'Saved';
+
+  @override
+  String get webReverseHooksInfo =>
+      'Save reloads instantly. Runs before each document loads; survives tab switch and reload.';
+
+  @override
+  String webReverseHooksNewName(String time) {
+    return 'hook $time';
+  }
 }

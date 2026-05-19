@@ -19,7 +19,7 @@ class _HooksBody extends StatefulWidget {
     required this.onPersist,
   });
   final WebReverseSessionController controller;
-  final bool isZh;
+  final bool isZh; // ignore: unused_field
   final VoidCallback onPersist;
 
   @override
@@ -123,12 +123,13 @@ class _HooksBodyState extends State<_HooksBody> {
 
   Future<void> _doNew() async {
     final ts = DateTime.now();
-    final isZh = widget.isZh;
-    final name = '${isZh ? "钩子" : "hook"} '
+    final loc = AppLocalizations.of(context);
+    final time =
         '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final name = loc?.webReverseHooksNewName(time) ?? 'hook $time';
     final h = await widget.controller.addHook(
       name: name,
-      code: '// ${isZh ? "在每个文档加载前执行；可 patch window/fetch 等" : "Runs before every document load; patch window/fetch etc."}\n'
+      code: '// ${loc?.webReverseHooksDefaultCode ?? 'Runs before every document load; patch window/fetch etc.'}\n'
           '(() => {\n  // hook here\n})();\n',
     );
     widget.onPersist();
@@ -152,9 +153,10 @@ class _HooksBodyState extends State<_HooksBody> {
     widget.onPersist();
     if (mounted) {
       setState(() => _dirty = false);
+      final loc = AppLocalizations.of(context);
       OpenHandSnackBar.showSuccess(
         context,
-        widget.isZh ? '已保存并热重载' : 'Saved and reloaded',
+        loc?.webReverseHooksSavedToast ?? 'Saved and reloaded',
       );
     }
   }
@@ -167,17 +169,18 @@ class _HooksBodyState extends State<_HooksBody> {
   void _delete() {
     final id = _selectedId;
     if (id == null) return;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '删除 hook？' : 'Delete hook?'),
-        content: Text(isZh ? '将立即卸载并不可撤销。' : 'Will be uninstalled immediately.'),
+        title: Text(loc?.webReverseHooksDeleteTitle ?? 'Delete hook?'),
+        content: Text(loc?.webReverseHooksDeleteContent ??
+            'Will be uninstalled immediately.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            child: Text(loc?.commonCancel ?? 'Cancel'),
           ),
           FilledButton.tonal(
             onPressed: () async {
@@ -185,7 +188,7 @@ class _HooksBodyState extends State<_HooksBody> {
               widget.onPersist();
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
-            child: Text(isZh ? '删除' : 'Delete'),
+            child: Text(loc?.webReverseHooksDelete ?? 'Delete'),
           ),
         ],
       ),
@@ -193,23 +196,24 @@ class _HooksBodyState extends State<_HooksBody> {
   }
 
   void _confirmDiscard(VoidCallback onConfirm) {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?'),
+        title: Text(loc?.webReverseHooksDiscardTitle ??
+            'Discard unsaved changes?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '继续编辑' : 'Keep editing'),
+            child: Text(loc?.webReverseHooksKeepEditing ?? 'Keep editing'),
           ),
           FilledButton.tonal(
             onPressed: () {
               Navigator.of(ctx).pop();
               onConfirm();
             },
-            child: Text(isZh ? '丢弃' : 'Discard'),
+            child: Text(loc?.webReverseHooksDiscardConfirm ?? 'Discard'),
           ),
         ],
       ),
@@ -220,7 +224,7 @@ class _HooksBodyState extends State<_HooksBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.hooks]
       ..sort((a, b) => (b.updatedAt ?? DateTime(0))
@@ -249,13 +253,13 @@ class _HooksBodyState extends State<_HooksBody> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isZh ? 'JS Hook 库' : 'Hook library',
+                            loc?.webReverseHooksLibrary ?? 'Hook library',
                             style: theme.textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         IconButton(
-                          tooltip: isZh ? '新建 hook' : 'New hook',
+                          tooltip: loc?.webReverseHooksNew ?? 'New hook',
                           icon: const Icon(Icons.add_rounded, size: 18),
                           onPressed: _newHook,
                         ),
@@ -269,9 +273,8 @@ class _HooksBodyState extends State<_HooksBody> {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
-                                isZh
-                                    ? '暂无 hook。\n点 + 新建第一个。'
-                                    : 'No hooks yet.\nTap + to create one.',
+                                loc?.webReverseHooksEmpty ??
+                                    'No hooks yet.\nTap + to create one.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall
                                     ?.copyWith(color: cs.onSurfaceVariant),
@@ -313,9 +316,8 @@ class _HooksBodyState extends State<_HooksBody> {
               child: _selectedId == null
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '从左侧选一个 hook，或新建一个。'
-                            : 'Pick a hook or create one.',
+                        loc?.webReverseHooksPickPrompt ??
+                            'Pick a hook or create one.',
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -331,7 +333,7 @@ class _HooksBodyState extends State<_HooksBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: isZh ? '名称' : 'Name',
+                                  labelText: loc?.webReverseHooksNameLabel ?? 'Name',
                                 ),
                               ),
                             ),
@@ -340,12 +342,12 @@ class _HooksBodyState extends State<_HooksBody> {
                               onPressed: _dirty ? _save : null,
                               icon: const Icon(Icons.save_rounded, size: 18),
                               label: Text(_dirty
-                                  ? (isZh ? '保存 (⌘S)' : 'Save (⌘S)')
-                                  : (isZh ? '已保存' : 'Saved')),
+                                  ? (loc?.webReverseHooksSave ?? 'Save (⌘S)')
+                                  : (loc?.webReverseHooksSaved ?? 'Saved')),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              tooltip: isZh ? '删除' : 'Delete',
+                              tooltip: loc?.webReverseHooksDelete ?? 'Delete',
                               icon: Icon(Icons.delete_outline_rounded,
                                   color: cs.error),
                               onPressed: _delete,
@@ -403,9 +405,8 @@ class _HooksBodyState extends State<_HooksBody> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  isZh
-                                      ? '保存即重装。脚本在文档加载前执行；切换 tab / 刷新页面后仍生效。'
-                                      : 'Save reloads instantly. Runs before each document loads; survives tab switch and reload.',
+                                  loc?.webReverseHooksInfo ??
+                                      'Save reloads instantly. Runs before each document loads; survives tab switch and reload.',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant),
                                 ),
