@@ -383,7 +383,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                         color: textColor,
                       )
-                    else if (!isSelfLearning && message.modelLabel != null)
+                    else if (!isUser &&
+                        !isSelfLearning &&
+                        message.modelLabel != null)
                       Text(
                         message.modelLabel!,
                         style: theme.textTheme.labelLarge?.copyWith(
@@ -396,7 +398,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         isReasoning ||
                         isToolCall ||
                         isToolResult ||
-                        (!isSelfLearning && message.modelLabel != null))
+                        (!isUser &&
+                            !isSelfLearning &&
+                            message.modelLabel != null))
                       const SizedBox(height: 10),
                     if (isCompressionPoint)
                       _CompressionCheckpointBody(
@@ -3888,7 +3892,6 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
 class _MediaPlayPauseIntent extends Intent {
   const _MediaPlayPauseIntent();
 }
-
 
 /// 流式助手消息尾部的「打字机」光标。
 ///

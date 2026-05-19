@@ -1258,7 +1258,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             if (nextPhase != AiSendPhase.idle) {
               break;
             }
-            if (context.read<SettingsController>().selectedAiModel == null) {
+            if (_effectiveModelForSession(
+                  context.read<SettingsController>(),
+                  session,
+                ) ==
+                null) {
               break;
             }
             late final _QueuedMessage nextMessage;
@@ -2102,7 +2106,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final entries = settingsController.flatModelEntries;
     if (entries.isEmpty) return;
 
-    final currentProvider = settingsController.selectedAiModel;
+    final sessionController = context.read<AiSessionController>();
+    final currentSession = sessionController.currentSession;
+    final currentProvider = _effectiveModelForSession(
+      settingsController,
+      currentSession,
+    );
     final currentProviderId = currentProvider?.id;
     final currentModelId = currentProvider?.modelId;
 
@@ -2117,8 +2126,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final baseIndex = currentIndex >= 0 ? currentIndex : 0;
     final nextIndex = (baseIndex + delta + entries.length) % entries.length;
     final next = entries[nextIndex];
+    if (currentSession == null) {
+      unawaited(
+        settingsController.updateProviderActiveModel(
+          next.providerConfigId,
+          next.modelId,
+        ),
+      );
+      return;
+    }
     unawaited(
-      settingsController.updateProviderActiveModel(
+      sessionController.updateSessionLastUsedModel(
+        currentSession.id,
+        providerConfigId: next.providerConfigId,
+        modelId: next.modelId,
+      ),
+    );
+    unawaited(
+      settingsController.addRecentModelSelection(
         next.providerConfigId,
         next.modelId,
       ),
@@ -2260,10 +2285,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (sessionController.currentSessionId != sessionId) {
         return;
       }
-      final session = sessionController.currentSession;
-      if (session != null) {
-        _tryRestoreSessionModel(session);
-      }
       if (_selectedSection != AppSection.workspace) {
         setState(() {
           _selectedSection = AppSection.workspace;
@@ -2277,41 +2298,37 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  /// Attempts to restore the model selection from the session's persisted
-  /// [AiSession.lastUsedModelId] and [AiSession.lastUsedModelLabel].
-  /// Falls back to the global default if the stored model is no longer available.
-  void _tryRestoreSessionModel(AiSession session) {
-    final storedProviderId = session.lastUsedModelId;
-    final storedModelId = session.lastUsedModelLabel;
+  AiModelConfig? _effectiveModelForSession(
+    SettingsController settingsController,
+    AiSession? session,
+  ) {
+    final fallback = settingsController.selectedAiModel;
+    final storedProviderId = session?.lastUsedModelId?.trim();
+    final storedModelId = session?.lastUsedModelLabel?.trim();
     if (storedProviderId == null ||
         storedProviderId.isEmpty ||
         storedModelId == null ||
         storedModelId.isEmpty) {
-      return;
+      return fallback;
     }
-    final settingsController = context.read<SettingsController>();
-    final providers = settingsController.aiModels;
-    // Find the provider config that matches storedProviderId.
-    final provider = providers.cast<AiModelConfig?>().firstWhere(
-      (p) => p!.id == storedProviderId,
-      orElse: () => null,
-    );
+    AiModelConfig? provider;
+    for (final item in settingsController.aiModels) {
+      if (item.id == storedProviderId) {
+        provider = item;
+        break;
+      }
+    }
     if (provider == null) {
-      // Provider no longer exists — keep the current global default.
-      return;
+      return fallback;
     }
-    // Check if the stored model ID is still in the provider's known models.
     final allIds = provider.allModelIds;
     if (allIds.isNotEmpty && !allIds.contains(storedModelId)) {
-      // Model was removed; just select the provider (uses its current modelId).
-      settingsController.updateSelectedAiModel(storedProviderId);
-      return;
+      return provider;
     }
-    // Restore both the provider selection and the specific model.
-    settingsController.updateProviderActiveModel(
-      storedProviderId,
-      storedModelId,
-    );
+    if (provider.modelId == storedModelId) {
+      return provider;
+    }
+    return provider.copyWith(modelId: storedModelId);
   }
 
   Future<String?> _showThreadTemplateDialog() async {
@@ -2326,9 +2343,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<MachineExpertDialogResult?> _showMachineExpertDialog({
     String? initialTask,
+    bool useGlobalDefault = false,
   }) async {
     final settingsController = context.read<SettingsController>();
-    final selectedModel = settingsController.selectedAiModel;
+    final selectedModel = useGlobalDefault
+        ? settingsController.selectedAiModel
+        : _effectiveModelForSession(
+            settingsController,
+            context.read<AiSessionController>().currentSession,
+          );
     return showAnimatedDialog<MachineExpertDialogResult>(
       context: context,
       builder: (context) => MachineExpertDialog(
@@ -2361,10 +2384,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!providerExists) {
       return;
     }
-    await settingsController.updateProviderActiveModel(
-      providerConfigId,
-      modelId,
-    );
     await settingsController.addRecentModelSelection(providerConfigId, modelId);
     final currentSessionId = sessionController.currentSessionId;
     if (currentSessionId != null) {
@@ -2426,7 +2445,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     if (templateId == 'machine_expert') {
-      final result = await _showMachineExpertDialog();
+      final result = await _showMachineExpertDialog(useGlobalDefault: true);
       if (!mounted || result == null) {
         return false;
       }
@@ -3357,7 +3376,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AppInfo appInfo,
     required AiSession? session,
   }) {
-    final model = settingsController.selectedAiModel;
+    final model = _effectiveModelForSession(settingsController, session);
     if (session == null || model == null) {
       _runtimeToolPreviewCacheKey = null;
       _runtimeToolPreviewCacheValue = null;
@@ -3762,7 +3781,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
-    final selectedModel = settingsController.selectedAiModel;
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      sessionController.currentSession,
+    );
     if (selectedModel == null) {
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.show(
@@ -4104,13 +4126,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
-    final selectedModel = settingsController.selectedAiModel;
-    if (selectedModel == null) return;
-
     final l10n = AppLocalizations.of(context)!;
     final initialSession = sessionController.sessions
         .cast<AiSession?>()
         .firstWhere((s) => s?.id == targetSessionId, orElse: () => null);
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      initialSession,
+    );
+    if (selectedModel == null) return;
     final initialUserMessageCount = initialSession != null
         ? _visibleUserMessageCount(initialSession)
         : 0;
@@ -4285,7 +4309,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return;
     }
-    final selectedModel = context.read<SettingsController>().selectedAiModel;
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      context.read<AiSessionController>().currentSession,
+    );
     if (selectedModel == null ||
         !_selectedModelSupportsAttachments(selectedModel)) {
       return;
@@ -4358,7 +4386,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _pickComposerAttachments() async {
     final l10n = AppLocalizations.of(context)!;
-    final selectedModel = context.read<SettingsController>().selectedAiModel;
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      context.read<AiSessionController>().currentSession,
+    );
     if (selectedModel == null) {
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.show(
@@ -5001,14 +5033,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context,
           session,
           activeProfile: () {
-            final selected = context.read<SettingsController>().selectedAiModel;
+            final selected = _effectiveModelForSession(
+              context.read<SettingsController>(),
+              session,
+            );
             return selected?.modelProfiles[selected.modelId];
           }(),
           claudeStyle:
-              context
-                  .read<SettingsController>()
-                  .selectedAiModel
-                  ?.protocolType ==
+              _effectiveModelForSession(
+                context.read<SettingsController>(),
+                session,
+              )?.protocolType ==
               AiProtocolType.claude,
         );
         return;
@@ -5320,14 +5355,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
-    // 解析模型：优先使用会话当前模型，回退到全局选中模型
-    AiModelConfig? model;
-    if (session.lastUsedModelId != null) {
-      model = settingsController.aiModels
-          .where((m) => m.id == session.lastUsedModelId)
-          .firstOrNull;
-    }
-    model ??= settingsController.selectedAiModel;
+    final model = _effectiveModelForSession(settingsController, session);
     if (model == null) {
       _showHomeSnackBar(
         context,
@@ -6363,6 +6391,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         : context.read<AiSessionController>();
     final appInfo = context.read<AppInfo>();
     final currentSession = sessionController.currentSession;
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      currentSession,
+    );
     final transcriptPreparing = _isPreparingTranscriptForSession(
       currentSession,
     );
@@ -6392,7 +6424,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentSession: currentSession,
         liveRuntimeToolPreview: liveRuntimeToolPreview,
         transcriptPreparing: transcriptPreparing,
-        selectedModel: settingsController.selectedAiModel,
+        selectedModel: selectedModel,
         availableModels: settingsController.aiModels,
         recentModelSelections: settingsController.recentModelSelections,
         onModelSelected: (providerConfigId, modelId) {
@@ -6418,19 +6450,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             );
             return;
           }
-          settingsController.updateProviderActiveModel(
-            providerConfigId,
-            modelId,
-          );
-          settingsController.addRecentModelSelection(providerConfigId, modelId);
-          // Persist the model selection to the current session.
           if (session != null) {
             sessionController.updateSessionLastUsedModel(
               session.id,
               providerConfigId: providerConfigId,
               modelId: modelId,
             );
+          } else {
+            settingsController.updateProviderActiveModel(
+              providerConfigId,
+              modelId,
+            );
           }
+          settingsController.addRecentModelSelection(providerConfigId, modelId);
         },
         composerFocusNode: _composerFocusNode,
         composerHeight: _composerHeight,
@@ -6511,9 +6543,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           }
         },
         pendingAttachments: _pendingAttachments,
-        attachmentsEnabled: _selectedModelSupportsAttachments(
-          settingsController.selectedAiModel,
-        ),
+        attachmentsEnabled: _selectedModelSupportsAttachments(selectedModel),
         onPickAttachments: _pickComposerAttachments,
         onRemoveAttachment: _removePendingAttachment,
         onReorderAttachments: _reorderPendingAttachments,

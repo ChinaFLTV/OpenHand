@@ -194,8 +194,10 @@ class _StreamCharThrottle {
   // ── 吞吐采样：保留最近 [_kThroughputBuckets] 秒的 grapheme 放出量，
   // 给 TopBar 仪表盘画曲线。每秒一个桶，O(1) 更新。
   static const int _kThroughputBuckets = 30;
-  final List<int> _graphemeThroughputBuckets =
-      List<int>.filled(_kThroughputBuckets, 0);
+  final List<int> _graphemeThroughputBuckets = List<int>.filled(
+    _kThroughputBuckets,
+    0,
+  );
   int _throughputBucketSecond = 0;
 
   void _recordEmission(int graphemes) {
@@ -330,9 +332,7 @@ class _StreamCharThrottle {
   /// 当前是否还有 pending grapheme 未被释放给 UI（仅在 isEnabled=true 时
   /// 有意义）。
   bool get hasPending =>
-      isEnabled &&
-      !_disposed &&
-      _emittedGraphemes < _lastKnownTotalGraphemes;
+      isEnabled && !_disposed && _emittedGraphemes < _lastKnownTotalGraphemes;
 
   /// 软排空：异步等待直到 _emittedGraphemes 追上 _lastKnownTotalGraphemes
   /// 或超过 [maxWait]。流结束后调用，让残余 grapheme 仍按节流速率均匀放
@@ -408,8 +408,7 @@ class _StreamCardThrottle {
   double _budget;
   DateTime _lastTickAt;
 
-  bool get isEnabled =>
-      (_enabledOverride ?? true) && maxCardsPerSecond > 0;
+  bool get isEnabled => (_enabledOverride ?? true) && maxCardsPerSecond > 0;
 
   /// 当前积压的待发卡片数（仅在 isEnabled=true 时有意义）。供 TopBar
   /// 节流胶囊把"等几张"实时反馈给用户。
@@ -506,5 +505,12 @@ class _StreamCardThrottle {
     } catch (_) {
       // ignore
     }
+  }
+
+  void cancelPending() {
+    _disposed = true;
+    _drainTimer?.cancel();
+    _drainTimer = null;
+    _pending.clear();
   }
 }

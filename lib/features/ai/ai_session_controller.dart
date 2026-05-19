@@ -712,9 +712,36 @@ class AiSessionController extends ChangeNotifier {
     final last = _lastCharThroughputSnapshot[sessionId];
     if (last != null) return last;
     return const <int>[
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
     ];
   }
 
@@ -744,10 +771,9 @@ class AiSessionController extends ChangeNotifier {
       AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
     );
     final current = _sessionStreamThrottleOverrides[sessionId];
-    final merged =
-        (current ?? const AiStreamThrottleOverride()).copyWith(
-          charsPerSecond: clamped,
-        );
+    final merged = (current ?? const AiStreamThrottleOverride()).copyWith(
+      charsPerSecond: clamped,
+    );
     if (merged.isEmpty) {
       if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
     } else {
@@ -765,8 +791,7 @@ class AiSessionController extends ChangeNotifier {
       activeReasoning.maxCharsPerSecond = clamped;
     }
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value =
-        _sessionStreamThrottleSignal.value + 1;
+    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
   /// 设置或清除某个会话的卡片节流覆盖。语义同
@@ -778,10 +803,9 @@ class AiSessionController extends ChangeNotifier {
       AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
     );
     final current = _sessionStreamThrottleOverrides[sessionId];
-    final merged =
-        (current ?? const AiStreamThrottleOverride()).copyWith(
-          cardsPerSecond: clamped,
-        );
+    final merged = (current ?? const AiStreamThrottleOverride()).copyWith(
+      cardsPerSecond: clamped,
+    );
     if (merged.isEmpty) {
       if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
     } else {
@@ -793,8 +817,7 @@ class AiSessionController extends ChangeNotifier {
       activeCard.maxCardsPerSecond = clamped;
     }
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value =
-        _sessionStreamThrottleSignal.value + 1;
+    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
   /// 2026-05-19 — 设置或清除某个会话的「启用节流」开关覆盖。
@@ -823,8 +846,7 @@ class AiSessionController extends ChangeNotifier {
     _activeReasoningCharThrottles[sessionId]?.enabledOverride = value;
     _activeCardThrottles[sessionId]?.enabledOverride = value;
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value =
-        _sessionStreamThrottleSignal.value + 1;
+    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
   /// 2026-05-19 — 该会话历史上是否曾经处于节流态。胶囊可见性判据之一。
@@ -836,8 +858,7 @@ class AiSessionController extends ChangeNotifier {
     if (sessionId.isEmpty) return;
     if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value =
-        _sessionStreamThrottleSignal.value + 1;
+    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
   /// 把 [_sessionStreamThrottleOverrides] 中 sessionId 对应的覆盖写入
@@ -931,11 +952,14 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedSessionId.isEmpty) {
       return false;
     }
+    final stopSignal = _sessionStopSignals[normalizedSessionId];
+    if (stopSignal != null && stopSignal.isCompleted) {
+      return false;
+    }
     if (sendPhaseForSession(normalizedSessionId) != AiSendPhase.idle) {
       return true;
     }
-    final stopSignal = _sessionStopSignals[normalizedSessionId];
-    return stopSignal != null && !stopSignal.isCompleted;
+    return stopSignal != null;
   }
 
   /// Temporarily transitions a session into [AiSendPhase.awaitingApproval].
@@ -3560,11 +3584,13 @@ class AiSessionController extends ChangeNotifier {
       // 优先级：session 临时覆盖 > 全局值（task 4 已删除模板覆盖层）。
       final sessionThrottleOverride =
           _sessionStreamThrottleOverrides[workingSession.id];
-      final effChars = sessionThrottleOverride?.charsPerSecond ??
+      final effChars =
+          sessionThrottleOverride?.charsPerSecond ??
           runtimeContext.effectiveStreamMaxCharsPerSecond(
             workingSession.templateId,
           );
-      final effCards = sessionThrottleOverride?.cardsPerSecond ??
+      final effCards =
+          sessionThrottleOverride?.cardsPerSecond ??
           runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
             workingSession.templateId,
           );
@@ -3886,8 +3912,8 @@ class AiSessionController extends ChangeNotifier {
         throttleExpiryTimer = null;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
-        _lastCharThroughputSnapshot[workingSession.id] =
-            charThrottle.throughputSnapshot();
+        _lastCharThroughputSnapshot[workingSession.id] = charThrottle
+            .throughputSnapshot();
         charThrottle.release();
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
@@ -3933,8 +3959,27 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       _setSessionCancelHandler(workingSession.id, null);
-      final didCancelStreamEarly =
+      var didCancelStreamEarly =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
+      Future<void> waitForDrainOrStop(Future<void> drainFuture) async {
+        final stopSignal = _stopSignalForSession(workingSession.id);
+        if (stopSignal == null ||
+            _isStopRequestedForSession(workingSession.id)) {
+          await drainFuture;
+          didCancelStreamEarly =
+              didCancelStreamEarly ||
+              _isStopRequestedForSession(workingSession.id);
+          return;
+        }
+        final winner = await Future.any<Object?>(<Future<Object?>>[
+          drainFuture.then<Object?>((_) => true),
+          stopSignal.then<Object?>((_) => false),
+        ]);
+        if (winner == false) {
+          didCancelStreamEarly = true;
+        }
+      }
+
       // 2026-05-17 — 软排空：如果服务端 stream 比节流速率快得多，结束
       // 时令牌桶里仍可能有几十/几百字符未释放。直接 release 会让 UI 一
       // 次性 burst 出剩余内容，破坏打字机体验。这里改为先等令牌按节奏
@@ -3957,20 +4002,20 @@ class AiSessionController extends ChangeNotifier {
       //     时长一到 throttle 自身就会 _isExpired，UI 已切到真实节奏；
       //   * 极端情况下增加一个 90s 防呆上限，避免单轮被无限拉长（>90s
       //     的内容用户也会主动 stop）。
+      didCancelStreamEarly =
+          didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
       if (!didCancelStreamEarly) {
         // 2026-05-22 — Bug 1 修复（task 3.2）：drainGracefully 的等待时
         // 长估算改用 grapheme 长度。继续用 raw buffer 的 UTF-16 长度会
         // 在中文 / emoji 场景下放大 maxWaitMs，让流末尾的 idle 等待变
         // 得不必要地长。这里先把 raw buffer sanitize 一遍，再用
         // `package:characters` 的 grapheme 长度估 pendingChars。
-        final assistantPendingGraphemes =
-            _sanitizeVisibleModelContent(assistantRawBuffer.toString())
-                .characters
-                .length;
-        final reasoningPendingGraphemes =
-            _sanitizeVisibleModelContent(reasoningRawBuffer.toString())
-                .characters
-                .length;
+        final assistantPendingGraphemes = _sanitizeVisibleModelContent(
+          assistantRawBuffer.toString(),
+        ).characters.length;
+        final reasoningPendingGraphemes = _sanitizeVisibleModelContent(
+          reasoningRawBuffer.toString(),
+        ).characters.length;
         final pendingChars = math.max(
           assistantPendingGraphemes,
           reasoningPendingGraphemes,
@@ -3995,21 +4040,22 @@ class AiSessionController extends ChangeNotifier {
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : throttleDuration == null
-                ? ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000
-                : math.min(
-                    8000,
-                    ((pendingChars * 1200) / effectiveCharsPerSec).ceil() +
-                        1000,
-                  );
+            ? ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000
+            : math.min(
+                8000,
+                ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000,
+              );
         if (maxWaitMs > 0) {
-          await Future.wait(<Future<void>>[
-            charThrottle.drainGracefully(
-              maxWait: Duration(milliseconds: maxWaitMs),
-            ),
-            reasoningCharThrottle.drainGracefully(
-              maxWait: Duration(milliseconds: maxWaitMs),
-            ),
-          ]).catchError((_) => <Object>[]);
+          await waitForDrainOrStop(
+            Future.wait(<Future<void>>[
+              charThrottle.drainGracefully(
+                maxWait: Duration(milliseconds: maxWaitMs),
+              ),
+              reasoningCharThrottle.drainGracefully(
+                maxWait: Duration(milliseconds: maxWaitMs),
+              ),
+            ]).then<void>((_) {}),
+          );
         }
         // 2026-05-25 — Bug 1 防御层（task 3 后续加固）：drainGracefully
         // 已尽力按 pendingChars/rate 自然 drain，但极端情况下（rate=0
@@ -4019,6 +4065,9 @@ class AiSessionController extends ChangeNotifier {
         // 输出」。这里 release 前再做一道兜底：检测 hasPending，发出
         // silentLog（regression 可观察），然后 16ms 一拍按 grapheme
         // 批次手动喂剩余字符，保证视觉上仍是「逐字铺开」而非一次性 dump。
+        didCancelStreamEarly =
+            didCancelStreamEarly ||
+            _isStopRequestedForSession(workingSession.id);
         if (!didCancelStreamEarly &&
             (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
           silentLog(
@@ -4034,8 +4083,10 @@ class AiSessionController extends ChangeNotifier {
           final fallbackStep = effChars <= 0
               ? const Duration(milliseconds: 32)
               : Duration(
-                  milliseconds: math
-                      .max(16, math.min(200, (1000 / effChars).ceil())),
+                  milliseconds: math.max(
+                    16,
+                    math.min(200, (1000 / effChars).ceil()),
+                  ),
                 );
           // 兜底总时长上限 5s，避免卡死 UI；超出后强制 release。
           final fallbackDeadline = DateTime.now().add(
@@ -4043,21 +4094,49 @@ class AiSessionController extends ChangeNotifier {
           );
           while (DateTime.now().isBefore(fallbackDeadline) &&
               !_isDisposed &&
-              (charThrottle.hasPending ||
-                  reasoningCharThrottle.hasPending)) {
+              !_isStopRequestedForSession(workingSession.id) &&
+              (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
             await Future<void>.delayed(fallbackStep);
             if (charThrottle.hasPending) renderAssistantBuffered();
             if (reasoningCharThrottle.hasPending) renderReasoningBuffered();
           }
+          didCancelStreamEarly =
+              didCancelStreamEarly ||
+              _isStopRequestedForSession(workingSession.id);
         }
       }
+      final didCancelStream =
+          didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
+      materializePendingReasoningPreview();
+      String visibleMessageContent(String? messageId) {
+        if (messageId == null) return '';
+        for (final message in streamedSession.messages) {
+          if (message.id == messageId) {
+            return message.content;
+          }
+        }
+        return '';
+      }
+
+      final visibleAssistantReplyWhenCancelled = didCancelStream
+          ? visibleMessageContent(assistantMessageId)
+          : null;
+      final visibleReasoningWhenCancelled = didCancelStream
+          ? ((pendingReasoningContent ?? '').isNotEmpty
+                ? pendingReasoningContent!
+                : visibleMessageContent(reasoningMessageId))
+          : null;
       // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
       // 超时也能把残余字符一次性补到 UI（兜底）。
-      _lastCharThroughputSnapshot[workingSession.id] =
-          charThrottle.throughputSnapshot();
+      _lastCharThroughputSnapshot[workingSession.id] = charThrottle
+          .throughputSnapshot();
       charThrottle.release();
       reasoningCharThrottle.release();
-      cardThrottle.releaseAll();
+      if (didCancelStream) {
+        cardThrottle.cancelPending();
+      } else {
+        cardThrottle.releaseAll();
+      }
       throttleExpiryTimer?.cancel();
       throttleExpiryTimer = null;
       _activeCardThrottles.remove(workingSession.id);
@@ -4066,7 +4145,6 @@ class AiSessionController extends ChangeNotifier {
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
       materializePendingReasoningPreview();
-      final didCancelStream = didCancelStreamEarly;
       // Always preserve the intermediate assistant narration if it has
       // meaningful content after sanitization.  Previous versions removed this
       // message when tool calls were present, which caused the AI's chain-of-
@@ -4075,7 +4153,10 @@ class AiSessionController extends ChangeNotifier {
       //
       // The sanitizer already strips raw <tool_call>/<tool_result> XML markup,
       // so what remains is the actual narration text that should be preserved.
-      final sanitizedReply = _sanitizeVisibleModelContent(result.reply);
+      final effectiveReply = didCancelStream
+          ? (visibleAssistantReplyWhenCancelled ?? '')
+          : result.reply;
+      final sanitizedReply = _sanitizeVisibleModelContent(effectiveReply);
       final hasMeaningfulNarration = sanitizedReply.trim().isNotEmpty;
       final shouldPersistIntermediateAssistantNarration =
           hasMeaningfulNarration || didCancelStream;
@@ -4084,7 +4165,7 @@ class AiSessionController extends ChangeNotifier {
         // out of the assistant's reply, write the summaries back into the
         // matching user-message attachments, and persist the cleaned text.
         final extraction = AiImageSummaryExtractor.extractAndStrip(
-          result.reply,
+          effectiveReply,
         );
         if (extraction.summariesByAttachmentId.isNotEmpty) {
           streamedSession = _applyImageSummariesToSession(
@@ -4095,7 +4176,7 @@ class AiSessionController extends ChangeNotifier {
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
           extraction.summariesByAttachmentId.isEmpty
-              ? result.reply
+              ? effectiveReply
               : extraction.strippedContent,
         );
       } else {
@@ -4113,7 +4194,9 @@ class AiSessionController extends ChangeNotifier {
       }
       streamedSession = syncFinalReasoningMessage(
         streamedSession,
-        result.reasoning,
+        didCancelStream
+            ? (visibleReasoningWhenCancelled ?? '')
+            : result.reasoning,
       );
       streamedSession = setReasoningStreamingState(streamedSession, false);
       flushPreview('stream_completed');
