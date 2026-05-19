@@ -157,6 +157,64 @@ void main() {
       contains('mcp__Generic_Browser__navigate_page'),
     );
   });
+
+  test('keeps documentation tools deferred when only text mentions CDP', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Docs__search',
+        serverName: 'Docs Search',
+        command: 'node',
+        args: const <String>['docs-mcp.js'],
+        toolId: 'search',
+        toolName: 'search',
+        description:
+            'Search local Chrome DevTools Protocol and CDP reference docs.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      isNot(contains('mcp__Docs__search')),
+    );
+  });
+
+  test('keeps CDP documentation search tools deferred by identity', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Docs__cdp_search',
+        serverName: 'Docs Search',
+        command: 'node',
+        args: const <String>['docs-mcp.js'],
+        toolId: 'cdp_search',
+        toolName: 'cdp search',
+        description: 'Search local protocol reference docs.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      isNot(contains('mcp__Docs__cdp_search')),
+    );
+  });
+
+  test('keeps custom CDP browser-control tools visible', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Browser__navigate_page',
+        serverName: 'Browser Controller',
+        command: 'node',
+        args: const <String>['custom-browser-mcp.js'],
+        toolId: 'navigate_page',
+        toolName: 'navigate page',
+        description: 'Navigate the current tab through a CDP session.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      contains('mcp__Browser__navigate_page'),
+    );
+  });
 }
 
 AiResolvedToolCatalog _catalog(List<AiResolvedTool> tools) {

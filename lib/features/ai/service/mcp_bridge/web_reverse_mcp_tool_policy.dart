@@ -69,10 +69,15 @@ class WebReverseMcpToolPolicy {
     ]);
     if (nonCdpAutomationByIdentity && !chromeDevtoolsMcpLaunch) return false;
 
+    final browserControlIdentity = _hasBrowserControlIdentity(identity);
+    final cdpByIdentity = _hasCdpSignal(identity) && browserControlIdentity;
+    final cdpByDescription =
+        _hasCdpSignal(descriptive) && browserControlIdentity;
+
     return chromeDevtoolsMcpLaunch ||
-        chromeDevtoolsByIdentity ||
-        _hasCdpSignal(identity) ||
-        _hasCdpSignal(descriptive);
+        (chromeDevtoolsByIdentity && browserControlIdentity) ||
+        cdpByIdentity ||
+        cdpByDescription;
   }
 
   static bool _hasChromeDevtoolsSignal(String value) {
@@ -92,6 +97,64 @@ class WebReverseMcpToolPolicy {
           'devtools protocol',
           'remote debugging protocol',
         ]);
+  }
+
+  static bool _hasBrowserControlIdentity(String value) {
+    final hasBrowserHost =
+        _hasCdpSignal(value) ||
+        _containsAny(value, const <String>[
+          'browser',
+          'chrome',
+          'chromium',
+          'edge',
+          'devtools',
+        ]);
+    if (!hasBrowserHost) return false;
+
+    return _containsAny(value, const <String>[
+      'call',
+      'click',
+      'close',
+      'command',
+      'console',
+      'cookie',
+      'debug',
+      'dom',
+      'drag',
+      'emulate',
+      'evaluate',
+      'fill',
+      'form',
+      'get',
+      'handle',
+      'har',
+      'hover',
+      'input',
+      'key',
+      'list',
+      'navigate',
+      'navigation',
+      'network',
+      'page',
+      'performance',
+      'press',
+      'request',
+      'resize',
+      'runtime',
+      'screenshot',
+      'select',
+      'send',
+      'session',
+      'snapshot',
+      'sse',
+      'storage',
+      'tab',
+      'target',
+      'trace',
+      'upload',
+      'wait',
+      'websocket',
+    ]);
   }
 
   static bool _containsAny(String value, Iterable<String> needles) {
