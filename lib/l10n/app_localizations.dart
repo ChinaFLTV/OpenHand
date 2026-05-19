@@ -12748,6 +12748,96 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'{count} 次'**
   String webReverseAiCryptoHits(int count);
+
+  /// No description provided for @webReverseCdpSendFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调用失败（未连接？）'**
+  String get webReverseCdpSendFailed;
+
+  /// No description provided for @webReverseCdpCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseCdpCopied;
+
+  /// No description provided for @webReverseCdpTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CDP Raw 命令控制台'**
+  String get webReverseCdpTitle;
+
+  /// No description provided for @webReverseCdpMethodLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'method (Domain.command)'**
+  String get webReverseCdpMethodLabel;
+
+  /// No description provided for @webReverseCdpUseSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'使用 page session'**
+  String get webReverseCdpUseSession;
+
+  /// No description provided for @webReverseCdpSend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送'**
+  String get webReverseCdpSend;
+
+  /// No description provided for @webReverseCdpNoHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'历史为空'**
+  String get webReverseCdpNoHistory;
+
+  /// No description provided for @webReverseCdpSendHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送命令后在此查看响应'**
+  String get webReverseCdpSendHint;
+
+  /// No description provided for @webReverseCdpClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCdpClose;
+
+  /// No description provided for @webReverseCdpCopyResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制响应 JSON'**
+  String get webReverseCdpCopyResponse;
+
+  /// No description provided for @webReverseCdpParams.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求参数'**
+  String get webReverseCdpParams;
+
+  /// No description provided for @webReverseCdpResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应'**
+  String get webReverseCdpResponse;
+
+  /// No description provided for @webReverseCdpError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误'**
+  String get webReverseCdpError;
+
+  /// Web reverse CDP console: invalid JSON params.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 解析失败：{error}'**
+  String webReverseCdpInvalidJson(String error);
+
+  /// Web reverse CDP console subtitle with shortcut hints and history count.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 {count} 条'**
+  String webReverseCdpSubtitle(int count);
 }
 
 class _AppLocalizationsDelegate

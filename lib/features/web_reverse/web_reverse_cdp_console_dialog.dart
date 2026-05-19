@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -48,6 +49,7 @@ Future<void> showWebReverseCdpConsoleDialog(
 class _CdpConsoleDialog extends StatefulWidget {
   const _CdpConsoleDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_CdpConsoleDialog> createState() => _CdpConsoleDialogState();
@@ -70,7 +72,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
   }
 
   Future<void> _send() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final method = _methodCtl.text.trim();
     if (method.isEmpty) {
       setState(() {});
@@ -88,7 +90,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
           OpenHandSnackBar.showErrorOn(
             context,
             m,
-            isZh ? 'JSON 解析失败：$err' : 'Invalid JSON: $err',
+            loc?.webReverseCdpInvalidJson('$err') ?? 'Invalid JSON: $err',
           );
         }
         return;
@@ -108,7 +110,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
         useSession: _useSession,
       );
       if (r == null) {
-        entry.error = isZh ? '调用失败（未连接？）' : 'Send failed';
+        entry.error = loc?.webReverseCdpSendFailed ?? 'Send failed';
       } else if (r['error'] != null) {
         entry.error = '${r['error']}';
       } else {
@@ -186,7 +188,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制' : 'Copied',
+        AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
       );
     }
   }
@@ -195,7 +197,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -216,14 +218,15 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isZh ? 'CDP Raw 命令控制台' : 'CDP Raw Console',
+                        loc?.webReverseCdpTitle ?? 'CDP Raw Console',
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        isZh
-                            ? '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 ${_cdpConsoleHistory.length} 条'
-                            : '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · ${_cdpConsoleHistory.length} entries',
+                        loc?.webReverseCdpSubtitle(
+                              _cdpConsoleHistory.length,
+                            ) ??
+                            '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · ${_cdpConsoleHistory.length} entries',
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -255,9 +258,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                 controller: _methodCtl,
                                 autofocus: true,
                                 decoration: InputDecoration(
-                                  labelText: isZh
-                                      ? 'method (Domain.command)'
-                                      : 'method',
+                                  labelText: loc?.webReverseCdpMethodLabel ??
+                                      'method',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
                                 ),
@@ -285,16 +287,16 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isZh
-                                      ? '使用 page session'
-                                      : 'use page session',
+                                  loc?.webReverseCdpUseSession ??
+                                      'use page session',
                                   style: theme.textTheme.labelMedium,
                                 ),
                                 const Spacer(),
                                 FilledButton.icon(
                                   onPressed: _busy ? null : _send,
                                   icon: const Icon(Icons.send_rounded),
-                                  label: Text(isZh ? '发送' : 'Send'),
+                                  label: Text(
+                                      loc?.webReverseCdpSend ?? 'Send'),
                                 ),
                               ]),
                             ],
@@ -306,7 +308,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                           child: _cdpConsoleHistory.isEmpty
                               ? Center(
                                   child: Text(
-                                    isZh ? '历史为空' : 'No history',
+                                    loc?.webReverseCdpNoHistory ?? 'No history',
                                     style: TextStyle(
                                         color: cs.onSurfaceVariant,
                                         fontSize: 12),
@@ -379,7 +381,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                     child: _historyCursor < 0 || _cdpConsoleHistory.isEmpty
                         ? Center(
                             child: Text(
-                              isZh ? '发送命令后在此查看响应' : 'Send a command',
+                              loc?.webReverseCdpSendHint ?? 'Send a command',
                               style: TextStyle(
                                   color: cs.onSurfaceVariant, fontSize: 12),
                             ),
@@ -394,7 +396,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseCdpClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -407,7 +409,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
 
   Widget _detailFor(_CdpHistoryEntry h) {
     final cs = Theme.of(context).colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -424,14 +426,15 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.copy_rounded, size: 18),
-              tooltip: isZh ? '复制响应 JSON' : 'Copy response',
+              tooltip:
+                  loc?.webReverseCdpCopyResponse ?? 'Copy response',
               onPressed: () => _copy(h.resultJson ?? h.error ?? ''),
             ),
           ]),
           if (h.paramsJson.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              isZh ? '请求参数' : 'Params',
+              loc?.webReverseCdpParams ?? 'Params',
               style: Theme.of(context).textTheme.labelSmall,
             ),
             Container(
@@ -449,7 +452,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
           ],
           const SizedBox(height: 10),
           Text(
-            h.error == null ? (isZh ? '响应' : 'Response') : (isZh ? '错误' : 'Error'),
+            h.error == null
+                ? (loc?.webReverseCdpResponse ?? 'Response')
+                : (loc?.webReverseCdpError ?? 'Error'),
             style: Theme.of(context).textTheme.labelSmall,
           ),
           Expanded(

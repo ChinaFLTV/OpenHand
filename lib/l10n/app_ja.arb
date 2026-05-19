@@ -4942,5 +4942,36 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCdpSendFailed": "送信失敗（未接続？）",
+  "webReverseCdpCopied": "コピーしました",
+  "webReverseCdpTitle": "CDP Raw コマンドコンソール",
+  "webReverseCdpMethodLabel": "method (Domain.command)",
+  "webReverseCdpUseSession": "page session を使用",
+  "webReverseCdpSend": "送信",
+  "webReverseCdpNoHistory": "履歴なし",
+  "webReverseCdpSendHint": "コマンドを送信すると応答がここに表示されます",
+  "webReverseCdpClose": "閉じる",
+  "webReverseCdpCopyResponse": "応答 JSON をコピー",
+  "webReverseCdpParams": "リクエストパラメータ",
+  "webReverseCdpResponse": "応答",
+  "webReverseCdpError": "エラー",
+  "webReverseCdpInvalidJson": "JSON 解析失敗: {error}",
+  "@webReverseCdpInvalidJson": {
+    "description": "Web reverse CDP console: invalid JSON params.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCdpSubtitle": "⌘/Ctrl+Enter 送信 · Ctrl+↑/↓ 履歴 · {count} 件",
+  "@webReverseCdpSubtitle": {
+    "description": "Web reverse CDP console subtitle with shortcut hints and history count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -6899,6 +6899,55 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseAiCryptoHits(int count) {
     return '$count 次';
   }
+
+  @override
+  String get webReverseCdpSendFailed => '调用失败（未连接？）';
+
+  @override
+  String get webReverseCdpCopied => '已复制';
+
+  @override
+  String get webReverseCdpTitle => 'CDP Raw 命令控制台';
+
+  @override
+  String get webReverseCdpMethodLabel => 'method (Domain.command)';
+
+  @override
+  String get webReverseCdpUseSession => '使用 page session';
+
+  @override
+  String get webReverseCdpSend => '发送';
+
+  @override
+  String get webReverseCdpNoHistory => '历史为空';
+
+  @override
+  String get webReverseCdpSendHint => '发送命令后在此查看响应';
+
+  @override
+  String get webReverseCdpClose => '关闭';
+
+  @override
+  String get webReverseCdpCopyResponse => '复制响应 JSON';
+
+  @override
+  String get webReverseCdpParams => '请求参数';
+
+  @override
+  String get webReverseCdpResponse => '响应';
+
+  @override
+  String get webReverseCdpError => '错误';
+
+  @override
+  String webReverseCdpInvalidJson(String error) {
+    return 'JSON 解析失败：$error';
+  }
+
+  @override
+  String webReverseCdpSubtitle(int count) {
+    return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13796,6 +13845,55 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseAiCryptoHits(int count) {
     return '$count 次';
   }
+
+  @override
+  String get webReverseCdpSendFailed => '调用失败（未连接？）';
+
+  @override
+  String get webReverseCdpCopied => '已复制';
+
+  @override
+  String get webReverseCdpTitle => 'CDP Raw 命令控制台';
+
+  @override
+  String get webReverseCdpMethodLabel => 'method (Domain.command)';
+
+  @override
+  String get webReverseCdpUseSession => '使用 page session';
+
+  @override
+  String get webReverseCdpSend => '发送';
+
+  @override
+  String get webReverseCdpNoHistory => '历史为空';
+
+  @override
+  String get webReverseCdpSendHint => '发送命令后在此查看响应';
+
+  @override
+  String get webReverseCdpClose => '关闭';
+
+  @override
+  String get webReverseCdpCopyResponse => '复制响应 JSON';
+
+  @override
+  String get webReverseCdpParams => '请求参数';
+
+  @override
+  String get webReverseCdpResponse => '响应';
+
+  @override
+  String get webReverseCdpError => '错误';
+
+  @override
+  String webReverseCdpInvalidJson(String error) {
+    return 'JSON 解析失败：$error';
+  }
+
+  @override
+  String webReverseCdpSubtitle(int count) {
+    return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20691,5 +20789,54 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseAiCryptoHits(int count) {
     return '$count 次';
+  }
+
+  @override
+  String get webReverseCdpSendFailed => '调用失败（未连接？）';
+
+  @override
+  String get webReverseCdpCopied => '已复制';
+
+  @override
+  String get webReverseCdpTitle => 'CDP Raw 命令控制台';
+
+  @override
+  String get webReverseCdpMethodLabel => 'method (Domain.command)';
+
+  @override
+  String get webReverseCdpUseSession => '使用 page session';
+
+  @override
+  String get webReverseCdpSend => '发送';
+
+  @override
+  String get webReverseCdpNoHistory => '历史为空';
+
+  @override
+  String get webReverseCdpSendHint => '发送命令后在此查看响应';
+
+  @override
+  String get webReverseCdpClose => '关闭';
+
+  @override
+  String get webReverseCdpCopyResponse => '复制响应 JSON';
+
+  @override
+  String get webReverseCdpParams => '请求参数';
+
+  @override
+  String get webReverseCdpResponse => '响应';
+
+  @override
+  String get webReverseCdpError => '错误';
+
+  @override
+  String webReverseCdpInvalidJson(String error) {
+    return 'JSON 解析失败：$error';
+  }
+
+  @override
+  String webReverseCdpSubtitle(int count) {
+    return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
   }
 }

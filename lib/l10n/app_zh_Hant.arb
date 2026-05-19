@@ -4942,5 +4942,36 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCdpSendFailed": "调用失败（未连接？）",
+  "webReverseCdpCopied": "已复制",
+  "webReverseCdpTitle": "CDP Raw 命令控制台",
+  "webReverseCdpMethodLabel": "method (Domain.command)",
+  "webReverseCdpUseSession": "使用 page session",
+  "webReverseCdpSend": "发送",
+  "webReverseCdpNoHistory": "历史为空",
+  "webReverseCdpSendHint": "发送命令后在此查看响应",
+  "webReverseCdpClose": "关闭",
+  "webReverseCdpCopyResponse": "复制响应 JSON",
+  "webReverseCdpParams": "请求参数",
+  "webReverseCdpResponse": "响应",
+  "webReverseCdpError": "错误",
+  "webReverseCdpInvalidJson": "JSON 解析失败：{error}",
+  "@webReverseCdpInvalidJson": {
+    "description": "Web reverse CDP console: invalid JSON params.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCdpSubtitle": "⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 {count} 条",
+  "@webReverseCdpSubtitle": {
+    "description": "Web reverse CDP console subtitle with shortcut hints and history count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

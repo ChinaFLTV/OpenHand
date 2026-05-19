@@ -6997,4 +6997,53 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseAiCryptoHits(int count) {
     return '$count 件';
   }
+
+  @override
+  String get webReverseCdpSendFailed => '送信失敗（未接続？）';
+
+  @override
+  String get webReverseCdpCopied => 'コピーしました';
+
+  @override
+  String get webReverseCdpTitle => 'CDP Raw コマンドコンソール';
+
+  @override
+  String get webReverseCdpMethodLabel => 'method (Domain.command)';
+
+  @override
+  String get webReverseCdpUseSession => 'page session を使用';
+
+  @override
+  String get webReverseCdpSend => '送信';
+
+  @override
+  String get webReverseCdpNoHistory => '履歴なし';
+
+  @override
+  String get webReverseCdpSendHint => 'コマンドを送信すると応答がここに表示されます';
+
+  @override
+  String get webReverseCdpClose => '閉じる';
+
+  @override
+  String get webReverseCdpCopyResponse => '応答 JSON をコピー';
+
+  @override
+  String get webReverseCdpParams => 'リクエストパラメータ';
+
+  @override
+  String get webReverseCdpResponse => '応答';
+
+  @override
+  String get webReverseCdpError => 'エラー';
+
+  @override
+  String webReverseCdpInvalidJson(String error) {
+    return 'JSON 解析失敗: $error';
+  }
+
+  @override
+  String webReverseCdpSubtitle(int count) {
+    return '⌘/Ctrl+Enter 送信 · Ctrl+↑/↓ 履歴 · $count 件';
+  }
 }

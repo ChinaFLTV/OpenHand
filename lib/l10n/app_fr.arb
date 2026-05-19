@@ -4942,5 +4942,36 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCdpSendFailed": "Échec de l'envoi",
+  "webReverseCdpCopied": "Copié",
+  "webReverseCdpTitle": "Console CDP brute",
+  "webReverseCdpMethodLabel": "method (Domain.command)",
+  "webReverseCdpUseSession": "Utiliser page session",
+  "webReverseCdpSend": "Envoyer",
+  "webReverseCdpNoHistory": "Aucun historique",
+  "webReverseCdpSendHint": "Envoyer une commande pour voir la réponse",
+  "webReverseCdpClose": "Fermer",
+  "webReverseCdpCopyResponse": "Copier la réponse",
+  "webReverseCdpParams": "Paramètres",
+  "webReverseCdpResponse": "Réponse",
+  "webReverseCdpError": "Erreur",
+  "webReverseCdpInvalidJson": "JSON invalide : {error}",
+  "@webReverseCdpInvalidJson": {
+    "description": "Web reverse CDP console: invalid JSON params.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCdpSubtitle": "⌘/Ctrl+Enter envoyer · Ctrl+↑/↓ historique · {count} entrées",
+  "@webReverseCdpSubtitle": {
+    "description": "Web reverse CDP console subtitle with shortcut hints and history count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

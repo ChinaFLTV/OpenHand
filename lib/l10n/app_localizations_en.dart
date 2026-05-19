@@ -7191,4 +7191,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseAiCryptoHits(int count) {
     return '$count hits';
   }
+
+  @override
+  String get webReverseCdpSendFailed => 'Send failed';
+
+  @override
+  String get webReverseCdpCopied => 'Copied';
+
+  @override
+  String get webReverseCdpTitle => 'CDP Raw Console';
+
+  @override
+  String get webReverseCdpMethodLabel => 'method';
+
+  @override
+  String get webReverseCdpUseSession => 'use page session';
+
+  @override
+  String get webReverseCdpSend => 'Send';
+
+  @override
+  String get webReverseCdpNoHistory => 'No history';
+
+  @override
+  String get webReverseCdpSendHint => 'Send a command';
+
+  @override
+  String get webReverseCdpClose => 'Close';
+
+  @override
+  String get webReverseCdpCopyResponse => 'Copy response';
+
+  @override
+  String get webReverseCdpParams => 'Params';
+
+  @override
+  String get webReverseCdpResponse => 'Response';
+
+  @override
+  String get webReverseCdpError => 'Error';
+
+  @override
+  String webReverseCdpInvalidJson(String error) {
+    return 'Invalid JSON: $error';
+  }
+
+  @override
+  String webReverseCdpSubtitle(int count) {
+    return '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · $count entries';
+  }
 }
