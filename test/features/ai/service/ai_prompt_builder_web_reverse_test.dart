@@ -146,6 +146,8 @@ void main() {
         runtimeMap['fallback_policy'],
         contains('Live CDP MCP actions require browser_alive=true'),
       );
+      expect(runtimeMap['config'], containsPair('desired_cdp_port', 9222));
+      expect(runtimeMap['config'], isNot(contains('cdp_port')));
       expect(cdpRuntime['browser_alive'], false);
       expect(cdpRuntime['is_running'], false);
       expect(cdpRuntime['last_cdp_port'], 9233);

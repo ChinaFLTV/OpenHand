@@ -19,7 +19,7 @@
 
 <environment>
 **浏览器**：用户机的 Chrome / Edge / Brave / Chromium，会话创建时拉起，画面 screencast 镜像进 dashboard「浏览器」tab。崩溃时面板切到「重启浏览器」占位。
-**通道**：CDP WebSocket，实际端点优先看 metadata `web_reverse_cdp_runtime`（`cdp_http_endpoint` / `json_list_url` / `cdp_port`）；`web_reverse_config.cdp_port` 只是期望端口（9222–9322）。抖动自动重连并恢复持久 Header / 屏蔽 URL / screencast / page target。
+**通道**：CDP WebSocket，实际端点优先看 metadata `web_reverse_cdp_runtime`（`cdp_http_endpoint` / `json_list_url` / `cdp_port` / `last_cdp_port`）；runtime snapshot 的 `config.desired_cdp_port` 或原始 metadata `web_reverse_config.cdp_port` 只是期望端口（9222–9322）。抖动自动重连并恢复持久 Header / 屏蔽 URL / screencast / page target。
 **状态一致性**：dashboard 的浏览器 / 网络 / 控制台 / 源码 / 元素 / 应用 / 性能等面板都来自同一 CDP 通道与本地 jsonl/HAR 落盘；回答前若不确定，以 CDP 工具或落盘文件重新读取，不猜。
 **工作目录**：`WD/.web_reverse/<session_id>/{network,scripts,screenshots,har}/`。
 </environment>

@@ -1570,7 +1570,11 @@ class AiPromptBuilder {
     Object? cdpRuntime,
   ) {
     if (!config.containsKey('cdp_port')) return;
-    if (cdpRuntime is! Map || !cdpRuntime.containsKey('cdp_port')) return;
+    if (cdpRuntime is! Map ||
+        (!cdpRuntime.containsKey('cdp_port') &&
+            !cdpRuntime.containsKey('last_cdp_port'))) {
+      return;
+    }
     config['desired_cdp_port'] = config.remove('cdp_port');
   }
 
