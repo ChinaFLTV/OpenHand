@@ -3471,5 +3471,108 @@
         "type": "String"
       }
     }
+  },
+  "webReverseResendRequestUrlEmpty": "URL is required",
+  "@webReverseResendRequestUrlEmpty": {
+    "description": "web_reverse: Resend request dialog · urlempty"
+  },
+  "webReverseResendRequestUrlInvalid": "Invalid URL",
+  "@webReverseResendRequestUrlInvalid": {
+    "description": "web_reverse: Resend request dialog · urlinvalid"
+  },
+  "webReverseResendRequestAborted": "Aborted",
+  "@webReverseResendRequestAborted": {
+    "description": "web_reverse: Resend request dialog · aborted"
+  },
+  "webReverseResendRequestFooterNote": "This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).",
+  "@webReverseResendRequestFooterNote": {
+    "description": "web_reverse: Resend request dialog · footernote"
+  },
+  "webReverseResendRequestClose": "Close",
+  "@webReverseResendRequestClose": {
+    "description": "web_reverse: Resend request dialog · close"
+  },
+  "webReverseResendRequestAbort": "Abort",
+  "@webReverseResendRequestAbort": {
+    "description": "web_reverse: Resend request dialog · abort"
+  },
+  "webReverseResendRequestSend": "Send",
+  "@webReverseResendRequestSend": {
+    "description": "web_reverse: Resend request dialog · send"
+  },
+  "webReverseResendRequestTitle": "Resend / Edit",
+  "@webReverseResendRequestTitle": {
+    "description": "web_reverse: Resend request dialog · title"
+  },
+  "webReverseResendRequestHeadersLabel": "Headers",
+  "@webReverseResendRequestHeadersLabel": {
+    "description": "web_reverse: Resend request dialog · headerslabel"
+  },
+  "webReverseResendRequestAddRow": "Add",
+  "@webReverseResendRequestAddRow": {
+    "description": "web_reverse: Resend request dialog · addrow"
+  },
+  "webReverseResendRequestRemove": "Remove",
+  "@webReverseResendRequestRemove": {
+    "description": "web_reverse: Resend request dialog · remove"
+  },
+  "webReverseResendRequestBodyLabel": "Body",
+  "@webReverseResendRequestBodyLabel": {
+    "description": "web_reverse: Resend request dialog · bodylabel"
+  },
+  "webReverseResendRequestBeautifyJson": "Beautify JSON",
+  "@webReverseResendRequestBeautifyJson": {
+    "description": "web_reverse: Resend request dialog · beautifyjson"
+  },
+  "webReverseResendRequestInvalidJson": "Body is not valid JSON",
+  "@webReverseResendRequestInvalidJson": {
+    "description": "web_reverse: Resend request dialog · invalidjson"
+  },
+  "webReverseResendRequestExportAs": "Export as:",
+  "@webReverseResendRequestExportAs": {
+    "description": "web_reverse: Resend request dialog · exportas"
+  },
+  "webReverseResendRequestCopyResponse": "Copy response",
+  "@webReverseResendRequestCopyResponse": {
+    "description": "web_reverse: Resend request dialog · copyresponse"
+  },
+  "webReverseResendRequestResponseCopied": "Response copied",
+  "@webReverseResendRequestResponseCopied": {
+    "description": "web_reverse: Resend request dialog · responsecopied"
+  },
+  "webReverseResendRequestBase64Hint": "Non-UTF8 response (base64 preview):",
+  "@webReverseResendRequestBase64Hint": {
+    "description": "web_reverse: Resend request dialog · base64hint"
+  },
+  "webReverseResendRequestBodyHint": "Body:",
+  "@webReverseResendRequestBodyHint": {
+    "description": "web_reverse: Resend request dialog · bodyhint"
+  },
+  "webReverseResendRequestCopiedAs": "Copied as {kind}",
+  "@webReverseResendRequestCopiedAs": {
+    "description": "web_reverse: Resend request dialog · copiedas",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseResendRequestHasNoBody": "{method} has no body",
+  "@webReverseResendRequestHasNoBody": {
+    "description": "web_reverse: Resend request dialog · hasnobody",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseResendRequestHeadersWithCount": "Headers ({count})",
+  "@webReverseResendRequestHeadersWithCount": {
+    "description": "web_reverse: Resend request dialog · headerswithcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

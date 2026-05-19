@@ -3540,5 +3540,108 @@
         "type": "String"
       }
     }
+  },
+  "webReverseResendRequestUrlEmpty": "URL 不能为空",
+  "@webReverseResendRequestUrlEmpty": {
+    "description": "web_reverse: Resend request dialog · urlempty"
+  },
+  "webReverseResendRequestUrlInvalid": "URL 非法",
+  "@webReverseResendRequestUrlInvalid": {
+    "description": "web_reverse: Resend request dialog · urlinvalid"
+  },
+  "webReverseResendRequestAborted": "已中止",
+  "@webReverseResendRequestAborted": {
+    "description": "web_reverse: Resend request dialog · aborted"
+  },
+  "webReverseResendRequestFooterNote": "注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。",
+  "@webReverseResendRequestFooterNote": {
+    "description": "web_reverse: Resend request dialog · footernote"
+  },
+  "webReverseResendRequestClose": "关闭",
+  "@webReverseResendRequestClose": {
+    "description": "web_reverse: Resend request dialog · close"
+  },
+  "webReverseResendRequestAbort": "中止",
+  "@webReverseResendRequestAbort": {
+    "description": "web_reverse: Resend request dialog · abort"
+  },
+  "webReverseResendRequestSend": "重放发送",
+  "@webReverseResendRequestSend": {
+    "description": "web_reverse: Resend request dialog · send"
+  },
+  "webReverseResendRequestTitle": "重放 / 改包",
+  "@webReverseResendRequestTitle": {
+    "description": "web_reverse: Resend request dialog · title"
+  },
+  "webReverseResendRequestHeadersLabel": "请求头",
+  "@webReverseResendRequestHeadersLabel": {
+    "description": "web_reverse: Resend request dialog · headerslabel"
+  },
+  "webReverseResendRequestAddRow": "加一行",
+  "@webReverseResendRequestAddRow": {
+    "description": "web_reverse: Resend request dialog · addrow"
+  },
+  "webReverseResendRequestRemove": "删除",
+  "@webReverseResendRequestRemove": {
+    "description": "web_reverse: Resend request dialog · remove"
+  },
+  "webReverseResendRequestBodyLabel": "请求体",
+  "@webReverseResendRequestBodyLabel": {
+    "description": "web_reverse: Resend request dialog · bodylabel"
+  },
+  "webReverseResendRequestBeautifyJson": "美化 JSON",
+  "@webReverseResendRequestBeautifyJson": {
+    "description": "web_reverse: Resend request dialog · beautifyjson"
+  },
+  "webReverseResendRequestInvalidJson": "不是合法 JSON",
+  "@webReverseResendRequestInvalidJson": {
+    "description": "web_reverse: Resend request dialog · invalidjson"
+  },
+  "webReverseResendRequestExportAs": "导出为：",
+  "@webReverseResendRequestExportAs": {
+    "description": "web_reverse: Resend request dialog · exportas"
+  },
+  "webReverseResendRequestCopyResponse": "复制响应",
+  "@webReverseResendRequestCopyResponse": {
+    "description": "web_reverse: Resend request dialog · copyresponse"
+  },
+  "webReverseResendRequestResponseCopied": "已复制响应体",
+  "@webReverseResendRequestResponseCopied": {
+    "description": "web_reverse: Resend request dialog · responsecopied"
+  },
+  "webReverseResendRequestBase64Hint": "响应非 UTF-8，下方为 Base64 预览：",
+  "@webReverseResendRequestBase64Hint": {
+    "description": "web_reverse: Resend request dialog · base64hint"
+  },
+  "webReverseResendRequestBodyHint": "响应体：",
+  "@webReverseResendRequestBodyHint": {
+    "description": "web_reverse: Resend request dialog · bodyhint"
+  },
+  "webReverseResendRequestCopiedAs": "已复制为 {kind}",
+  "@webReverseResendRequestCopiedAs": {
+    "description": "web_reverse: Resend request dialog · copiedas",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseResendRequestHasNoBody": "{method} 不支持 body",
+  "@webReverseResendRequestHasNoBody": {
+    "description": "web_reverse: Resend request dialog · hasnobody",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseResendRequestHeadersWithCount": "响应头 ({count})",
+  "@webReverseResendRequestHeadersWithCount": {
+    "description": "web_reverse: Resend request dialog · headerswithcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

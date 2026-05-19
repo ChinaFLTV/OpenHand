@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
@@ -108,10 +109,11 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 
   Future<void> _send() async {
     final urlText = _urlCtrl.text.trim();
+    final loc0 = AppLocalizations.of(context);
     if (urlText.isEmpty) {
       OpenHandSnackBar.showError(
         context,
-        widget.isZh ? 'URL 不能为空' : 'URL is required',
+        loc0?.webReverseResendRequestUrlEmpty ?? 'URL is required',
       );
       return;
     }
@@ -124,7 +126,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     } catch (_) {
       OpenHandSnackBar.showError(
         context,
-        widget.isZh ? 'URL 非法' : 'Invalid URL',
+        loc0?.webReverseResendRequestUrlInvalid ?? 'Invalid URL',
       );
       return;
     }
@@ -208,9 +210,10 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     _activeClient?.close(force: true);
     _activeClient = null;
     if (mounted) {
+      final loc = AppLocalizations.of(context);
       setState(() {
         _sending = false;
-        _lastError = widget.isZh ? '已中止' : 'Aborted';
+        _lastError = loc?.webReverseResendRequestAborted ?? 'Aborted';
       });
     }
   }
@@ -277,9 +280,10 @@ print(resp.text[:2000])''';
 
   void _copy(String text, String kind) {
     Clipboard.setData(ClipboardData(text: text));
+    final loc = AppLocalizations.of(context);
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh ? '已复制为 $kind' : 'Copied as $kind',
+      loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
       duration: const Duration(seconds: 1),
     );
   }
@@ -288,7 +292,7 @@ print(resp.text[:2000])''';
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -298,7 +302,7 @@ print(resp.text[:2000])''';
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(theme, cs, isZh),
+            _buildHeader(theme, cs, loc),
             const Divider(height: 1),
             Expanded(
               child: SingleChildScrollView(
@@ -306,20 +310,20 @@ print(resp.text[:2000])''';
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildUrlRow(theme, cs, isZh),
+                    _buildUrlRow(theme, cs, loc),
                     const SizedBox(height: 14),
-                    _buildHeadersBlock(theme, cs, isZh),
+                    _buildHeadersBlock(theme, cs, loc),
                     const SizedBox(height: 14),
-                    _buildBodyBlock(theme, cs, isZh),
+                    _buildBodyBlock(theme, cs, loc),
                     const SizedBox(height: 14),
-                    _buildExportBlock(theme, cs, isZh),
+                    _buildExportBlock(theme, cs, loc),
                     const SizedBox(height: 14),
                     AnimatedSwitcher(
                       duration: reduceMotion
                           ? Duration.zero
                           : const Duration(milliseconds: 220),
                       switchInCurve: Curves.easeOutCubic,
-                      child: _buildResultBlock(theme, cs, isZh),
+                      child: _buildResultBlock(theme, cs, loc),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -332,28 +336,27 @@ print(resp.text[:2000])''';
               child: Row(
                 children: [
                   Text(
-                    isZh
-                        ? '注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。'
-                        : 'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).',
+                    loc?.webReverseResendRequestFooterNote
+                        ?? 'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).',
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(isZh ? '关闭' : 'Close'),
+                    child: Text(loc?.webReverseResendRequestClose ?? 'Close'),
                   ),
                   const SizedBox(width: 8),
                   _sending
                       ? FilledButton.tonalIcon(
                           onPressed: _abort,
                           icon: const Icon(Icons.stop_rounded, size: 16),
-                          label: Text(isZh ? '中止' : 'Abort'),
+                          label: Text(loc?.webReverseResendRequestAbort ?? 'Abort'),
                         )
                       : FilledButton.icon(
                           onPressed: _send,
                           icon: const Icon(Icons.send_rounded, size: 16),
-                          label: Text(isZh ? '重放发送' : 'Send'),
+                          label: Text(loc?.webReverseResendRequestSend ?? 'Send'),
                         ),
                 ],
               ),
@@ -364,7 +367,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
       child: Row(
@@ -372,14 +375,14 @@ print(resp.text[:2000])''';
           Icon(Icons.replay_circle_filled_rounded, color: cs.primary),
           const SizedBox(width: 10),
           Text(
-            isZh ? '重放 / 改包' : 'Resend / Edit',
+            loc?.webReverseResendRequestTitle ?? 'Resend / Edit',
             style: theme.textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w800),
           ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.close_rounded),
-            tooltip: isZh ? '关闭' : 'Close',
+            tooltip: loc?.webReverseResendRequestClose ?? 'Close',
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -387,7 +390,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildUrlRow(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildUrlRow(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -414,11 +417,11 @@ print(resp.text[:2000])''';
         Expanded(
           child: TextField(
             controller: _urlCtrl,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
               isDense: true,
               labelText: 'URL',
-              hintText: isZh ? 'https://...' : 'https://...',
+              hintText: 'https://...',
             ),
             style: const TextStyle(fontFamily: 'monospace'),
           ),
@@ -427,7 +430,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildHeadersBlock(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeadersBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
@@ -443,14 +446,14 @@ print(resp.text[:2000])''';
               Icon(Icons.list_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                isZh ? '请求头' : 'Headers',
+                loc?.webReverseResendRequestHeadersLabel ?? 'Headers',
                 style: theme.textTheme.labelLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
               TextButton.icon(
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(isZh ? '加一行' : 'Add'),
+                label: Text(loc?.webReverseResendRequestAddRow ?? 'Add'),
                 onPressed: _addBlankHeader,
               ),
             ],
@@ -500,7 +503,7 @@ print(resp.text[:2000])''';
                     icon: Icon(Icons.close_rounded,
                         size: 16, color: cs.onSurfaceVariant),
                     onPressed: () => _removeHeader(i),
-                    tooltip: isZh ? '删除' : 'Remove',
+                    tooltip: loc?.webReverseResendRequestRemove ?? 'Remove',
                   ),
                 ],
               ),
@@ -510,7 +513,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildBodyBlock(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildBodyBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final canBody = _method != 'GET' && _method != 'HEAD';
     return Container(
       decoration: BoxDecoration(
@@ -527,22 +530,24 @@ print(resp.text[:2000])''';
               Icon(Icons.data_object_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                isZh ? '请求体' : 'Body',
+                loc?.webReverseResendRequestBodyLabel ?? 'Body',
                 style: theme.textTheme.labelLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
               if (!canBody)
                 Text(
-                  isZh ? '$_method 不支持 body' : '$_method has no body',
+                  loc?.webReverseResendRequestHasNoBody(_method)
+                      ?? '$_method has no body',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
               if (canBody && _bodyCtrl.text.isNotEmpty)
                 TextButton.icon(
                   icon: const Icon(Icons.auto_fix_high_rounded, size: 14),
-                  label: Text(isZh ? '美化 JSON' : 'Beautify JSON'),
+                  label: Text(loc?.webReverseResendRequestBeautifyJson ?? 'Beautify JSON'),
                   onPressed: () {
+                    final loc2 = AppLocalizations.of(context);
                     try {
                       final v = jsonDecode(_bodyCtrl.text);
                       _bodyCtrl.text =
@@ -550,7 +555,8 @@ print(resp.text[:2000])''';
                       setState(() {});
                     } catch (_) {
                       OpenHandSnackBar.showError(context,
-                          isZh ? '不是合法 JSON' : 'Body is not valid JSON');
+                          loc2?.webReverseResendRequestInvalidJson
+                              ?? 'Body is not valid JSON');
                     }
                   },
                 ),
@@ -574,7 +580,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildExportBlock(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildExportBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     Widget chip(IconData icon, String label, VoidCallback onTap) {
       return OutlinedButton.icon(
         onPressed: onTap,
@@ -594,7 +600,7 @@ print(resp.text[:2000])''';
         Padding(
           padding: const EdgeInsets.only(right: 4),
           child: Text(
-            isZh ? '导出为：' : 'Export as:',
+            loc?.webReverseResendRequestExportAs ?? 'Export as:',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
@@ -609,7 +615,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildResultBlock(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildResultBlock(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_lastError != null) {
       return Container(
         key: const ValueKey('err'),
@@ -673,13 +679,14 @@ print(resp.text[:2000])''';
                       ?.copyWith(color: cs.onSurfaceVariant)),
               const Spacer(),
               IconButton(
-                tooltip: isZh ? '复制响应' : 'Copy response',
+                tooltip: loc?.webReverseResendRequestCopyResponse ?? 'Copy response',
                 icon: const Icon(Icons.content_copy_rounded, size: 14),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: r.body));
+                  final loc2 = AppLocalizations.of(context);
                   OpenHandSnackBar.showSuccess(
                     context,
-                    isZh ? '已复制响应体' : 'Response copied',
+                    loc2?.webReverseResendRequestResponseCopied ?? 'Response copied',
                     duration: const Duration(seconds: 1),
                   );
                 },
@@ -691,7 +698,8 @@ print(resp.text[:2000])''';
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
             title: Text(
-              isZh ? '响应头 (${r.headers.length})' : 'Headers (${r.headers.length})',
+              loc?.webReverseResendRequestHeadersWithCount(r.headers.length)
+                  ?? 'Headers (${r.headers.length})',
               style: theme.textTheme.bodySmall,
             ),
             children: [
@@ -710,10 +718,9 @@ print(resp.text[:2000])''';
           const Divider(height: 12),
           Text(
             r.bodyIsBase64
-                ? (isZh
-                    ? '响应非 UTF-8，下方为 Base64 预览：'
-                    : 'Non-UTF8 response (base64 preview):')
-                : (isZh ? '响应体：' : 'Body:'),
+                ? (loc?.webReverseResendRequestBase64Hint
+                    ?? 'Non-UTF8 response (base64 preview):')
+                : (loc?.webReverseResendRequestBodyHint ?? 'Body:'),
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),

@@ -10505,6 +10505,138 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'{net} 网络 · {log} 日志 · {dir}'**
   String webReverseHeadlessBatchResultStats(int net, int log, String dir);
+
+  /// web_reverse: Resend request dialog · urlempty
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 不能为空'**
+  String get webReverseResendRequestUrlEmpty;
+
+  /// web_reverse: Resend request dialog · urlinvalid
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 非法'**
+  String get webReverseResendRequestUrlInvalid;
+
+  /// web_reverse: Resend request dialog · aborted
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已中止'**
+  String get webReverseResendRequestAborted;
+
+  /// web_reverse: Resend request dialog · footernote
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。'**
+  String get webReverseResendRequestFooterNote;
+
+  /// web_reverse: Resend request dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseResendRequestClose;
+
+  /// web_reverse: Resend request dialog · abort
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'中止'**
+  String get webReverseResendRequestAbort;
+
+  /// web_reverse: Resend request dialog · send
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放发送'**
+  String get webReverseResendRequestSend;
+
+  /// web_reverse: Resend request dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重放 / 改包'**
+  String get webReverseResendRequestTitle;
+
+  /// web_reverse: Resend request dialog · headerslabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求头'**
+  String get webReverseResendRequestHeadersLabel;
+
+  /// web_reverse: Resend request dialog · addrow
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加一行'**
+  String get webReverseResendRequestAddRow;
+
+  /// web_reverse: Resend request dialog · remove
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseResendRequestRemove;
+
+  /// web_reverse: Resend request dialog · bodylabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求体'**
+  String get webReverseResendRequestBodyLabel;
+
+  /// web_reverse: Resend request dialog · beautifyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'美化 JSON'**
+  String get webReverseResendRequestBeautifyJson;
+
+  /// web_reverse: Resend request dialog · invalidjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不是合法 JSON'**
+  String get webReverseResendRequestInvalidJson;
+
+  /// web_reverse: Resend request dialog · exportas
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出为：'**
+  String get webReverseResendRequestExportAs;
+
+  /// web_reverse: Resend request dialog · copyresponse
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制响应'**
+  String get webReverseResendRequestCopyResponse;
+
+  /// web_reverse: Resend request dialog · responsecopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制响应体'**
+  String get webReverseResendRequestResponseCopied;
+
+  /// web_reverse: Resend request dialog · base64hint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应非 UTF-8，下方为 Base64 预览：'**
+  String get webReverseResendRequestBase64Hint;
+
+  /// web_reverse: Resend request dialog · bodyhint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应体：'**
+  String get webReverseResendRequestBodyHint;
+
+  /// web_reverse: Resend request dialog · copiedas
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制为 {kind}'**
+  String webReverseResendRequestCopiedAs(String kind);
+
+  /// web_reverse: Resend request dialog · hasnobody
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{method} 不支持 body'**
+  String webReverseResendRequestHasNoBody(String method);
+
+  /// web_reverse: Resend request dialog · headerswithcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应头 ({count})'**
+  String webReverseResendRequestHeadersWithCount(int count);
 }
 
 class _AppLocalizationsDelegate

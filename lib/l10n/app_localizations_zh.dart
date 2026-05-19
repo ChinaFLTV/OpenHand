@@ -5669,6 +5669,79 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
     return '$net 网络 · $log 日志 · $dir';
   }
+
+  @override
+  String get webReverseResendRequestUrlEmpty => 'URL 不能为空';
+
+  @override
+  String get webReverseResendRequestUrlInvalid => 'URL 非法';
+
+  @override
+  String get webReverseResendRequestAborted => '已中止';
+
+  @override
+  String get webReverseResendRequestFooterNote =>
+      '注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。';
+
+  @override
+  String get webReverseResendRequestClose => '关闭';
+
+  @override
+  String get webReverseResendRequestAbort => '中止';
+
+  @override
+  String get webReverseResendRequestSend => '重放发送';
+
+  @override
+  String get webReverseResendRequestTitle => '重放 / 改包';
+
+  @override
+  String get webReverseResendRequestHeadersLabel => '请求头';
+
+  @override
+  String get webReverseResendRequestAddRow => '加一行';
+
+  @override
+  String get webReverseResendRequestRemove => '删除';
+
+  @override
+  String get webReverseResendRequestBodyLabel => '请求体';
+
+  @override
+  String get webReverseResendRequestBeautifyJson => '美化 JSON';
+
+  @override
+  String get webReverseResendRequestInvalidJson => '不是合法 JSON';
+
+  @override
+  String get webReverseResendRequestExportAs => '导出为：';
+
+  @override
+  String get webReverseResendRequestCopyResponse => '复制响应';
+
+  @override
+  String get webReverseResendRequestResponseCopied => '已复制响应体';
+
+  @override
+  String get webReverseResendRequestBase64Hint => '响应非 UTF-8，下方为 Base64 预览：';
+
+  @override
+  String get webReverseResendRequestBodyHint => '响应体：';
+
+  @override
+  String webReverseResendRequestCopiedAs(String kind) {
+    return '已复制为 $kind';
+  }
+
+  @override
+  String webReverseResendRequestHasNoBody(String method) {
+    return '$method 不支持 body';
+  }
+
+  @override
+  String webReverseResendRequestHeadersWithCount(int count) {
+    return '响应头 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11336,6 +11409,79 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
     return '$net 网络 · $log 日志 · $dir';
   }
+
+  @override
+  String get webReverseResendRequestUrlEmpty => 'URL 不能为空';
+
+  @override
+  String get webReverseResendRequestUrlInvalid => 'URL 非法';
+
+  @override
+  String get webReverseResendRequestAborted => '已中止';
+
+  @override
+  String get webReverseResendRequestFooterNote =>
+      '注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。';
+
+  @override
+  String get webReverseResendRequestClose => '关闭';
+
+  @override
+  String get webReverseResendRequestAbort => '中止';
+
+  @override
+  String get webReverseResendRequestSend => '重放发送';
+
+  @override
+  String get webReverseResendRequestTitle => '重放 / 改包';
+
+  @override
+  String get webReverseResendRequestHeadersLabel => '请求头';
+
+  @override
+  String get webReverseResendRequestAddRow => '加一行';
+
+  @override
+  String get webReverseResendRequestRemove => '删除';
+
+  @override
+  String get webReverseResendRequestBodyLabel => '请求体';
+
+  @override
+  String get webReverseResendRequestBeautifyJson => '美化 JSON';
+
+  @override
+  String get webReverseResendRequestInvalidJson => '不是合法 JSON';
+
+  @override
+  String get webReverseResendRequestExportAs => '导出为：';
+
+  @override
+  String get webReverseResendRequestCopyResponse => '复制响应';
+
+  @override
+  String get webReverseResendRequestResponseCopied => '已复制响应体';
+
+  @override
+  String get webReverseResendRequestBase64Hint => '响应非 UTF-8，下方为 Base64 预览：';
+
+  @override
+  String get webReverseResendRequestBodyHint => '响应体：';
+
+  @override
+  String webReverseResendRequestCopiedAs(String kind) {
+    return '已复制为 $kind';
+  }
+
+  @override
+  String webReverseResendRequestHasNoBody(String method) {
+    return '$method 不支持 body';
+  }
+
+  @override
+  String webReverseResendRequestHeadersWithCount(int count) {
+    return '响应头 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -17001,5 +17147,78 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
     return '$net 网络 · $log 日志 · $dir';
+  }
+
+  @override
+  String get webReverseResendRequestUrlEmpty => 'URL 不能为空';
+
+  @override
+  String get webReverseResendRequestUrlInvalid => 'URL 非法';
+
+  @override
+  String get webReverseResendRequestAborted => '已中止';
+
+  @override
+  String get webReverseResendRequestFooterNote =>
+      '注意：本对话框走 Dart HttpClient 重发，绕过浏览器 CSP / CORS，仅供逆向调试。';
+
+  @override
+  String get webReverseResendRequestClose => '关闭';
+
+  @override
+  String get webReverseResendRequestAbort => '中止';
+
+  @override
+  String get webReverseResendRequestSend => '重放发送';
+
+  @override
+  String get webReverseResendRequestTitle => '重放 / 改包';
+
+  @override
+  String get webReverseResendRequestHeadersLabel => '请求头';
+
+  @override
+  String get webReverseResendRequestAddRow => '加一行';
+
+  @override
+  String get webReverseResendRequestRemove => '删除';
+
+  @override
+  String get webReverseResendRequestBodyLabel => '请求体';
+
+  @override
+  String get webReverseResendRequestBeautifyJson => '美化 JSON';
+
+  @override
+  String get webReverseResendRequestInvalidJson => '不是合法 JSON';
+
+  @override
+  String get webReverseResendRequestExportAs => '导出为：';
+
+  @override
+  String get webReverseResendRequestCopyResponse => '复制响应';
+
+  @override
+  String get webReverseResendRequestResponseCopied => '已复制响应体';
+
+  @override
+  String get webReverseResendRequestBase64Hint => '响应非 UTF-8，下方为 Base64 预览：';
+
+  @override
+  String get webReverseResendRequestBodyHint => '响应体：';
+
+  @override
+  String webReverseResendRequestCopiedAs(String kind) {
+    return '已复制为 $kind';
+  }
+
+  @override
+  String webReverseResendRequestHasNoBody(String method) {
+    return '$method 不支持 body';
+  }
+
+  @override
+  String webReverseResendRequestHeadersWithCount(int count) {
+    return '响应头 ($count)';
   }
 }

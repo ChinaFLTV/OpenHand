@@ -5990,4 +5990,78 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
     return '$net net · $log log · $dir';
   }
+
+  @override
+  String get webReverseResendRequestUrlEmpty => 'URL is required';
+
+  @override
+  String get webReverseResendRequestUrlInvalid => 'Invalid URL';
+
+  @override
+  String get webReverseResendRequestAborted => 'Aborted';
+
+  @override
+  String get webReverseResendRequestFooterNote =>
+      'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).';
+
+  @override
+  String get webReverseResendRequestClose => 'Close';
+
+  @override
+  String get webReverseResendRequestAbort => 'Abort';
+
+  @override
+  String get webReverseResendRequestSend => 'Send';
+
+  @override
+  String get webReverseResendRequestTitle => 'Resend / Edit';
+
+  @override
+  String get webReverseResendRequestHeadersLabel => 'Headers';
+
+  @override
+  String get webReverseResendRequestAddRow => 'Add';
+
+  @override
+  String get webReverseResendRequestRemove => 'Remove';
+
+  @override
+  String get webReverseResendRequestBodyLabel => 'Body';
+
+  @override
+  String get webReverseResendRequestBeautifyJson => 'Beautify JSON';
+
+  @override
+  String get webReverseResendRequestInvalidJson => 'Body is not valid JSON';
+
+  @override
+  String get webReverseResendRequestExportAs => 'Export as:';
+
+  @override
+  String get webReverseResendRequestCopyResponse => 'Copy response';
+
+  @override
+  String get webReverseResendRequestResponseCopied => 'Response copied';
+
+  @override
+  String get webReverseResendRequestBase64Hint =>
+      'Non-UTF8 response (base64 preview):';
+
+  @override
+  String get webReverseResendRequestBodyHint => 'Body:';
+
+  @override
+  String webReverseResendRequestCopiedAs(String kind) {
+    return 'Copied as $kind';
+  }
+
+  @override
+  String webReverseResendRequestHasNoBody(String method) {
+    return '$method has no body';
+  }
+
+  @override
+  String webReverseResendRequestHeadersWithCount(int count) {
+    return 'Headers ($count)';
+  }
 }
