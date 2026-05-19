@@ -5504,6 +5504,84 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCookieEditorEditCookie(String name) {
     return '编辑 $name';
   }
+
+  @override
+  String get webReverseInputSimTitle => '输入事件模拟';
+
+  @override
+  String get webReverseInputSimDispatchingClick => '派发鼠标点击...';
+
+  @override
+  String get webReverseInputSimDispatched => '已派发';
+
+  @override
+  String get webReverseInputSimDispatchingKey => '派发按键...';
+
+  @override
+  String get webReverseInputSimKeyDispatched => '按键已派发';
+
+  @override
+  String get webReverseInputSimInsertingText => '插入文本...';
+
+  @override
+  String get webReverseInputSimInserted => '已插入';
+
+  @override
+  String get webReverseInputSimButton => '按钮';
+
+  @override
+  String get webReverseInputSimClickCount => '点击次数';
+
+  @override
+  String get webReverseInputSimModifiers => '修饰键';
+
+  @override
+  String get webReverseInputSimClickBtn => '点击';
+
+  @override
+  String get webReverseInputSimWheelDown => '滚轮↓';
+
+  @override
+  String get webReverseInputSimWheelUp => '滚轮↑';
+
+  @override
+  String get webReverseInputSimKeyTextLabel => '文本（可空，例如 “a”）';
+
+  @override
+  String get webReverseInputSimDispatchKeyDownUp => '派发 keyDown+keyUp';
+
+  @override
+  String get webReverseInputSimInsertTextLabel => '插入文本 (Input.insertText)';
+
+  @override
+  String get webReverseInputSimInsertBtn => '插入';
+
+  @override
+  String get webReverseInputSimTabMouse => '鼠标';
+
+  @override
+  String get webReverseInputSimTabKey => '键盘';
+
+  @override
+  String get webReverseInputSimTabText => '文本';
+
+  @override
+  String get webReverseInputSimCloseBtn => '关闭';
+
+  @override
+  String webReverseInputSimClickedAt(String x, String y) {
+    return '已派发点击 ($x, $y)';
+  }
+
+  @override
+  String webReverseInputSimWheelDy(String dy) {
+    return '滚轮 dy=$dy';
+  }
+
+  @override
+  String webReverseInputSimInsertedCount(int count) {
+    return '已插入 $count 字符';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11006,6 +11084,84 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCookieEditorEditCookie(String name) {
     return '编辑 $name';
   }
+
+  @override
+  String get webReverseInputSimTitle => '输入事件模拟';
+
+  @override
+  String get webReverseInputSimDispatchingClick => '派发鼠标点击...';
+
+  @override
+  String get webReverseInputSimDispatched => '已派发';
+
+  @override
+  String get webReverseInputSimDispatchingKey => '派发按键...';
+
+  @override
+  String get webReverseInputSimKeyDispatched => '按键已派发';
+
+  @override
+  String get webReverseInputSimInsertingText => '插入文本...';
+
+  @override
+  String get webReverseInputSimInserted => '已插入';
+
+  @override
+  String get webReverseInputSimButton => '按钮';
+
+  @override
+  String get webReverseInputSimClickCount => '点击次数';
+
+  @override
+  String get webReverseInputSimModifiers => '修饰键';
+
+  @override
+  String get webReverseInputSimClickBtn => '点击';
+
+  @override
+  String get webReverseInputSimWheelDown => '滚轮↓';
+
+  @override
+  String get webReverseInputSimWheelUp => '滚轮↑';
+
+  @override
+  String get webReverseInputSimKeyTextLabel => '文本（可空，例如 “a”）';
+
+  @override
+  String get webReverseInputSimDispatchKeyDownUp => '派发 keyDown+keyUp';
+
+  @override
+  String get webReverseInputSimInsertTextLabel => '插入文本 (Input.insertText)';
+
+  @override
+  String get webReverseInputSimInsertBtn => '插入';
+
+  @override
+  String get webReverseInputSimTabMouse => '鼠标';
+
+  @override
+  String get webReverseInputSimTabKey => '键盘';
+
+  @override
+  String get webReverseInputSimTabText => '文本';
+
+  @override
+  String get webReverseInputSimCloseBtn => '关闭';
+
+  @override
+  String webReverseInputSimClickedAt(String x, String y) {
+    return '已派发点击 ($x, $y)';
+  }
+
+  @override
+  String webReverseInputSimWheelDy(String dy) {
+    return '滚轮 dy=$dy';
+  }
+
+  @override
+  String webReverseInputSimInsertedCount(int count) {
+    return '已插入 $count 字符';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -16506,5 +16662,83 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCookieEditorEditCookie(String name) {
     return '编辑 $name';
+  }
+
+  @override
+  String get webReverseInputSimTitle => '输入事件模拟';
+
+  @override
+  String get webReverseInputSimDispatchingClick => '派发鼠标点击...';
+
+  @override
+  String get webReverseInputSimDispatched => '已派发';
+
+  @override
+  String get webReverseInputSimDispatchingKey => '派发按键...';
+
+  @override
+  String get webReverseInputSimKeyDispatched => '按键已派发';
+
+  @override
+  String get webReverseInputSimInsertingText => '插入文本...';
+
+  @override
+  String get webReverseInputSimInserted => '已插入';
+
+  @override
+  String get webReverseInputSimButton => '按钮';
+
+  @override
+  String get webReverseInputSimClickCount => '点击次数';
+
+  @override
+  String get webReverseInputSimModifiers => '修饰键';
+
+  @override
+  String get webReverseInputSimClickBtn => '点击';
+
+  @override
+  String get webReverseInputSimWheelDown => '滚轮↓';
+
+  @override
+  String get webReverseInputSimWheelUp => '滚轮↑';
+
+  @override
+  String get webReverseInputSimKeyTextLabel => '文本（可空，例如 “a”）';
+
+  @override
+  String get webReverseInputSimDispatchKeyDownUp => '派发 keyDown+keyUp';
+
+  @override
+  String get webReverseInputSimInsertTextLabel => '插入文本 (Input.insertText)';
+
+  @override
+  String get webReverseInputSimInsertBtn => '插入';
+
+  @override
+  String get webReverseInputSimTabMouse => '鼠标';
+
+  @override
+  String get webReverseInputSimTabKey => '键盘';
+
+  @override
+  String get webReverseInputSimTabText => '文本';
+
+  @override
+  String get webReverseInputSimCloseBtn => '关闭';
+
+  @override
+  String webReverseInputSimClickedAt(String x, String y) {
+    return '已派发点击 ($x, $y)';
+  }
+
+  @override
+  String webReverseInputSimWheelDy(String dy) {
+    return '滚轮 dy=$dy';
+  }
+
+  @override
+  String webReverseInputSimInsertedCount(int count) {
+    return '已插入 $count 字符';
   }
 }

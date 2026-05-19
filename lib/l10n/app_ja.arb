@@ -3226,5 +3226,119 @@
         "type": "String"
       }
     }
+  },
+  "webReverseInputSimTitle": "Input Event Simulator",
+  "@webReverseInputSimTitle": {
+    "description": "web_reverse: Input simulator dialog · title"
+  },
+  "webReverseInputSimDispatchingClick": "Dispatching click...",
+  "@webReverseInputSimDispatchingClick": {
+    "description": "web_reverse: Input simulator dialog · dispatchingclick"
+  },
+  "webReverseInputSimDispatched": "Dispatched",
+  "@webReverseInputSimDispatched": {
+    "description": "web_reverse: Input simulator dialog · dispatched"
+  },
+  "webReverseInputSimDispatchingKey": "Dispatching key...",
+  "@webReverseInputSimDispatchingKey": {
+    "description": "web_reverse: Input simulator dialog · dispatchingkey"
+  },
+  "webReverseInputSimKeyDispatched": "Key dispatched",
+  "@webReverseInputSimKeyDispatched": {
+    "description": "web_reverse: Input simulator dialog · keydispatched"
+  },
+  "webReverseInputSimInsertingText": "Inserting text...",
+  "@webReverseInputSimInsertingText": {
+    "description": "web_reverse: Input simulator dialog · insertingtext"
+  },
+  "webReverseInputSimInserted": "Inserted",
+  "@webReverseInputSimInserted": {
+    "description": "web_reverse: Input simulator dialog · inserted"
+  },
+  "webReverseInputSimButton": "Button",
+  "@webReverseInputSimButton": {
+    "description": "web_reverse: Input simulator dialog · button"
+  },
+  "webReverseInputSimClickCount": "Click count",
+  "@webReverseInputSimClickCount": {
+    "description": "web_reverse: Input simulator dialog · clickcount"
+  },
+  "webReverseInputSimModifiers": "Modifiers",
+  "@webReverseInputSimModifiers": {
+    "description": "web_reverse: Input simulator dialog · modifiers"
+  },
+  "webReverseInputSimClickBtn": "Click",
+  "@webReverseInputSimClickBtn": {
+    "description": "web_reverse: Input simulator dialog · clickbtn"
+  },
+  "webReverseInputSimWheelDown": "Wheel ↓",
+  "@webReverseInputSimWheelDown": {
+    "description": "web_reverse: Input simulator dialog · wheeldown"
+  },
+  "webReverseInputSimWheelUp": "Wheel ↑",
+  "@webReverseInputSimWheelUp": {
+    "description": "web_reverse: Input simulator dialog · wheelup"
+  },
+  "webReverseInputSimKeyTextLabel": "text (printable char)",
+  "@webReverseInputSimKeyTextLabel": {
+    "description": "web_reverse: Input simulator dialog · keytextlabel"
+  },
+  "webReverseInputSimDispatchKeyDownUp": "Dispatch keyDown+keyUp",
+  "@webReverseInputSimDispatchKeyDownUp": {
+    "description": "web_reverse: Input simulator dialog · dispatchkeydownup"
+  },
+  "webReverseInputSimInsertTextLabel": "insertText",
+  "@webReverseInputSimInsertTextLabel": {
+    "description": "web_reverse: Input simulator dialog · inserttextlabel"
+  },
+  "webReverseInputSimInsertBtn": "Insert",
+  "@webReverseInputSimInsertBtn": {
+    "description": "web_reverse: Input simulator dialog · insertbtn"
+  },
+  "webReverseInputSimTabMouse": "Mouse",
+  "@webReverseInputSimTabMouse": {
+    "description": "web_reverse: Input simulator dialog · tabmouse"
+  },
+  "webReverseInputSimTabKey": "Key",
+  "@webReverseInputSimTabKey": {
+    "description": "web_reverse: Input simulator dialog · tabkey"
+  },
+  "webReverseInputSimTabText": "Text",
+  "@webReverseInputSimTabText": {
+    "description": "web_reverse: Input simulator dialog · tabtext"
+  },
+  "webReverseInputSimCloseBtn": "Close",
+  "@webReverseInputSimCloseBtn": {
+    "description": "web_reverse: Input simulator dialog · closebtn"
+  },
+  "webReverseInputSimClickedAt": "Clicked ({x}, {y})",
+  "@webReverseInputSimClickedAt": {
+    "description": "web_reverse: Input simulator dialog · clickedat",
+    "placeholders": {
+      "x": {
+        "type": "String"
+      },
+      "y": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseInputSimWheelDy": "Wheel dy={dy}",
+  "@webReverseInputSimWheelDy": {
+    "description": "web_reverse: Input simulator dialog · wheeldy",
+    "placeholders": {
+      "dy": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseInputSimInsertedCount": "Inserted {count} chars",
+  "@webReverseInputSimInsertedCount": {
+    "description": "web_reverse: Input simulator dialog · insertedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

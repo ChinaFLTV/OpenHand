@@ -5824,4 +5824,82 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseCookieEditorEditCookie(String name) {
     return 'Edit $name';
   }
+
+  @override
+  String get webReverseInputSimTitle => 'Input Event Simulator';
+
+  @override
+  String get webReverseInputSimDispatchingClick => 'Dispatching click...';
+
+  @override
+  String get webReverseInputSimDispatched => 'Dispatched';
+
+  @override
+  String get webReverseInputSimDispatchingKey => 'Dispatching key...';
+
+  @override
+  String get webReverseInputSimKeyDispatched => 'Key dispatched';
+
+  @override
+  String get webReverseInputSimInsertingText => 'Inserting text...';
+
+  @override
+  String get webReverseInputSimInserted => 'Inserted';
+
+  @override
+  String get webReverseInputSimButton => 'Button';
+
+  @override
+  String get webReverseInputSimClickCount => 'Click count';
+
+  @override
+  String get webReverseInputSimModifiers => 'Modifiers';
+
+  @override
+  String get webReverseInputSimClickBtn => 'Click';
+
+  @override
+  String get webReverseInputSimWheelDown => 'Wheel ↓';
+
+  @override
+  String get webReverseInputSimWheelUp => 'Wheel ↑';
+
+  @override
+  String get webReverseInputSimKeyTextLabel => 'text (printable char)';
+
+  @override
+  String get webReverseInputSimDispatchKeyDownUp => 'Dispatch keyDown+keyUp';
+
+  @override
+  String get webReverseInputSimInsertTextLabel => 'insertText';
+
+  @override
+  String get webReverseInputSimInsertBtn => 'Insert';
+
+  @override
+  String get webReverseInputSimTabMouse => 'Mouse';
+
+  @override
+  String get webReverseInputSimTabKey => 'Key';
+
+  @override
+  String get webReverseInputSimTabText => 'Text';
+
+  @override
+  String get webReverseInputSimCloseBtn => 'Close';
+
+  @override
+  String webReverseInputSimClickedAt(String x, String y) {
+    return 'Clicked ($x, $y)';
+  }
+
+  @override
+  String webReverseInputSimWheelDy(String dy) {
+    return 'Wheel dy=$dy';
+  }
+
+  @override
+  String webReverseInputSimInsertedCount(int count) {
+    return 'Inserted $count chars';
+  }
 }

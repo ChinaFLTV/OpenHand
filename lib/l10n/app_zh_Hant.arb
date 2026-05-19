@@ -3226,5 +3226,119 @@
         "type": "String"
       }
     }
+  },
+  "webReverseInputSimTitle": "输入事件模拟",
+  "@webReverseInputSimTitle": {
+    "description": "web_reverse: Input simulator dialog · title"
+  },
+  "webReverseInputSimDispatchingClick": "派发鼠标点击...",
+  "@webReverseInputSimDispatchingClick": {
+    "description": "web_reverse: Input simulator dialog · dispatchingclick"
+  },
+  "webReverseInputSimDispatched": "已派发",
+  "@webReverseInputSimDispatched": {
+    "description": "web_reverse: Input simulator dialog · dispatched"
+  },
+  "webReverseInputSimDispatchingKey": "派发按键...",
+  "@webReverseInputSimDispatchingKey": {
+    "description": "web_reverse: Input simulator dialog · dispatchingkey"
+  },
+  "webReverseInputSimKeyDispatched": "按键已派发",
+  "@webReverseInputSimKeyDispatched": {
+    "description": "web_reverse: Input simulator dialog · keydispatched"
+  },
+  "webReverseInputSimInsertingText": "插入文本...",
+  "@webReverseInputSimInsertingText": {
+    "description": "web_reverse: Input simulator dialog · insertingtext"
+  },
+  "webReverseInputSimInserted": "已插入",
+  "@webReverseInputSimInserted": {
+    "description": "web_reverse: Input simulator dialog · inserted"
+  },
+  "webReverseInputSimButton": "按钮",
+  "@webReverseInputSimButton": {
+    "description": "web_reverse: Input simulator dialog · button"
+  },
+  "webReverseInputSimClickCount": "点击次数",
+  "@webReverseInputSimClickCount": {
+    "description": "web_reverse: Input simulator dialog · clickcount"
+  },
+  "webReverseInputSimModifiers": "修饰键",
+  "@webReverseInputSimModifiers": {
+    "description": "web_reverse: Input simulator dialog · modifiers"
+  },
+  "webReverseInputSimClickBtn": "点击",
+  "@webReverseInputSimClickBtn": {
+    "description": "web_reverse: Input simulator dialog · clickbtn"
+  },
+  "webReverseInputSimWheelDown": "滚轮↓",
+  "@webReverseInputSimWheelDown": {
+    "description": "web_reverse: Input simulator dialog · wheeldown"
+  },
+  "webReverseInputSimWheelUp": "滚轮↑",
+  "@webReverseInputSimWheelUp": {
+    "description": "web_reverse: Input simulator dialog · wheelup"
+  },
+  "webReverseInputSimKeyTextLabel": "文本（可空，例如 “a”）",
+  "@webReverseInputSimKeyTextLabel": {
+    "description": "web_reverse: Input simulator dialog · keytextlabel"
+  },
+  "webReverseInputSimDispatchKeyDownUp": "派发 keyDown+keyUp",
+  "@webReverseInputSimDispatchKeyDownUp": {
+    "description": "web_reverse: Input simulator dialog · dispatchkeydownup"
+  },
+  "webReverseInputSimInsertTextLabel": "插入文本 (Input.insertText)",
+  "@webReverseInputSimInsertTextLabel": {
+    "description": "web_reverse: Input simulator dialog · inserttextlabel"
+  },
+  "webReverseInputSimInsertBtn": "插入",
+  "@webReverseInputSimInsertBtn": {
+    "description": "web_reverse: Input simulator dialog · insertbtn"
+  },
+  "webReverseInputSimTabMouse": "鼠标",
+  "@webReverseInputSimTabMouse": {
+    "description": "web_reverse: Input simulator dialog · tabmouse"
+  },
+  "webReverseInputSimTabKey": "键盘",
+  "@webReverseInputSimTabKey": {
+    "description": "web_reverse: Input simulator dialog · tabkey"
+  },
+  "webReverseInputSimTabText": "文本",
+  "@webReverseInputSimTabText": {
+    "description": "web_reverse: Input simulator dialog · tabtext"
+  },
+  "webReverseInputSimCloseBtn": "关闭",
+  "@webReverseInputSimCloseBtn": {
+    "description": "web_reverse: Input simulator dialog · closebtn"
+  },
+  "webReverseInputSimClickedAt": "已派发点击 ({x}, {y})",
+  "@webReverseInputSimClickedAt": {
+    "description": "web_reverse: Input simulator dialog · clickedat",
+    "placeholders": {
+      "x": {
+        "type": "String"
+      },
+      "y": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseInputSimWheelDy": "滚轮 dy={dy}",
+  "@webReverseInputSimWheelDy": {
+    "description": "web_reverse: Input simulator dialog · wheeldy",
+    "placeholders": {
+      "dy": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseInputSimInsertedCount": "已插入 {count} 字符",
+  "@webReverseInputSimInsertedCount": {
+    "description": "web_reverse: Input simulator dialog · insertedcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

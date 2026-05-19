@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -84,12 +85,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
   }
 
   Future<void> _runMouseClick() async {
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final x = double.tryParse(_mouseX.text.trim()) ?? 0;
     final y = double.tryParse(_mouseY.text.trim()) ?? 0;
     setState(() {
       _busy = true;
-      _status = isZh ? '派发鼠标点击...' : 'Dispatching click...';
+      _status = loc0?.webReverseInputSimDispatchingClick ?? 'Dispatching click...';
     });
     try {
       await widget.controller.dispatchMouseEvent(
@@ -120,15 +121,17 @@ class _InputSimDialogState extends State<_InputSimDialog>
       silentLog('web-reverse', 'input-sim.mouse', e, st);
     }
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = isZh ? '已派发点击 ($x, $y)' : 'Clicked ($x, $y)';
+      _status = loc1?.webReverseInputSimClickedAt(x.toString(), y.toString())
+          ?? 'Clicked ($x, $y)';
     });
-    await _snack(isZh ? '已派发' : 'Dispatched');
+    await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
 
   Future<void> _runWheel(double dy) async {
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final x = double.tryParse(_mouseX.text.trim()) ?? 0;
     final y = double.tryParse(_mouseY.text.trim()) ?? 0;
     setState(() => _busy = true);
@@ -145,21 +148,25 @@ class _InputSimDialogState extends State<_InputSimDialog>
       silentLog('web-reverse', 'input-sim.wheel', e, st);
     }
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = isZh ? '滚轮 dy=$dy' : 'Wheel dy=$dy';
+      _status = loc1?.webReverseInputSimWheelDy(dy.toString())
+          ?? 'Wheel dy=$dy';
     });
+    // ignore unused
+    loc0;
   }
 
   Future<void> _runKey() async {
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final key = _keyKey.text.trim();
     final code = _keyCode.text.trim();
     final text = _keyText.text;
     if (key.isEmpty && code.isEmpty && text.isEmpty) return;
     setState(() {
       _busy = true;
-      _status = isZh ? '派发按键...' : 'Dispatching key...';
+      _status = loc0?.webReverseInputSimDispatchingKey ?? 'Dispatching key...';
     });
     try {
       await widget.controller.dispatchKeyEvent(
@@ -179,20 +186,21 @@ class _InputSimDialogState extends State<_InputSimDialog>
       silentLog('web-reverse', 'input-sim.key', e, st);
     }
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = isZh ? '按键已派发' : 'Key dispatched';
+      _status = loc1?.webReverseInputSimKeyDispatched ?? 'Key dispatched';
     });
-    await _snack(isZh ? '已派发' : 'Dispatched');
+    await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
 
   Future<void> _runInsertText() async {
-    final isZh = widget.isZh;
+    final loc0 = AppLocalizations.of(context);
     final t = _insertCtrl.text;
     if (t.isEmpty) return;
     setState(() {
       _busy = true;
-      _status = isZh ? '插入文本...' : 'Inserting text...';
+      _status = loc0?.webReverseInputSimInsertingText ?? 'Inserting text...';
     });
     try {
       await widget.controller.insertText(t);
@@ -200,15 +208,16 @@ class _InputSimDialogState extends State<_InputSimDialog>
       silentLog('web-reverse', 'input-sim.insert', e, st);
     }
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = isZh ? '已插入 ${t.length} 字符' : 'Inserted ${t.length} chars';
+      _status = loc1?.webReverseInputSimInsertedCount(t.length)
+          ?? 'Inserted ${t.length} chars';
     });
-    await _snack(isZh ? '已插入' : 'Inserted');
+    await _snack(loc1?.webReverseInputSimInserted ?? 'Inserted');
   }
 
   Widget _modifierChips() {
-    final isZh = widget.isZh;
     Widget chip(String label, bool v, ValueChanged<bool> set) => FilterChip(
           label: Text(label),
           selected: v,
@@ -219,16 +228,16 @@ class _InputSimDialogState extends State<_InputSimDialog>
       spacing: 6,
       children: [
         chip('Shift', _modShift, (v) => setState(() => _modShift = v)),
-        chip(isZh ? 'Ctrl' : 'Ctrl', _modCtrl, (v) => setState(() => _modCtrl = v)),
+        chip('Ctrl', _modCtrl, (v) => setState(() => _modCtrl = v)),
         chip('Alt', _modAlt, (v) => setState(() => _modAlt = v)),
-        chip(isZh ? 'Meta/⌘' : 'Meta/⌘', _modMeta, (v) => setState(() => _modMeta = v)),
+        chip('Meta/⌘', _modMeta, (v) => setState(() => _modMeta = v)),
       ],
     );
   }
 
   Widget _mouseTab() {
     final theme = Theme.of(context);
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -262,7 +271,8 @@ class _InputSimDialogState extends State<_InputSimDialog>
             ],
           ),
           const SizedBox(height: 12),
-          Text(isZh ? '按钮' : 'Button', style: theme.textTheme.labelMedium),
+          Text(loc?.webReverseInputSimButton ?? 'Button',
+              style: theme.textTheme.labelMedium),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
@@ -277,7 +287,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
           const SizedBox(height: 12),
           Row(
             children: [
-              Text(isZh ? '点击次数' : 'Click count'),
+              Text(loc?.webReverseInputSimClickCount ?? 'Click count'),
               const SizedBox(width: 8),
               ...List.generate(3, (i) {
                 final n = i + 1;
@@ -293,7 +303,8 @@ class _InputSimDialogState extends State<_InputSimDialog>
             ],
           ),
           const SizedBox(height: 12),
-          Text(isZh ? '修饰键' : 'Modifiers', style: theme.textTheme.labelMedium),
+          Text(loc?.webReverseInputSimModifiers ?? 'Modifiers',
+              style: theme.textTheme.labelMedium),
           const SizedBox(height: 4),
           _modifierChips(),
           const SizedBox(height: 16),
@@ -304,17 +315,17 @@ class _InputSimDialogState extends State<_InputSimDialog>
               FilledButton.icon(
                 onPressed: _busy ? null : _runMouseClick,
                 icon: const Icon(Icons.touch_app_rounded),
-                label: Text(isZh ? '点击' : 'Click'),
+                label: Text(loc?.webReverseInputSimClickBtn ?? 'Click'),
               ),
               FilledButton.tonalIcon(
                 onPressed: _busy ? null : () => _runWheel(120),
                 icon: const Icon(Icons.expand_more_rounded),
-                label: Text(isZh ? '滚轮↓' : 'Wheel ↓'),
+                label: Text(loc?.webReverseInputSimWheelDown ?? 'Wheel ↓'),
               ),
               FilledButton.tonalIcon(
                 onPressed: _busy ? null : () => _runWheel(-120),
                 icon: const Icon(Icons.expand_less_rounded),
-                label: Text(isZh ? '滚轮↑' : 'Wheel ↑'),
+                label: Text(loc?.webReverseInputSimWheelUp ?? 'Wheel ↑'),
               ),
             ],
           ),
@@ -325,7 +336,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
 
   Widget _keyTab() {
     final theme = Theme.of(context);
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -352,19 +363,20 @@ class _InputSimDialogState extends State<_InputSimDialog>
           TextField(
             controller: _keyText,
             decoration: InputDecoration(
-              labelText: isZh ? '文本（可空，例如 “a”）' : 'text (printable char)',
+              labelText: loc?.webReverseInputSimKeyTextLabel ?? 'text (printable char)',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
           const SizedBox(height: 12),
-          Text(isZh ? '修饰键' : 'Modifiers', style: theme.textTheme.labelMedium),
+          Text(loc?.webReverseInputSimModifiers ?? 'Modifiers',
+              style: theme.textTheme.labelMedium),
           const SizedBox(height: 4),
           _modifierChips(),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _busy ? null : _runKey,
             icon: const Icon(Icons.keyboard_rounded),
-            label: Text(isZh ? '派发 keyDown+keyUp' : 'Dispatch keyDown+keyUp'),
+            label: Text(loc?.webReverseInputSimDispatchKeyDownUp ?? 'Dispatch keyDown+keyUp'),
           ),
         ],
       ),
@@ -372,7 +384,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
   }
 
   Widget _textTab() {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -381,7 +393,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
           TextField(
             controller: _insertCtrl,
             decoration: InputDecoration(
-              labelText: isZh ? '插入文本 (Input.insertText)' : 'insertText',
+              labelText: loc?.webReverseInputSimInsertTextLabel ?? 'insertText',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
             minLines: 4,
@@ -391,7 +403,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
           FilledButton.icon(
             onPressed: _busy ? null : _runInsertText,
             icon: const Icon(Icons.text_fields_rounded),
-            label: Text(isZh ? '插入' : 'Insert'),
+            label: Text(loc?.webReverseInputSimInsertBtn ?? 'Insert'),
           ),
         ],
       ),
@@ -402,7 +414,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -422,7 +434,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '输入事件模拟' : 'Input Event Simulator',
+                          loc?.webReverseInputSimTitle ?? 'Input Event Simulator',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -444,9 +456,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
             TabBar(
               controller: _tab,
               tabs: [
-                Tab(text: isZh ? '鼠标' : 'Mouse'),
-                Tab(text: isZh ? '键盘' : 'Key'),
-                Tab(text: isZh ? '文本' : 'Text'),
+                Tab(text: loc?.webReverseInputSimTabMouse ?? 'Mouse'),
+                Tab(text: loc?.webReverseInputSimTabKey ?? 'Key'),
+                Tab(text: loc?.webReverseInputSimTabText ?? 'Text'),
               ],
             ),
             Expanded(
@@ -472,7 +484,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseInputSimCloseBtn ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

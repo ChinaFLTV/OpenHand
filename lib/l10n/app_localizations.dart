@@ -10205,6 +10205,150 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'编辑 {name}'**
   String webReverseCookieEditorEditCookie(String name);
+
+  /// web_reverse: Input simulator dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入事件模拟'**
+  String get webReverseInputSimTitle;
+
+  /// web_reverse: Input simulator dialog · dispatchingclick
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'派发鼠标点击...'**
+  String get webReverseInputSimDispatchingClick;
+
+  /// web_reverse: Input simulator dialog · dispatched
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已派发'**
+  String get webReverseInputSimDispatched;
+
+  /// web_reverse: Input simulator dialog · dispatchingkey
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'派发按键...'**
+  String get webReverseInputSimDispatchingKey;
+
+  /// web_reverse: Input simulator dialog · keydispatched
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按键已派发'**
+  String get webReverseInputSimKeyDispatched;
+
+  /// web_reverse: Input simulator dialog · insertingtext
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'插入文本...'**
+  String get webReverseInputSimInsertingText;
+
+  /// web_reverse: Input simulator dialog · inserted
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已插入'**
+  String get webReverseInputSimInserted;
+
+  /// web_reverse: Input simulator dialog · button
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按钮'**
+  String get webReverseInputSimButton;
+
+  /// web_reverse: Input simulator dialog · clickcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击次数'**
+  String get webReverseInputSimClickCount;
+
+  /// web_reverse: Input simulator dialog · modifiers
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'修饰键'**
+  String get webReverseInputSimModifiers;
+
+  /// web_reverse: Input simulator dialog · clickbtn
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击'**
+  String get webReverseInputSimClickBtn;
+
+  /// web_reverse: Input simulator dialog · wheeldown
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'滚轮↓'**
+  String get webReverseInputSimWheelDown;
+
+  /// web_reverse: Input simulator dialog · wheelup
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'滚轮↑'**
+  String get webReverseInputSimWheelUp;
+
+  /// web_reverse: Input simulator dialog · keytextlabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文本（可空，例如 “a”）'**
+  String get webReverseInputSimKeyTextLabel;
+
+  /// web_reverse: Input simulator dialog · dispatchkeydownup
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'派发 keyDown+keyUp'**
+  String get webReverseInputSimDispatchKeyDownUp;
+
+  /// web_reverse: Input simulator dialog · inserttextlabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'插入文本 (Input.insertText)'**
+  String get webReverseInputSimInsertTextLabel;
+
+  /// web_reverse: Input simulator dialog · insertbtn
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'插入'**
+  String get webReverseInputSimInsertBtn;
+
+  /// web_reverse: Input simulator dialog · tabmouse
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'鼠标'**
+  String get webReverseInputSimTabMouse;
+
+  /// web_reverse: Input simulator dialog · tabkey
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'键盘'**
+  String get webReverseInputSimTabKey;
+
+  /// web_reverse: Input simulator dialog · tabtext
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文本'**
+  String get webReverseInputSimTabText;
+
+  /// web_reverse: Input simulator dialog · closebtn
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseInputSimCloseBtn;
+
+  /// web_reverse: Input simulator dialog · clickedat
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已派发点击 ({x}, {y})'**
+  String webReverseInputSimClickedAt(String x, String y);
+
+  /// web_reverse: Input simulator dialog · wheeldy
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'滚轮 dy={dy}'**
+  String webReverseInputSimWheelDy(String dy);
+
+  /// web_reverse: Input simulator dialog · insertedcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已插入 {count} 字符'**
+  String webReverseInputSimInsertedCount(int count);
 }
 
 class _AppLocalizationsDelegate
