@@ -187,14 +187,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       // exit 127 = "command not found"。识别到这个码就主动给一段安装提示，
       // 让用户不用再回 README 找。
       final raw = _lsp.lastError ?? '';
-      final isMissing = raw.contains('exit 127') ||
+      final isMissing =
+          raw.contains('exit 127') ||
           raw.contains('Cannot run program') ||
           raw.toLowerCase().contains('not found') ||
           raw.toLowerCase().contains('no such file');
       final friendly = isMissing
           ? (isZh
-              ? '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。'
-              : 'typescript-language-server not installed. Run `npm i -g typescript typescript-language-server`, or switch via LSP Settings.')
+                ? '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。'
+                : 'typescript-language-server not installed. Run `npm i -g typescript typescript-language-server`, or switch via LSP Settings.')
           : (isZh ? 'LSP 启动失败：$raw' : 'LSP failed: $raw');
       OpenHandSnackBar.showErrorOn(
         context,
@@ -220,8 +221,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (src == null || id == null) return;
     final url = widget.controller.parsedScripts[id]?.url ?? '';
     final uri = _toLspUri(url);
-    final content =
-        _prettify ? WebReverseSessionController.prettifyJs(src) : src;
+    final content = _prettify
+        ? WebReverseSessionController.prettifyJs(src)
+        : src;
     await _lsp.openOrChange(
       uri: uri,
       languageId: _languageIdFor(url),
@@ -307,8 +309,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   labelText: isZh ? '命令' : 'Command',
                   border: const OutlineInputBorder(),
                 ),
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -318,26 +319,24 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   labelText: isZh ? '参数（空格分隔）' : 'Args (space separated)',
                   border: const OutlineInputBorder(),
                 ),
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
               const SizedBox(height: 8),
               Text(
                 isZh
                     ? '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
-                        '• typescript-language-server：npm i -g typescript typescript-language-server\n'
-                        '• vtsls：npm i -g @vtsls/language-server\n'
-                        '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
-                        '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
+                          '• typescript-language-server：npm i -g typescript typescript-language-server\n'
+                          '• vtsls：npm i -g @vtsls/language-server\n'
+                          '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
+                          '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
                     : 'Restart applies on save. Install hints:\n'
-                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
-                        '• vtsls: npm i -g @vtsls/language-server\n'
-                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
-                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
-                style: Theme.of(dialogContext)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(fontSize: 10.5),
+                          '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                          '• vtsls: npm i -g @vtsls/language-server\n'
+                          '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                          '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                style: Theme.of(
+                  dialogContext,
+                ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
               ),
             ],
           ),
@@ -388,11 +387,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     ),
     (label: 'vtsls', cmd: 'vtsls', args: ['--stdio']),
     (label: 'deno lsp', cmd: 'deno', args: ['lsp']),
-    (
-      label: 'pyright',
-      cmd: 'pyright-langserver',
-      args: ['--stdio'],
-    ),
+    (label: 'pyright', cmd: 'pyright-langserver', args: ['--stdio']),
     (label: 'rust-analyzer', cmd: 'rust-analyzer', args: <String>[]),
     (label: 'gopls', cmd: 'gopls', args: <String>[]),
   ];
@@ -462,10 +457,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       text: line,
       style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
     );
-    final tp = TextPainter(
-      text: span,
-      textDirection: TextDirection.ltr,
-    )..layout();
+    final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
+      ..layout();
     if (tp.width <= 0 || line.isEmpty) return 0;
     // 行内偏移 = localX - 行号宽 (54 px 左 padding 含)。负值 clamp 到 0。
     final offset = (localX - 54).clamp(0.0, tp.width);
@@ -599,13 +592,13 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            label: isZh ? '取消' : 'Cancel',
           ),
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
-            child: Text(isZh ? '确定' : 'OK'),
+            label: isZh ? '确定' : 'OK',
           ),
         ],
       ),
@@ -636,15 +629,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           child: SelectableText(
             isZh
                 ? '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；'
-                    '如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
+                      '如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
                 : 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
             style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
           ),
         ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '关闭' : 'Close'),
+            label: isZh ? '关闭' : 'Close',
           ),
         ],
       ),
@@ -710,9 +703,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        widget.isZh
-            ? '未找到对应脚本：$url'
-            : 'No parsed script matches: $url',
+        widget.isZh ? '未找到对应脚本：$url' : 'No parsed script matches: $url',
         duration: const Duration(seconds: 2),
       );
       return;
@@ -798,10 +789,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final isZh = widget.isZh;
     final result = await showAnimatedDialog<({String scriptId, int line})>(
       context: context,
-      builder: (_) => _SourcesGlobalSearchDialog(
-        controller: widget.controller,
-        isZh: isZh,
-      ),
+      builder: (_) =>
+          _SourcesGlobalSearchDialog(controller: widget.controller, isZh: isZh),
     );
     if (result == null || !mounted) return;
     await _selectScript(result.scriptId);
@@ -819,15 +808,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
     final scripts = widget.controller.parsedScripts;
-    final filteredIds = scripts.keys
-        .where((id) {
-          final url = scripts[id]?.url ?? '';
-          return _filter.isEmpty ||
-              url.toLowerCase().contains(_filter.toLowerCase());
-        })
-        .toList(growable: false)
-      ..sort((a, b) =>
-          (scripts[a]?.url ?? '').compareTo(scripts[b]?.url ?? ''));
+    final filteredIds =
+        scripts.keys
+            .where((id) {
+              final url = scripts[id]?.url ?? '';
+              return _filter.isEmpty ||
+                  url.toLowerCase().contains(_filter.toLowerCase());
+            })
+            .toList(growable: false)
+          ..sort(
+            (a, b) => (scripts[a]?.url ?? '').compareTo(scripts[b]?.url ?? ''),
+          );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -845,21 +836,22 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         child: TextField(
                           decoration: InputDecoration(
                             isDense: true,
-                            hintText: isZh
-                                ? '搜索脚本 URL…'
-                                : 'Search script URL…',
-                            prefixIcon:
-                                const Icon(Icons.search_rounded, size: 16),
+                            hintText: isZh ? '搜索脚本 URL…' : 'Search script URL…',
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 16,
+                            ),
                             border: const OutlineInputBorder(),
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 10),
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
                           ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontFamily: 'monospace',
                             fontSize: 12,
                           ),
-                          onChanged: (v) =>
-                              setState(() => _filter = v.trim()),
+                          onChanged: (v) => setState(() => _filter = v.trim()),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -956,9 +948,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     child: Text(
                       isZh
                           ? '从左侧选择脚本查看源码 / 下断点。\n\n点击任意行的左侧行号即可下断点；'
-                              '命中后浏览器会自动暂停，可在原生 DevTools 中调试。'
+                                '命中后浏览器会自动暂停，可在原生 DevTools 中调试。'
                           : 'Pick a script on the left to view its source.\n\n'
-                              'Click any line number to toggle a breakpoint.',
+                                'Click any line number to toggle a breakpoint.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
@@ -989,8 +981,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               isZh
                   ? '映射来源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}'
                   : 'From: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ),
           const PopupMenuDivider(),
@@ -1014,7 +1007,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 12),
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -1028,9 +1023,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       child: Chip(
         avatar: Icon(Icons.alt_route_rounded, size: 14, color: cs.primary),
         label: Text(
-          isZh
-              ? 'Map(${sm.sources.length})'
-              : 'Map(${sm.sources.length})',
+          isZh ? 'Map(${sm.sources.length})' : 'Map(${sm.sources.length})',
           style: const TextStyle(fontSize: 12),
         ),
         visualDensity: VisualDensity.compact,
@@ -1057,7 +1050,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ? sm.sourcesContent[idx]
           : null;
       originalLabel = sm.resolveSource(idx);
-      source = body ??
+      source =
+          body ??
           (isZh
               ? '// 该原始源未内联到 sourcesContent 中。\n// 可以在终端单独 fetch ${sm.mapUrl} 下载完整映射，\n// 或在浏览器 DevTools Sources 里手动展开。'
               : '// This original source is not inlined in sourcesContent.\n// Fetch ${sm.mapUrl} manually to inspect.');
@@ -1081,8 +1075,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     fontFamily: 'monospace',
                     fontSize: 11,
                     color: _viewingOriginal ? cs.primary : cs.onSurfaceVariant,
-                    fontWeight:
-                        _viewingOriginal ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight: _viewingOriginal
+                        ? FontWeight.w700
+                        : FontWeight.w400,
                   ),
                 ),
               ),
@@ -1111,8 +1106,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     onPressed: () {
                       setState(() => _originalSourceIndex = -1);
                     },
-                    icon: const Icon(Icons.subdirectory_arrow_left_rounded,
-                        size: 16),
+                    icon: const Icon(
+                      Icons.subdirectory_arrow_left_rounded,
+                      size: 16,
+                    ),
                     label: Text(isZh ? '返回压缩' : 'Back to gen'),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
@@ -1129,20 +1126,21 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               SizedBox(
                 height: 32,
                 child: FilterChip(
-                  label: Text(_prettify
-                      ? (isZh ? '已美化' : 'Pretty')
-                      : (isZh ? '原样' : 'Raw')),
+                  label: Text(
+                    _prettify
+                        ? (isZh ? '已美化' : 'Pretty')
+                        : (isZh ? '原样' : 'Raw'),
+                  ),
                   selected: _prettify,
                   visualDensity: VisualDensity.compact,
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   // 查看原始源时美化按钮无意义，置灰。
                   onSelected: _viewingOriginal
                       ? null
                       : (v) {
                           setState(() => _prettify = v);
                           _pushCurrentToLsp();
-                  },
+                        },
                 ),
               ),
               const SizedBox(width: 6),
@@ -1158,13 +1156,14 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         ? cs.primary
                         : cs.onSurfaceVariant,
                   ),
-                  label: Text(_lspEnabled
-                      ? (isZh ? 'LSP 已开' : 'LSP on')
-                      : (isZh ? 'LSP' : 'LSP')),
+                  label: Text(
+                    _lspEnabled
+                        ? (isZh ? 'LSP 已开' : 'LSP on')
+                        : (isZh ? 'LSP' : 'LSP'),
+                  ),
                   selected: _lspEnabled,
                   visualDensity: VisualDensity.compact,
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   onSelected: (_) => _toggleLsp(),
                 ),
               ),
@@ -1263,7 +1262,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           ? cs.tertiaryContainer.withValues(alpha: 0.5)
                           : Colors.transparent,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 1),
+                        horizontal: 12,
+                        vertical: 1,
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1274,8 +1275,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                               children: [
                                 Text(
                                   '${idx + 1}',
-                                  style:
-                                      theme.textTheme.labelSmall?.copyWith(
+                                  style: theme.textTheme.labelSmall?.copyWith(
                                     fontFamily: 'monospace',
                                     color: cs.onSurfaceVariant,
                                   ),
@@ -1303,8 +1303,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                               children: [
                                 SelectableText(
                                   lines[idx].isEmpty ? ' ' : lines[idx],
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     fontFamily: 'monospace',
                                     fontSize: 11.5,
                                     height: 1.5,
@@ -1341,13 +1340,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         // 调试器侧栏：Call Stack / Scope / Watch / Breakpoints / EventListener
         // / DOM / CSP / Global Listeners。pausedState 变化时由 _onCtrlChanged
         // 触发 setState 刷新。
-        _DebuggerSideRail(
-          controller: widget.controller,
-          isZh: widget.isZh,
-        ),
+        _DebuggerSideRail(controller: widget.controller, isZh: widget.isZh),
       ],
     );
   }
+
   double _estimateLineWidth(String line) {
     if (line.isEmpty) return 0;
     final tp = TextPainter(
@@ -1367,7 +1364,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     return '...${url.substring(tail)}';
   }
 }
-
 
 /// 跨脚本代码搜索对话框：输入关键字 → controller.searchScriptsGlobal
 /// 拉取所有 parsedScripts 的源码逐行 grep；命中点列表点击即关闭对话框
@@ -1471,8 +1467,8 @@ class _SourcesGlobalSearchDialogState
                         _searching
                             ? (isZh ? '搜索中…' : 'Searching…')
                             : (isZh
-                                ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
-                                : 'Type a query and press Enter; click a hit to jump.'),
+                                  ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
+                                  : 'Type a query and press Enter; click a hit to jump.'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -1501,9 +1497,9 @@ class _SourcesGlobalSearchDialogState
                               color: cs.onSurfaceVariant,
                             ),
                           ),
-                          onTap: () => Navigator.of(context).pop(
-                            (scriptId: h.scriptId, line: h.line),
-                          ),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop((scriptId: h.scriptId, line: h.line)),
                         );
                       },
                     ),
@@ -1535,7 +1531,6 @@ class _SourcesGlobalSearchDialogState
     );
   }
 }
-
 
 /// 调试器右侧栏：暂停时显示 Call Stack / Scope / Watch，未暂停时仅显示
 /// Watch + 「点页面任何一行可触发暂停」提示。所有项随 controller.notify 自动
@@ -1629,16 +1624,20 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.pause_circle_filled_rounded,
-                      size: 16, color: cs.onErrorContainer),
+                  Icon(
+                    Icons.pause_circle_filled_rounded,
+                    size: 16,
+                    color: cs.onErrorContainer,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       isZh
                           ? '已暂停 · ${paused.reason}'
                           : 'Paused · ${paused.reason}',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onErrorContainer),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onErrorContainer,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -1657,15 +1656,13 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                     tooltip: isZh ? '单步进入' : 'Step into',
                     iconSize: 18,
                     onPressed: () => widget.controller.stepIntoDebugger(),
-                    icon: const Icon(
-                        Icons.subdirectory_arrow_right_rounded),
+                    icon: const Icon(Icons.subdirectory_arrow_right_rounded),
                   ),
                   IconButton(
                     tooltip: isZh ? '单步跳出' : 'Step out',
                     iconSize: 18,
                     onPressed: () => widget.controller.stepOutDebugger(),
-                    icon:
-                        const Icon(Icons.subdirectory_arrow_left_rounded),
+                    icon: const Icon(Icons.subdirectory_arrow_left_rounded),
                   ),
                 ],
               ),
@@ -1683,7 +1680,9 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       onTap: () => setState(() => _selectedFrame = i),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: i == _selectedFrame
                               ? cs.primaryContainer
@@ -1716,8 +1715,9 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                             ),
                             Text(
                               ':${(frames[i]['location'] as Map?)?['lineNumber'] ?? '?'}',
-                              style: theme.textTheme.labelSmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
@@ -1764,11 +1764,12 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                         decoration: InputDecoration(
                           isDense: true,
                           border: const OutlineInputBorder(),
-                          hintText:
-                              isZh ? '表达式（回车添加）' : 'expression (Enter)',
+                          hintText: isZh ? '表达式（回车添加）' : 'expression (Enter)',
                         ),
                         style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 12),
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
                         onSubmitted: (_) => _addWatch(),
                       ),
                     ),
@@ -1787,8 +1788,11 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.chevron_right_rounded,
-                            size: 14, color: cs.primary),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 14,
+                          color: cs.primary,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Column(
@@ -1797,7 +1801,9 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                               SelectableText(
                                 w,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 11.5),
+                                  fontFamily: 'monospace',
+                                  fontSize: 11.5,
+                                ),
                               ),
                               SelectableText(
                                 _watchValues[w] ?? '...',
@@ -1813,7 +1819,9 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                           iconSize: 14,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                              minWidth: 24, minHeight: 24),
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
                           icon: Icon(Icons.close_rounded, color: cs.error),
                           onPressed: () {
                             widget.controller.removeWatchExpression(w);
@@ -1832,8 +1840,9 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             isZh
                 ? '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。'
                 : 'More breakpoint types in the Breakpoints tab.',
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -1874,18 +1883,16 @@ class _RailCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (trailing != null) trailing!,
             ],
           ),
           const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.only(right: 4), child: child),
         ],
       ),
     );
@@ -1923,8 +1930,9 @@ class _ScopeSectionState extends State<_ScopeSection> {
     final objectId = obj?['objectId'] as String?;
     if (objectId == null) return;
     setState(() => _loading = true);
-    final list = await widget.controller
-        .runtimeGetProperties(objectId: objectId);
+    final list = await widget.controller.runtimeGetProperties(
+      objectId: objectId,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -1959,8 +1967,9 @@ class _ScopeSectionState extends State<_ScopeSection> {
                   const SizedBox(width: 4),
                   Text(
                     name == null || name.isEmpty ? type : '$type · $name',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -1987,8 +1996,9 @@ class _ScopeSectionState extends State<_ScopeSection> {
                             child: RichText(
                               text: TextSpan(
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    color: cs.onSurface),
+                                  fontFamily: 'monospace',
+                                  color: cs.onSurface,
+                                ),
                                 children: [
                                   TextSpan(
                                     text: '${p['name']}',
@@ -1998,8 +2008,9 @@ class _ScopeSectionState extends State<_ScopeSection> {
                                   TextSpan(
                                     text:
                                         '${(p['value'] as Map?)?['description'] ?? (p['value'] as Map?)?['value'] ?? ''}',
-                                    style:
-                                        TextStyle(color: cs.onSurfaceVariant),
+                                    style: TextStyle(
+                                      color: cs.onSurfaceVariant,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -2031,8 +2042,8 @@ class _SourceHoverBubble extends StatelessWidget {
     final preview = markdown == null
         ? null
         : (markdown!.length > 360
-            ? '${markdown!.substring(0, 360)}…'
-            : markdown!);
+              ? '${markdown!.substring(0, 360)}…'
+              : markdown!);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: Material(
@@ -2056,8 +2067,9 @@ class _SourceHoverBubble extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       'LSP…',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 )
@@ -2218,8 +2230,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
           bindings: <ShortcutActivator, VoidCallback>{
             const SingleActivator(LogicalKeyboardKey.escape): () =>
                 Navigator.of(context).pop(),
-            const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-                _move(1),
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () => _move(1),
             const SingleActivator(LogicalKeyboardKey.arrowUp): () => _move(-1),
             const SingleActivator(LogicalKeyboardKey.enter): _commit,
             const SingleActivator(LogicalKeyboardKey.numpadEnter): _commit,
@@ -2238,11 +2249,12 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                     hintText: isZh
                         ? '快速打开脚本… 末尾加 :42 可跳到指定行'
                         : 'Go to file… (suffix :42 jumps to line)',
-                    prefixIcon:
-                        const Icon(Icons.flash_on_rounded, size: 16),
+                    prefixIcon: const Icon(Icons.flash_on_rounded, size: 16),
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 12),
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontFamily: 'monospace',
@@ -2252,12 +2264,12 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
               ),
               if (_gotoLine != null)
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
                   child: Text(
-                    isZh
-                        ? '将跳到第 $_gotoLine 行'
-                        : 'Will jump to line $_gotoLine',
+                    isZh ? '将跳到第 $_gotoLine 行' : 'Will jump to line $_gotoLine',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.primary,
                     ),
@@ -2285,7 +2297,9 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                           final dir = base.length >= e.url.length
                               ? ''
                               : e.url.substring(
-                                  0, e.url.length - base.length - 1);
+                                  0,
+                                  e.url.length - base.length - 1,
+                                );
                           return InkWell(
                             onTap: () {
                               setState(() => _activeIndex = i);
@@ -2293,7 +2307,9 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 6),
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
                               color: active
                                   ? cs.primary.withValues(alpha: 0.12)
                                   : Colors.transparent,
@@ -2314,9 +2330,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                       fontFamily: 'monospace',
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      color: active
-                                          ? cs.primary
-                                          : cs.onSurface,
+                                      color: active ? cs.primary : cs.onSurface,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -2325,12 +2339,12 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                       dir,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        fontFamily: 'monospace',
-                                        fontSize: 11,
-                                        color: cs.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontFamily: 'monospace',
+                                            fontSize: 11,
+                                            color: cs.onSurfaceVariant,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -2341,8 +2355,10 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                       ),
               ),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 child: Text(
                   isZh
                       ? '↑/↓ 选择 · Enter 打开 · Esc 关闭'

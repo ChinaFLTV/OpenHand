@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'animated_dialog.dart';
+import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
 
@@ -83,7 +84,7 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
           child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
         ),
         actions: <Widget>[
-          TextButton.icon(
+          OpenHandDialogActionButton.secondary(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: fullText));
               if (!dialogContext.mounted) return;
@@ -98,12 +99,12 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
                 ),
               );
             },
-            icon: const Icon(Icons.copy_all_outlined, size: 18),
-            label: const Text('复制 / Copy'),
+            icon: Icons.copy_all_outlined,
+            label: '复制 / Copy',
           ),
-          TextButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭 / Close'),
+            label: '关闭 / Close',
           ),
         ],
       );

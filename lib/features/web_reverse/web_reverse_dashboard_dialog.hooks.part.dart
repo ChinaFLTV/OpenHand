@@ -88,7 +88,11 @@ class _HooksBodyState extends State<_HooksBody> {
       final cur = widget.controller.hooks.firstWhere(
         (e) => e.id == id,
         orElse: () => const WebReverseHook(
-          id: '', name: '', code: '', enabled: false, updatedAt: null,
+          id: '',
+          name: '',
+          code: '',
+          enabled: false,
+          updatedAt: null,
         ),
       );
       _dirty = cur.name != _nameCtrl.text || cur.code != _codeCtrl.text;
@@ -129,7 +133,8 @@ class _HooksBodyState extends State<_HooksBody> {
     final name = loc?.webReverseHooksNewName(time) ?? 'hook $time';
     final h = await widget.controller.addHook(
       name: name,
-      code: '// ${loc?.webReverseHooksDefaultCode ?? 'Runs before every document load; patch window/fetch etc.'}\n'
+      code:
+          '// ${loc?.webReverseHooksDefaultCode ?? 'Runs before every document load; patch window/fetch etc.'}\n'
           '(() => {\n  // hook here\n})();\n',
     );
     widget.onPersist();
@@ -175,20 +180,22 @@ class _HooksBodyState extends State<_HooksBody> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(loc?.webReverseHooksDeleteTitle ?? 'Delete hook?'),
-        content: Text(loc?.webReverseHooksDeleteContent ??
-            'Will be uninstalled immediately.'),
+        content: Text(
+          loc?.webReverseHooksDeleteContent ??
+              'Will be uninstalled immediately.',
+        ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(loc?.commonCancel ?? 'Cancel'),
+            label: loc?.commonCancel ?? 'Cancel',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () async {
               await widget.controller.removeHook(id);
               widget.onPersist();
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
-            child: Text(loc?.webReverseHooksDelete ?? 'Delete'),
+            label: loc?.webReverseHooksDelete ?? 'Delete',
           ),
         ],
       ),
@@ -201,19 +208,20 @@ class _HooksBodyState extends State<_HooksBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(loc?.webReverseHooksDiscardTitle ??
-            'Discard unsaved changes?'),
+        title: Text(
+          loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
+        ),
         actions: [
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(loc?.webReverseHooksKeepEditing ?? 'Keep editing'),
+            label: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
           ),
-          FilledButton.tonal(
+          OpenHandDialogActionButton.destructive(
             onPressed: () {
               Navigator.of(ctx).pop();
               onConfirm();
             },
-            child: Text(loc?.webReverseHooksDiscardConfirm ?? 'Discard'),
+            label: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
           ),
         ],
       ),
@@ -227,8 +235,10 @@ class _HooksBodyState extends State<_HooksBody> {
     final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.hooks]
-      ..sort((a, b) => (b.updatedAt ?? DateTime(0))
-          .compareTo(a.updatedAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+      );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       child: Row(
@@ -248,14 +258,18 @@ class _HooksBodyState extends State<_HooksBody> {
                     padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
                     child: Row(
                       children: [
-                        Icon(Icons.fingerprint_rounded,
-                            size: 16, color: cs.primary),
+                        Icon(
+                          Icons.fingerprint_rounded,
+                          size: 16,
+                          color: cs.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             loc?.webReverseHooksLibrary ?? 'Hook library',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         IconButton(
@@ -276,8 +290,9 @@ class _HooksBodyState extends State<_HooksBody> {
                                 loc?.webReverseHooksEmpty ??
                                     'No hooks yet.\nTap + to create one.',
                                 textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           )
@@ -318,8 +333,9 @@ class _HooksBodyState extends State<_HooksBody> {
                       child: Text(
                         loc?.webReverseHooksPickPrompt ??
                             'Pick a hook or create one.',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : Column(
@@ -333,7 +349,8 @@ class _HooksBodyState extends State<_HooksBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: loc?.webReverseHooksNameLabel ?? 'Name',
+                                  labelText:
+                                      loc?.webReverseHooksNameLabel ?? 'Name',
                                 ),
                               ),
                             ),
@@ -341,15 +358,19 @@ class _HooksBodyState extends State<_HooksBody> {
                             FilledButton.tonalIcon(
                               onPressed: _dirty ? _save : null,
                               icon: const Icon(Icons.save_rounded, size: 18),
-                              label: Text(_dirty
-                                  ? (loc?.webReverseHooksSave ?? 'Save (⌘S)')
-                                  : (loc?.webReverseHooksSaved ?? 'Saved')),
+                              label: Text(
+                                _dirty
+                                    ? (loc?.webReverseHooksSave ?? 'Save (⌘S)')
+                                    : (loc?.webReverseHooksSaved ?? 'Saved'),
+                              ),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
                               tooltip: loc?.webReverseHooksDelete ?? 'Delete',
-                              icon: Icon(Icons.delete_outline_rounded,
-                                  color: cs.error),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: cs.error,
+                              ),
                               onPressed: _delete,
                             ),
                           ],
@@ -358,10 +379,18 @@ class _HooksBodyState extends State<_HooksBody> {
                         Expanded(
                           child: CallbackShortcuts(
                             bindings: <ShortcutActivator, VoidCallback>{
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  meta: true): () { if (_dirty) _save(); },
-                              const SingleActivator(LogicalKeyboardKey.keyS,
-                                  control: true): () { if (_dirty) _save(); },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                meta: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.keyS,
+                                control: true,
+                              ): () {
+                                if (_dirty) _save();
+                              },
                             },
                             child: Container(
                               decoration: BoxDecoration(
@@ -370,7 +399,9 @@ class _HooksBodyState extends State<_HooksBody> {
                                 border: Border.all(color: cs.outlineVariant),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               child: TextField(
                                 controller: _codeCtrl,
                                 focusNode: _codeFocus,
@@ -378,7 +409,9 @@ class _HooksBodyState extends State<_HooksBody> {
                                 expands: true,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 13),
+                                  fontFamily: 'monospace',
+                                  fontSize: 13,
+                                ),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   isDense: true,
@@ -395,20 +428,25 @@ class _HooksBodyState extends State<_HooksBody> {
                             color: cs.primary.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color: cs.primary.withValues(alpha: 0.18)),
+                              color: cs.primary.withValues(alpha: 0.18),
+                            ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline_rounded,
-                                  size: 14, color: cs.primary),
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 14,
+                                color: cs.primary,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   loc?.webReverseHooksInfo ??
                                       'Save reloads instantly. Runs before each document loads; survives tab switch and reload.',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant),
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -461,7 +499,9 @@ class _HookTileState extends State<_HookTile> {
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
@@ -473,7 +513,8 @@ class _HookTileState extends State<_HookTile> {
           child: Row(
             children: [
               Container(
-                width: 6, height: 6,
+                width: 6,
+                height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.hook.enabled

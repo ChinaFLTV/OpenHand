@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_profile_cleaner.dart';
 
@@ -54,9 +55,19 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     // 2026-05-25 — 旧版按 bg 区分语义；统一改走 OpenHandSnackBar 的
     // info/success/error 变体，沿用全局图标+motion+关闭按钮的现代风格。
     if (bg == cs.errorContainer) {
-      OpenHandSnackBar.showErrorOn(context, messenger, text, duration: duration);
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        text,
+        duration: duration,
+      );
     } else if (bg == cs.secondaryContainer) {
-      OpenHandSnackBar.showSuccessOn(context, messenger, text, duration: duration);
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        text,
+        duration: duration,
+      );
     } else {
       OpenHandSnackBar.showInfoOn(context, messenger, text, duration: duration);
     }
@@ -64,8 +75,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
 
   if (userDataDir.trim().isEmpty) {
     toast(
-      text: loc?.webReverseProfileEmptyPath ??
-          'Empty profile path; nothing done',
+      text:
+          loc?.webReverseProfileEmptyPath ?? 'Empty profile path; nothing done',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;
@@ -76,15 +87,10 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   try {
     cleanResult = await cleanWebReverseProfileLocks(userDataDir);
   } catch (error, stack) {
-    silentLog(
-      'web_reverse_profile_actions',
-      'clean step',
-      error,
-      stack,
-    );
+    silentLog('web_reverse_profile_actions', 'clean step', error, stack);
     toast(
-      text: loc?.webReverseProfileCleanFailed('$error') ??
-          'Clean failed: $error',
+      text:
+          loc?.webReverseProfileCleanFailed('$error') ?? 'Clean failed: $error',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;
@@ -97,14 +103,16 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   if (!stillLocked) {
     if (cleanResult.deleted > 0) {
       toast(
-        text: loc?.webReverseProfileCleaned(cleanResult.deleted) ??
+        text:
+            loc?.webReverseProfileCleaned(cleanResult.deleted) ??
             'Cleared ${cleanResult.deleted} lock file(s); profile is healthy',
         bg: cs.secondaryContainer,
       );
       return ProgressiveProfileOutcome.cleaned;
     }
     toast(
-      text: loc?.webReverseProfileNoResidual ??
+      text:
+          loc?.webReverseProfileNoResidual ??
           'No residual locks. If launch still fails, see other causes in diagnosis.',
     );
     return ProgressiveProfileOutcome.nothingToDo;
@@ -115,30 +123,30 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: Text(loc?.webReverseProfileResetTitle ??
-          'Locks still present — reset profile?'),
+      title: Text(
+        loc?.webReverseProfileResetTitle ??
+            'Locks still present — reset profile?',
+      ),
       content: Text(
         loc?.webReverseProfileResetBody(userDataDir) ??
             'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$userDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(loc?.commonCancel ?? 'Cancel'),
+          label: loc?.commonCancel ?? 'Cancel',
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(dialogContext).colorScheme.error,
-          ),
+        OpenHandDialogActionButton.destructive(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(loc?.webReverseProfileResetConfirm ?? 'Reset now'),
+          label: loc?.webReverseProfileResetConfirm ?? 'Reset now',
         ),
       ],
     ),
   );
   if (ok != true) {
     toast(
-      text: loc?.webReverseProfileKept ??
+      text:
+          loc?.webReverseProfileKept ??
           'Profile kept; locks may still block next launch.',
       bg: cs.errorContainer,
     );
@@ -148,9 +156,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   // ④ 重置：路径安全策略 → 递归删除。
   try {
     if (!userDataDir.contains('web_reverse') || userDataDir.length < 16) {
-      throw const FileSystemException(
-        '安全策略拒绝：路径不在 OpenHand web_reverse 子目录中',
-      );
+      throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
     }
     final d = Directory(userDataDir);
     if (await d.exists()) {
@@ -158,22 +164,18 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     }
     if (!context.mounted) return ProgressiveProfileOutcome.reset;
     toast(
-      text: loc?.webReverseProfileResetDone(userDataDir) ??
+      text:
+          loc?.webReverseProfileResetDone(userDataDir) ??
           'Profile reset: $userDataDir (60s cool-down)',
       bg: cs.secondaryContainer,
     );
     return ProgressiveProfileOutcome.reset;
   } catch (error, stack) {
-    silentLog(
-      'web_reverse_profile_actions',
-      'reset step',
-      error,
-      stack,
-    );
+    silentLog('web_reverse_profile_actions', 'reset step', error, stack);
     if (!context.mounted) return ProgressiveProfileOutcome.failed;
     toast(
-      text: loc?.webReverseProfileResetFailed('$error') ??
-          'Reset failed: $error',
+      text:
+          loc?.webReverseProfileResetFailed('$error') ?? 'Reset failed: $error',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
 import 'animated_dialog.dart';
+import 'openhand_dialog_action_button.dart';
 
 /// 检查更新弹窗入口。使用全局弹窗动画设置。
 Future<void> showAppUpdateDialog({
@@ -415,52 +416,52 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   List<Widget> _buildActions(bool isZh) {
     return switch (_phase) {
       _UpdatePhase.checking => [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
       ],
       _UpdatePhase.available => [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '稍后' : 'Later'),
+          label: isZh ? '稍后' : 'Later',
         ),
         if (_release!.downloadUrl.isNotEmpty)
-          FilledButton.icon(
+          OpenHandDialogActionButton.primary(
             onPressed: _startDownload,
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: Text(isZh ? '下载更新' : 'Download'),
+            icon: Icons.download_rounded,
+            label: isZh ? '下载更新' : 'Download',
           ),
       ],
       _UpdatePhase.notAvailable => [
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '好的' : 'OK'),
+          label: isZh ? '好的' : 'OK',
         ),
       ],
       _UpdatePhase.downloading => [
         if (_downloadedFilePath != null)
-          FilledButton(
+          OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '完成' : 'Done'),
+            label: isZh ? '完成' : 'Done',
           )
         else
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(isZh ? '后台下载' : 'Background'),
+            label: isZh ? '后台下载' : 'Background',
           ),
       ],
       _UpdatePhase.error => [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () {
             setState(() => _phase = _UpdatePhase.checking);
             _checkForUpdate();
           },
-          child: Text(isZh ? '重试' : 'Retry'),
+          label: isZh ? '重试' : 'Retry',
         ),
       ],
     };

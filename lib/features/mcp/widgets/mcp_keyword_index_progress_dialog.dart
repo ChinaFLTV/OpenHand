@@ -166,9 +166,9 @@ class _McpKeywordIndexProgressDialogState
             onPressed: () => Navigator.of(context).maybePop(),
           )
         else
-          TextButton(
+          OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).maybePop(),
-            child: Text(l10n.commonRunInBackground),
+            label: l10n.commonRunInBackground,
           ),
       ],
     );

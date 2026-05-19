@@ -70,8 +70,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         list.sort((a, b) => _duration(b).compareTo(_duration(a)));
         break;
       case _SortMode.size:
-        list.sort((a, b) =>
-            (b.encodedDataLength ?? 0).compareTo(a.encodedDataLength ?? 0));
+        list.sort(
+          (a, b) =>
+              (b.encodedDataLength ?? 0).compareTo(a.encodedDataLength ?? 0),
+        );
         break;
     }
     return list;
@@ -95,7 +97,9 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     DateTime? earliest;
     DateTime? latest;
     for (final e in entries) {
-      if (earliest == null || e.timestamp.isBefore(earliest)) earliest = e.timestamp;
+      if (earliest == null || e.timestamp.isBefore(earliest)) {
+        earliest = e.timestamp;
+      }
       final end = e.loadingFinishedAt ?? e.responseReceivedAt ?? e.timestamp;
       if (latest == null || end.isAfter(latest)) latest = end;
     }
@@ -123,12 +127,16 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       children: [
                         Text(
                           loc?.webReverseWaterfallTitle ?? 'Network Waterfall',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseWaterfallSubtitle ??
                               'Blue = wait TTFB, Green = download; click row to copy URL',
-                          style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -167,14 +175,18 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: loc?.webReverseWaterfallFilterHint ?? 'filter URL substring',
+                        hintText:
+                            loc?.webReverseWaterfallFilterHint ??
+                            'filter URL substring',
                         border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   FilterChip(
-                    label: Text(loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only'),
+                    label: Text(
+                      loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only',
+                    ),
                     selected: _onlyXhr,
                     onSelected: (v) => setState(() => _onlyXhr = v),
                   ),
@@ -185,15 +197,28 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       if (v != null) setState(() => _sort = v);
                     },
                     items: [
-                      DropdownMenuItem(value: _SortMode.time, child: Text(loc?.webReverseWaterfallSortTime ?? 'Time')),
-                      DropdownMenuItem(value: _SortMode.duration, child: Text(loc?.webReverseWaterfallSortDuration ?? 'Duration')),
-                      DropdownMenuItem(value: _SortMode.size, child: Text(loc?.webReverseWaterfallSortSize ?? 'Size')),
+                      DropdownMenuItem(
+                        value: _SortMode.time,
+                        child: Text(loc?.webReverseWaterfallSortTime ?? 'Time'),
+                      ),
+                      DropdownMenuItem(
+                        value: _SortMode.duration,
+                        child: Text(
+                          loc?.webReverseWaterfallSortDuration ?? 'Duration',
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: _SortMode.size,
+                        child: Text(loc?.webReverseWaterfallSortSize ?? 'Size'),
+                      ),
                     ],
                   ),
                   const SizedBox(width: 12),
                   Text(
                     '${entries.length}',
-                    style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -210,21 +235,36 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     ? Center(
                         child: Text(
                           loc?.webReverseWaterfallNoRequests ?? 'No requests',
-                          style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : LayoutBuilder(
                         builder: (context, constraints) {
                           const leftWidth = 360.0;
-                          final barWidth = (constraints.maxWidth - leftWidth - 16).clamp(120.0, 9999.0);
+                          final barWidth =
+                              (constraints.maxWidth - leftWidth - 16).clamp(
+                                120.0,
+                                9999.0,
+                              );
                           return Column(
                             children: [
-                              _scaleHeader(theme, cs, leftWidth, barWidth, windowMs),
+                              _scaleHeader(
+                                theme,
+                                cs,
+                                leftWidth,
+                                barWidth,
+                                windowMs,
+                              ),
                               Divider(height: 1, color: cs.outlineVariant),
                               Expanded(
                                 child: ListView.separated(
                                   itemCount: entries.length,
-                                  separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
+                                  separatorBuilder: (_, _) => Divider(
+                                    height: 1,
+                                    color: cs.outlineVariant,
+                                  ),
                                   itemBuilder: (_, i) {
                                     final e = entries[i];
                                     return _row(
@@ -236,12 +276,18 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       leftWidth: leftWidth,
                                       barWidth: barWidth,
                                       onTap: () async {
-                                        await Clipboard.setData(ClipboardData(text: e.url));
-                                        if (messenger != null && context.mounted) {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: e.url),
+                                        );
+                                        if (messenger != null &&
+                                            context.mounted) {
                                           OpenHandSnackBar.showSuccessOn(
                                             context,
                                             messenger,
-                                            AppLocalizations.of(context)?.webReverseWaterfallUrlCopied ?? 'URL copied',
+                                            AppLocalizations.of(
+                                                  context,
+                                                )?.webReverseWaterfallUrlCopied ??
+                                                'URL copied',
                                           );
                                         }
                                       },
@@ -274,24 +320,31 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     );
   }
 
-  Widget _scaleHeader(ThemeData theme, ColorScheme cs, double leftWidth,
-      double barWidth, int windowMs) {
+  Widget _scaleHeader(
+    ThemeData theme,
+    ColorScheme cs,
+    double leftWidth,
+    double barWidth,
+    int windowMs,
+  ) {
     final ticks = <Widget>[];
     const tickCount = 5;
     for (var i = 0; i <= tickCount; i++) {
       final ratio = i / tickCount;
       final ms = (windowMs * ratio).round();
-      ticks.add(Positioned(
-        left: barWidth * ratio - 16,
-        child: Text(
-          '${ms}ms',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: cs.onSurfaceVariant,
-            fontFamily: 'monospace',
-            fontSize: 10,
+      ticks.add(
+        Positioned(
+          left: barWidth * ratio - 16,
+          child: Text(
+            '${ms}ms',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontFamily: 'monospace',
+              fontSize: 10,
+            ),
           ),
         ),
-      ));
+      );
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -300,7 +353,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           SizedBox(
             width: leftWidth,
             child: Text(
-              AppLocalizations.of(context)?.webReverseWaterfallHeaderRequest ?? 'Request',
+              AppLocalizations.of(context)?.webReverseWaterfallHeaderRequest ??
+                  'Request',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
@@ -331,8 +385,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     final startMs = e.timestamp.difference(earliest).inMilliseconds;
     final ttfbEnd = e.responseReceivedAt ?? e.loadingFinishedAt ?? e.timestamp;
     final downloadEnd = e.loadingFinishedAt ?? ttfbEnd;
-    final waitMs = ttfbEnd.difference(e.timestamp).inMilliseconds.clamp(0, 1 << 30);
-    final downMs = downloadEnd.difference(ttfbEnd).inMilliseconds.clamp(0, 1 << 30);
+    final waitMs = ttfbEnd
+        .difference(e.timestamp)
+        .inMilliseconds
+        .clamp(0, 1 << 30);
+    final downMs = downloadEnd
+        .difference(ttfbEnd)
+        .inMilliseconds
+        .clamp(0, 1 << 30);
     final pending = e.loadingFinishedAt == null && e.responseReceivedAt == null;
 
     double pos(int ms) => (ms / windowMs).clamp(0.0, 1.0) * barWidth;
@@ -344,10 +404,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     final statusColor = status == null
         ? cs.onSurfaceVariant
         : (status >= 500
-            ? cs.error
-            : (status >= 400
-                ? Colors.orange
-                : (status >= 300 ? Colors.amber : cs.primary)));
+              ? cs.error
+              : (status >= 400
+                    ? Colors.orange
+                    : (status >= 300 ? Colors.amber : cs.primary)));
 
     final size = e.encodedDataLength;
     final total = waitMs + downMs;
@@ -390,7 +450,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                   Expanded(
                     child: Text(
                       _shortUrl(e.url),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -464,13 +527,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   }
 
   /// Initiator 入口徽标：有调用栈/url 时高亮，可点击展开详情并跳转 Sources。
-  Widget _initiatorBadge(
-    ThemeData theme,
-    ColorScheme cs,
-    CdpNetworkEntry e,
-  ) {
+  Widget _initiatorBadge(ThemeData theme, ColorScheme cs, CdpNetworkEntry e) {
     final loc = AppLocalizations.of(context);
-    final hasAny = (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty) ||
+    final hasAny =
+        (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty) ||
         e.initiatorStack.isNotEmpty ||
         (e.initiatorType != null && e.initiatorType!.isNotEmpty);
     final type = (e.initiatorType ?? 'other').toLowerCase();
@@ -484,10 +544,13 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     final initiatorUrl = e.initiatorUrl;
     final tooltipMsg = hasAny
         ? (initiatorUrl != null && initiatorUrl.isNotEmpty
-            ? (loc?.webReverseWaterfallInitiatorTooltipWithUrl(type, initiatorUrl)
-                ?? 'Initiator: $type\n$initiatorUrl')
-            : (loc?.webReverseWaterfallInitiatorTooltipNoUrl(type)
-                ?? 'Initiator: $type'))
+              ? (loc?.webReverseWaterfallInitiatorTooltipWithUrl(
+                      type,
+                      initiatorUrl,
+                    ) ??
+                    'Initiator: $type\n$initiatorUrl')
+              : (loc?.webReverseWaterfallInitiatorTooltipNoUrl(type) ??
+                    'Initiator: $type'))
         : (loc?.webReverseWaterfallNoInitiator ?? 'No initiator info');
     return Padding(
       padding: const EdgeInsets.only(right: 6),
@@ -548,7 +611,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          loc?.webReverseWaterfallInitiatorTitle ?? 'Request Initiator',
+                          loc?.webReverseWaterfallInitiatorTitle ??
+                              'Request Initiator',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -585,7 +649,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                             if (mounted) Navigator.of(context).pop();
                           },
                           icon: const Icon(Icons.launch_rounded, size: 14),
-                          label: Text(loc?.webReverseWaterfallJumpToSources ?? 'Open in Sources'),
+                          label: Text(
+                            loc?.webReverseWaterfallJumpToSources ??
+                                'Open in Sources',
+                          ),
                         ),
                     ],
                   ),
@@ -636,18 +703,22 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       ctrl.requestSourceJump(
                                         url: url,
                                         line:
-                                            (f['lineNumber'] as num?)?.toInt() ??
-                                                0,
+                                            (f['lineNumber'] as num?)
+                                                ?.toInt() ??
+                                            0,
                                         col:
-                                            (f['columnNumber'] as num?)?.toInt() ??
-                                                0,
+                                            (f['columnNumber'] as num?)
+                                                ?.toInt() ??
+                                            0,
                                       );
                                       Navigator.of(dialogContext).pop();
                                       if (mounted) Navigator.of(context).pop();
                                     },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 6),
+                                  horizontal: 18,
+                                  vertical: 6,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -701,8 +772,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   Future<void> _importHar() async {
     final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    const typeGroup =
-        XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
+    const typeGroup = XTypeGroup(
+      label: 'HAR',
+      extensions: <String>['har', 'json'],
+    );
     XFile? file;
     try {
       file = await openFile(acceptedTypeGroups: const [typeGroup]);
@@ -720,21 +793,21 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           return AlertDialog(
             title: Text(dloc?.webReverseWaterfallLoadHarTitle ?? 'Load HAR'),
             content: Text(
-              dloc?.webReverseWaterfallLoadHarPrompt(existing)
-                  ?? 'Network list has $existing entries. Choose load mode:',
+              dloc?.webReverseWaterfallLoadHarPrompt(existing) ??
+                  'Network list has $existing entries. Choose load mode:',
             ),
             actions: [
-              TextButton(
+              OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(dctx).pop('cancel'),
-                child: Text(dloc?.webReverseWaterfallCancel ?? 'Cancel'),
+                label: dloc?.webReverseWaterfallCancel ?? 'Cancel',
               ),
-              TextButton(
+              OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(dctx).pop('merge'),
-                child: Text(dloc?.webReverseWaterfallMerge ?? 'Merge'),
+                label: dloc?.webReverseWaterfallMerge ?? 'Merge',
               ),
-              FilledButton(
+              OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(dctx).pop('replace'),
-                child: Text(dloc?.webReverseWaterfallReplace ?? 'Replace'),
+                label: dloc?.webReverseWaterfallReplace ?? 'Replace',
               ),
             ],
           );
@@ -753,10 +826,13 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         context,
         messenger,
         merge
-            ? (loc2?.webReverseWaterfallLoadMergedResult(r.loaded, r.skipped)
-                ?? 'Merged: ${r.loaded}; skipped ${r.skipped}')
-            : (loc2?.webReverseWaterfallLoadReplacedResult(r.loaded, r.skipped)
-                ?? 'Replaced: ${r.loaded}; skipped ${r.skipped}'),
+            ? (loc2?.webReverseWaterfallLoadMergedResult(r.loaded, r.skipped) ??
+                  'Merged: ${r.loaded}; skipped ${r.skipped}')
+            : (loc2?.webReverseWaterfallLoadReplacedResult(
+                    r.loaded,
+                    r.skipped,
+                  ) ??
+                  'Replaced: ${r.loaded}; skipped ${r.skipped}'),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
@@ -785,8 +861,12 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog('web_reverse_waterfall_dialog', 'getSaveLocation har', error,
-          stack);
+      silentLog(
+        'web_reverse_waterfall_dialog',
+        'getSaveLocation har',
+        error,
+        stack,
+      );
     }
     if (loc1 == null) return;
     String? written;
@@ -796,7 +876,11 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           .timeout(const Duration(seconds: 10));
     } catch (error, stack) {
       silentLog(
-          'web_reverse_waterfall_dialog', 'exportHarToPath', error, stack);
+        'web_reverse_waterfall_dialog',
+        'exportHarToPath',
+        error,
+        stack,
+      );
     }
     if (!mounted) return;
     final loc2 = AppLocalizations.of(context);
@@ -804,7 +888,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        loc2?.webReverseWaterfallHarSaveFailed ?? 'HAR save failed or timed out',
+        loc2?.webReverseWaterfallHarSaveFailed ??
+            'HAR save failed or timed out',
         duration: const Duration(seconds: 3),
       );
     } else {
