@@ -56,7 +56,9 @@ void main() {
       expect(runtimeMap['cdp_first_required'], true);
       final availability =
           runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+      expect(availability['browser_runtime_live'], true);
       expect(availability['current_turn_callable'], false);
+      expect(availability['live_cdp_actions_current_turn_callable'], false);
       expect(availability['warning'], contains('Do not invent cdp_*'));
       expect(runtimeMap['config'], containsPair('desired_cdp_port', 9222));
       expect(runtimeMap['config'], isNot(contains('cdp_port')));
@@ -140,7 +142,9 @@ void main() {
         result.metadata['web_reverse_runtime']! as Map<String, Object?>;
     final availability =
         runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+    expect(availability['browser_runtime_live'], true);
     expect(availability['current_turn_callable'], true);
+    expect(availability['live_cdp_actions_current_turn_callable'], true);
     expect(availability['current_turn_callable_count'], 1);
     expect(
       availability['current_turn_callable_names'],
@@ -192,7 +196,9 @@ void main() {
         result.metadata['web_reverse_runtime']! as Map<String, Object?>;
     final availability =
         runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+    expect(availability['browser_runtime_live'], true);
     expect(availability['current_turn_callable'], false);
+    expect(availability['live_cdp_actions_current_turn_callable'], false);
     expect(availability['tool_search_available'], true);
     expect(availability['tool_search_deferred_cdp_mcp_count'], 1);
     expect(
@@ -251,6 +257,8 @@ void main() {
       final runtimeMap =
           result.metadata['web_reverse_runtime']! as Map<String, Object?>;
       final cdpRuntime = runtimeMap['cdp_runtime']! as Map<String, Object?>;
+      final availability =
+          runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
       expect(
         runtimeMap['cdp_runtime_warning'],
         contains('historical last_* values only'),
@@ -258,6 +266,12 @@ void main() {
       expect(
         runtimeMap['fallback_policy'],
         contains('Live CDP MCP actions require browser_alive=true'),
+      );
+      expect(availability['browser_runtime_live'], false);
+      expect(availability['live_cdp_actions_current_turn_callable'], false);
+      expect(
+        availability['runtime_liveness_blocker'],
+        contains('Tool availability alone is not enough'),
       );
       expect(runtimeMap['config'], containsPair('desired_cdp_port', 9222));
       expect(runtimeMap['config'], isNot(contains('cdp_port')));
@@ -287,6 +301,54 @@ void main() {
       expect(promptText, contains('"last_current_target"'));
       expect(promptText, contains('historical last_* values only'));
       expect(promptText, isNot(contains('http://127.0.0.1:9233')));
+    },
+  );
+
+  test(
+    'blocks live CDP actions when browser is dead even if tool is visible',
+    () {
+      final now = DateTime.utc(2026, 5, 19);
+      final latestUserMessage = AiSessionMessage.user(
+        id: 'user-1',
+        content: 'Continue reversing https://example.test',
+        createdAt: now,
+      );
+      final session = _webReverseSession(
+        now: now,
+        latestUserMessage: latestUserMessage,
+        metadata: const <String, Object?>{
+          'web_reverse_config': <String, Object?>{
+            'target_url': 'https://example.test',
+            'cdp_port': 9222,
+          },
+          'web_reverse_cdp_runtime': <String, Object?>{
+            'cdp_port': 9233,
+            'browser_alive': false,
+          },
+        },
+      );
+      final cdpTool = _mcpTool(
+        catalogName: 'mcp__chrome_devtools__navigate_page',
+        toolName: 'navigate_page',
+        description: 'Navigate a Chrome DevTools Protocol page target.',
+      );
+
+      final result = _buildWebReversePrompt(
+        session,
+        latestUserMessage,
+        availableTools: <AiToolDefinition>[cdpTool.definition],
+        resolvedToolsByName: <String, AiResolvedTool>{cdpTool.name: cdpTool},
+      );
+
+      final runtimeMap =
+          result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+      final availability =
+          runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+      expect(availability['current_turn_callable'], true);
+      expect(availability['browser_runtime_live'], false);
+      expect(availability['live_cdp_actions_current_turn_callable'], false);
+      expect(availability['guidance'], contains('do not use them for live'));
+      expect(availability, contains('runtime_liveness_blocker'));
     },
   );
 }
