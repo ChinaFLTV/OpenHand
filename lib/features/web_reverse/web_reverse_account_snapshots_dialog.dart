@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -35,6 +36,7 @@ class _AccountSnapshotsDialog extends StatefulWidget {
     required this.isZh,
   });
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_AccountSnapshotsDialog> createState() =>
@@ -55,6 +57,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     if (_busy) return;
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _busy = true);
     try {
@@ -66,9 +69,9 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             messenger,
-            widget.isZh
-                ? '已保存「${snap.name}」（${snap.cookies.length} cookies）'
-                : 'Saved "${snap.name}" (${snap.cookies.length} cookies)',
+            loc?.webReverseAccountSnapSavedSnapshot(
+                    snap.name, snap.cookies.length) ??
+                'Saved "${snap.name}" (${snap.cookies.length} cookies)',
           );
         }
       }
@@ -81,6 +84,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
 
   Future<void> _apply(WebReverseAccountSnapshot snap) async {
     if (_busy) return;
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _busy = true);
     try {
@@ -91,16 +95,16 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             messenger,
-            widget.isZh
-                ? '已应用「${snap.name}」，建议刷新页面让 JS 重新读取'
-                : 'Applied "${snap.name}". Refresh the page so JS re-reads it.',
+            loc?.webReverseAccountSnapAppliedSnapshot(snap.name) ??
+                'Applied "${snap.name}". Refresh the page so JS re-reads it.',
             duration: const Duration(seconds: 4),
           );
         } else {
           OpenHandSnackBar.showErrorOn(
             context,
             messenger,
-            widget.isZh ? '应用失败：未连上 CDP' : 'Apply failed: no CDP session',
+            loc?.webReverseAccountSnapApplyFailedNoCdp ??
+                'Apply failed: no CDP session',
           );
         }
       }
@@ -114,6 +118,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   }
 
   Future<void> _export() async {
+    final loc = AppLocalizations.of(context);
     final list = widget.controller.accountSnapshots
         .map((s) => s.toJson())
         .toList(growable: false);
@@ -125,14 +130,14 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        widget.isZh
-            ? '已复制 ${list.length} 份快照 JSON 到剪贴板'
-            : 'Copied ${list.length} snapshots JSON to clipboard',
+        loc?.webReverseAccountSnapCopiedCount(list.length) ??
+            'Copied ${list.length} snapshots JSON to clipboard',
       );
     }
   }
 
   Future<void> _import() async {
+    final loc = AppLocalizations.of(context);
     final data = await Clipboard.getData('text/plain');
     final text = data?.text?.trim() ?? '';
     if (text.isEmpty) return;
@@ -154,9 +159,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          widget.isZh
-              ? '已导入 ${parsed.length} 份快照'
-              : 'Imported ${parsed.length} snapshots',
+          loc?.webReverseAccountSnapImportedCount(parsed.length) ??
+              'Imported ${parsed.length} snapshots',
         );
       }
     } catch (e, st) {
@@ -166,7 +170,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          widget.isZh ? '剪贴板内容不是有效快照 JSON' : 'Clipboard is not a snapshot JSON',
+          loc?.webReverseAccountSnapNotSnapshotJson ??
+              'Clipboard is not a snapshot JSON',
         );
       }
     }
@@ -176,7 +181,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
@@ -191,7 +196,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
             constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
             child: Column(
               children: [
-                _buildHeader(theme, cs, isZh),
+                _buildHeader(theme, cs, loc),
                 Divider(height: 1, color: cs.outlineVariant),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
@@ -201,9 +206,10 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                         child: TextField(
                           controller: _nameCtrl,
                           decoration: InputDecoration(
-                            labelText:
-                                isZh ? '为当前账号取名' : 'Name for current account',
-                            hintText: isZh ? '如 main / test-001' : 'e.g. main / test-001',
+                            labelText: loc?.webReverseAccountSnapNameLabel ??
+                                'Name for current account',
+                            hintText: loc?.webReverseAccountSnapNameHint ??
+                                'e.g. main / test-001',
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -214,7 +220,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                       FilledButton.icon(
                         onPressed: _busy ? null : _capture,
                         icon: const Icon(Icons.bookmark_add_rounded, size: 18),
-                        label: Text(isZh ? '保存当前' : 'Capture'),
+                        label: Text(loc?.webReverseAccountSnapCapture ?? 'Capture'),
                       ),
                     ],
                   ),
@@ -226,16 +232,17 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                       TextButton.icon(
                         onPressed: snaps.isEmpty ? null : _export,
                         icon: const Icon(Icons.upload_rounded, size: 16),
-                        label: Text(isZh ? '导出全部到剪贴板' : 'Export all'),
+                        label: Text(loc?.webReverseAccountSnapExportAll ?? 'Export all'),
                       ),
                       TextButton.icon(
                         onPressed: _import,
                         icon: const Icon(Icons.download_rounded, size: 16),
-                        label: Text(isZh ? '从剪贴板导入' : 'Import'),
+                        label: Text(loc?.webReverseAccountSnapImport ?? 'Import'),
                       ),
                       const Spacer(),
                       Text(
-                        isZh ? '共 ${snaps.length} 份' : '${snaps.length} total',
+                        loc?.webReverseAccountSnapSnapshotsCount(snaps.length) ??
+                            '${snaps.length} total',
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -245,7 +252,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                 const SizedBox(height: 4),
                 Expanded(
                   child: snaps.isEmpty
-                      ? _buildEmpty(theme, cs, isZh)
+                      ? _buildEmpty(theme, cs, loc)
                       : ListView.separated(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -254,7 +261,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                           itemCount: snaps.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (_, idx) =>
-                              _buildRow(theme, cs, isZh, snaps[idx]),
+                              _buildRow(theme, cs, loc, snaps[idx]),
                         ),
                 ),
                 Divider(height: 1, color: cs.outlineVariant),
@@ -264,7 +271,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OpenHandDialogActionButton.secondary(
-                        label: isZh ? '关闭' : 'Close',
+                        label: loc?.webReverseAccountSnapClose ?? 'Close',
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -278,7 +285,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
       child: Row(
@@ -290,14 +297,13 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? '多账号会话快照' : 'Account Snapshots',
+                  loc?.webReverseAccountSnapTitle ?? 'Account Snapshots',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  isZh
-                      ? '保存当前 cookies + localStorage/sessionStorage，一键切换不同账号'
-                      : 'Save cookies + localStorage/sessionStorage; one-click switch between accounts',
+                  loc?.webReverseAccountSnapSubtitle ??
+                      'Save cookies + localStorage/sessionStorage; one-click switch between accounts',
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -313,7 +319,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     );
   }
 
-  Widget _buildEmpty(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -324,9 +330,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                 size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 10),
             Text(
-              isZh
-                  ? '还没有任何快照。在上方输入名字 → 点"保存当前"开始'
-                  : 'No snapshots yet. Type a name above → click "Capture".',
+              loc?.webReverseAccountSnapEmptyHint ??
+                  'No snapshots yet. Type a name above → click "Capture".',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant),
               textAlign: TextAlign.center,
@@ -340,7 +345,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   Widget _buildRow(
     ThemeData theme,
     ColorScheme cs,
-    bool isZh,
+    AppLocalizations? loc,
     WebReverseAccountSnapshot snap,
   ) {
     final ts = snap.capturedAt;
@@ -389,10 +394,10 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
           FilledButton.tonalIcon(
             onPressed: _busy ? null : () => _apply(snap),
             icon: const Icon(Icons.play_arrow_rounded, size: 16),
-            label: Text(isZh ? '应用' : 'Apply'),
+            label: Text(loc?.webReverseAccountSnapApply ?? 'Apply'),
           ),
           IconButton(
-            tooltip: isZh ? '删除' : 'Delete',
+            tooltip: loc?.webReverseAccountSnapDelete ?? 'Delete',
             onPressed: () => _delete(snap),
             icon: Icon(Icons.delete_outline_rounded, color: cs.error),
           ),

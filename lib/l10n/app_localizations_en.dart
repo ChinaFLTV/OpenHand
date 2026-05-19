@@ -6654,4 +6654,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseWatchHistory(int count) {
     return 'History ($count)';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => 'Account Snapshots';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      'Save cookies + localStorage/sessionStorage; one-click switch between accounts';
+
+  @override
+  String get webReverseAccountSnapNameLabel => 'Name for current account';
+
+  @override
+  String get webReverseAccountSnapNameHint => 'e.g. main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => 'Capture';
+
+  @override
+  String get webReverseAccountSnapExportAll => 'Export all';
+
+  @override
+  String get webReverseAccountSnapImport => 'Import';
+
+  @override
+  String get webReverseAccountSnapClose => 'Close';
+
+  @override
+  String get webReverseAccountSnapEmptyHint =>
+      'No snapshots yet. Type a name above → click \"Capture\".';
+
+  @override
+  String get webReverseAccountSnapApply => 'Apply';
+
+  @override
+  String get webReverseAccountSnapDelete => 'Delete';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp =>
+      'Apply failed: no CDP session';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson =>
+      'Clipboard is not a snapshot JSON';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return 'Saved \"$name\" ($count cookies)';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return 'Applied \"$name\". Refresh the page so JS re-reads it.';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return 'Copied $count snapshots JSON to clipboard';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return 'Imported $count snapshots';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '$count total';
+  }
 }

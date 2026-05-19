@@ -4422,5 +4422,105 @@
         "type": "int"
       }
     }
+  },
+  "webReverseAccountSnapTitle": "Instantanés de compte",
+  "@webReverseAccountSnapTitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSubtitle": "Enregistrer cookies + localStorage/sessionStorage ; basculer entre comptes en un clic",
+  "@webReverseAccountSnapSubtitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameLabel": "Nom du compte actuel",
+  "@webReverseAccountSnapNameLabel": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameHint": "ex. main / test-001",
+  "@webReverseAccountSnapNameHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapCapture": "Capturer",
+  "@webReverseAccountSnapCapture": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapExportAll": "Tout exporter",
+  "@webReverseAccountSnapExportAll": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapImport": "Importer",
+  "@webReverseAccountSnapImport": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapClose": "Fermer",
+  "@webReverseAccountSnapClose": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapEmptyHint": "Aucun instantané. Saisissez un nom ci-dessus → cliquez sur « Capturer ».",
+  "@webReverseAccountSnapEmptyHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApply": "Appliquer",
+  "@webReverseAccountSnapApply": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapDelete": "Supprimer",
+  "@webReverseAccountSnapDelete": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApplyFailedNoCdp": "Échec de l'application : pas de session CDP",
+  "@webReverseAccountSnapApplyFailedNoCdp": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNotSnapshotJson": "Le presse-papiers n'est pas un JSON d'instantané",
+  "@webReverseAccountSnapNotSnapshotJson": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSavedSnapshot": "« {name} » enregistré ({count} cookies)",
+  "@webReverseAccountSnapSavedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapAppliedSnapshot": "« {name} » appliqué. Actualisez la page pour que JS le relise.",
+  "@webReverseAccountSnapAppliedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAccountSnapCopiedCount": "{count} instantanés JSON copiés dans le presse-papiers",
+  "@webReverseAccountSnapCopiedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapImportedCount": "{count} instantanés importés",
+  "@webReverseAccountSnapImportedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapSnapshotsCount": "{count} au total",
+  "@webReverseAccountSnapSnapshotsCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

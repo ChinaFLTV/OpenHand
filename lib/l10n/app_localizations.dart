@@ -11807,6 +11807,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'历史（{count}）'**
   String webReverseWatchHistory(int count);
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多账号会话快照'**
+  String get webReverseAccountSnapTitle;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存当前 cookies + localStorage/sessionStorage，一键切换不同账号'**
+  String get webReverseAccountSnapSubtitle;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'为当前账号取名'**
+  String get webReverseAccountSnapNameLabel;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'如 main / test-001'**
+  String get webReverseAccountSnapNameHint;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存当前'**
+  String get webReverseAccountSnapCapture;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出全部到剪贴板'**
+  String get webReverseAccountSnapExportAll;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从剪贴板导入'**
+  String get webReverseAccountSnapImport;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseAccountSnapClose;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还没有任何快照。在上方输入名字 → 点\"保存当前\"开始'**
+  String get webReverseAccountSnapEmptyHint;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用'**
+  String get webReverseAccountSnapApply;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseAccountSnapDelete;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用失败：未连上 CDP'**
+  String get webReverseAccountSnapApplyFailedNoCdp;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'剪贴板内容不是有效快照 JSON'**
+  String get webReverseAccountSnapNotSnapshotJson;
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存「{name}」（{count} cookies）'**
+  String webReverseAccountSnapSavedSnapshot(String name, int count);
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用「{name}」，建议刷新页面让 JS 重新读取'**
+  String webReverseAccountSnapAppliedSnapshot(String name);
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {count} 份快照 JSON 到剪贴板'**
+  String webReverseAccountSnapCopiedCount(int count);
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已导入 {count} 份快照'**
+  String webReverseAccountSnapImportedCount(int count);
+
+  /// Web reverse account snapshots panel string
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 份'**
+  String webReverseAccountSnapSnapshotsCount(int count);
 }
 
 class _AppLocalizationsDelegate

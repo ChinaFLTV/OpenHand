@@ -6713,4 +6713,72 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseWatchHistory(int count) {
     return 'Verlauf ($count)';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => 'Kontoschnappschüsse';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      'Cookies + localStorage/sessionStorage speichern; Konten per Klick wechseln';
+
+  @override
+  String get webReverseAccountSnapNameLabel => 'Name für aktuelles Konto';
+
+  @override
+  String get webReverseAccountSnapNameHint => 'z. B. main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => 'Erfassen';
+
+  @override
+  String get webReverseAccountSnapExportAll => 'Alle exportieren';
+
+  @override
+  String get webReverseAccountSnapImport => 'Importieren';
+
+  @override
+  String get webReverseAccountSnapClose => 'Schließen';
+
+  @override
+  String get webReverseAccountSnapEmptyHint =>
+      'Noch keine Snapshots. Namen oben eingeben → „Erfassen\" klicken.';
+
+  @override
+  String get webReverseAccountSnapApply => 'Anwenden';
+
+  @override
+  String get webReverseAccountSnapDelete => 'Löschen';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp =>
+      'Anwenden fehlgeschlagen: keine CDP-Sitzung';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson =>
+      'Zwischenablage ist kein Snapshot-JSON';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '\"$name\" gespeichert ($count Cookies)';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '\"$name\" angewendet. Seite neu laden, damit JS sie erneut liest.';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '$count Snapshots-JSON in Zwischenablage kopiert';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '$count Snapshots importiert';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '$count insgesamt';
+  }
 }

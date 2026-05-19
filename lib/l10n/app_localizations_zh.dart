@@ -6371,6 +6371,71 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseWatchHistory(int count) {
     return '历史（$count）';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => '多账号会话快照';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      '保存当前 cookies + localStorage/sessionStorage，一键切换不同账号';
+
+  @override
+  String get webReverseAccountSnapNameLabel => '为当前账号取名';
+
+  @override
+  String get webReverseAccountSnapNameHint => '如 main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => '保存当前';
+
+  @override
+  String get webReverseAccountSnapExportAll => '导出全部到剪贴板';
+
+  @override
+  String get webReverseAccountSnapImport => '从剪贴板导入';
+
+  @override
+  String get webReverseAccountSnapClose => '关闭';
+
+  @override
+  String get webReverseAccountSnapEmptyHint => '还没有任何快照。在上方输入名字 → 点\"保存当前\"开始';
+
+  @override
+  String get webReverseAccountSnapApply => '应用';
+
+  @override
+  String get webReverseAccountSnapDelete => '删除';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp => '应用失败：未连上 CDP';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson => '剪贴板内容不是有效快照 JSON';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '已保存「$name」（$count cookies）';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '已应用「$name」，建议刷新页面让 JS 重新读取';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '已复制 $count 份快照 JSON 到剪贴板';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '已导入 $count 份快照';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '共 $count 份';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12740,6 +12805,71 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseWatchHistory(int count) {
     return '历史（$count）';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => '多账号会话快照';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      '保存当前 cookies + localStorage/sessionStorage，一键切换不同账号';
+
+  @override
+  String get webReverseAccountSnapNameLabel => '为当前账号取名';
+
+  @override
+  String get webReverseAccountSnapNameHint => '如 main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => '保存当前';
+
+  @override
+  String get webReverseAccountSnapExportAll => '导出全部到剪贴板';
+
+  @override
+  String get webReverseAccountSnapImport => '从剪贴板导入';
+
+  @override
+  String get webReverseAccountSnapClose => '关闭';
+
+  @override
+  String get webReverseAccountSnapEmptyHint => '还没有任何快照。在上方输入名字 → 点\"保存当前\"开始';
+
+  @override
+  String get webReverseAccountSnapApply => '应用';
+
+  @override
+  String get webReverseAccountSnapDelete => '删除';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp => '应用失败：未连上 CDP';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson => '剪贴板内容不是有效快照 JSON';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '已保存「$name」（$count cookies）';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '已应用「$name」，建议刷新页面让 JS 重新读取';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '已复制 $count 份快照 JSON 到剪贴板';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '已导入 $count 份快照';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '共 $count 份';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -19107,5 +19237,70 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseWatchHistory(int count) {
     return '历史（$count）';
+  }
+
+  @override
+  String get webReverseAccountSnapTitle => '多账号会话快照';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      '保存当前 cookies + localStorage/sessionStorage，一键切换不同账号';
+
+  @override
+  String get webReverseAccountSnapNameLabel => '为当前账号取名';
+
+  @override
+  String get webReverseAccountSnapNameHint => '如 main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => '保存当前';
+
+  @override
+  String get webReverseAccountSnapExportAll => '导出全部到剪贴板';
+
+  @override
+  String get webReverseAccountSnapImport => '从剪贴板导入';
+
+  @override
+  String get webReverseAccountSnapClose => '关闭';
+
+  @override
+  String get webReverseAccountSnapEmptyHint => '还没有任何快照。在上方输入名字 → 点\"保存当前\"开始';
+
+  @override
+  String get webReverseAccountSnapApply => '应用';
+
+  @override
+  String get webReverseAccountSnapDelete => '删除';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp => '应用失败：未连上 CDP';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson => '剪贴板内容不是有效快照 JSON';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '已保存「$name」（$count cookies）';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '已应用「$name」，建议刷新页面让 JS 重新读取';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '已复制 $count 份快照 JSON 到剪贴板';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '已导入 $count 份快照';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '共 $count 份';
   }
 }

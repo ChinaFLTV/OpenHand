@@ -4422,5 +4422,105 @@
         "type": "int"
       }
     }
+  },
+  "webReverseAccountSnapTitle": "Kontoschnappschüsse",
+  "@webReverseAccountSnapTitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSubtitle": "Cookies + localStorage/sessionStorage speichern; Konten per Klick wechseln",
+  "@webReverseAccountSnapSubtitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameLabel": "Name für aktuelles Konto",
+  "@webReverseAccountSnapNameLabel": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameHint": "z. B. main / test-001",
+  "@webReverseAccountSnapNameHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapCapture": "Erfassen",
+  "@webReverseAccountSnapCapture": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapExportAll": "Alle exportieren",
+  "@webReverseAccountSnapExportAll": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapImport": "Importieren",
+  "@webReverseAccountSnapImport": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapClose": "Schließen",
+  "@webReverseAccountSnapClose": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapEmptyHint": "Noch keine Snapshots. Namen oben eingeben → „Erfassen\" klicken.",
+  "@webReverseAccountSnapEmptyHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApply": "Anwenden",
+  "@webReverseAccountSnapApply": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapDelete": "Löschen",
+  "@webReverseAccountSnapDelete": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApplyFailedNoCdp": "Anwenden fehlgeschlagen: keine CDP-Sitzung",
+  "@webReverseAccountSnapApplyFailedNoCdp": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNotSnapshotJson": "Zwischenablage ist kein Snapshot-JSON",
+  "@webReverseAccountSnapNotSnapshotJson": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSavedSnapshot": "\"{name}\" gespeichert ({count} Cookies)",
+  "@webReverseAccountSnapSavedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapAppliedSnapshot": "\"{name}\" angewendet. Seite neu laden, damit JS sie erneut liest.",
+  "@webReverseAccountSnapAppliedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAccountSnapCopiedCount": "{count} Snapshots-JSON in Zwischenablage kopiert",
+  "@webReverseAccountSnapCopiedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapImportedCount": "{count} Snapshots importiert",
+  "@webReverseAccountSnapImportedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapSnapshotsCount": "{count} insgesamt",
+  "@webReverseAccountSnapSnapshotsCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -4422,5 +4422,105 @@
         "type": "int"
       }
     }
+  },
+  "webReverseAccountSnapTitle": "アカウントスナップショット",
+  "@webReverseAccountSnapTitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSubtitle": "cookies + localStorage/sessionStorage を保存し、ワンクリックでアカウントを切り替え",
+  "@webReverseAccountSnapSubtitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameLabel": "現在のアカウントの名前",
+  "@webReverseAccountSnapNameLabel": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameHint": "例: main / test-001",
+  "@webReverseAccountSnapNameHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapCapture": "保存",
+  "@webReverseAccountSnapCapture": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapExportAll": "すべてエクスポート",
+  "@webReverseAccountSnapExportAll": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapImport": "インポート",
+  "@webReverseAccountSnapImport": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapClose": "閉じる",
+  "@webReverseAccountSnapClose": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapEmptyHint": "スナップショットはまだありません。上に名前を入力 → 「保存」をクリック。",
+  "@webReverseAccountSnapEmptyHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApply": "適用",
+  "@webReverseAccountSnapApply": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapDelete": "削除",
+  "@webReverseAccountSnapDelete": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApplyFailedNoCdp": "適用失敗：CDP セッションがありません",
+  "@webReverseAccountSnapApplyFailedNoCdp": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNotSnapshotJson": "クリップボードは有効なスナップショット JSON ではありません",
+  "@webReverseAccountSnapNotSnapshotJson": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSavedSnapshot": "「{name}」を保存しました（{count} cookies）",
+  "@webReverseAccountSnapSavedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapAppliedSnapshot": "「{name}」を適用しました。ページを更新して JS に再読込させてください。",
+  "@webReverseAccountSnapAppliedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAccountSnapCopiedCount": "{count} 件のスナップショット JSON をクリップボードにコピーしました",
+  "@webReverseAccountSnapCopiedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapImportedCount": "{count} 件のスナップショットをインポートしました",
+  "@webReverseAccountSnapImportedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapSnapshotsCount": "合計 {count} 件",
+  "@webReverseAccountSnapSnapshotsCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

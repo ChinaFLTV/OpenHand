@@ -4422,5 +4422,105 @@
         "type": "int"
       }
     }
+  },
+  "webReverseAccountSnapTitle": "多账号会话快照",
+  "@webReverseAccountSnapTitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSubtitle": "保存当前 cookies + localStorage/sessionStorage，一键切换不同账号",
+  "@webReverseAccountSnapSubtitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameLabel": "为当前账号取名",
+  "@webReverseAccountSnapNameLabel": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameHint": "如 main / test-001",
+  "@webReverseAccountSnapNameHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapCapture": "保存当前",
+  "@webReverseAccountSnapCapture": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapExportAll": "导出全部到剪贴板",
+  "@webReverseAccountSnapExportAll": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapImport": "从剪贴板导入",
+  "@webReverseAccountSnapImport": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapClose": "关闭",
+  "@webReverseAccountSnapClose": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapEmptyHint": "还没有任何快照。在上方输入名字 → 点\"保存当前\"开始",
+  "@webReverseAccountSnapEmptyHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApply": "应用",
+  "@webReverseAccountSnapApply": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapDelete": "删除",
+  "@webReverseAccountSnapDelete": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApplyFailedNoCdp": "应用失败：未连上 CDP",
+  "@webReverseAccountSnapApplyFailedNoCdp": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNotSnapshotJson": "剪贴板内容不是有效快照 JSON",
+  "@webReverseAccountSnapNotSnapshotJson": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSavedSnapshot": "已保存「{name}」（{count} cookies）",
+  "@webReverseAccountSnapSavedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapAppliedSnapshot": "已应用「{name}」，建议刷新页面让 JS 重新读取",
+  "@webReverseAccountSnapAppliedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAccountSnapCopiedCount": "已复制 {count} 份快照 JSON 到剪贴板",
+  "@webReverseAccountSnapCopiedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapImportedCount": "已导入 {count} 份快照",
+  "@webReverseAccountSnapImportedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapSnapshotsCount": "共 {count} 份",
+  "@webReverseAccountSnapSnapshotsCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

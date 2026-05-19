@@ -4422,5 +4422,105 @@
         "type": "int"
       }
     }
+  },
+  "webReverseAccountSnapTitle": "Account Snapshots",
+  "@webReverseAccountSnapTitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSubtitle": "Save cookies + localStorage/sessionStorage; one-click switch between accounts",
+  "@webReverseAccountSnapSubtitle": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameLabel": "Name for current account",
+  "@webReverseAccountSnapNameLabel": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNameHint": "e.g. main / test-001",
+  "@webReverseAccountSnapNameHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapCapture": "Capture",
+  "@webReverseAccountSnapCapture": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapExportAll": "Export all",
+  "@webReverseAccountSnapExportAll": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapImport": "Import",
+  "@webReverseAccountSnapImport": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapClose": "Close",
+  "@webReverseAccountSnapClose": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapEmptyHint": "No snapshots yet. Type a name above → click \"Capture\".",
+  "@webReverseAccountSnapEmptyHint": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApply": "Apply",
+  "@webReverseAccountSnapApply": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapDelete": "Delete",
+  "@webReverseAccountSnapDelete": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapApplyFailedNoCdp": "Apply failed: no CDP session",
+  "@webReverseAccountSnapApplyFailedNoCdp": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapNotSnapshotJson": "Clipboard is not a snapshot JSON",
+  "@webReverseAccountSnapNotSnapshotJson": {
+    "description": "Web reverse account snapshots panel string"
+  },
+  "webReverseAccountSnapSavedSnapshot": "Saved \"{name}\" ({count} cookies)",
+  "@webReverseAccountSnapSavedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapAppliedSnapshot": "Applied \"{name}\". Refresh the page so JS re-reads it.",
+  "@webReverseAccountSnapAppliedSnapshot": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAccountSnapCopiedCount": "Copied {count} snapshots JSON to clipboard",
+  "@webReverseAccountSnapCopiedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapImportedCount": "Imported {count} snapshots",
+  "@webReverseAccountSnapImportedCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAccountSnapSnapshotsCount": "{count} total",
+  "@webReverseAccountSnapSnapshotsCount": {
+    "description": "Web reverse account snapshots panel string",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

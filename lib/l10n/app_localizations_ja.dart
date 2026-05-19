@@ -6466,4 +6466,71 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseWatchHistory(int count) {
     return '履歴（$count）';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => 'アカウントスナップショット';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      'cookies + localStorage/sessionStorage を保存し、ワンクリックでアカウントを切り替え';
+
+  @override
+  String get webReverseAccountSnapNameLabel => '現在のアカウントの名前';
+
+  @override
+  String get webReverseAccountSnapNameHint => '例: main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => '保存';
+
+  @override
+  String get webReverseAccountSnapExportAll => 'すべてエクスポート';
+
+  @override
+  String get webReverseAccountSnapImport => 'インポート';
+
+  @override
+  String get webReverseAccountSnapClose => '閉じる';
+
+  @override
+  String get webReverseAccountSnapEmptyHint =>
+      'スナップショットはまだありません。上に名前を入力 → 「保存」をクリック。';
+
+  @override
+  String get webReverseAccountSnapApply => '適用';
+
+  @override
+  String get webReverseAccountSnapDelete => '削除';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp => '適用失敗：CDP セッションがありません';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson =>
+      'クリップボードは有効なスナップショット JSON ではありません';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '「$name」を保存しました（$count cookies）';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '「$name」を適用しました。ページを更新して JS に再読込させてください。';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '$count 件のスナップショット JSON をクリップボードにコピーしました';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '$count 件のスナップショットをインポートしました';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '合計 $count 件';
+  }
 }

@@ -6742,4 +6742,72 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseWatchHistory(int count) {
     return 'Historique ($count)';
   }
+
+  @override
+  String get webReverseAccountSnapTitle => 'Instantanés de compte';
+
+  @override
+  String get webReverseAccountSnapSubtitle =>
+      'Enregistrer cookies + localStorage/sessionStorage ; basculer entre comptes en un clic';
+
+  @override
+  String get webReverseAccountSnapNameLabel => 'Nom du compte actuel';
+
+  @override
+  String get webReverseAccountSnapNameHint => 'ex. main / test-001';
+
+  @override
+  String get webReverseAccountSnapCapture => 'Capturer';
+
+  @override
+  String get webReverseAccountSnapExportAll => 'Tout exporter';
+
+  @override
+  String get webReverseAccountSnapImport => 'Importer';
+
+  @override
+  String get webReverseAccountSnapClose => 'Fermer';
+
+  @override
+  String get webReverseAccountSnapEmptyHint =>
+      'Aucun instantané. Saisissez un nom ci-dessus → cliquez sur « Capturer ».';
+
+  @override
+  String get webReverseAccountSnapApply => 'Appliquer';
+
+  @override
+  String get webReverseAccountSnapDelete => 'Supprimer';
+
+  @override
+  String get webReverseAccountSnapApplyFailedNoCdp =>
+      'Échec de l\'application : pas de session CDP';
+
+  @override
+  String get webReverseAccountSnapNotSnapshotJson =>
+      'Le presse-papiers n\'est pas un JSON d\'instantané';
+
+  @override
+  String webReverseAccountSnapSavedSnapshot(String name, int count) {
+    return '« $name » enregistré ($count cookies)';
+  }
+
+  @override
+  String webReverseAccountSnapAppliedSnapshot(String name) {
+    return '« $name » appliqué. Actualisez la page pour que JS le relise.';
+  }
+
+  @override
+  String webReverseAccountSnapCopiedCount(int count) {
+    return '$count instantanés JSON copiés dans le presse-papiers';
+  }
+
+  @override
+  String webReverseAccountSnapImportedCount(int count) {
+    return '$count instantanés importés';
+  }
+
+  @override
+  String webReverseAccountSnapSnapshotsCount(int count) {
+    return '$count au total';
+  }
 }
