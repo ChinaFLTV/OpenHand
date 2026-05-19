@@ -5052,5 +5052,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseGeoOverridesApplied": "已应用覆盖",
+  "@webReverseGeoOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesApplied": "环境覆盖已应用",
+  "@webReverseGeoEnvOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoOverridesCleared": "已清除覆盖",
+  "@webReverseGeoOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesCleared": "已清除环境覆盖",
+  "@webReverseGeoEnvOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTitle": "地理 / 时区 / 语言覆盖",
+  "@webReverseGeoTitle": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoCityPresets": "预设城市",
+  "@webReverseGeoCityPresets": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableGeo": "启用地理位置覆盖",
+  "@webReverseGeoEnableGeo": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableTz": "启用时区覆盖",
+  "@webReverseGeoEnableTz": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableLocale": "启用语言覆盖",
+  "@webReverseGeoEnableLocale": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTip": "提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。",
+  "@webReverseGeoTip": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoClear": "清除",
+  "@webReverseGeoClear": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoWorking": "处理中…",
+  "@webReverseGeoWorking": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoApply": "应用覆盖",
+  "@webReverseGeoApply": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
   }
 }

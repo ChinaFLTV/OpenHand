@@ -7434,4 +7434,47 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseReplaySelected(int count, int total) {
     return 'Sélectionné $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => 'Surcharges appliquées';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied =>
+      'Surcharges d\'environnement appliquées';
+
+  @override
+  String get webReverseGeoOverridesCleared => 'Surcharges effacées';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared =>
+      'Surcharges d\'environnement effacées';
+
+  @override
+  String get webReverseGeoTitle => 'Geo / TZ / Locale Override';
+
+  @override
+  String get webReverseGeoCityPresets => 'Préréglages de ville';
+
+  @override
+  String get webReverseGeoEnableGeo =>
+      'Activer la surcharge de géolocalisation';
+
+  @override
+  String get webReverseGeoEnableTz => 'Activer la surcharge de fuseau';
+
+  @override
+  String get webReverseGeoEnableLocale => 'Activer la surcharge de locale';
+
+  @override
+  String get webReverseGeoTip =>
+      'Astuce : les surcharges s\'appliquent immédiatement sur la cible actuelle et persistent après rechargement. Inspecter via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Recharger fortement si le site met la détection en cache.';
+
+  @override
+  String get webReverseGeoClear => 'Effacer';
+
+  @override
+  String get webReverseGeoWorking => 'En cours…';
+
+  @override
+  String get webReverseGeoApply => 'Appliquer les surcharges';
 }

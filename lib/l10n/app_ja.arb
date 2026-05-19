@@ -5052,5 +5052,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseGeoOverridesApplied": "オーバーライド適用済",
+  "@webReverseGeoOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesApplied": "環境オーバーライドを適用",
+  "@webReverseGeoEnvOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoOverridesCleared": "オーバーライドを解除",
+  "@webReverseGeoOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesCleared": "環境オーバーライド解除",
+  "@webReverseGeoEnvOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTitle": "地理 / TZ / ロケール上書き",
+  "@webReverseGeoTitle": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoCityPresets": "都市プリセット",
+  "@webReverseGeoCityPresets": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableGeo": "位置情報オーバーライドを有効化",
+  "@webReverseGeoEnableGeo": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableTz": "タイムゾーン上書きを有効化",
+  "@webReverseGeoEnableTz": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableLocale": "ロケール上書きを有効化",
+  "@webReverseGeoEnableLocale": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTip": "ヒント: オーバーライドは現在のターゲットで即時適用され、リロード後も保持されます。navigator.geolocation、Intl.DateTimeFormat().resolvedOptions().timeZone、navigator.language で検証してください。検出結果をキャッシュするサイトはハードリロードを推奨。",
+  "@webReverseGeoTip": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoClear": "クリア",
+  "@webReverseGeoClear": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoWorking": "処理中…",
+  "@webReverseGeoWorking": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoApply": "オーバーライド適用",
+  "@webReverseGeoApply": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
   }
 }

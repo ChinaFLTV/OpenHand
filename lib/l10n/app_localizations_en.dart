@@ -7332,4 +7332,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseReplaySelected(int count, int total) {
     return 'Selected $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => 'Overrides applied';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied =>
+      'Environment overrides applied';
+
+  @override
+  String get webReverseGeoOverridesCleared => 'Overrides cleared';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared =>
+      'Cleared environment overrides';
+
+  @override
+  String get webReverseGeoTitle => 'Geo / TZ / Locale Override';
+
+  @override
+  String get webReverseGeoCityPresets => 'City Presets';
+
+  @override
+  String get webReverseGeoEnableGeo => 'Enable geolocation override';
+
+  @override
+  String get webReverseGeoEnableTz => 'Enable timezone override';
+
+  @override
+  String get webReverseGeoEnableLocale => 'Enable locale override';
+
+  @override
+  String get webReverseGeoTip =>
+      'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.';
+
+  @override
+  String get webReverseGeoClear => 'Clear';
+
+  @override
+  String get webReverseGeoWorking => 'Working…';
+
+  @override
+  String get webReverseGeoApply => 'Apply Overrides';
 }

@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -59,6 +60,7 @@ Future<void> showWebReverseGeoOverrideDialog(
 class _GeoOverrideDialog extends StatefulWidget {
   const _GeoOverrideDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_GeoOverrideDialog> createState() => _GeoOverrideDialogState();
@@ -151,10 +153,11 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       errors.add('$e');
     }
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = false;
       _lastStatus = errors.isEmpty
-          ? (widget.isZh ? '已应用覆盖' : 'Overrides applied')
+          ? (loc?.webReverseGeoOverridesApplied ?? 'Overrides applied')
           : errors.join('; ');
     });
     if (messenger != null) {
@@ -162,7 +165,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          widget.isZh ? '环境覆盖已应用' : 'Environment overrides applied',
+          loc?.webReverseGeoEnvOverridesApplied ??
+              'Environment overrides applied',
         );
       } else {
         OpenHandSnackBar.showErrorOn(
@@ -187,15 +191,18 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       silentLog('web_reverse_geo_override', 'clear', e, st);
     }
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _lastStatus = widget.isZh ? '已清除覆盖' : 'Overrides cleared';
+      _lastStatus =
+          loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared';
     });
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        widget.isZh ? '已清除环境覆盖' : 'Cleared environment overrides',
+        loc?.webReverseGeoEnvOverridesCleared ??
+            'Cleared environment overrides',
       );
     }
   }
@@ -204,7 +211,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -225,7 +232,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '地理 / 时区 / 语言覆盖' : 'Geo / TZ / Locale Override',
+                          loc?.webReverseGeoTitle ??
+                              'Geo / TZ / Locale Override',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -252,7 +260,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh ? '预设城市' : 'City Presets',
+                      loc?.webReverseGeoCityPresets ?? 'City Presets',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -278,7 +286,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                         Expanded(
                           child: Text(
-                            isZh ? '启用地理位置覆盖' : 'Enable geolocation override',
+                            loc?.webReverseGeoEnableGeo ??
+                                'Enable geolocation override',
                             style: theme.textTheme.labelLarge,
                           ),
                         ),
@@ -334,7 +343,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                         Expanded(
                           child: Text(
-                            isZh ? '启用时区覆盖' : 'Enable timezone override',
+                            loc?.webReverseGeoEnableTz ??
+                                'Enable timezone override',
                             style: theme.textTheme.labelLarge,
                           ),
                         ),
@@ -360,7 +370,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                         Expanded(
                           child: Text(
-                            isZh ? '启用语言覆盖' : 'Enable locale override',
+                            loc?.webReverseGeoEnableLocale ??
+                                'Enable locale override',
                             style: theme.textTheme.labelLarge,
                           ),
                         ),
@@ -402,9 +413,8 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        isZh
-                            ? '提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。'
-                            : 'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.',
+                        loc?.webReverseGeoTip ??
+                            'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.',
                         style: theme.textTheme.labelSmall,
                       ),
                     ),
@@ -419,14 +429,14 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '清除' : 'Clear',
+                    label: loc?.webReverseGeoClear ?? 'Clear',
                     onPressed: _busy ? null : _clear,
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
                     label: _busy
-                        ? (isZh ? '处理中…' : 'Working…')
-                        : (isZh ? '应用覆盖' : 'Apply Overrides'),
+                        ? (loc?.webReverseGeoWorking ?? 'Working…')
+                        : (loc?.webReverseGeoApply ?? 'Apply Overrides'),
                     onPressed: _busy ? null : _apply,
                   ),
                 ],

@@ -7137,4 +7137,44 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseReplaySelected(int count, int total) {
     return '選択 $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => 'オーバーライド適用済';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied => '環境オーバーライドを適用';
+
+  @override
+  String get webReverseGeoOverridesCleared => 'オーバーライドを解除';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared => '環境オーバーライド解除';
+
+  @override
+  String get webReverseGeoTitle => '地理 / TZ / ロケール上書き';
+
+  @override
+  String get webReverseGeoCityPresets => '都市プリセット';
+
+  @override
+  String get webReverseGeoEnableGeo => '位置情報オーバーライドを有効化';
+
+  @override
+  String get webReverseGeoEnableTz => 'タイムゾーン上書きを有効化';
+
+  @override
+  String get webReverseGeoEnableLocale => 'ロケール上書きを有効化';
+
+  @override
+  String get webReverseGeoTip =>
+      'ヒント: オーバーライドは現在のターゲットで即時適用され、リロード後も保持されます。navigator.geolocation、Intl.DateTimeFormat().resolvedOptions().timeZone、navigator.language で検証してください。検出結果をキャッシュするサイトはハードリロードを推奨。';
+
+  @override
+  String get webReverseGeoClear => 'クリア';
+
+  @override
+  String get webReverseGeoWorking => '処理中…';
+
+  @override
+  String get webReverseGeoApply => 'オーバーライド適用';
 }

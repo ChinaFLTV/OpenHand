@@ -7400,4 +7400,46 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseReplaySelected(int count, int total) {
     return 'Ausgewählt $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => 'Overrides angewendet';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied =>
+      'Umgebungs-Overrides angewendet';
+
+  @override
+  String get webReverseGeoOverridesCleared => 'Overrides aufgehoben';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared =>
+      'Umgebungs-Overrides aufgehoben';
+
+  @override
+  String get webReverseGeoTitle => 'Geo / TZ / Locale Override';
+
+  @override
+  String get webReverseGeoCityPresets => 'Stadt-Presets';
+
+  @override
+  String get webReverseGeoEnableGeo => 'Geolocation-Override aktivieren';
+
+  @override
+  String get webReverseGeoEnableTz => 'Zeitzonen-Override aktivieren';
+
+  @override
+  String get webReverseGeoEnableLocale => 'Locale-Override aktivieren';
+
+  @override
+  String get webReverseGeoTip =>
+      'Tipp: Overrides gelten sofort im aktuellen Target und bleiben nach Reload erhalten. Prüfung via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Bei zwischengespeicherter Erkennung Hard-Reload nach Override.';
+
+  @override
+  String get webReverseGeoClear => 'Löschen';
+
+  @override
+  String get webReverseGeoWorking => 'Wird ausgeführt…';
+
+  @override
+  String get webReverseGeoApply => 'Overrides anwenden';
 }

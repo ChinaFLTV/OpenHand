@@ -5052,5 +5052,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseGeoOverridesApplied": "Overrides applied",
+  "@webReverseGeoOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesApplied": "Environment overrides applied",
+  "@webReverseGeoEnvOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoOverridesCleared": "Overrides cleared",
+  "@webReverseGeoOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesCleared": "Cleared environment overrides",
+  "@webReverseGeoEnvOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTitle": "Geo / TZ / Locale Override",
+  "@webReverseGeoTitle": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoCityPresets": "City Presets",
+  "@webReverseGeoCityPresets": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableGeo": "Enable geolocation override",
+  "@webReverseGeoEnableGeo": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableTz": "Enable timezone override",
+  "@webReverseGeoEnableTz": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableLocale": "Enable locale override",
+  "@webReverseGeoEnableLocale": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTip": "Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.",
+  "@webReverseGeoTip": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoClear": "Clear",
+  "@webReverseGeoClear": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoWorking": "Working…",
+  "@webReverseGeoWorking": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoApply": "Apply Overrides",
+  "@webReverseGeoApply": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
   }
 }

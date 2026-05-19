@@ -5052,5 +5052,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseGeoOverridesApplied": "Surcharges appliquées",
+  "@webReverseGeoOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesApplied": "Surcharges d'environnement appliquées",
+  "@webReverseGeoEnvOverridesApplied": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoOverridesCleared": "Surcharges effacées",
+  "@webReverseGeoOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnvOverridesCleared": "Surcharges d'environnement effacées",
+  "@webReverseGeoEnvOverridesCleared": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTitle": "Geo / TZ / Locale Override",
+  "@webReverseGeoTitle": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoCityPresets": "Préréglages de ville",
+  "@webReverseGeoCityPresets": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableGeo": "Activer la surcharge de géolocalisation",
+  "@webReverseGeoEnableGeo": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableTz": "Activer la surcharge de fuseau",
+  "@webReverseGeoEnableTz": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoEnableLocale": "Activer la surcharge de locale",
+  "@webReverseGeoEnableLocale": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoTip": "Astuce : les surcharges s'appliquent immédiatement sur la cible actuelle et persistent après rechargement. Inspecter via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Recharger fortement si le site met la détection en cache.",
+  "@webReverseGeoTip": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoClear": "Effacer",
+  "@webReverseGeoClear": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoWorking": "En cours…",
+  "@webReverseGeoWorking": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
+  },
+  "webReverseGeoApply": "Appliquer les surcharges",
+  "@webReverseGeoApply": {
+    "description": "web_reverse: Geo/TZ/Locale override dialog"
   }
 }

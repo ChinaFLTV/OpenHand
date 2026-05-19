@@ -13000,6 +13000,84 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已选 {count} / {total}'**
   String webReverseReplaySelected(int count, int total);
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用覆盖'**
+  String get webReverseGeoOverridesApplied;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境覆盖已应用'**
+  String get webReverseGeoEnvOverridesApplied;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已清除覆盖'**
+  String get webReverseGeoOverridesCleared;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已清除环境覆盖'**
+  String get webReverseGeoEnvOverridesCleared;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'地理 / 时区 / 语言覆盖'**
+  String get webReverseGeoTitle;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'预设城市'**
+  String get webReverseGeoCityPresets;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用地理位置覆盖'**
+  String get webReverseGeoEnableGeo;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用时区覆盖'**
+  String get webReverseGeoEnableTz;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用语言覆盖'**
+  String get webReverseGeoEnableLocale;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。'**
+  String get webReverseGeoTip;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清除'**
+  String get webReverseGeoClear;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'处理中…'**
+  String get webReverseGeoWorking;
+
+  /// web_reverse: Geo/TZ/Locale override dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用覆盖'**
+  String get webReverseGeoApply;
 }
 
 class _AppLocalizationsDelegate

@@ -7040,6 +7040,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseReplaySelected(int count, int total) {
     return '已选 $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => '已应用覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied => '环境覆盖已应用';
+
+  @override
+  String get webReverseGeoOverridesCleared => '已清除覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared => '已清除环境覆盖';
+
+  @override
+  String get webReverseGeoTitle => '地理 / 时区 / 语言覆盖';
+
+  @override
+  String get webReverseGeoCityPresets => '预设城市';
+
+  @override
+  String get webReverseGeoEnableGeo => '启用地理位置覆盖';
+
+  @override
+  String get webReverseGeoEnableTz => '启用时区覆盖';
+
+  @override
+  String get webReverseGeoEnableLocale => '启用语言覆盖';
+
+  @override
+  String get webReverseGeoTip =>
+      '提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。';
+
+  @override
+  String get webReverseGeoClear => '清除';
+
+  @override
+  String get webReverseGeoWorking => '处理中…';
+
+  @override
+  String get webReverseGeoApply => '应用覆盖';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14078,6 +14118,46 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseReplaySelected(int count, int total) {
     return '已选 $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => '已应用覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied => '环境覆盖已应用';
+
+  @override
+  String get webReverseGeoOverridesCleared => '已清除覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared => '已清除环境覆盖';
+
+  @override
+  String get webReverseGeoTitle => '地理 / 时区 / 语言覆盖';
+
+  @override
+  String get webReverseGeoCityPresets => '预设城市';
+
+  @override
+  String get webReverseGeoEnableGeo => '启用地理位置覆盖';
+
+  @override
+  String get webReverseGeoEnableTz => '启用时区覆盖';
+
+  @override
+  String get webReverseGeoEnableLocale => '启用语言覆盖';
+
+  @override
+  String get webReverseGeoTip =>
+      '提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。';
+
+  @override
+  String get webReverseGeoClear => '清除';
+
+  @override
+  String get webReverseGeoWorking => '处理中…';
+
+  @override
+  String get webReverseGeoApply => '应用覆盖';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21115,4 +21195,44 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseReplaySelected(int count, int total) {
     return '已选 $count / $total';
   }
+
+  @override
+  String get webReverseGeoOverridesApplied => '已应用覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesApplied => '环境覆盖已应用';
+
+  @override
+  String get webReverseGeoOverridesCleared => '已清除覆盖';
+
+  @override
+  String get webReverseGeoEnvOverridesCleared => '已清除环境覆盖';
+
+  @override
+  String get webReverseGeoTitle => '地理 / 时区 / 语言覆盖';
+
+  @override
+  String get webReverseGeoCityPresets => '预设城市';
+
+  @override
+  String get webReverseGeoEnableGeo => '启用地理位置覆盖';
+
+  @override
+  String get webReverseGeoEnableTz => '启用时区覆盖';
+
+  @override
+  String get webReverseGeoEnableLocale => '启用语言覆盖';
+
+  @override
+  String get webReverseGeoTip =>
+      '提示：覆盖在当前 target 内立即生效，刷新仍保留。需通过页面 `navigator.geolocation`、`Intl.DateTimeFormat().resolvedOptions().timeZone`、`navigator.language` 来感知效果。某些站点会缓存首次结果，建议覆盖后再硬刷新。';
+
+  @override
+  String get webReverseGeoClear => '清除';
+
+  @override
+  String get webReverseGeoWorking => '处理中…';
+
+  @override
+  String get webReverseGeoApply => '应用覆盖';
 }
