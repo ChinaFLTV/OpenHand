@@ -2698,6 +2698,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         silentLog('openhand_home_page', 'web reverse stop', e, st);
       }
       controller.dispose();
+      return created;
     }
     if (!mounted) return created;
     // 替换 composer 文本并发送首条 prompt。
