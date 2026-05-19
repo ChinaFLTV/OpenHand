@@ -7539,6 +7539,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseMarkupAdd => '添加';
+
+  @override
+  String get webReverseElementsLoadFailed => '加载失败：浏览器未启动或 CDP 不可用';
+
+  @override
+  String get webReverseElementsSelectorFailed => '无法生成 selector';
+
+  @override
+  String get webReverseElementsSelectorCopied => '已复制 selector';
+
+  @override
+  String get webReverseElementsXPathFailed => '无法生成 XPath';
+
+  @override
+  String get webReverseElementsXPathCopied => '已复制 XPath';
+
+  @override
+  String get webReverseElementsReloadDom => '刷新 DOM 根';
+
+  @override
+  String get webReverseElementsCopySelector => '复制 selector';
+
+  @override
+  String get webReverseElementsCopyXPath => '复制 XPath';
+
+  @override
+  String get webReverseElementsScrollIntoView => '页面定位';
+
+  @override
+  String get webReverseElementsPickElement => '从左侧 DOM 树选择一个元素';
+
+  @override
+  String get webReverseElementsNoAttrs => '该元素无属性';
+
+  @override
+  String get webReverseElementsNoComputed => '无计算样式';
+
+  @override
+  String get webReverseElementsNoListeners => '该元素无监听';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return '属性 ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return '计算样式 ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return '事件 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15076,6 +15130,60 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseMarkupAdd => '添加';
+
+  @override
+  String get webReverseElementsLoadFailed => '加载失败：浏览器未启动或 CDP 不可用';
+
+  @override
+  String get webReverseElementsSelectorFailed => '无法生成 selector';
+
+  @override
+  String get webReverseElementsSelectorCopied => '已复制 selector';
+
+  @override
+  String get webReverseElementsXPathFailed => '无法生成 XPath';
+
+  @override
+  String get webReverseElementsXPathCopied => '已复制 XPath';
+
+  @override
+  String get webReverseElementsReloadDom => '刷新 DOM 根';
+
+  @override
+  String get webReverseElementsCopySelector => '复制 selector';
+
+  @override
+  String get webReverseElementsCopyXPath => '复制 XPath';
+
+  @override
+  String get webReverseElementsScrollIntoView => '页面定位';
+
+  @override
+  String get webReverseElementsPickElement => '从左侧 DOM 树选择一个元素';
+
+  @override
+  String get webReverseElementsNoAttrs => '该元素无属性';
+
+  @override
+  String get webReverseElementsNoComputed => '无计算样式';
+
+  @override
+  String get webReverseElementsNoListeners => '该元素无监听';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return '属性 ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return '计算样式 ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return '事件 ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22612,4 +22720,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseMarkupAdd => '添加';
+
+  @override
+  String get webReverseElementsLoadFailed => '加载失败：浏览器未启动或 CDP 不可用';
+
+  @override
+  String get webReverseElementsSelectorFailed => '无法生成 selector';
+
+  @override
+  String get webReverseElementsSelectorCopied => '已复制 selector';
+
+  @override
+  String get webReverseElementsXPathFailed => '无法生成 XPath';
+
+  @override
+  String get webReverseElementsXPathCopied => '已复制 XPath';
+
+  @override
+  String get webReverseElementsReloadDom => '刷新 DOM 根';
+
+  @override
+  String get webReverseElementsCopySelector => '复制 selector';
+
+  @override
+  String get webReverseElementsCopyXPath => '复制 XPath';
+
+  @override
+  String get webReverseElementsScrollIntoView => '页面定位';
+
+  @override
+  String get webReverseElementsPickElement => '从左侧 DOM 树选择一个元素';
+
+  @override
+  String get webReverseElementsNoAttrs => '该元素无属性';
+
+  @override
+  String get webReverseElementsNoComputed => '无计算样式';
+
+  @override
+  String get webReverseElementsNoListeners => '该元素无监听';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return '属性 ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return '计算样式 ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return '事件 ($count)';
+  }
 }

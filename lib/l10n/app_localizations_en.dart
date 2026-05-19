@@ -7837,4 +7837,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseMarkupAdd => 'Add';
+
+  @override
+  String get webReverseElementsLoadFailed =>
+      'Load failed: browser not running or CDP unavailable';
+
+  @override
+  String get webReverseElementsSelectorFailed => 'Failed to build selector';
+
+  @override
+  String get webReverseElementsSelectorCopied => 'Selector copied';
+
+  @override
+  String get webReverseElementsXPathFailed => 'Failed to build XPath';
+
+  @override
+  String get webReverseElementsXPathCopied => 'XPath copied';
+
+  @override
+  String get webReverseElementsReloadDom => 'Reload DOM root';
+
+  @override
+  String get webReverseElementsCopySelector => 'Copy selector';
+
+  @override
+  String get webReverseElementsCopyXPath => 'Copy XPath';
+
+  @override
+  String get webReverseElementsScrollIntoView => 'Scroll into view';
+
+  @override
+  String get webReverseElementsPickElement => 'Pick an element from the tree';
+
+  @override
+  String get webReverseElementsNoAttrs => 'No attributes';
+
+  @override
+  String get webReverseElementsNoComputed => 'No computed style';
+
+  @override
+  String get webReverseElementsNoListeners => 'No event listeners';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return 'Attrs ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return 'Computed ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return 'Listeners ($count)';
+  }
 }

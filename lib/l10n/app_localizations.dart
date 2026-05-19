@@ -13864,6 +13864,102 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'添加'**
   String get webReverseMarkupAdd;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载失败：浏览器未启动或 CDP 不可用'**
+  String get webReverseElementsLoadFailed;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法生成 selector'**
+  String get webReverseElementsSelectorFailed;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 selector'**
+  String get webReverseElementsSelectorCopied;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法生成 XPath'**
+  String get webReverseElementsXPathFailed;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 XPath'**
+  String get webReverseElementsXPathCopied;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新 DOM 根'**
+  String get webReverseElementsReloadDom;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 selector'**
+  String get webReverseElementsCopySelector;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 XPath'**
+  String get webReverseElementsCopyXPath;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'页面定位'**
+  String get webReverseElementsScrollIntoView;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从左侧 DOM 树选择一个元素'**
+  String get webReverseElementsPickElement;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'该元素无属性'**
+  String get webReverseElementsNoAttrs;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无计算样式'**
+  String get webReverseElementsNoComputed;
+
+  /// web_reverse: elements panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'该元素无监听'**
+  String get webReverseElementsNoListeners;
+
+  /// web_reverse: elements tab count
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'属性 ({count})'**
+  String webReverseElementsAttrsTab(int count);
+
+  /// web_reverse: elements tab count
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计算样式 ({count})'**
+  String webReverseElementsComputedTab(int count);
+
+  /// web_reverse: elements tab count
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'事件 ({count})'**
+  String webReverseElementsListenersTab(int count);
 }
 
 class _AppLocalizationsDelegate

@@ -7638,4 +7638,58 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseMarkupAdd => '追加';
+
+  @override
+  String get webReverseElementsLoadFailed => '読み込み失敗：ブラウザ未起動または CDP 利用不可';
+
+  @override
+  String get webReverseElementsSelectorFailed => 'セレクター生成に失敗';
+
+  @override
+  String get webReverseElementsSelectorCopied => 'セレクターをコピーしました';
+
+  @override
+  String get webReverseElementsXPathFailed => 'XPath 生成に失敗';
+
+  @override
+  String get webReverseElementsXPathCopied => 'XPath をコピーしました';
+
+  @override
+  String get webReverseElementsReloadDom => 'DOM ルートを再読み込み';
+
+  @override
+  String get webReverseElementsCopySelector => 'セレクターをコピー';
+
+  @override
+  String get webReverseElementsCopyXPath => 'XPath をコピー';
+
+  @override
+  String get webReverseElementsScrollIntoView => 'ページに表示';
+
+  @override
+  String get webReverseElementsPickElement => '左の DOM ツリーから要素を選択';
+
+  @override
+  String get webReverseElementsNoAttrs => '属性なし';
+
+  @override
+  String get webReverseElementsNoComputed => '計算スタイルなし';
+
+  @override
+  String get webReverseElementsNoListeners => 'リスナーなし';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return '属性 ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return '計算 ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return 'リスナー ($count)';
+  }
 }

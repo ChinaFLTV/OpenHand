@@ -5773,5 +5773,84 @@
   "webReverseMarkupAdd": "追加",
   "@webReverseMarkupAdd": {
     "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseElementsLoadFailed": "読み込み失敗：ブラウザ未起動または CDP 利用不可",
+  "@webReverseElementsLoadFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorFailed": "セレクター生成に失敗",
+  "@webReverseElementsSelectorFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorCopied": "セレクターをコピーしました",
+  "@webReverseElementsSelectorCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathFailed": "XPath 生成に失敗",
+  "@webReverseElementsXPathFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathCopied": "XPath をコピーしました",
+  "@webReverseElementsXPathCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsReloadDom": "DOM ルートを再読み込み",
+  "@webReverseElementsReloadDom": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopySelector": "セレクターをコピー",
+  "@webReverseElementsCopySelector": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopyXPath": "XPath をコピー",
+  "@webReverseElementsCopyXPath": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsScrollIntoView": "ページに表示",
+  "@webReverseElementsScrollIntoView": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsPickElement": "左の DOM ツリーから要素を選択",
+  "@webReverseElementsPickElement": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoAttrs": "属性なし",
+  "@webReverseElementsNoAttrs": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoComputed": "計算スタイルなし",
+  "@webReverseElementsNoComputed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoListeners": "リスナーなし",
+  "@webReverseElementsNoListeners": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsAttrsTab": "属性 ({count})",
+  "@webReverseElementsAttrsTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsComputedTab": "計算 ({count})",
+  "@webReverseElementsComputedTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsListenersTab": "リスナー ({count})",
+  "@webReverseElementsListenersTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

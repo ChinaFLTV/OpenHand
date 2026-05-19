@@ -5773,5 +5773,84 @@
   "webReverseMarkupAdd": "Hinzufügen",
   "@webReverseMarkupAdd": {
     "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseElementsLoadFailed": "Laden fehlgeschlagen: Browser nicht aktiv oder CDP nicht verfügbar",
+  "@webReverseElementsLoadFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorFailed": "Selector konnte nicht erstellt werden",
+  "@webReverseElementsSelectorFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorCopied": "Selector kopiert",
+  "@webReverseElementsSelectorCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathFailed": "XPath konnte nicht erstellt werden",
+  "@webReverseElementsXPathFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathCopied": "XPath kopiert",
+  "@webReverseElementsXPathCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsReloadDom": "DOM-Wurzel neu laden",
+  "@webReverseElementsReloadDom": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopySelector": "Selector kopieren",
+  "@webReverseElementsCopySelector": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopyXPath": "XPath kopieren",
+  "@webReverseElementsCopyXPath": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsScrollIntoView": "In Sicht scrollen",
+  "@webReverseElementsScrollIntoView": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsPickElement": "Element aus dem Baum auswählen",
+  "@webReverseElementsPickElement": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoAttrs": "Keine Attribute",
+  "@webReverseElementsNoAttrs": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoComputed": "Kein berechneter Stil",
+  "@webReverseElementsNoComputed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoListeners": "Keine Event-Listener",
+  "@webReverseElementsNoListeners": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsAttrsTab": "Attr. ({count})",
+  "@webReverseElementsAttrsTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsComputedTab": "Berechnet ({count})",
+  "@webReverseElementsComputedTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsListenersTab": "Listener ({count})",
+  "@webReverseElementsListenersTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

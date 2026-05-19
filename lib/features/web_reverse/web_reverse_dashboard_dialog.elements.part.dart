@@ -16,7 +16,7 @@ class _ElementsBody extends StatefulWidget {
     required this.reduceMotion,
   });
   final WebReverseSessionController controller;
-  final bool isZh;
+  final bool isZh; // ignore: unused_field
   final bool reduceMotion;
 
   @override
@@ -57,11 +57,11 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final root = await widget.controller.domGetDocument(depth: 2);
     if (!mounted) return;
     if (root == null) {
+      final loc = AppLocalizations.of(context);
       setState(() {
         _loading = false;
-        _loadError = widget.isZh
-            ? '加载失败：浏览器未启动或 CDP 不可用'
-            : 'Load failed: browser not running or CDP unavailable';
+        _loadError = loc?.webReverseElementsLoadFailed ??
+            'Load failed: browser not running or CDP unavailable';
       });
       return;
     }
@@ -142,15 +142,17 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final s = await widget.controller.domCssSelectorForNode(id);
     if (!mounted) return;
     if (s == null) {
-      OpenHandSnackBar.showError(
-          context, widget.isZh ? '无法生成 selector' : 'Failed to build selector');
+      final loc = AppLocalizations.of(context);
+      OpenHandSnackBar.showError(context,
+          loc?.webReverseElementsSelectorFailed ?? 'Failed to build selector');
       return;
     }
     await Clipboard.setData(ClipboardData(text: s));
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh ? '已复制 selector' : 'Selector copied',
+      loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
       duration: const Duration(seconds: 1),
     );
   }
@@ -161,15 +163,17 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final s = await widget.controller.domXPathForNode(id);
     if (!mounted) return;
     if (s == null) {
-      OpenHandSnackBar.showError(
-          context, widget.isZh ? '无法生成 XPath' : 'Failed to build XPath');
+      final loc = AppLocalizations.of(context);
+      OpenHandSnackBar.showError(context,
+          loc?.webReverseElementsXPathFailed ?? 'Failed to build XPath');
       return;
     }
     await Clipboard.setData(ClipboardData(text: s));
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh ? '已复制 XPath' : 'XPath copied',
+      loc?.webReverseElementsXPathCopied ?? 'XPath copied',
       duration: const Duration(seconds: 1),
     );
   }
@@ -188,10 +192,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Column(
       children: [
-        _buildToolbar(theme, cs, isZh),
+        _buildToolbar(theme, cs, loc),
         const Divider(height: 1),
         Expanded(
           child: _loading
@@ -217,7 +221,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                               child: _buildTree(theme, cs),
                             ),
                             const VerticalDivider(width: 1),
-                            Expanded(child: _buildDetails(theme, cs, isZh)),
+                            Expanded(child: _buildDetails(theme, cs, loc)),
                           ],
                         ),
         ),
@@ -225,14 +229,15 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _buildToolbar(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildToolbar(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final hasSel = _selectedNodeId != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
       child: Row(
         children: [
           Tooltip(
-            message: isZh ? '刷新 DOM 根' : 'Reload DOM root',
+            message: loc?.webReverseElementsReloadDom ?? 'Reload DOM root',
             child: IconButton(
               icon: const Icon(Icons.refresh_rounded, size: 18),
               onPressed: _loading ? null : _loadDocument,
@@ -242,19 +247,22 @@ class _ElementsBodyState extends State<_ElementsBody> {
           OutlinedButton.icon(
             onPressed: hasSel ? _copySelector : null,
             icon: const Icon(Icons.link_rounded, size: 14),
-            label: Text(isZh ? '复制 selector' : 'Copy selector'),
+            label: Text(
+                loc?.webReverseElementsCopySelector ?? 'Copy selector'),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: hasSel ? _copyXPath : null,
             icon: const Icon(Icons.alt_route_rounded, size: 14),
-            label: Text(isZh ? '复制 XPath' : 'Copy XPath'),
+            label:
+                Text(loc?.webReverseElementsCopyXPath ?? 'Copy XPath'),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: hasSel ? _scrollIntoView : null,
             icon: const Icon(Icons.center_focus_strong_rounded, size: 14),
-            label: Text(isZh ? '页面定位' : 'Scroll into view'),
+            label: Text(loc?.webReverseElementsScrollIntoView ??
+                'Scroll into view'),
           ),
           const Spacer(),
           if (_selectedNodeId != null)
@@ -397,13 +405,15 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   // ─── 右：详情 ───────────────────────────────────────────────────────
-  Widget _buildDetails(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildDetails(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_selectedNodeId == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            isZh ? '从左侧 DOM 树选择一个元素' : 'Pick an element from the tree',
+            loc?.webReverseElementsPickElement ??
+                'Pick an element from the tree',
             style: theme.textTheme.bodyMedium
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
@@ -417,22 +427,24 @@ class _ElementsBodyState extends State<_ElementsBody> {
           child: Row(
             children: [
               const SizedBox(width: 10),
-              _subTabBtn(theme, cs, 0,
-                  isZh ? '属性 (${_attrs.length})' : 'Attrs (${_attrs.length})'),
+              _subTabBtn(
+                  theme,
+                  cs,
+                  0,
+                  loc?.webReverseElementsAttrsTab(_attrs.length) ??
+                      'Attrs (${_attrs.length})'),
               _subTabBtn(
                   theme,
                   cs,
                   1,
-                  isZh
-                      ? '计算样式 (${_computed.length})'
-                      : 'Computed (${_computed.length})'),
+                  loc?.webReverseElementsComputedTab(_computed.length) ??
+                      'Computed (${_computed.length})'),
               _subTabBtn(
                   theme,
                   cs,
                   2,
-                  isZh
-                      ? '事件 (${_listeners.length})'
-                      : 'Listeners (${_listeners.length})'),
+                  loc?.webReverseElementsListenersTab(_listeners.length) ??
+                      'Listeners (${_listeners.length})'),
               const Spacer(),
               if (_loadingDetails)
                 const Padding(
@@ -454,9 +466,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
                 : const Duration(milliseconds: 180),
             switchInCurve: Curves.easeOutCubic,
             child: switch (_detailsTab) {
-              0 => _attrsView(theme, cs, isZh),
-              1 => _computedView(theme, cs, isZh),
-              _ => _listenersView(theme, cs, isZh),
+              0 => _attrsView(theme, cs, loc),
+              1 => _computedView(theme, cs, loc),
+              _ => _listenersView(theme, cs, loc),
             },
           ),
         ),
@@ -479,12 +491,13 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _attrsView(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _attrsView(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_attrs.isEmpty) {
       return Center(
         key: const ValueKey('attrs-empty'),
         child: Text(
-          isZh ? '该元素无属性' : 'No attributes',
+          loc?.webReverseElementsNoAttrs ?? 'No attributes',
           style:
               theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
@@ -516,12 +529,13 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _computedView(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _computedView(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_computed.isEmpty) {
       return Center(
         key: const ValueKey('comp-empty'),
         child: Text(
-          isZh ? '无计算样式' : 'No computed style',
+          loc?.webReverseElementsNoComputed ?? 'No computed style',
           style:
               theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
@@ -553,12 +567,13 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _listenersView(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _listenersView(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_listeners.isEmpty) {
       return Center(
         key: const ValueKey('listen-empty'),
         child: Text(
-          isZh ? '该元素无监听' : 'No event listeners',
+          loc?.webReverseElementsNoListeners ?? 'No event listeners',
           style:
               theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),

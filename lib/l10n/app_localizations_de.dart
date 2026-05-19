@@ -7910,4 +7910,61 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseMarkupAdd => 'Hinzufügen';
+
+  @override
+  String get webReverseElementsLoadFailed =>
+      'Laden fehlgeschlagen: Browser nicht aktiv oder CDP nicht verfügbar';
+
+  @override
+  String get webReverseElementsSelectorFailed =>
+      'Selector konnte nicht erstellt werden';
+
+  @override
+  String get webReverseElementsSelectorCopied => 'Selector kopiert';
+
+  @override
+  String get webReverseElementsXPathFailed =>
+      'XPath konnte nicht erstellt werden';
+
+  @override
+  String get webReverseElementsXPathCopied => 'XPath kopiert';
+
+  @override
+  String get webReverseElementsReloadDom => 'DOM-Wurzel neu laden';
+
+  @override
+  String get webReverseElementsCopySelector => 'Selector kopieren';
+
+  @override
+  String get webReverseElementsCopyXPath => 'XPath kopieren';
+
+  @override
+  String get webReverseElementsScrollIntoView => 'In Sicht scrollen';
+
+  @override
+  String get webReverseElementsPickElement => 'Element aus dem Baum auswählen';
+
+  @override
+  String get webReverseElementsNoAttrs => 'Keine Attribute';
+
+  @override
+  String get webReverseElementsNoComputed => 'Kein berechneter Stil';
+
+  @override
+  String get webReverseElementsNoListeners => 'Keine Event-Listener';
+
+  @override
+  String webReverseElementsAttrsTab(int count) {
+    return 'Attr. ($count)';
+  }
+
+  @override
+  String webReverseElementsComputedTab(int count) {
+    return 'Berechnet ($count)';
+  }
+
+  @override
+  String webReverseElementsListenersTab(int count) {
+    return 'Listener ($count)';
+  }
 }

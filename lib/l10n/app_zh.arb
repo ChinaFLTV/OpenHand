@@ -5773,5 +5773,84 @@
   "webReverseMarkupAdd": "添加",
   "@webReverseMarkupAdd": {
     "description": "web_reverse: screenshot markup dialog"
+  },
+  "webReverseElementsLoadFailed": "加载失败：浏览器未启动或 CDP 不可用",
+  "@webReverseElementsLoadFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorFailed": "无法生成 selector",
+  "@webReverseElementsSelectorFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsSelectorCopied": "已复制 selector",
+  "@webReverseElementsSelectorCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathFailed": "无法生成 XPath",
+  "@webReverseElementsXPathFailed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsXPathCopied": "已复制 XPath",
+  "@webReverseElementsXPathCopied": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsReloadDom": "刷新 DOM 根",
+  "@webReverseElementsReloadDom": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopySelector": "复制 selector",
+  "@webReverseElementsCopySelector": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsCopyXPath": "复制 XPath",
+  "@webReverseElementsCopyXPath": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsScrollIntoView": "页面定位",
+  "@webReverseElementsScrollIntoView": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsPickElement": "从左侧 DOM 树选择一个元素",
+  "@webReverseElementsPickElement": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoAttrs": "该元素无属性",
+  "@webReverseElementsNoAttrs": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoComputed": "无计算样式",
+  "@webReverseElementsNoComputed": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsNoListeners": "该元素无监听",
+  "@webReverseElementsNoListeners": {
+    "description": "web_reverse: elements panel"
+  },
+  "webReverseElementsAttrsTab": "属性 ({count})",
+  "@webReverseElementsAttrsTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsComputedTab": "计算样式 ({count})",
+  "@webReverseElementsComputedTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseElementsListenersTab": "事件 ({count})",
+  "@webReverseElementsListenersTab": {
+    "description": "web_reverse: elements tab count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
