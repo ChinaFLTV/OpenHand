@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -95,22 +96,21 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         paramsJson: jsonEncode({'playbackRate': rate}),
       );
       if (!mounted) return;
+      final loc = AppLocalizations.of(context);
       setState(() {
         _busy = false;
         _status = (r != null && r['error'] != null)
-            ? (widget.isZh
-                ? '设置失败: ${r['error']}'
-                : 'setPlaybackRate failed: ${r['error']}')
-            : (widget.isZh
-                ? '当前全局倍速 ${rate.toStringAsFixed(2)}x'
-                : 'global rate = ${rate.toStringAsFixed(2)}x');
+            ? (loc?.webReverseAnimationsSetFailed(r['error'].toString()) ??
+                'setPlaybackRate failed: ${r['error']}')
+            : (loc?.webReverseAnimationsRateNow(rate.toStringAsFixed(2)) ??
+                'global rate = ${rate.toStringAsFixed(2)}x');
       });
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', 'setPlaybackRate', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = widget.isZh ? '设置异常: $e' : 'error: $e';
+        _status = AppLocalizations.of(context)?.webReverseAnimationsSetError(e.toString()) ?? 'error: $e';
       });
     }
   }
@@ -189,7 +189,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (value is! String) {
         setState(() {
           _busy = false;
-          _status = widget.isZh ? '页面无法返回快照' : 'no snapshot returned';
+          _status = AppLocalizations.of(context)?.webReverseAnimationsNoSnapshot ?? 'no snapshot returned';
           _rows = const [];
         });
         return;
@@ -198,9 +198,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (decoded is Map && decoded['__err'] != null) {
         setState(() {
           _busy = false;
-          _status = widget.isZh
-              ? '浏览器侧异常: ${decoded['__err']}'
-              : 'browser error: ${decoded['__err']}';
+          _status = AppLocalizations.of(context)?.webReverseAnimationsBrowserError(decoded['__err'].toString())
+              ?? 'browser error: ${decoded['__err']}';
           _rows = const [];
         });
         return;
@@ -208,7 +207,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (decoded is! List) {
         setState(() {
           _busy = false;
-          _status = widget.isZh ? '快照格式异常' : 'malformed snapshot';
+          _status = AppLocalizations.of(context)?.webReverseAnimationsMalformedSnapshot ?? 'malformed snapshot';
           _rows = const [];
         });
         return;
@@ -234,16 +233,15 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       setState(() {
         _busy = false;
         _rows = rows;
-        _status = widget.isZh
-            ? '抓到 ${rows.length} 条活跃 animation'
-            : '${rows.length} active animation(s)';
+        _status = AppLocalizations.of(context)?.webReverseAnimationsSnapshotCount(rows.length)
+            ?? '${rows.length} active animation(s)';
       });
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', 'refresh', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = widget.isZh ? '抓取失败: $e' : 'snapshot failed: $e';
+        _status = AppLocalizations.of(context)?.webReverseAnimationsSnapshotFailed(e.toString()) ?? 'snapshot failed: $e';
       });
     }
   }
@@ -268,9 +266,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = widget.isZh
-            ? '已对 $n 条 animation 执行 $method'
-            : '$method invoked on $n animation(s)';
+        _status = AppLocalizations.of(context)?.webReverseAnimationsBulkInvoked(method, n)
+            ?? '$method invoked on $n animation(s)';
       });
       await _refresh();
     } catch (e, st) {
@@ -278,7 +275,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = widget.isZh ? '$method 异常: $e' : '$method error: $e';
+        _status = AppLocalizations.of(context)?.webReverseAnimationsBulkError(method, e.toString())
+            ?? '$method error: $e';
       });
     }
   }
@@ -329,7 +327,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? 'JSON 已复制' : 'JSON copied',
+        AppLocalizations.of(context)?.webReverseAnimationsJsonCopied ?? 'JSON copied',
       );
     }
   }
@@ -338,7 +336,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -358,15 +356,14 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Animations 调试' : 'Animations',
+                          loc?.webReverseAnimationsTitle ?? 'Animations',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         Text(
-                          isZh
-                              ? 'CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取'
-                              : 'CDP Animation.setPlaybackRate + document.getAnimations() snapshot',
+                          loc?.webReverseAnimationsSubtitle ??
+                              'CDP Animation.setPlaybackRate + document.getAnimations() snapshot',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -377,12 +374,12 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                   IconButton(
                     onPressed: _rows.isEmpty ? null : _copyJson,
                     icon: const Icon(Icons.copy_rounded),
-                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    tooltip: loc?.webReverseAnimationsCopyJson ?? 'Copy JSON',
                   ),
                   IconButton(
                     onPressed: _busy ? null : _refresh,
                     icon: const Icon(Icons.refresh_rounded),
-                    tooltip: isZh ? '重新抓取' : 'Refresh',
+                    tooltip: loc?.webReverseAnimationsRefresh ?? 'Refresh',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -397,7 +394,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
               child: Row(
                 children: [
                   Text(
-                    isZh ? '全局倍速' : 'Global rate',
+                    loc?.webReverseAnimationsGlobalRate ?? 'Global rate',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -438,7 +435,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                         ),
                         child: Text(
                           preset == 0
-                              ? (isZh ? '⏸' : 'Pause')
+                              ? (loc?.webReverseAnimationsPauseSymbol ?? 'Pause')
                               : '${preset}x',
                           style: const TextStyle(
                             fontFamily: 'monospace',
@@ -475,17 +472,17 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('pause'),
                     icon: const Icon(Icons.pause_rounded, size: 16),
-                    label: Text(isZh ? '全部暂停' : 'Pause all'),
+                    label: Text(loc?.webReverseAnimationsBulkPause ?? 'Pause all'),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('play'),
                     icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: Text(isZh ? '全部继续' : 'Resume all'),
+                    label: Text(loc?.webReverseAnimationsBulkResume ?? 'Resume all'),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('cancel'),
                     icon: const Icon(Icons.stop_circle_outlined, size: 16),
-                    label: Text(isZh ? '全部取消' : 'Cancel all'),
+                    label: Text(loc?.webReverseAnimationsBulkCancel ?? 'Cancel all'),
                   ),
                 ],
               ),
@@ -507,9 +504,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
               child: _rows.isEmpty
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '没有抓到活跃 animation。先在页面上触发动画再点刷新。'
-                            : 'No active animations. Trigger one and refresh.',
+                        loc?.webReverseAnimationsEmptyState ??
+                            'No active animations. Trigger one and refresh.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -581,7 +577,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: isZh ? '暂停' : 'Pause',
+                                    tooltip: loc?.webReverseAnimationsRowPause ?? 'Pause',
                                     icon: const Icon(
                                       Icons.pause_rounded,
                                       size: 16,
@@ -592,7 +588,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: isZh ? '继续' : 'Play',
+                                    tooltip: loc?.webReverseAnimationsRowPlay ?? 'Play',
                                     icon: const Icon(
                                       Icons.play_arrow_rounded,
                                       size: 16,
@@ -603,7 +599,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: isZh ? '取消' : 'Cancel',
+                                    tooltip: loc?.webReverseAnimationsRowCancel ?? 'Cancel',
                                     icon: const Icon(
                                       Icons.cancel_outlined,
                                       size: 16,
@@ -626,9 +622,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                isZh
-                                    ? '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}'
-                                    : '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}',
+                                '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: cs.onSurfaceVariant,
                                 ),
@@ -656,7 +650,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseAnimationsClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

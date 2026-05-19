@@ -5078,6 +5078,99 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseRenderingCpuThrottling => 'CPU 节流';
+
+  @override
+  String get webReverseAnimationsTitle => 'Animations 调试';
+
+  @override
+  String get webReverseAnimationsSubtitle =>
+      'CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取';
+
+  @override
+  String get webReverseAnimationsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseAnimationsRefresh => '重新抓取';
+
+  @override
+  String get webReverseAnimationsGlobalRate => '全局倍速';
+
+  @override
+  String get webReverseAnimationsPauseSymbol => '⏸';
+
+  @override
+  String get webReverseAnimationsBulkPause => '全部暂停';
+
+  @override
+  String get webReverseAnimationsBulkResume => '全部继续';
+
+  @override
+  String get webReverseAnimationsBulkCancel => '全部取消';
+
+  @override
+  String get webReverseAnimationsEmptyState =>
+      '没有抓到活跃 animation。先在页面上触发动画再点刷新。';
+
+  @override
+  String get webReverseAnimationsRowPause => '暂停';
+
+  @override
+  String get webReverseAnimationsRowPlay => '继续';
+
+  @override
+  String get webReverseAnimationsRowCancel => '取消';
+
+  @override
+  String get webReverseAnimationsClose => '关闭';
+
+  @override
+  String get webReverseAnimationsNoSnapshot => '页面无法返回快照';
+
+  @override
+  String get webReverseAnimationsMalformedSnapshot => '快照格式异常';
+
+  @override
+  String get webReverseAnimationsJsonCopied => 'JSON 已复制';
+
+  @override
+  String webReverseAnimationsSetFailed(String error) {
+    return '设置失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsRateNow(String rate) {
+    return '当前全局倍速 ${rate}x';
+  }
+
+  @override
+  String webReverseAnimationsSetError(String error) {
+    return '设置异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsBrowserError(String error) {
+    return '浏览器侧异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotCount(int count) {
+    return '抓到 $count 条活跃 animation';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotFailed(String error) {
+    return '抓取失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsBulkInvoked(String method, int count) {
+    return '已对 $count 条 animation 执行 $method';
+  }
+
+  @override
+  String webReverseAnimationsBulkError(String method, String error) {
+    return '$method 异常: $error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -10154,6 +10247,99 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseRenderingCpuThrottling => 'CPU 节流';
+
+  @override
+  String get webReverseAnimationsTitle => 'Animations 调试';
+
+  @override
+  String get webReverseAnimationsSubtitle =>
+      'CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取';
+
+  @override
+  String get webReverseAnimationsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseAnimationsRefresh => '重新抓取';
+
+  @override
+  String get webReverseAnimationsGlobalRate => '全局倍速';
+
+  @override
+  String get webReverseAnimationsPauseSymbol => '⏸';
+
+  @override
+  String get webReverseAnimationsBulkPause => '全部暂停';
+
+  @override
+  String get webReverseAnimationsBulkResume => '全部继续';
+
+  @override
+  String get webReverseAnimationsBulkCancel => '全部取消';
+
+  @override
+  String get webReverseAnimationsEmptyState =>
+      '没有抓到活跃 animation。先在页面上触发动画再点刷新。';
+
+  @override
+  String get webReverseAnimationsRowPause => '暂停';
+
+  @override
+  String get webReverseAnimationsRowPlay => '继续';
+
+  @override
+  String get webReverseAnimationsRowCancel => '取消';
+
+  @override
+  String get webReverseAnimationsClose => '关闭';
+
+  @override
+  String get webReverseAnimationsNoSnapshot => '页面无法返回快照';
+
+  @override
+  String get webReverseAnimationsMalformedSnapshot => '快照格式异常';
+
+  @override
+  String get webReverseAnimationsJsonCopied => 'JSON 已复制';
+
+  @override
+  String webReverseAnimationsSetFailed(String error) {
+    return '设置失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsRateNow(String rate) {
+    return '当前全局倍速 ${rate}x';
+  }
+
+  @override
+  String webReverseAnimationsSetError(String error) {
+    return '设置异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsBrowserError(String error) {
+    return '浏览器侧异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotCount(int count) {
+    return '抓到 $count 条活跃 animation';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotFailed(String error) {
+    return '抓取失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsBulkInvoked(String method, int count) {
+    return '已对 $count 条 animation 执行 $method';
+  }
+
+  @override
+  String webReverseAnimationsBulkError(String method, String error) {
+    return '$method 异常: $error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -15229,4 +15415,97 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseRenderingCpuThrottling => 'CPU 节流';
+
+  @override
+  String get webReverseAnimationsTitle => 'Animations 调试';
+
+  @override
+  String get webReverseAnimationsSubtitle =>
+      'CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取';
+
+  @override
+  String get webReverseAnimationsCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseAnimationsRefresh => '重新抓取';
+
+  @override
+  String get webReverseAnimationsGlobalRate => '全局倍速';
+
+  @override
+  String get webReverseAnimationsPauseSymbol => '⏸';
+
+  @override
+  String get webReverseAnimationsBulkPause => '全部暂停';
+
+  @override
+  String get webReverseAnimationsBulkResume => '全部继续';
+
+  @override
+  String get webReverseAnimationsBulkCancel => '全部取消';
+
+  @override
+  String get webReverseAnimationsEmptyState =>
+      '没有抓到活跃 animation。先在页面上触发动画再点刷新。';
+
+  @override
+  String get webReverseAnimationsRowPause => '暂停';
+
+  @override
+  String get webReverseAnimationsRowPlay => '继续';
+
+  @override
+  String get webReverseAnimationsRowCancel => '取消';
+
+  @override
+  String get webReverseAnimationsClose => '关闭';
+
+  @override
+  String get webReverseAnimationsNoSnapshot => '页面无法返回快照';
+
+  @override
+  String get webReverseAnimationsMalformedSnapshot => '快照格式异常';
+
+  @override
+  String get webReverseAnimationsJsonCopied => 'JSON 已复制';
+
+  @override
+  String webReverseAnimationsSetFailed(String error) {
+    return '设置失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsRateNow(String rate) {
+    return '当前全局倍速 ${rate}x';
+  }
+
+  @override
+  String webReverseAnimationsSetError(String error) {
+    return '设置异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsBrowserError(String error) {
+    return '浏览器侧异常: $error';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotCount(int count) {
+    return '抓到 $count 条活跃 animation';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotFailed(String error) {
+    return '抓取失败: $error';
+  }
+
+  @override
+  String webReverseAnimationsBulkInvoked(String method, int count) {
+    return '已对 $count 条 animation 执行 $method';
+  }
+
+  @override
+  String webReverseAnimationsBulkError(String method, String error) {
+    return '$method 异常: $error';
+  }
 }

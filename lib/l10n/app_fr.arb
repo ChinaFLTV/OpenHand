@@ -2587,5 +2587,151 @@
   "webReverseRenderingCpuThrottling": "CPU throttling",
   "@webReverseRenderingCpuThrottling": {
     "description": "web_reverse: Rendering dialog · cputhrottling"
+  },
+  "webReverseAnimationsTitle": "Animations",
+  "@webReverseAnimationsTitle": {
+    "description": "web_reverse: Animations dialog · title"
+  },
+  "webReverseAnimationsSubtitle": "CDP Animation.setPlaybackRate + document.getAnimations() snapshot",
+  "@webReverseAnimationsSubtitle": {
+    "description": "web_reverse: Animations dialog · subtitle"
+  },
+  "webReverseAnimationsCopyJson": "Copy JSON",
+  "@webReverseAnimationsCopyJson": {
+    "description": "web_reverse: Animations dialog · copyjson"
+  },
+  "webReverseAnimationsRefresh": "Refresh",
+  "@webReverseAnimationsRefresh": {
+    "description": "web_reverse: Animations dialog · refresh"
+  },
+  "webReverseAnimationsGlobalRate": "Global rate",
+  "@webReverseAnimationsGlobalRate": {
+    "description": "web_reverse: Animations dialog · globalrate"
+  },
+  "webReverseAnimationsPauseSymbol": "Pause",
+  "@webReverseAnimationsPauseSymbol": {
+    "description": "web_reverse: Animations dialog · pausesymbol"
+  },
+  "webReverseAnimationsBulkPause": "Pause all",
+  "@webReverseAnimationsBulkPause": {
+    "description": "web_reverse: Animations dialog · bulkpause"
+  },
+  "webReverseAnimationsBulkResume": "Resume all",
+  "@webReverseAnimationsBulkResume": {
+    "description": "web_reverse: Animations dialog · bulkresume"
+  },
+  "webReverseAnimationsBulkCancel": "Cancel all",
+  "@webReverseAnimationsBulkCancel": {
+    "description": "web_reverse: Animations dialog · bulkcancel"
+  },
+  "webReverseAnimationsEmptyState": "No active animations. Trigger one and refresh.",
+  "@webReverseAnimationsEmptyState": {
+    "description": "web_reverse: Animations dialog · emptystate"
+  },
+  "webReverseAnimationsRowPause": "Pause",
+  "@webReverseAnimationsRowPause": {
+    "description": "web_reverse: Animations dialog · rowpause"
+  },
+  "webReverseAnimationsRowPlay": "Play",
+  "@webReverseAnimationsRowPlay": {
+    "description": "web_reverse: Animations dialog · rowplay"
+  },
+  "webReverseAnimationsRowCancel": "Cancel",
+  "@webReverseAnimationsRowCancel": {
+    "description": "web_reverse: Animations dialog · rowcancel"
+  },
+  "webReverseAnimationsClose": "Close",
+  "@webReverseAnimationsClose": {
+    "description": "web_reverse: Animations dialog · close"
+  },
+  "webReverseAnimationsNoSnapshot": "no snapshot returned",
+  "@webReverseAnimationsNoSnapshot": {
+    "description": "web_reverse: Animations dialog · nosnapshot"
+  },
+  "webReverseAnimationsMalformedSnapshot": "malformed snapshot",
+  "@webReverseAnimationsMalformedSnapshot": {
+    "description": "web_reverse: Animations dialog · malformedsnapshot"
+  },
+  "webReverseAnimationsJsonCopied": "JSON copied",
+  "@webReverseAnimationsJsonCopied": {
+    "description": "web_reverse: Animations dialog · jsoncopied"
+  },
+  "webReverseAnimationsSetFailed": "setPlaybackRate failed: {error}",
+  "@webReverseAnimationsSetFailed": {
+    "description": "web_reverse: Animations dialog · setfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsRateNow": "global rate = {rate}x",
+  "@webReverseAnimationsRateNow": {
+    "description": "web_reverse: Animations dialog · ratenow",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsSetError": "error: {error}",
+  "@webReverseAnimationsSetError": {
+    "description": "web_reverse: Animations dialog · seterror",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsBrowserError": "browser error: {error}",
+  "@webReverseAnimationsBrowserError": {
+    "description": "web_reverse: Animations dialog · browsererror",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsSnapshotCount": "{count} active animation(s)",
+  "@webReverseAnimationsSnapshotCount": {
+    "description": "web_reverse: Animations dialog · snapshotcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAnimationsSnapshotFailed": "snapshot failed: {error}",
+  "@webReverseAnimationsSnapshotFailed": {
+    "description": "web_reverse: Animations dialog · snapshotfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsBulkInvoked": "{method} invoked on {count} animation(s)",
+  "@webReverseAnimationsBulkInvoked": {
+    "description": "web_reverse: Animations dialog · bulkinvoked",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAnimationsBulkError": "{method} error: {error}",
+  "@webReverseAnimationsBulkError": {
+    "description": "web_reverse: Animations dialog · bulkerror",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

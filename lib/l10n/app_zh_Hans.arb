@@ -2656,5 +2656,151 @@
   "webReverseRenderingCpuThrottling": "CPU 节流",
   "@webReverseRenderingCpuThrottling": {
     "description": "web_reverse: Rendering dialog · cputhrottling"
+  },
+  "webReverseAnimationsTitle": "Animations 调试",
+  "@webReverseAnimationsTitle": {
+    "description": "web_reverse: Animations dialog · title"
+  },
+  "webReverseAnimationsSubtitle": "CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取",
+  "@webReverseAnimationsSubtitle": {
+    "description": "web_reverse: Animations dialog · subtitle"
+  },
+  "webReverseAnimationsCopyJson": "复制 JSON",
+  "@webReverseAnimationsCopyJson": {
+    "description": "web_reverse: Animations dialog · copyjson"
+  },
+  "webReverseAnimationsRefresh": "重新抓取",
+  "@webReverseAnimationsRefresh": {
+    "description": "web_reverse: Animations dialog · refresh"
+  },
+  "webReverseAnimationsGlobalRate": "全局倍速",
+  "@webReverseAnimationsGlobalRate": {
+    "description": "web_reverse: Animations dialog · globalrate"
+  },
+  "webReverseAnimationsPauseSymbol": "⏸",
+  "@webReverseAnimationsPauseSymbol": {
+    "description": "web_reverse: Animations dialog · pausesymbol"
+  },
+  "webReverseAnimationsBulkPause": "全部暂停",
+  "@webReverseAnimationsBulkPause": {
+    "description": "web_reverse: Animations dialog · bulkpause"
+  },
+  "webReverseAnimationsBulkResume": "全部继续",
+  "@webReverseAnimationsBulkResume": {
+    "description": "web_reverse: Animations dialog · bulkresume"
+  },
+  "webReverseAnimationsBulkCancel": "全部取消",
+  "@webReverseAnimationsBulkCancel": {
+    "description": "web_reverse: Animations dialog · bulkcancel"
+  },
+  "webReverseAnimationsEmptyState": "没有抓到活跃 animation。先在页面上触发动画再点刷新。",
+  "@webReverseAnimationsEmptyState": {
+    "description": "web_reverse: Animations dialog · emptystate"
+  },
+  "webReverseAnimationsRowPause": "暂停",
+  "@webReverseAnimationsRowPause": {
+    "description": "web_reverse: Animations dialog · rowpause"
+  },
+  "webReverseAnimationsRowPlay": "继续",
+  "@webReverseAnimationsRowPlay": {
+    "description": "web_reverse: Animations dialog · rowplay"
+  },
+  "webReverseAnimationsRowCancel": "取消",
+  "@webReverseAnimationsRowCancel": {
+    "description": "web_reverse: Animations dialog · rowcancel"
+  },
+  "webReverseAnimationsClose": "关闭",
+  "@webReverseAnimationsClose": {
+    "description": "web_reverse: Animations dialog · close"
+  },
+  "webReverseAnimationsNoSnapshot": "页面无法返回快照",
+  "@webReverseAnimationsNoSnapshot": {
+    "description": "web_reverse: Animations dialog · nosnapshot"
+  },
+  "webReverseAnimationsMalformedSnapshot": "快照格式异常",
+  "@webReverseAnimationsMalformedSnapshot": {
+    "description": "web_reverse: Animations dialog · malformedsnapshot"
+  },
+  "webReverseAnimationsJsonCopied": "JSON 已复制",
+  "@webReverseAnimationsJsonCopied": {
+    "description": "web_reverse: Animations dialog · jsoncopied"
+  },
+  "webReverseAnimationsSetFailed": "设置失败: {error}",
+  "@webReverseAnimationsSetFailed": {
+    "description": "web_reverse: Animations dialog · setfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsRateNow": "当前全局倍速 {rate}x",
+  "@webReverseAnimationsRateNow": {
+    "description": "web_reverse: Animations dialog · ratenow",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsSetError": "设置异常: {error}",
+  "@webReverseAnimationsSetError": {
+    "description": "web_reverse: Animations dialog · seterror",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsBrowserError": "浏览器侧异常: {error}",
+  "@webReverseAnimationsBrowserError": {
+    "description": "web_reverse: Animations dialog · browsererror",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsSnapshotCount": "抓到 {count} 条活跃 animation",
+  "@webReverseAnimationsSnapshotCount": {
+    "description": "web_reverse: Animations dialog · snapshotcount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAnimationsSnapshotFailed": "抓取失败: {error}",
+  "@webReverseAnimationsSnapshotFailed": {
+    "description": "web_reverse: Animations dialog · snapshotfailed",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseAnimationsBulkInvoked": "已对 {count} 条 animation 执行 {method}",
+  "@webReverseAnimationsBulkInvoked": {
+    "description": "web_reverse: Animations dialog · bulkinvoked",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseAnimationsBulkError": "{method} 异常: {error}",
+  "@webReverseAnimationsBulkError": {
+    "description": "web_reverse: Animations dialog · bulkerror",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

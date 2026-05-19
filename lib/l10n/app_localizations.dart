@@ -9455,6 +9455,156 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'CPU 节流'**
   String get webReverseRenderingCpuThrottling;
+
+  /// web_reverse: Animations dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Animations 调试'**
+  String get webReverseAnimationsTitle;
+
+  /// web_reverse: Animations dialog · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CDP Animation.setPlaybackRate + document.getAnimations() 实时拉取'**
+  String get webReverseAnimationsSubtitle;
+
+  /// web_reverse: Animations dialog · copyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseAnimationsCopyJson;
+
+  /// web_reverse: Animations dialog · refresh
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新抓取'**
+  String get webReverseAnimationsRefresh;
+
+  /// web_reverse: Animations dialog · globalrate
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全局倍速'**
+  String get webReverseAnimationsGlobalRate;
+
+  /// web_reverse: Animations dialog · pausesymbol
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'⏸'**
+  String get webReverseAnimationsPauseSymbol;
+
+  /// web_reverse: Animations dialog · bulkpause
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部暂停'**
+  String get webReverseAnimationsBulkPause;
+
+  /// web_reverse: Animations dialog · bulkresume
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部继续'**
+  String get webReverseAnimationsBulkResume;
+
+  /// web_reverse: Animations dialog · bulkcancel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部取消'**
+  String get webReverseAnimationsBulkCancel;
+
+  /// web_reverse: Animations dialog · emptystate
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有抓到活跃 animation。先在页面上触发动画再点刷新。'**
+  String get webReverseAnimationsEmptyState;
+
+  /// web_reverse: Animations dialog · rowpause
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂停'**
+  String get webReverseAnimationsRowPause;
+
+  /// web_reverse: Animations dialog · rowplay
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'继续'**
+  String get webReverseAnimationsRowPlay;
+
+  /// web_reverse: Animations dialog · rowcancel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get webReverseAnimationsRowCancel;
+
+  /// web_reverse: Animations dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseAnimationsClose;
+
+  /// web_reverse: Animations dialog · nosnapshot
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'页面无法返回快照'**
+  String get webReverseAnimationsNoSnapshot;
+
+  /// web_reverse: Animations dialog · malformedsnapshot
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快照格式异常'**
+  String get webReverseAnimationsMalformedSnapshot;
+
+  /// web_reverse: Animations dialog · jsoncopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 已复制'**
+  String get webReverseAnimationsJsonCopied;
+
+  /// web_reverse: Animations dialog · setfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置失败: {error}'**
+  String webReverseAnimationsSetFailed(String error);
+
+  /// web_reverse: Animations dialog · ratenow
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前全局倍速 {rate}x'**
+  String webReverseAnimationsRateNow(String rate);
+
+  /// web_reverse: Animations dialog · seterror
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置异常: {error}'**
+  String webReverseAnimationsSetError(String error);
+
+  /// web_reverse: Animations dialog · browsererror
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览器侧异常: {error}'**
+  String webReverseAnimationsBrowserError(String error);
+
+  /// web_reverse: Animations dialog · snapshotcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓到 {count} 条活跃 animation'**
+  String webReverseAnimationsSnapshotCount(int count);
+
+  /// web_reverse: Animations dialog · snapshotfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓取失败: {error}'**
+  String webReverseAnimationsSnapshotFailed(String error);
+
+  /// web_reverse: Animations dialog · bulkinvoked
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已对 {count} 条 animation 执行 {method}'**
+  String webReverseAnimationsBulkInvoked(String method, int count);
+
+  /// web_reverse: Animations dialog · bulkerror
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{method} 异常: {error}'**
+  String webReverseAnimationsBulkError(String method, String error);
 }
 
 class _AppLocalizationsDelegate

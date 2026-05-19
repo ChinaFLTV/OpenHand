@@ -5422,4 +5422,97 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseRenderingCpuThrottling => 'CPU throttling';
+
+  @override
+  String get webReverseAnimationsTitle => 'Animations';
+
+  @override
+  String get webReverseAnimationsSubtitle =>
+      'CDP Animation.setPlaybackRate + document.getAnimations() snapshot';
+
+  @override
+  String get webReverseAnimationsCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseAnimationsRefresh => 'Refresh';
+
+  @override
+  String get webReverseAnimationsGlobalRate => 'Global rate';
+
+  @override
+  String get webReverseAnimationsPauseSymbol => 'Pause';
+
+  @override
+  String get webReverseAnimationsBulkPause => 'Pause all';
+
+  @override
+  String get webReverseAnimationsBulkResume => 'Resume all';
+
+  @override
+  String get webReverseAnimationsBulkCancel => 'Cancel all';
+
+  @override
+  String get webReverseAnimationsEmptyState =>
+      'No active animations. Trigger one and refresh.';
+
+  @override
+  String get webReverseAnimationsRowPause => 'Pause';
+
+  @override
+  String get webReverseAnimationsRowPlay => 'Play';
+
+  @override
+  String get webReverseAnimationsRowCancel => 'Cancel';
+
+  @override
+  String get webReverseAnimationsClose => 'Close';
+
+  @override
+  String get webReverseAnimationsNoSnapshot => 'no snapshot returned';
+
+  @override
+  String get webReverseAnimationsMalformedSnapshot => 'malformed snapshot';
+
+  @override
+  String get webReverseAnimationsJsonCopied => 'JSON copied';
+
+  @override
+  String webReverseAnimationsSetFailed(String error) {
+    return 'setPlaybackRate failed: $error';
+  }
+
+  @override
+  String webReverseAnimationsRateNow(String rate) {
+    return 'global rate = ${rate}x';
+  }
+
+  @override
+  String webReverseAnimationsSetError(String error) {
+    return 'error: $error';
+  }
+
+  @override
+  String webReverseAnimationsBrowserError(String error) {
+    return 'browser error: $error';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotCount(int count) {
+    return '$count active animation(s)';
+  }
+
+  @override
+  String webReverseAnimationsSnapshotFailed(String error) {
+    return 'snapshot failed: $error';
+  }
+
+  @override
+  String webReverseAnimationsBulkInvoked(String method, int count) {
+    return '$method invoked on $count animation(s)';
+  }
+
+  @override
+  String webReverseAnimationsBulkError(String method, String error) {
+    return '$method error: $error';
+  }
 }
