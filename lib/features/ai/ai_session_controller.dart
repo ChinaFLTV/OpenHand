@@ -3008,16 +3008,18 @@ class AiSessionController extends ChangeNotifier {
       catalog: fullCatalog,
     );
     var workingSession = session;
-    AiResolvedToolCatalog applyMcpLazyLoadingForCurrentSession() {
+    AiResolvedToolCatalog applyMcpLazyLoadingForSessionId(String sessionId) {
       return McpLazyLoadingApplier.apply(
         catalog: fullCatalog,
         runtimeContext: runtimeContext,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(
-          workingSession.id,
-        ),
+        alreadyLoadedNames: _loadedMcpToolsTracker.rawSetForSession(sessionId),
         forceVisibleNames: forceVisibleMcpToolNames,
       );
+    }
+
+    AiResolvedToolCatalog applyMcpLazyLoadingForCurrentSession() {
+      return applyMcpLazyLoadingForSessionId(workingSession.id);
     }
 
     var toolCatalog = applyMcpLazyLoadingForCurrentSession();
@@ -4575,6 +4577,20 @@ class AiSessionController extends ChangeNotifier {
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
+        refreshToolCatalog: (currentSession) {
+          if (currentSession.awaitingPlanApproval) {
+            return const AiResolvedToolCatalog(
+              definitions: <AiToolDefinition>[],
+              toolsByName: <String, AiResolvedTool>{},
+            );
+          }
+          return _toolCatalogForRound(
+            session: currentSession,
+            baseCatalog: applyMcpLazyLoadingForSessionId(currentSession.id),
+            executionApprovedForSend: planModeExecutionApprovedForSend,
+            recoveryInspectionRequired: planModeRecoveryInspectionRequired,
+          );
+        },
       );
       // 阶段⑰：记录本轮全部工具调用 id（按出现顺序去重），供回合
       // 结束时回查 ledger 合成文件变动汇总卡。
@@ -4631,6 +4647,7 @@ class AiSessionController extends ChangeNotifier {
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
+    AiResolvedToolCatalog Function(AiSession session)? refreshToolCatalog,
   }) async {
     if (_isStopRequestedForSession(session.id)) {
       return _commitCancelledPendingToolCalls(session);
@@ -4654,6 +4671,7 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     var workingSession = session;
+    var workingToolCatalog = toolCatalog;
     for (final toolCall in toolCalls) {
       if (_isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
@@ -4699,7 +4717,7 @@ class AiSessionController extends ChangeNotifier {
         sessionId: workingSession.id,
         toolCall: toolCall,
         model: model,
-        toolCatalog: toolCatalog,
+        toolCatalog: workingToolCatalog,
         readFilePaths: _readFileHistory(workingSession),
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
@@ -4800,10 +4818,17 @@ class AiSessionController extends ChangeNotifier {
         workingSession.id,
         'tool_execution_finish tool=${toolCall.name} status=${result.status.storageValue}',
       );
-      _absorbToolSearchLoadedNames(
+      final loadedToolNames = _absorbToolSearchLoadedNames(
         sessionId: workingSession.id,
         result: result,
       );
+      if (loadedToolNames.isNotEmpty && refreshToolCatalog != null) {
+        workingToolCatalog = refreshToolCatalog(workingSession);
+        _debugSessionLog(
+          workingSession.id,
+          'tool_execution_catalog_refreshed loaded_mcp_tools=${loadedToolNames.length}',
+        );
+      }
       await _safeRunUserHook(
         event: HookEvent.postToolUse,
         sessionId: workingSession.id,
@@ -5007,14 +5032,14 @@ class AiSessionController extends ChangeNotifier {
 
   /// 2026-05-04 — When a `ToolSearch` invocation succeeds it stamps the
   /// matched MCP tool names into `result.metadata['tool_search_loaded_names']`.
-  /// Promote those names into the per-session loaded set so the next round's
-  /// `_applyMcpLazyLoading` will keep them in the catalog and the model can
-  /// invoke them directly.
-  void _absorbToolSearchLoadedNames({
+  /// Promote those names into the per-session loaded set so the current serial
+  /// batch can refresh its execution catalog and the next model request can
+  /// advertise the loaded tools directly.
+  List<String> _absorbToolSearchLoadedNames({
     required String sessionId,
     required AiToolExecutionResult result,
   }) {
-    _loadedMcpToolsTracker.absorb(
+    return _loadedMcpToolsTracker.absorb(
       sessionId: sessionId,
       loadedNamesRaw: result.metadata['tool_search_loaded_names'],
       totalDeferredRaw: result.metadata['tool_search_total_deferred'],
@@ -5163,7 +5188,6 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.codebaseSearch:
       case AiBuiltinToolKind.git:
       case AiBuiltinToolKind.readLints:
-      case AiBuiltinToolKind.toolSearch:
         return true;
       case AiBuiltinToolKind.bash:
         return !_bashToolService
@@ -5179,6 +5203,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.deleteFile:
+      // ToolSearch mutates the lazy-loaded MCP catalog; keep it serial so any
+      // remaining calls in the batch can see the refreshed catalog.
+      case AiBuiltinToolKind.toolSearch:
       // Interactive dialog tool must run serially so its modal UI is not
       // interleaved with other tool invocations on the same turn.
       case AiBuiltinToolKind.askUserChoice:

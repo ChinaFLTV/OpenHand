@@ -614,8 +614,8 @@ class HardnessApiPhaseRunner {
             }
           }
 
-          // Absorb tool_search_loaded_names so subsequent rounds in this
-          // phase see the just-pulled MCP tools as live (not deferred).
+          // Absorb tool_search_loaded_names so subsequent tool calls and
+          // rounds in this phase see the just-pulled MCP tools as live.
           final loadedNames = result.metadata['tool_search_loaded_names'];
           if (loadedNames is List && loadedNames.isNotEmpty) {
             final bucket = _loadedMcpToolsBySession.putIfAbsent(
@@ -645,6 +645,11 @@ class HardnessApiPhaseRunner {
                           : addedNames.length),
                 query: queryRaw is String ? queryRaw : '',
               );
+            }
+            if (addedNames.isNotEmpty) {
+              toolCatalog = applyMcpLazyLoadingForPhase();
+              phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
+              refreshSystemTurn();
             }
           }
 

@@ -209,6 +209,7 @@ void main() {
       expect(result.metadata['tool_search_loaded_names'], <String>[
         'mcp__session_a__navigate_page',
       ]);
+      expect(result.resultText, contains('next model request onward'));
       expect(result.resultText, contains('mcp__session_a__navigate_page'));
       expect(result.resultText, isNot(contains('mcp__session_b__wrong_tool')));
     },

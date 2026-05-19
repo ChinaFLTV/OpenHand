@@ -17,7 +17,7 @@ import '../ai_tool_utils.dart';
 /// invoke `ToolSearch` to fetch the full JSON Schema of any MCP tool it
 /// wants to call. Once a tool's schema appears in the result, the controller
 /// promotes it into the session's exposed catalog so it's directly callable
-/// in the next model request in the same assistant turn and later turns.
+/// from the next model request in the same assistant turn onward.
 ///
 /// Query forms (mirrors Claude Code's three modes):
 ///   - `select:Read,Edit,Grep` — direct multi-select by exact name.
@@ -128,7 +128,7 @@ class AiToolSearchTool extends AiTool {
         ..add(
           'The full JSONSchema of the matched tools is rendered below inside '
           'a <functions> block. Each tool is now callable by its exact name '
-          'in this and subsequent turns.',
+          'from the next model request onward.',
         )
         ..add('')
         ..add(functions);
