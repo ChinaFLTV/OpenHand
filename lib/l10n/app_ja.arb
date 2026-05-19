@@ -5418,5 +5418,62 @@
   "webReverseConsoleReplHint": "JS 式を入力 ↵ で実行；↑↓ 履歴",
   "@webReverseConsoleReplHint": {
     "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleClusterCopied": "クラスタ JSON をコピーしました",
+  "@webReverseConsoleClusterCopied": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterTitle": "コンソールエラークラスタ",
+  "@webReverseConsoleClusterTitle": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterRefresh": "更新",
+  "@webReverseConsoleClusterRefresh": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterFilterHint": "キーワードで絞り込み",
+  "@webReverseConsoleClusterFilterHint": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterNoMatch": "一致するコンソールエントリがありません",
+  "@webReverseConsoleClusterNoMatch": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterCopyJson": "JSON をコピー",
+  "@webReverseConsoleClusterCopyJson": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterSubtitle": "level + 正規化された先頭行で重複排除 · {entries} 件 / {clusters} クラスタ",
+  "@webReverseConsoleClusterSubtitle": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "entries": {
+        "type": "int"
+      },
+      "clusters": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseConsoleClusterTimes": "初回: {first}\n最新: {last}",
+  "@webReverseConsoleClusterTimes": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseConsoleClusterMore": "… ほか {count} 件",
+  "@webReverseConsoleClusterMore": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

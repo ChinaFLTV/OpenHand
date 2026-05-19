@@ -5418,5 +5418,62 @@
   "webReverseConsoleReplHint": "JS-Ausdruck; ↑↓ Verlauf",
   "@webReverseConsoleReplHint": {
     "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleClusterCopied": "Cluster-JSON kopiert",
+  "@webReverseConsoleClusterCopied": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterTitle": "Konsolen-Cluster",
+  "@webReverseConsoleClusterTitle": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterRefresh": "Aktualisieren",
+  "@webReverseConsoleClusterRefresh": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterFilterHint": "Filter",
+  "@webReverseConsoleClusterFilterHint": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterNoMatch": "Keine passenden Einträge",
+  "@webReverseConsoleClusterNoMatch": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterCopyJson": "JSON kopieren",
+  "@webReverseConsoleClusterCopyJson": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterSubtitle": "Dedupliziert nach Level + normalisierter erster Zeile · {entries} Einträge / {clusters} Cluster",
+  "@webReverseConsoleClusterSubtitle": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "entries": {
+        "type": "int"
+      },
+      "clusters": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseConsoleClusterTimes": "Erste: {first}\nLetzte: {last}",
+  "@webReverseConsoleClusterTimes": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseConsoleClusterMore": "… und {count} weitere",
+  "@webReverseConsoleClusterMore": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

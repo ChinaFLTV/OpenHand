@@ -13462,6 +13462,60 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'输入 JS 表达式回车执行；↑↓ 浏览历史'**
   String get webReverseConsoleReplHint;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'簇 JSON 已复制'**
+  String get webReverseConsoleClusterCopied;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Console 错误聚类'**
+  String get webReverseConsoleClusterTitle;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseConsoleClusterRefresh;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关键字过滤'**
+  String get webReverseConsoleClusterFilterHint;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有匹配的 console 条目'**
+  String get webReverseConsoleClusterNoMatch;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseConsoleClusterCopyJson;
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按 level + 归一化首行去重 · 共 {entries} 条 / {clusters} 簇'**
+  String webReverseConsoleClusterSubtitle(int entries, int clusters);
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'首次：{first}\n末次：{last}'**
+  String webReverseConsoleClusterTimes(String first, String last);
+
+  /// web_reverse: console cluster panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'… 还有 {count} 条'**
+  String webReverseConsoleClusterMore(int count);
 }
 
 class _AppLocalizationsDelegate

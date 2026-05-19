@@ -7705,4 +7705,37 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseConsoleReplHint => 'Expression JS ; ↑↓ historique';
+
+  @override
+  String get webReverseConsoleClusterCopied => 'JSON du cluster copié';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'Clusters de console';
+
+  @override
+  String get webReverseConsoleClusterRefresh => 'Actualiser';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => 'filtre';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => 'Aucune entrée correspondante';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => 'Copier JSON';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return 'déduplication par niveau + première ligne normalisée · $entries entrées / $clusters clusters';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return 'première : $first\ndernière : $last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… et $count de plus';
+  }
 }

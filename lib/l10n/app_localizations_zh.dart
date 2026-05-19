@@ -7302,6 +7302,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
+
+  @override
+  String get webReverseConsoleClusterCopied => '簇 JSON 已复制';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'Console 错误聚类';
+
+  @override
+  String get webReverseConsoleClusterRefresh => '刷新';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => '关键字过滤';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => '没有匹配的 console 条目';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => '复制 JSON';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return '按 level + 归一化首行去重 · 共 $entries 条 / $clusters 簇';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return '首次：$first\n末次：$last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… 还有 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14602,6 +14635,39 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
+
+  @override
+  String get webReverseConsoleClusterCopied => '簇 JSON 已复制';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'Console 错误聚类';
+
+  @override
+  String get webReverseConsoleClusterRefresh => '刷新';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => '关键字过滤';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => '没有匹配的 console 条目';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => '复制 JSON';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return '按 level + 归一化首行去重 · 共 $entries 条 / $clusters 簇';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return '首次：$first\n末次：$last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… 还有 $count 条';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21901,4 +21967,37 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseConsoleReplHint => '输入 JS 表达式回车执行；↑↓ 浏览历史';
+
+  @override
+  String get webReverseConsoleClusterCopied => '簇 JSON 已复制';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'Console 错误聚类';
+
+  @override
+  String get webReverseConsoleClusterRefresh => '刷新';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => '关键字过滤';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => '没有匹配的 console 条目';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => '复制 JSON';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return '按 level + 归一化首行去重 · 共 $entries 条 / $clusters 簇';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return '首次：$first\n末次：$last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… 还有 $count 条';
+  }
 }

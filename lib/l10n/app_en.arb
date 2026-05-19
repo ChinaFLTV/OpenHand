@@ -5418,5 +5418,62 @@
   "webReverseConsoleReplHint": "JS expression; ↑↓ history",
   "@webReverseConsoleReplHint": {
     "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleClusterCopied": "Cluster JSON copied",
+  "@webReverseConsoleClusterCopied": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterTitle": "Console Clusters",
+  "@webReverseConsoleClusterTitle": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterRefresh": "Refresh",
+  "@webReverseConsoleClusterRefresh": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterFilterHint": "filter",
+  "@webReverseConsoleClusterFilterHint": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterNoMatch": "No matching entries",
+  "@webReverseConsoleClusterNoMatch": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterCopyJson": "Copy JSON",
+  "@webReverseConsoleClusterCopyJson": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterSubtitle": "dedupe by level + normalized first line · {entries} entries / {clusters} clusters",
+  "@webReverseConsoleClusterSubtitle": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "entries": {
+        "type": "int"
+      },
+      "clusters": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseConsoleClusterTimes": "first: {first}\nlast: {last}",
+  "@webReverseConsoleClusterTimes": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseConsoleClusterMore": "… and {count} more",
+  "@webReverseConsoleClusterMore": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

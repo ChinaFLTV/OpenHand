@@ -5418,5 +5418,62 @@
   "webReverseConsoleReplHint": "Expression JS ; ↑↓ historique",
   "@webReverseConsoleReplHint": {
     "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleClusterCopied": "JSON du cluster copié",
+  "@webReverseConsoleClusterCopied": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterTitle": "Clusters de console",
+  "@webReverseConsoleClusterTitle": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterRefresh": "Actualiser",
+  "@webReverseConsoleClusterRefresh": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterFilterHint": "filtre",
+  "@webReverseConsoleClusterFilterHint": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterNoMatch": "Aucune entrée correspondante",
+  "@webReverseConsoleClusterNoMatch": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterCopyJson": "Copier JSON",
+  "@webReverseConsoleClusterCopyJson": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterSubtitle": "déduplication par niveau + première ligne normalisée · {entries} entrées / {clusters} clusters",
+  "@webReverseConsoleClusterSubtitle": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "entries": {
+        "type": "int"
+      },
+      "clusters": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseConsoleClusterTimes": "première : {first}\ndernière : {last}",
+  "@webReverseConsoleClusterTimes": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseConsoleClusterMore": "… et {count} de plus",
+  "@webReverseConsoleClusterMore": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

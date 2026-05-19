@@ -5418,5 +5418,62 @@
   "webReverseConsoleReplHint": "输入 JS 表达式回车执行；↑↓ 浏览历史",
   "@webReverseConsoleReplHint": {
     "description": "web_reverse: console panel"
+  },
+  "webReverseConsoleClusterCopied": "簇 JSON 已复制",
+  "@webReverseConsoleClusterCopied": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterTitle": "Console 错误聚类",
+  "@webReverseConsoleClusterTitle": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterRefresh": "刷新",
+  "@webReverseConsoleClusterRefresh": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterFilterHint": "关键字过滤",
+  "@webReverseConsoleClusterFilterHint": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterNoMatch": "没有匹配的 console 条目",
+  "@webReverseConsoleClusterNoMatch": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterCopyJson": "复制 JSON",
+  "@webReverseConsoleClusterCopyJson": {
+    "description": "web_reverse: console cluster panel"
+  },
+  "webReverseConsoleClusterSubtitle": "按 level + 归一化首行去重 · 共 {entries} 条 / {clusters} 簇",
+  "@webReverseConsoleClusterSubtitle": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "entries": {
+        "type": "int"
+      },
+      "clusters": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseConsoleClusterTimes": "首次：{first}\n末次：{last}",
+  "@webReverseConsoleClusterTimes": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseConsoleClusterMore": "… 还有 {count} 条",
+  "@webReverseConsoleClusterMore": {
+    "description": "web_reverse: console cluster panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

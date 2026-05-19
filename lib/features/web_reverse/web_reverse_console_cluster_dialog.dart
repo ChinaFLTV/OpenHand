@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -50,6 +51,7 @@ class _ConsoleClusterDialog extends StatefulWidget {
     required this.isZh,
   });
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_ConsoleClusterDialog> createState() =>
@@ -128,7 +130,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '簇 JSON 已复制' : 'Cluster JSON copied',
+        AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
+            'Cluster JSON copied',
       );
     }
   }
@@ -137,7 +140,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final clusters = _build();
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -156,14 +159,17 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh ? 'Console 错误聚类' : 'Console Clusters',
+                      loc?.webReverseConsoleClusterTitle ??
+                          'Console Clusters',
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     Text(
-                      isZh
-                          ? '按 level + 归一化首行去重 · 共 ${widget.controller.consoleMessages.length} 条 / ${clusters.length} 簇'
-                          : 'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
+                      loc?.webReverseConsoleClusterSubtitle(
+                            widget.controller.consoleMessages.length,
+                            clusters.length,
+                          ) ??
+                          'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: cs.onSurfaceVariant),
                     ),
@@ -173,7 +179,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
               IconButton(
                 onPressed: () => setState(() {}),
                 icon: const Icon(Icons.refresh_rounded),
-                tooltip: isZh ? '刷新' : 'Refresh',
+                tooltip: loc?.webReverseConsoleClusterRefresh ?? 'Refresh',
               ),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -198,7 +204,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                 child: TextField(
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    hintText: isZh ? '关键字过滤' : 'filter',
+                    hintText:
+                        loc?.webReverseConsoleClusterFilterHint ?? 'filter',
                     isDense: true,
                     border: const OutlineInputBorder(),
                   ),
@@ -211,7 +218,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
             child: clusters.isEmpty
                 ? Center(
                     child: Text(
-                      isZh ? '没有匹配的 console 条目' : 'No matching entries',
+                      loc?.webReverseConsoleClusterNoMatch ??
+                          'No matching entries',
                       style: TextStyle(
                           color: cs.onSurfaceVariant, fontSize: 12),
                     ),
@@ -291,8 +299,9 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                   IconButton(
                                     icon: const Icon(Icons.copy_rounded,
                                         size: 16),
-                                    tooltip:
-                                        isZh ? '复制 JSON' : 'Copy JSON',
+                                    tooltip: loc
+                                            ?.webReverseConsoleClusterCopyJson ??
+                                        'Copy JSON',
                                     onPressed: () => _copyCluster(c),
                                   ),
                                   Icon(
@@ -313,9 +322,11 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      isZh
-                                          ? '首次：${c.first?.toIso8601String()}\n末次：${c.last?.toIso8601String()}'
-                                          : 'first: ${c.first?.toIso8601String()}\nlast: ${c.last?.toIso8601String()}',
+                                      loc?.webReverseConsoleClusterTimes(
+                                            c.first?.toIso8601String() ?? '',
+                                            c.last?.toIso8601String() ?? '',
+                                          ) ??
+                                          'first: ${c.first?.toIso8601String()}\nlast: ${c.last?.toIso8601String()}',
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                               color: cs.onSurfaceVariant),
@@ -362,9 +373,10 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                         padding:
                                             const EdgeInsets.only(top: 4),
                                         child: Text(
-                                          isZh
-                                              ? '… 还有 ${c.entries.length - 30} 条'
-                                              : '… and ${c.entries.length - 30} more',
+                                          loc?.webReverseConsoleClusterMore(
+                                                c.entries.length - 30,
+                                              ) ??
+                                              '… and ${c.entries.length - 30} more',
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
                                                   color:
@@ -385,7 +397,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
             child: SizedBox(
               width: double.infinity,
               child: OpenHandDialogActionButton.primary(
-                label: isZh ? '关闭' : 'Close',
+                label: loc?.commonClose ?? 'Close',
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),

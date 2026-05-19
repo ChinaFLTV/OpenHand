@@ -7401,4 +7401,37 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseConsoleReplHint => 'JS 式を入力 ↵ で実行；↑↓ 履歴';
+
+  @override
+  String get webReverseConsoleClusterCopied => 'クラスタ JSON をコピーしました';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'コンソールエラークラスタ';
+
+  @override
+  String get webReverseConsoleClusterRefresh => '更新';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => 'キーワードで絞り込み';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => '一致するコンソールエントリがありません';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => 'JSON をコピー';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return 'level + 正規化された先頭行で重複排除 · $entries 件 / $clusters クラスタ';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return '初回: $first\n最新: $last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… ほか $count 件';
+  }
 }

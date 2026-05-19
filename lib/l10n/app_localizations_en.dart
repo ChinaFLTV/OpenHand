@@ -7600,4 +7600,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseConsoleReplHint => 'JS expression; ↑↓ history';
+
+  @override
+  String get webReverseConsoleClusterCopied => 'Cluster JSON copied';
+
+  @override
+  String get webReverseConsoleClusterTitle => 'Console Clusters';
+
+  @override
+  String get webReverseConsoleClusterRefresh => 'Refresh';
+
+  @override
+  String get webReverseConsoleClusterFilterHint => 'filter';
+
+  @override
+  String get webReverseConsoleClusterNoMatch => 'No matching entries';
+
+  @override
+  String get webReverseConsoleClusterCopyJson => 'Copy JSON';
+
+  @override
+  String webReverseConsoleClusterSubtitle(int entries, int clusters) {
+    return 'dedupe by level + normalized first line · $entries entries / $clusters clusters';
+  }
+
+  @override
+  String webReverseConsoleClusterTimes(String first, String last) {
+    return 'first: $first\nlast: $last';
+  }
+
+  @override
+  String webReverseConsoleClusterMore(int count) {
+    return '… and $count more';
+  }
 }
