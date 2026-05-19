@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -52,8 +53,6 @@ class _RenderingDialogState extends State<_RenderingDialog> {
   String _colorScheme = 'auto'; // auto / light / dark
   String _reducedMotion = 'auto'; // auto / reduce / no-preference
   String _mediaType = 'auto'; // auto / screen / print
-
-  bool get _isZh => widget.isZh;
 
   Future<Map<String, Object?>?> _send(
     String method, {
@@ -187,7 +186,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          _isZh ? '已重置全部 Rendering 开关' : 'Rendering overrides reset',
+          AppLocalizations.of(context)?.webReverseRenderingResetSuccess ?? 'Rendering overrides reset',
         );
       }
     }
@@ -217,15 +216,14 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isZh ? 'Rendering 调试' : 'Rendering',
+                          AppLocalizations.of(context)?.webReverseRenderingTitle ?? 'Rendering',
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          _isZh
-                              ? 'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流'
-                              : 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+                          AppLocalizations.of(context)?.webReverseRenderingSubtitle ??
+                              'Paint · Layout shift · Layers · FPS · media · CPU throttle',
                           style: tt.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -234,12 +232,12 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '全部重置' : 'Reset all',
+                    tooltip: AppLocalizations.of(context)?.webReverseRenderingResetAll ?? 'Reset all',
                     onPressed: _busy ? null : _resetAll,
                     icon: const Icon(Icons.restart_alt_rounded),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '关闭' : 'Close',
+                    tooltip: AppLocalizations.of(context)?.webReverseRenderingClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -251,13 +249,12 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
                 children: [
-                  _sectionTitle(_isZh ? '可视化覆盖层' : 'Overlays'),
+                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionOverlays ?? 'Overlays'),
                   _switchTile(
                     icon: Icons.brush_rounded,
-                    title: _isZh ? 'Paint flashing' : 'Paint flashing',
-                    subtitle: _isZh
-                        ? '高亮当帧重绘区域 · Overlay.setShowPaintRects'
-                        : 'Highlight repainted regions',
+                    title: 'Paint flashing',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingPaintFlashingDesc ??
+                        'Highlight repainted regions',
                     value: _paintRects,
                     onChanged: (v) => _toggleOverlay(
                       'Overlay.setShowPaintRects',
@@ -267,10 +264,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.swap_vert_rounded,
-                    title: _isZh ? 'Layout shift regions' : 'Layout shift regions',
-                    subtitle: _isZh
-                        ? 'CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions'
-                        : 'Visualize CLS regions',
+                    title: 'Layout shift regions',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingLayoutShiftDesc ??
+                        'Visualize CLS regions',
                     value: _layoutShift,
                     onChanged: (v) => _toggleOverlay(
                       'Overlay.setShowLayoutShiftRegions',
@@ -280,10 +276,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.grid_4x4_rounded,
-                    title: _isZh ? 'Layer borders' : 'Layer borders',
-                    subtitle: _isZh
-                        ? '合成层边框 · Overlay.setShowDebugBorders'
-                        : 'Composited layer borders',
+                    title: 'Layer borders',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingLayerBordersDesc ??
+                        'Composited layer borders',
                     value: _layerBorders,
                     onChanged: (v) => _toggleOverlay(
                       'Overlay.setShowDebugBorders',
@@ -293,12 +288,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.swipe_rounded,
-                    title: _isZh
-                        ? 'Scroll bottleneck regions'
-                        : 'Scroll bottleneck regions',
-                    subtitle: _isZh
-                        ? '阻塞主线程的滚动区域 · setShowScrollBottleneckRects'
-                        : 'Slow-scroll regions',
+                    title: 'Scroll bottleneck regions',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingScrollBottleneckDesc ??
+                        'Slow-scroll regions',
                     value: _scrollBottleneck,
                     onChanged: (v) async {
                       setState(() => _scrollBottleneck = v);
@@ -310,10 +302,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.touch_app_rounded,
-                    title: _isZh ? 'Hit-test borders' : 'Hit-test borders',
-                    subtitle: _isZh
-                        ? '元素命中区边框 · Overlay.setShowHitTestBorders'
-                        : 'Element hit-test borders',
+                    title: 'Hit-test borders',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingHitTestDesc ??
+                        'Element hit-test borders',
                     value: _hitTest,
                     onChanged: (v) async {
                       setState(() => _hitTest = v);
@@ -325,10 +316,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.speed_rounded,
-                    title: _isZh ? 'FPS meter' : 'FPS meter',
-                    subtitle: _isZh
-                        ? '右上角实时帧率 · Overlay.setShowFPSCounter'
-                        : 'Live FPS overlay',
+                    title: 'FPS meter',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingFpsDesc ??
+                        'Live FPS overlay',
                     value: _fps,
                     onChanged: (v) async {
                       setState(() => _fps = v);
@@ -340,10 +330,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   ),
                   _switchTile(
                     icon: Icons.insights_rounded,
-                    title: _isZh ? 'Web Vitals overlay' : 'Web Vitals overlay',
-                    subtitle: _isZh
-                        ? 'LCP / CLS / INP 浮层 · Overlay.setShowWebVitals'
-                        : 'LCP / CLS / INP floating layer',
+                    title: 'Web Vitals overlay',
+                    subtitle: AppLocalizations.of(context)?.webReverseRenderingWebVitalsDesc ??
+                        'LCP / CLS / INP floating layer',
                     value: _webVitals,
                     onChanged: (v) async {
                       setState(() => _webVitals = v);
@@ -354,12 +343,12 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  _sectionTitle(_isZh ? '性能仿真' : 'Performance emulation'),
+                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionPerf ?? 'Performance emulation'),
                   _cpuThrottleRow(cs, tt),
                   const SizedBox(height: 12),
-                  _sectionTitle(_isZh ? '媒体仿真' : 'Media emulation'),
+                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionMedia ?? 'Media emulation'),
                   _segmentRow(
-                    label: _isZh ? '配色方案' : 'Color scheme',
+                    label: AppLocalizations.of(context)?.webReverseRenderingLabelColorScheme ?? 'Color scheme',
                     value: _colorScheme,
                     options: const ['auto', 'light', 'dark'],
                     onChanged: (v) {
@@ -368,7 +357,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     },
                   ),
                   _segmentRow(
-                    label: _isZh ? '减少动效' : 'Reduced motion',
+                    label: AppLocalizations.of(context)?.webReverseRenderingLabelReducedMotion ?? 'Reduced motion',
                     value: _reducedMotion,
                     options: const ['auto', 'reduce', 'no-preference'],
                     onChanged: (v) {
@@ -377,7 +366,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     },
                   ),
                   _segmentRow(
-                    label: _isZh ? '媒体类型' : 'Media type',
+                    label: AppLocalizations.of(context)?.webReverseRenderingLabelMediaType ?? 'Media type',
                     value: _mediaType,
                     options: const ['auto', 'screen', 'print'],
                     onChanged: (v) {
@@ -421,7 +410,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(
-                    label: _isZh ? '关闭' : 'Close',
+                    label: AppLocalizations.of(context)?.webReverseRenderingClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -516,7 +505,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               Icon(Icons.memory_rounded, size: 20, color: cs.onSurfaceVariant),
               const SizedBox(width: 10),
               Text(
-                _isZh ? 'CPU 节流' : 'CPU throttling',
+                AppLocalizations.of(context)?.webReverseRenderingCpuThrottling ?? 'CPU throttling',
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),

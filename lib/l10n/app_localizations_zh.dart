@@ -5013,6 +5013,71 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
+
+  @override
+  String get webReverseRenderingResetSuccess => '已重置全部 Rendering 开关';
+
+  @override
+  String get webReverseRenderingTitle => 'Rendering 调试';
+
+  @override
+  String get webReverseRenderingSubtitle =>
+      'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流';
+
+  @override
+  String get webReverseRenderingResetAll => '全部重置';
+
+  @override
+  String get webReverseRenderingClose => '关闭';
+
+  @override
+  String get webReverseRenderingSectionOverlays => '可视化覆盖层';
+
+  @override
+  String get webReverseRenderingPaintFlashingDesc =>
+      '高亮当帧重绘区域 · Overlay.setShowPaintRects';
+
+  @override
+  String get webReverseRenderingLayoutShiftDesc =>
+      'CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions';
+
+  @override
+  String get webReverseRenderingLayerBordersDesc =>
+      '合成层边框 · Overlay.setShowDebugBorders';
+
+  @override
+  String get webReverseRenderingScrollBottleneckDesc =>
+      '阻塞主线程的滚动区域 · setShowScrollBottleneckRects';
+
+  @override
+  String get webReverseRenderingHitTestDesc =>
+      '元素命中区边框 · Overlay.setShowHitTestBorders';
+
+  @override
+  String get webReverseRenderingFpsDesc =>
+      '右上角实时帧率 · Overlay.setShowFPSCounter';
+
+  @override
+  String get webReverseRenderingWebVitalsDesc =>
+      'LCP / CLS / INP 浮层 · Overlay.setShowWebVitals';
+
+  @override
+  String get webReverseRenderingSectionPerf => '性能仿真';
+
+  @override
+  String get webReverseRenderingSectionMedia => '媒体仿真';
+
+  @override
+  String get webReverseRenderingLabelColorScheme => '配色方案';
+
+  @override
+  String get webReverseRenderingLabelReducedMotion => '减少动效';
+
+  @override
+  String get webReverseRenderingLabelMediaType => '媒体类型';
+
+  @override
+  String get webReverseRenderingCpuThrottling => 'CPU 节流';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -10024,6 +10089,71 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
+
+  @override
+  String get webReverseRenderingResetSuccess => '已重置全部 Rendering 开关';
+
+  @override
+  String get webReverseRenderingTitle => 'Rendering 调试';
+
+  @override
+  String get webReverseRenderingSubtitle =>
+      'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流';
+
+  @override
+  String get webReverseRenderingResetAll => '全部重置';
+
+  @override
+  String get webReverseRenderingClose => '关闭';
+
+  @override
+  String get webReverseRenderingSectionOverlays => '可视化覆盖层';
+
+  @override
+  String get webReverseRenderingPaintFlashingDesc =>
+      '高亮当帧重绘区域 · Overlay.setShowPaintRects';
+
+  @override
+  String get webReverseRenderingLayoutShiftDesc =>
+      'CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions';
+
+  @override
+  String get webReverseRenderingLayerBordersDesc =>
+      '合成层边框 · Overlay.setShowDebugBorders';
+
+  @override
+  String get webReverseRenderingScrollBottleneckDesc =>
+      '阻塞主线程的滚动区域 · setShowScrollBottleneckRects';
+
+  @override
+  String get webReverseRenderingHitTestDesc =>
+      '元素命中区边框 · Overlay.setShowHitTestBorders';
+
+  @override
+  String get webReverseRenderingFpsDesc =>
+      '右上角实时帧率 · Overlay.setShowFPSCounter';
+
+  @override
+  String get webReverseRenderingWebVitalsDesc =>
+      'LCP / CLS / INP 浮层 · Overlay.setShowWebVitals';
+
+  @override
+  String get webReverseRenderingSectionPerf => '性能仿真';
+
+  @override
+  String get webReverseRenderingSectionMedia => '媒体仿真';
+
+  @override
+  String get webReverseRenderingLabelColorScheme => '配色方案';
+
+  @override
+  String get webReverseRenderingLabelReducedMotion => '减少动效';
+
+  @override
+  String get webReverseRenderingLabelMediaType => '媒体类型';
+
+  @override
+  String get webReverseRenderingCpuThrottling => 'CPU 节流';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -15034,4 +15164,69 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
+
+  @override
+  String get webReverseRenderingResetSuccess => '已重置全部 Rendering 开关';
+
+  @override
+  String get webReverseRenderingTitle => 'Rendering 调试';
+
+  @override
+  String get webReverseRenderingSubtitle =>
+      'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流';
+
+  @override
+  String get webReverseRenderingResetAll => '全部重置';
+
+  @override
+  String get webReverseRenderingClose => '关闭';
+
+  @override
+  String get webReverseRenderingSectionOverlays => '可视化覆盖层';
+
+  @override
+  String get webReverseRenderingPaintFlashingDesc =>
+      '高亮当帧重绘区域 · Overlay.setShowPaintRects';
+
+  @override
+  String get webReverseRenderingLayoutShiftDesc =>
+      'CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions';
+
+  @override
+  String get webReverseRenderingLayerBordersDesc =>
+      '合成层边框 · Overlay.setShowDebugBorders';
+
+  @override
+  String get webReverseRenderingScrollBottleneckDesc =>
+      '阻塞主线程的滚动区域 · setShowScrollBottleneckRects';
+
+  @override
+  String get webReverseRenderingHitTestDesc =>
+      '元素命中区边框 · Overlay.setShowHitTestBorders';
+
+  @override
+  String get webReverseRenderingFpsDesc =>
+      '右上角实时帧率 · Overlay.setShowFPSCounter';
+
+  @override
+  String get webReverseRenderingWebVitalsDesc =>
+      'LCP / CLS / INP 浮层 · Overlay.setShowWebVitals';
+
+  @override
+  String get webReverseRenderingSectionPerf => '性能仿真';
+
+  @override
+  String get webReverseRenderingSectionMedia => '媒体仿真';
+
+  @override
+  String get webReverseRenderingLabelColorScheme => '配色方案';
+
+  @override
+  String get webReverseRenderingLabelReducedMotion => '减少动效';
+
+  @override
+  String get webReverseRenderingLabelMediaType => '媒体类型';
+
+  @override
+  String get webReverseRenderingCpuThrottling => 'CPU 节流';
 }

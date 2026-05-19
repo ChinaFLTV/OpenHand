@@ -2511,5 +2511,81 @@
   "webReverseIssuesAuditsNotReady": "Audits 域未就绪",
   "@webReverseIssuesAuditsNotReady": {
     "description": "web_reverse: Issues dialog · auditsnotready"
+  },
+  "webReverseRenderingResetSuccess": "已重置全部 Rendering 开关",
+  "@webReverseRenderingResetSuccess": {
+    "description": "web_reverse: Rendering dialog · resetsuccess"
+  },
+  "webReverseRenderingTitle": "Rendering 调试",
+  "@webReverseRenderingTitle": {
+    "description": "web_reverse: Rendering dialog · title"
+  },
+  "webReverseRenderingSubtitle": "Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流",
+  "@webReverseRenderingSubtitle": {
+    "description": "web_reverse: Rendering dialog · subtitle"
+  },
+  "webReverseRenderingResetAll": "全部重置",
+  "@webReverseRenderingResetAll": {
+    "description": "web_reverse: Rendering dialog · resetall"
+  },
+  "webReverseRenderingClose": "关闭",
+  "@webReverseRenderingClose": {
+    "description": "web_reverse: Rendering dialog · close"
+  },
+  "webReverseRenderingSectionOverlays": "可视化覆盖层",
+  "@webReverseRenderingSectionOverlays": {
+    "description": "web_reverse: Rendering dialog · sectionoverlays"
+  },
+  "webReverseRenderingPaintFlashingDesc": "高亮当帧重绘区域 · Overlay.setShowPaintRects",
+  "@webReverseRenderingPaintFlashingDesc": {
+    "description": "web_reverse: Rendering dialog · paintflashingdesc"
+  },
+  "webReverseRenderingLayoutShiftDesc": "CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions",
+  "@webReverseRenderingLayoutShiftDesc": {
+    "description": "web_reverse: Rendering dialog · layoutshiftdesc"
+  },
+  "webReverseRenderingLayerBordersDesc": "合成层边框 · Overlay.setShowDebugBorders",
+  "@webReverseRenderingLayerBordersDesc": {
+    "description": "web_reverse: Rendering dialog · layerbordersdesc"
+  },
+  "webReverseRenderingScrollBottleneckDesc": "阻塞主线程的滚动区域 · setShowScrollBottleneckRects",
+  "@webReverseRenderingScrollBottleneckDesc": {
+    "description": "web_reverse: Rendering dialog · scrollbottleneckdesc"
+  },
+  "webReverseRenderingHitTestDesc": "元素命中区边框 · Overlay.setShowHitTestBorders",
+  "@webReverseRenderingHitTestDesc": {
+    "description": "web_reverse: Rendering dialog · hittestdesc"
+  },
+  "webReverseRenderingFpsDesc": "右上角实时帧率 · Overlay.setShowFPSCounter",
+  "@webReverseRenderingFpsDesc": {
+    "description": "web_reverse: Rendering dialog · fpsdesc"
+  },
+  "webReverseRenderingWebVitalsDesc": "LCP / CLS / INP 浮层 · Overlay.setShowWebVitals",
+  "@webReverseRenderingWebVitalsDesc": {
+    "description": "web_reverse: Rendering dialog · webvitalsdesc"
+  },
+  "webReverseRenderingSectionPerf": "性能仿真",
+  "@webReverseRenderingSectionPerf": {
+    "description": "web_reverse: Rendering dialog · sectionperf"
+  },
+  "webReverseRenderingSectionMedia": "媒体仿真",
+  "@webReverseRenderingSectionMedia": {
+    "description": "web_reverse: Rendering dialog · sectionmedia"
+  },
+  "webReverseRenderingLabelColorScheme": "配色方案",
+  "@webReverseRenderingLabelColorScheme": {
+    "description": "web_reverse: Rendering dialog · labelcolorscheme"
+  },
+  "webReverseRenderingLabelReducedMotion": "减少动效",
+  "@webReverseRenderingLabelReducedMotion": {
+    "description": "web_reverse: Rendering dialog · labelreducedmotion"
+  },
+  "webReverseRenderingLabelMediaType": "媒体类型",
+  "@webReverseRenderingLabelMediaType": {
+    "description": "web_reverse: Rendering dialog · labelmediatype"
+  },
+  "webReverseRenderingCpuThrottling": "CPU 节流",
+  "@webReverseRenderingCpuThrottling": {
+    "description": "web_reverse: Rendering dialog · cputhrottling"
   }
 }

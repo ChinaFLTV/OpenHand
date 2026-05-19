@@ -2511,5 +2511,81 @@
   "webReverseIssuesAuditsNotReady": "Audits domain not ready",
   "@webReverseIssuesAuditsNotReady": {
     "description": "web_reverse: Issues dialog · auditsnotready"
+  },
+  "webReverseRenderingResetSuccess": "Rendering overrides reset",
+  "@webReverseRenderingResetSuccess": {
+    "description": "web_reverse: Rendering dialog · resetsuccess"
+  },
+  "webReverseRenderingTitle": "Rendering",
+  "@webReverseRenderingTitle": {
+    "description": "web_reverse: Rendering dialog · title"
+  },
+  "webReverseRenderingSubtitle": "Paint · Layout shift · Layers · FPS · media · CPU throttle",
+  "@webReverseRenderingSubtitle": {
+    "description": "web_reverse: Rendering dialog · subtitle"
+  },
+  "webReverseRenderingResetAll": "Reset all",
+  "@webReverseRenderingResetAll": {
+    "description": "web_reverse: Rendering dialog · resetall"
+  },
+  "webReverseRenderingClose": "Close",
+  "@webReverseRenderingClose": {
+    "description": "web_reverse: Rendering dialog · close"
+  },
+  "webReverseRenderingSectionOverlays": "Overlays",
+  "@webReverseRenderingSectionOverlays": {
+    "description": "web_reverse: Rendering dialog · sectionoverlays"
+  },
+  "webReverseRenderingPaintFlashingDesc": "Highlight repainted regions",
+  "@webReverseRenderingPaintFlashingDesc": {
+    "description": "web_reverse: Rendering dialog · paintflashingdesc"
+  },
+  "webReverseRenderingLayoutShiftDesc": "Visualize CLS regions",
+  "@webReverseRenderingLayoutShiftDesc": {
+    "description": "web_reverse: Rendering dialog · layoutshiftdesc"
+  },
+  "webReverseRenderingLayerBordersDesc": "Composited layer borders",
+  "@webReverseRenderingLayerBordersDesc": {
+    "description": "web_reverse: Rendering dialog · layerbordersdesc"
+  },
+  "webReverseRenderingScrollBottleneckDesc": "Slow-scroll regions",
+  "@webReverseRenderingScrollBottleneckDesc": {
+    "description": "web_reverse: Rendering dialog · scrollbottleneckdesc"
+  },
+  "webReverseRenderingHitTestDesc": "Element hit-test borders",
+  "@webReverseRenderingHitTestDesc": {
+    "description": "web_reverse: Rendering dialog · hittestdesc"
+  },
+  "webReverseRenderingFpsDesc": "Live FPS overlay",
+  "@webReverseRenderingFpsDesc": {
+    "description": "web_reverse: Rendering dialog · fpsdesc"
+  },
+  "webReverseRenderingWebVitalsDesc": "LCP / CLS / INP floating layer",
+  "@webReverseRenderingWebVitalsDesc": {
+    "description": "web_reverse: Rendering dialog · webvitalsdesc"
+  },
+  "webReverseRenderingSectionPerf": "Performance emulation",
+  "@webReverseRenderingSectionPerf": {
+    "description": "web_reverse: Rendering dialog · sectionperf"
+  },
+  "webReverseRenderingSectionMedia": "Media emulation",
+  "@webReverseRenderingSectionMedia": {
+    "description": "web_reverse: Rendering dialog · sectionmedia"
+  },
+  "webReverseRenderingLabelColorScheme": "Color scheme",
+  "@webReverseRenderingLabelColorScheme": {
+    "description": "web_reverse: Rendering dialog · labelcolorscheme"
+  },
+  "webReverseRenderingLabelReducedMotion": "Reduced motion",
+  "@webReverseRenderingLabelReducedMotion": {
+    "description": "web_reverse: Rendering dialog · labelreducedmotion"
+  },
+  "webReverseRenderingLabelMediaType": "Media type",
+  "@webReverseRenderingLabelMediaType": {
+    "description": "web_reverse: Rendering dialog · labelmediatype"
+  },
+  "webReverseRenderingCpuThrottling": "CPU throttling",
+  "@webReverseRenderingCpuThrottling": {
+    "description": "web_reverse: Rendering dialog · cputhrottling"
   }
 }

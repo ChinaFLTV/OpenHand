@@ -5362,4 +5362,64 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseIssuesAuditsNotReady => 'Audits domain not ready';
+
+  @override
+  String get webReverseRenderingResetSuccess => 'Rendering overrides reset';
+
+  @override
+  String get webReverseRenderingTitle => 'Rendering';
+
+  @override
+  String get webReverseRenderingSubtitle =>
+      'Paint · Layout shift · Layers · FPS · media · CPU throttle';
+
+  @override
+  String get webReverseRenderingResetAll => 'Reset all';
+
+  @override
+  String get webReverseRenderingClose => 'Close';
+
+  @override
+  String get webReverseRenderingSectionOverlays => 'Overlays';
+
+  @override
+  String get webReverseRenderingPaintFlashingDesc =>
+      'Highlight repainted regions';
+
+  @override
+  String get webReverseRenderingLayoutShiftDesc => 'Visualize CLS regions';
+
+  @override
+  String get webReverseRenderingLayerBordersDesc => 'Composited layer borders';
+
+  @override
+  String get webReverseRenderingScrollBottleneckDesc => 'Slow-scroll regions';
+
+  @override
+  String get webReverseRenderingHitTestDesc => 'Element hit-test borders';
+
+  @override
+  String get webReverseRenderingFpsDesc => 'Live FPS overlay';
+
+  @override
+  String get webReverseRenderingWebVitalsDesc =>
+      'LCP / CLS / INP floating layer';
+
+  @override
+  String get webReverseRenderingSectionPerf => 'Performance emulation';
+
+  @override
+  String get webReverseRenderingSectionMedia => 'Media emulation';
+
+  @override
+  String get webReverseRenderingLabelColorScheme => 'Color scheme';
+
+  @override
+  String get webReverseRenderingLabelReducedMotion => 'Reduced motion';
+
+  @override
+  String get webReverseRenderingLabelMediaType => 'Media type';
+
+  @override
+  String get webReverseRenderingCpuThrottling => 'CPU throttling';
 }

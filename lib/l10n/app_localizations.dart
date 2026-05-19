@@ -9341,6 +9341,120 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'Audits 域未就绪'**
   String get webReverseIssuesAuditsNotReady;
+
+  /// web_reverse: Rendering dialog · resetsuccess
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已重置全部 Rendering 开关'**
+  String get webReverseRenderingResetSuccess;
+
+  /// web_reverse: Rendering dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Rendering 调试'**
+  String get webReverseRenderingTitle;
+
+  /// web_reverse: Rendering dialog · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流'**
+  String get webReverseRenderingSubtitle;
+
+  /// web_reverse: Rendering dialog · resetall
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部重置'**
+  String get webReverseRenderingResetAll;
+
+  /// web_reverse: Rendering dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseRenderingClose;
+
+  /// web_reverse: Rendering dialog · sectionoverlays
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可视化覆盖层'**
+  String get webReverseRenderingSectionOverlays;
+
+  /// web_reverse: Rendering dialog · paintflashingdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'高亮当帧重绘区域 · Overlay.setShowPaintRects'**
+  String get webReverseRenderingPaintFlashingDesc;
+
+  /// web_reverse: Rendering dialog · layoutshiftdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CLS 偏移可视化 · Overlay.setShowLayoutShiftRegions'**
+  String get webReverseRenderingLayoutShiftDesc;
+
+  /// web_reverse: Rendering dialog · layerbordersdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'合成层边框 · Overlay.setShowDebugBorders'**
+  String get webReverseRenderingLayerBordersDesc;
+
+  /// web_reverse: Rendering dialog · scrollbottleneckdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'阻塞主线程的滚动区域 · setShowScrollBottleneckRects'**
+  String get webReverseRenderingScrollBottleneckDesc;
+
+  /// web_reverse: Rendering dialog · hittestdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'元素命中区边框 · Overlay.setShowHitTestBorders'**
+  String get webReverseRenderingHitTestDesc;
+
+  /// web_reverse: Rendering dialog · fpsdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'右上角实时帧率 · Overlay.setShowFPSCounter'**
+  String get webReverseRenderingFpsDesc;
+
+  /// web_reverse: Rendering dialog · webvitalsdesc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'LCP / CLS / INP 浮层 · Overlay.setShowWebVitals'**
+  String get webReverseRenderingWebVitalsDesc;
+
+  /// web_reverse: Rendering dialog · sectionperf
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'性能仿真'**
+  String get webReverseRenderingSectionPerf;
+
+  /// web_reverse: Rendering dialog · sectionmedia
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'媒体仿真'**
+  String get webReverseRenderingSectionMedia;
+
+  /// web_reverse: Rendering dialog · labelcolorscheme
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配色方案'**
+  String get webReverseRenderingLabelColorScheme;
+
+  /// web_reverse: Rendering dialog · labelreducedmotion
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'减少动效'**
+  String get webReverseRenderingLabelReducedMotion;
+
+  /// web_reverse: Rendering dialog · labelmediatype
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'媒体类型'**
+  String get webReverseRenderingLabelMediaType;
+
+  /// web_reverse: Rendering dialog · cputhrottling
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CPU 节流'**
+  String get webReverseRenderingCpuThrottling;
 }
 
 class _AppLocalizationsDelegate
