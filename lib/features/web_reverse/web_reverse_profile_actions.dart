@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 
 import '../../app/support/silent_log.dart';
@@ -42,6 +43,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   final messenger = ScaffoldMessenger.of(context);
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
+  final loc = AppLocalizations.of(context);
 
   void toast({
     required String text,
@@ -62,7 +64,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
 
   if (userDataDir.trim().isEmpty) {
     toast(
-      text: isZh ? 'Profile 路径为空，未执行' : 'Empty profile path; nothing done',
+      text: loc?.webReverseProfileEmptyPath ??
+          'Empty profile path; nothing done',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;
@@ -80,7 +83,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
       stack,
     );
     toast(
-      text: isZh ? '清理失败：$error' : 'Clean failed: $error',
+      text: loc?.webReverseProfileCleanFailed('$error') ??
+          'Clean failed: $error',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;
@@ -93,17 +97,15 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   if (!stillLocked) {
     if (cleanResult.deleted > 0) {
       toast(
-        text: isZh
-            ? '已清理 ${cleanResult.deleted} 个锁文件，profile 已恢复'
-            : 'Cleared ${cleanResult.deleted} lock file(s); profile is healthy',
+        text: loc?.webReverseProfileCleaned(cleanResult.deleted) ??
+            'Cleared ${cleanResult.deleted} lock file(s); profile is healthy',
         bg: cs.secondaryContainer,
       );
       return ProgressiveProfileOutcome.cleaned;
     }
     toast(
-      text: isZh
-          ? '未发现残留锁文件。如仍无法启动，请查看诊断卡片其他根因。'
-          : 'No residual locks. If launch still fails, see other causes in diagnosis.',
+      text: loc?.webReverseProfileNoResidual ??
+          'No residual locks. If launch still fails, see other causes in diagnosis.',
     );
     return ProgressiveProfileOutcome.nothingToDo;
   }
@@ -113,37 +115,31 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: Text(isZh ? '锁仍未清干净，是否重置 profile？' : 'Locks still present — reset profile?'),
+      title: Text(loc?.webReverseProfileResetTitle ??
+          'Locks still present — reset profile?'),
       content: Text(
-        isZh
-            ? '已尝试清理 SingletonLock 等残留，但仍检测到锁文件。\n\n'
-                '继续操作会递归删除：\n$userDataDir\n\n'
-                '该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等数据将全部丢失，'
-                '下次启动会重建一个全新 profile。'
-            : 'Cleaned SingletonLock residues but locks still exist.\n\n'
-                'Proceeding will recursively delete:\n$userDataDir\n\n'
-                'Cookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
+        loc?.webReverseProfileResetBody(userDataDir) ??
+            'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$userDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          child: Text(loc?.commonCancel ?? 'Cancel'),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(dialogContext).colorScheme.error,
           ),
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(isZh ? '确认重置' : 'Reset now'),
+          child: Text(loc?.webReverseProfileResetConfirm ?? 'Reset now'),
         ),
       ],
     ),
   );
   if (ok != true) {
     toast(
-      text: isZh
-          ? '已保留 profile，但锁仍可能阻止下次启动。'
-          : 'Profile kept; locks may still block next launch.',
+      text: loc?.webReverseProfileKept ??
+          'Profile kept; locks may still block next launch.',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.resetCancelled;
@@ -162,9 +158,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     }
     if (!context.mounted) return ProgressiveProfileOutcome.reset;
     toast(
-      text: isZh
-          ? '已重置 profile：$userDataDir（60 秒内不可重复操作）'
-          : 'Profile reset: $userDataDir (60s cool-down)',
+      text: loc?.webReverseProfileResetDone(userDataDir) ??
+          'Profile reset: $userDataDir (60s cool-down)',
       bg: cs.secondaryContainer,
     );
     return ProgressiveProfileOutcome.reset;
@@ -177,7 +172,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     );
     if (!context.mounted) return ProgressiveProfileOutcome.failed;
     toast(
-      text: isZh ? '重置失败：$error' : 'Reset failed: $error',
+      text: loc?.webReverseProfileResetFailed('$error') ??
+          'Reset failed: $error',
       bg: cs.errorContainer,
     );
     return ProgressiveProfileOutcome.failed;

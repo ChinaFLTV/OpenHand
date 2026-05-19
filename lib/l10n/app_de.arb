@@ -5305,5 +5305,70 @@
   "webReverseInstallInstalled": "Installiert",
   "@webReverseInstallInstalled": {
     "description": "web_reverse: install guide dialog"
+  },
+  "webReverseProfileEmptyPath": "Profilpfad ist leer; nichts ausgeführt",
+  "@webReverseProfileEmptyPath": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileNoResidual": "Keine verbleibenden Sperren. Falls der Start fehlschlägt, siehe weitere Ursachen in der Diagnose.",
+  "@webReverseProfileNoResidual": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetTitle": "Sperren noch vorhanden — Profil zurücksetzen?",
+  "@webReverseProfileResetTitle": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetConfirm": "Jetzt zurücksetzen",
+  "@webReverseProfileResetConfirm": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileKept": "Profil beibehalten; Sperren könnten den nächsten Start blockieren.",
+  "@webReverseProfileKept": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileCleanFailed": "Bereinigung fehlgeschlagen: {error}",
+  "@webReverseProfileCleanFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileCleaned": "{count} Sperrdatei(en) entfernt; Profil ist gesund",
+  "@webReverseProfileCleaned": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseProfileResetBody": "SingletonLock-Reste bereinigt, aber Sperren existieren noch.\n\nFortfahren löscht rekursiv:\n{path}\n\nCookies / Login Data / Erweiterungen / Verlauf in diesem Profil gehen verloren; ein frisches Profil wird beim nächsten Start erstellt.",
+  "@webReverseProfileResetBody": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetDone": "Profil zurückgesetzt: {path} (60s Abkühlung)",
+  "@webReverseProfileResetDone": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetFailed": "Zurücksetzen fehlgeschlagen: {error}",
+  "@webReverseProfileResetFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

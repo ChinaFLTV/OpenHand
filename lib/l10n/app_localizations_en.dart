@@ -7518,4 +7518,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseInstallInstalled => 'I Have Installed';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Empty profile path; nothing done';
+
+  @override
+  String get webReverseProfileNoResidual =>
+      'No residual locks. If launch still fails, see other causes in diagnosis.';
+
+  @override
+  String get webReverseProfileResetTitle =>
+      'Locks still present — reset profile?';
+
+  @override
+  String get webReverseProfileResetConfirm => 'Reset now';
+
+  @override
+  String get webReverseProfileKept =>
+      'Profile kept; locks may still block next launch.';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return 'Clean failed: $error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return 'Cleared $count lock file(s); profile is healthy';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return 'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$path\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return 'Profile reset: $path (60s cool-down)';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return 'Reset failed: $error';
+  }
 }

@@ -13330,6 +13330,66 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'我已安装'**
   String get webReverseInstallInstalled;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Profile 路径为空，未执行'**
+  String get webReverseProfileEmptyPath;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未发现残留锁文件。如仍无法启动，请查看诊断卡片其他根因。'**
+  String get webReverseProfileNoResidual;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'锁仍未清干净，是否重置 profile？'**
+  String get webReverseProfileResetTitle;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认重置'**
+  String get webReverseProfileResetConfirm;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保留 profile，但锁仍可能阻止下次启动。'**
+  String get webReverseProfileKept;
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清理失败：{error}'**
+  String webReverseProfileCleanFailed(String error);
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已清理 {count} 个锁文件，profile 已恢复'**
+  String webReverseProfileCleaned(int count);
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已尝试清理 SingletonLock 等残留，但仍检测到锁文件。\n\n继续操作会递归删除：\n{path}\n\n该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等数据将全部丢失，下次启动会重建一个全新 profile。'**
+  String webReverseProfileResetBody(String path);
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已重置 profile：{path}（60 秒内不可重复操作）'**
+  String webReverseProfileResetDone(String path);
+
+  /// web_reverse: profile actions
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置失败：{error}'**
+  String webReverseProfileResetFailed(String error);
 }
 
 class _AppLocalizationsDelegate

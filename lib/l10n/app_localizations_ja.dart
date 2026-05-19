@@ -7320,4 +7320,46 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseInstallInstalled => 'インストール済み';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Profile パスが空です。何も実行されません';
+
+  @override
+  String get webReverseProfileNoResidual =>
+      '残留ロックは見つかりません。起動できない場合は診断の他の原因をご確認ください。';
+
+  @override
+  String get webReverseProfileResetTitle => 'ロックが残っています — profile をリセットしますか？';
+
+  @override
+  String get webReverseProfileResetConfirm => 'リセット実行';
+
+  @override
+  String get webReverseProfileKept =>
+      'Profile を保持しました。ロックにより次回起動が阻害される可能性があります。';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return 'クリーニング失敗：$error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '$count 個のロックファイルを削除しました。profile は正常です';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return 'SingletonLock などの残留を削除しましたが、ロックがまだ存在します。\n\n続行すると次のディレクトリを再帰的に削除します：\n$path\n\nこの profile 配下の Cookies / Login Data / 拡張機能 / 履歴 などはすべて失われ、次回起動時に新しい profile が再生成されます。';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return 'profile をリセットしました：$path（60 秒のクールダウン）';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return 'リセット失敗：$error';
+  }
 }

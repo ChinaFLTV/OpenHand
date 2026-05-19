@@ -5305,5 +5305,70 @@
   "webReverseInstallInstalled": "インストール済み",
   "@webReverseInstallInstalled": {
     "description": "web_reverse: install guide dialog"
+  },
+  "webReverseProfileEmptyPath": "Profile パスが空です。何も実行されません",
+  "@webReverseProfileEmptyPath": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileNoResidual": "残留ロックは見つかりません。起動できない場合は診断の他の原因をご確認ください。",
+  "@webReverseProfileNoResidual": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetTitle": "ロックが残っています — profile をリセットしますか？",
+  "@webReverseProfileResetTitle": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetConfirm": "リセット実行",
+  "@webReverseProfileResetConfirm": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileKept": "Profile を保持しました。ロックにより次回起動が阻害される可能性があります。",
+  "@webReverseProfileKept": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileCleanFailed": "クリーニング失敗：{error}",
+  "@webReverseProfileCleanFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileCleaned": "{count} 個のロックファイルを削除しました。profile は正常です",
+  "@webReverseProfileCleaned": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseProfileResetBody": "SingletonLock などの残留を削除しましたが、ロックがまだ存在します。\n\n続行すると次のディレクトリを再帰的に削除します：\n{path}\n\nこの profile 配下の Cookies / Login Data / 拡張機能 / 履歴 などはすべて失われ、次回起動時に新しい profile が再生成されます。",
+  "@webReverseProfileResetBody": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetDone": "profile をリセットしました：{path}（60 秒のクールダウン）",
+  "@webReverseProfileResetDone": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetFailed": "リセット失敗：{error}",
+  "@webReverseProfileResetFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

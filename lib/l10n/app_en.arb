@@ -5305,5 +5305,70 @@
   "webReverseInstallInstalled": "I Have Installed",
   "@webReverseInstallInstalled": {
     "description": "web_reverse: install guide dialog"
+  },
+  "webReverseProfileEmptyPath": "Empty profile path; nothing done",
+  "@webReverseProfileEmptyPath": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileNoResidual": "No residual locks. If launch still fails, see other causes in diagnosis.",
+  "@webReverseProfileNoResidual": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetTitle": "Locks still present — reset profile?",
+  "@webReverseProfileResetTitle": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetConfirm": "Reset now",
+  "@webReverseProfileResetConfirm": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileKept": "Profile kept; locks may still block next launch.",
+  "@webReverseProfileKept": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileCleanFailed": "Clean failed: {error}",
+  "@webReverseProfileCleanFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileCleaned": "Cleared {count} lock file(s); profile is healthy",
+  "@webReverseProfileCleaned": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseProfileResetBody": "Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n{path}\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.",
+  "@webReverseProfileResetBody": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetDone": "Profile reset: {path} (60s cool-down)",
+  "@webReverseProfileResetDone": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetFailed": "Reset failed: {error}",
+  "@webReverseProfileResetFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

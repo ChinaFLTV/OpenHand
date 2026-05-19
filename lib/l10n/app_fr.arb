@@ -5305,5 +5305,70 @@
   "webReverseInstallInstalled": "Déjà installé",
   "@webReverseInstallInstalled": {
     "description": "web_reverse: install guide dialog"
+  },
+  "webReverseProfileEmptyPath": "Chemin du profil vide; rien fait",
+  "@webReverseProfileEmptyPath": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileNoResidual": "Aucun verrou résiduel. Si le lancement échoue, voir les autres causes dans le diagnostic.",
+  "@webReverseProfileNoResidual": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetTitle": "Verrous toujours présents — réinitialiser le profil ?",
+  "@webReverseProfileResetTitle": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileResetConfirm": "Réinitialiser",
+  "@webReverseProfileResetConfirm": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileKept": "Profil conservé ; les verrous peuvent encore bloquer le prochain lancement.",
+  "@webReverseProfileKept": {
+    "description": "web_reverse: profile actions"
+  },
+  "webReverseProfileCleanFailed": "Échec du nettoyage : {error}",
+  "@webReverseProfileCleanFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileCleaned": "{count} fichier(s) de verrou supprimé(s) ; profil sain",
+  "@webReverseProfileCleaned": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseProfileResetBody": "Résidus SingletonLock nettoyés, mais verrous toujours présents.\n\nContinuer supprimera récursivement :\n{path}\n\nLes Cookies / Login Data / extensions / historique sous ce profil seront perdus ; un nouveau profil sera recréé au prochain lancement.",
+  "@webReverseProfileResetBody": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetDone": "Profil réinitialisé : {path} (60s de pause)",
+  "@webReverseProfileResetDone": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseProfileResetFailed": "Échec de la réinitialisation : {error}",
+  "@webReverseProfileResetFailed": {
+    "description": "web_reverse: profile actions",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

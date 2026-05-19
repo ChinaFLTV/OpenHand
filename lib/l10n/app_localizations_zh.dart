@@ -7224,6 +7224,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseInstallInstalled => '我已安装';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Profile 路径为空，未执行';
+
+  @override
+  String get webReverseProfileNoResidual => '未发现残留锁文件。如仍无法启动，请查看诊断卡片其他根因。';
+
+  @override
+  String get webReverseProfileResetTitle => '锁仍未清干净，是否重置 profile？';
+
+  @override
+  String get webReverseProfileResetConfirm => '确认重置';
+
+  @override
+  String get webReverseProfileKept => '已保留 profile，但锁仍可能阻止下次启动。';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return '清理失败：$error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '已清理 $count 个锁文件，profile 已恢复';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return '已尝试清理 SingletonLock 等残留，但仍检测到锁文件。\n\n继续操作会递归删除：\n$path\n\n该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等数据将全部丢失，下次启动会重建一个全新 profile。';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return '已重置 profile：$path（60 秒内不可重复操作）';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return '重置失败：$error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14446,6 +14486,46 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseInstallInstalled => '我已安装';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Profile 路径为空，未执行';
+
+  @override
+  String get webReverseProfileNoResidual => '未发现残留锁文件。如仍无法启动，请查看诊断卡片其他根因。';
+
+  @override
+  String get webReverseProfileResetTitle => '锁仍未清干净，是否重置 profile？';
+
+  @override
+  String get webReverseProfileResetConfirm => '确认重置';
+
+  @override
+  String get webReverseProfileKept => '已保留 profile，但锁仍可能阻止下次启动。';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return '清理失败：$error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '已清理 $count 个锁文件，profile 已恢复';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return '已尝试清理 SingletonLock 等残留，但仍检测到锁文件。\n\n继续操作会递归删除：\n$path\n\n该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等数据将全部丢失，下次启动会重建一个全新 profile。';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return '已重置 profile：$path（60 秒内不可重复操作）';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return '重置失败：$error';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21667,4 +21747,44 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseInstallInstalled => '我已安装';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Profile 路径为空，未执行';
+
+  @override
+  String get webReverseProfileNoResidual => '未发现残留锁文件。如仍无法启动，请查看诊断卡片其他根因。';
+
+  @override
+  String get webReverseProfileResetTitle => '锁仍未清干净，是否重置 profile？';
+
+  @override
+  String get webReverseProfileResetConfirm => '确认重置';
+
+  @override
+  String get webReverseProfileKept => '已保留 profile，但锁仍可能阻止下次启动。';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return '清理失败：$error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '已清理 $count 个锁文件，profile 已恢复';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return '已尝试清理 SingletonLock 等残留，但仍检测到锁文件。\n\n继续操作会递归删除：\n$path\n\n该 profile 下的 Cookies / Login Data / 已安装扩展 / 浏览历史 等数据将全部丢失，下次启动会重建一个全新 profile。';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return '已重置 profile：$path（60 秒内不可重复操作）';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return '重置失败：$error';
+  }
 }

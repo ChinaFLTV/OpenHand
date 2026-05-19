@@ -7622,4 +7622,47 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseInstallInstalled => 'Déjà installé';
+
+  @override
+  String get webReverseProfileEmptyPath => 'Chemin du profil vide; rien fait';
+
+  @override
+  String get webReverseProfileNoResidual =>
+      'Aucun verrou résiduel. Si le lancement échoue, voir les autres causes dans le diagnostic.';
+
+  @override
+  String get webReverseProfileResetTitle =>
+      'Verrous toujours présents — réinitialiser le profil ?';
+
+  @override
+  String get webReverseProfileResetConfirm => 'Réinitialiser';
+
+  @override
+  String get webReverseProfileKept =>
+      'Profil conservé ; les verrous peuvent encore bloquer le prochain lancement.';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return 'Échec du nettoyage : $error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '$count fichier(s) de verrou supprimé(s) ; profil sain';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return 'Résidus SingletonLock nettoyés, mais verrous toujours présents.\n\nContinuer supprimera récursivement :\n$path\n\nLes Cookies / Login Data / extensions / historique sous ce profil seront perdus ; un nouveau profil sera recréé au prochain lancement.';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return 'Profil réinitialisé : $path (60s de pause)';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return 'Échec de la réinitialisation : $error';
+  }
 }

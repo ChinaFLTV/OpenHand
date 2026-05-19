@@ -7586,4 +7586,48 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseInstallInstalled => 'Installiert';
+
+  @override
+  String get webReverseProfileEmptyPath =>
+      'Profilpfad ist leer; nichts ausgeführt';
+
+  @override
+  String get webReverseProfileNoResidual =>
+      'Keine verbleibenden Sperren. Falls der Start fehlschlägt, siehe weitere Ursachen in der Diagnose.';
+
+  @override
+  String get webReverseProfileResetTitle =>
+      'Sperren noch vorhanden — Profil zurücksetzen?';
+
+  @override
+  String get webReverseProfileResetConfirm => 'Jetzt zurücksetzen';
+
+  @override
+  String get webReverseProfileKept =>
+      'Profil beibehalten; Sperren könnten den nächsten Start blockieren.';
+
+  @override
+  String webReverseProfileCleanFailed(String error) {
+    return 'Bereinigung fehlgeschlagen: $error';
+  }
+
+  @override
+  String webReverseProfileCleaned(int count) {
+    return '$count Sperrdatei(en) entfernt; Profil ist gesund';
+  }
+
+  @override
+  String webReverseProfileResetBody(String path) {
+    return 'SingletonLock-Reste bereinigt, aber Sperren existieren noch.\n\nFortfahren löscht rekursiv:\n$path\n\nCookies / Login Data / Erweiterungen / Verlauf in diesem Profil gehen verloren; ein frisches Profil wird beim nächsten Start erstellt.';
+  }
+
+  @override
+  String webReverseProfileResetDone(String path) {
+    return 'Profil zurückgesetzt: $path (60s Abkühlung)';
+  }
+
+  @override
+  String webReverseProfileResetFailed(String error) {
+    return 'Zurücksetzen fehlgeschlagen: $error';
+  }
 }
