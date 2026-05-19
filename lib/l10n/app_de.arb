@@ -4745,5 +4745,58 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webReverseDomMutTitle": "DOM-Mutation-Recorder",
+  "@webReverseDomMutTitle": {},
+  "webReverseDomMutSubtitle": "MutationObserver injizieren → Live-Timeline",
+  "@webReverseDomMutSubtitle": {},
+  "webReverseDomMutRecordingStarted": "DOM-Mutationen werden aufgezeichnet",
+  "@webReverseDomMutRecordingStarted": {},
+  "webReverseDomMutInstallFailed": "Installation fehlgeschlagen: {error}",
+  "@webReverseDomMutInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomMutCopiedRecords": "{count} Einträge kopiert",
+  "@webReverseDomMutCopiedRecords": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutExportJson": "JSON exportieren",
+  "@webReverseDomMutExportJson": {},
+  "webReverseDomMutRecording": "Aufzeichnung",
+  "@webReverseDomMutRecording": {},
+  "webReverseDomMutStart": "Start",
+  "@webReverseDomMutStart": {},
+  "webReverseDomMutStop": "Stopp",
+  "@webReverseDomMutStop": {},
+  "webReverseDomMutClear": "Leeren",
+  "@webReverseDomMutClear": {},
+  "webReverseDomMutFilterHint": "Filter (Teilstring)",
+  "@webReverseDomMutFilterHint": {},
+  "webReverseDomMutAutoFollow": "Auto-Folgen",
+  "@webReverseDomMutAutoFollow": {},
+  "webReverseDomMutCounter": "{count} / {total}",
+  "@webReverseDomMutCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutWaiting": "Warte auf Mutationen…",
+  "@webReverseDomMutWaiting": {},
+  "webReverseDomMutPressStart": "Start drücken",
+  "@webReverseDomMutPressStart": {},
+  "webReverseDomMutClose": "Schließen",
+  "@webReverseDomMutClose": {}
 }

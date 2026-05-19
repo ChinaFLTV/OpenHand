@@ -4745,5 +4745,58 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webReverseDomMutTitle": "DOM Mutation Recorder",
+  "@webReverseDomMutTitle": {},
+  "webReverseDomMutSubtitle": "Injects MutationObserver → live timeline",
+  "@webReverseDomMutSubtitle": {},
+  "webReverseDomMutRecordingStarted": "Recording DOM mutations",
+  "@webReverseDomMutRecordingStarted": {},
+  "webReverseDomMutInstallFailed": "Install failed: {error}",
+  "@webReverseDomMutInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomMutCopiedRecords": "Copied {count} records",
+  "@webReverseDomMutCopiedRecords": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutExportJson": "Export JSON",
+  "@webReverseDomMutExportJson": {},
+  "webReverseDomMutRecording": "Recording",
+  "@webReverseDomMutRecording": {},
+  "webReverseDomMutStart": "Start",
+  "@webReverseDomMutStart": {},
+  "webReverseDomMutStop": "Stop",
+  "@webReverseDomMutStop": {},
+  "webReverseDomMutClear": "Clear",
+  "@webReverseDomMutClear": {},
+  "webReverseDomMutFilterHint": "Filter (substring)",
+  "@webReverseDomMutFilterHint": {},
+  "webReverseDomMutAutoFollow": "Auto-follow",
+  "@webReverseDomMutAutoFollow": {},
+  "webReverseDomMutCounter": "{count} / {total}",
+  "@webReverseDomMutCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutWaiting": "Waiting for mutations…",
+  "@webReverseDomMutWaiting": {},
+  "webReverseDomMutPressStart": "Press Start",
+  "@webReverseDomMutPressStart": {},
+  "webReverseDomMutClose": "Close",
+  "@webReverseDomMutClose": {}
 }

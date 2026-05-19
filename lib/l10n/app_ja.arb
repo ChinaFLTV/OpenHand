@@ -4745,5 +4745,58 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webReverseDomMutTitle": "DOM Mutation レコーダー",
+  "@webReverseDomMutTitle": {},
+  "webReverseDomMutSubtitle": "MutationObserver を注入 → ライブタイムライン",
+  "@webReverseDomMutSubtitle": {},
+  "webReverseDomMutRecordingStarted": "DOM 変更を記録中",
+  "@webReverseDomMutRecordingStarted": {},
+  "webReverseDomMutInstallFailed": "インストール失敗: {error}",
+  "@webReverseDomMutInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomMutCopiedRecords": "{count} 件をコピーしました",
+  "@webReverseDomMutCopiedRecords": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutExportJson": "JSON エクスポート",
+  "@webReverseDomMutExportJson": {},
+  "webReverseDomMutRecording": "記録中",
+  "@webReverseDomMutRecording": {},
+  "webReverseDomMutStart": "開始",
+  "@webReverseDomMutStart": {},
+  "webReverseDomMutStop": "停止",
+  "@webReverseDomMutStop": {},
+  "webReverseDomMutClear": "クリア",
+  "@webReverseDomMutClear": {},
+  "webReverseDomMutFilterHint": "フィルタ（部分一致）",
+  "@webReverseDomMutFilterHint": {},
+  "webReverseDomMutAutoFollow": "自動追従",
+  "@webReverseDomMutAutoFollow": {},
+  "webReverseDomMutCounter": "{count} / {total}",
+  "@webReverseDomMutCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutWaiting": "DOM 変更を待機中…",
+  "@webReverseDomMutWaiting": {},
+  "webReverseDomMutPressStart": "開始を押してください",
+  "@webReverseDomMutPressStart": {},
+  "webReverseDomMutClose": "閉じる",
+  "@webReverseDomMutClose": {}
 }

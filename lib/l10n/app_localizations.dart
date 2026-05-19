@@ -12353,6 +12353,102 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已应用：{summary}'**
   String webReverseThrottleStatusApplied(String summary);
+
+  /// No description provided for @webReverseDomMutTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'DOM Mutation 录制'**
+  String get webReverseDomMutTitle;
+
+  /// No description provided for @webReverseDomMutSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注入 MutationObserver → childList/attributes/characterData → 时间线'**
+  String get webReverseDomMutSubtitle;
+
+  /// No description provided for @webReverseDomMutRecordingStarted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已开始录制 DOM 变更'**
+  String get webReverseDomMutRecordingStarted;
+
+  /// No description provided for @webReverseDomMutInstallFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装失败：{error}'**
+  String webReverseDomMutInstallFailed(String error);
+
+  /// No description provided for @webReverseDomMutCopiedRecords.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {count} 条变更 JSON'**
+  String webReverseDomMutCopiedRecords(int count);
+
+  /// No description provided for @webReverseDomMutExportJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出 JSON'**
+  String get webReverseDomMutExportJson;
+
+  /// No description provided for @webReverseDomMutRecording.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'录制中'**
+  String get webReverseDomMutRecording;
+
+  /// No description provided for @webReverseDomMutStart.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始录制'**
+  String get webReverseDomMutStart;
+
+  /// No description provided for @webReverseDomMutStop.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReverseDomMutStop;
+
+  /// No description provided for @webReverseDomMutClear.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseDomMutClear;
+
+  /// No description provided for @webReverseDomMutFilterHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'过滤（子串）'**
+  String get webReverseDomMutFilterHint;
+
+  /// No description provided for @webReverseDomMutAutoFollow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动跟随'**
+  String get webReverseDomMutAutoFollow;
+
+  /// No description provided for @webReverseDomMutCounter.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count}/{total}'**
+  String webReverseDomMutCounter(int count, int total);
+
+  /// No description provided for @webReverseDomMutWaiting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待 DOM 变更…'**
+  String get webReverseDomMutWaiting;
+
+  /// No description provided for @webReverseDomMutPressStart.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击开始录制'**
+  String get webReverseDomMutPressStart;
+
+  /// No description provided for @webReverseDomMutClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseDomMutClose;
 }
 
 class _AppLocalizationsDelegate

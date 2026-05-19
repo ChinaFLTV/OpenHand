@@ -4745,5 +4745,58 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webReverseDomMutTitle": "Enregistreur de mutations DOM",
+  "@webReverseDomMutTitle": {},
+  "webReverseDomMutSubtitle": "Injecte MutationObserver → chronologie en direct",
+  "@webReverseDomMutSubtitle": {},
+  "webReverseDomMutRecordingStarted": "Enregistrement des mutations DOM",
+  "@webReverseDomMutRecordingStarted": {},
+  "webReverseDomMutInstallFailed": "Échec de l'installation : {error}",
+  "@webReverseDomMutInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomMutCopiedRecords": "{count} entrées copiées",
+  "@webReverseDomMutCopiedRecords": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutExportJson": "Exporter JSON",
+  "@webReverseDomMutExportJson": {},
+  "webReverseDomMutRecording": "Enregistrement",
+  "@webReverseDomMutRecording": {},
+  "webReverseDomMutStart": "Démarrer",
+  "@webReverseDomMutStart": {},
+  "webReverseDomMutStop": "Arrêter",
+  "@webReverseDomMutStop": {},
+  "webReverseDomMutClear": "Effacer",
+  "@webReverseDomMutClear": {},
+  "webReverseDomMutFilterHint": "Filtre (sous-chaîne)",
+  "@webReverseDomMutFilterHint": {},
+  "webReverseDomMutAutoFollow": "Suivi auto",
+  "@webReverseDomMutAutoFollow": {},
+  "webReverseDomMutCounter": "{count} / {total}",
+  "@webReverseDomMutCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutWaiting": "En attente de mutations…",
+  "@webReverseDomMutWaiting": {},
+  "webReverseDomMutPressStart": "Appuyer sur Démarrer",
+  "@webReverseDomMutPressStart": {},
+  "webReverseDomMutClose": "Fermer",
+  "@webReverseDomMutClose": {}
 }

@@ -6963,4 +6963,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseThrottleStatusApplied(String summary) {
     return 'Applied: $summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM Mutation Recorder';
+
+  @override
+  String get webReverseDomMutSubtitle =>
+      'Injects MutationObserver → live timeline';
+
+  @override
+  String get webReverseDomMutRecordingStarted => 'Recording DOM mutations';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return 'Install failed: $error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return 'Copied $count records';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => 'Export JSON';
+
+  @override
+  String get webReverseDomMutRecording => 'Recording';
+
+  @override
+  String get webReverseDomMutStart => 'Start';
+
+  @override
+  String get webReverseDomMutStop => 'Stop';
+
+  @override
+  String get webReverseDomMutClear => 'Clear';
+
+  @override
+  String get webReverseDomMutFilterHint => 'Filter (substring)';
+
+  @override
+  String get webReverseDomMutAutoFollow => 'Auto-follow';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count / $total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => 'Waiting for mutations…';
+
+  @override
+  String get webReverseDomMutPressStart => 'Press Start';
+
+  @override
+  String get webReverseDomMutClose => 'Close';
 }

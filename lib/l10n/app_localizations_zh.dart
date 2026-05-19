@@ -6675,6 +6675,61 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseThrottleStatusApplied(String summary) {
     return '已应用：$summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM Mutation 录制';
+
+  @override
+  String get webReverseDomMutSubtitle =>
+      '注入 MutationObserver → childList/attributes/characterData → 时间线';
+
+  @override
+  String get webReverseDomMutRecordingStarted => '已开始录制 DOM 变更';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return '安装失败：$error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return '已复制 $count 条变更 JSON';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => '导出 JSON';
+
+  @override
+  String get webReverseDomMutRecording => '录制中';
+
+  @override
+  String get webReverseDomMutStart => '开始录制';
+
+  @override
+  String get webReverseDomMutStop => '停止';
+
+  @override
+  String get webReverseDomMutClear => '清空';
+
+  @override
+  String get webReverseDomMutFilterHint => '过滤（子串）';
+
+  @override
+  String get webReverseDomMutAutoFollow => '自动跟随';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count/$total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => '等待 DOM 变更…';
+
+  @override
+  String get webReverseDomMutPressStart => '点击开始录制';
+
+  @override
+  String get webReverseDomMutClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13348,6 +13403,61 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseThrottleStatusApplied(String summary) {
     return '已应用：$summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM Mutation 录制';
+
+  @override
+  String get webReverseDomMutSubtitle =>
+      '注入 MutationObserver → childList/attributes/characterData → 时间线';
+
+  @override
+  String get webReverseDomMutRecordingStarted => '已开始录制 DOM 变更';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return '安装失败：$error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return '已复制 $count 条变更 JSON';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => '导出 JSON';
+
+  @override
+  String get webReverseDomMutRecording => '录制中';
+
+  @override
+  String get webReverseDomMutStart => '开始录制';
+
+  @override
+  String get webReverseDomMutStop => '停止';
+
+  @override
+  String get webReverseDomMutClear => '清空';
+
+  @override
+  String get webReverseDomMutFilterHint => '过滤（子串）';
+
+  @override
+  String get webReverseDomMutAutoFollow => '自动跟随';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count/$total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => '等待 DOM 变更…';
+
+  @override
+  String get webReverseDomMutPressStart => '点击开始录制';
+
+  @override
+  String get webReverseDomMutClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20020,4 +20130,59 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseThrottleStatusApplied(String summary) {
     return '已应用：$summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM Mutation 录制';
+
+  @override
+  String get webReverseDomMutSubtitle =>
+      '注入 MutationObserver → childList/attributes/characterData → 时间线';
+
+  @override
+  String get webReverseDomMutRecordingStarted => '已开始录制 DOM 变更';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return '安装失败：$error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return '已复制 $count 条变更 JSON';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => '导出 JSON';
+
+  @override
+  String get webReverseDomMutRecording => '录制中';
+
+  @override
+  String get webReverseDomMutStart => '开始录制';
+
+  @override
+  String get webReverseDomMutStop => '停止';
+
+  @override
+  String get webReverseDomMutClear => '清空';
+
+  @override
+  String get webReverseDomMutFilterHint => '过滤（子串）';
+
+  @override
+  String get webReverseDomMutAutoFollow => '自动跟随';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count/$total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => '等待 DOM 变更…';
+
+  @override
+  String get webReverseDomMutPressStart => '点击开始录制';
+
+  @override
+  String get webReverseDomMutClose => '关闭';
 }

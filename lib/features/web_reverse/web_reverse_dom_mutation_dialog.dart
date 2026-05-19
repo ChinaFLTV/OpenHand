@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -123,6 +124,7 @@ Future<void> showWebReverseDomMutationDialog(
 class _DomMutationDialog extends StatefulWidget {
   const _DomMutationDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_DomMutationDialog> createState() => _DomMutationDialogState();
@@ -182,7 +184,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          widget.isZh ? '已开始录制 DOM 变更' : 'Recording DOM mutations',
+          AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ?? 'Recording DOM mutations',
         );
       }
     } catch (e, st) {
@@ -197,7 +199,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          widget.isZh ? '安装失败：$e' : 'Install failed: $e',
+          AppLocalizations.of(context)?.webReverseDomMutInstallFailed(e.toString()) ?? 'Install failed: $e',
         );
       }
     }
@@ -270,17 +272,18 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   }
 
   Future<void> _exportJson() async {
+    final loc = AppLocalizations.of(context);
     await Clipboard.setData(ClipboardData(
       text: const JsonEncoder.withIndent('  ').convert(_records),
     ));
+    if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null && mounted) {
+    if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh
-            ? '已复制 ${_records.length} 条变更 JSON'
-            : 'Copied ${_records.length} records',
+        loc?.webReverseDomMutCopiedRecords(_records.length) ??
+            'Copied ${_records.length} records',
       );
     }
   }
@@ -299,7 +302,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final filtered = _filtered();
 
     return Dialog(
@@ -321,14 +324,12 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'DOM Mutation 录制' : 'DOM Mutation Recorder',
+                          loc?.webReverseDomMutTitle ?? 'DOM Mutation Recorder',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '注入 MutationObserver → childList/attributes/characterData → 时间线'
-                              : 'Injects MutationObserver → live timeline',
+                          loc?.webReverseDomMutSubtitle ?? 'Injects MutationObserver → live timeline',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -336,7 +337,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '导出 JSON' : 'Export JSON',
+                    tooltip: loc?.webReverseDomMutExportJson ?? 'Export JSON',
                     onPressed: _records.isEmpty ? null : _exportJson,
                     icon: const Icon(Icons.upload_rounded),
                   ),
@@ -362,20 +363,20 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                         ? Icons.fiber_manual_record
                         : Icons.play_arrow_rounded),
                     label: Text(_recording
-                        ? (isZh ? '录制中' : 'Recording')
-                        : (isZh ? '开始录制' : 'Start')),
+                        ? (loc?.webReverseDomMutRecording ?? 'Recording')
+                        : (loc?.webReverseDomMutStart ?? 'Start')),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: _recording ? _stop : null,
                     icon: const Icon(Icons.stop_rounded),
-                    label: Text(isZh ? '停止' : 'Stop'),
+                    label: Text(loc?.webReverseDomMutStop ?? 'Stop'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _records.isEmpty
                         ? null
                         : () => setState(_records.clear),
                     icon: const Icon(Icons.cleaning_services_rounded, size: 16),
-                    label: Text(isZh ? '清空' : 'Clear'),
+                    label: Text(loc?.webReverseDomMutClear ?? 'Clear'),
                   ),
                   for (final k in const ['all', 'childList', 'attributes', 'characterData'])
                     ChoiceChip(
@@ -390,7 +391,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.filter_alt_outlined,
                             size: 16),
-                        labelText: isZh ? '过滤（子串）' : 'Filter (substring)',
+                        labelText: loc?.webReverseDomMutFilterHint ?? 'Filter (substring)',
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -399,12 +400,11 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                   FilterChip(
                     selected: _autoFollow,
                     onSelected: (v) => setState(() => _autoFollow = v),
-                    label: Text(isZh ? '自动跟随' : 'Auto-follow'),
+                    label: Text(loc?.webReverseDomMutAutoFollow ?? 'Auto-follow'),
                   ),
                   Text(
-                    isZh
-                        ? '${filtered.length}/${_records.length}'
-                        : '${filtered.length} / ${_records.length}',
+                    loc?.webReverseDomMutCounter(filtered.length, _records.length) ??
+                        '${filtered.length} / ${_records.length}',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
@@ -417,8 +417,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                   ? Center(
                       child: Text(
                         _recording
-                            ? (isZh ? '等待 DOM 变更…' : 'Waiting for mutations…')
-                            : (isZh ? '点击开始录制' : 'Press Start'),
+                            ? (loc?.webReverseDomMutWaiting ?? 'Waiting for mutations…')
+                            : (loc?.webReverseDomMutPressStart ?? 'Press Start'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -440,7 +440,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseDomMutClose ?? 'Close',
                     onPressed: () async {
                       if (_recording) await _stop();
                       if (mounted) Navigator.of(context).pop();

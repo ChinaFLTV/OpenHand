@@ -4745,5 +4745,58 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webReverseDomMutTitle": "DOM Mutation 录制",
+  "@webReverseDomMutTitle": {},
+  "webReverseDomMutSubtitle": "注入 MutationObserver → childList/attributes/characterData → 时间线",
+  "@webReverseDomMutSubtitle": {},
+  "webReverseDomMutRecordingStarted": "已开始录制 DOM 变更",
+  "@webReverseDomMutRecordingStarted": {},
+  "webReverseDomMutInstallFailed": "安装失败：{error}",
+  "@webReverseDomMutInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseDomMutCopiedRecords": "已复制 {count} 条变更 JSON",
+  "@webReverseDomMutCopiedRecords": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutExportJson": "导出 JSON",
+  "@webReverseDomMutExportJson": {},
+  "webReverseDomMutRecording": "录制中",
+  "@webReverseDomMutRecording": {},
+  "webReverseDomMutStart": "开始录制",
+  "@webReverseDomMutStart": {},
+  "webReverseDomMutStop": "停止",
+  "@webReverseDomMutStop": {},
+  "webReverseDomMutClear": "清空",
+  "@webReverseDomMutClear": {},
+  "webReverseDomMutFilterHint": "过滤（子串）",
+  "@webReverseDomMutFilterHint": {},
+  "webReverseDomMutAutoFollow": "自动跟随",
+  "@webReverseDomMutAutoFollow": {},
+  "webReverseDomMutCounter": "{count}/{total}",
+  "@webReverseDomMutCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseDomMutWaiting": "等待 DOM 变更…",
+  "@webReverseDomMutWaiting": {},
+  "webReverseDomMutPressStart": "点击开始录制",
+  "@webReverseDomMutPressStart": {},
+  "webReverseDomMutClose": "关闭",
+  "@webReverseDomMutClose": {}
 }

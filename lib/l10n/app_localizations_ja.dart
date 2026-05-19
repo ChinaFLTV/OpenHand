@@ -6773,4 +6773,58 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseThrottleStatusApplied(String summary) {
     return '適用済み：$summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM Mutation レコーダー';
+
+  @override
+  String get webReverseDomMutSubtitle => 'MutationObserver を注入 → ライブタイムライン';
+
+  @override
+  String get webReverseDomMutRecordingStarted => 'DOM 変更を記録中';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return 'インストール失敗: $error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return '$count 件をコピーしました';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => 'JSON エクスポート';
+
+  @override
+  String get webReverseDomMutRecording => '記録中';
+
+  @override
+  String get webReverseDomMutStart => '開始';
+
+  @override
+  String get webReverseDomMutStop => '停止';
+
+  @override
+  String get webReverseDomMutClear => 'クリア';
+
+  @override
+  String get webReverseDomMutFilterHint => 'フィルタ（部分一致）';
+
+  @override
+  String get webReverseDomMutAutoFollow => '自動追従';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count / $total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => 'DOM 変更を待機中…';
+
+  @override
+  String get webReverseDomMutPressStart => '開始を押してください';
+
+  @override
+  String get webReverseDomMutClose => '閉じる';
 }

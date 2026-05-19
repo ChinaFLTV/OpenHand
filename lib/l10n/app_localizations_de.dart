@@ -7026,4 +7026,60 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseThrottleStatusApplied(String summary) {
     return 'Angewendet: $summary';
   }
+
+  @override
+  String get webReverseDomMutTitle => 'DOM-Mutation-Recorder';
+
+  @override
+  String get webReverseDomMutSubtitle =>
+      'MutationObserver injizieren → Live-Timeline';
+
+  @override
+  String get webReverseDomMutRecordingStarted =>
+      'DOM-Mutationen werden aufgezeichnet';
+
+  @override
+  String webReverseDomMutInstallFailed(String error) {
+    return 'Installation fehlgeschlagen: $error';
+  }
+
+  @override
+  String webReverseDomMutCopiedRecords(int count) {
+    return '$count Einträge kopiert';
+  }
+
+  @override
+  String get webReverseDomMutExportJson => 'JSON exportieren';
+
+  @override
+  String get webReverseDomMutRecording => 'Aufzeichnung';
+
+  @override
+  String get webReverseDomMutStart => 'Start';
+
+  @override
+  String get webReverseDomMutStop => 'Stopp';
+
+  @override
+  String get webReverseDomMutClear => 'Leeren';
+
+  @override
+  String get webReverseDomMutFilterHint => 'Filter (Teilstring)';
+
+  @override
+  String get webReverseDomMutAutoFollow => 'Auto-Folgen';
+
+  @override
+  String webReverseDomMutCounter(int count, int total) {
+    return '$count / $total';
+  }
+
+  @override
+  String get webReverseDomMutWaiting => 'Warte auf Mutationen…';
+
+  @override
+  String get webReverseDomMutPressStart => 'Start drücken';
+
+  @override
+  String get webReverseDomMutClose => 'Schließen';
 }
