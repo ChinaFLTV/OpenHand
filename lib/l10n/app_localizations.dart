@@ -12233,6 +12233,126 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已复制 {count} 条'**
   String webReversePmCopiedCount(int count);
+
+  /// No description provided for @webReverseThrottleEnableNetwork.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用 Network 域...'**
+  String get webReverseThrottleEnableNetwork;
+
+  /// No description provided for @webReverseThrottleApplyFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用失败'**
+  String get webReverseThrottleApplyFailed;
+
+  /// No description provided for @webReverseThrottleConditionsApplied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用网络条件'**
+  String get webReverseThrottleConditionsApplied;
+
+  /// No description provided for @webReverseThrottleTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'网络条件模拟'**
+  String get webReverseThrottleTitle;
+
+  /// No description provided for @webReverseThrottleSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟'**
+  String get webReverseThrottleSubtitle;
+
+  /// No description provided for @webReverseThrottlePresets.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'预设档'**
+  String get webReverseThrottlePresets;
+
+  /// No description provided for @webReverseThrottleCustom.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义'**
+  String get webReverseThrottleCustom;
+
+  /// No description provided for @webReverseThrottleDownKbps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下行 kbps (0=不限)'**
+  String get webReverseThrottleDownKbps;
+
+  /// No description provided for @webReverseThrottleUpKbps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上行 kbps (0=不限)'**
+  String get webReverseThrottleUpKbps;
+
+  /// No description provided for @webReverseThrottleLatencyMs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'延迟 ms'**
+  String get webReverseThrottleLatencyMs;
+
+  /// No description provided for @webReverseThrottleOffline.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'离线'**
+  String get webReverseThrottleOffline;
+
+  /// No description provided for @webReverseThrottleDisableCache.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'禁用缓存'**
+  String get webReverseThrottleDisableCache;
+
+  /// No description provided for @webReverseThrottleApplyCustom.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用自定义'**
+  String get webReverseThrottleApplyCustom;
+
+  /// No description provided for @webReverseThrottleReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置（不限速）'**
+  String get webReverseThrottleReset;
+
+  /// No description provided for @webReverseThrottleNotes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提示'**
+  String get webReverseThrottleNotes;
+
+  /// No description provided for @webReverseThrottleNotesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。'**
+  String get webReverseThrottleNotesBody;
+
+  /// No description provided for @webReverseThrottleClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseThrottleClose;
+
+  /// No description provided for @webReverseThrottleUnknownError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未知错误'**
+  String get webReverseThrottleUnknownError;
+
+  /// No description provided for @webReverseThrottleStatusFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败：{reason}'**
+  String webReverseThrottleStatusFailed(String reason);
+
+  /// No description provided for @webReverseThrottleStatusApplied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用：{summary}'**
+  String webReverseThrottleStatusApplied(String summary);
 }
 
 class _AppLocalizationsDelegate

@@ -4693,5 +4693,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseThrottleEnableNetwork": "Network ドメインを有効化…",
+  "@webReverseThrottleEnableNetwork": {},
+  "webReverseThrottleApplyFailed": "適用失敗",
+  "@webReverseThrottleApplyFailed": {},
+  "webReverseThrottleConditionsApplied": "ネットワーク条件を適用",
+  "@webReverseThrottleConditionsApplied": {},
+  "webReverseThrottleTitle": "ネットワーク条件シミュレーション",
+  "@webReverseThrottleTitle": {},
+  "webReverseThrottleSubtitle": "Network.emulateNetworkConditions：プリセット選択またはカスタム kbps/遅延",
+  "@webReverseThrottleSubtitle": {},
+  "webReverseThrottlePresets": "プリセット",
+  "@webReverseThrottlePresets": {},
+  "webReverseThrottleCustom": "カスタム",
+  "@webReverseThrottleCustom": {},
+  "webReverseThrottleDownKbps": "下り kbps (0=無制限)",
+  "@webReverseThrottleDownKbps": {},
+  "webReverseThrottleUpKbps": "上り kbps (0=無制限)",
+  "@webReverseThrottleUpKbps": {},
+  "webReverseThrottleLatencyMs": "遅延 ms",
+  "@webReverseThrottleLatencyMs": {},
+  "webReverseThrottleOffline": "オフライン",
+  "@webReverseThrottleOffline": {},
+  "webReverseThrottleDisableCache": "キャッシュ無効",
+  "@webReverseThrottleDisableCache": {},
+  "webReverseThrottleApplyCustom": "カスタム適用",
+  "@webReverseThrottleApplyCustom": {},
+  "webReverseThrottleReset": "リセット（無制限）",
+  "@webReverseThrottleReset": {},
+  "webReverseThrottleNotes": "メモ",
+  "@webReverseThrottleNotes": {},
+  "webReverseThrottleNotesBody": "・スロットルは現在 target の session 全体に適用、リセットまたは閉じれば解除。\n・kbps は *1024/8 で bytes/s に変換して送信、オフライン時はスループット無視。\n・キャッシュ無効は Fetch/Disk Cache 両方に適用、初回アクセス再現に便利。",
+  "@webReverseThrottleNotesBody": {},
+  "webReverseThrottleClose": "閉じる",
+  "@webReverseThrottleClose": {},
+  "webReverseThrottleUnknownError": "不明",
+  "@webReverseThrottleUnknownError": {},
+  "webReverseThrottleStatusFailed": "失敗：{reason}",
+  "@webReverseThrottleStatusFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseThrottleStatusApplied": "適用済み：{summary}",
+  "@webReverseThrottleStatusApplied": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
   }
 }

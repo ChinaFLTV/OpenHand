@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -132,9 +133,10 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
 
   Future<void> _apply({_Preset? preset}) async {
     if (_applying) return;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _applying = true;
-      _status = widget.isZh ? '启用 Network 域...' : 'Enable Network domain...';
+      _status = loc?.webReverseThrottleEnableNetwork ?? 'Enable Network domain...';
     });
     try {
       // 先确保 Network 域已开启。
@@ -179,25 +181,28 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       );
       if (!mounted) return;
       if (r == null || r['error'] != null) {
-        setState(() => _status = widget.isZh
-            ? '失败：${r?['error'] ?? '未知错误'}'
-            : 'Failed: ${r?['error'] ?? 'unknown'}');
+        final reason = (r?['error']?.toString()) ??
+            (loc?.webReverseThrottleUnknownError ?? 'unknown');
+        setState(() => _status =
+            loc?.webReverseThrottleStatusFailed(reason) ?? 'Failed: $reason');
         final m = ScaffoldMessenger.maybeOf(context);
         if (m != null) {
           OpenHandSnackBar.showErrorOn(
-              context, m, widget.isZh ? '应用失败' : 'Apply failed');
+              context, m, loc?.webReverseThrottleApplyFailed ?? 'Apply failed');
         }
         return;
       }
+      final summary = offline
+          ? (loc?.webReverseThrottleOffline ?? 'Offline')
+          : 'down=${downKbps}kbps · up=${upKbps}kbps · ${latencyMs}ms';
+      final body = '$summary · cache=${_disableCache ? 'disabled' : 'enabled'}';
       setState(() {
-        _status = widget.isZh
-            ? '已应用：${offline ? '离线' : 'down=${downKbps}kbps · up=${upKbps}kbps · ${latencyMs}ms'} · 缓存=${_disableCache ? '禁用' : '开启'}'
-            : 'Applied: ${offline ? 'offline' : 'down=${downKbps}kbps · up=${upKbps}kbps · ${latencyMs}ms'} · cache=${_disableCache ? 'disabled' : 'enabled'}';
+        _status = loc?.webReverseThrottleStatusApplied(body) ?? 'Applied: $body';
       });
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
-        OpenHandSnackBar.showSuccessOn(
-            context, m, widget.isZh ? '已应用网络条件' : 'Network conditions applied');
+        OpenHandSnackBar.showSuccessOn(context, m,
+            loc?.webReverseThrottleConditionsApplied ?? 'Network conditions applied');
       }
     } finally {
       if (mounted) setState(() => _applying = false);
@@ -225,6 +230,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final loc = AppLocalizations.of(context);
     final isZh = widget.isZh;
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -245,14 +251,13 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '网络条件模拟' : 'Network Throttling',
+                          loc?.webReverseThrottleTitle ?? 'Network Throttling',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟'
-                              : 'Network.emulateNetworkConditions: presets or custom kbps/latency',
+                          loc?.webReverseThrottleSubtitle ??
+                              'Network.emulateNetworkConditions: presets or custom kbps/latency',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -274,7 +279,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh ? '预设档' : 'Presets',
+                      loc?.webReverseThrottlePresets ?? 'Presets',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -301,7 +306,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      isZh ? '自定义' : 'Custom',
+                      loc?.webReverseThrottleCustom ?? 'Custom',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -314,8 +319,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText:
-                                  isZh ? '下行 kbps (0=不限)' : 'Down kbps (0=∞)',
+                              labelText: loc?.webReverseThrottleDownKbps ?? 'Down kbps (0=∞)',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -327,8 +331,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText:
-                                  isZh ? '上行 kbps (0=不限)' : 'Up kbps (0=∞)',
+                              labelText: loc?.webReverseThrottleUpKbps ?? 'Up kbps (0=∞)',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -340,7 +343,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: isZh ? '延迟 ms' : 'Latency ms',
+                              labelText: loc?.webReverseThrottleLatencyMs ?? 'Latency ms',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -355,14 +358,14 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                           onChanged: (v) =>
                               setState(() => _customOffline = v ?? false),
                         ),
-                        Text(isZh ? '离线' : 'Offline'),
+                        Text(loc?.webReverseThrottleOffline ?? 'Offline'),
                         const SizedBox(width: 16),
                         Checkbox(
                           value: _disableCache,
                           onChanged: (v) =>
                               setState(() => _disableCache = v ?? false),
                         ),
-                        Text(isZh ? '禁用缓存' : 'Disable cache'),
+                        Text(loc?.webReverseThrottleDisableCache ?? 'Disable cache'),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -382,13 +385,13 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.play_arrow_rounded, size: 18),
-                          label: Text(isZh ? '应用自定义' : 'Apply custom'),
+                          label: Text(loc?.webReverseThrottleApplyCustom ?? 'Apply custom'),
                         ),
                         const SizedBox(width: 10),
                         OutlinedButton.icon(
                           onPressed: _applying ? null : _reset,
                           icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                          label: Text(isZh ? '重置（不限速）' : 'Reset (no throttle)'),
+                          label: Text(loc?.webReverseThrottleReset ?? 'Reset (no throttle)'),
                         ),
                       ],
                     ),
@@ -410,17 +413,14 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                     ],
                     const SizedBox(height: 18),
                     Text(
-                      isZh ? '提示' : 'Notes',
+                      loc?.webReverseThrottleNotes ?? 'Notes',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      isZh
-                          ? '· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n'
-                              '· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n'
-                              '· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。'
-                          : '· Throttle applies to the entire session of current target; reset or close to restore.\n'
+                      loc?.webReverseThrottleNotesBody ??
+                          '· Throttle applies to the entire session of current target; reset or close to restore.\n'
                               '· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n'
                               '· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.',
                       style: theme.textTheme.labelSmall
@@ -437,7 +437,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseThrottleClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

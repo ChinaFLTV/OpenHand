@@ -6609,6 +6609,72 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReversePmCopiedCount(int count) {
     return '已复制 $count 条';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork => '启用 Network 域...';
+
+  @override
+  String get webReverseThrottleApplyFailed => '应用失败';
+
+  @override
+  String get webReverseThrottleConditionsApplied => '已应用网络条件';
+
+  @override
+  String get webReverseThrottleTitle => '网络条件模拟';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟';
+
+  @override
+  String get webReverseThrottlePresets => '预设档';
+
+  @override
+  String get webReverseThrottleCustom => '自定义';
+
+  @override
+  String get webReverseThrottleDownKbps => '下行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleUpKbps => '上行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleLatencyMs => '延迟 ms';
+
+  @override
+  String get webReverseThrottleOffline => '离线';
+
+  @override
+  String get webReverseThrottleDisableCache => '禁用缓存';
+
+  @override
+  String get webReverseThrottleApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseThrottleReset => '重置（不限速）';
+
+  @override
+  String get webReverseThrottleNotes => '提示';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。';
+
+  @override
+  String get webReverseThrottleClose => '关闭';
+
+  @override
+  String get webReverseThrottleUnknownError => '未知错误';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return '失败：$reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return '已应用：$summary';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13216,6 +13282,72 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReversePmCopiedCount(int count) {
     return '已复制 $count 条';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork => '启用 Network 域...';
+
+  @override
+  String get webReverseThrottleApplyFailed => '应用失败';
+
+  @override
+  String get webReverseThrottleConditionsApplied => '已应用网络条件';
+
+  @override
+  String get webReverseThrottleTitle => '网络条件模拟';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟';
+
+  @override
+  String get webReverseThrottlePresets => '预设档';
+
+  @override
+  String get webReverseThrottleCustom => '自定义';
+
+  @override
+  String get webReverseThrottleDownKbps => '下行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleUpKbps => '上行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleLatencyMs => '延迟 ms';
+
+  @override
+  String get webReverseThrottleOffline => '离线';
+
+  @override
+  String get webReverseThrottleDisableCache => '禁用缓存';
+
+  @override
+  String get webReverseThrottleApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseThrottleReset => '重置（不限速）';
+
+  @override
+  String get webReverseThrottleNotes => '提示';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。';
+
+  @override
+  String get webReverseThrottleClose => '关闭';
+
+  @override
+  String get webReverseThrottleUnknownError => '未知错误';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return '失败：$reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return '已应用：$summary';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -19821,5 +19953,71 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReversePmCopiedCount(int count) {
     return '已复制 $count 条';
+  }
+
+  @override
+  String get webReverseThrottleEnableNetwork => '启用 Network 域...';
+
+  @override
+  String get webReverseThrottleApplyFailed => '应用失败';
+
+  @override
+  String get webReverseThrottleConditionsApplied => '已应用网络条件';
+
+  @override
+  String get webReverseThrottleTitle => '网络条件模拟';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟';
+
+  @override
+  String get webReverseThrottlePresets => '预设档';
+
+  @override
+  String get webReverseThrottleCustom => '自定义';
+
+  @override
+  String get webReverseThrottleDownKbps => '下行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleUpKbps => '上行 kbps (0=不限)';
+
+  @override
+  String get webReverseThrottleLatencyMs => '延迟 ms';
+
+  @override
+  String get webReverseThrottleOffline => '离线';
+
+  @override
+  String get webReverseThrottleDisableCache => '禁用缓存';
+
+  @override
+  String get webReverseThrottleApplyCustom => '应用自定义';
+
+  @override
+  String get webReverseThrottleReset => '重置（不限速）';
+
+  @override
+  String get webReverseThrottleNotes => '提示';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。';
+
+  @override
+  String get webReverseThrottleClose => '关闭';
+
+  @override
+  String get webReverseThrottleUnknownError => '未知错误';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return '失败：$reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return '已应用：$summary';
   }
 }

@@ -6896,4 +6896,71 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReversePmCopiedCount(int count) {
     return 'Copied $count records';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork => 'Enable Network domain...';
+
+  @override
+  String get webReverseThrottleApplyFailed => 'Apply failed';
+
+  @override
+  String get webReverseThrottleConditionsApplied =>
+      'Network conditions applied';
+
+  @override
+  String get webReverseThrottleTitle => 'Network Throttling';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions: presets or custom kbps/latency';
+
+  @override
+  String get webReverseThrottlePresets => 'Presets';
+
+  @override
+  String get webReverseThrottleCustom => 'Custom';
+
+  @override
+  String get webReverseThrottleDownKbps => 'Down kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleUpKbps => 'Up kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleLatencyMs => 'Latency ms';
+
+  @override
+  String get webReverseThrottleOffline => 'Offline';
+
+  @override
+  String get webReverseThrottleDisableCache => 'Disable cache';
+
+  @override
+  String get webReverseThrottleApplyCustom => 'Apply custom';
+
+  @override
+  String get webReverseThrottleReset => 'Reset (no throttle)';
+
+  @override
+  String get webReverseThrottleNotes => 'Notes';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· Throttle applies to the entire session of current target; reset or close to restore.\n· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.';
+
+  @override
+  String get webReverseThrottleClose => 'Close';
+
+  @override
+  String get webReverseThrottleUnknownError => 'unknown';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return 'Failed: $reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return 'Applied: $summary';
+  }
 }

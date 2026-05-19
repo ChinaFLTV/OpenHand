@@ -6959,4 +6959,71 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReversePmCopiedCount(int count) {
     return '$count Einträge kopiert';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork => 'Network-Domain aktivieren…';
+
+  @override
+  String get webReverseThrottleApplyFailed => 'Anwendung fehlgeschlagen';
+
+  @override
+  String get webReverseThrottleConditionsApplied =>
+      'Netzwerkbedingungen angewendet';
+
+  @override
+  String get webReverseThrottleTitle => 'Netzwerk-Throttling';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions: Presets oder benutzerdefinierte kbps/Latenz';
+
+  @override
+  String get webReverseThrottlePresets => 'Presets';
+
+  @override
+  String get webReverseThrottleCustom => 'Benutzerdefiniert';
+
+  @override
+  String get webReverseThrottleDownKbps => 'Down kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleUpKbps => 'Up kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleLatencyMs => 'Latenz ms';
+
+  @override
+  String get webReverseThrottleOffline => 'Offline';
+
+  @override
+  String get webReverseThrottleDisableCache => 'Cache deaktivieren';
+
+  @override
+  String get webReverseThrottleApplyCustom => 'Anwenden';
+
+  @override
+  String get webReverseThrottleReset => 'Zurücksetzen (kein Throttle)';
+
+  @override
+  String get webReverseThrottleNotes => 'Hinweise';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· Throttle gilt für die gesamte Session des aktuellen Targets; zurücksetzen oder schließen.\n· kbps wird vor dem Senden über *1024/8 in bytes/s umgerechnet; offline ignoriert Durchsatz.\n· Cache-Deaktivierung gilt für Fetch & Disk Cache, nützlich für Cold-Load.';
+
+  @override
+  String get webReverseThrottleClose => 'Schließen';
+
+  @override
+  String get webReverseThrottleUnknownError => 'unbekannt';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return 'Fehler: $reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return 'Angewendet: $summary';
+  }
 }

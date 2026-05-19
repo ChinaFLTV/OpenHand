@@ -6990,4 +6990,72 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReversePmCopiedCount(int count) {
     return '$count entrées copiées';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork =>
+      'Activation du domaine Network…';
+
+  @override
+  String get webReverseThrottleApplyFailed => 'Échec d\'application';
+
+  @override
+  String get webReverseThrottleConditionsApplied =>
+      'Conditions réseau appliquées';
+
+  @override
+  String get webReverseThrottleTitle => 'Simulation de conditions réseau';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions : préréglages ou kbps/latence personnalisés';
+
+  @override
+  String get webReverseThrottlePresets => 'Préréglages';
+
+  @override
+  String get webReverseThrottleCustom => 'Personnalisé';
+
+  @override
+  String get webReverseThrottleDownKbps => 'Down kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleUpKbps => 'Up kbps (0=∞)';
+
+  @override
+  String get webReverseThrottleLatencyMs => 'Latence ms';
+
+  @override
+  String get webReverseThrottleOffline => 'Hors ligne';
+
+  @override
+  String get webReverseThrottleDisableCache => 'Désactiver cache';
+
+  @override
+  String get webReverseThrottleApplyCustom => 'Appliquer';
+
+  @override
+  String get webReverseThrottleReset => 'Réinitialiser (sans throttle)';
+
+  @override
+  String get webReverseThrottleNotes => 'Notes';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '· Le throttle s\'applique à toute la session de la cible actuelle ; réinitialiser ou fermer pour restaurer.\n· kbps est converti en bytes/s via *1024/8 avant envoi ; hors ligne ignore le débit.\n· La désactivation du cache s\'applique à Fetch & Disk Cache, utile pour le cold-load.';
+
+  @override
+  String get webReverseThrottleClose => 'Fermer';
+
+  @override
+  String get webReverseThrottleUnknownError => 'inconnu';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return 'Échec : $reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return 'Appliqué : $summary';
+  }
 }

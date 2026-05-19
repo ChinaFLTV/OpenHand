@@ -4693,5 +4693,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseThrottleEnableNetwork": "Enable Network domain...",
+  "@webReverseThrottleEnableNetwork": {},
+  "webReverseThrottleApplyFailed": "Apply failed",
+  "@webReverseThrottleApplyFailed": {},
+  "webReverseThrottleConditionsApplied": "Network conditions applied",
+  "@webReverseThrottleConditionsApplied": {},
+  "webReverseThrottleTitle": "Network Throttling",
+  "@webReverseThrottleTitle": {},
+  "webReverseThrottleSubtitle": "Network.emulateNetworkConditions: presets or custom kbps/latency",
+  "@webReverseThrottleSubtitle": {},
+  "webReverseThrottlePresets": "Presets",
+  "@webReverseThrottlePresets": {},
+  "webReverseThrottleCustom": "Custom",
+  "@webReverseThrottleCustom": {},
+  "webReverseThrottleDownKbps": "Down kbps (0=∞)",
+  "@webReverseThrottleDownKbps": {},
+  "webReverseThrottleUpKbps": "Up kbps (0=∞)",
+  "@webReverseThrottleUpKbps": {},
+  "webReverseThrottleLatencyMs": "Latency ms",
+  "@webReverseThrottleLatencyMs": {},
+  "webReverseThrottleOffline": "Offline",
+  "@webReverseThrottleOffline": {},
+  "webReverseThrottleDisableCache": "Disable cache",
+  "@webReverseThrottleDisableCache": {},
+  "webReverseThrottleApplyCustom": "Apply custom",
+  "@webReverseThrottleApplyCustom": {},
+  "webReverseThrottleReset": "Reset (no throttle)",
+  "@webReverseThrottleReset": {},
+  "webReverseThrottleNotes": "Notes",
+  "@webReverseThrottleNotes": {},
+  "webReverseThrottleNotesBody": "· Throttle applies to the entire session of current target; reset or close to restore.\n· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.",
+  "@webReverseThrottleNotesBody": {},
+  "webReverseThrottleClose": "Close",
+  "@webReverseThrottleClose": {},
+  "webReverseThrottleUnknownError": "unknown",
+  "@webReverseThrottleUnknownError": {},
+  "webReverseThrottleStatusFailed": "Failed: {reason}",
+  "@webReverseThrottleStatusFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseThrottleStatusApplied": "Applied: {summary}",
+  "@webReverseThrottleStatusApplied": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
   }
 }

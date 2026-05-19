@@ -4693,5 +4693,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseThrottleEnableNetwork": "Activation du domaine Network…",
+  "@webReverseThrottleEnableNetwork": {},
+  "webReverseThrottleApplyFailed": "Échec d'application",
+  "@webReverseThrottleApplyFailed": {},
+  "webReverseThrottleConditionsApplied": "Conditions réseau appliquées",
+  "@webReverseThrottleConditionsApplied": {},
+  "webReverseThrottleTitle": "Simulation de conditions réseau",
+  "@webReverseThrottleTitle": {},
+  "webReverseThrottleSubtitle": "Network.emulateNetworkConditions : préréglages ou kbps/latence personnalisés",
+  "@webReverseThrottleSubtitle": {},
+  "webReverseThrottlePresets": "Préréglages",
+  "@webReverseThrottlePresets": {},
+  "webReverseThrottleCustom": "Personnalisé",
+  "@webReverseThrottleCustom": {},
+  "webReverseThrottleDownKbps": "Down kbps (0=∞)",
+  "@webReverseThrottleDownKbps": {},
+  "webReverseThrottleUpKbps": "Up kbps (0=∞)",
+  "@webReverseThrottleUpKbps": {},
+  "webReverseThrottleLatencyMs": "Latence ms",
+  "@webReverseThrottleLatencyMs": {},
+  "webReverseThrottleOffline": "Hors ligne",
+  "@webReverseThrottleOffline": {},
+  "webReverseThrottleDisableCache": "Désactiver cache",
+  "@webReverseThrottleDisableCache": {},
+  "webReverseThrottleApplyCustom": "Appliquer",
+  "@webReverseThrottleApplyCustom": {},
+  "webReverseThrottleReset": "Réinitialiser (sans throttle)",
+  "@webReverseThrottleReset": {},
+  "webReverseThrottleNotes": "Notes",
+  "@webReverseThrottleNotes": {},
+  "webReverseThrottleNotesBody": "· Le throttle s'applique à toute la session de la cible actuelle ; réinitialiser ou fermer pour restaurer.\n· kbps est converti en bytes/s via *1024/8 avant envoi ; hors ligne ignore le débit.\n· La désactivation du cache s'applique à Fetch & Disk Cache, utile pour le cold-load.",
+  "@webReverseThrottleNotesBody": {},
+  "webReverseThrottleClose": "Fermer",
+  "@webReverseThrottleClose": {},
+  "webReverseThrottleUnknownError": "inconnu",
+  "@webReverseThrottleUnknownError": {},
+  "webReverseThrottleStatusFailed": "Échec : {reason}",
+  "@webReverseThrottleStatusFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseThrottleStatusApplied": "Appliqué : {summary}",
+  "@webReverseThrottleStatusApplied": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
   }
 }

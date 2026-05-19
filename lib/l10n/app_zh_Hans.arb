@@ -4762,5 +4762,57 @@
         "type": "int"
       }
     }
+  },
+  "webReverseThrottleEnableNetwork": "启用 Network 域...",
+  "@webReverseThrottleEnableNetwork": {},
+  "webReverseThrottleApplyFailed": "应用失败",
+  "@webReverseThrottleApplyFailed": {},
+  "webReverseThrottleConditionsApplied": "已应用网络条件",
+  "@webReverseThrottleConditionsApplied": {},
+  "webReverseThrottleTitle": "网络条件模拟",
+  "@webReverseThrottleTitle": {},
+  "webReverseThrottleSubtitle": "Network.emulateNetworkConditions：选择预设或自定义 kbps/延迟",
+  "@webReverseThrottleSubtitle": {},
+  "webReverseThrottlePresets": "预设档",
+  "@webReverseThrottlePresets": {},
+  "webReverseThrottleCustom": "自定义",
+  "@webReverseThrottleCustom": {},
+  "webReverseThrottleDownKbps": "下行 kbps (0=不限)",
+  "@webReverseThrottleDownKbps": {},
+  "webReverseThrottleUpKbps": "上行 kbps (0=不限)",
+  "@webReverseThrottleUpKbps": {},
+  "webReverseThrottleLatencyMs": "延迟 ms",
+  "@webReverseThrottleLatencyMs": {},
+  "webReverseThrottleOffline": "离线",
+  "@webReverseThrottleOffline": {},
+  "webReverseThrottleDisableCache": "禁用缓存",
+  "@webReverseThrottleDisableCache": {},
+  "webReverseThrottleApplyCustom": "应用自定义",
+  "@webReverseThrottleApplyCustom": {},
+  "webReverseThrottleReset": "重置（不限速）",
+  "@webReverseThrottleReset": {},
+  "webReverseThrottleNotes": "提示",
+  "@webReverseThrottleNotes": {},
+  "webReverseThrottleNotesBody": "· 限速对当前 target 整个 session 生效，关闭浏览器或调用「不限速」可恢复。\n· kbps 经 *1024/8 转换为 bytes/s 下发；离线时吞吐量参数被忽略。\n· 禁用缓存对 Fetch/Disk Cache 同时生效，便于复现首次访问。",
+  "@webReverseThrottleNotesBody": {},
+  "webReverseThrottleClose": "关闭",
+  "@webReverseThrottleClose": {},
+  "webReverseThrottleUnknownError": "未知错误",
+  "@webReverseThrottleUnknownError": {},
+  "webReverseThrottleStatusFailed": "失败：{reason}",
+  "@webReverseThrottleStatusFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseThrottleStatusApplied": "已应用：{summary}",
+  "@webReverseThrottleStatusApplied": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
   }
 }

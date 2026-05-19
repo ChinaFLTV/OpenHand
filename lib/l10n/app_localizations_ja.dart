@@ -6707,4 +6707,70 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReversePmCopiedCount(int count) {
     return '$count 件コピー';
   }
+
+  @override
+  String get webReverseThrottleEnableNetwork => 'Network ドメインを有効化…';
+
+  @override
+  String get webReverseThrottleApplyFailed => '適用失敗';
+
+  @override
+  String get webReverseThrottleConditionsApplied => 'ネットワーク条件を適用';
+
+  @override
+  String get webReverseThrottleTitle => 'ネットワーク条件シミュレーション';
+
+  @override
+  String get webReverseThrottleSubtitle =>
+      'Network.emulateNetworkConditions：プリセット選択またはカスタム kbps/遅延';
+
+  @override
+  String get webReverseThrottlePresets => 'プリセット';
+
+  @override
+  String get webReverseThrottleCustom => 'カスタム';
+
+  @override
+  String get webReverseThrottleDownKbps => '下り kbps (0=無制限)';
+
+  @override
+  String get webReverseThrottleUpKbps => '上り kbps (0=無制限)';
+
+  @override
+  String get webReverseThrottleLatencyMs => '遅延 ms';
+
+  @override
+  String get webReverseThrottleOffline => 'オフライン';
+
+  @override
+  String get webReverseThrottleDisableCache => 'キャッシュ無効';
+
+  @override
+  String get webReverseThrottleApplyCustom => 'カスタム適用';
+
+  @override
+  String get webReverseThrottleReset => 'リセット（無制限）';
+
+  @override
+  String get webReverseThrottleNotes => 'メモ';
+
+  @override
+  String get webReverseThrottleNotesBody =>
+      '・スロットルは現在 target の session 全体に適用、リセットまたは閉じれば解除。\n・kbps は *1024/8 で bytes/s に変換して送信、オフライン時はスループット無視。\n・キャッシュ無効は Fetch/Disk Cache 両方に適用、初回アクセス再現に便利。';
+
+  @override
+  String get webReverseThrottleClose => '閉じる';
+
+  @override
+  String get webReverseThrottleUnknownError => '不明';
+
+  @override
+  String webReverseThrottleStatusFailed(String reason) {
+    return '失敗：$reason';
+  }
+
+  @override
+  String webReverseThrottleStatusApplied(String summary) {
+    return '適用済み：$summary';
+  }
 }
