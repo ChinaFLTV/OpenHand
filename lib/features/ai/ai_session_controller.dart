@@ -34,6 +34,7 @@ import 'service/dsml/ai_dsml_tool_call_parser.dart';
 import 'service/fs/ai_attachment_service.dart';
 import 'service/hook/ai_claude_hook_service.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
+import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
 import 'service/prompt/ai_prompt_builder.dart';
 import 'service/prompt/ai_prompt_template_repository.dart';
@@ -5762,36 +5763,7 @@ class AiSessionController extends ChangeNotifier {
     if (session.templateId != 'web_reverse_expert') {
       return const <String>{};
     }
-    final names = <String>{};
-    for (final entry in catalog.toolsByName.entries) {
-      final tool = entry.value;
-      if (tool.source != AiRuntimeToolSource.mcp) {
-        continue;
-      }
-      final serverName = tool.mcpServer?.name ?? '';
-      final mcpTool = tool.mcpTool;
-      final haystack = <String>[
-        entry.key,
-        serverName,
-        mcpTool?.id ?? '',
-        mcpTool?.name ?? '',
-        mcpTool?.description ?? '',
-        tool.definition.description,
-      ].join('\n').toLowerCase();
-      final isCdp =
-          haystack.contains('cdp') ||
-          haystack.contains('chrome-devtools') ||
-          haystack.contains('chrome_devtools') ||
-          haystack.contains('chrome devtools') ||
-          haystack.contains('devtools protocol') ||
-          (serverName.toLowerCase().contains('chrome') &&
-              haystack.contains('devtools'));
-      final isBrowserAutomationFallback = haystack.contains('playwright');
-      if (isCdp && !isBrowserAutomationFallback) {
-        names.add(entry.key);
-      }
-    }
-    return names;
+    return WebReverseMcpToolPolicy.forceVisibleToolNames(catalog);
   }
 
   AiResolvedToolCatalog _toolCatalogForRound({

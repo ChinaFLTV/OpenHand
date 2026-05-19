@@ -3,11 +3,11 @@
 - 浏览器面板顶部 tab strip 支持多 page target 与长按拖动重排，顺序与每个 tab 最后 URL 持久化到 metadata；地址栏左侧 prefix 是历史下拉（最近 30 条），右侧常驻：缩放下拉、分辨率下拉、设备模拟下拉、保存当前帧、聚焦面板、重启浏览器、停止调试。进程意外退出或用户手动关闭后可一键拉起；重启后自动复原 tab 顺序与 URL。
 - 浏览器面板键盘热键（Cmd / Ctrl）：T 新 tab、W 关 tab、R 刷新（Shift+R 强制刷新）、L 聚焦地址栏、F 查找、Esc 关闭查找、+/− 缩放、0 复位。
 - 右键菜单：复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧。
-- CDP 调试端口由 metadata `web_reverse_config.cdp_port` 给出（默认 9222，可能因端口冲突自动顺延）。
+- CDP 实际连接信息优先读取 metadata `web_reverse_cdp_runtime`（`cdp_http_endpoint` / `json_list_url` / `cdp_port`）；缺失时才参考 `web_reverse_config.cdp_port` 作为期望端口（默认 9222，可能因端口冲突自动顺延）。
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - dashboard 中人能看到的浏览器、网络、控制台、源码、元素、应用、性能等状态，与 AI 通过 CDP MCP / OpenHand CDP Bridge / 本地 jsonl/HAR 读取到的状态必须保持一致；不确定时先回拉 CDP 或读落盘文件。
-- 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP / OpenHand CDP Bridge；Playwright、chrome-devtools 或其他自动化仅在 CDP 路径缺能力或连续失败后 fallback，并说明为什么切换。
-- 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_dashboard_last_tab` / `web_reverse_browser_tab_order` / `web_reverse_browser_tab_urls`。
+- 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP（包括 chrome-devtools-mcp）/ OpenHand CDP Bridge；Playwright、Puppeteer 或其他非 CDP 自动化仅在 CDP 路径缺能力或连续失败后 fallback，并说明为什么切换。
+- 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_cdp_runtime` / `web_reverse_dashboard_last_tab` / `web_reverse_browser_tab_order` / `web_reverse_browser_tab_urls` / `web_reverse_browser_current_target`。
 - OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
   - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
   - `~/.openhand/web_reverse/sessions/<session_id>/console.jsonl` —— 每行一条 `{level, text, ts}` 事件
