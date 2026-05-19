@@ -106,7 +106,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                 : 'global rate = ${rate.toStringAsFixed(2)}x');
       });
     } catch (e, st) {
-      silentLog('web-reverse', 'animations.setPlaybackRate', e, st);
+      silentLog('web_reverse_animations_dialog', 'setPlaybackRate', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -239,7 +239,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
             : '${rows.length} active animation(s)';
       });
     } catch (e, st) {
-      silentLog('web-reverse', 'animations.refresh', e, st);
+      silentLog('web_reverse_animations_dialog', 'refresh', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -274,7 +274,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       });
       await _refresh();
     } catch (e, st) {
-      silentLog('web-reverse', 'animations.bulk.$method', e, st);
+      silentLog('web_reverse_animations_dialog', 'bulk.$method', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -295,7 +295,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         }),
       );
     } catch (e, st) {
-      silentLog('web-reverse', 'animations.row.$method', e, st);
+      silentLog('web_reverse_animations_dialog', 'row.$method', e, st);
     }
     if (!mounted) return;
     await _refresh();
@@ -320,7 +320,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
     try {
       await Clipboard.setData(ClipboardData(text: json));
     } catch (e, st) {
-      silentLog('web-reverse', 'animations.copy', e, st);
+      silentLog('web_reverse_animations_dialog', 'copy', e, st);
       return;
     }
     if (!mounted) return;
