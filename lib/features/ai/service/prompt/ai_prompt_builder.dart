@@ -265,6 +265,10 @@ class AiPromptBuilder {
       'post_compact_rehydration': postCompactRehydration,
       'environment': runtimeContext.toJson(),
     };
+    final webReverseRuntime = _buildWebReverseRuntimeSnapshot(session);
+    if (webReverseRuntime != null) {
+      metadata['web_reverse_runtime'] = webReverseRuntime;
+    }
 
     // 2026-04-13: default template also uses compact metadata format to reduce
     // token overhead by ~40%. This follows the refactoring proposal.
@@ -1026,7 +1030,8 @@ class AiPromptBuilder {
     // 此处进一步添加分组标题，让模型在阅读时明确优先级语义。
     // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
     // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
-    // 2026-05-16 Web 逆向专家：CDP 通道由内建栈驱动，外部 MCP/Skill 仅作辅助。
+    // 2026-05-16 Web 逆向专家：CDP 通道由 OpenHand 管理。
+    // 2026-05-19 CDP MCP / Bridge 是逆向主路径，文件/终端/Skill 只做辅助。
     final isMachineExpert = templateId == 'machine_expert';
     final isWebReverse = templateId == 'web_reverse_expert';
     final buffer = StringBuffer();
@@ -1054,10 +1059,10 @@ class AiPromptBuilder {
       } else if (isWebReverse) {
         buffer.writeln(
           'Capability invocation priority for the Web Reverse Expert template: '
-          'Builtin tools (Bash / Read / Write / Edit / Grep / Glob / WebFetch / WebSearch / TodoWrite) drive the workflow. '
-          'CDP-level browser observation (Network / Console / Page domains) is exposed by the OpenHand-managed external Chrome session — '
-          'do not try to launch a new browser or attach via Bash. '
-          'External skill__* / mcp__* tools may be used as auxiliary domain knowledge sources only and MUST NOT replace the built-in pipeline. '
+          'CDP MCP tools and the OpenHand CDP Bridge are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
+          'The browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
+          'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
+          'skill__* tools are auxiliary knowledge only. Playwright or other automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
       } else {
@@ -1077,6 +1082,8 @@ class AiPromptBuilder {
               ? (isMachineExpert ? '## Skills (auxiliary only)' : '## Skills')
               : (isMachineExpert
                     ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
+                    : isWebReverse
+                    ? '## Skill Tools (auxiliary knowledge only — CDP remains source of truth)'
                     : '## Skill Tools (highest priority)'),
         );
       for (final tool in skillTools) {
@@ -1117,11 +1124,22 @@ class AiPromptBuilder {
           'becomes callable from the next turn onward. Do NOT invent MCP '
           'tool names; pick from the deferred list.',
         );
+      if (isWebReverse) {
+        buffer.writeln(
+          'For Web Reverse sessions, load and use CDP / Chrome DevTools MCP tools first when they are present in the deferred list. Non-CDP browser automation is fallback-only.',
+        );
+      }
     }
     if (mcpTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln(compact ? '## MCP' : '## MCP Tools (medium priority)');
+        ..writeln(
+          compact
+              ? '## MCP'
+              : isWebReverse
+              ? '## MCP Tools (CDP-first for Web Reverse)'
+              : '## MCP Tools (medium priority)',
+        );
       for (final tool in mcpTools) {
         _renderToolEntry(buffer, tool, compact: compact);
       }
@@ -1129,7 +1147,13 @@ class AiPromptBuilder {
     if (builtinTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln(compact ? '## Builtin' : '## Builtin Tools (baseline)');
+        ..writeln(
+          compact
+              ? '## Builtin'
+              : isWebReverse
+              ? '## Builtin Tools (artifact/search/reproduce support)'
+              : '## Builtin Tools (baseline)',
+        );
       for (final tool in builtinTools) {
         // 2026-04-26: Render builtin tools with their full description and
         // required-args list even in compact mode. Some reasoner models
@@ -1381,6 +1405,120 @@ class AiPromptBuilder {
             '# Compression Task Payload\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
+  }
+
+  Map<String, Object?>? _buildWebReverseRuntimeSnapshot(AiSession session) {
+    if (session.templateId != 'web_reverse_expert') {
+      return null;
+    }
+    final rawConfig = session.metadata['web_reverse_config'];
+    final config = <String, Object?>{};
+    if (rawConfig is Map) {
+      for (final entry in rawConfig.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        config[key] = _boundedWebReverseMetadataValue(entry.value);
+      }
+    }
+
+    Object? meta(String key) =>
+        _boundedWebReverseMetadataValue(session.metadata[key]);
+
+    final rootDir = p.join(
+      OpenHandPaths.defaultRootDirectoryPath(),
+      'web_reverse',
+      'sessions',
+      session.id,
+    );
+    final presentKeys =
+        session.metadata.keys
+            .where((key) => key.startsWith('web_reverse_'))
+            .toList(growable: false)
+          ..sort();
+    return <String, Object?>{
+      'source_of_truth':
+          'Dashboard panels and AI-visible state are backed by the same OpenHand-managed Chrome CDP session plus local jsonl/HAR artifacts.',
+      'cdp_first_required': true,
+      'fallback_policy':
+          'Use CDP MCP / OpenHand CDP Bridge first. Use Playwright or other automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+      if (config.isNotEmpty) 'config': config,
+      'dashboard_state': <String, Object?>{
+        'last_tab': meta('web_reverse_dashboard_last_tab'),
+        'browser_tab_order': meta('web_reverse_browser_tab_order'),
+        'browser_tab_urls': meta('web_reverse_browser_tab_urls'),
+      },
+      'dashboard_tabs': const <String>[
+        'browser',
+        'overview',
+        'network',
+        'console',
+        'sources',
+        'breakpoints',
+        'realtime',
+        'snippets',
+        'elements',
+        'hooks',
+        'crons',
+        'crypto',
+        'performance',
+        'memory',
+        'application',
+        'security',
+        'recorder',
+      ],
+      'local_artifacts': <String, Object?>{
+        'root_dir': rootDir,
+        'network_jsonl': p.join(rootDir, 'network.jsonl'),
+        'console_jsonl': p.join(rootDir, 'console.jsonl'),
+        'har_dir': p.join(rootDir, 'har'),
+        'scripts_dir': p.join(rootDir, 'scripts'),
+        'screenshots_dir': p.join(rootDir, 'screenshots'),
+      },
+      'local_read_hints': <String>[
+        'tail -200 ${p.join(rootDir, 'network.jsonl')}',
+        'tail -200 ${p.join(rootDir, 'console.jsonl')}',
+        'grep __OH_ ${p.join(rootDir, 'console.jsonl')}',
+      ],
+      'dashboard_visible_metadata_keys': presentKeys,
+    };
+  }
+
+  Object? _boundedWebReverseMetadataValue(Object? value, {int depth = 0}) {
+    if (value == null || value is num || value is bool) {
+      return value;
+    }
+    if (value is String) {
+      const maxChars = 2000;
+      if (value.length <= maxChars) return value;
+      return '${value.substring(0, maxChars)}...[truncated]';
+    }
+    if (depth >= 3) {
+      return '$value';
+    }
+    if (value is Iterable) {
+      return value
+          .take(32)
+          .map(
+            (item) => _boundedWebReverseMetadataValue(item, depth: depth + 1),
+          )
+          .toList(growable: false);
+    }
+    if (value is Map) {
+      final result = <String, Object?>{};
+      var count = 0;
+      for (final entry in value.entries) {
+        if (count >= 32) break;
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        result[key] = _boundedWebReverseMetadataValue(
+          entry.value,
+          depth: depth + 1,
+        );
+        count++;
+      }
+      return result;
+    }
+    return '$value';
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
