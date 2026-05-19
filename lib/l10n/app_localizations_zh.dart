@@ -5582,6 +5582,93 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseInputSimInsertedCount(int count) {
     return '已插入 $count 字符';
   }
+
+  @override
+  String get webReverseHeadlessBatchTitle => 'Headless 批量采集';
+
+  @override
+  String get webReverseHeadlessBatchClose => '关闭';
+
+  @override
+  String get webReverseHeadlessBatchDesc =>
+      '逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。';
+
+  @override
+  String get webReverseHeadlessBatchUrlsLabel => 'URL 列表（每行一条）';
+
+  @override
+  String get webReverseHeadlessBatchOutputDirLabel => '输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNotSelected => '（未选）';
+
+  @override
+  String get webReverseHeadlessBatchChoose => '选择';
+
+  @override
+  String get webReverseHeadlessBatchNetwork => '网络';
+
+  @override
+  String get webReverseHeadlessBatchConsole => '控制台';
+
+  @override
+  String get webReverseHeadlessBatchScreenshot => '截图';
+
+  @override
+  String get webReverseHeadlessBatchStart => '开始批量';
+
+  @override
+  String get webReverseHeadlessBatchStop => '停止';
+
+  @override
+  String get webReverseHeadlessBatchNoProgress => '尚无进度';
+
+  @override
+  String get webReverseHeadlessBatchPickOutputDir => '选择输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNeedUrlAndDir =>
+      '请先填入至少一条 http(s):// URL，并选好输出目录';
+
+  @override
+  String get webReverseHeadlessBatchBrowserNotReady =>
+      '浏览器尚未启动，请先在主面板启动会话再来批量采集';
+
+  @override
+  String get webReverseHeadlessBatchPhaseStarting => '准备';
+
+  @override
+  String get webReverseHeadlessBatchPhaseNavigating => '导航中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseWaitingLoad => '等待 load';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCapturingScreenshot => '截图中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseDone => '完成';
+
+  @override
+  String get webReverseHeadlessBatchPhaseFailed => '失败';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCancelled => '已取消';
+
+  @override
+  String webReverseHeadlessBatchFinished(int ok, int total) {
+    return '批量采集结束：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseHeadlessBatchEventCount(int events, int total) {
+    return '$events / $total 条事件';
+  }
+
+  @override
+  String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
+    return '$net 网络 · $log 日志 · $dir';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11162,6 +11249,93 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseInputSimInsertedCount(int count) {
     return '已插入 $count 字符';
   }
+
+  @override
+  String get webReverseHeadlessBatchTitle => 'Headless 批量采集';
+
+  @override
+  String get webReverseHeadlessBatchClose => '关闭';
+
+  @override
+  String get webReverseHeadlessBatchDesc =>
+      '逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。';
+
+  @override
+  String get webReverseHeadlessBatchUrlsLabel => 'URL 列表（每行一条）';
+
+  @override
+  String get webReverseHeadlessBatchOutputDirLabel => '输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNotSelected => '（未选）';
+
+  @override
+  String get webReverseHeadlessBatchChoose => '选择';
+
+  @override
+  String get webReverseHeadlessBatchNetwork => '网络';
+
+  @override
+  String get webReverseHeadlessBatchConsole => '控制台';
+
+  @override
+  String get webReverseHeadlessBatchScreenshot => '截图';
+
+  @override
+  String get webReverseHeadlessBatchStart => '开始批量';
+
+  @override
+  String get webReverseHeadlessBatchStop => '停止';
+
+  @override
+  String get webReverseHeadlessBatchNoProgress => '尚无进度';
+
+  @override
+  String get webReverseHeadlessBatchPickOutputDir => '选择输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNeedUrlAndDir =>
+      '请先填入至少一条 http(s):// URL，并选好输出目录';
+
+  @override
+  String get webReverseHeadlessBatchBrowserNotReady =>
+      '浏览器尚未启动，请先在主面板启动会话再来批量采集';
+
+  @override
+  String get webReverseHeadlessBatchPhaseStarting => '准备';
+
+  @override
+  String get webReverseHeadlessBatchPhaseNavigating => '导航中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseWaitingLoad => '等待 load';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCapturingScreenshot => '截图中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseDone => '完成';
+
+  @override
+  String get webReverseHeadlessBatchPhaseFailed => '失败';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCancelled => '已取消';
+
+  @override
+  String webReverseHeadlessBatchFinished(int ok, int total) {
+    return '批量采集结束：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseHeadlessBatchEventCount(int events, int total) {
+    return '$events / $total 条事件';
+  }
+
+  @override
+  String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
+    return '$net 网络 · $log 日志 · $dir';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -16740,5 +16914,92 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseInputSimInsertedCount(int count) {
     return '已插入 $count 字符';
+  }
+
+  @override
+  String get webReverseHeadlessBatchTitle => 'Headless 批量采集';
+
+  @override
+  String get webReverseHeadlessBatchClose => '关闭';
+
+  @override
+  String get webReverseHeadlessBatchDesc =>
+      '逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。';
+
+  @override
+  String get webReverseHeadlessBatchUrlsLabel => 'URL 列表（每行一条）';
+
+  @override
+  String get webReverseHeadlessBatchOutputDirLabel => '输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNotSelected => '（未选）';
+
+  @override
+  String get webReverseHeadlessBatchChoose => '选择';
+
+  @override
+  String get webReverseHeadlessBatchNetwork => '网络';
+
+  @override
+  String get webReverseHeadlessBatchConsole => '控制台';
+
+  @override
+  String get webReverseHeadlessBatchScreenshot => '截图';
+
+  @override
+  String get webReverseHeadlessBatchStart => '开始批量';
+
+  @override
+  String get webReverseHeadlessBatchStop => '停止';
+
+  @override
+  String get webReverseHeadlessBatchNoProgress => '尚无进度';
+
+  @override
+  String get webReverseHeadlessBatchPickOutputDir => '选择输出目录';
+
+  @override
+  String get webReverseHeadlessBatchNeedUrlAndDir =>
+      '请先填入至少一条 http(s):// URL，并选好输出目录';
+
+  @override
+  String get webReverseHeadlessBatchBrowserNotReady =>
+      '浏览器尚未启动，请先在主面板启动会话再来批量采集';
+
+  @override
+  String get webReverseHeadlessBatchPhaseStarting => '准备';
+
+  @override
+  String get webReverseHeadlessBatchPhaseNavigating => '导航中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseWaitingLoad => '等待 load';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCapturingScreenshot => '截图中';
+
+  @override
+  String get webReverseHeadlessBatchPhaseDone => '完成';
+
+  @override
+  String get webReverseHeadlessBatchPhaseFailed => '失败';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCancelled => '已取消';
+
+  @override
+  String webReverseHeadlessBatchFinished(int ok, int total) {
+    return '批量采集结束：$ok/$total 成功';
+  }
+
+  @override
+  String webReverseHeadlessBatchEventCount(int events, int total) {
+    return '$events / $total 条事件';
+  }
+
+  @override
+  String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
+    return '$net 网络 · $log 日志 · $dir';
   }
 }

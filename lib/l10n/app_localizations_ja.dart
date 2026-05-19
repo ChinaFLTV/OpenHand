@@ -5665,4 +5665,92 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseInputSimInsertedCount(int count) {
     return 'Inserted $count chars';
   }
+
+  @override
+  String get webReverseHeadlessBatchTitle => 'Headless batch capture';
+
+  @override
+  String get webReverseHeadlessBatchClose => 'Close';
+
+  @override
+  String get webReverseHeadlessBatchDesc =>
+      'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).';
+
+  @override
+  String get webReverseHeadlessBatchUrlsLabel => 'URL list (one per line)';
+
+  @override
+  String get webReverseHeadlessBatchOutputDirLabel => 'Output directory';
+
+  @override
+  String get webReverseHeadlessBatchNotSelected => '(not selected)';
+
+  @override
+  String get webReverseHeadlessBatchChoose => 'Choose';
+
+  @override
+  String get webReverseHeadlessBatchNetwork => 'Network';
+
+  @override
+  String get webReverseHeadlessBatchConsole => 'Console';
+
+  @override
+  String get webReverseHeadlessBatchScreenshot => 'Screenshot';
+
+  @override
+  String get webReverseHeadlessBatchStart => 'Start batch';
+
+  @override
+  String get webReverseHeadlessBatchStop => 'Stop';
+
+  @override
+  String get webReverseHeadlessBatchNoProgress => 'No progress yet';
+
+  @override
+  String get webReverseHeadlessBatchPickOutputDir => 'Pick output dir';
+
+  @override
+  String get webReverseHeadlessBatchNeedUrlAndDir =>
+      'Need at least one http(s):// URL and an output directory';
+
+  @override
+  String get webReverseHeadlessBatchBrowserNotReady =>
+      'Browser is not running yet — start a session first';
+
+  @override
+  String get webReverseHeadlessBatchPhaseStarting => 'Preparing';
+
+  @override
+  String get webReverseHeadlessBatchPhaseNavigating => 'Navigating';
+
+  @override
+  String get webReverseHeadlessBatchPhaseWaitingLoad => 'Waiting load';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCapturingScreenshot =>
+      'Capturing screenshot';
+
+  @override
+  String get webReverseHeadlessBatchPhaseDone => 'Done';
+
+  @override
+  String get webReverseHeadlessBatchPhaseFailed => 'Failed';
+
+  @override
+  String get webReverseHeadlessBatchPhaseCancelled => 'Cancelled';
+
+  @override
+  String webReverseHeadlessBatchFinished(int ok, int total) {
+    return 'Batch finished: $ok/$total ok';
+  }
+
+  @override
+  String webReverseHeadlessBatchEventCount(int events, int total) {
+    return '$events / $total events';
+  }
+
+  @override
+  String webReverseHeadlessBatchResultStats(int net, int log, String dir) {
+    return '$net net · $log log · $dir';
+  }
 }

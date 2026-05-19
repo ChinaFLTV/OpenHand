@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_headless_batch.dart';
@@ -49,8 +50,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
   }
 
   Future<void> _pickOutDir() async {
+    final loc = AppLocalizations.of(context);
     final path = await getDirectoryPath(confirmButtonText:
-        widget.isZh ? '选择输出目录' : 'Pick output dir');
+        loc?.webReverseHeadlessBatchPickOutputDir ?? 'Pick output dir');
     if (path != null && mounted) setState(() => _outDir = path);
   }
 
@@ -67,13 +69,13 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     if (_running) return;
     final urls = _parsedUrls();
     final messenger = ScaffoldMessenger.of(context);
+    final loc0 = AppLocalizations.of(context);
     if (urls.isEmpty || _outDir == null) {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        widget.isZh
-            ? '请先填入至少一条 http(s):// URL，并选好输出目录'
-            : 'Need at least one http(s):// URL and an output directory',
+        loc0?.webReverseHeadlessBatchNeedUrlAndDir
+            ?? 'Need at least one http(s):// URL and an output directory',
         duration: const Duration(seconds: 3),
       );
       return;
@@ -83,9 +85,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        widget.isZh
-            ? '浏览器尚未启动，请先在主面板启动会话再来批量采集'
-            : 'Browser is not running yet — start a session first',
+        loc0?.webReverseHeadlessBatchBrowserNotReady
+            ?? 'Browser is not running yet — start a session first',
         duration: const Duration(seconds: 3),
       );
       return;
@@ -107,6 +108,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     _runner = runner;
     final results = await runner.run();
     if (!mounted) return;
+    final loc1 = AppLocalizations.of(context);
     setState(() {
       _running = false;
       _results = results;
@@ -116,9 +118,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      widget.isZh
-          ? '批量采集结束：$ok/${results.length} 成功'
-          : 'Batch finished: $ok/${results.length} ok',
+      loc1?.webReverseHeadlessBatchFinished(ok, results.length)
+          ?? 'Batch finished: $ok/${results.length} ok',
       duration: const Duration(seconds: 3),
     );
   }
@@ -131,7 +132,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -149,13 +150,13 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                       size: 22, color: cs.primary),
                   const SizedBox(width: 10),
                   Text(
-                    isZh ? 'Headless 批量采集' : 'Headless batch capture',
+                    loc?.webReverseHeadlessBatchTitle ?? 'Headless batch capture',
                     style: theme.textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: isZh ? '关闭' : 'Close',
+                    tooltip: loc?.webReverseHeadlessBatchClose ?? 'Close',
                     icon: const Icon(Icons.close_rounded),
                     onPressed: _running
                         ? null
@@ -165,9 +166,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                isZh
-                    ? '逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。'
-                    : 'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).',
+                loc?.webReverseHeadlessBatchDesc
+                    ?? 'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: cs.onSurfaceVariant, height: 1.45),
               ),
@@ -178,7 +178,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 maxLines: 10,
                 enabled: !_running,
                 decoration: InputDecoration(
-                  labelText: isZh ? 'URL 列表（每行一条）' : 'URL list (one per line)',
+                  labelText: loc?.webReverseHeadlessBatchUrlsLabel
+                      ?? 'URL list (one per line)',
                   hintText: 'https://example.com/page1\nhttps://example.com/page2',
                   border: const OutlineInputBorder(),
                 ),
@@ -190,11 +191,12 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   Expanded(
                     child: InputDecorator(
                       decoration: InputDecoration(
-                        labelText: isZh ? '输出目录' : 'Output directory',
+                        labelText: loc?.webReverseHeadlessBatchOutputDirLabel
+                            ?? 'Output directory',
                         border: const OutlineInputBorder(),
                       ),
                       child: Text(
-                        _outDir ?? (isZh ? '（未选）' : '(not selected)'),
+                        _outDir ?? (loc?.webReverseHeadlessBatchNotSelected ?? '(not selected)'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontFamily: 'monospace'),
@@ -205,7 +207,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   FilledButton.tonalIcon(
                     onPressed: _running ? null : _pickOutDir,
                     icon: const Icon(Icons.folder_open_rounded, size: 18),
-                    label: Text(isZh ? '选择' : 'Choose'),
+                    label: Text(loc?.webReverseHeadlessBatchChoose ?? 'Choose'),
                   ),
                 ],
               ),
@@ -216,21 +218,21 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 children: [
                   FilterChip(
                     selected: _captureNetwork,
-                    label: Text(isZh ? '网络' : 'Network'),
+                    label: Text(loc?.webReverseHeadlessBatchNetwork ?? 'Network'),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureNetwork = v),
                   ),
                   FilterChip(
                     selected: _captureConsole,
-                    label: Text(isZh ? '控制台' : 'Console'),
+                    label: Text(loc?.webReverseHeadlessBatchConsole ?? 'Console'),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureConsole = v),
                   ),
                   FilterChip(
                     selected: _captureScreenshot,
-                    label: Text(isZh ? '截图' : 'Screenshot'),
+                    label: Text(loc?.webReverseHeadlessBatchScreenshot ?? 'Screenshot'),
                     onSelected: _running
                         ? null
                         : (v) => setState(() => _captureScreenshot = v),
@@ -243,20 +245,20 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   FilledButton.icon(
                     onPressed: _running ? null : _start,
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(isZh ? '开始批量' : 'Start batch'),
+                    label: Text(loc?.webReverseHeadlessBatchStart ?? 'Start batch'),
                   ),
                   const SizedBox(width: 8),
                   if (_running)
                     FilledButton.tonalIcon(
                       onPressed: _cancel,
                       icon: const Icon(Icons.stop_rounded, size: 18),
-                      label: Text(isZh ? '停止' : 'Stop'),
+                      label: Text(loc?.webReverseHeadlessBatchStop ?? 'Stop'),
                     ),
                   const Spacer(),
                   Text(
-                    isZh
-                        ? '${_progress.length} / ${_parsedUrls().length} 条事件'
-                        : '${_progress.length} / ${_parsedUrls().length} events',
+                    loc?.webReverseHeadlessBatchEventCount(
+                            _progress.length, _parsedUrls().length)
+                        ?? '${_progress.length} / ${_parsedUrls().length} events',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
@@ -273,7 +275,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                   child: _progress.isEmpty && _results == null
                       ? Center(
                           child: Text(
-                            isZh ? '尚无进度' : 'No progress yet',
+                            loc?.webReverseHeadlessBatchNoProgress ?? 'No progress yet',
                             style: theme.textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -306,9 +308,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                 ),
                                 subtitle: Text(
                                   r.ok
-                                      ? (isZh
-                                          ? '${r.networkCount} 网络 · ${r.consoleCount} 日志 · ${r.outDir}'
-                                          : '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}')
+                                      ? (loc?.webReverseHeadlessBatchResultStats(
+                                              r.networkCount, r.consoleCount, r.outDir ?? "")
+                                          ?? '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}')
                                       : (r.error ?? 'failed'),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -331,7 +333,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                     fontFamily: 'monospace', fontSize: 12),
                               ),
                               subtitle: Text(
-                                _phaseLabel(p.phase, isZh) +
+                                _phaseLabel(p.phase, loc) +
                                     (p.message != null && p.message!.isNotEmpty
                                         ? ' — ${p.message}'
                                         : ''),
@@ -371,22 +373,23 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     }
   }
 
-  String _phaseLabel(HeadlessBatchPhase phase, bool isZh) {
+  String _phaseLabel(HeadlessBatchPhase phase, AppLocalizations? loc) {
     switch (phase) {
       case HeadlessBatchPhase.starting:
-        return isZh ? '准备' : 'Preparing';
+        return loc?.webReverseHeadlessBatchPhaseStarting ?? 'Preparing';
       case HeadlessBatchPhase.navigating:
-        return isZh ? '导航中' : 'Navigating';
+        return loc?.webReverseHeadlessBatchPhaseNavigating ?? 'Navigating';
       case HeadlessBatchPhase.waitingLoad:
-        return isZh ? '等待 load' : 'Waiting load';
+        return loc?.webReverseHeadlessBatchPhaseWaitingLoad ?? 'Waiting load';
       case HeadlessBatchPhase.capturingScreenshot:
-        return isZh ? '截图中' : 'Capturing screenshot';
+        return loc?.webReverseHeadlessBatchPhaseCapturingScreenshot
+            ?? 'Capturing screenshot';
       case HeadlessBatchPhase.done:
-        return isZh ? '完成' : 'Done';
+        return loc?.webReverseHeadlessBatchPhaseDone ?? 'Done';
       case HeadlessBatchPhase.failed:
-        return isZh ? '失败' : 'Failed';
+        return loc?.webReverseHeadlessBatchPhaseFailed ?? 'Failed';
       case HeadlessBatchPhase.cancelled:
-        return isZh ? '已取消' : 'Cancelled';
+        return loc?.webReverseHeadlessBatchPhaseCancelled ?? 'Cancelled';
     }
   }
 }

@@ -3340,5 +3340,136 @@
         "type": "int"
       }
     }
+  },
+  "webReverseHeadlessBatchTitle": "Headless 批量采集",
+  "@webReverseHeadlessBatchTitle": {
+    "description": "web_reverse: Headless batch dialog · title"
+  },
+  "webReverseHeadlessBatchClose": "关闭",
+  "@webReverseHeadlessBatchClose": {
+    "description": "web_reverse: Headless batch dialog · close"
+  },
+  "webReverseHeadlessBatchDesc": "逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。",
+  "@webReverseHeadlessBatchDesc": {
+    "description": "web_reverse: Headless batch dialog · desc"
+  },
+  "webReverseHeadlessBatchUrlsLabel": "URL 列表（每行一条）",
+  "@webReverseHeadlessBatchUrlsLabel": {
+    "description": "web_reverse: Headless batch dialog · urlslabel"
+  },
+  "webReverseHeadlessBatchOutputDirLabel": "输出目录",
+  "@webReverseHeadlessBatchOutputDirLabel": {
+    "description": "web_reverse: Headless batch dialog · outputdirlabel"
+  },
+  "webReverseHeadlessBatchNotSelected": "（未选）",
+  "@webReverseHeadlessBatchNotSelected": {
+    "description": "web_reverse: Headless batch dialog · notselected"
+  },
+  "webReverseHeadlessBatchChoose": "选择",
+  "@webReverseHeadlessBatchChoose": {
+    "description": "web_reverse: Headless batch dialog · choose"
+  },
+  "webReverseHeadlessBatchNetwork": "网络",
+  "@webReverseHeadlessBatchNetwork": {
+    "description": "web_reverse: Headless batch dialog · network"
+  },
+  "webReverseHeadlessBatchConsole": "控制台",
+  "@webReverseHeadlessBatchConsole": {
+    "description": "web_reverse: Headless batch dialog · console"
+  },
+  "webReverseHeadlessBatchScreenshot": "截图",
+  "@webReverseHeadlessBatchScreenshot": {
+    "description": "web_reverse: Headless batch dialog · screenshot"
+  },
+  "webReverseHeadlessBatchStart": "开始批量",
+  "@webReverseHeadlessBatchStart": {
+    "description": "web_reverse: Headless batch dialog · start"
+  },
+  "webReverseHeadlessBatchStop": "停止",
+  "@webReverseHeadlessBatchStop": {
+    "description": "web_reverse: Headless batch dialog · stop"
+  },
+  "webReverseHeadlessBatchNoProgress": "尚无进度",
+  "@webReverseHeadlessBatchNoProgress": {
+    "description": "web_reverse: Headless batch dialog · noprogress"
+  },
+  "webReverseHeadlessBatchPickOutputDir": "选择输出目录",
+  "@webReverseHeadlessBatchPickOutputDir": {
+    "description": "web_reverse: Headless batch dialog · pickoutputdir"
+  },
+  "webReverseHeadlessBatchNeedUrlAndDir": "请先填入至少一条 http(s):// URL，并选好输出目录",
+  "@webReverseHeadlessBatchNeedUrlAndDir": {
+    "description": "web_reverse: Headless batch dialog · needurlanddir"
+  },
+  "webReverseHeadlessBatchBrowserNotReady": "浏览器尚未启动，请先在主面板启动会话再来批量采集",
+  "@webReverseHeadlessBatchBrowserNotReady": {
+    "description": "web_reverse: Headless batch dialog · browsernotready"
+  },
+  "webReverseHeadlessBatchPhaseStarting": "准备",
+  "@webReverseHeadlessBatchPhaseStarting": {
+    "description": "web_reverse: Headless batch dialog · phasestarting"
+  },
+  "webReverseHeadlessBatchPhaseNavigating": "导航中",
+  "@webReverseHeadlessBatchPhaseNavigating": {
+    "description": "web_reverse: Headless batch dialog · phasenavigating"
+  },
+  "webReverseHeadlessBatchPhaseWaitingLoad": "等待 load",
+  "@webReverseHeadlessBatchPhaseWaitingLoad": {
+    "description": "web_reverse: Headless batch dialog · phasewaitingload"
+  },
+  "webReverseHeadlessBatchPhaseCapturingScreenshot": "截图中",
+  "@webReverseHeadlessBatchPhaseCapturingScreenshot": {
+    "description": "web_reverse: Headless batch dialog · phasecapturingscreenshot"
+  },
+  "webReverseHeadlessBatchPhaseDone": "完成",
+  "@webReverseHeadlessBatchPhaseDone": {
+    "description": "web_reverse: Headless batch dialog · phasedone"
+  },
+  "webReverseHeadlessBatchPhaseFailed": "失败",
+  "@webReverseHeadlessBatchPhaseFailed": {
+    "description": "web_reverse: Headless batch dialog · phasefailed"
+  },
+  "webReverseHeadlessBatchPhaseCancelled": "已取消",
+  "@webReverseHeadlessBatchPhaseCancelled": {
+    "description": "web_reverse: Headless batch dialog · phasecancelled"
+  },
+  "webReverseHeadlessBatchFinished": "批量采集结束：{ok}/{total} 成功",
+  "@webReverseHeadlessBatchFinished": {
+    "description": "web_reverse: Headless batch dialog · finished",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHeadlessBatchEventCount": "{events} / {total} 条事件",
+  "@webReverseHeadlessBatchEventCount": {
+    "description": "web_reverse: Headless batch dialog · eventcount",
+    "placeholders": {
+      "events": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHeadlessBatchResultStats": "{net} 网络 · {log} 日志 · {dir}",
+  "@webReverseHeadlessBatchResultStats": {
+    "description": "web_reverse: Headless batch dialog · resultstats",
+    "placeholders": {
+      "net": {
+        "type": "int"
+      },
+      "log": {
+        "type": "int"
+      },
+      "dir": {
+        "type": "String"
+      }
+    }
   }
 }

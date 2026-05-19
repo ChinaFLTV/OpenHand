@@ -3340,5 +3340,136 @@
         "type": "int"
       }
     }
+  },
+  "webReverseHeadlessBatchTitle": "Headless batch capture",
+  "@webReverseHeadlessBatchTitle": {
+    "description": "web_reverse: Headless batch dialog · title"
+  },
+  "webReverseHeadlessBatchClose": "Close",
+  "@webReverseHeadlessBatchClose": {
+    "description": "web_reverse: Headless batch dialog · close"
+  },
+  "webReverseHeadlessBatchDesc": "Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).",
+  "@webReverseHeadlessBatchDesc": {
+    "description": "web_reverse: Headless batch dialog · desc"
+  },
+  "webReverseHeadlessBatchUrlsLabel": "URL list (one per line)",
+  "@webReverseHeadlessBatchUrlsLabel": {
+    "description": "web_reverse: Headless batch dialog · urlslabel"
+  },
+  "webReverseHeadlessBatchOutputDirLabel": "Output directory",
+  "@webReverseHeadlessBatchOutputDirLabel": {
+    "description": "web_reverse: Headless batch dialog · outputdirlabel"
+  },
+  "webReverseHeadlessBatchNotSelected": "(not selected)",
+  "@webReverseHeadlessBatchNotSelected": {
+    "description": "web_reverse: Headless batch dialog · notselected"
+  },
+  "webReverseHeadlessBatchChoose": "Choose",
+  "@webReverseHeadlessBatchChoose": {
+    "description": "web_reverse: Headless batch dialog · choose"
+  },
+  "webReverseHeadlessBatchNetwork": "Network",
+  "@webReverseHeadlessBatchNetwork": {
+    "description": "web_reverse: Headless batch dialog · network"
+  },
+  "webReverseHeadlessBatchConsole": "Console",
+  "@webReverseHeadlessBatchConsole": {
+    "description": "web_reverse: Headless batch dialog · console"
+  },
+  "webReverseHeadlessBatchScreenshot": "Screenshot",
+  "@webReverseHeadlessBatchScreenshot": {
+    "description": "web_reverse: Headless batch dialog · screenshot"
+  },
+  "webReverseHeadlessBatchStart": "Start batch",
+  "@webReverseHeadlessBatchStart": {
+    "description": "web_reverse: Headless batch dialog · start"
+  },
+  "webReverseHeadlessBatchStop": "Stop",
+  "@webReverseHeadlessBatchStop": {
+    "description": "web_reverse: Headless batch dialog · stop"
+  },
+  "webReverseHeadlessBatchNoProgress": "No progress yet",
+  "@webReverseHeadlessBatchNoProgress": {
+    "description": "web_reverse: Headless batch dialog · noprogress"
+  },
+  "webReverseHeadlessBatchPickOutputDir": "Pick output dir",
+  "@webReverseHeadlessBatchPickOutputDir": {
+    "description": "web_reverse: Headless batch dialog · pickoutputdir"
+  },
+  "webReverseHeadlessBatchNeedUrlAndDir": "Need at least one http(s):// URL and an output directory",
+  "@webReverseHeadlessBatchNeedUrlAndDir": {
+    "description": "web_reverse: Headless batch dialog · needurlanddir"
+  },
+  "webReverseHeadlessBatchBrowserNotReady": "Browser is not running yet — start a session first",
+  "@webReverseHeadlessBatchBrowserNotReady": {
+    "description": "web_reverse: Headless batch dialog · browsernotready"
+  },
+  "webReverseHeadlessBatchPhaseStarting": "Preparing",
+  "@webReverseHeadlessBatchPhaseStarting": {
+    "description": "web_reverse: Headless batch dialog · phasestarting"
+  },
+  "webReverseHeadlessBatchPhaseNavigating": "Navigating",
+  "@webReverseHeadlessBatchPhaseNavigating": {
+    "description": "web_reverse: Headless batch dialog · phasenavigating"
+  },
+  "webReverseHeadlessBatchPhaseWaitingLoad": "Waiting load",
+  "@webReverseHeadlessBatchPhaseWaitingLoad": {
+    "description": "web_reverse: Headless batch dialog · phasewaitingload"
+  },
+  "webReverseHeadlessBatchPhaseCapturingScreenshot": "Capturing screenshot",
+  "@webReverseHeadlessBatchPhaseCapturingScreenshot": {
+    "description": "web_reverse: Headless batch dialog · phasecapturingscreenshot"
+  },
+  "webReverseHeadlessBatchPhaseDone": "Done",
+  "@webReverseHeadlessBatchPhaseDone": {
+    "description": "web_reverse: Headless batch dialog · phasedone"
+  },
+  "webReverseHeadlessBatchPhaseFailed": "Failed",
+  "@webReverseHeadlessBatchPhaseFailed": {
+    "description": "web_reverse: Headless batch dialog · phasefailed"
+  },
+  "webReverseHeadlessBatchPhaseCancelled": "Cancelled",
+  "@webReverseHeadlessBatchPhaseCancelled": {
+    "description": "web_reverse: Headless batch dialog · phasecancelled"
+  },
+  "webReverseHeadlessBatchFinished": "Batch finished: {ok}/{total} ok",
+  "@webReverseHeadlessBatchFinished": {
+    "description": "web_reverse: Headless batch dialog · finished",
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHeadlessBatchEventCount": "{events} / {total} events",
+  "@webReverseHeadlessBatchEventCount": {
+    "description": "web_reverse: Headless batch dialog · eventcount",
+    "placeholders": {
+      "events": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseHeadlessBatchResultStats": "{net} net · {log} log · {dir}",
+  "@webReverseHeadlessBatchResultStats": {
+    "description": "web_reverse: Headless batch dialog · resultstats",
+    "placeholders": {
+      "net": {
+        "type": "int"
+      },
+      "log": {
+        "type": "int"
+      },
+      "dir": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -10349,6 +10349,162 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已插入 {count} 字符'**
   String webReverseInputSimInsertedCount(int count);
+
+  /// web_reverse: Headless batch dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Headless 批量采集'**
+  String get webReverseHeadlessBatchTitle;
+
+  /// web_reverse: Headless batch dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseHeadlessBatchClose;
+
+  /// web_reverse: Headless batch dialog · desc
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'逐 URL 后台开新 tab，加载完成后保存网络响应索引 / 控制台日志 / 截图。使用当前浏览器进程，复用 cookie 与 Hook。'**
+  String get webReverseHeadlessBatchDesc;
+
+  /// web_reverse: Headless batch dialog · urlslabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'URL 列表（每行一条）'**
+  String get webReverseHeadlessBatchUrlsLabel;
+
+  /// web_reverse: Headless batch dialog · outputdirlabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出目录'**
+  String get webReverseHeadlessBatchOutputDirLabel;
+
+  /// web_reverse: Headless batch dialog · notselected
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'（未选）'**
+  String get webReverseHeadlessBatchNotSelected;
+
+  /// web_reverse: Headless batch dialog · choose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择'**
+  String get webReverseHeadlessBatchChoose;
+
+  /// web_reverse: Headless batch dialog · network
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'网络'**
+  String get webReverseHeadlessBatchNetwork;
+
+  /// web_reverse: Headless batch dialog · console
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制台'**
+  String get webReverseHeadlessBatchConsole;
+
+  /// web_reverse: Headless batch dialog · screenshot
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'截图'**
+  String get webReverseHeadlessBatchScreenshot;
+
+  /// web_reverse: Headless batch dialog · start
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始批量'**
+  String get webReverseHeadlessBatchStart;
+
+  /// web_reverse: Headless batch dialog · stop
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReverseHeadlessBatchStop;
+
+  /// web_reverse: Headless batch dialog · noprogress
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无进度'**
+  String get webReverseHeadlessBatchNoProgress;
+
+  /// web_reverse: Headless batch dialog · pickoutputdir
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择输出目录'**
+  String get webReverseHeadlessBatchPickOutputDir;
+
+  /// web_reverse: Headless batch dialog · needurlanddir
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先填入至少一条 http(s):// URL，并选好输出目录'**
+  String get webReverseHeadlessBatchNeedUrlAndDir;
+
+  /// web_reverse: Headless batch dialog · browsernotready
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览器尚未启动，请先在主面板启动会话再来批量采集'**
+  String get webReverseHeadlessBatchBrowserNotReady;
+
+  /// web_reverse: Headless batch dialog · phasestarting
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'准备'**
+  String get webReverseHeadlessBatchPhaseStarting;
+
+  /// web_reverse: Headless batch dialog · phasenavigating
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导航中'**
+  String get webReverseHeadlessBatchPhaseNavigating;
+
+  /// web_reverse: Headless batch dialog · phasewaitingload
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待 load'**
+  String get webReverseHeadlessBatchPhaseWaitingLoad;
+
+  /// web_reverse: Headless batch dialog · phasecapturingscreenshot
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'截图中'**
+  String get webReverseHeadlessBatchPhaseCapturingScreenshot;
+
+  /// web_reverse: Headless batch dialog · phasedone
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成'**
+  String get webReverseHeadlessBatchPhaseDone;
+
+  /// web_reverse: Headless batch dialog · phasefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get webReverseHeadlessBatchPhaseFailed;
+
+  /// web_reverse: Headless batch dialog · phasecancelled
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已取消'**
+  String get webReverseHeadlessBatchPhaseCancelled;
+
+  /// web_reverse: Headless batch dialog · finished
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'批量采集结束：{ok}/{total} 成功'**
+  String webReverseHeadlessBatchFinished(int ok, int total);
+
+  /// web_reverse: Headless batch dialog · eventcount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{events} / {total} 条事件'**
+  String webReverseHeadlessBatchEventCount(int events, int total);
+
+  /// web_reverse: Headless batch dialog · resultstats
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{net} 网络 · {log} 日志 · {dir}'**
+  String webReverseHeadlessBatchResultStats(int net, int log, String dir);
 }
 
 class _AppLocalizationsDelegate
