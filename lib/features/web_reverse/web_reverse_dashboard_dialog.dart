@@ -41,6 +41,8 @@ import 'web_reverse_repl_dialog.dart';
 import 'web_reverse_frame_tree_dialog.dart';
 import 'web_reverse_css_coverage_dialog.dart';
 import 'web_reverse_animations_dialog.dart';
+import 'web_reverse_rendering_dialog.dart';
+import 'web_reverse_issues_dialog.dart';
 import 'web_reverse_replay_dialog.dart';
 import 'web_reverse_input_sim_dialog.dart';
 import 'web_reverse_device_emulation_dialog.dart';

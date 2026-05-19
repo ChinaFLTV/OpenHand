@@ -1,0 +1,473 @@
+/// Issues 面板：订阅 CDP `Audits.issueAdded`，把页面真实存在的合规 /
+/// 兼容性 / 安全 / Mixed Content / SameSite / CORS / Quirks Mode 等问题
+/// 按类别汇总展示。开启后边浏览边采集，关闭弹窗仍保留缓冲，下次打开
+/// 直接看历史。
+library;
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../app/support/silent_log.dart';
+import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_session_controller.dart';
+
+// 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
+final List<_IssueEntry> _issueBuffer = <_IssueEntry>[];
+StreamSubscription<CdpEvent>? _issueGlobalSub;
+bool _issueDomainEnabled = false;
+
+Future<void> showWebReverseIssuesDialog(
+  BuildContext context, {
+  required WebReverseSessionController controller,
+  required bool isZh,
+}) async {
+  // 第一次打开时 enable Audits + 挂全局订阅，后续保持常驻。
+  if (!_issueDomainEnabled) {
+    final res = await controller.sendRawCdp(method: 'Audits.enable');
+    if (res?['error'] == null) _issueDomainEnabled = true;
+  }
+  _issueGlobalSub ??= controller.rawCdpEvents.listen((ev) {
+    if (ev.method != 'Audits.issueAdded') return;
+    final issue = (ev.params['issue'] as Map?)?.cast<String, Object?>();
+    if (issue == null) return;
+    final code = issue['code']?.toString() ?? 'Unknown';
+    final details = (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
+    _issueBuffer.insert(
+      0,
+      _IssueEntry(
+        ts: DateTime.now(),
+        code: code,
+        details: details,
+        raw: issue,
+      ),
+    );
+    if (_issueBuffer.length > 500) {
+      _issueBuffer.removeRange(500, _issueBuffer.length);
+    }
+  });
+
+  if (!context.mounted) return;
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _IssuesDialog(controller: controller, isZh: isZh),
+  );
+}
+
+class _IssueEntry {
+  _IssueEntry({
+    required this.ts,
+    required this.code,
+    required this.details,
+    required this.raw,
+  });
+  final DateTime ts;
+  final String code;
+  final Map<String, Object?> details;
+  final Map<String, Object?> raw;
+}
+
+class _IssuesDialog extends StatefulWidget {
+  const _IssuesDialog({required this.controller, required this.isZh});
+  final WebReverseSessionController controller;
+  final bool isZh;
+  @override
+  State<_IssuesDialog> createState() => _IssuesDialogState();
+}
+
+class _IssuesDialogState extends State<_IssuesDialog> {
+  late final VoidCallback _rebuild;
+  Timer? _refreshTicker;
+  String _filter = '';
+  String? _focusedCode;
+  int _expandedIndex = -1;
+
+  bool get _isZh => widget.isZh;
+
+  @override
+  void initState() {
+    super.initState();
+    // buffer 在全局变量里被 listener 写入，dialog 自身只需要定时 rebuild。
+    _rebuild = () {
+      if (mounted) setState(() {});
+    };
+    _refreshTicker = Timer.periodic(
+      const Duration(milliseconds: 800),
+      (_) => _rebuild(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTicker?.cancel();
+    super.dispose();
+  }
+
+  List<_IssueEntry> get _visible {
+    final lowered = _filter.toLowerCase();
+    return _issueBuffer.where((e) {
+      if (_focusedCode != null && e.code != _focusedCode) return false;
+      if (lowered.isEmpty) return true;
+      if (e.code.toLowerCase().contains(lowered)) return true;
+      return _briefOf(e).toLowerCase().contains(lowered);
+    }).toList(growable: false);
+  }
+
+  Map<String, int> get _grouped {
+    final m = <String, int>{};
+    for (final e in _issueBuffer) {
+      m[e.code] = (m[e.code] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  String _briefOf(_IssueEntry e) {
+    // 给每类 issue 抽一条人类可读摘要：URL / domain / element 三选一。
+    final details = e.details;
+    for (final detail in details.values) {
+      if (detail is Map) {
+        final url = detail['url'] ?? detail['request']?['url'] ?? detail['frame']?['url'];
+        if (url is String && url.isNotEmpty) return url;
+        final desc = detail['description'];
+        if (desc is String && desc.isNotEmpty) return desc;
+      }
+    }
+    return '';
+  }
+
+  Color _colorOf(String code, ColorScheme cs) {
+    if (code.contains('Security') || code.contains('MixedContent')) {
+      return cs.error;
+    }
+    if (code.contains('Cookie') || code.contains('SameSite') || code.contains('Cors')) {
+      return cs.tertiary;
+    }
+    if (code.contains('Deprecation') || code.contains('Quirks')) {
+      return cs.secondary;
+    }
+    return cs.primary;
+  }
+
+  Future<void> _copyJson(_IssueEntry e) async {
+    try {
+      await Clipboard.setData(
+        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(e.raw)),
+      );
+      if (mounted) {
+        openHandSnackBar(
+          context,
+          message: _isZh ? '已复制 issue JSON' : 'Issue JSON copied',
+        );
+      }
+    } catch (err, st) {
+      silentLog('web_reverse_issues_dialog', 'copy', err, st);
+    }
+  }
+
+  void _clear() {
+    _issueBuffer.clear();
+    _focusedCode = null;
+    _expandedIndex = -1;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final visible = _visible;
+    final grouped = _grouped;
+
+    return Dialog(
+      backgroundColor: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.report_problem_rounded,
+                    color: cs.error,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isZh ? 'Issues 面板' : 'Issues',
+                          style: tt.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _isZh
+                              ? 'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合'
+                              : 'Audits.issueAdded · live aggregator',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${_issueBuffer.length}',
+                      style: tt.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _isZh ? '清空缓冲' : 'Clear buffer',
+                    onPressed: _issueBuffer.isEmpty ? null : _clear,
+                    icon: const Icon(Icons.delete_sweep_rounded),
+                  ),
+                  IconButton(
+                    tooltip: _isZh ? '关闭' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                        hintText: _isZh
+                            ? '按 code / URL / 描述过滤…'
+                            : 'Filter by code / URL / description…',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (v) => setState(() => _filter = v),
+                    ),
+                  ),
+                  if (_focusedCode != null) ...[
+                    const SizedBox(width: 8),
+                    InputChip(
+                      label: Text(_focusedCode!),
+                      onDeleted: () => setState(() => _focusedCode = null),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (grouped.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final entry in grouped.entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: FilterChip(
+                            selected: _focusedCode == entry.key,
+                            label: Text('${entry.key} · ${entry.value}'),
+                            onSelected: (sel) => setState(() {
+                              _focusedCode = sel ? entry.key : null;
+                            }),
+                            avatar: CircleAvatar(
+                              radius: 5,
+                              backgroundColor: _colorOf(entry.key, cs),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_rounded,
+                            size: 36,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _issueBuffer.isEmpty
+                                ? (_isZh
+                                    ? '当前页面尚未报告任何 issue，访问几个交互后再来看看。'
+                                    : 'No issues reported yet. Interact with the page.')
+                                : (_isZh ? '没有匹配的 issue。' : 'No matching issue.'),
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (_, i) {
+                        final e = visible[i];
+                        final brief = _briefOf(e);
+                        final color = _colorOf(e.code, cs);
+                        final expanded = _expandedIndex == i;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border(
+                              left: BorderSide(color: color, width: 3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      e.code,
+                                      style: tt.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _fmtTs(e.ts),
+                                    style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: _isZh ? '复制 JSON' : 'Copy JSON',
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => _copyJson(e),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: expanded
+                                        ? (_isZh ? '收起' : 'Collapse')
+                                        : (_isZh ? '展开' : 'Expand'),
+                                    icon: Icon(
+                                      expanded
+                                          ? Icons.unfold_less_rounded
+                                          : Icons.unfold_more_rounded,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => setState(() {
+                                      _expandedIndex = expanded ? -1 : i;
+                                    }),
+                                  ),
+                                ],
+                              ),
+                              if (brief.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: SelectableText(
+                                    brief,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                    maxLines: expanded ? null : 2,
+                                  ),
+                                ),
+                              if (expanded)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerLowest,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: SelectableText(
+                                    const JsonEncoder.withIndent('  ')
+                                        .convert(e.raw),
+                                    style: tt.bodySmall?.copyWith(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.fiber_manual_record_rounded,
+                    color: _issueDomainEnabled ? cs.tertiary : cs.outline,
+                    size: 12,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _issueDomainEnabled
+                        ? (_isZh ? '已订阅 Audits.issueAdded' : 'Subscribed to Audits.issueAdded')
+                        : (_isZh ? 'Audits 域未就绪' : 'Audits domain not ready'),
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  OpenHandDialogActionButton.primary(
+                    label: _isZh ? '关闭' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmtTs(DateTime ts) {
+    String pad(int v) => v < 10 ? '0$v' : '$v';
+    return '${pad(ts.hour)}:${pad(ts.minute)}:${pad(ts.second)}';
+  }
+}

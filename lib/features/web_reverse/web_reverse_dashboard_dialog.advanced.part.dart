@@ -545,6 +545,36 @@ class _AdvancedMenuDialog extends StatelessWidget {
         },
       ),
       _AdvancedEntry(
+        icon: Icons.layers_rounded,
+        title: isZh ? 'Rendering 调试' : 'Rendering',
+        subtitle: isZh
+            ? 'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流'
+            : 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseRenderingDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
+      _AdvancedEntry(
+        icon: Icons.report_problem_rounded,
+        title: isZh ? 'Issues 面板' : 'Issues',
+        subtitle: isZh
+            ? 'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation'
+            : 'Audits.issueAdded · security / cookie / deprecation',
+        onTap: () async {
+          Navigator.of(context).pop();
+          await showWebReverseIssuesDialog(
+            context,
+            controller: controller,
+            isZh: isZh,
+          );
+        },
+      ),
+      _AdvancedEntry(
         icon: Icons.replay_circle_filled_rounded,
         title: isZh ? '网络请求重放器' : 'Network Replayer',
         subtitle: isZh

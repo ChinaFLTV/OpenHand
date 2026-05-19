@@ -133,6 +133,15 @@ class WebReverseSessionController extends ChangeNotifier {
   // （dashboard 头部 / network list 等），把 60fps 帧流的 fanout 降到最小。
   final ValueNotifier<int> screencastFrameNotifier = ValueNotifier<int>(0);
 
+  /// 公共 CDP 事件广播：所有进入 [_onCdpEvent] 的事件都会同步推到这条流，
+  /// 给独立的 dialog 面板（Issues / Layers / 自定义订阅）按需 listen 用。
+  /// Broadcast stream，多个订阅者互不干扰；controller dispose 时一并关。
+  final StreamController<CdpEvent> _rawCdpEventBus =
+      StreamController<CdpEvent>.broadcast();
+
+  /// 监听原始 CDP 事件（method + params），适合做按需启用的扩展面板。
+  Stream<CdpEvent> get rawCdpEvents => _rawCdpEventBus.stream;
+
   /// Initiator → Sources 跳转请求总线：dashboard 监听这个 notifier 切到
   /// Sources tab 并定位到 (url, line, col)。点击栈帧或重定向条目时
   /// `requestSourceJump` 更新 value，dashboard 处理完置回 null。
@@ -495,6 +504,14 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onCdpEvent(CdpEvent ev) {
+    // 先广播给外部订阅者，再走内置 dispatch；广播失败不影响内部处理。
+    if (!_rawCdpEventBus.isClosed) {
+      try {
+        _rawCdpEventBus.add(ev);
+      } catch (e, st) {
+        silentLog('web_reverse_session_controller', 'rawCdpEventBus.add', e, st);
+      }
+    }
     switch (ev.method) {
       case '__cdp_reconnected__':
         // CDP 抖动断开后自动重连成功 → 重新 enable 各 domain。
@@ -6234,6 +6251,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 不阻塞 dispose；safeStop 内部所有调用都已对 _disposed 做了短路。
     unawaited(_safeStop());
     screencastFrameNotifier.dispose();
+    unawaited(_rawCdpEventBus.close());
     super.dispose();
   }
 
