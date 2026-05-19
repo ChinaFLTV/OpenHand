@@ -2981,7 +2981,18 @@ class _StreamThroughputMiniGaugeState
       vsync: this,
       duration: _kRefreshInterval,
     )..addListener(_handleMorphTick);
-    _refresh();
+    // 2026-05-19 — 直接 seed 第一帧 snapshot：initState 内禁止调用
+    // `MediaQuery.maybeDisableAnimationsOf(context)`（它会触发
+    // dependOnInheritedWidgetOfExactType<MediaQuery>() 断言），所以
+    // 首次同步走 _morph.value=1.0 的"无动画跳变"路径；后续 Timer 触发的
+    // _refresh 已在 build 帧之后，可安全读 MediaQuery。
+    final controller = context.read<AiSessionController>();
+    _samples = controller.sessionStreamCharThroughputSnapshot(
+      widget.sessionId,
+    );
+    _toSamples = <double>[for (final v in _samples) v.toDouble()];
+    _fromSamples = List<double>.from(_toSamples);
+    _morph.value = 1.0;
     _ticker = Timer.periodic(_kRefreshInterval, (_) {
       if (mounted) _refresh();
     });

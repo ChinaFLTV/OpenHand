@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../app/support/silent_log.dart';
 import 'data/mcp_store.dart';
@@ -227,6 +228,24 @@ class McpController extends ChangeNotifier {
   @override
   void notifyListeners() {
     if (_isDisposed) {
+      return;
+    }
+    // 2026-05-19 — tree-lock 防护：当 setPageActive(false) 在
+    // _McpViewState.dispose 期间被调用，会经由 _cancelQueuedAutoProbeSlots
+    // → _notifyAutoProbeMetricsChanged → notifyListeners 触发
+    // _InheritedProviderScope.markNeedsBuild，而此时 BuildOwner 处于
+    // _InactiveElements._unmount 的 lockState 阶段，框架会断言
+    // "setState() or markNeedsBuild() called when widget tree was locked"。
+    // 用 schedulerPhase 判定，若处于持续帧回调 / 暂态回调 / 后置回调期间，
+    // 推迟到下一帧再发通知；其它阶段（idle / midFrameMicrotasks）直接发。
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_isDisposed) return;
+        super.notifyListeners();
+      });
       return;
     }
     super.notifyListeners();
