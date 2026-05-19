@@ -6002,5 +6002,58 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSnippetsDefaultCode": "Écrivez du JS ici. S'exécute dans le contexte de la page.",
+  "@webReverseSnippetsDefaultCode": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNoResult": "(aucun résultat)",
+  "@webReverseSnippetsNoResult": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteTitle": "Supprimer le snippet ?",
+  "@webReverseSnippetsDeleteTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteContent": "Cette action est irréversible.",
+  "@webReverseSnippetsDeleteContent": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDelete": "Supprimer",
+  "@webReverseSnippetsDelete": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsTitle": "Bloc de snippets",
+  "@webReverseSnippetsTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNew": "Nouveau snippet",
+  "@webReverseSnippetsNew": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsEmpty": "Aucun snippet.\nAppuyez sur + pour en créer un.",
+  "@webReverseSnippetsEmpty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsPickPrompt": "Sélectionnez un snippet à gauche ou créez-en un.",
+  "@webReverseSnippetsPickPrompt": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsRun": "Exécuter (⌘R)",
+  "@webReverseSnippetsRun": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsSaveDirty": "Enregistrer *",
+  "@webReverseSnippetsSaveDirty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNewName": "snippet {time}",
+  "@webReverseSnippetsNewName": {
+    "description": "web_reverse: snippets",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -7798,4 +7798,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseHooksNewName(String time) {
     return 'フック $time';
   }
+
+  @override
+  String get webReverseSnippetsDefaultCode => 'ここに JS を書く。ページコンテキストで実行されます。';
+
+  @override
+  String get webReverseSnippetsNoResult => '(戻り値なし)';
+
+  @override
+  String get webReverseSnippetsDeleteTitle => 'スニペットを削除しますか？';
+
+  @override
+  String get webReverseSnippetsDeleteContent => '取り消せません。';
+
+  @override
+  String get webReverseSnippetsDelete => '削除';
+
+  @override
+  String get webReverseSnippetsTitle => 'スニペットパッド';
+
+  @override
+  String get webReverseSnippetsNew => '新規スニペット';
+
+  @override
+  String get webReverseSnippetsEmpty => 'スニペットがありません。\n+ をタップして作成。';
+
+  @override
+  String get webReverseSnippetsPickPrompt => '左からスニペットを選ぶか新規作成してください。';
+
+  @override
+  String get webReverseSnippetsRun => '実行 (⌘R)';
+
+  @override
+  String get webReverseSnippetsSaveDirty => '保存 *';
+
+  @override
+  String webReverseSnippetsNewName(String time) {
+    return 'スニペット $time';
+  }
 }

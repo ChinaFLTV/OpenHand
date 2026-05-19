@@ -37,7 +37,7 @@ class _JwtSample {
   final String? sub;
 
   Duration? remaining(DateTime now) =>
-      exp == null ? null : exp!.difference(now);
+      exp?.difference(now);
 }
 
 class _RefreshLog {
@@ -157,7 +157,6 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
         'awaitPromise': false,
         'userGesture': true,
       }),
-      useSession: true,
     );
     if (r == null) return const <_JwtSample>[];
     final result = r['result'];
@@ -217,7 +216,6 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
         'returnByValue': true,
         'userGesture': true,
       }),
-      useSession: true,
     );
     if (r == null) {
       _logs.insert(0, _RefreshLog(at: DateTime.now(), ok: false, detail: 'no response'));

@@ -7698,6 +7698,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseHooksNewName(String time) {
     return '钩子 $time';
   }
+
+  @override
+  String get webReverseSnippetsDefaultCode => '在此编写 JS，将在浏览器页面上下文执行';
+
+  @override
+  String get webReverseSnippetsNoResult => '(无返回值)';
+
+  @override
+  String get webReverseSnippetsDeleteTitle => '删除脚本？';
+
+  @override
+  String get webReverseSnippetsDeleteContent => '不可撤销。';
+
+  @override
+  String get webReverseSnippetsDelete => '删除';
+
+  @override
+  String get webReverseSnippetsTitle => '脚本注入库';
+
+  @override
+  String get webReverseSnippetsNew => '新建脚本';
+
+  @override
+  String get webReverseSnippetsEmpty => '暂无脚本。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseSnippetsPickPrompt => '从左侧选一个脚本，或新建一个。';
+
+  @override
+  String get webReverseSnippetsRun => '运行 (⌘R)';
+
+  @override
+  String get webReverseSnippetsSaveDirty => '保存 *';
+
+  @override
+  String webReverseSnippetsNewName(String time) {
+    return '脚本 $time';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15394,6 +15432,44 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseHooksNewName(String time) {
     return '钩子 $time';
   }
+
+  @override
+  String get webReverseSnippetsDefaultCode => '在此编写 JS，将在浏览器页面上下文执行';
+
+  @override
+  String get webReverseSnippetsNoResult => '(无返回值)';
+
+  @override
+  String get webReverseSnippetsDeleteTitle => '删除脚本？';
+
+  @override
+  String get webReverseSnippetsDeleteContent => '不可撤销。';
+
+  @override
+  String get webReverseSnippetsDelete => '删除';
+
+  @override
+  String get webReverseSnippetsTitle => '脚本注入库';
+
+  @override
+  String get webReverseSnippetsNew => '新建脚本';
+
+  @override
+  String get webReverseSnippetsEmpty => '暂无脚本。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseSnippetsPickPrompt => '从左侧选一个脚本，或新建一个。';
+
+  @override
+  String get webReverseSnippetsRun => '运行 (⌘R)';
+
+  @override
+  String get webReverseSnippetsSaveDirty => '保存 *';
+
+  @override
+  String webReverseSnippetsNewName(String time) {
+    return '脚本 $time';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -23088,5 +23164,43 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseHooksNewName(String time) {
     return '钩子 $time';
+  }
+
+  @override
+  String get webReverseSnippetsDefaultCode => '在此编写 JS，将在浏览器页面上下文执行';
+
+  @override
+  String get webReverseSnippetsNoResult => '(无返回值)';
+
+  @override
+  String get webReverseSnippetsDeleteTitle => '删除脚本？';
+
+  @override
+  String get webReverseSnippetsDeleteContent => '不可撤销。';
+
+  @override
+  String get webReverseSnippetsDelete => '删除';
+
+  @override
+  String get webReverseSnippetsTitle => '脚本注入库';
+
+  @override
+  String get webReverseSnippetsNew => '新建脚本';
+
+  @override
+  String get webReverseSnippetsEmpty => '暂无脚本。\n点 + 新建第一个。';
+
+  @override
+  String get webReverseSnippetsPickPrompt => '从左侧选一个脚本，或新建一个。';
+
+  @override
+  String get webReverseSnippetsRun => '运行 (⌘R)';
+
+  @override
+  String get webReverseSnippetsSaveDirty => '保存 *';
+
+  @override
+  String webReverseSnippetsNewName(String time) {
+    return '脚本 $time';
   }
 }

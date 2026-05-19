@@ -7999,4 +7999,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseHooksNewName(String time) {
     return 'hook $time';
   }
+
+  @override
+  String get webReverseSnippetsDefaultCode =>
+      'Write JS here. Runs in page context.';
+
+  @override
+  String get webReverseSnippetsNoResult => '(no result)';
+
+  @override
+  String get webReverseSnippetsDeleteTitle => 'Delete snippet?';
+
+  @override
+  String get webReverseSnippetsDeleteContent => 'This cannot be undone.';
+
+  @override
+  String get webReverseSnippetsDelete => 'Delete';
+
+  @override
+  String get webReverseSnippetsTitle => 'Snippet pad';
+
+  @override
+  String get webReverseSnippetsNew => 'New snippet';
+
+  @override
+  String get webReverseSnippetsEmpty =>
+      'No snippets yet.\nTap + to create one.';
+
+  @override
+  String get webReverseSnippetsPickPrompt => 'Pick a snippet or create one.';
+
+  @override
+  String get webReverseSnippetsRun => 'Run (⌘R)';
+
+  @override
+  String get webReverseSnippetsSaveDirty => 'Save *';
+
+  @override
+  String webReverseSnippetsNewName(String time) {
+    return 'snippet $time';
+  }
 }

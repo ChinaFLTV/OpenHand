@@ -17,7 +17,7 @@ class _SnippetsBody extends StatefulWidget {
     required this.onPersist,
   });
   final WebReverseSessionController controller;
-  final bool isZh;
+  final bool isZh; // ignore: unused_field
   final VoidCallback onPersist;
 
   @override
@@ -125,11 +125,13 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
 
   void _doNew() {
     final ts = DateTime.now();
-    final name = '${widget.isZh ? "脚本" : "snippet"} '
+    final loc = AppLocalizations.of(context);
+    final time =
         '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final name = loc?.webReverseSnippetsNewName(time) ?? 'snippet $time';
     final s = widget.controller.addSnippet(
       name: name,
-      code: '// ${widget.isZh ? "在此编写 JS，将在浏览器页面上下文执行" : "Write JS here. Runs in page context."}\n',
+      code: '// ${loc?.webReverseSnippetsDefaultCode ?? 'Write JS here. Runs in page context.'}\n',
     );
     widget.onPersist();
     setState(() {
@@ -164,7 +166,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     try {
       final r = await widget.controller.runSnippet(id);
       if (!mounted) return;
-      setState(() => _lastResultPreview = r ?? (widget.isZh ? '(无返回值)' : '(no result)'));
+      final loc = AppLocalizations.of(context);
+      setState(() => _lastResultPreview =
+          r ?? (loc?.webReverseSnippetsNoResult ?? '(no result)'));
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -173,17 +177,18 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   void _delete() {
     final id = _selectedId;
     if (id == null) return;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '删除脚本？' : 'Delete snippet?'),
-        content: Text(isZh ? '不可撤销。' : 'This cannot be undone.'),
+        title: Text(loc?.webReverseSnippetsDeleteTitle ?? 'Delete snippet?'),
+        content: Text(loc?.webReverseSnippetsDeleteContent ??
+            'This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
+            child: Text(loc?.commonCancel ?? 'Cancel'),
           ),
           FilledButton.tonal(
             onPressed: () {
@@ -191,7 +196,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
               widget.onPersist();
               Navigator.of(ctx).pop();
             },
-            child: Text(isZh ? '删除' : 'Delete'),
+            child: Text(loc?.webReverseSnippetsDelete ?? 'Delete'),
           ),
         ],
       ),
@@ -199,23 +204,24 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   }
 
   void _confirmDiscard(VoidCallback onConfirm) {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?'),
+        title: Text(loc?.webReverseHooksDiscardTitle ??
+            'Discard unsaved changes?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isZh ? '继续编辑' : 'Keep editing'),
+            child: Text(loc?.webReverseHooksKeepEditing ?? 'Keep editing'),
           ),
           FilledButton.tonal(
             onPressed: () {
               Navigator.of(ctx).pop();
               onConfirm();
             },
-            child: Text(isZh ? '丢弃' : 'Discard'),
+            child: Text(loc?.webReverseHooksDiscardConfirm ?? 'Discard'),
           ),
         ],
       ),
@@ -226,7 +232,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.snippets]
       ..sort((a, b) => (b.updatedAt ?? DateTime(0))
@@ -255,13 +261,13 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isZh ? '脚本注入库' : 'Snippet pad',
+                            loc?.webReverseSnippetsTitle ?? 'Snippet pad',
                             style: theme.textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         IconButton(
-                          tooltip: isZh ? '新建脚本' : 'New snippet',
+                          tooltip: loc?.webReverseSnippetsNew ?? 'New snippet',
                           icon: const Icon(Icons.add_rounded, size: 18),
                           onPressed: _newSnippet,
                         ),
@@ -275,9 +281,8 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
-                                isZh
-                                    ? '暂无脚本。\n点 + 新建第一个。'
-                                    : 'No snippets yet.\nTap + to create one.',
+                                loc?.webReverseSnippetsEmpty ??
+                                    'No snippets yet.\nTap + to create one.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     color: cs.onSurfaceVariant),
@@ -318,7 +323,8 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
               child: _selectedId == null
                   ? Center(
                       child: Text(
-                        isZh ? '从左侧选一个脚本，或新建一个。' : 'Pick a snippet or create one.',
+                        loc?.webReverseSnippetsPickPrompt ??
+                            'Pick a snippet or create one.',
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -334,7 +340,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: isZh ? '名称' : 'Name',
+                                  labelText: loc?.webReverseHooksNameLabel ?? 'Name',
                                 ),
                               ),
                             ),
@@ -347,19 +353,19 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Icon(Icons.play_arrow_rounded, size: 18),
-                              label: Text(isZh ? '运行 (⌘R)' : 'Run (⌘R)'),
+                              label: Text(loc?.webReverseSnippetsRun ?? 'Run (⌘R)'),
                             ),
                             const SizedBox(width: 6),
                             FilledButton.tonalIcon(
                               onPressed: _dirty ? _save : null,
                               icon: const Icon(Icons.save_rounded, size: 18),
                               label: Text(_dirty
-                                  ? (isZh ? '保存 *' : 'Save *')
-                                  : (isZh ? '已保存' : 'Saved')),
+                                  ? (loc?.webReverseSnippetsSaveDirty ?? 'Save *')
+                                  : (loc?.webReverseHooksSaved ?? 'Saved')),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              tooltip: isZh ? '删除' : 'Delete',
+                              tooltip: loc?.webReverseSnippetsDelete ?? 'Delete',
                               icon: Icon(Icons.delete_outline_rounded,
                                   color: cs.error),
                               onPressed: _delete,

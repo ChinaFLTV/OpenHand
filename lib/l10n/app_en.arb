@@ -6002,5 +6002,58 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSnippetsDefaultCode": "Write JS here. Runs in page context.",
+  "@webReverseSnippetsDefaultCode": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNoResult": "(no result)",
+  "@webReverseSnippetsNoResult": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteTitle": "Delete snippet?",
+  "@webReverseSnippetsDeleteTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteContent": "This cannot be undone.",
+  "@webReverseSnippetsDeleteContent": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDelete": "Delete",
+  "@webReverseSnippetsDelete": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsTitle": "Snippet pad",
+  "@webReverseSnippetsTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNew": "New snippet",
+  "@webReverseSnippetsNew": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsEmpty": "No snippets yet.\nTap + to create one.",
+  "@webReverseSnippetsEmpty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsPickPrompt": "Pick a snippet or create one.",
+  "@webReverseSnippetsPickPrompt": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsRun": "Run (⌘R)",
+  "@webReverseSnippetsRun": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsSaveDirty": "Save *",
+  "@webReverseSnippetsSaveDirty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNewName": "snippet {time}",
+  "@webReverseSnippetsNewName": {
+    "description": "web_reverse: snippets",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

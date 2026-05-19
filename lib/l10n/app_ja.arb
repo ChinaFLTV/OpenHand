@@ -6002,5 +6002,58 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSnippetsDefaultCode": "ここに JS を書く。ページコンテキストで実行されます。",
+  "@webReverseSnippetsDefaultCode": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNoResult": "(戻り値なし)",
+  "@webReverseSnippetsNoResult": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteTitle": "スニペットを削除しますか？",
+  "@webReverseSnippetsDeleteTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteContent": "取り消せません。",
+  "@webReverseSnippetsDeleteContent": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDelete": "削除",
+  "@webReverseSnippetsDelete": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsTitle": "スニペットパッド",
+  "@webReverseSnippetsTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNew": "新規スニペット",
+  "@webReverseSnippetsNew": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsEmpty": "スニペットがありません。\n+ をタップして作成。",
+  "@webReverseSnippetsEmpty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsPickPrompt": "左からスニペットを選ぶか新規作成してください。",
+  "@webReverseSnippetsPickPrompt": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsRun": "実行 (⌘R)",
+  "@webReverseSnippetsRun": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsSaveDirty": "保存 *",
+  "@webReverseSnippetsSaveDirty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNewName": "スニペット {time}",
+  "@webReverseSnippetsNewName": {
+    "description": "web_reverse: snippets",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

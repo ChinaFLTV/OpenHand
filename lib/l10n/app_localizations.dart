@@ -14158,6 +14158,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'钩子 {time}'**
   String webReverseHooksNewName(String time);
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在此编写 JS，将在浏览器页面上下文执行'**
+  String get webReverseSnippetsDefaultCode;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(无返回值)'**
+  String get webReverseSnippetsNoResult;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除脚本？'**
+  String get webReverseSnippetsDeleteTitle;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不可撤销。'**
+  String get webReverseSnippetsDeleteContent;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseSnippetsDelete;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本注入库'**
+  String get webReverseSnippetsTitle;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建脚本'**
+  String get webReverseSnippetsNew;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无脚本。\n点 + 新建第一个。'**
+  String get webReverseSnippetsEmpty;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从左侧选一个脚本，或新建一个。'**
+  String get webReverseSnippetsPickPrompt;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行 (⌘R)'**
+  String get webReverseSnippetsRun;
+
+  /// web_reverse: snippets pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存 *'**
+  String get webReverseSnippetsSaveDirty;
+
+  /// web_reverse: snippets
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本 {time}'**
+  String webReverseSnippetsNewName(String time);
 }
 
 class _AppLocalizationsDelegate

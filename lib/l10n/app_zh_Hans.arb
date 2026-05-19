@@ -6071,5 +6071,58 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSnippetsDefaultCode": "在此编写 JS，将在浏览器页面上下文执行",
+  "@webReverseSnippetsDefaultCode": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNoResult": "(无返回值)",
+  "@webReverseSnippetsNoResult": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteTitle": "删除脚本？",
+  "@webReverseSnippetsDeleteTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDeleteContent": "不可撤销。",
+  "@webReverseSnippetsDeleteContent": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsDelete": "删除",
+  "@webReverseSnippetsDelete": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsTitle": "脚本注入库",
+  "@webReverseSnippetsTitle": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNew": "新建脚本",
+  "@webReverseSnippetsNew": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsEmpty": "暂无脚本。\n点 + 新建第一个。",
+  "@webReverseSnippetsEmpty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsPickPrompt": "从左侧选一个脚本，或新建一个。",
+  "@webReverseSnippetsPickPrompt": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsRun": "运行 (⌘R)",
+  "@webReverseSnippetsRun": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsSaveDirty": "保存 *",
+  "@webReverseSnippetsSaveDirty": {
+    "description": "web_reverse: snippets pad"
+  },
+  "webReverseSnippetsNewName": "脚本 {time}",
+  "@webReverseSnippetsNewName": {
+    "description": "web_reverse: snippets",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }
