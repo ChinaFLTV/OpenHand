@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -60,6 +61,7 @@ Future<void> showWebReverseJwtRefreshDialog(
 class _JwtRefreshDialog extends StatefulWidget {
   const _JwtRefreshDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_JwtRefreshDialog> createState() => _JwtRefreshDialogState();
@@ -277,7 +279,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final threshold = int.tryParse(_thresholdCtrl.text) ?? 60;
 
     return Dialog(
@@ -299,14 +301,13 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'JWT 自动续期' : 'JWT Auto Refresh',
+                          loc?.webReverseJwtTitle ?? 'JWT Auto Refresh',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本'
-                              : 'Scan JWTs in cookies/storage, run refresh JS when near exp',
+                          loc?.webReverseJwtSubtitle ??
+                              'Scan JWTs in cookies/storage, run refresh JS when near exp',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -335,7 +336,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                         FilledButton.tonalIcon(
                           onPressed: _busy ? null : _doScan,
                           icon: const Icon(Icons.radar_rounded),
-                          label: Text(isZh ? '立即扫描' : 'Scan now'),
+                          label: Text(loc?.webReverseJwtScanNow ?? 'Scan now'),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _busy ? null : () async {
@@ -344,13 +345,14 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             if (mounted) setState(() {});
                           },
                           icon: const Icon(Icons.refresh_rounded),
-                          label: Text(isZh ? '手动续期' : 'Refresh now'),
+                          label: Text(
+                              loc?.webReverseJwtRefreshNow ?? 'Refresh now'),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Switch(value: _autoRefresh, onChanged: _toggleAuto),
-                            Text(isZh ? '自动续期' : 'Auto'),
+                            Text(loc?.webReverseJwtAuto ?? 'Auto'),
                           ],
                         ),
                         SizedBox(
@@ -359,7 +361,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             controller: _intervalCtrl,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: isZh ? '间隔(秒)' : 'Interval(s)',
+                              labelText: loc?.webReverseJwtIntervalSec ??
+                                  'Interval(s)',
                               isDense: true,
                               border: const OutlineInputBorder(),
                             ),
@@ -371,7 +374,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             controller: _thresholdCtrl,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: isZh ? '阈值(秒)' : 'Threshold(s)',
+                              labelText: loc?.webReverseJwtThresholdSec ??
+                                  'Threshold(s)',
                               isDense: true,
                               border: const OutlineInputBorder(),
                             ),
@@ -385,22 +389,23 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       maxLines: 3,
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                       decoration: InputDecoration(
-                        labelText:
-                            isZh ? '刷新表达式 (async JS)' : 'Refresh expression (async JS)',
+                        labelText: loc?.webReverseJwtRefreshExpr ??
+                            'Refresh expression (async JS)',
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      isZh ? '已发现 JWT (${_samples.length})' : 'JWTs (${_samples.length})',
+                      loc?.webReverseJwtFoundCount(_samples.length) ??
+                          'JWTs (${_samples.length})',
                       style: theme.textTheme.labelLarge
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     if (_samples.isEmpty)
                       Text(
-                        isZh ? '尚未发现 JWT' : 'No JWT found',
+                        loc?.webReverseJwtNoneFound ?? 'No JWT found',
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -414,7 +419,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                     if (_logs.isNotEmpty) ...[
                       const SizedBox(height: 18),
                       Text(
-                        isZh ? '续期日志' : 'Refresh log',
+                        loc?.webReverseJwtRefreshLog ?? 'Refresh log',
                         style: theme.textTheme.labelLarge
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -469,7 +474,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseJwtClose ?? 'Close',
                     onPressed: () {
                       _timer?.cancel();
                       Navigator.of(context).pop();

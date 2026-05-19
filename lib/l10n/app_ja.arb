@@ -5165,5 +5165,58 @@
         "type": "int"
       }
     }
+  },
+  "webReverseJwtTitle": "JWT 自動更新",
+  "@webReverseJwtTitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtSubtitle": "cookies/ストレージ内のJWTをスキャンし、期限間近で更新JSを実行",
+  "@webReverseJwtSubtitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtScanNow": "今すぐスキャン",
+  "@webReverseJwtScanNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshNow": "今すぐ更新",
+  "@webReverseJwtRefreshNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtAuto": "自動",
+  "@webReverseJwtAuto": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtIntervalSec": "間隔(秒)",
+  "@webReverseJwtIntervalSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtThresholdSec": "閾値(秒)",
+  "@webReverseJwtThresholdSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshExpr": "更新式 (async JS)",
+  "@webReverseJwtRefreshExpr": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtNoneFound": "JWT が見つかりません",
+  "@webReverseJwtNoneFound": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshLog": "更新ログ",
+  "@webReverseJwtRefreshLog": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtClose": "閉じる",
+  "@webReverseJwtClose": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtFoundCount": "発見した JWT ({count})",
+  "@webReverseJwtFoundCount": {
+    "description": "web_reverse: JWT auto-refresh dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -7122,6 +7122,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '匹配 $match 条 · 共 $total';
   }
+
+  @override
+  String get webReverseJwtTitle => 'JWT 自动续期';
+
+  @override
+  String get webReverseJwtSubtitle =>
+      '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本';
+
+  @override
+  String get webReverseJwtScanNow => '立即扫描';
+
+  @override
+  String get webReverseJwtRefreshNow => '手动续期';
+
+  @override
+  String get webReverseJwtAuto => '自动续期';
+
+  @override
+  String get webReverseJwtIntervalSec => '间隔(秒)';
+
+  @override
+  String get webReverseJwtThresholdSec => '阈值(秒)';
+
+  @override
+  String get webReverseJwtRefreshExpr => '刷新表达式 (async JS)';
+
+  @override
+  String get webReverseJwtNoneFound => '尚未发现 JWT';
+
+  @override
+  String get webReverseJwtRefreshLog => '续期日志';
+
+  @override
+  String get webReverseJwtClose => '关闭';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return '已发现 JWT ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14242,6 +14281,45 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '匹配 $match 条 · 共 $total';
   }
+
+  @override
+  String get webReverseJwtTitle => 'JWT 自动续期';
+
+  @override
+  String get webReverseJwtSubtitle =>
+      '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本';
+
+  @override
+  String get webReverseJwtScanNow => '立即扫描';
+
+  @override
+  String get webReverseJwtRefreshNow => '手动续期';
+
+  @override
+  String get webReverseJwtAuto => '自动续期';
+
+  @override
+  String get webReverseJwtIntervalSec => '间隔(秒)';
+
+  @override
+  String get webReverseJwtThresholdSec => '阈值(秒)';
+
+  @override
+  String get webReverseJwtRefreshExpr => '刷新表达式 (async JS)';
+
+  @override
+  String get webReverseJwtNoneFound => '尚未发现 JWT';
+
+  @override
+  String get webReverseJwtRefreshLog => '续期日志';
+
+  @override
+  String get webReverseJwtClose => '关闭';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return '已发现 JWT ($count)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21360,5 +21438,44 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '匹配 $match 条 · 共 $total';
+  }
+
+  @override
+  String get webReverseJwtTitle => 'JWT 自动续期';
+
+  @override
+  String get webReverseJwtSubtitle =>
+      '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本';
+
+  @override
+  String get webReverseJwtScanNow => '立即扫描';
+
+  @override
+  String get webReverseJwtRefreshNow => '手动续期';
+
+  @override
+  String get webReverseJwtAuto => '自动续期';
+
+  @override
+  String get webReverseJwtIntervalSec => '间隔(秒)';
+
+  @override
+  String get webReverseJwtThresholdSec => '阈值(秒)';
+
+  @override
+  String get webReverseJwtRefreshExpr => '刷新表达式 (async JS)';
+
+  @override
+  String get webReverseJwtNoneFound => '尚未发现 JWT';
+
+  @override
+  String get webReverseJwtRefreshLog => '续期日志';
+
+  @override
+  String get webReverseJwtClose => '关闭';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return '已发现 JWT ($count)';
   }
 }

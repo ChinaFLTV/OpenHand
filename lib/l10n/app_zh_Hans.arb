@@ -5234,5 +5234,58 @@
         "type": "int"
       }
     }
+  },
+  "webReverseJwtTitle": "JWT 自动续期",
+  "@webReverseJwtTitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtSubtitle": "扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本",
+  "@webReverseJwtSubtitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtScanNow": "立即扫描",
+  "@webReverseJwtScanNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshNow": "手动续期",
+  "@webReverseJwtRefreshNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtAuto": "自动续期",
+  "@webReverseJwtAuto": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtIntervalSec": "间隔(秒)",
+  "@webReverseJwtIntervalSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtThresholdSec": "阈值(秒)",
+  "@webReverseJwtThresholdSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshExpr": "刷新表达式 (async JS)",
+  "@webReverseJwtRefreshExpr": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtNoneFound": "尚未发现 JWT",
+  "@webReverseJwtNoneFound": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshLog": "续期日志",
+  "@webReverseJwtRefreshLog": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtClose": "关闭",
+  "@webReverseJwtClose": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtFoundCount": "已发现 JWT ({count})",
+  "@webReverseJwtFoundCount": {
+    "description": "web_reverse: JWT auto-refresh dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

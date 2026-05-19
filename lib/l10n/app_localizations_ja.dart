@@ -7219,4 +7219,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '$match件一致 · 合計 $total';
   }
+
+  @override
+  String get webReverseJwtTitle => 'JWT 自動更新';
+
+  @override
+  String get webReverseJwtSubtitle => 'cookies/ストレージ内のJWTをスキャンし、期限間近で更新JSを実行';
+
+  @override
+  String get webReverseJwtScanNow => '今すぐスキャン';
+
+  @override
+  String get webReverseJwtRefreshNow => '今すぐ更新';
+
+  @override
+  String get webReverseJwtAuto => '自動';
+
+  @override
+  String get webReverseJwtIntervalSec => '間隔(秒)';
+
+  @override
+  String get webReverseJwtThresholdSec => '閾値(秒)';
+
+  @override
+  String get webReverseJwtRefreshExpr => '更新式 (async JS)';
+
+  @override
+  String get webReverseJwtNoneFound => 'JWT が見つかりません';
+
+  @override
+  String get webReverseJwtRefreshLog => '更新ログ';
+
+  @override
+  String get webReverseJwtClose => '閉じる';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return '発見した JWT ($count)';
+  }
 }

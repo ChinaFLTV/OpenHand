@@ -7416,4 +7416,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '$match match · $total total';
   }
+
+  @override
+  String get webReverseJwtTitle => 'JWT Auto Refresh';
+
+  @override
+  String get webReverseJwtSubtitle =>
+      'Scan JWTs in cookies/storage, run refresh JS when near exp';
+
+  @override
+  String get webReverseJwtScanNow => 'Scan now';
+
+  @override
+  String get webReverseJwtRefreshNow => 'Refresh now';
+
+  @override
+  String get webReverseJwtAuto => 'Auto';
+
+  @override
+  String get webReverseJwtIntervalSec => 'Interval(s)';
+
+  @override
+  String get webReverseJwtThresholdSec => 'Threshold(s)';
+
+  @override
+  String get webReverseJwtRefreshExpr => 'Refresh expression (async JS)';
+
+  @override
+  String get webReverseJwtNoneFound => 'No JWT found';
+
+  @override
+  String get webReverseJwtRefreshLog => 'Refresh log';
+
+  @override
+  String get webReverseJwtClose => 'Close';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return 'JWTs ($count)';
+  }
 }

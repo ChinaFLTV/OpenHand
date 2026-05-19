@@ -5165,5 +5165,58 @@
         "type": "int"
       }
     }
+  },
+  "webReverseJwtTitle": "Renouvellement JWT auto",
+  "@webReverseJwtTitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtSubtitle": "Scanner les JWT dans cookies/storage, exécuter le JS de refresh à l'approche de l'expiration",
+  "@webReverseJwtSubtitle": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtScanNow": "Scanner maintenant",
+  "@webReverseJwtScanNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshNow": "Rafraîchir maintenant",
+  "@webReverseJwtRefreshNow": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtAuto": "Auto",
+  "@webReverseJwtAuto": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtIntervalSec": "Intervalle(s)",
+  "@webReverseJwtIntervalSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtThresholdSec": "Seuil(s)",
+  "@webReverseJwtThresholdSec": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshExpr": "Expression de refresh (JS async)",
+  "@webReverseJwtRefreshExpr": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtNoneFound": "Aucun JWT trouvé",
+  "@webReverseJwtNoneFound": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtRefreshLog": "Journal de refresh",
+  "@webReverseJwtRefreshLog": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtClose": "Fermer",
+  "@webReverseJwtClose": {
+    "description": "web_reverse: JWT auto-refresh dialog"
+  },
+  "webReverseJwtFoundCount": "JWT trouvés ({count})",
+  "@webReverseJwtFoundCount": {
+    "description": "web_reverse: JWT auto-refresh dialog",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

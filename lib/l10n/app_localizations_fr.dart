@@ -7520,4 +7520,43 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseCollectionExportMatchCount(int match, int total) {
     return '$match correspondance · $total au total';
   }
+
+  @override
+  String get webReverseJwtTitle => 'Renouvellement JWT auto';
+
+  @override
+  String get webReverseJwtSubtitle =>
+      'Scanner les JWT dans cookies/storage, exécuter le JS de refresh à l\'approche de l\'expiration';
+
+  @override
+  String get webReverseJwtScanNow => 'Scanner maintenant';
+
+  @override
+  String get webReverseJwtRefreshNow => 'Rafraîchir maintenant';
+
+  @override
+  String get webReverseJwtAuto => 'Auto';
+
+  @override
+  String get webReverseJwtIntervalSec => 'Intervalle(s)';
+
+  @override
+  String get webReverseJwtThresholdSec => 'Seuil(s)';
+
+  @override
+  String get webReverseJwtRefreshExpr => 'Expression de refresh (JS async)';
+
+  @override
+  String get webReverseJwtNoneFound => 'Aucun JWT trouvé';
+
+  @override
+  String get webReverseJwtRefreshLog => 'Journal de refresh';
+
+  @override
+  String get webReverseJwtClose => 'Fermer';
+
+  @override
+  String webReverseJwtFoundCount(int count) {
+    return 'JWT trouvés ($count)';
+  }
 }

@@ -13150,6 +13150,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'匹配 {match} 条 · 共 {total}'**
   String webReverseCollectionExportMatchCount(int match, int total);
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JWT 自动续期'**
+  String get webReverseJwtTitle;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本'**
+  String get webReverseJwtSubtitle;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'立即扫描'**
+  String get webReverseJwtScanNow;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动续期'**
+  String get webReverseJwtRefreshNow;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动续期'**
+  String get webReverseJwtAuto;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'间隔(秒)'**
+  String get webReverseJwtIntervalSec;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'阈值(秒)'**
+  String get webReverseJwtThresholdSec;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新表达式 (async JS)'**
+  String get webReverseJwtRefreshExpr;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未发现 JWT'**
+  String get webReverseJwtNoneFound;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'续期日志'**
+  String get webReverseJwtRefreshLog;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseJwtClose;
+
+  /// web_reverse: JWT auto-refresh dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已发现 JWT ({count})'**
+  String webReverseJwtFoundCount(int count);
 }
 
 class _AppLocalizationsDelegate
