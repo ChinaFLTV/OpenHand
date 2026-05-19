@@ -5644,5 +5644,49 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHeapTaking": "Heap Snapshot を取得中（数秒かかる場合があります）...",
+  "@webReverseHeapTaking": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapFailed": "取得失敗または空",
+  "@webReverseHeapFailed": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSavedToast": "Snapshot を保存しました",
+  "@webReverseHeapSavedToast": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapPathCopied": "パスをコピーしました",
+  "@webReverseHeapPathCopied": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSubtitle": "HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory で読み込み可）",
+  "@webReverseHeapSubtitle": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapEmptyHint": "下のボタンで現在のページの V8 Heap Snapshot を取得します。\n大きなページは 50MB+ のファイルになることがあります。",
+  "@webReverseHeapEmptyHint": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapCopyPath": "パスをコピー",
+  "@webReverseHeapCopyPath": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapTake": "スナップショット取得",
+  "@webReverseHeapTake": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSaved": "保存しました: {path} ({mb} MB)",
+  "@webReverseHeapSaved": {
+    "description": "web_reverse: heap snapshot dialog",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "mb": {
+        "type": "String"
+      }
+    }
   }
 }

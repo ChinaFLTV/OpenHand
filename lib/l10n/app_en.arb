@@ -5644,5 +5644,49 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHeapTaking": "Taking heap snapshot...",
+  "@webReverseHeapTaking": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapFailed": "Snapshot failed or empty",
+  "@webReverseHeapFailed": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSavedToast": "Snapshot saved",
+  "@webReverseHeapSavedToast": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapPathCopied": "Path copied",
+  "@webReverseHeapPathCopied": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSubtitle": "HeapProfiler.takeHeapSnapshot → .heapsnapshot",
+  "@webReverseHeapSubtitle": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapEmptyHint": "Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.",
+  "@webReverseHeapEmptyHint": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapCopyPath": "Copy path",
+  "@webReverseHeapCopyPath": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapTake": "Take Snapshot",
+  "@webReverseHeapTake": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSaved": "Saved: {path} ({mb} MB)",
+  "@webReverseHeapSaved": {
+    "description": "web_reverse: heap snapshot dialog",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "mb": {
+        "type": "String"
+      }
+    }
   }
 }

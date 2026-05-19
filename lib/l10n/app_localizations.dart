@@ -13690,6 +13690,60 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已应用 {rate}× 限速'**
   String webReverseCpuThrottleApplied(String rate);
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在抓取 Heap Snapshot（可能耗时数秒）...'**
+  String get webReverseHeapTaking;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓取失败或无数据'**
+  String get webReverseHeapFailed;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Heap snapshot 已保存'**
+  String get webReverseHeapSavedToast;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'路径已复制'**
+  String get webReverseHeapPathCopied;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）'**
+  String get webReverseHeapSubtitle;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。'**
+  String get webReverseHeapEmptyHint;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制路径'**
+  String get webReverseHeapCopyPath;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'抓取快照'**
+  String get webReverseHeapTake;
+
+  /// web_reverse: heap snapshot dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存：{path} ({mb} MB)'**
+  String webReverseHeapSaved(String path, String mb);
 }
 
 class _AppLocalizationsDelegate

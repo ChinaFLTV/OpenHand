@@ -5713,5 +5713,49 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHeapTaking": "正在抓取 Heap Snapshot（可能耗时数秒）...",
+  "@webReverseHeapTaking": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapFailed": "抓取失败或无数据",
+  "@webReverseHeapFailed": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSavedToast": "Heap snapshot 已保存",
+  "@webReverseHeapSavedToast": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapPathCopied": "路径已复制",
+  "@webReverseHeapPathCopied": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSubtitle": "HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）",
+  "@webReverseHeapSubtitle": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapEmptyHint": "点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。",
+  "@webReverseHeapEmptyHint": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapCopyPath": "复制路径",
+  "@webReverseHeapCopyPath": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapTake": "抓取快照",
+  "@webReverseHeapTake": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSaved": "已保存：{path} ({mb} MB)",
+  "@webReverseHeapSaved": {
+    "description": "web_reverse: heap snapshot dialog",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "mb": {
+        "type": "String"
+      }
+    }
   }
 }

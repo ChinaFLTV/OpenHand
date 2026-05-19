@@ -7544,4 +7544,35 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCpuThrottleApplied(String rate) {
     return '$rate× スロットルを適用';
   }
+
+  @override
+  String get webReverseHeapTaking => 'Heap Snapshot を取得中（数秒かかる場合があります）...';
+
+  @override
+  String get webReverseHeapFailed => '取得失敗または空';
+
+  @override
+  String get webReverseHeapSavedToast => 'Snapshot を保存しました';
+
+  @override
+  String get webReverseHeapPathCopied => 'パスをコピーしました';
+
+  @override
+  String get webReverseHeapSubtitle =>
+      'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory で読み込み可）';
+
+  @override
+  String get webReverseHeapEmptyHint =>
+      '下のボタンで現在のページの V8 Heap Snapshot を取得します。\n大きなページは 50MB+ のファイルになることがあります。';
+
+  @override
+  String get webReverseHeapCopyPath => 'パスをコピー';
+
+  @override
+  String get webReverseHeapTake => 'スナップショット取得';
+
+  @override
+  String webReverseHeapSaved(String path, String mb) {
+    return '保存しました: $path ($mb MB)';
+  }
 }

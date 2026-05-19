@@ -7849,4 +7849,36 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseCpuThrottleApplied(String rate) {
     return 'Limitation $rate× appliquée';
   }
+
+  @override
+  String get webReverseHeapTaking =>
+      'Capture du heap snapshot en cours (peut prendre quelques secondes)...';
+
+  @override
+  String get webReverseHeapFailed => 'Échec du snapshot ou vide';
+
+  @override
+  String get webReverseHeapSavedToast => 'Snapshot enregistré';
+
+  @override
+  String get webReverseHeapPathCopied => 'Chemin copié';
+
+  @override
+  String get webReverseHeapSubtitle =>
+      'HeapProfiler.takeHeapSnapshot → .heapsnapshot (chargeable dans DevTools Memory)';
+
+  @override
+  String get webReverseHeapEmptyHint =>
+      'Cliquez ci-dessous pour capturer le heap snapshot V8 de la page.\nLes grandes pages peuvent dépasser 50 Mo.';
+
+  @override
+  String get webReverseHeapCopyPath => 'Copier le chemin';
+
+  @override
+  String get webReverseHeapTake => 'Capturer le snapshot';
+
+  @override
+  String webReverseHeapSaved(String path, String mb) {
+    return 'Enregistré : $path ($mb Mo)';
+  }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -30,6 +31,7 @@ Future<void> showWebReverseHeapSnapshotDialog(
 class _HeapDialog extends StatefulWidget {
   const _HeapDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_HeapDialog> createState() => _HeapDialogState();
@@ -42,10 +44,11 @@ class _HeapDialogState extends State<_HeapDialog> {
   int _lastBytes = 0;
 
   Future<void> _take() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = isZh ? '正在抓取 Heap Snapshot（可能耗时数秒）...' : 'Taking heap snapshot...';
+      _status =
+          loc?.webReverseHeapTaking ?? 'Taking heap snapshot...';
     });
     ({String json, int bytes})? r;
     try {
@@ -57,7 +60,8 @@ class _HeapDialogState extends State<_HeapDialog> {
     if (r == null || r.json.isEmpty) {
       setState(() {
         _busy = false;
-        _status = isZh ? '抓取失败或无数据' : 'Snapshot failed or empty';
+        _status =
+            loc?.webReverseHeapFailed ?? 'Snapshot failed or empty';
       });
       return;
     }
@@ -70,16 +74,16 @@ class _HeapDialogState extends State<_HeapDialog> {
       _busy = false;
       _lastSaved = file.path;
       _lastBytes = r!.bytes;
-      _status = isZh
-          ? '已保存：${file.path} (${(_lastBytes / 1024 / 1024).toStringAsFixed(2)} MB)'
-          : 'Saved: ${file.path} (${(_lastBytes / 1024 / 1024).toStringAsFixed(2)} MB)';
+      final mb = (_lastBytes / 1024 / 1024).toStringAsFixed(2);
+      _status = loc?.webReverseHeapSaved(file.path, mb) ??
+          'Saved: ${file.path} ($mb MB)';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        isZh ? 'Heap snapshot 已保存' : 'Snapshot saved',
+        loc?.webReverseHeapSavedToast ?? 'Snapshot saved',
       );
     }
   }
@@ -97,7 +101,7 @@ class _HeapDialogState extends State<_HeapDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '路径已复制' : 'Path copied',
+        AppLocalizations.of(context)?.webReverseHeapPathCopied ?? 'Path copied',
       );
     }
   }
@@ -106,7 +110,7 @@ class _HeapDialogState extends State<_HeapDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -127,14 +131,13 @@ class _HeapDialogState extends State<_HeapDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Heap Snapshot' : 'Heap Snapshot',
+                          'Heap Snapshot',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）'
-                              : 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+                          loc?.webReverseHeapSubtitle ??
+                              'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -165,9 +168,8 @@ class _HeapDialogState extends State<_HeapDialog> {
                   Expanded(
                     child: Text(
                       _status.isEmpty
-                          ? (isZh
-                              ? '点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。'
-                              : 'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
+                          ? (loc?.webReverseHeapEmptyHint ??
+                              'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
                           : _status,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: cs.onSurfaceVariant),
@@ -185,18 +187,18 @@ class _HeapDialogState extends State<_HeapDialog> {
                 children: [
                   if (_lastSaved.isNotEmpty)
                     OpenHandDialogActionButton.secondary(
-                      label: isZh ? '复制路径' : 'Copy path',
+                      label: loc?.webReverseHeapCopyPath ?? 'Copy path',
                       icon: Icons.copy_rounded,
                       onPressed: _copyPath,
                     ),
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '抓取快照' : 'Take Snapshot',
+                    label: loc?.webReverseHeapTake ?? 'Take Snapshot',
                     icon: Icons.camera_alt_rounded,
                     busy: _busy,
                     onPressed: _busy ? null : _take,
                   ),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.commonClose ?? 'Close',
                     onPressed: _busy
                         ? null
                         : () => Navigator.of(context).pop(),

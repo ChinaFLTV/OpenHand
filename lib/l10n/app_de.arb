@@ -5644,5 +5644,49 @@
         "type": "String"
       }
     }
+  },
+  "webReverseHeapTaking": "Heap-Snapshot wird erfasst (kann einige Sekunden dauern)...",
+  "@webReverseHeapTaking": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapFailed": "Snapshot fehlgeschlagen oder leer",
+  "@webReverseHeapFailed": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSavedToast": "Snapshot gespeichert",
+  "@webReverseHeapSavedToast": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapPathCopied": "Pfad kopiert",
+  "@webReverseHeapPathCopied": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSubtitle": "HeapProfiler.takeHeapSnapshot → .heapsnapshot (DevTools Memory ladbar)",
+  "@webReverseHeapSubtitle": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapEmptyHint": "Klicken Sie unten, um den V8-Heap-Snapshot der aktuellen Seite zu erfassen.\nGroße Seiten können 50MB+ erzeugen.",
+  "@webReverseHeapEmptyHint": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapCopyPath": "Pfad kopieren",
+  "@webReverseHeapCopyPath": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapTake": "Snapshot erstellen",
+  "@webReverseHeapTake": {
+    "description": "web_reverse: heap snapshot dialog"
+  },
+  "webReverseHeapSaved": "Gespeichert: {path} ({mb} MB)",
+  "@webReverseHeapSaved": {
+    "description": "web_reverse: heap snapshot dialog",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "mb": {
+        "type": "String"
+      }
+    }
   }
 }

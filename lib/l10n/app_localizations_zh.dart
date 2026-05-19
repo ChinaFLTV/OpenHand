@@ -7445,6 +7445,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCpuThrottleApplied(String rate) {
     return '已应用 $rate× 限速';
   }
+
+  @override
+  String get webReverseHeapTaking => '正在抓取 Heap Snapshot（可能耗时数秒）...';
+
+  @override
+  String get webReverseHeapFailed => '抓取失败或无数据';
+
+  @override
+  String get webReverseHeapSavedToast => 'Heap snapshot 已保存';
+
+  @override
+  String get webReverseHeapPathCopied => '路径已复制';
+
+  @override
+  String get webReverseHeapSubtitle =>
+      'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）';
+
+  @override
+  String get webReverseHeapEmptyHint =>
+      '点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。';
+
+  @override
+  String get webReverseHeapCopyPath => '复制路径';
+
+  @override
+  String get webReverseHeapTake => '抓取快照';
+
+  @override
+  String webReverseHeapSaved(String path, String mb) {
+    return '已保存：$path ($mb MB)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14888,6 +14919,37 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCpuThrottleApplied(String rate) {
     return '已应用 $rate× 限速';
   }
+
+  @override
+  String get webReverseHeapTaking => '正在抓取 Heap Snapshot（可能耗时数秒）...';
+
+  @override
+  String get webReverseHeapFailed => '抓取失败或无数据';
+
+  @override
+  String get webReverseHeapSavedToast => 'Heap snapshot 已保存';
+
+  @override
+  String get webReverseHeapPathCopied => '路径已复制';
+
+  @override
+  String get webReverseHeapSubtitle =>
+      'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）';
+
+  @override
+  String get webReverseHeapEmptyHint =>
+      '点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。';
+
+  @override
+  String get webReverseHeapCopyPath => '复制路径';
+
+  @override
+  String get webReverseHeapTake => '抓取快照';
+
+  @override
+  String webReverseHeapSaved(String path, String mb) {
+    return '已保存：$path ($mb MB)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22329,5 +22391,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCpuThrottleApplied(String rate) {
     return '已应用 $rate× 限速';
+  }
+
+  @override
+  String get webReverseHeapTaking => '正在抓取 Heap Snapshot（可能耗时数秒）...';
+
+  @override
+  String get webReverseHeapFailed => '抓取失败或无数据';
+
+  @override
+  String get webReverseHeapSavedToast => 'Heap snapshot 已保存';
+
+  @override
+  String get webReverseHeapPathCopied => '路径已复制';
+
+  @override
+  String get webReverseHeapSubtitle =>
+      'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）';
+
+  @override
+  String get webReverseHeapEmptyHint =>
+      '点击下方按钮抓取当前页面的 V8 Heap Snapshot。\n大型页面可能产生 50MB+ 文件。';
+
+  @override
+  String get webReverseHeapCopyPath => '复制路径';
+
+  @override
+  String get webReverseHeapTake => '抓取快照';
+
+  @override
+  String webReverseHeapSaved(String path, String mb) {
+    return '已保存：$path ($mb MB)';
   }
 }
