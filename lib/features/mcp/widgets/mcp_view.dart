@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -511,11 +512,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     try {
       // 1. 卸载全局包
-      final result = await Process.run('npm', [
+      final result = await runTrackedProcessOrFailed('npm', [
         'uninstall',
         '-g',
         packageName,
-      ]).timeout(const Duration(seconds: 30));
+      ], timeout: const Duration(seconds: 30));
 
       // 2. 清理该服务在隔离缓存中的残留
       final cacheRoot = mcpStdioIsolatedCacheRoot();

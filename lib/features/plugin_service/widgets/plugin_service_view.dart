@@ -1225,15 +1225,15 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       // 获取额外运行时信息
       if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
         try {
-          final npmResult = await Process.run('npm', [
+          final npmResult = await runTrackedProcessOrFailed('npm', [
             '--version',
-          ]).timeout(const Duration(seconds: 5));
+          ], timeout: const Duration(seconds: 5));
           if (npmResult.exitCode == 0) {
             info['npm'] = npmResult.stdout.toString().trim();
           }
-          final npxResult = await Process.run('npx', [
+          final npxResult = await runTrackedProcessOrFailed('npx', [
             '--version',
-          ]).timeout(const Duration(seconds: 5));
+          ], timeout: const Duration(seconds: 5));
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
           }
@@ -1241,10 +1241,10 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       }
       if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
         try {
-          final result = await Process.run('npx', [
+          final result = await runTrackedProcessOrFailed('npx', [
             'playwright',
             '--version',
-          ]).timeout(const Duration(seconds: 10));
+          ], timeout: const Duration(seconds: 10));
           if (result.exitCode == 0) {
             info['Playwright CLI'] = result.stdout.toString().trim();
           }
@@ -1548,12 +1548,12 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         bool npmInstalled = false;
         String? npmVersion;
         try {
-          final listResult = await Process.run('npm', [
+          final listResult = await runTrackedProcessOrFailed('npm', [
             'list',
             '-g',
             '@playwright/mcp',
             '--depth=0',
-          ]).timeout(const Duration(seconds: 10));
+          ], timeout: const Duration(seconds: 10));
           npmInstalled =
               listResult.exitCode == 0 &&
               listResult.stdout.toString().contains('@playwright/mcp');

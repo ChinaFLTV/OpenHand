@@ -192,3 +192,37 @@ Future<ProcessResult?> runProcessWithTimeout(
     return null;
   }
 }
+
+/// 兼容 `Process.run(...).timeout(...)` 写法的封装：永远返回非空
+/// [ProcessResult]，launch 失败/超时统一回落到 `ProcessResult(-1, -1, '', '')`。
+/// 子进程登记到全局簿（应用退出兜底）+ 超时强制 SIGKILL，避免 orphan
+/// osascript / mitmdump / npm 等继续污染 macOS IMK 输入上下文。
+///
+/// 用法（与 `Process.run().timeout()` 几乎 1:1 替换）：
+/// ```dart
+/// final r = await runTrackedProcessOrFailed('which', ['node'],
+///     timeout: const Duration(seconds: 5));
+/// if (r.exitCode == 0) { ... }
+/// ```
+Future<ProcessResult> runTrackedProcessOrFailed(
+  String executable,
+  List<String> arguments, {
+  Duration timeout = const Duration(seconds: 4),
+  String tag = 'safe_subprocess',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+}) async {
+  final r = await runProcessWithTimeout(
+    executable,
+    arguments,
+    timeout: timeout,
+    tag: tag,
+    workingDirectory: workingDirectory,
+    environment: environment,
+    runInShell: runInShell,
+    includeParentEnvironment: includeParentEnvironment,
+  );
+  return r ?? ProcessResult(-1, -1, '', '');
+}

@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../../app/support/safe_subprocess.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -834,12 +834,12 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     try {
       if (_isNpxService) {
         // npm 全局安装状态检查：用清理后的包名查询
-        final listResult = await Process.run('npm', [
+        final listResult = await runTrackedProcessOrFailed('npm', [
           'list',
           '-g',
           cleanPkg,
           '--depth=0',
-        ]).timeout(const Duration(seconds: 10));
+        ], timeout: const Duration(seconds: 10));
         // npm list 输出格式如 "├── chrome-devtools-mcp@0.25.0"
         // 用清理后的包名匹配，避免 @latest 导致永远匹配不上
         _packageInstalled =
@@ -853,21 +853,21 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         }
         // 检查最新版本
         try {
-          final viewResult = await Process.run('npm', [
+          final viewResult = await runTrackedProcessOrFailed('npm', [
             'view',
             cleanPkg,
             'version',
-          ]).timeout(const Duration(seconds: 10));
+          ], timeout: const Duration(seconds: 10));
           if (viewResult.exitCode == 0) {
             _latestVersion = viewResult.stdout.toString().trim();
           }
         } catch (_) {}
       } else if (_isUvxService) {
         // uvx/pip 全局安装状态检查
-        final listResult = await Process.run('uv', [
+        final listResult = await runTrackedProcessOrFailed('uv', [
           'tool',
           'list',
-        ]).timeout(const Duration(seconds: 10));
+        ], timeout: const Duration(seconds: 10));
         _packageInstalled =
             listResult.exitCode == 0 &&
             listResult.stdout.toString().contains(cleanPkg);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../model/plugin_info.dart';
 
@@ -120,20 +121,20 @@ class PluginScannerService {
       // 方案 1：直接从 nvm 目录解析（最可靠）
       final nvm = await _resolveNvmDirect();
       if (nvm != null) {
-        final versionResult = await Process.run(nvm.nodeBin, [
+        final versionResult = await runTrackedProcessOrFailed(nvm.nodeBin, [
           '--version',
-        ]).timeout(const Duration(seconds: 5));
+        ], timeout: const Duration(seconds: 5));
         final version = versionResult.exitCode == 0
             ? versionResult.stdout.toString().trim()
             : nvm.version;
         String? latestVersion;
         try {
           if (File(nvm.npmBin).existsSync()) {
-            final r = await Process.run(nvm.npmBin, [
+            final r = await runTrackedProcessOrFailed(nvm.npmBin, [
               'view',
               'node',
               'version',
-            ]).timeout(const Duration(seconds: 10));
+            ], timeout: const Duration(seconds: 10));
             if (r.exitCode == 0) {
               final m = RegExp(
                 r'(\d+\.\d+\.\d+)',
