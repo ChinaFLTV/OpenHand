@@ -15,7 +15,7 @@ part of 'web_reverse_dashboard_dialog.dart';
 
 class _CryptoPadBody extends StatefulWidget {
   const _CryptoPadBody({required this.isZh, required this.reduceMotion});
-  final bool isZh;
+  final bool isZh; // ignore: unused_field
   final bool reduceMotion;
 
   @override
@@ -48,9 +48,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   Future<void> _copy(String text, String label) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh ? '已复制 $label' : '$label copied',
+      loc?.webReverseCryptoCopied(label) ?? '$label copied',
       duration: const Duration(seconds: 1),
     );
   }
@@ -176,23 +177,26 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
           child: Row(
             children: [
-              _sectionBtn(cs, 0, isZh ? '编解码' : 'Encode'),
-              _sectionBtn(cs, 1, isZh ? '哈希' : 'Hash'),
+              _sectionBtn(cs, 0,
+                  loc?.webReverseCryptoSecEncode ?? 'Encode'),
+              _sectionBtn(cs, 1,
+                  loc?.webReverseCryptoSecHash ?? 'Hash'),
               _sectionBtn(cs, 2, 'JWT'),
-              _sectionBtn(cs, 3, isZh ? '时间戳' : 'Time'),
+              _sectionBtn(cs, 3,
+                  loc?.webReverseCryptoSecTime ?? 'Time'),
               _sectionBtn(cs, 4, 'UUID'),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => _setInput(''),
                 icon: const Icon(Icons.clear_rounded, size: 14),
-                label: Text(isZh ? '清空' : 'Clear'),
+                label: Text(loc?.webReverseCryptoClear ?? 'Clear'),
               ),
             ],
           ),
@@ -207,8 +211,8 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
               decoration: InputDecoration(
                 isDense: true,
                 border: const OutlineInputBorder(),
-                hintText: isZh ? '在此粘贴待处理文本…' : 'Paste here…',
-                labelText: isZh ? '输入' : 'Input',
+                hintText: loc?.webReverseCryptoInputHint ?? 'Paste here…',
+                labelText: loc?.webReverseCryptoInputLabel ?? 'Input',
               ),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               onChanged: (_) => setState(() {}),
@@ -222,11 +226,11 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                 : const Duration(milliseconds: 200),
             switchInCurve: Curves.easeOutCubic,
             child: switch (_section) {
-              0 => _encodingPanel(theme, cs, isZh),
-              1 => _hashPanel(theme, cs, isZh),
-              2 => _jwtPanel(theme, cs, isZh),
-              3 => _timePanel(theme, cs, isZh),
-              _ => _uuidPanel(theme, cs, isZh),
+              0 => _encodingPanel(theme, cs, loc),
+              1 => _hashPanel(theme, cs, loc),
+              2 => _jwtPanel(theme, cs, loc),
+              3 => _timePanel(theme, cs, loc),
+              _ => _uuidPanel(theme, cs, loc),
             },
           ),
         ),
@@ -252,7 +256,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
 
   // ─── 结果卡片 ────────────────────────────────────────────────────────
   Widget _resultCard(ThemeData theme, ColorScheme cs, String label,
-      String value, {bool isZh = true}) {
+      String value, {AppLocalizations? loc}) {
     return Container(
       key: ValueKey('rc-$label'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -272,7 +276,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                       ?.copyWith(color: cs.primary, fontWeight: FontWeight.w700)),
               const Spacer(),
               IconButton(
-                tooltip: isZh ? '复制' : 'Copy',
+                tooltip: loc?.webReverseCryptoCopy ?? 'Copy',
                 icon: const Icon(Icons.content_copy_rounded, size: 14),
                 onPressed: value.isEmpty || value.startsWith('!')
                     ? null
@@ -284,7 +288,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
               ),
               if (label == 'Output' || label == 'Decoded' || label == 'Encoded')
                 IconButton(
-                  tooltip: isZh ? '回填到输入' : 'Use as input',
+                  tooltip: loc?.webReverseCryptoUseAsInput ?? 'Use as input',
                   icon: const Icon(Icons.north_west_rounded, size: 14),
                   onPressed: value.isEmpty || value.startsWith('!')
                       ? null
@@ -310,78 +314,92 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     );
   }
 
-  Widget _encodingPanel(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _encodingPanel(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final t = _input.text;
     return ListView(
       key: const ValueKey('enc'),
       children: [
-        _resultCard(theme, cs, 'Base64 Encode', _b64Encode(t), isZh: isZh),
-        _resultCard(theme, cs, 'Base64 Decode', _b64Decode(t), isZh: isZh),
-        _resultCard(theme, cs, 'URL Encode', _urlEncode(t), isZh: isZh),
-        _resultCard(theme, cs, 'URL Decode', _urlDecode(t), isZh: isZh),
-        _resultCard(theme, cs, 'Hex Encode', _hexEncode(t), isZh: isZh),
-        _resultCard(theme, cs, 'Hex Decode', _hexDecode(t), isZh: isZh),
-        _resultCard(theme, cs,
-            isZh ? '长度' : 'Length',
-            isZh
-                ? '字符 ${t.length} / 字节 ${utf8.encode(t).length}'
-                : 'chars ${t.length} / bytes ${utf8.encode(t).length}',
-            isZh: isZh),
+        _resultCard(theme, cs, 'Base64 Encode', _b64Encode(t), loc: loc),
+        _resultCard(theme, cs, 'Base64 Decode', _b64Decode(t), loc: loc),
+        _resultCard(theme, cs, 'URL Encode', _urlEncode(t), loc: loc),
+        _resultCard(theme, cs, 'URL Decode', _urlDecode(t), loc: loc),
+        _resultCard(theme, cs, 'Hex Encode', _hexEncode(t), loc: loc),
+        _resultCard(theme, cs, 'Hex Decode', _hexDecode(t), loc: loc),
+        _resultCard(
+            theme,
+            cs,
+            loc?.webReverseCryptoLengthLabel ?? 'Length',
+            loc?.webReverseCryptoLengthValue(t.length, utf8.encode(t).length) ??
+                'chars ${t.length} / bytes ${utf8.encode(t).length}',
+            loc: loc),
       ],
     );
   }
 
-  Widget _hashPanel(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _hashPanel(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final t = _input.text;
     return ListView(
       key: const ValueKey('hash'),
       children: [
-        _resultCard(theme, cs, 'MD5', _hashStr(crypto.md5, t), isZh: isZh),
-        _resultCard(theme, cs, 'SHA-1', _hashStr(crypto.sha1, t), isZh: isZh),
+        _resultCard(theme, cs, 'MD5', _hashStr(crypto.md5, t), loc: loc),
+        _resultCard(theme, cs, 'SHA-1', _hashStr(crypto.sha1, t), loc: loc),
         _resultCard(theme, cs, 'SHA-256', _hashStr(crypto.sha256, t),
-            isZh: isZh),
+            loc: loc),
         _resultCard(theme, cs, 'SHA-512', _hashStr(crypto.sha512, t),
-            isZh: isZh),
+            loc: loc),
       ],
     );
   }
 
-  Widget _jwtPanel(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _jwtPanel(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final parts = _jwtSplit(_input.text);
     return ListView(
       key: const ValueKey('jwt'),
       children: [
-        _resultCard(theme, cs, 'Header', parts['header'] ?? '', isZh: isZh),
-        _resultCard(theme, cs, 'Payload', parts['payload'] ?? '', isZh: isZh),
+        _resultCard(theme, cs, 'Header', parts['header'] ?? '', loc: loc),
+        _resultCard(theme, cs, 'Payload', parts['payload'] ?? '', loc: loc),
         _resultCard(theme, cs, 'Signature', parts['signature'] ?? '',
-            isZh: isZh),
+            loc: loc),
       ],
     );
   }
 
-  Widget _timePanel(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _timePanel(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final t = _input.text;
     final now = DateTime.now();
     return ListView(
       key: const ValueKey('time'),
       children: [
-        _resultCard(theme, cs, isZh ? '时间戳 → ISO' : 'Timestamp → ISO',
-            _tsToIso(t), isZh: isZh),
-        _resultCard(theme, cs, isZh ? 'ISO → 时间戳' : 'ISO → Timestamp',
-            _isoToTs(t), isZh: isZh),
         _resultCard(
             theme,
             cs,
-            isZh ? '当前时间' : 'Now',
+            loc?.webReverseCryptoTsToIso ?? 'Timestamp → ISO',
+            _tsToIso(t),
+            loc: loc),
+        _resultCard(
+            theme,
+            cs,
+            loc?.webReverseCryptoIsoToTs ?? 'ISO → Timestamp',
+            _isoToTs(t),
+            loc: loc),
+        _resultCard(
+            theme,
+            cs,
+            loc?.webReverseCryptoNow ?? 'Now',
             'sec=${(now.millisecondsSinceEpoch / 1000).floor()}\n'
                 'ms=${now.millisecondsSinceEpoch}\n'
                 'iso=${now.toIso8601String()}',
-            isZh: isZh),
+            loc: loc),
       ],
     );
   }
 
-  Widget _uuidPanel(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _uuidPanel(
+      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final samples = List<String>.generate(8, (_) => _genUuidV4());
     return ListView(
       key: const ValueKey('uuid'),
@@ -391,14 +409,17 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              Text(isZh ? '随机 UUID v4（点击复制）' : 'Random UUID v4 (tap to copy)',
+              Text(
+                  loc?.webReverseCryptoUuidHint ??
+                      'Random UUID v4 (tap to copy)',
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(color: cs.onSurfaceVariant)),
               const Spacer(),
               FilledButton.tonalIcon(
                 onPressed: () => setState(() {}),
                 icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: Text(isZh ? '重新生成' : 'Regenerate'),
+                label: Text(
+                    loc?.webReverseCryptoRegenerate ?? 'Regenerate'),
               ),
             ],
           ),

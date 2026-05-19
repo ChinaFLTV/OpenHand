@@ -7692,4 +7692,56 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseElementsListenersTab(int count) {
     return 'リスナー ($count)';
   }
+
+  @override
+  String get webReverseCryptoSecEncode => 'エンコード';
+
+  @override
+  String get webReverseCryptoSecHash => 'ハッシュ';
+
+  @override
+  String get webReverseCryptoSecTime => 'タイムスタンプ';
+
+  @override
+  String get webReverseCryptoClear => 'クリア';
+
+  @override
+  String get webReverseCryptoInputHint => 'ここに貼り付け…';
+
+  @override
+  String get webReverseCryptoInputLabel => '入力';
+
+  @override
+  String get webReverseCryptoCopy => 'コピー';
+
+  @override
+  String get webReverseCryptoUseAsInput => '入力に戻す';
+
+  @override
+  String get webReverseCryptoLengthLabel => '長さ';
+
+  @override
+  String get webReverseCryptoTsToIso => 'タイムスタンプ → ISO';
+
+  @override
+  String get webReverseCryptoIsoToTs => 'ISO → タイムスタンプ';
+
+  @override
+  String get webReverseCryptoNow => '現在時刻';
+
+  @override
+  String get webReverseCryptoUuidHint => 'ランダム UUID v4（タップでコピー）';
+
+  @override
+  String get webReverseCryptoRegenerate => '再生成';
+
+  @override
+  String webReverseCryptoCopied(String label) {
+    return '$label をコピーしました';
+  }
+
+  @override
+  String webReverseCryptoLengthValue(int chars, int bytes) {
+    return '文字 $chars / バイト $bytes';
+  }
 }

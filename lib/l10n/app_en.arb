@@ -5852,5 +5852,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCryptoSecEncode": "Encode",
+  "@webReverseCryptoSecEncode": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecHash": "Hash",
+  "@webReverseCryptoSecHash": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecTime": "Time",
+  "@webReverseCryptoSecTime": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoClear": "Clear",
+  "@webReverseCryptoClear": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputHint": "Paste here…",
+  "@webReverseCryptoInputHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputLabel": "Input",
+  "@webReverseCryptoInputLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopy": "Copy",
+  "@webReverseCryptoCopy": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUseAsInput": "Use as input",
+  "@webReverseCryptoUseAsInput": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoLengthLabel": "Length",
+  "@webReverseCryptoLengthLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoTsToIso": "Timestamp → ISO",
+  "@webReverseCryptoTsToIso": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoIsoToTs": "ISO → Timestamp",
+  "@webReverseCryptoIsoToTs": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoNow": "Now",
+  "@webReverseCryptoNow": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUuidHint": "Random UUID v4 (tap to copy)",
+  "@webReverseCryptoUuidHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoRegenerate": "Regenerate",
+  "@webReverseCryptoRegenerate": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopied": "{label} copied",
+  "@webReverseCryptoCopied": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCryptoLengthValue": "chars {chars} / bytes {bytes}",
+  "@webReverseCryptoLengthValue": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "chars": {
+        "type": "int"
+      },
+      "bytes": {
+        "type": "int"
+      }
+    }
   }
 }

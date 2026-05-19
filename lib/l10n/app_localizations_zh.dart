@@ -7593,6 +7593,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseElementsListenersTab(int count) {
     return '事件 ($count)';
   }
+
+  @override
+  String get webReverseCryptoSecEncode => '编解码';
+
+  @override
+  String get webReverseCryptoSecHash => '哈希';
+
+  @override
+  String get webReverseCryptoSecTime => '时间戳';
+
+  @override
+  String get webReverseCryptoClear => '清空';
+
+  @override
+  String get webReverseCryptoInputHint => '在此粘贴待处理文本…';
+
+  @override
+  String get webReverseCryptoInputLabel => '输入';
+
+  @override
+  String get webReverseCryptoCopy => '复制';
+
+  @override
+  String get webReverseCryptoUseAsInput => '回填到输入';
+
+  @override
+  String get webReverseCryptoLengthLabel => '长度';
+
+  @override
+  String get webReverseCryptoTsToIso => '时间戳 → ISO';
+
+  @override
+  String get webReverseCryptoIsoToTs => 'ISO → 时间戳';
+
+  @override
+  String get webReverseCryptoNow => '当前时间';
+
+  @override
+  String get webReverseCryptoUuidHint => '随机 UUID v4（点击复制）';
+
+  @override
+  String get webReverseCryptoRegenerate => '重新生成';
+
+  @override
+  String webReverseCryptoCopied(String label) {
+    return '已复制 $label';
+  }
+
+  @override
+  String webReverseCryptoLengthValue(int chars, int bytes) {
+    return '字符 $chars / 字节 $bytes';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15184,6 +15236,58 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseElementsListenersTab(int count) {
     return '事件 ($count)';
   }
+
+  @override
+  String get webReverseCryptoSecEncode => '编解码';
+
+  @override
+  String get webReverseCryptoSecHash => '哈希';
+
+  @override
+  String get webReverseCryptoSecTime => '时间戳';
+
+  @override
+  String get webReverseCryptoClear => '清空';
+
+  @override
+  String get webReverseCryptoInputHint => '在此粘贴待处理文本…';
+
+  @override
+  String get webReverseCryptoInputLabel => '输入';
+
+  @override
+  String get webReverseCryptoCopy => '复制';
+
+  @override
+  String get webReverseCryptoUseAsInput => '回填到输入';
+
+  @override
+  String get webReverseCryptoLengthLabel => '长度';
+
+  @override
+  String get webReverseCryptoTsToIso => '时间戳 → ISO';
+
+  @override
+  String get webReverseCryptoIsoToTs => 'ISO → 时间戳';
+
+  @override
+  String get webReverseCryptoNow => '当前时间';
+
+  @override
+  String get webReverseCryptoUuidHint => '随机 UUID v4（点击复制）';
+
+  @override
+  String get webReverseCryptoRegenerate => '重新生成';
+
+  @override
+  String webReverseCryptoCopied(String label) {
+    return '已复制 $label';
+  }
+
+  @override
+  String webReverseCryptoLengthValue(int chars, int bytes) {
+    return '字符 $chars / 字节 $bytes';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22773,5 +22877,57 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseElementsListenersTab(int count) {
     return '事件 ($count)';
+  }
+
+  @override
+  String get webReverseCryptoSecEncode => '编解码';
+
+  @override
+  String get webReverseCryptoSecHash => '哈希';
+
+  @override
+  String get webReverseCryptoSecTime => '时间戳';
+
+  @override
+  String get webReverseCryptoClear => '清空';
+
+  @override
+  String get webReverseCryptoInputHint => '在此粘贴待处理文本…';
+
+  @override
+  String get webReverseCryptoInputLabel => '输入';
+
+  @override
+  String get webReverseCryptoCopy => '复制';
+
+  @override
+  String get webReverseCryptoUseAsInput => '回填到输入';
+
+  @override
+  String get webReverseCryptoLengthLabel => '长度';
+
+  @override
+  String get webReverseCryptoTsToIso => '时间戳 → ISO';
+
+  @override
+  String get webReverseCryptoIsoToTs => 'ISO → 时间戳';
+
+  @override
+  String get webReverseCryptoNow => '当前时间';
+
+  @override
+  String get webReverseCryptoUuidHint => '随机 UUID v4（点击复制）';
+
+  @override
+  String get webReverseCryptoRegenerate => '重新生成';
+
+  @override
+  String webReverseCryptoCopied(String label) {
+    return '已复制 $label';
+  }
+
+  @override
+  String webReverseCryptoLengthValue(int chars, int bytes) {
+    return '字符 $chars / 字节 $bytes';
   }
 }

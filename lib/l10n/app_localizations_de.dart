@@ -7967,4 +7967,57 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseElementsListenersTab(int count) {
     return 'Listener ($count)';
   }
+
+  @override
+  String get webReverseCryptoSecEncode => 'Codieren';
+
+  @override
+  String get webReverseCryptoSecHash => 'Hash';
+
+  @override
+  String get webReverseCryptoSecTime => 'Zeit';
+
+  @override
+  String get webReverseCryptoClear => 'Leeren';
+
+  @override
+  String get webReverseCryptoInputHint => 'Hier einfügen…';
+
+  @override
+  String get webReverseCryptoInputLabel => 'Eingabe';
+
+  @override
+  String get webReverseCryptoCopy => 'Kopieren';
+
+  @override
+  String get webReverseCryptoUseAsInput => 'Als Eingabe verwenden';
+
+  @override
+  String get webReverseCryptoLengthLabel => 'Länge';
+
+  @override
+  String get webReverseCryptoTsToIso => 'Zeitstempel → ISO';
+
+  @override
+  String get webReverseCryptoIsoToTs => 'ISO → Zeitstempel';
+
+  @override
+  String get webReverseCryptoNow => 'Jetzt';
+
+  @override
+  String get webReverseCryptoUuidHint =>
+      'Zufällige UUID v4 (zum Kopieren tippen)';
+
+  @override
+  String get webReverseCryptoRegenerate => 'Neu erzeugen';
+
+  @override
+  String webReverseCryptoCopied(String label) {
+    return '$label kopiert';
+  }
+
+  @override
+  String webReverseCryptoLengthValue(int chars, int bytes) {
+    return 'Zeichen $chars / Bytes $bytes';
+  }
 }

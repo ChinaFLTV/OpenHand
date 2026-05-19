@@ -13960,6 +13960,102 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'事件 ({count})'**
   String webReverseElementsListenersTab(int count);
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编解码'**
+  String get webReverseCryptoSecEncode;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'哈希'**
+  String get webReverseCryptoSecHash;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时间戳'**
+  String get webReverseCryptoSecTime;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get webReverseCryptoClear;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在此粘贴待处理文本…'**
+  String get webReverseCryptoInputHint;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入'**
+  String get webReverseCryptoInputLabel;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制'**
+  String get webReverseCryptoCopy;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'回填到输入'**
+  String get webReverseCryptoUseAsInput;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'长度'**
+  String get webReverseCryptoLengthLabel;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时间戳 → ISO'**
+  String get webReverseCryptoTsToIso;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ISO → 时间戳'**
+  String get webReverseCryptoIsoToTs;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前时间'**
+  String get webReverseCryptoNow;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'随机 UUID v4（点击复制）'**
+  String get webReverseCryptoUuidHint;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新生成'**
+  String get webReverseCryptoRegenerate;
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 {label}'**
+  String webReverseCryptoCopied(String label);
+
+  /// web_reverse: crypto pad
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'字符 {chars} / 字节 {bytes}'**
+  String webReverseCryptoLengthValue(int chars, int bytes);
 }
 
 class _AppLocalizationsDelegate

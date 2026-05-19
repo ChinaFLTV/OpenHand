@@ -5852,5 +5852,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCryptoSecEncode": "エンコード",
+  "@webReverseCryptoSecEncode": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecHash": "ハッシュ",
+  "@webReverseCryptoSecHash": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecTime": "タイムスタンプ",
+  "@webReverseCryptoSecTime": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoClear": "クリア",
+  "@webReverseCryptoClear": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputHint": "ここに貼り付け…",
+  "@webReverseCryptoInputHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputLabel": "入力",
+  "@webReverseCryptoInputLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopy": "コピー",
+  "@webReverseCryptoCopy": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUseAsInput": "入力に戻す",
+  "@webReverseCryptoUseAsInput": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoLengthLabel": "長さ",
+  "@webReverseCryptoLengthLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoTsToIso": "タイムスタンプ → ISO",
+  "@webReverseCryptoTsToIso": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoIsoToTs": "ISO → タイムスタンプ",
+  "@webReverseCryptoIsoToTs": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoNow": "現在時刻",
+  "@webReverseCryptoNow": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUuidHint": "ランダム UUID v4（タップでコピー）",
+  "@webReverseCryptoUuidHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoRegenerate": "再生成",
+  "@webReverseCryptoRegenerate": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopied": "{label} をコピーしました",
+  "@webReverseCryptoCopied": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCryptoLengthValue": "文字 {chars} / バイト {bytes}",
+  "@webReverseCryptoLengthValue": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "chars": {
+        "type": "int"
+      },
+      "bytes": {
+        "type": "int"
+      }
+    }
   }
 }

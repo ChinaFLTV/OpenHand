@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../../l10n/app_localizations.dart';
-import '../../shared/ui/animated_dialog.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
+import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_profile_cleaner.dart';
 

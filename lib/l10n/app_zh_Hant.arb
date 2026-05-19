@@ -5852,5 +5852,82 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCryptoSecEncode": "编解码",
+  "@webReverseCryptoSecEncode": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecHash": "哈希",
+  "@webReverseCryptoSecHash": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoSecTime": "时间戳",
+  "@webReverseCryptoSecTime": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoClear": "清空",
+  "@webReverseCryptoClear": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputHint": "在此粘贴待处理文本…",
+  "@webReverseCryptoInputHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoInputLabel": "输入",
+  "@webReverseCryptoInputLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopy": "复制",
+  "@webReverseCryptoCopy": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUseAsInput": "回填到输入",
+  "@webReverseCryptoUseAsInput": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoLengthLabel": "长度",
+  "@webReverseCryptoLengthLabel": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoTsToIso": "时间戳 → ISO",
+  "@webReverseCryptoTsToIso": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoIsoToTs": "ISO → 时间戳",
+  "@webReverseCryptoIsoToTs": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoNow": "当前时间",
+  "@webReverseCryptoNow": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoUuidHint": "随机 UUID v4（点击复制）",
+  "@webReverseCryptoUuidHint": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoRegenerate": "重新生成",
+  "@webReverseCryptoRegenerate": {
+    "description": "web_reverse: crypto pad"
+  },
+  "webReverseCryptoCopied": "已复制 {label}",
+  "@webReverseCryptoCopied": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCryptoLengthValue": "字符 {chars} / 字节 {bytes}",
+  "@webReverseCryptoLengthValue": {
+    "description": "web_reverse: crypto pad",
+    "placeholders": {
+      "chars": {
+        "type": "int"
+      },
+      "bytes": {
+        "type": "int"
+      }
+    }
   }
 }
