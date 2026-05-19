@@ -4167,5 +4167,82 @@
   "webReverseSignatureDiffSectionBody": "Request-Body JSON-Felder",
   "webReverseSignatureDiffReportTitle": "Signaturfeld-Analyse",
   "webReverseSignatureDiffReportSamples": "Samples",
-  "webReverseSignatureDiffReportCopied": "Bericht in die Zwischenablage kopiert"
+  "webReverseSignatureDiffReportCopied": "Bericht in die Zwischenablage kopiert",
+  "webReverseCoverageStartFailed": "Start fehlgeschlagen",
+  "@webReverseCoverageStartFailed": {
+    "description": "coverage dialog: webReverseCoverageStartFailed"
+  },
+  "webReverseCoverageCollecting": "Sammlung läuft…",
+  "@webReverseCoverageCollecting": {
+    "description": "coverage dialog: webReverseCoverageCollecting"
+  },
+  "webReverseCoverageTakeFailed": "Sampling fehlgeschlagen",
+  "@webReverseCoverageTakeFailed": {
+    "description": "coverage dialog: webReverseCoverageTakeFailed"
+  },
+  "webReverseCoverageStopped": "Gestoppt",
+  "@webReverseCoverageStopped": {
+    "description": "coverage dialog: webReverseCoverageStopped"
+  },
+  "webReverseCoverageReportCopied": "Bericht kopiert",
+  "@webReverseCoverageReportCopied": {
+    "description": "coverage dialog: webReverseCoverageReportCopied"
+  },
+  "webReverseCoverageTitle": "JS-Abdeckung",
+  "@webReverseCoverageTitle": {
+    "description": "coverage dialog: webReverseCoverageTitle"
+  },
+  "webReverseCoverageSubtitle": "Starten → Seite verwenden → Sample nehmen, um zu sehen, welche Skripte liefen",
+  "@webReverseCoverageSubtitle": {
+    "description": "coverage dialog: webReverseCoverageSubtitle"
+  },
+  "webReverseCoverageRecording": "AUFNAHME",
+  "@webReverseCoverageRecording": {
+    "description": "coverage dialog: webReverseCoverageRecording"
+  },
+  "webReverseCoverageStart": "Starten",
+  "@webReverseCoverageStart": {
+    "description": "coverage dialog: webReverseCoverageStart"
+  },
+  "webReverseCoverageTake": "Sample",
+  "@webReverseCoverageTake": {
+    "description": "coverage dialog: webReverseCoverageTake"
+  },
+  "webReverseCoverageStop": "Stopp",
+  "@webReverseCoverageStop": {
+    "description": "coverage dialog: webReverseCoverageStop"
+  },
+  "webReverseCoverageFilterHint": "Nach URL filtern",
+  "@webReverseCoverageFilterHint": {
+    "description": "coverage dialog: webReverseCoverageFilterHint"
+  },
+  "webReverseCoverageCopyReport": "Bericht kopieren",
+  "@webReverseCoverageCopyReport": {
+    "description": "coverage dialog: webReverseCoverageCopyReport"
+  },
+  "webReverseCoverageNoData": "Keine Daten. Start → Seite verwenden → Take.",
+  "@webReverseCoverageNoData": {
+    "description": "coverage dialog: webReverseCoverageNoData"
+  },
+  "webReverseCoverageClose": "Schließen",
+  "@webReverseCoverageClose": {
+    "description": "coverage dialog: webReverseCoverageClose"
+  },
+  "webReverseCoverageCopyUrl": "URL kopieren",
+  "@webReverseCoverageCopyUrl": {
+    "description": "coverage dialog: webReverseCoverageCopyUrl"
+  },
+  "webReverseCoverageCopied": "Kopiert",
+  "@webReverseCoverageCopied": {
+    "description": "coverage dialog: webReverseCoverageCopied"
+  },
+  "webReverseCoverageSampledCount": "{count} Skripte abgetastet",
+  "@webReverseCoverageSampledCount": {
+    "description": "coverage dialog: webReverseCoverageSampledCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -4167,5 +4167,82 @@
   "webReverseSignatureDiffSectionBody": "请求体 JSON 字段",
   "webReverseSignatureDiffReportTitle": "签名字段分析",
   "webReverseSignatureDiffReportSamples": "样本数",
-  "webReverseSignatureDiffReportCopied": "报告已复制到剪贴板"
+  "webReverseSignatureDiffReportCopied": "报告已复制到剪贴板",
+  "webReverseCoverageStartFailed": "启动失败",
+  "@webReverseCoverageStartFailed": {
+    "description": "coverage dialog: webReverseCoverageStartFailed"
+  },
+  "webReverseCoverageCollecting": "已开始采集",
+  "@webReverseCoverageCollecting": {
+    "description": "coverage dialog: webReverseCoverageCollecting"
+  },
+  "webReverseCoverageTakeFailed": "采样失败",
+  "@webReverseCoverageTakeFailed": {
+    "description": "coverage dialog: webReverseCoverageTakeFailed"
+  },
+  "webReverseCoverageStopped": "已停止",
+  "@webReverseCoverageStopped": {
+    "description": "coverage dialog: webReverseCoverageStopped"
+  },
+  "webReverseCoverageReportCopied": "已复制报告",
+  "@webReverseCoverageReportCopied": {
+    "description": "coverage dialog: webReverseCoverageReportCopied"
+  },
+  "webReverseCoverageTitle": "代码覆盖率",
+  "@webReverseCoverageTitle": {
+    "description": "coverage dialog: webReverseCoverageTitle"
+  },
+  "webReverseCoverageSubtitle": "开始采集 → 在页面里操作 → 采样查看哪些脚本被执行",
+  "@webReverseCoverageSubtitle": {
+    "description": "coverage dialog: webReverseCoverageSubtitle"
+  },
+  "webReverseCoverageRecording": "采集中",
+  "@webReverseCoverageRecording": {
+    "description": "coverage dialog: webReverseCoverageRecording"
+  },
+  "webReverseCoverageStart": "开始",
+  "@webReverseCoverageStart": {
+    "description": "coverage dialog: webReverseCoverageStart"
+  },
+  "webReverseCoverageTake": "采样",
+  "@webReverseCoverageTake": {
+    "description": "coverage dialog: webReverseCoverageTake"
+  },
+  "webReverseCoverageStop": "停止",
+  "@webReverseCoverageStop": {
+    "description": "coverage dialog: webReverseCoverageStop"
+  },
+  "webReverseCoverageFilterHint": "按 URL 过滤",
+  "@webReverseCoverageFilterHint": {
+    "description": "coverage dialog: webReverseCoverageFilterHint"
+  },
+  "webReverseCoverageCopyReport": "复制报告",
+  "@webReverseCoverageCopyReport": {
+    "description": "coverage dialog: webReverseCoverageCopyReport"
+  },
+  "webReverseCoverageNoData": "尚无数据。Start → 操作页面 → Take。",
+  "@webReverseCoverageNoData": {
+    "description": "coverage dialog: webReverseCoverageNoData"
+  },
+  "webReverseCoverageClose": "关闭",
+  "@webReverseCoverageClose": {
+    "description": "coverage dialog: webReverseCoverageClose"
+  },
+  "webReverseCoverageCopyUrl": "复制 URL",
+  "@webReverseCoverageCopyUrl": {
+    "description": "coverage dialog: webReverseCoverageCopyUrl"
+  },
+  "webReverseCoverageCopied": "已复制",
+  "@webReverseCoverageCopied": {
+    "description": "coverage dialog: webReverseCoverageCopied"
+  },
+  "webReverseCoverageSampledCount": "采样完成 {count} 个脚本",
+  "@webReverseCoverageSampledCount": {
+    "description": "coverage dialog: webReverseCoverageSampledCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

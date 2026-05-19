@@ -6562,4 +6562,62 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get webReverseSignatureDiffReportCopied =>
       'Rapport copié dans le presse-papiers';
+
+  @override
+  String get webReverseCoverageStartFailed => 'échec du démarrage';
+
+  @override
+  String get webReverseCoverageCollecting => 'Collecte en cours…';
+
+  @override
+  String get webReverseCoverageTakeFailed => 'échec d\'échantillonnage';
+
+  @override
+  String get webReverseCoverageStopped => 'Arrêté';
+
+  @override
+  String get webReverseCoverageReportCopied => 'Rapport copié';
+
+  @override
+  String get webReverseCoverageTitle => 'Couverture JS';
+
+  @override
+  String get webReverseCoverageSubtitle =>
+      'Démarrer → utiliser la page → échantillonner pour voir quels scripts ont été exécutés';
+
+  @override
+  String get webReverseCoverageRecording => 'ENREGISTREMENT';
+
+  @override
+  String get webReverseCoverageStart => 'Démarrer';
+
+  @override
+  String get webReverseCoverageTake => 'Échantillon';
+
+  @override
+  String get webReverseCoverageStop => 'Arrêter';
+
+  @override
+  String get webReverseCoverageFilterHint => 'Filtrer par URL';
+
+  @override
+  String get webReverseCoverageCopyReport => 'Copier le rapport';
+
+  @override
+  String get webReverseCoverageNoData =>
+      'Aucune donnée. Start → utilisez la page → Take.';
+
+  @override
+  String get webReverseCoverageClose => 'Fermer';
+
+  @override
+  String get webReverseCoverageCopyUrl => 'Copier l\'URL';
+
+  @override
+  String get webReverseCoverageCopied => 'Copié';
+
+  @override
+  String webReverseCoverageSampledCount(int count) {
+    return '$count scripts échantillonnés';
+  }
 }

@@ -11483,6 +11483,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'报告已复制到剪贴板'**
   String get webReverseSignatureDiffReportCopied;
+
+  /// coverage dialog: webReverseCoverageStartFailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动失败'**
+  String get webReverseCoverageStartFailed;
+
+  /// coverage dialog: webReverseCoverageCollecting
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已开始采集'**
+  String get webReverseCoverageCollecting;
+
+  /// coverage dialog: webReverseCoverageTakeFailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采样失败'**
+  String get webReverseCoverageTakeFailed;
+
+  /// coverage dialog: webReverseCoverageStopped
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停止'**
+  String get webReverseCoverageStopped;
+
+  /// coverage dialog: webReverseCoverageReportCopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制报告'**
+  String get webReverseCoverageReportCopied;
+
+  /// coverage dialog: webReverseCoverageTitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代码覆盖率'**
+  String get webReverseCoverageTitle;
+
+  /// coverage dialog: webReverseCoverageSubtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始采集 → 在页面里操作 → 采样查看哪些脚本被执行'**
+  String get webReverseCoverageSubtitle;
+
+  /// coverage dialog: webReverseCoverageRecording
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采集中'**
+  String get webReverseCoverageRecording;
+
+  /// coverage dialog: webReverseCoverageStart
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始'**
+  String get webReverseCoverageStart;
+
+  /// coverage dialog: webReverseCoverageTake
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采样'**
+  String get webReverseCoverageTake;
+
+  /// coverage dialog: webReverseCoverageStop
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReverseCoverageStop;
+
+  /// coverage dialog: webReverseCoverageFilterHint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按 URL 过滤'**
+  String get webReverseCoverageFilterHint;
+
+  /// coverage dialog: webReverseCoverageCopyReport
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制报告'**
+  String get webReverseCoverageCopyReport;
+
+  /// coverage dialog: webReverseCoverageNoData
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无数据。Start → 操作页面 → Take。'**
+  String get webReverseCoverageNoData;
+
+  /// coverage dialog: webReverseCoverageClose
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCoverageClose;
+
+  /// coverage dialog: webReverseCoverageCopyUrl
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 URL'**
+  String get webReverseCoverageCopyUrl;
+
+  /// coverage dialog: webReverseCoverageCopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseCoverageCopied;
+
+  /// coverage dialog: webReverseCoverageSampledCount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采样完成 {count} 个脚本'**
+  String webReverseCoverageSampledCount(int count);
 }
 
 class _AppLocalizationsDelegate

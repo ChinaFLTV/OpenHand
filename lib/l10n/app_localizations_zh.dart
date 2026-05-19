@@ -6197,6 +6197,62 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
+
+  @override
+  String get webReverseCoverageStartFailed => '启动失败';
+
+  @override
+  String get webReverseCoverageCollecting => '已开始采集';
+
+  @override
+  String get webReverseCoverageTakeFailed => '采样失败';
+
+  @override
+  String get webReverseCoverageStopped => '已停止';
+
+  @override
+  String get webReverseCoverageReportCopied => '已复制报告';
+
+  @override
+  String get webReverseCoverageTitle => '代码覆盖率';
+
+  @override
+  String get webReverseCoverageSubtitle => '开始采集 → 在页面里操作 → 采样查看哪些脚本被执行';
+
+  @override
+  String get webReverseCoverageRecording => '采集中';
+
+  @override
+  String get webReverseCoverageStart => '开始';
+
+  @override
+  String get webReverseCoverageTake => '采样';
+
+  @override
+  String get webReverseCoverageStop => '停止';
+
+  @override
+  String get webReverseCoverageFilterHint => '按 URL 过滤';
+
+  @override
+  String get webReverseCoverageCopyReport => '复制报告';
+
+  @override
+  String get webReverseCoverageNoData => '尚无数据。Start → 操作页面 → Take。';
+
+  @override
+  String get webReverseCoverageClose => '关闭';
+
+  @override
+  String get webReverseCoverageCopyUrl => '复制 URL';
+
+  @override
+  String get webReverseCoverageCopied => '已复制';
+
+  @override
+  String webReverseCoverageSampledCount(int count) {
+    return '采样完成 $count 个脚本';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12392,6 +12448,62 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
+
+  @override
+  String get webReverseCoverageStartFailed => '启动失败';
+
+  @override
+  String get webReverseCoverageCollecting => '已开始采集';
+
+  @override
+  String get webReverseCoverageTakeFailed => '采样失败';
+
+  @override
+  String get webReverseCoverageStopped => '已停止';
+
+  @override
+  String get webReverseCoverageReportCopied => '已复制报告';
+
+  @override
+  String get webReverseCoverageTitle => '代码覆盖率';
+
+  @override
+  String get webReverseCoverageSubtitle => '开始采集 → 在页面里操作 → 采样查看哪些脚本被执行';
+
+  @override
+  String get webReverseCoverageRecording => '采集中';
+
+  @override
+  String get webReverseCoverageStart => '开始';
+
+  @override
+  String get webReverseCoverageTake => '采样';
+
+  @override
+  String get webReverseCoverageStop => '停止';
+
+  @override
+  String get webReverseCoverageFilterHint => '按 URL 过滤';
+
+  @override
+  String get webReverseCoverageCopyReport => '复制报告';
+
+  @override
+  String get webReverseCoverageNoData => '尚无数据。Start → 操作页面 → Take。';
+
+  @override
+  String get webReverseCoverageClose => '关闭';
+
+  @override
+  String get webReverseCoverageCopyUrl => '复制 URL';
+
+  @override
+  String get webReverseCoverageCopied => '已复制';
+
+  @override
+  String webReverseCoverageSampledCount(int count) {
+    return '采样完成 $count 个脚本';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18586,4 +18698,60 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseSignatureDiffReportCopied => '报告已复制到剪贴板';
+
+  @override
+  String get webReverseCoverageStartFailed => '启动失败';
+
+  @override
+  String get webReverseCoverageCollecting => '已开始采集';
+
+  @override
+  String get webReverseCoverageTakeFailed => '采样失败';
+
+  @override
+  String get webReverseCoverageStopped => '已停止';
+
+  @override
+  String get webReverseCoverageReportCopied => '已复制报告';
+
+  @override
+  String get webReverseCoverageTitle => '代码覆盖率';
+
+  @override
+  String get webReverseCoverageSubtitle => '开始采集 → 在页面里操作 → 采样查看哪些脚本被执行';
+
+  @override
+  String get webReverseCoverageRecording => '采集中';
+
+  @override
+  String get webReverseCoverageStart => '开始';
+
+  @override
+  String get webReverseCoverageTake => '采样';
+
+  @override
+  String get webReverseCoverageStop => '停止';
+
+  @override
+  String get webReverseCoverageFilterHint => '按 URL 过滤';
+
+  @override
+  String get webReverseCoverageCopyReport => '复制报告';
+
+  @override
+  String get webReverseCoverageNoData => '尚无数据。Start → 操作页面 → Take。';
+
+  @override
+  String get webReverseCoverageClose => '关闭';
+
+  @override
+  String get webReverseCoverageCopyUrl => '复制 URL';
+
+  @override
+  String get webReverseCoverageCopied => '已复制';
+
+  @override
+  String webReverseCoverageSampledCount(int count) {
+    return '采样完成 $count 个脚本';
+  }
 }

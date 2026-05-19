@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -31,6 +32,7 @@ Future<void> showWebReverseCoverageDialog(
 class _CoverageDialog extends StatefulWidget {
   const _CoverageDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_CoverageDialog> createState() => _CoverageDialogState();
@@ -55,6 +57,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
 
   Future<void> _start() async {
     if (_busy || _running) return;
+    final loc = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
       await widget.controller.sendRawCdp(method: 'Profiler.enable');
@@ -68,10 +71,10 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
       final err = r?['error'];
       if (err != null) {
-        _toast(false, '${widget.isZh ? '启动失败' : 'start failed'}: $err');
+        _toast(false, '${loc?.webReverseCoverageStartFailed ?? 'start failed'}: $err');
       } else {
         setState(() => _running = true);
-        _toast(true, widget.isZh ? '已开始采集' : 'Collecting…');
+        _toast(true, loc?.webReverseCoverageCollecting ?? 'Collecting…');
       }
     } catch (e, st) {
       silentLog('web_reverse_coverage_dialog', 'start', e, st);
@@ -82,6 +85,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
 
   Future<void> _take() async {
     if (_busy || !_running) return;
+    final loc = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
       final r = await widget.controller.sendRawCdp(
@@ -89,7 +93,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
       final err = r?['error'];
       if (err != null) {
-        _toast(false, '${widget.isZh ? '采样失败' : 'take failed'}: $err');
+        _toast(false, '${loc?.webReverseCoverageTakeFailed ?? 'take failed'}: $err');
         return;
       }
       final list = (r?['result'] as List?) ?? const [];
@@ -133,7 +137,8 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         _lastTakeAt = DateTime.now();
       });
       _toast(true,
-          '${widget.isZh ? '采样完成' : 'Sampled'} ${sorted.length} ${widget.isZh ? '个脚本' : 'scripts'}');
+          loc?.webReverseCoverageSampledCount(sorted.length) ??
+              'Sampled ${sorted.length} scripts');
     } catch (e, st) {
       silentLog('web_reverse_coverage_dialog', 'take', e, st);
     } finally {
@@ -143,17 +148,19 @@ class _CoverageDialogState extends State<_CoverageDialog> {
 
   Future<void> _stop() async {
     if (_busy || !_running) return;
+    final loc = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
       await widget.controller.sendRawCdp(method: 'Profiler.stopPreciseCoverage');
       setState(() => _running = false);
-      _toast(true, widget.isZh ? '已停止' : 'Stopped');
+      _toast(true, loc?.webReverseCoverageStopped ?? 'Stopped');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _copyReport() async {
+    final loc = AppLocalizations.of(context);
     final filtered = _visibleRows();
     final buf = StringBuffer()
       ..writeln('# JS Coverage Report')
@@ -165,7 +172,8 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}');
     }
     await Clipboard.setData(ClipboardData(text: buf.toString()));
-    _toast(true, widget.isZh ? '已复制报告' : 'Report copied');
+    if (!mounted) return;
+    _toast(true, loc?.webReverseCoverageReportCopied ?? 'Report copied');
   }
 
   void _toast(bool ok, String msg) {
@@ -188,7 +196,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final rows = _visibleRows();
     final totalBytes = rows.fold<int>(0, (a, b) => a + b.total);
     final coveredBytes = rows.fold<int>(0, (a, b) => a + b.covered);
@@ -213,14 +221,13 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? '代码覆盖率' : 'JS Coverage',
+                          loc?.webReverseCoverageTitle ?? 'JS Coverage',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '开始采集 → 在页面里操作 → 采样查看哪些脚本被执行'
-                              : 'Start → exercise the page → take a sample to see which scripts ran',
+                          loc?.webReverseCoverageSubtitle ??
+                              'Start → exercise the page → take a sample to see which scripts ran',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -238,7 +245,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        isZh ? '采集中' : 'RECORDING',
+                        loc?.webReverseCoverageRecording ?? 'RECORDING',
                         style: TextStyle(
                           color: cs.onPrimaryContainer,
                           fontWeight: FontWeight.w800,
@@ -261,26 +268,26 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   FilledButton.icon(
                     onPressed: _busy || _running ? null : _start,
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(isZh ? '开始' : 'Start'),
+                    label: Text(loc?.webReverseCoverageStart ?? 'Start'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.tonalIcon(
                     onPressed: _busy || !_running ? null : _take,
                     icon: const Icon(Icons.science_rounded, size: 18),
-                    label: Text(isZh ? '采样' : 'Take'),
+                    label: Text(loc?.webReverseCoverageTake ?? 'Take'),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: _busy || !_running ? null : _stop,
                     icon: const Icon(Icons.stop_rounded, size: 18),
-                    label: Text(isZh ? '停止' : 'Stop'),
+                    label: Text(loc?.webReverseCoverageStop ?? 'Stop'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       onChanged: (v) => setState(() => _filter = v.trim()),
                       decoration: InputDecoration(
-                        hintText: isZh ? '按 URL 过滤' : 'Filter by URL',
+                        hintText: loc?.webReverseCoverageFilterHint ?? 'Filter by URL',
                         prefixIcon: const Icon(Icons.filter_alt_rounded, size: 18),
                         border: const OutlineInputBorder(),
                         isDense: true,
@@ -289,7 +296,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    tooltip: isZh ? '复制报告' : 'Copy report',
+                    tooltip: loc?.webReverseCoverageCopyReport ?? 'Copy report',
                     onPressed: _rows.isEmpty ? null : _copyReport,
                     icon: const Icon(Icons.copy_rounded),
                   ),
@@ -330,7 +337,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               child: rows.isEmpty
                   ? Center(
                       child: Text(
-                        isZh ? '尚无数据。Start → 操作页面 → Take。' : 'No data. Start → use the page → Take.',
+                        loc?.webReverseCoverageNoData ?? 'No data. Start → use the page → Take.',
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -340,7 +347,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                       itemCount: rows.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 4),
                       itemBuilder: (_, idx) =>
-                          _buildRow(theme, cs, rows[idx], isZh),
+                          _buildRow(theme, cs, rows[idx], loc),
                     ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
@@ -350,7 +357,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseCoverageClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -363,7 +370,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
   }
 
   Widget _buildRow(
-      ThemeData theme, ColorScheme cs, _CoverageRow row, bool isZh) {
+      ThemeData theme, ColorScheme cs, _CoverageRow row, AppLocalizations? loc) {
     final pct = (row.ratio * 100);
     final pctText = '${pct.toStringAsFixed(1)}%';
     Color barColor;
@@ -427,10 +434,11 @@ class _CoverageDialogState extends State<_CoverageDialog> {
             ),
           ),
           IconButton(
-            tooltip: isZh ? '复制 URL' : 'Copy URL',
+            tooltip: loc?.webReverseCoverageCopyUrl ?? 'Copy URL',
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: row.url));
-              _toast(true, isZh ? '已复制' : 'Copied');
+              if (!mounted) return;
+              _toast(true, loc?.webReverseCoverageCopied ?? 'Copied');
             },
             icon: const Icon(Icons.copy_rounded, size: 16),
           ),

@@ -6292,4 +6292,60 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseSignatureDiffReportCopied => 'レポートをクリップボードにコピーしました';
+
+  @override
+  String get webReverseCoverageStartFailed => '起動失敗';
+
+  @override
+  String get webReverseCoverageCollecting => '収集中…';
+
+  @override
+  String get webReverseCoverageTakeFailed => 'サンプリング失敗';
+
+  @override
+  String get webReverseCoverageStopped => '停止しました';
+
+  @override
+  String get webReverseCoverageReportCopied => 'レポートをコピーしました';
+
+  @override
+  String get webReverseCoverageTitle => 'JS カバレッジ';
+
+  @override
+  String get webReverseCoverageSubtitle => '開始 → ページを操作 → サンプリングで実行されたスクリプトを確認';
+
+  @override
+  String get webReverseCoverageRecording => '収集中';
+
+  @override
+  String get webReverseCoverageStart => '開始';
+
+  @override
+  String get webReverseCoverageTake => 'サンプル';
+
+  @override
+  String get webReverseCoverageStop => '停止';
+
+  @override
+  String get webReverseCoverageFilterHint => 'URL でフィルター';
+
+  @override
+  String get webReverseCoverageCopyReport => 'レポートをコピー';
+
+  @override
+  String get webReverseCoverageNoData => 'データなし。Start → ページを操作 → Take。';
+
+  @override
+  String get webReverseCoverageClose => '閉じる';
+
+  @override
+  String get webReverseCoverageCopyUrl => 'URL をコピー';
+
+  @override
+  String get webReverseCoverageCopied => 'コピーしました';
+
+  @override
+  String webReverseCoverageSampledCount(int count) {
+    return '$count 件のスクリプトをサンプリングしました';
+  }
 }

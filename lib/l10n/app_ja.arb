@@ -4167,5 +4167,82 @@
   "webReverseSignatureDiffSectionBody": "リクエストボディ JSON フィールド",
   "webReverseSignatureDiffReportTitle": "署名フィールド解析",
   "webReverseSignatureDiffReportSamples": "サンプル数",
-  "webReverseSignatureDiffReportCopied": "レポートをクリップボードにコピーしました"
+  "webReverseSignatureDiffReportCopied": "レポートをクリップボードにコピーしました",
+  "webReverseCoverageStartFailed": "起動失敗",
+  "@webReverseCoverageStartFailed": {
+    "description": "coverage dialog: webReverseCoverageStartFailed"
+  },
+  "webReverseCoverageCollecting": "収集中…",
+  "@webReverseCoverageCollecting": {
+    "description": "coverage dialog: webReverseCoverageCollecting"
+  },
+  "webReverseCoverageTakeFailed": "サンプリング失敗",
+  "@webReverseCoverageTakeFailed": {
+    "description": "coverage dialog: webReverseCoverageTakeFailed"
+  },
+  "webReverseCoverageStopped": "停止しました",
+  "@webReverseCoverageStopped": {
+    "description": "coverage dialog: webReverseCoverageStopped"
+  },
+  "webReverseCoverageReportCopied": "レポートをコピーしました",
+  "@webReverseCoverageReportCopied": {
+    "description": "coverage dialog: webReverseCoverageReportCopied"
+  },
+  "webReverseCoverageTitle": "JS カバレッジ",
+  "@webReverseCoverageTitle": {
+    "description": "coverage dialog: webReverseCoverageTitle"
+  },
+  "webReverseCoverageSubtitle": "開始 → ページを操作 → サンプリングで実行されたスクリプトを確認",
+  "@webReverseCoverageSubtitle": {
+    "description": "coverage dialog: webReverseCoverageSubtitle"
+  },
+  "webReverseCoverageRecording": "収集中",
+  "@webReverseCoverageRecording": {
+    "description": "coverage dialog: webReverseCoverageRecording"
+  },
+  "webReverseCoverageStart": "開始",
+  "@webReverseCoverageStart": {
+    "description": "coverage dialog: webReverseCoverageStart"
+  },
+  "webReverseCoverageTake": "サンプル",
+  "@webReverseCoverageTake": {
+    "description": "coverage dialog: webReverseCoverageTake"
+  },
+  "webReverseCoverageStop": "停止",
+  "@webReverseCoverageStop": {
+    "description": "coverage dialog: webReverseCoverageStop"
+  },
+  "webReverseCoverageFilterHint": "URL でフィルター",
+  "@webReverseCoverageFilterHint": {
+    "description": "coverage dialog: webReverseCoverageFilterHint"
+  },
+  "webReverseCoverageCopyReport": "レポートをコピー",
+  "@webReverseCoverageCopyReport": {
+    "description": "coverage dialog: webReverseCoverageCopyReport"
+  },
+  "webReverseCoverageNoData": "データなし。Start → ページを操作 → Take。",
+  "@webReverseCoverageNoData": {
+    "description": "coverage dialog: webReverseCoverageNoData"
+  },
+  "webReverseCoverageClose": "閉じる",
+  "@webReverseCoverageClose": {
+    "description": "coverage dialog: webReverseCoverageClose"
+  },
+  "webReverseCoverageCopyUrl": "URL をコピー",
+  "@webReverseCoverageCopyUrl": {
+    "description": "coverage dialog: webReverseCoverageCopyUrl"
+  },
+  "webReverseCoverageCopied": "コピーしました",
+  "@webReverseCoverageCopied": {
+    "description": "coverage dialog: webReverseCoverageCopied"
+  },
+  "webReverseCoverageSampledCount": "{count} 件のスクリプトをサンプリングしました",
+  "@webReverseCoverageSampledCount": {
+    "description": "coverage dialog: webReverseCoverageSampledCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
