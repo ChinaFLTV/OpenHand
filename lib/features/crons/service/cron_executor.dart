@@ -297,7 +297,7 @@ class CronExecutor {
     final workDir =
         entry.workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
 
-    final process = await Process.start(
+    final process = await startTrackedProcess(
       cmd.executable,
       cmd.arguments,
       workingDirectory: workDir,

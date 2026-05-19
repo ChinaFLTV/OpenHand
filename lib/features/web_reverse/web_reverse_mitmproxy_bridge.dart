@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 
 /// mitmproxy 桥接：通过 spawn `mitmdump` 子进程 + 自定义 inline addon，
@@ -108,7 +109,7 @@ class WebReverseMitmproxyBridge {
     final addonPath = await _writeAddon(actualCbPort);
     Process p;
     try {
-      p = await Process.start(
+      p = await startTrackedProcess(
         exec,
         <String>[
           '-p', '$mitmPort',

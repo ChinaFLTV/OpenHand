@@ -1,5 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../features/home/openhand_home_page.dart';
@@ -8,6 +11,7 @@ import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'support/openhand_notification_service.dart';
+import 'support/safe_subprocess.dart';
 import 'theme/openhand_theme.dart';
 import 'theme/openhand_theme_preset.dart';
 
@@ -21,6 +25,32 @@ class OpenHandApp extends StatefulWidget {
 }
 
 class _OpenHandAppState extends State<OpenHandApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2026-05-19 — IMK 输入死锁防御网（与 main.dart 的 SIGTERM/SIGINT
+    // 互补）：在 Cmd+Q / 窗口关闭等"正常"退出路径上同步清掉所有登记
+    // 在册的子进程，避免 osascript / mitmdump / npm 等遗孤继续向系统
+    // 投递事件污染 IMK 上下文。`onExitRequested` 在 Dart 同步部分返回
+    // 前会被 await，所以我们等 `killAllTrackedChildren` 完成再放行。
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: () async {
+        try {
+          await killAllTrackedChildren();
+        } catch (_) {}
+        return AppExitResponse.exit;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeMode = context.select<SettingsController, ThemeMode>(

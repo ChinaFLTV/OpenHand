@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 
 /// 当前 LSP 子进程状态。
@@ -64,7 +65,7 @@ class WebReverseLspClient {
     final c = cmd ?? command ?? 'typescript-language-server';
     final a = cmdArgs ?? args ?? const ['--stdio'];
     try {
-      _proc = await Process.start(
+      _proc = await startTrackedProcess(
         c,
         a,
         runInShell: true,

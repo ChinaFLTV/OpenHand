@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,7 @@ import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
+import 'app/support/safe_subprocess.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
 import 'features/ai/index.dart';
@@ -61,6 +63,31 @@ Future<void> _bootstrap() async {
   // 2026-05-18 — 在 binding 初始化之后立刻启动 FPS 监视器，节流自动
   // 模式与 UI 卡顿降级会读它的 recentFps 数值。
   OpenHandFpsMonitor.instance.start();
+
+  // 2026-05-19 —— IMK 全局输入死锁防御网：应用主进程被 SIGINT / SIGTERM
+  // 杀掉时，先把所有登记在册的 osascript / LSP / mitmdump / npm 子进程
+  // 一并 SIGTERM→SIGKILL，避免 macOS 上残留的 osascript 子进程继续向
+  // 其他 GUI 应用投递 Apple Events、把 IMK 上下文留在 stale 状态，导致
+  // 下次重启应用后全局 TextField 拒绝输入 / 复制 / 粘贴。配套
+  // `AppLifecycleListener.onExitRequested`（在 OpenHandApp 内）覆盖
+  // 正常退出路径；这里只接管异常 / 强杀路径。
+  if (!Platform.isWindows) {
+    for (final sig in <ProcessSignal>[
+      ProcessSignal.sigint,
+      ProcessSignal.sigterm,
+    ]) {
+      try {
+        sig.watch().listen((_) async {
+          try {
+            await killAllTrackedChildren();
+          } catch (_) {}
+          exit(0);
+        });
+      } catch (_) {
+        // 某些 sandbox / test 环境不允许装信号 handler，忽略。
+      }
+    }
+  }
 
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {

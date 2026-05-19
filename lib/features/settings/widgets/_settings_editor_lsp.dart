@@ -1983,9 +1983,13 @@ class _EditorLspInstallRunnerDialogState
 
   Future<Process> _spawnProcess(String shellCommand) {
     if (Platform.isWindows) {
-      return Process.start('cmd', ['/c', shellCommand], runInShell: true);
+      return startTrackedProcess(
+        'cmd',
+        ['/c', shellCommand],
+        runInShell: true,
+      );
     }
-    return Process.start(
+    return startTrackedProcess(
       resolveHardnessCliShellExecutable(),
       buildHardnessCliShellArgs(shellCommand),
       environment: const <String, String>{'FORCE_COLOR': '1'},

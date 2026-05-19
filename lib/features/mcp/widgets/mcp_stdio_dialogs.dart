@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -894,7 +895,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     _addLog('[${_ts()}] > $executable ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await Process.start(executable, args);
+      final process = await startTrackedProcess(executable, args);
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {
         for (final line in data.split('\n')) {
           if (line.trim().isNotEmpty) _addLog(line);

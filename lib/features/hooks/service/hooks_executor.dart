@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/model/hook_config.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../hooks_controller.dart';
 
 /// Maximum characters to collect from hook script stdout / stderr.
@@ -331,7 +332,7 @@ class HooksExecutor {
     };
 
     try {
-      final process = await Process.start(
+      final process = await startTrackedProcess(
         shellCommand.executable,
         shellCommand.arguments,
         workingDirectory: workingDirectory,
