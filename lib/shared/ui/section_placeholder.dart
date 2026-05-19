@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'openhand_dialog_action_button.dart';
+
 class SectionPlaceholder extends StatelessWidget {
   const SectionPlaceholder({
     super.key,
@@ -55,10 +57,10 @@ class SectionPlaceholder extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                OutlinedButton.icon(
+                OpenHandDialogActionButton.primary(
                   onPressed: onAction,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  label: Text(actionLabel),
+                  icon: Icons.arrow_back_rounded,
+                  label: actionLabel,
                 ),
               ],
             ),

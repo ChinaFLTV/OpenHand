@@ -1470,12 +1470,10 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
+                        child: OpenHandDialogActionButton.primary(
                           onPressed: _busy ? null : _saveTitle,
-                          icon: const Icon(Icons.save_outlined),
-                          label: Text(
-                            AppLocalizations.of(context)!.auditSaveTitle,
-                          ),
+                          icon: Icons.save_outlined,
+                          label: AppLocalizations.of(context)!.auditSaveTitle,
                         ),
                       ),
                     ],
@@ -1508,12 +1506,12 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
+                        child: OpenHandDialogActionButton.primary(
                           onPressed: _busy ? null : _saveMetadata,
-                          icon: const Icon(Icons.save_outlined),
-                          label: Text(
-                            AppLocalizations.of(context)!.auditSaveMetadata,
-                          ),
+                          icon: Icons.save_outlined,
+                          label: AppLocalizations.of(
+                            context,
+                          )!.auditSaveMetadata,
                         ),
                       ),
                     ],
