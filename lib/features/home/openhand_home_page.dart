@@ -2708,8 +2708,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return created;
     }
     if (!mounted) return created;
+    final requestConfig = scopedConfig.copyWith(
+      cdpPort: controller.cdpPort ?? scopedConfig.cdpPort,
+    );
     // 替换 composer 文本并发送首条 prompt。
-    _replaceComposerText(setup.config.toRequestTemplate());
+    _replaceComposerText(requestConfig.toRequestTemplate());
     await _sendMessage();
     return created;
   }
