@@ -6881,4 +6881,69 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webReverseSmClose => '閉じる';
+
+  @override
+  String get webReverseCssCovStarting => 'CSS ドメインを有効化して追跡開始...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return '開始失敗: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive => '追跡中 — ページを操作後、「停止と集計」をクリック。';
+
+  @override
+  String get webReverseCssCovStopping => '停止して集計中...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return '停止失敗: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '$sheets シート、計 $rules ルール。';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON をコピーしました';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS ルール使用率';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · デッドコードを集計';
+
+  @override
+  String get webReverseCssCovCopyJson => 'JSON をコピー';
+
+  @override
+  String get webReverseCssCovTracking => '追跡中';
+
+  @override
+  String get webReverseCssCovIdle => 'アイドル';
+
+  @override
+  String get webReverseCssCovStopAndTally => '停止と集計';
+
+  @override
+  String get webReverseCssCovStartTracking => '追跡開始';
+
+  @override
+  String get webReverseCssCovEmpty => '結果なし。追跡を開始してページを操作してください。';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total ルール · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => '閉じる';
 }

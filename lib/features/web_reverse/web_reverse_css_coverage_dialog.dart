@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -29,6 +30,7 @@ Future<void> showWebReverseCssCoverageDialog(
 class _CssCovDialog extends StatefulWidget {
   const _CssCovDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_CssCovDialog> createState() => _CssCovDialogState();
@@ -51,10 +53,10 @@ class _CssCovDialogState extends State<_CssCovDialog> {
   List<_SheetUsage> _results = [];
 
   Future<void> _start() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = isZh ? '启用 CSS 域并启动追踪...' : 'Enabling CSS & starting...';
+      _status = loc?.webReverseCssCovStarting ?? 'Enabling CSS & starting...';
     });
     try {
       await widget.controller.sendRawCdp(method: 'DOM.enable');
@@ -63,20 +65,19 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           .sendRawCdp(method: 'CSS.startRuleUsageTracking');
       if (!mounted) return;
       if (r == null || r['error'] != null) {
+        final err = (r?['error'] ?? 'unknown').toString();
         setState(() {
           _busy = false;
-          _status = isZh
-              ? '启动失败: ${r?['error'] ?? 'unknown'}'
-              : 'Start failed: ${r?['error'] ?? 'unknown'}';
+          _status = loc?.webReverseCssCovStartFailed(err) ??
+              'Start failed: $err';
         });
         return;
       }
       setState(() {
         _busy = false;
         _tracking = true;
-        _status = isZh
-            ? '正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。'
-            : 'Tracking — interact with the page, then click "Stop & Tally".';
+        _status = loc?.webReverseCssCovTrackingActive ??
+            'Tracking — interact with the page, then click "Stop & Tally".';
       });
     } catch (e, s) {
       silentLog('web-reverse', 'css-cov.start', e, s);
@@ -89,10 +90,10 @@ class _CssCovDialogState extends State<_CssCovDialog> {
   }
 
   Future<void> _stop() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status = isZh ? '停止并聚合结果...' : 'Stopping and aggregating...';
+      _status = loc?.webReverseCssCovStopping ?? 'Stopping and aggregating...';
     });
     Map<String, Object?>? r;
     try {
@@ -103,12 +104,11 @@ class _CssCovDialogState extends State<_CssCovDialog> {
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
+      final err = (r?['error'] ?? 'unknown').toString();
       setState(() {
         _busy = false;
         _tracking = false;
-        _status = isZh
-            ? '停止失败: ${r?['error'] ?? 'unknown'}'
-            : 'Stop failed: ${r?['error'] ?? 'unknown'}';
+        _status = loc?.webReverseCssCovStopFailed(err) ?? 'Stop failed: $err';
       });
       return;
     }
@@ -153,13 +153,13 @@ class _CssCovDialogState extends State<_CssCovDialog> {
     final list = map.values.toList()
       ..sort((a, b) => b.totalBytes.compareTo(a.totalBytes));
     if (!mounted) return;
+    final totalRules = list.fold<int>(0, (s, e) => s + e.totalRanges);
     setState(() {
       _busy = false;
       _tracking = false;
       _results = list;
-      _status = isZh
-          ? '已统计 ${list.length} 个样式表，共 ${list.fold<int>(0, (s, e) => s + e.totalRanges)} 条规则。'
-          : '${list.length} sheets, ${list.fold<int>(0, (s, e) => s + e.totalRanges)} rules total.';
+      _status = loc?.webReverseCssCovResultsTallied(list.length, totalRules) ??
+          '${list.length} sheets, $totalRules rules total.';
     });
   }
 
@@ -185,10 +185,11 @@ class _CssCovDialogState extends State<_CssCovDialog> {
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
+      final loc = AppLocalizations.of(context);
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? 'JSON 已复制' : 'JSON copied',
+        loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
       );
     }
   }
@@ -197,7 +198,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -217,14 +218,13 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'CSS 规则使用率' : 'CSS Rule Coverage',
+                          loc?.webReverseCssCovTitle ?? 'CSS Rule Coverage',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'CSS.startRuleUsageTracking · 统计未命中的死代码'
-                              : 'CSS.startRuleUsageTracking · find dead rules',
+                          loc?.webReverseCssCovSubtitle ??
+                              'CSS.startRuleUsageTracking · find dead rules',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -234,7 +234,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                   IconButton(
                     onPressed: _results.isEmpty ? null : _copyJson,
                     icon: const Icon(Icons.copy_rounded),
-                    tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                    tooltip: loc?.webReverseCssCovCopyJson ?? 'Copy JSON',
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -259,8 +259,8 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                   const SizedBox(width: 10),
                   Text(
                     _tracking
-                        ? (isZh ? '追踪中' : 'Tracking')
-                        : (isZh ? '空闲' : 'Idle'),
+                        ? (loc?.webReverseCssCovTracking ?? 'Tracking')
+                        : (loc?.webReverseCssCovIdle ?? 'Idle'),
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -269,13 +269,13 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                     FilledButton.icon(
                       onPressed: _busy ? null : _stop,
                       icon: const Icon(Icons.stop_rounded),
-                      label: Text(isZh ? '停止并统计' : 'Stop & Tally'),
+                      label: Text(loc?.webReverseCssCovStopAndTally ?? 'Stop & Tally'),
                     )
                   else
                     FilledButton.icon(
                       onPressed: _busy ? null : _start,
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: Text(isZh ? '开始追踪' : 'Start Tracking'),
+                      label: Text(loc?.webReverseCssCovStartTracking ?? 'Start Tracking'),
                     ),
                 ],
               ),
@@ -296,9 +296,8 @@ class _CssCovDialogState extends State<_CssCovDialog> {
               child: _results.isEmpty
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '尚无结果。开始追踪后在页面上交互。'
-                            : 'No results yet. Start tracking then interact.',
+                        loc?.webReverseCssCovEmpty ??
+                            'No results yet. Start tracking then interact.',
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -359,9 +358,13 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                isZh
-                                    ? '${r.usedRanges}/${r.totalRanges} 规则 · ${(r.usedBytes / 1024).toStringAsFixed(1)}/${(r.totalBytes / 1024).toStringAsFixed(1)} KB'
-                                    : '${r.usedRanges}/${r.totalRanges} rules · ${(r.usedBytes / 1024).toStringAsFixed(1)}/${(r.totalBytes / 1024).toStringAsFixed(1)} KB',
+                                loc?.webReverseCssCovRuleStats(
+                                      r.usedRanges,
+                                      r.totalRanges,
+                                      (r.usedBytes / 1024).toStringAsFixed(1),
+                                      (r.totalBytes / 1024).toStringAsFixed(1),
+                                    ) ??
+                                    '${r.usedRanges}/${r.totalRanges} rules · ${(r.usedBytes / 1024).toStringAsFixed(1)}/${(r.totalBytes / 1024).toStringAsFixed(1)} KB',
                                 style: theme.textTheme.labelSmall
                                     ?.copyWith(color: cs.onSurfaceVariant),
                               ),
@@ -376,7 +379,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
+                  label: loc?.webReverseCssCovClose ?? 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

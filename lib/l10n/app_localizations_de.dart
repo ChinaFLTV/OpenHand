@@ -7137,4 +7137,72 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get webReverseSmClose => 'Schließen';
+
+  @override
+  String get webReverseCssCovStarting =>
+      'CSS-Domäne aktivieren und Verfolgung starten...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return 'Start fehlgeschlagen: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      'Wird verfolgt — interagiere mit der Seite, dann „Stoppen & Auswerten“ klicken.';
+
+  @override
+  String get webReverseCssCovStopping => 'Stoppe und aggregiere...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return 'Stopp fehlgeschlagen: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '$sheets Stylesheets, insgesamt $rules Regeln.';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON kopiert';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS-Regel-Abdeckung';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · ungenutzte Regeln finden';
+
+  @override
+  String get webReverseCssCovCopyJson => 'JSON kopieren';
+
+  @override
+  String get webReverseCssCovTracking => 'Verfolgung läuft';
+
+  @override
+  String get webReverseCssCovIdle => 'Leerlauf';
+
+  @override
+  String get webReverseCssCovStopAndTally => 'Stoppen & Auswerten';
+
+  @override
+  String get webReverseCssCovStartTracking => 'Verfolgung starten';
+
+  @override
+  String get webReverseCssCovEmpty =>
+      'Noch keine Ergebnisse. Verfolgung starten und Seite verwenden.';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total Regeln · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => 'Schließen';
 }

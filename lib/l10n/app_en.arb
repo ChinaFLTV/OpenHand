@@ -4838,5 +4838,75 @@
   "webReverseSmNameLabel": "name",
   "@webReverseSmNameLabel": {},
   "webReverseSmClose": "Close",
-  "@webReverseSmClose": {}
+  "@webReverseSmClose": {},
+  "webReverseCssCovStarting": "Enabling CSS & starting...",
+  "@webReverseCssCovStarting": {},
+  "webReverseCssCovStartFailed": "Start failed: {error}",
+  "@webReverseCssCovStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovTrackingActive": "Tracking — interact with the page, then click \"Stop & Tally\".",
+  "@webReverseCssCovTrackingActive": {},
+  "webReverseCssCovStopping": "Stopping and aggregating...",
+  "@webReverseCssCovStopping": {},
+  "webReverseCssCovStopFailed": "Stop failed: {error}",
+  "@webReverseCssCovStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovResultsTallied": "{sheets} sheets, {rules} rules total.",
+  "@webReverseCssCovResultsTallied": {
+    "placeholders": {
+      "sheets": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCssCovJsonCopied": "JSON copied",
+  "@webReverseCssCovJsonCopied": {},
+  "webReverseCssCovTitle": "CSS Rule Coverage",
+  "@webReverseCssCovTitle": {},
+  "webReverseCssCovSubtitle": "CSS.startRuleUsageTracking · find dead rules",
+  "@webReverseCssCovSubtitle": {},
+  "webReverseCssCovCopyJson": "Copy JSON",
+  "@webReverseCssCovCopyJson": {},
+  "webReverseCssCovTracking": "Tracking",
+  "@webReverseCssCovTracking": {},
+  "webReverseCssCovIdle": "Idle",
+  "@webReverseCssCovIdle": {},
+  "webReverseCssCovStopAndTally": "Stop & Tally",
+  "@webReverseCssCovStopAndTally": {},
+  "webReverseCssCovStartTracking": "Start Tracking",
+  "@webReverseCssCovStartTracking": {},
+  "webReverseCssCovEmpty": "No results yet. Start tracking then interact.",
+  "@webReverseCssCovEmpty": {},
+  "webReverseCssCovRuleStats": "{used}/{total} rules · {usedKb}/{totalKb} KB",
+  "@webReverseCssCovRuleStats": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "usedKb": {
+        "type": "String"
+      },
+      "totalKb": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovClose": "Close",
+  "@webReverseCssCovClose": {}
 }

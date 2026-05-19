@@ -12551,6 +12551,113 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'关闭'**
   String get webReverseSmClose;
+
+  /// No description provided for @webReverseCssCovStarting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用 CSS 域并启动追踪...'**
+  String get webReverseCssCovStarting;
+
+  /// No description provided for @webReverseCssCovStartFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动失败: {error}'**
+  String webReverseCssCovStartFailed(String error);
+
+  /// No description provided for @webReverseCssCovTrackingActive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。'**
+  String get webReverseCssCovTrackingActive;
+
+  /// No description provided for @webReverseCssCovStopping.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止并聚合结果...'**
+  String get webReverseCssCovStopping;
+
+  /// No description provided for @webReverseCssCovStopFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止失败: {error}'**
+  String webReverseCssCovStopFailed(String error);
+
+  /// No description provided for @webReverseCssCovResultsTallied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已统计 {sheets} 个样式表，共 {rules} 条规则。'**
+  String webReverseCssCovResultsTallied(int sheets, int rules);
+
+  /// No description provided for @webReverseCssCovJsonCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 已复制'**
+  String get webReverseCssCovJsonCopied;
+
+  /// No description provided for @webReverseCssCovTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CSS 规则使用率'**
+  String get webReverseCssCovTitle;
+
+  /// No description provided for @webReverseCssCovSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CSS.startRuleUsageTracking · 统计未命中的死代码'**
+  String get webReverseCssCovSubtitle;
+
+  /// No description provided for @webReverseCssCovCopyJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseCssCovCopyJson;
+
+  /// No description provided for @webReverseCssCovTracking.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'追踪中'**
+  String get webReverseCssCovTracking;
+
+  /// No description provided for @webReverseCssCovIdle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'空闲'**
+  String get webReverseCssCovIdle;
+
+  /// No description provided for @webReverseCssCovStopAndTally.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止并统计'**
+  String get webReverseCssCovStopAndTally;
+
+  /// No description provided for @webReverseCssCovStartTracking.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始追踪'**
+  String get webReverseCssCovStartTracking;
+
+  /// No description provided for @webReverseCssCovEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚无结果。开始追踪后在页面上交互。'**
+  String get webReverseCssCovEmpty;
+
+  /// No description provided for @webReverseCssCovRuleStats.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{used}/{total} 规则 · {usedKb}/{totalKb} KB'**
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  );
+
+  /// No description provided for @webReverseCssCovClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCssCovClose;
 }
 
 class _AppLocalizationsDelegate

@@ -7072,4 +7072,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webReverseSmClose => 'Close';
+
+  @override
+  String get webReverseCssCovStarting => 'Enabling CSS & starting...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return 'Start failed: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      'Tracking — interact with the page, then click \"Stop & Tally\".';
+
+  @override
+  String get webReverseCssCovStopping => 'Stopping and aggregating...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return 'Stop failed: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '$sheets sheets, $rules rules total.';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON copied';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS Rule Coverage';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · find dead rules';
+
+  @override
+  String get webReverseCssCovCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseCssCovTracking => 'Tracking';
+
+  @override
+  String get webReverseCssCovIdle => 'Idle';
+
+  @override
+  String get webReverseCssCovStopAndTally => 'Stop & Tally';
+
+  @override
+  String get webReverseCssCovStartTracking => 'Start Tracking';
+
+  @override
+  String get webReverseCssCovEmpty =>
+      'No results yet. Start tracking then interact.';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total rules · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => 'Close';
 }

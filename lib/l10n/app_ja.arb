@@ -4838,5 +4838,75 @@
   "webReverseSmNameLabel": "名前",
   "@webReverseSmNameLabel": {},
   "webReverseSmClose": "閉じる",
-  "@webReverseSmClose": {}
+  "@webReverseSmClose": {},
+  "webReverseCssCovStarting": "CSS ドメインを有効化して追跡開始...",
+  "@webReverseCssCovStarting": {},
+  "webReverseCssCovStartFailed": "開始失敗: {error}",
+  "@webReverseCssCovStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovTrackingActive": "追跡中 — ページを操作後、「停止と集計」をクリック。",
+  "@webReverseCssCovTrackingActive": {},
+  "webReverseCssCovStopping": "停止して集計中...",
+  "@webReverseCssCovStopping": {},
+  "webReverseCssCovStopFailed": "停止失敗: {error}",
+  "@webReverseCssCovStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovResultsTallied": "{sheets} シート、計 {rules} ルール。",
+  "@webReverseCssCovResultsTallied": {
+    "placeholders": {
+      "sheets": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCssCovJsonCopied": "JSON をコピーしました",
+  "@webReverseCssCovJsonCopied": {},
+  "webReverseCssCovTitle": "CSS ルール使用率",
+  "@webReverseCssCovTitle": {},
+  "webReverseCssCovSubtitle": "CSS.startRuleUsageTracking · デッドコードを集計",
+  "@webReverseCssCovSubtitle": {},
+  "webReverseCssCovCopyJson": "JSON をコピー",
+  "@webReverseCssCovCopyJson": {},
+  "webReverseCssCovTracking": "追跡中",
+  "@webReverseCssCovTracking": {},
+  "webReverseCssCovIdle": "アイドル",
+  "@webReverseCssCovIdle": {},
+  "webReverseCssCovStopAndTally": "停止と集計",
+  "@webReverseCssCovStopAndTally": {},
+  "webReverseCssCovStartTracking": "追跡開始",
+  "@webReverseCssCovStartTracking": {},
+  "webReverseCssCovEmpty": "結果なし。追跡を開始してページを操作してください。",
+  "@webReverseCssCovEmpty": {},
+  "webReverseCssCovRuleStats": "{used}/{total} ルール · {usedKb}/{totalKb} KB",
+  "@webReverseCssCovRuleStats": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "usedKb": {
+        "type": "String"
+      },
+      "totalKb": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovClose": "閉じる",
+  "@webReverseCssCovClose": {}
 }

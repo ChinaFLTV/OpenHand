@@ -6783,6 +6783,72 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webReverseSmClose => '关闭';
+
+  @override
+  String get webReverseCssCovStarting => '启用 CSS 域并启动追踪...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return '启动失败: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      '正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。';
+
+  @override
+  String get webReverseCssCovStopping => '停止并聚合结果...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return '停止失败: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '已统计 $sheets 个样式表，共 $rules 条规则。';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS 规则使用率';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · 统计未命中的死代码';
+
+  @override
+  String get webReverseCssCovCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCssCovTracking => '追踪中';
+
+  @override
+  String get webReverseCssCovIdle => '空闲';
+
+  @override
+  String get webReverseCssCovStopAndTally => '停止并统计';
+
+  @override
+  String get webReverseCssCovStartTracking => '开始追踪';
+
+  @override
+  String get webReverseCssCovEmpty => '尚无结果。开始追踪后在页面上交互。';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total 规则 · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13564,6 +13630,72 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get webReverseSmClose => '关闭';
+
+  @override
+  String get webReverseCssCovStarting => '启用 CSS 域并启动追踪...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return '启动失败: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      '正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。';
+
+  @override
+  String get webReverseCssCovStopping => '停止并聚合结果...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return '停止失败: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '已统计 $sheets 个样式表，共 $rules 条规则。';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS 规则使用率';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · 统计未命中的死代码';
+
+  @override
+  String get webReverseCssCovCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCssCovTracking => '追踪中';
+
+  @override
+  String get webReverseCssCovIdle => '空闲';
+
+  @override
+  String get webReverseCssCovStopAndTally => '停止并统计';
+
+  @override
+  String get webReverseCssCovStartTracking => '开始追踪';
+
+  @override
+  String get webReverseCssCovEmpty => '尚无结果。开始追踪后在页面上交互。';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total 规则 · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20344,4 +20476,70 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webReverseSmClose => '关闭';
+
+  @override
+  String get webReverseCssCovStarting => '启用 CSS 域并启动追踪...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return '启动失败: $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      '正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。';
+
+  @override
+  String get webReverseCssCovStopping => '停止并聚合结果...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return '停止失败: $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '已统计 $sheets 个样式表，共 $rules 条规则。';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON 已复制';
+
+  @override
+  String get webReverseCssCovTitle => 'CSS 规则使用率';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · 统计未命中的死代码';
+
+  @override
+  String get webReverseCssCovCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseCssCovTracking => '追踪中';
+
+  @override
+  String get webReverseCssCovIdle => '空闲';
+
+  @override
+  String get webReverseCssCovStopAndTally => '停止并统计';
+
+  @override
+  String get webReverseCssCovStartTracking => '开始追踪';
+
+  @override
+  String get webReverseCssCovEmpty => '尚无结果。开始追踪后在页面上交互。';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total 规则 · $usedKb/$totalKb KB';
+  }
+
+  @override
+  String get webReverseCssCovClose => '关闭';
 }

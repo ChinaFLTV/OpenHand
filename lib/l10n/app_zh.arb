@@ -4838,5 +4838,75 @@
   "webReverseSmNameLabel": "名称",
   "@webReverseSmNameLabel": {},
   "webReverseSmClose": "关闭",
-  "@webReverseSmClose": {}
+  "@webReverseSmClose": {},
+  "webReverseCssCovStarting": "启用 CSS 域并启动追踪...",
+  "@webReverseCssCovStarting": {},
+  "webReverseCssCovStartFailed": "启动失败: {error}",
+  "@webReverseCssCovStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovTrackingActive": "正在追踪 — 请在页面上交互（点击、滚动、悬浮等），然后点击「停止并统计」。",
+  "@webReverseCssCovTrackingActive": {},
+  "webReverseCssCovStopping": "停止并聚合结果...",
+  "@webReverseCssCovStopping": {},
+  "webReverseCssCovStopFailed": "停止失败: {error}",
+  "@webReverseCssCovStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovResultsTallied": "已统计 {sheets} 个样式表，共 {rules} 条规则。",
+  "@webReverseCssCovResultsTallied": {
+    "placeholders": {
+      "sheets": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCssCovJsonCopied": "JSON 已复制",
+  "@webReverseCssCovJsonCopied": {},
+  "webReverseCssCovTitle": "CSS 规则使用率",
+  "@webReverseCssCovTitle": {},
+  "webReverseCssCovSubtitle": "CSS.startRuleUsageTracking · 统计未命中的死代码",
+  "@webReverseCssCovSubtitle": {},
+  "webReverseCssCovCopyJson": "复制 JSON",
+  "@webReverseCssCovCopyJson": {},
+  "webReverseCssCovTracking": "追踪中",
+  "@webReverseCssCovTracking": {},
+  "webReverseCssCovIdle": "空闲",
+  "@webReverseCssCovIdle": {},
+  "webReverseCssCovStopAndTally": "停止并统计",
+  "@webReverseCssCovStopAndTally": {},
+  "webReverseCssCovStartTracking": "开始追踪",
+  "@webReverseCssCovStartTracking": {},
+  "webReverseCssCovEmpty": "尚无结果。开始追踪后在页面上交互。",
+  "@webReverseCssCovEmpty": {},
+  "webReverseCssCovRuleStats": "{used}/{total} 规则 · {usedKb}/{totalKb} KB",
+  "@webReverseCssCovRuleStats": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "usedKb": {
+        "type": "String"
+      },
+      "totalKb": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovClose": "关闭",
+  "@webReverseCssCovClose": {}
 }

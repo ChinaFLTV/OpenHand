@@ -7169,4 +7169,72 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webReverseSmClose => 'Fermer';
+
+  @override
+  String get webReverseCssCovStarting =>
+      'Activation du domaine CSS et démarrage du suivi...';
+
+  @override
+  String webReverseCssCovStartFailed(String error) {
+    return 'Échec du démarrage : $error';
+  }
+
+  @override
+  String get webReverseCssCovTrackingActive =>
+      'Suivi en cours — interagissez avec la page, puis cliquez « Arrêter et compter ».';
+
+  @override
+  String get webReverseCssCovStopping => 'Arrêt et agrégation en cours...';
+
+  @override
+  String webReverseCssCovStopFailed(String error) {
+    return 'Échec de l\'arrêt : $error';
+  }
+
+  @override
+  String webReverseCssCovResultsTallied(int sheets, int rules) {
+    return '$sheets feuilles, $rules règles au total.';
+  }
+
+  @override
+  String get webReverseCssCovJsonCopied => 'JSON copié';
+
+  @override
+  String get webReverseCssCovTitle => 'Couverture des règles CSS';
+
+  @override
+  String get webReverseCssCovSubtitle =>
+      'CSS.startRuleUsageTracking · trouver les règles inutilisées';
+
+  @override
+  String get webReverseCssCovCopyJson => 'Copier le JSON';
+
+  @override
+  String get webReverseCssCovTracking => 'Suivi';
+
+  @override
+  String get webReverseCssCovIdle => 'Inactif';
+
+  @override
+  String get webReverseCssCovStopAndTally => 'Arrêter et compter';
+
+  @override
+  String get webReverseCssCovStartTracking => 'Démarrer le suivi';
+
+  @override
+  String get webReverseCssCovEmpty =>
+      'Aucun résultat. Démarrez le suivi et interagissez avec la page.';
+
+  @override
+  String webReverseCssCovRuleStats(
+    int used,
+    int total,
+    String usedKb,
+    String totalKb,
+  ) {
+    return '$used/$total règles · $usedKb/$totalKb Ko';
+  }
+
+  @override
+  String get webReverseCssCovClose => 'Fermer';
 }

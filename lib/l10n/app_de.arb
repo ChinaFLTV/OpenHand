@@ -4838,5 +4838,75 @@
   "webReverseSmNameLabel": "Name",
   "@webReverseSmNameLabel": {},
   "webReverseSmClose": "Schließen",
-  "@webReverseSmClose": {}
+  "@webReverseSmClose": {},
+  "webReverseCssCovStarting": "CSS-Domäne aktivieren und Verfolgung starten...",
+  "@webReverseCssCovStarting": {},
+  "webReverseCssCovStartFailed": "Start fehlgeschlagen: {error}",
+  "@webReverseCssCovStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovTrackingActive": "Wird verfolgt — interagiere mit der Seite, dann „Stoppen & Auswerten“ klicken.",
+  "@webReverseCssCovTrackingActive": {},
+  "webReverseCssCovStopping": "Stoppe und aggregiere...",
+  "@webReverseCssCovStopping": {},
+  "webReverseCssCovStopFailed": "Stopp fehlgeschlagen: {error}",
+  "@webReverseCssCovStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovResultsTallied": "{sheets} Stylesheets, insgesamt {rules} Regeln.",
+  "@webReverseCssCovResultsTallied": {
+    "placeholders": {
+      "sheets": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCssCovJsonCopied": "JSON kopiert",
+  "@webReverseCssCovJsonCopied": {},
+  "webReverseCssCovTitle": "CSS-Regel-Abdeckung",
+  "@webReverseCssCovTitle": {},
+  "webReverseCssCovSubtitle": "CSS.startRuleUsageTracking · ungenutzte Regeln finden",
+  "@webReverseCssCovSubtitle": {},
+  "webReverseCssCovCopyJson": "JSON kopieren",
+  "@webReverseCssCovCopyJson": {},
+  "webReverseCssCovTracking": "Verfolgung läuft",
+  "@webReverseCssCovTracking": {},
+  "webReverseCssCovIdle": "Leerlauf",
+  "@webReverseCssCovIdle": {},
+  "webReverseCssCovStopAndTally": "Stoppen & Auswerten",
+  "@webReverseCssCovStopAndTally": {},
+  "webReverseCssCovStartTracking": "Verfolgung starten",
+  "@webReverseCssCovStartTracking": {},
+  "webReverseCssCovEmpty": "Noch keine Ergebnisse. Verfolgung starten und Seite verwenden.",
+  "@webReverseCssCovEmpty": {},
+  "webReverseCssCovRuleStats": "{used}/{total} Regeln · {usedKb}/{totalKb} KB",
+  "@webReverseCssCovRuleStats": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "usedKb": {
+        "type": "String"
+      },
+      "totalKb": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCssCovClose": "Schließen",
+  "@webReverseCssCovClose": {}
 }
