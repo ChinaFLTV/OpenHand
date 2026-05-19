@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -29,6 +30,7 @@ Future<void> showWebReverseCpuThrottleDialog(
 class _CpuThrottleDialog extends StatefulWidget {
   const _CpuThrottleDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_CpuThrottleDialog> createState() => _CpuThrottleDialogState();
@@ -49,12 +51,13 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
   ];
 
   Future<void> _apply(double rate) async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
+    final rateStr = rate.toStringAsFixed(1);
     setState(() {
       _rate = rate;
       _busy = true;
-      _status =
-          isZh ? '设置 CPU 限速 ${rate.toStringAsFixed(1)}×...' : 'Throttling ${rate}x...';
+      _status = loc?.webReverseCpuThrottleApplying(rateStr) ??
+          'Throttling ${rate}x...';
     });
     Map<String, Object?>? r;
     try {
@@ -67,20 +70,20 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
+      final err = '${r?['error'] ?? 'unknown'}';
       setState(() {
         _busy = false;
         _status =
-            isZh ? '失败: ${r?['error'] ?? 'unknown'}' : 'Failed: ${r?['error'] ?? 'unknown'}';
+            loc?.webReverseCpuThrottleFailed(err) ?? 'Failed: $err';
       });
       return;
     }
     setState(() {
       _busy = false;
       _status = rate <= 1
-          ? (isZh ? 'CPU 限速已关闭' : 'CPU throttle off')
-          : (isZh
-              ? '当前 CPU 限速 ${rate.toStringAsFixed(1)}×'
-              : 'CPU throttled ${rate.toStringAsFixed(1)}×');
+          ? (loc?.webReverseCpuThrottleOff ?? 'CPU throttle off')
+          : (loc?.webReverseCpuThrottleCurrent(rateStr) ??
+              'CPU throttled ${rateStr}×');
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
@@ -88,10 +91,9 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
         context,
         m,
         rate <= 1
-            ? (isZh ? '已恢复' : 'Reset')
-            : (isZh
-                ? '已应用 ${rate.toStringAsFixed(1)}× 限速'
-                : 'Applied ${rate.toStringAsFixed(1)}× throttle'),
+            ? (loc?.webReverseCpuThrottleResetDone ?? 'Reset')
+            : (loc?.webReverseCpuThrottleApplied(rateStr) ??
+                'Applied ${rateStr}× throttle'),
       );
     }
   }
@@ -100,7 +102,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -120,7 +122,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'CPU 限速' : 'CPU Throttling',
+                          loc?.webReverseCpuThrottleTitle ?? 'CPU Throttling',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -146,7 +148,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(isZh ? '常用预设' : 'Presets',
+                    Text(loc?.webReverseCpuThrottlePresets ?? 'Presets',
                         style: theme.textTheme.labelLarge),
                     const SizedBox(height: 6),
                     Wrap(
@@ -164,9 +166,9 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                     ),
                     const SizedBox(height: 22),
                     Text(
-                      isZh
-                          ? '滑动调节 ${_rate.toStringAsFixed(1)}×'
-                          : 'Slider ${_rate.toStringAsFixed(1)}×',
+                      loc?.webReverseCpuThrottleSliderLabel(
+                              _rate.toStringAsFixed(1)) ??
+                          'Slider ${_rate.toStringAsFixed(1)}×',
                       style: theme.textTheme.labelLarge,
                     ),
                     const SizedBox(height: 6),
@@ -190,9 +192,8 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                         border: Border.all(color: cs.outlineVariant),
                       ),
                       child: Text(
-                        isZh
-                            ? '注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。'
-                            : 'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',
+                        loc?.webReverseCpuThrottleNote ??
+                            'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -219,11 +220,13 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : () => _apply(1),
                     icon: const Icon(Icons.restore_rounded),
-                    label: Text(isZh ? '重置 (1×)' : 'Reset (1×)'),
+                    label: Text(
+                      loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
+                    ),
                   ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.commonClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

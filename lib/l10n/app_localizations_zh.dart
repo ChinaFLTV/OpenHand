@@ -7401,6 +7401,50 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseFrameTreeCount(int count) {
     return '共 $count 帧';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU 限速已关闭';
+
+  @override
+  String get webReverseCpuThrottleResetDone => '已恢复';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU 限速';
+
+  @override
+  String get webReverseCpuThrottlePresets => '常用预设';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      '注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。';
+
+  @override
+  String get webReverseCpuThrottleReset => '重置 (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return '设置 CPU 限速 $rate×...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return '失败: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return '当前 CPU 限速 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return '滑动调节 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return '已应用 $rate× 限速';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14800,6 +14844,50 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseFrameTreeCount(int count) {
     return '共 $count 帧';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU 限速已关闭';
+
+  @override
+  String get webReverseCpuThrottleResetDone => '已恢复';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU 限速';
+
+  @override
+  String get webReverseCpuThrottlePresets => '常用预设';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      '注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。';
+
+  @override
+  String get webReverseCpuThrottleReset => '重置 (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return '设置 CPU 限速 $rate×...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return '失败: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return '当前 CPU 限速 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return '滑动调节 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return '已应用 $rate× 限速';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22197,5 +22285,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseFrameTreeCount(int count) {
     return '共 $count 帧';
+  }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU 限速已关闭';
+
+  @override
+  String get webReverseCpuThrottleResetDone => '已恢复';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU 限速';
+
+  @override
+  String get webReverseCpuThrottlePresets => '常用预设';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      '注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。';
+
+  @override
+  String get webReverseCpuThrottleReset => '重置 (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return '设置 CPU 限速 $rate×...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return '失败: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return '当前 CPU 限速 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return '滑动调节 $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return '已应用 $rate× 限速';
   }
 }

@@ -7805,4 +7805,48 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseFrameTreeCount(int count) {
     return '$count frames';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'Limitation CPU désactivée';
+
+  @override
+  String get webReverseCpuThrottleResetDone => 'Réinitialisé';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'Limitation CPU';
+
+  @override
+  String get webReverseCpuThrottlePresets => 'Préréglages';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      'La limitation reste active après fermeture. Choisissez 1× (off) ou « Réinitialiser ».';
+
+  @override
+  String get webReverseCpuThrottleReset => 'Réinitialiser (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return 'Limitation CPU $rate× en cours...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return 'Échec : $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return 'CPU limité $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return 'Curseur $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return 'Limitation $rate× appliquée';
+  }
 }

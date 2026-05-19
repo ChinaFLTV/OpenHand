@@ -7500,4 +7500,48 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseFrameTreeCount(int count) {
     return '$count フレーム';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU スロットル オフ';
+
+  @override
+  String get webReverseCpuThrottleResetDone => 'リセット完了';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU スロットリング';
+
+  @override
+  String get webReverseCpuThrottlePresets => 'プリセット';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      'ダイアログを閉じてもスロットルは有効です。1× (off) または「リセット」で解除してください。';
+
+  @override
+  String get webReverseCpuThrottleReset => 'リセット (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return 'CPU スロットル $rate× を設定中...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return '失敗: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return '現在 CPU スロットル $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return 'スライダー $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return '$rate× スロットルを適用';
+  }
 }

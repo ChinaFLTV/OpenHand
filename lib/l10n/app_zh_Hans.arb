@@ -5644,5 +5644,74 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCpuThrottleOff": "CPU 限速已关闭",
+  "@webReverseCpuThrottleOff": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleResetDone": "已恢复",
+  "@webReverseCpuThrottleResetDone": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleTitle": "CPU 限速",
+  "@webReverseCpuThrottleTitle": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottlePresets": "常用预设",
+  "@webReverseCpuThrottlePresets": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleNote": "注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。",
+  "@webReverseCpuThrottleNote": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleReset": "重置 (1×)",
+  "@webReverseCpuThrottleReset": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleApplying": "设置 CPU 限速 {rate}×...",
+  "@webReverseCpuThrottleApplying": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleFailed": "失败: {error}",
+  "@webReverseCpuThrottleFailed": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleCurrent": "当前 CPU 限速 {rate}×",
+  "@webReverseCpuThrottleCurrent": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleSliderLabel": "滑动调节 {rate}×",
+  "@webReverseCpuThrottleSliderLabel": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleApplied": "已应用 {rate}× 限速",
+  "@webReverseCpuThrottleApplied": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   }
 }

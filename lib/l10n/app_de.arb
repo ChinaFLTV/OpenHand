@@ -5575,5 +5575,74 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCpuThrottleOff": "CPU-Drosselung aus",
+  "@webReverseCpuThrottleOff": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleResetDone": "Zurückgesetzt",
+  "@webReverseCpuThrottleResetDone": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleTitle": "CPU-Drosselung",
+  "@webReverseCpuThrottleTitle": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottlePresets": "Voreinstellungen",
+  "@webReverseCpuThrottlePresets": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleNote": "Drosselung bleibt nach dem Schließen aktiv. 1× (off) wählen oder „Zurücksetzen“ klicken.",
+  "@webReverseCpuThrottleNote": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleReset": "Zurücksetzen (1×)",
+  "@webReverseCpuThrottleReset": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleApplying": "CPU-Drosselung {rate}× wird gesetzt...",
+  "@webReverseCpuThrottleApplying": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleFailed": "Fehlgeschlagen: {error}",
+  "@webReverseCpuThrottleFailed": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleCurrent": "CPU gedrosselt {rate}×",
+  "@webReverseCpuThrottleCurrent": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleSliderLabel": "Schieberegler {rate}×",
+  "@webReverseCpuThrottleSliderLabel": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleApplied": "Drosselung {rate}× angewendet",
+  "@webReverseCpuThrottleApplied": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -7699,4 +7699,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseFrameTreeCount(int count) {
     return '$count frames';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU throttle off';
+
+  @override
+  String get webReverseCpuThrottleResetDone => 'Reset';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU Throttling';
+
+  @override
+  String get webReverseCpuThrottlePresets => 'Presets';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.';
+
+  @override
+  String get webReverseCpuThrottleReset => 'Reset (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return 'Throttling $rate×...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return 'Failed: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return 'CPU throttled $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return 'Slider $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return 'Applied $rate× throttle';
+  }
 }

@@ -5575,5 +5575,74 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCpuThrottleOff": "Limitation CPU désactivée",
+  "@webReverseCpuThrottleOff": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleResetDone": "Réinitialisé",
+  "@webReverseCpuThrottleResetDone": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleTitle": "Limitation CPU",
+  "@webReverseCpuThrottleTitle": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottlePresets": "Préréglages",
+  "@webReverseCpuThrottlePresets": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleNote": "La limitation reste active après fermeture. Choisissez 1× (off) ou « Réinitialiser ».",
+  "@webReverseCpuThrottleNote": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleReset": "Réinitialiser (1×)",
+  "@webReverseCpuThrottleReset": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleApplying": "Limitation CPU {rate}× en cours...",
+  "@webReverseCpuThrottleApplying": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleFailed": "Échec : {error}",
+  "@webReverseCpuThrottleFailed": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleCurrent": "CPU limité {rate}×",
+  "@webReverseCpuThrottleCurrent": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleSliderLabel": "Curseur {rate}×",
+  "@webReverseCpuThrottleSliderLabel": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleApplied": "Limitation {rate}× appliquée",
+  "@webReverseCpuThrottleApplied": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   }
 }

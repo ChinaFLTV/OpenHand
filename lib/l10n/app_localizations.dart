@@ -13624,6 +13624,72 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'共 {count} 帧'**
   String webReverseFrameTreeCount(int count);
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CPU 限速已关闭'**
+  String get webReverseCpuThrottleOff;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已恢复'**
+  String get webReverseCpuThrottleResetDone;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CPU 限速'**
+  String get webReverseCpuThrottleTitle;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'常用预设'**
+  String get webReverseCpuThrottlePresets;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注意：CDP CPU 限速作用于渲染进程，不影响 GPU/网络。关闭窗口后限速仍生效，请手动选择 1×（off）或点「重置」恢复。'**
+  String get webReverseCpuThrottleNote;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置 (1×)'**
+  String get webReverseCpuThrottleReset;
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置 CPU 限速 {rate}×...'**
+  String webReverseCpuThrottleApplying(String rate);
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败: {error}'**
+  String webReverseCpuThrottleFailed(String error);
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前 CPU 限速 {rate}×'**
+  String webReverseCpuThrottleCurrent(String rate);
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'滑动调节 {rate}×'**
+  String webReverseCpuThrottleSliderLabel(String rate);
+
+  /// web_reverse: cpu throttle dialog
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用 {rate}× 限速'**
+  String webReverseCpuThrottleApplied(String rate);
 }
 
 class _AppLocalizationsDelegate

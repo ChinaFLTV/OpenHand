@@ -5575,5 +5575,74 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCpuThrottleOff": "CPU スロットル オフ",
+  "@webReverseCpuThrottleOff": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleResetDone": "リセット完了",
+  "@webReverseCpuThrottleResetDone": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleTitle": "CPU スロットリング",
+  "@webReverseCpuThrottleTitle": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottlePresets": "プリセット",
+  "@webReverseCpuThrottlePresets": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleNote": "ダイアログを閉じてもスロットルは有効です。1× (off) または「リセット」で解除してください。",
+  "@webReverseCpuThrottleNote": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleReset": "リセット (1×)",
+  "@webReverseCpuThrottleReset": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleApplying": "CPU スロットル {rate}× を設定中...",
+  "@webReverseCpuThrottleApplying": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleFailed": "失敗: {error}",
+  "@webReverseCpuThrottleFailed": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleCurrent": "現在 CPU スロットル {rate}×",
+  "@webReverseCpuThrottleCurrent": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleSliderLabel": "スライダー {rate}×",
+  "@webReverseCpuThrottleSliderLabel": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleApplied": "{rate}× スロットルを適用",
+  "@webReverseCpuThrottleApplied": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   }
 }

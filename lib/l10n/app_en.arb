@@ -5575,5 +5575,74 @@
         "type": "int"
       }
     }
+  },
+  "webReverseCpuThrottleOff": "CPU throttle off",
+  "@webReverseCpuThrottleOff": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleResetDone": "Reset",
+  "@webReverseCpuThrottleResetDone": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleTitle": "CPU Throttling",
+  "@webReverseCpuThrottleTitle": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottlePresets": "Presets",
+  "@webReverseCpuThrottlePresets": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleNote": "Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.",
+  "@webReverseCpuThrottleNote": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleReset": "Reset (1×)",
+  "@webReverseCpuThrottleReset": {
+    "description": "web_reverse: cpu throttle dialog"
+  },
+  "webReverseCpuThrottleApplying": "Throttling {rate}×...",
+  "@webReverseCpuThrottleApplying": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleFailed": "Failed: {error}",
+  "@webReverseCpuThrottleFailed": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleCurrent": "CPU throttled {rate}×",
+  "@webReverseCpuThrottleCurrent": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleSliderLabel": "Slider {rate}×",
+  "@webReverseCpuThrottleSliderLabel": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCpuThrottleApplied": "Applied {rate}× throttle",
+  "@webReverseCpuThrottleApplied": {
+    "description": "web_reverse: cpu throttle dialog",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   }
 }

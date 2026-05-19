@@ -7770,4 +7770,48 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseFrameTreeCount(int count) {
     return '$count Frames';
   }
+
+  @override
+  String get webReverseCpuThrottleOff => 'CPU-Drosselung aus';
+
+  @override
+  String get webReverseCpuThrottleResetDone => 'Zurückgesetzt';
+
+  @override
+  String get webReverseCpuThrottleTitle => 'CPU-Drosselung';
+
+  @override
+  String get webReverseCpuThrottlePresets => 'Voreinstellungen';
+
+  @override
+  String get webReverseCpuThrottleNote =>
+      'Drosselung bleibt nach dem Schließen aktiv. 1× (off) wählen oder „Zurücksetzen“ klicken.';
+
+  @override
+  String get webReverseCpuThrottleReset => 'Zurücksetzen (1×)';
+
+  @override
+  String webReverseCpuThrottleApplying(String rate) {
+    return 'CPU-Drosselung $rate× wird gesetzt...';
+  }
+
+  @override
+  String webReverseCpuThrottleFailed(String error) {
+    return 'Fehlgeschlagen: $error';
+  }
+
+  @override
+  String webReverseCpuThrottleCurrent(String rate) {
+    return 'CPU gedrosselt $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleSliderLabel(String rate) {
+    return 'Schieberegler $rate×';
+  }
+
+  @override
+  String webReverseCpuThrottleApplied(String rate) {
+    return 'Drosselung $rate× angewendet';
+  }
 }
