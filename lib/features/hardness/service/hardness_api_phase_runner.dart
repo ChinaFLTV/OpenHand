@@ -284,21 +284,29 @@ class HardnessApiPhaseRunner {
     // Apply MCP lazy-loading policy before phase-affinity filtering, so the
     // deferred list reflects the full server inventory and any subsequent
     // ToolSearch hit becomes immediately callable in this phase.
-    final toolCatalog = supportsTools
-        ? McpLazyLoadingApplier.apply(
-            catalog: rawToolCatalog,
-            runtimeContext: runtimeContext,
-            toolRuntimeService: _toolRuntimeService,
-            alreadyLoadedNames:
-                _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
-          )
-        : rawToolCatalog;
+    AiResolvedToolCatalog applyMcpLazyLoadingForPhase() {
+      if (!supportsTools) return rawToolCatalog;
+      return McpLazyLoadingApplier.apply(
+        catalog: rawToolCatalog,
+        runtimeContext: runtimeContext,
+        toolRuntimeService: _toolRuntimeService,
+        alreadyLoadedNames:
+            _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
+      );
+    }
 
     // Filter tools based on phase constraints using HE-specific affinity.
-    final phaseToolCatalog = hardnessPromptBuilder.filterToolsForPhase(
-      phase: phase,
-      catalog: toolCatalog,
-    );
+    AiResolvedToolCatalog filterToolsForCurrentPhase(
+      AiResolvedToolCatalog catalog,
+    ) {
+      return hardnessPromptBuilder.filterToolsForPhase(
+        phase: phase,
+        catalog: catalog,
+      );
+    }
+
+    var toolCatalog = applyMcpLazyLoadingForPhase();
+    var phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
     if (toolCatalog.notices.isNotEmpty) {
       for (final notice in toolCatalog.notices) {
@@ -450,6 +458,9 @@ class HardnessApiPhaseRunner {
             ..clear()
             ..addAll(handoffResult);
         }
+
+        toolCatalog = applyMcpLazyLoadingForPhase();
+        phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
         // Send API request.
         final AiChatCompletion completion;
