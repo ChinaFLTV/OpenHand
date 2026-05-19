@@ -4973,6 +4973,46 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get webReverseVitalsThresholdsHint =>
       '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
+
+  @override
+  String get webReverseIssuesCopied => '已复制 issue JSON';
+
+  @override
+  String get webReverseIssuesTitle => 'Issues 面板';
+
+  @override
+  String get webReverseIssuesSubtitle =>
+      'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合';
+
+  @override
+  String get webReverseIssuesClearBuffer => '清空缓冲';
+
+  @override
+  String get webReverseIssuesClose => '关闭';
+
+  @override
+  String get webReverseIssuesFilterHint => '按 code / URL / 描述过滤…';
+
+  @override
+  String get webReverseIssuesEmptyBuffer => '当前页面尚未报告任何 issue，访问几个交互后再来看看。';
+
+  @override
+  String get webReverseIssuesNoMatch => '没有匹配的 issue。';
+
+  @override
+  String get webReverseIssuesCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseIssuesCollapse => '收起';
+
+  @override
+  String get webReverseIssuesExpand => '展开';
+
+  @override
+  String get webReverseIssuesSubscribed => '已订阅 Audits.issueAdded';
+
+  @override
+  String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -9944,6 +9984,46 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get webReverseVitalsThresholdsHint =>
       '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
+
+  @override
+  String get webReverseIssuesCopied => '已复制 issue JSON';
+
+  @override
+  String get webReverseIssuesTitle => 'Issues 面板';
+
+  @override
+  String get webReverseIssuesSubtitle =>
+      'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合';
+
+  @override
+  String get webReverseIssuesClearBuffer => '清空缓冲';
+
+  @override
+  String get webReverseIssuesClose => '关闭';
+
+  @override
+  String get webReverseIssuesFilterHint => '按 code / URL / 描述过滤…';
+
+  @override
+  String get webReverseIssuesEmptyBuffer => '当前页面尚未报告任何 issue，访问几个交互后再来看看。';
+
+  @override
+  String get webReverseIssuesNoMatch => '没有匹配的 issue。';
+
+  @override
+  String get webReverseIssuesCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseIssuesCollapse => '收起';
+
+  @override
+  String get webReverseIssuesExpand => '展开';
+
+  @override
+  String get webReverseIssuesSubscribed => '已订阅 Audits.issueAdded';
+
+  @override
+  String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -14914,4 +14994,44 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get webReverseVitalsThresholdsHint =>
       '阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。';
+
+  @override
+  String get webReverseIssuesCopied => '已复制 issue JSON';
+
+  @override
+  String get webReverseIssuesTitle => 'Issues 面板';
+
+  @override
+  String get webReverseIssuesSubtitle =>
+      'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合';
+
+  @override
+  String get webReverseIssuesClearBuffer => '清空缓冲';
+
+  @override
+  String get webReverseIssuesClose => '关闭';
+
+  @override
+  String get webReverseIssuesFilterHint => '按 code / URL / 描述过滤…';
+
+  @override
+  String get webReverseIssuesEmptyBuffer => '当前页面尚未报告任何 issue，访问几个交互后再来看看。';
+
+  @override
+  String get webReverseIssuesNoMatch => '没有匹配的 issue。';
+
+  @override
+  String get webReverseIssuesCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseIssuesCollapse => '收起';
+
+  @override
+  String get webReverseIssuesExpand => '展开';
+
+  @override
+  String get webReverseIssuesSubscribed => '已订阅 Audits.issueAdded';
+
+  @override
+  String get webReverseIssuesAuditsNotReady => 'Audits 域未就绪';
 }

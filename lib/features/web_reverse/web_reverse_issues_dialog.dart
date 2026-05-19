@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -87,8 +88,6 @@ class _IssuesDialogState extends State<_IssuesDialog> {
   String? _focusedCode;
   int _expandedIndex = -1;
 
-  bool get _isZh => widget.isZh;
-
   @override
   void initState() {
     super.initState();
@@ -164,7 +163,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            _isZh ? '已复制 issue JSON' : 'Issue JSON copied',
+            AppLocalizations.of(context)?.webReverseIssuesCopied ?? 'Issue JSON copied',
           );
         }
       }
@@ -211,15 +210,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isZh ? 'Issues 面板' : 'Issues',
+                          AppLocalizations.of(context)?.webReverseIssuesTitle ?? 'Issues',
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          _isZh
-                              ? 'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合'
-                              : 'Audits.issueAdded · live aggregator',
+                          AppLocalizations.of(context)?.webReverseIssuesSubtitle ??
+                              'Audits.issueAdded · live aggregator',
                           style: tt.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -245,12 +243,12 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '清空缓冲' : 'Clear buffer',
+                    tooltip: AppLocalizations.of(context)?.webReverseIssuesClearBuffer ?? 'Clear buffer',
                     onPressed: _issueBuffer.isEmpty ? null : _clear,
                     icon: const Icon(Icons.delete_sweep_rounded),
                   ),
                   IconButton(
-                    tooltip: _isZh ? '关闭' : 'Close',
+                    tooltip: AppLocalizations.of(context)?.webReverseIssuesClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -267,9 +265,8 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: _isZh
-                            ? '按 code / URL / 描述过滤…'
-                            : 'Filter by code / URL / description…',
+                        hintText: AppLocalizations.of(context)?.webReverseIssuesFilterHint ??
+                            'Filter by code / URL / description…',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -327,10 +324,9 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                           const SizedBox(height: 8),
                           Text(
                             _issueBuffer.isEmpty
-                                ? (_isZh
-                                    ? '当前页面尚未报告任何 issue，访问几个交互后再来看看。'
-                                    : 'No issues reported yet. Interact with the page.')
-                                : (_isZh ? '没有匹配的 issue。' : 'No matching issue.'),
+                                ? (AppLocalizations.of(context)?.webReverseIssuesEmptyBuffer ??
+                                    'No issues reported yet. Interact with the page.')
+                                : (AppLocalizations.of(context)?.webReverseIssuesNoMatch ?? 'No matching issue.'),
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -380,7 +376,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: _isZh ? '复制 JSON' : 'Copy JSON',
+                                    tooltip: AppLocalizations.of(context)?.webReverseIssuesCopyJson ?? 'Copy JSON',
                                     icon: const Icon(
                                       Icons.copy_rounded,
                                       size: 16,
@@ -390,8 +386,8 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
                                     tooltip: expanded
-                                        ? (_isZh ? '收起' : 'Collapse')
-                                        : (_isZh ? '展开' : 'Expand'),
+                                        ? (AppLocalizations.of(context)?.webReverseIssuesCollapse ?? 'Collapse')
+                                        : (AppLocalizations.of(context)?.webReverseIssuesExpand ?? 'Expand'),
                                     icon: Icon(
                                       expanded
                                           ? Icons.unfold_less_rounded
@@ -451,15 +447,15 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                   const SizedBox(width: 6),
                   Text(
                     _issueDomainEnabled
-                        ? (_isZh ? '已订阅 Audits.issueAdded' : 'Subscribed to Audits.issueAdded')
-                        : (_isZh ? 'Audits 域未就绪' : 'Audits domain not ready'),
+                        ? (AppLocalizations.of(context)?.webReverseIssuesSubscribed ?? 'Subscribed to Audits.issueAdded')
+                        : (AppLocalizations.of(context)?.webReverseIssuesAuditsNotReady ?? 'Audits domain not ready'),
                     style: tt.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
                   ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(
-                    label: _isZh ? '关闭' : 'Close',
+                    label: AppLocalizations.of(context)?.webReverseIssuesClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

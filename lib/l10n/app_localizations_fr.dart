@@ -5321,4 +5321,45 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get webReverseVitalsThresholdsHint =>
       'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.';
+
+  @override
+  String get webReverseIssuesCopied => 'Issue JSON copied';
+
+  @override
+  String get webReverseIssuesTitle => 'Issues';
+
+  @override
+  String get webReverseIssuesSubtitle => 'Audits.issueAdded · live aggregator';
+
+  @override
+  String get webReverseIssuesClearBuffer => 'Clear buffer';
+
+  @override
+  String get webReverseIssuesClose => 'Close';
+
+  @override
+  String get webReverseIssuesFilterHint =>
+      'Filter by code / URL / description…';
+
+  @override
+  String get webReverseIssuesEmptyBuffer =>
+      'No issues reported yet. Interact with the page.';
+
+  @override
+  String get webReverseIssuesNoMatch => 'No matching issue.';
+
+  @override
+  String get webReverseIssuesCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseIssuesCollapse => 'Collapse';
+
+  @override
+  String get webReverseIssuesExpand => 'Expand';
+
+  @override
+  String get webReverseIssuesSubscribed => 'Subscribed to Audits.issueAdded';
+
+  @override
+  String get webReverseIssuesAuditsNotReady => 'Audits domain not ready';
 }

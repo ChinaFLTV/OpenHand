@@ -2459,5 +2459,57 @@
   "webReverseVitalsThresholdsHint": "阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。",
   "@webReverseVitalsThresholdsHint": {
     "description": "web_reverse: Vitals footer explaining web.dev thresholds."
+  },
+  "webReverseIssuesCopied": "已复制 issue JSON",
+  "@webReverseIssuesCopied": {
+    "description": "web_reverse: Issues dialog · copied"
+  },
+  "webReverseIssuesTitle": "Issues 面板",
+  "@webReverseIssuesTitle": {
+    "description": "web_reverse: Issues dialog · title"
+  },
+  "webReverseIssuesSubtitle": "Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合",
+  "@webReverseIssuesSubtitle": {
+    "description": "web_reverse: Issues dialog · subtitle"
+  },
+  "webReverseIssuesClearBuffer": "清空缓冲",
+  "@webReverseIssuesClearBuffer": {
+    "description": "web_reverse: Issues dialog · clearbuffer"
+  },
+  "webReverseIssuesClose": "关闭",
+  "@webReverseIssuesClose": {
+    "description": "web_reverse: Issues dialog · close"
+  },
+  "webReverseIssuesFilterHint": "按 code / URL / 描述过滤…",
+  "@webReverseIssuesFilterHint": {
+    "description": "web_reverse: Issues dialog · filterhint"
+  },
+  "webReverseIssuesEmptyBuffer": "当前页面尚未报告任何 issue，访问几个交互后再来看看。",
+  "@webReverseIssuesEmptyBuffer": {
+    "description": "web_reverse: Issues dialog · emptybuffer"
+  },
+  "webReverseIssuesNoMatch": "没有匹配的 issue。",
+  "@webReverseIssuesNoMatch": {
+    "description": "web_reverse: Issues dialog · nomatch"
+  },
+  "webReverseIssuesCopyJson": "复制 JSON",
+  "@webReverseIssuesCopyJson": {
+    "description": "web_reverse: Issues dialog · copyjson"
+  },
+  "webReverseIssuesCollapse": "收起",
+  "@webReverseIssuesCollapse": {
+    "description": "web_reverse: Issues dialog · collapse"
+  },
+  "webReverseIssuesExpand": "展开",
+  "@webReverseIssuesExpand": {
+    "description": "web_reverse: Issues dialog · expand"
+  },
+  "webReverseIssuesSubscribed": "已订阅 Audits.issueAdded",
+  "@webReverseIssuesSubscribed": {
+    "description": "web_reverse: Issues dialog · subscribed"
+  },
+  "webReverseIssuesAuditsNotReady": "Audits 域未就绪",
+  "@webReverseIssuesAuditsNotReady": {
+    "description": "web_reverse: Issues dialog · auditsnotready"
   }
 }

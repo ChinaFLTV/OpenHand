@@ -2459,5 +2459,57 @@
   "webReverseVitalsThresholdsHint": "Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.",
   "@webReverseVitalsThresholdsHint": {
     "description": "web_reverse: Vitals footer explaining web.dev thresholds."
+  },
+  "webReverseIssuesCopied": "Issue JSON copied",
+  "@webReverseIssuesCopied": {
+    "description": "web_reverse: Issues dialog · copied"
+  },
+  "webReverseIssuesTitle": "Issues",
+  "@webReverseIssuesTitle": {
+    "description": "web_reverse: Issues dialog · title"
+  },
+  "webReverseIssuesSubtitle": "Audits.issueAdded · live aggregator",
+  "@webReverseIssuesSubtitle": {
+    "description": "web_reverse: Issues dialog · subtitle"
+  },
+  "webReverseIssuesClearBuffer": "Clear buffer",
+  "@webReverseIssuesClearBuffer": {
+    "description": "web_reverse: Issues dialog · clearbuffer"
+  },
+  "webReverseIssuesClose": "Close",
+  "@webReverseIssuesClose": {
+    "description": "web_reverse: Issues dialog · close"
+  },
+  "webReverseIssuesFilterHint": "Filter by code / URL / description…",
+  "@webReverseIssuesFilterHint": {
+    "description": "web_reverse: Issues dialog · filterhint"
+  },
+  "webReverseIssuesEmptyBuffer": "No issues reported yet. Interact with the page.",
+  "@webReverseIssuesEmptyBuffer": {
+    "description": "web_reverse: Issues dialog · emptybuffer"
+  },
+  "webReverseIssuesNoMatch": "No matching issue.",
+  "@webReverseIssuesNoMatch": {
+    "description": "web_reverse: Issues dialog · nomatch"
+  },
+  "webReverseIssuesCopyJson": "Copy JSON",
+  "@webReverseIssuesCopyJson": {
+    "description": "web_reverse: Issues dialog · copyjson"
+  },
+  "webReverseIssuesCollapse": "Collapse",
+  "@webReverseIssuesCollapse": {
+    "description": "web_reverse: Issues dialog · collapse"
+  },
+  "webReverseIssuesExpand": "Expand",
+  "@webReverseIssuesExpand": {
+    "description": "web_reverse: Issues dialog · expand"
+  },
+  "webReverseIssuesSubscribed": "Subscribed to Audits.issueAdded",
+  "@webReverseIssuesSubscribed": {
+    "description": "web_reverse: Issues dialog · subscribed"
+  },
+  "webReverseIssuesAuditsNotReady": "Audits domain not ready",
+  "@webReverseIssuesAuditsNotReady": {
+    "description": "web_reverse: Issues dialog · auditsnotready"
   }
 }

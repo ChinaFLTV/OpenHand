@@ -9263,6 +9263,84 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'阈值参考 web.dev：LCP ≤2.5s 良 / ≥4s 差；CLS ≤0.1 良 / ≥0.25 差；INP ≤200ms 良 / ≥500ms 差。重置后请重新交互页面以触发 LCP / 事件采样。'**
   String get webReverseVitalsThresholdsHint;
+
+  /// web_reverse: Issues dialog · copied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制 issue JSON'**
+  String get webReverseIssuesCopied;
+
+  /// web_reverse: Issues dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Issues 面板'**
+  String get webReverseIssuesTitle;
+
+  /// web_reverse: Issues dialog · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation 实时聚合'**
+  String get webReverseIssuesSubtitle;
+
+  /// web_reverse: Issues dialog · clearbuffer
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空缓冲'**
+  String get webReverseIssuesClearBuffer;
+
+  /// web_reverse: Issues dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseIssuesClose;
+
+  /// web_reverse: Issues dialog · filterhint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按 code / URL / 描述过滤…'**
+  String get webReverseIssuesFilterHint;
+
+  /// web_reverse: Issues dialog · emptybuffer
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前页面尚未报告任何 issue，访问几个交互后再来看看。'**
+  String get webReverseIssuesEmptyBuffer;
+
+  /// web_reverse: Issues dialog · nomatch
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有匹配的 issue。'**
+  String get webReverseIssuesNoMatch;
+
+  /// web_reverse: Issues dialog · copyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseIssuesCopyJson;
+
+  /// web_reverse: Issues dialog · collapse
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'收起'**
+  String get webReverseIssuesCollapse;
+
+  /// web_reverse: Issues dialog · expand
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开'**
+  String get webReverseIssuesExpand;
+
+  /// web_reverse: Issues dialog · subscribed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已订阅 Audits.issueAdded'**
+  String get webReverseIssuesSubscribed;
+
+  /// web_reverse: Issues dialog · auditsnotready
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Audits 域未就绪'**
+  String get webReverseIssuesAuditsNotReady;
 }
 
 class _AppLocalizationsDelegate
