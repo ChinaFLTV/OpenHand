@@ -3859,5 +3859,121 @@
         "type": "String"
       }
     }
+  },
+  "webReverseCallgraphFetching": "Fetching resources...",
+  "@webReverseCallgraphFetching": {
+    "description": "web_reverse: JS Callgraph · fetching"
+  },
+  "webReverseCallgraphFetchFailed": "Fetch failed",
+  "@webReverseCallgraphFetchFailed": {
+    "description": "web_reverse: JS Callgraph · fetchfailed"
+  },
+  "webReverseCallgraphNoScripts": "No JS scripts found",
+  "@webReverseCallgraphNoScripts": {
+    "description": "web_reverse: JS Callgraph · noscripts"
+  },
+  "webReverseCallgraphTitle": "JS Callgraph",
+  "@webReverseCallgraphTitle": {
+    "description": "web_reverse: JS Callgraph · title"
+  },
+  "webReverseCallgraphSubtitle": "Heuristic regex parsing (noisy for minified bundles)",
+  "@webReverseCallgraphSubtitle": {
+    "description": "web_reverse: JS Callgraph · subtitle"
+  },
+  "webReverseCallgraphScanBtn": "Scan",
+  "@webReverseCallgraphScanBtn": {
+    "description": "web_reverse: JS Callgraph · scanbtn"
+  },
+  "webReverseCallgraphScriptLimit": "Script limit",
+  "@webReverseCallgraphScriptLimit": {
+    "description": "web_reverse: JS Callgraph · scriptlimit"
+  },
+  "webReverseCallgraphPerScriptKb": "Per script (KB)",
+  "@webReverseCallgraphPerScriptKb": {
+    "description": "web_reverse: JS Callgraph · perscriptkb"
+  },
+  "webReverseCallgraphReverseHint": "Reverse lookup: who calls …",
+  "@webReverseCallgraphReverseHint": {
+    "description": "web_reverse: JS Callgraph · reversehint"
+  },
+  "webReverseCallgraphEmptyHint": "Click Scan to parse current page JS",
+  "@webReverseCallgraphEmptyHint": {
+    "description": "web_reverse: JS Callgraph · emptyhint"
+  },
+  "webReverseCallgraphFnsSuffix": "fns",
+  "@webReverseCallgraphFnsSuffix": {
+    "description": "web_reverse: JS Callgraph · fnssuffix"
+  },
+  "webReverseCallgraphPickScript": "Pick a script",
+  "@webReverseCallgraphPickScript": {
+    "description": "web_reverse: JS Callgraph · pickscript"
+  },
+  "webReverseCallgraphClose": "Close",
+  "@webReverseCallgraphClose": {
+    "description": "web_reverse: JS Callgraph · close"
+  },
+  "webReverseCallgraphCopyGraph": "Copy graph",
+  "@webReverseCallgraphCopyGraph": {
+    "description": "web_reverse: JS Callgraph · copygraph"
+  },
+  "webReverseCallgraphGraphCopied": "Graph copied",
+  "@webReverseCallgraphGraphCopied": {
+    "description": "web_reverse: JS Callgraph · graphcopied"
+  },
+  "webReverseCallgraphCalleesSuffix": "callees",
+  "@webReverseCallgraphCalleesSuffix": {
+    "description": "web_reverse: JS Callgraph · calleessuffix"
+  },
+  "webReverseCallgraphNoDetectedCalls": "(no detected calls)",
+  "@webReverseCallgraphNoDetectedCalls": {
+    "description": "web_reverse: JS Callgraph · nodetectedcalls"
+  },
+  "webReverseCallgraphParsing": "Parsing {done}/{total}: {url}",
+  "@webReverseCallgraphParsing": {
+    "description": "web_reverse: JS Callgraph · parsing",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCallgraphDone": "Done: {scripts} scripts, {fns} functions",
+  "@webReverseCallgraphDone": {
+    "description": "web_reverse: JS Callgraph · done",
+    "placeholders": {
+      "scripts": {
+        "type": "int"
+      },
+      "fns": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCallgraphScriptsCount": "Scripts ({count})",
+  "@webReverseCallgraphScriptsCount": {
+    "description": "web_reverse: JS Callgraph · scriptscount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCallgraphHitsHeader": "{count} hits calling \"{name}\"",
+  "@webReverseCallgraphHitsHeader": {
+    "description": "web_reverse: JS Callgraph · hitsheader",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

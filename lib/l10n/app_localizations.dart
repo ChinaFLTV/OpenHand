@@ -11027,6 +11027,132 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'缺少：{names}'**
   String webReverseCorsMissingHeaders(String names);
+
+  /// web_reverse: JS Callgraph · fetching
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取 frame 资源...'**
+  String get webReverseCallgraphFetching;
+
+  /// web_reverse: JS Callgraph · fetchfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取资源失败'**
+  String get webReverseCallgraphFetchFailed;
+
+  /// web_reverse: JS Callgraph · noscripts
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前页未发现 JS 脚本'**
+  String get webReverseCallgraphNoScripts;
+
+  /// web_reverse: JS Callgraph · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JS 调用图'**
+  String get webReverseCallgraphTitle;
+
+  /// web_reverse: JS Callgraph · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启发式正则解析（压缩 bundle 噪点高，仅作线索）'**
+  String get webReverseCallgraphSubtitle;
+
+  /// web_reverse: JS Callgraph · scanbtn
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描'**
+  String get webReverseCallgraphScanBtn;
+
+  /// web_reverse: JS Callgraph · scriptlimit
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本上限'**
+  String get webReverseCallgraphScriptLimit;
+
+  /// web_reverse: JS Callgraph · perscriptkb
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单脚本(KB)'**
+  String get webReverseCallgraphPerScriptKb;
+
+  /// web_reverse: JS Callgraph · reversehint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'反查：谁调用了 …（输入被调函数名）'**
+  String get webReverseCallgraphReverseHint;
+
+  /// web_reverse: JS Callgraph · emptyhint
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点「扫描」开始解析当前页面的 JS 资源'**
+  String get webReverseCallgraphEmptyHint;
+
+  /// web_reverse: JS Callgraph · fnssuffix
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'函数'**
+  String get webReverseCallgraphFnsSuffix;
+
+  /// web_reverse: JS Callgraph · pickscript
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择左侧脚本'**
+  String get webReverseCallgraphPickScript;
+
+  /// web_reverse: JS Callgraph · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseCallgraphClose;
+
+  /// web_reverse: JS Callgraph · copygraph
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制脚本调用图'**
+  String get webReverseCallgraphCopyGraph;
+
+  /// web_reverse: JS Callgraph · graphcopied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制调用图'**
+  String get webReverseCallgraphGraphCopied;
+
+  /// web_reverse: JS Callgraph · calleessuffix
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'个调用'**
+  String get webReverseCallgraphCalleesSuffix;
+
+  /// web_reverse: JS Callgraph · nodetectedcalls
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'（无识别到的调用）'**
+  String get webReverseCallgraphNoDetectedCalls;
+
+  /// web_reverse: JS Callgraph · parsing
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'解析中 {done}/{total}: {url}'**
+  String webReverseCallgraphParsing(int done, int total, String url);
+
+  /// web_reverse: JS Callgraph · done
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成：{scripts} 个脚本，{fns} 个函数'**
+  String webReverseCallgraphDone(int scripts, int fns);
+
+  /// web_reverse: JS Callgraph · scriptscount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本 ({count})'**
+  String webReverseCallgraphScriptsCount(int count);
+
+  /// web_reverse: JS Callgraph · hitsheader
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'反查命中 {count}：包含调用「{name}」的函数'**
+  String webReverseCallgraphHitsHeader(int count, String name);
 }
 
 class _AppLocalizationsDelegate

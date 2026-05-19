@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -60,9 +61,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
 
   Future<void> _scan() async {
     if (_scanning) return;
+    final loc = AppLocalizations.of(context);
     setState(() {
       _scanning = true;
-      _status = widget.isZh ? '获取 frame 资源...' : 'Fetching resources...';
+      _status = loc?.webReverseCallgraphFetching ?? 'Fetching resources...';
       _graphs.clear();
       _selectedUrl = null;
     });
@@ -73,7 +75,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         useSession: true,
       );
       if (tree == null || tree['error'] != null) {
-        setState(() => _status = widget.isZh ? '获取资源失败' : 'Fetch failed');
+        setState(() => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed');
         return;
       }
       final scripts = <_ScriptResource>[];
@@ -103,7 +105,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
 
       walk(tree['frameTree']);
       if (scripts.isEmpty) {
-        setState(() => _status = widget.isZh ? '当前页未发现 JS 脚本' : 'No JS scripts found');
+        setState(() => _status = loc?.webReverseCallgraphNoScripts ?? 'No JS scripts found');
         return;
       }
       final pickList = scripts.take(_scriptLimit).toList();
@@ -111,9 +113,12 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       for (final s in pickList) {
         done++;
         if (mounted) {
-          setState(() => _status = widget.isZh
-              ? '解析中 $done/${pickList.length}: ${_shortUrl(s.url)}'
-              : 'Parsing $done/${pickList.length}: ${_shortUrl(s.url)}');
+          setState(() => _status = loc?.webReverseCallgraphParsing(
+                done,
+                pickList.length,
+                _shortUrl(s.url),
+              ) ??
+              'Parsing $done/${pickList.length}: ${_shortUrl(s.url)}');
         }
         try {
           final r = await widget.controller.sendRawCdp(
@@ -146,9 +151,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       }
       if (!mounted) return;
       setState(() {
-        _status = widget.isZh
-            ? '完成：${_graphs.length} 个脚本，${_graphs.fold<int>(0, (a, g) => a + g.functions.length)} 个函数'
-            : 'Done: ${_graphs.length} scripts, ${_graphs.fold<int>(0, (a, g) => a + g.functions.length)} functions';
+        final scripts = _graphs.length;
+        final fns = _graphs.fold<int>(0, (a, g) => a + g.functions.length);
+        _status = loc?.webReverseCallgraphDone(scripts, fns) ??
+            'Done: $scripts scripts, $fns functions';
         if (_graphs.isNotEmpty) _selectedUrl = _graphs.first.url;
       });
     } finally {
@@ -289,7 +295,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
 
     final selected = _graphs.where((g) => g.url == _selectedUrl).firstOrNull;
@@ -314,14 +320,13 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'JS 调用图' : 'JS Callgraph',
+                          loc?.webReverseCallgraphTitle ?? 'JS Callgraph',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? '启发式正则解析（压缩 bundle 噪点高，仅作线索）'
-                              : 'Heuristic regex parsing (noisy for minified bundles)',
+                          loc?.webReverseCallgraphSubtitle ??
+                              'Heuristic regex parsing (noisy for minified bundles)',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -348,10 +353,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(isZh ? '扫描' : 'Scan'),
+                    label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
                   ),
                   const SizedBox(width: 12),
-                  Text(isZh ? '脚本上限' : 'Script limit',
+                  Text(loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
                       style: theme.textTheme.labelSmall),
                   const SizedBox(width: 6),
                   DropdownButton<int>(
@@ -368,7 +373,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                           },
                   ),
                   const SizedBox(width: 12),
-                  Text(isZh ? '单脚本(KB)' : 'Per script (KB)',
+                  Text(loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
                       style: theme.textTheme.labelSmall),
                   const SizedBox(width: 6),
                   DropdownButton<int>(
@@ -404,9 +409,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText: isZh
-                      ? '反查：谁调用了 …（输入被调函数名）'
-                      : 'Reverse lookup: who calls …',
+                  hintText: loc?.webReverseCallgraphReverseHint ??
+                      'Reverse lookup: who calls …',
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -422,9 +426,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 child: _graphs.isEmpty
                     ? Center(
                         child: Text(
-                          isZh
-                              ? '点「扫描」开始解析当前页面的 JS 资源'
-                              : 'Click Scan to parse current page JS',
+                          loc?.webReverseCallgraphEmptyHint ??
+                              'Click Scan to parse current page JS',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -441,9 +444,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                   child: Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      isZh
-                                          ? '脚本 (${_graphs.length})'
-                                          : 'Scripts (${_graphs.length})',
+                                      loc?.webReverseCallgraphScriptsCount(_graphs.length) ??
+                                          'Scripts (${_graphs.length})',
                                       style: theme.textTheme.labelMedium
                                           ?.copyWith(
                                               fontWeight: FontWeight.w700),
@@ -485,7 +487,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                                           FontWeight.w600),
                                                 ),
                                                 Text(
-                                                  '${g.functions.length} ${isZh ? '函数' : 'fns'}',
+                                                  '${g.functions.length} ${loc?.webReverseCallgraphFnsSuffix ?? 'fns'}',
                                                   style: theme
                                                       .textTheme.labelSmall
                                                       ?.copyWith(
@@ -508,18 +510,18 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                           Expanded(
                             child: callerHits.isNotEmpty
                                 ? _buildCallerHits(theme, cs, callerHits,
-                                    messenger, isZh)
+                                    messenger, loc)
                                 : selected == null
                                     ? Center(
                                         child: Text(
-                                          isZh ? '选择左侧脚本' : 'Pick a script',
+                                          loc?.webReverseCallgraphPickScript ?? 'Pick a script',
                                           style: theme.textTheme.bodySmall
                                               ?.copyWith(
                                                   color: cs.onSurfaceVariant),
                                         ),
                                       )
                                     : _buildScriptDetail(
-                                        theme, cs, selected, messenger, isZh),
+                                        theme, cs, selected, messenger, loc),
                           ),
                         ],
                       ),
@@ -532,7 +534,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReverseCallgraphClose ?? 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -545,7 +547,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
   }
 
   Widget _buildScriptDetail(ThemeData theme, ColorScheme cs,
-      _ScriptGraph g, ScaffoldMessengerState? messenger, bool isZh) {
+      _ScriptGraph g, ScaffoldMessengerState? messenger, AppLocalizations? loc) {
     return Column(
       children: [
         Padding(
@@ -560,7 +562,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 ),
               ),
               IconButton(
-                tooltip: isZh ? '复制脚本调用图' : 'Copy graph',
+                tooltip: loc?.webReverseCallgraphCopyGraph ?? 'Copy graph',
                 icon: const Icon(Icons.copy_all_rounded, size: 18),
                 onPressed: () async {
                   final buf = StringBuffer()..writeln('# ${g.url}');
@@ -572,7 +574,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                     OpenHandSnackBar.showSuccessOn(
                       context,
                       messenger,
-                      isZh ? '已复制调用图' : 'Graph copied',
+                      loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
                     );
                   }
                 },
@@ -595,7 +597,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text(
-                  '${fn.callees.length} ${isZh ? '个调用' : 'callees'} · @${fn.offset}',
+                  '${fn.callees.length} ${loc?.webReverseCallgraphCalleesSuffix ?? 'callees'} · @${fn.offset}',
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -606,7 +608,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        isZh ? '（无识别到的调用）' : '(no detected calls)',
+                        loc?.webReverseCallgraphNoDetectedCalls ?? '(no detected calls)',
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -638,7 +640,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
   }
 
   Widget _buildCallerHits(ThemeData theme, ColorScheme cs,
-      List<_CallerHit> hits, ScaffoldMessengerState? messenger, bool isZh) {
+      List<_CallerHit> hits, ScaffoldMessengerState? messenger, AppLocalizations? loc) {
     return Column(
       children: [
         Padding(
@@ -648,9 +650,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               Icon(Icons.travel_explore_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                isZh
-                    ? '反查命中 ${hits.length}：包含调用「${_searchCtrl.text}」的函数'
-                    : '${hits.length} hits calling "${_searchCtrl.text}"',
+                loc?.webReverseCallgraphHitsHeader(hits.length, _searchCtrl.text) ??
+                    '${hits.length} hits calling "${_searchCtrl.text}"',
                 style: theme.textTheme.labelMedium,
               ),
             ],

@@ -6222,4 +6222,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseCorsMissingHeaders(String names) {
     return 'missing: $names';
   }
+
+  @override
+  String get webReverseCallgraphFetching => 'Fetching resources...';
+
+  @override
+  String get webReverseCallgraphFetchFailed => 'Fetch failed';
+
+  @override
+  String get webReverseCallgraphNoScripts => 'No JS scripts found';
+
+  @override
+  String get webReverseCallgraphTitle => 'JS Callgraph';
+
+  @override
+  String get webReverseCallgraphSubtitle =>
+      'Heuristic regex parsing (noisy for minified bundles)';
+
+  @override
+  String get webReverseCallgraphScanBtn => 'Scan';
+
+  @override
+  String get webReverseCallgraphScriptLimit => 'Script limit';
+
+  @override
+  String get webReverseCallgraphPerScriptKb => 'Per script (KB)';
+
+  @override
+  String get webReverseCallgraphReverseHint => 'Reverse lookup: who calls …';
+
+  @override
+  String get webReverseCallgraphEmptyHint =>
+      'Click Scan to parse current page JS';
+
+  @override
+  String get webReverseCallgraphFnsSuffix => 'fns';
+
+  @override
+  String get webReverseCallgraphPickScript => 'Pick a script';
+
+  @override
+  String get webReverseCallgraphClose => 'Close';
+
+  @override
+  String get webReverseCallgraphCopyGraph => 'Copy graph';
+
+  @override
+  String get webReverseCallgraphGraphCopied => 'Graph copied';
+
+  @override
+  String get webReverseCallgraphCalleesSuffix => 'callees';
+
+  @override
+  String get webReverseCallgraphNoDetectedCalls => '(no detected calls)';
+
+  @override
+  String webReverseCallgraphParsing(int done, int total, String url) {
+    return 'Parsing $done/$total: $url';
+  }
+
+  @override
+  String webReverseCallgraphDone(int scripts, int fns) {
+    return 'Done: $scripts scripts, $fns functions';
+  }
+
+  @override
+  String webReverseCallgraphScriptsCount(int count) {
+    return 'Scripts ($count)';
+  }
+
+  @override
+  String webReverseCallgraphHitsHeader(int count, String name) {
+    return '$count hits calling \"$name\"';
+  }
 }

@@ -3928,5 +3928,121 @@
         "type": "String"
       }
     }
+  },
+  "webReverseCallgraphFetching": "获取 frame 资源...",
+  "@webReverseCallgraphFetching": {
+    "description": "web_reverse: JS Callgraph · fetching"
+  },
+  "webReverseCallgraphFetchFailed": "获取资源失败",
+  "@webReverseCallgraphFetchFailed": {
+    "description": "web_reverse: JS Callgraph · fetchfailed"
+  },
+  "webReverseCallgraphNoScripts": "当前页未发现 JS 脚本",
+  "@webReverseCallgraphNoScripts": {
+    "description": "web_reverse: JS Callgraph · noscripts"
+  },
+  "webReverseCallgraphTitle": "JS 调用图",
+  "@webReverseCallgraphTitle": {
+    "description": "web_reverse: JS Callgraph · title"
+  },
+  "webReverseCallgraphSubtitle": "启发式正则解析（压缩 bundle 噪点高，仅作线索）",
+  "@webReverseCallgraphSubtitle": {
+    "description": "web_reverse: JS Callgraph · subtitle"
+  },
+  "webReverseCallgraphScanBtn": "扫描",
+  "@webReverseCallgraphScanBtn": {
+    "description": "web_reverse: JS Callgraph · scanbtn"
+  },
+  "webReverseCallgraphScriptLimit": "脚本上限",
+  "@webReverseCallgraphScriptLimit": {
+    "description": "web_reverse: JS Callgraph · scriptlimit"
+  },
+  "webReverseCallgraphPerScriptKb": "单脚本(KB)",
+  "@webReverseCallgraphPerScriptKb": {
+    "description": "web_reverse: JS Callgraph · perscriptkb"
+  },
+  "webReverseCallgraphReverseHint": "反查：谁调用了 …（输入被调函数名）",
+  "@webReverseCallgraphReverseHint": {
+    "description": "web_reverse: JS Callgraph · reversehint"
+  },
+  "webReverseCallgraphEmptyHint": "点「扫描」开始解析当前页面的 JS 资源",
+  "@webReverseCallgraphEmptyHint": {
+    "description": "web_reverse: JS Callgraph · emptyhint"
+  },
+  "webReverseCallgraphFnsSuffix": "函数",
+  "@webReverseCallgraphFnsSuffix": {
+    "description": "web_reverse: JS Callgraph · fnssuffix"
+  },
+  "webReverseCallgraphPickScript": "选择左侧脚本",
+  "@webReverseCallgraphPickScript": {
+    "description": "web_reverse: JS Callgraph · pickscript"
+  },
+  "webReverseCallgraphClose": "关闭",
+  "@webReverseCallgraphClose": {
+    "description": "web_reverse: JS Callgraph · close"
+  },
+  "webReverseCallgraphCopyGraph": "复制脚本调用图",
+  "@webReverseCallgraphCopyGraph": {
+    "description": "web_reverse: JS Callgraph · copygraph"
+  },
+  "webReverseCallgraphGraphCopied": "已复制调用图",
+  "@webReverseCallgraphGraphCopied": {
+    "description": "web_reverse: JS Callgraph · graphcopied"
+  },
+  "webReverseCallgraphCalleesSuffix": "个调用",
+  "@webReverseCallgraphCalleesSuffix": {
+    "description": "web_reverse: JS Callgraph · calleessuffix"
+  },
+  "webReverseCallgraphNoDetectedCalls": "（无识别到的调用）",
+  "@webReverseCallgraphNoDetectedCalls": {
+    "description": "web_reverse: JS Callgraph · nodetectedcalls"
+  },
+  "webReverseCallgraphParsing": "解析中 {done}/{total}: {url}",
+  "@webReverseCallgraphParsing": {
+    "description": "web_reverse: JS Callgraph · parsing",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseCallgraphDone": "完成：{scripts} 个脚本，{fns} 个函数",
+  "@webReverseCallgraphDone": {
+    "description": "web_reverse: JS Callgraph · done",
+    "placeholders": {
+      "scripts": {
+        "type": "int"
+      },
+      "fns": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCallgraphScriptsCount": "脚本 ({count})",
+  "@webReverseCallgraphScriptsCount": {
+    "description": "web_reverse: JS Callgraph · scriptscount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseCallgraphHitsHeader": "反查命中 {count}：包含调用「{name}」的函数",
+  "@webReverseCallgraphHitsHeader": {
+    "description": "web_reverse: JS Callgraph · hitsheader",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

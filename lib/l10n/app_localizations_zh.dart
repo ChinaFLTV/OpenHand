@@ -5949,6 +5949,77 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCorsMissingHeaders(String names) {
     return '缺少：$names';
   }
+
+  @override
+  String get webReverseCallgraphFetching => '获取 frame 资源...';
+
+  @override
+  String get webReverseCallgraphFetchFailed => '获取资源失败';
+
+  @override
+  String get webReverseCallgraphNoScripts => '当前页未发现 JS 脚本';
+
+  @override
+  String get webReverseCallgraphTitle => 'JS 调用图';
+
+  @override
+  String get webReverseCallgraphSubtitle => '启发式正则解析（压缩 bundle 噪点高，仅作线索）';
+
+  @override
+  String get webReverseCallgraphScanBtn => '扫描';
+
+  @override
+  String get webReverseCallgraphScriptLimit => '脚本上限';
+
+  @override
+  String get webReverseCallgraphPerScriptKb => '单脚本(KB)';
+
+  @override
+  String get webReverseCallgraphReverseHint => '反查：谁调用了 …（输入被调函数名）';
+
+  @override
+  String get webReverseCallgraphEmptyHint => '点「扫描」开始解析当前页面的 JS 资源';
+
+  @override
+  String get webReverseCallgraphFnsSuffix => '函数';
+
+  @override
+  String get webReverseCallgraphPickScript => '选择左侧脚本';
+
+  @override
+  String get webReverseCallgraphClose => '关闭';
+
+  @override
+  String get webReverseCallgraphCopyGraph => '复制脚本调用图';
+
+  @override
+  String get webReverseCallgraphGraphCopied => '已复制调用图';
+
+  @override
+  String get webReverseCallgraphCalleesSuffix => '个调用';
+
+  @override
+  String get webReverseCallgraphNoDetectedCalls => '（无识别到的调用）';
+
+  @override
+  String webReverseCallgraphParsing(int done, int total, String url) {
+    return '解析中 $done/$total: $url';
+  }
+
+  @override
+  String webReverseCallgraphDone(int scripts, int fns) {
+    return '完成：$scripts 个脚本，$fns 个函数';
+  }
+
+  @override
+  String webReverseCallgraphScriptsCount(int count) {
+    return '脚本 ($count)';
+  }
+
+  @override
+  String webReverseCallgraphHitsHeader(int count, String name) {
+    return '反查命中 $count：包含调用「$name」的函数';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11896,6 +11967,77 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCorsMissingHeaders(String names) {
     return '缺少：$names';
   }
+
+  @override
+  String get webReverseCallgraphFetching => '获取 frame 资源...';
+
+  @override
+  String get webReverseCallgraphFetchFailed => '获取资源失败';
+
+  @override
+  String get webReverseCallgraphNoScripts => '当前页未发现 JS 脚本';
+
+  @override
+  String get webReverseCallgraphTitle => 'JS 调用图';
+
+  @override
+  String get webReverseCallgraphSubtitle => '启发式正则解析（压缩 bundle 噪点高，仅作线索）';
+
+  @override
+  String get webReverseCallgraphScanBtn => '扫描';
+
+  @override
+  String get webReverseCallgraphScriptLimit => '脚本上限';
+
+  @override
+  String get webReverseCallgraphPerScriptKb => '单脚本(KB)';
+
+  @override
+  String get webReverseCallgraphReverseHint => '反查：谁调用了 …（输入被调函数名）';
+
+  @override
+  String get webReverseCallgraphEmptyHint => '点「扫描」开始解析当前页面的 JS 资源';
+
+  @override
+  String get webReverseCallgraphFnsSuffix => '函数';
+
+  @override
+  String get webReverseCallgraphPickScript => '选择左侧脚本';
+
+  @override
+  String get webReverseCallgraphClose => '关闭';
+
+  @override
+  String get webReverseCallgraphCopyGraph => '复制脚本调用图';
+
+  @override
+  String get webReverseCallgraphGraphCopied => '已复制调用图';
+
+  @override
+  String get webReverseCallgraphCalleesSuffix => '个调用';
+
+  @override
+  String get webReverseCallgraphNoDetectedCalls => '（无识别到的调用）';
+
+  @override
+  String webReverseCallgraphParsing(int done, int total, String url) {
+    return '解析中 $done/$total: $url';
+  }
+
+  @override
+  String webReverseCallgraphDone(int scripts, int fns) {
+    return '完成：$scripts 个脚本，$fns 个函数';
+  }
+
+  @override
+  String webReverseCallgraphScriptsCount(int count) {
+    return '脚本 ($count)';
+  }
+
+  @override
+  String webReverseCallgraphHitsHeader(int count, String name) {
+    return '反查命中 $count：包含调用「$name」的函数';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -17841,5 +17983,76 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCorsMissingHeaders(String names) {
     return '缺少：$names';
+  }
+
+  @override
+  String get webReverseCallgraphFetching => '获取 frame 资源...';
+
+  @override
+  String get webReverseCallgraphFetchFailed => '获取资源失败';
+
+  @override
+  String get webReverseCallgraphNoScripts => '当前页未发现 JS 脚本';
+
+  @override
+  String get webReverseCallgraphTitle => 'JS 调用图';
+
+  @override
+  String get webReverseCallgraphSubtitle => '启发式正则解析（压缩 bundle 噪点高，仅作线索）';
+
+  @override
+  String get webReverseCallgraphScanBtn => '扫描';
+
+  @override
+  String get webReverseCallgraphScriptLimit => '脚本上限';
+
+  @override
+  String get webReverseCallgraphPerScriptKb => '单脚本(KB)';
+
+  @override
+  String get webReverseCallgraphReverseHint => '反查：谁调用了 …（输入被调函数名）';
+
+  @override
+  String get webReverseCallgraphEmptyHint => '点「扫描」开始解析当前页面的 JS 资源';
+
+  @override
+  String get webReverseCallgraphFnsSuffix => '函数';
+
+  @override
+  String get webReverseCallgraphPickScript => '选择左侧脚本';
+
+  @override
+  String get webReverseCallgraphClose => '关闭';
+
+  @override
+  String get webReverseCallgraphCopyGraph => '复制脚本调用图';
+
+  @override
+  String get webReverseCallgraphGraphCopied => '已复制调用图';
+
+  @override
+  String get webReverseCallgraphCalleesSuffix => '个调用';
+
+  @override
+  String get webReverseCallgraphNoDetectedCalls => '（无识别到的调用）';
+
+  @override
+  String webReverseCallgraphParsing(int done, int total, String url) {
+    return '解析中 $done/$total: $url';
+  }
+
+  @override
+  String webReverseCallgraphDone(int scripts, int fns) {
+    return '完成：$scripts 个脚本，$fns 个函数';
+  }
+
+  @override
+  String webReverseCallgraphScriptsCount(int count) {
+    return '脚本 ($count)';
+  }
+
+  @override
+  String webReverseCallgraphHitsHeader(int count, String name) {
+    return '反查命中 $count：包含调用「$name」的函数';
   }
 }
