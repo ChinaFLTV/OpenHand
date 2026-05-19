@@ -6948,6 +6948,53 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCdpSubtitle(int count) {
     return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
   }
+
+  @override
+  String get webReversePerfTitle => 'Performance Trace 录制';
+
+  @override
+  String get webReversePerfSubtitle =>
+      'Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）';
+
+  @override
+  String get webReversePerfDuration => '时长';
+
+  @override
+  String get webReversePerfCategories => 'Trace 分类';
+
+  @override
+  String get webReversePerfCopyPath => '复制路径';
+
+  @override
+  String get webReversePerfStop => '停止录制';
+
+  @override
+  String get webReversePerfStart => '开始录制';
+
+  @override
+  String get webReversePerfClose => '关闭';
+
+  @override
+  String get webReversePerfTraceFailed => '录制失败或无数据';
+
+  @override
+  String get webReversePerfStopping => '已请求停止，正在收尾…';
+
+  @override
+  String get webReversePerfTraceSaved => 'Trace 已保存';
+
+  @override
+  String get webReversePerfPathCopied => '路径已复制';
+
+  @override
+  String webReversePerfRecording(int seconds) {
+    return '正在录制（剩余 ${seconds}s）';
+  }
+
+  @override
+  String webReversePerfSaved(String path, String kb) {
+    return '已保存：$path ($kb KB)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -13894,6 +13941,53 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCdpSubtitle(int count) {
     return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
   }
+
+  @override
+  String get webReversePerfTitle => 'Performance Trace 录制';
+
+  @override
+  String get webReversePerfSubtitle =>
+      'Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）';
+
+  @override
+  String get webReversePerfDuration => '时长';
+
+  @override
+  String get webReversePerfCategories => 'Trace 分类';
+
+  @override
+  String get webReversePerfCopyPath => '复制路径';
+
+  @override
+  String get webReversePerfStop => '停止录制';
+
+  @override
+  String get webReversePerfStart => '开始录制';
+
+  @override
+  String get webReversePerfClose => '关闭';
+
+  @override
+  String get webReversePerfTraceFailed => '录制失败或无数据';
+
+  @override
+  String get webReversePerfStopping => '已请求停止，正在收尾…';
+
+  @override
+  String get webReversePerfTraceSaved => 'Trace 已保存';
+
+  @override
+  String get webReversePerfPathCopied => '路径已复制';
+
+  @override
+  String webReversePerfRecording(int seconds) {
+    return '正在录制（剩余 ${seconds}s）';
+  }
+
+  @override
+  String webReversePerfSaved(String path, String kb) {
+    return '已保存：$path ($kb KB)';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -20838,5 +20932,52 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCdpSubtitle(int count) {
     return '⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 $count 条';
+  }
+
+  @override
+  String get webReversePerfTitle => 'Performance Trace 录制';
+
+  @override
+  String get webReversePerfSubtitle =>
+      'Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）';
+
+  @override
+  String get webReversePerfDuration => '时长';
+
+  @override
+  String get webReversePerfCategories => 'Trace 分类';
+
+  @override
+  String get webReversePerfCopyPath => '复制路径';
+
+  @override
+  String get webReversePerfStop => '停止录制';
+
+  @override
+  String get webReversePerfStart => '开始录制';
+
+  @override
+  String get webReversePerfClose => '关闭';
+
+  @override
+  String get webReversePerfTraceFailed => '录制失败或无数据';
+
+  @override
+  String get webReversePerfStopping => '已请求停止，正在收尾…';
+
+  @override
+  String get webReversePerfTraceSaved => 'Trace 已保存';
+
+  @override
+  String get webReversePerfPathCopied => '路径已复制';
+
+  @override
+  String webReversePerfRecording(int seconds) {
+    return '正在录制（剩余 ${seconds}s）';
+  }
+
+  @override
+  String webReversePerfSaved(String path, String kb) {
+    return '已保存：$path ($kb KB)';
   }
 }

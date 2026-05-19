@@ -4973,5 +4973,38 @@
         "type": "int"
       }
     }
+  },
+  "webReversePerfTitle": "Performance Trace 录制",
+  "webReversePerfSubtitle": "Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）",
+  "webReversePerfDuration": "时长",
+  "webReversePerfCategories": "Trace 分类",
+  "webReversePerfCopyPath": "复制路径",
+  "webReversePerfStop": "停止录制",
+  "webReversePerfStart": "开始录制",
+  "webReversePerfClose": "关闭",
+  "webReversePerfTraceFailed": "录制失败或无数据",
+  "webReversePerfStopping": "已请求停止，正在收尾…",
+  "webReversePerfTraceSaved": "Trace 已保存",
+  "webReversePerfPathCopied": "路径已复制",
+  "webReversePerfRecording": "正在录制（剩余 {seconds}s）",
+  "@webReversePerfRecording": {
+    "description": "Web reverse perf trace: recording with seconds left.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReversePerfSaved": "已保存：{path} ({kb} KB)",
+  "@webReversePerfSaved": {
+    "description": "Web reverse perf trace: saved file path with size.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "kb": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -7046,4 +7046,50 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCdpSubtitle(int count) {
     return '⌘/Ctrl+Enter 送信 · Ctrl+↑/↓ 履歴 · $count 件';
   }
+
+  @override
+  String get webReversePerfTitle => 'Performance Trace 録画';
+
+  @override
+  String get webReversePerfSubtitle => 'Tracing → chrome-trace JSON';
+
+  @override
+  String get webReversePerfDuration => '時間';
+
+  @override
+  String get webReversePerfCategories => 'Trace カテゴリ';
+
+  @override
+  String get webReversePerfCopyPath => 'パスをコピー';
+
+  @override
+  String get webReversePerfStop => '停止';
+
+  @override
+  String get webReversePerfStart => '開始';
+
+  @override
+  String get webReversePerfClose => '閉じる';
+
+  @override
+  String get webReversePerfTraceFailed => '録画失敗またはデータなし';
+
+  @override
+  String get webReversePerfStopping => '停止要求、終了処理中…';
+
+  @override
+  String get webReversePerfTraceSaved => 'Trace を保存しました';
+
+  @override
+  String get webReversePerfPathCopied => 'パスをコピーしました';
+
+  @override
+  String webReversePerfRecording(int seconds) {
+    return '録画中（残り ${seconds}s）';
+  }
+
+  @override
+  String webReversePerfSaved(String path, String kb) {
+    return '保存しました: $path ($kb KB)';
+  }
 }

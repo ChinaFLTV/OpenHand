@@ -4973,5 +4973,38 @@
         "type": "int"
       }
     }
+  },
+  "webReversePerfTitle": "Performance Trace",
+  "webReversePerfSubtitle": "Tracing → chrome-trace JSON",
+  "webReversePerfDuration": "Durée",
+  "webReversePerfCategories": "Catégories Trace",
+  "webReversePerfCopyPath": "Copier le chemin",
+  "webReversePerfStop": "Arrêter",
+  "webReversePerfStart": "Démarrer",
+  "webReversePerfClose": "Fermer",
+  "webReversePerfTraceFailed": "Échec du trace ou vide",
+  "webReversePerfStopping": "Arrêt, finalisation…",
+  "webReversePerfTraceSaved": "Trace enregistré",
+  "webReversePerfPathCopied": "Chemin copié",
+  "webReversePerfRecording": "Enregistrement ({seconds}s restants)",
+  "@webReversePerfRecording": {
+    "description": "Web reverse perf trace: recording with seconds left.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReversePerfSaved": "Enregistré : {path} ({kb} KB)",
+  "@webReversePerfSaved": {
+    "description": "Web reverse perf trace: saved file path with size.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "kb": {
+        "type": "String"
+      }
+    }
   }
 }

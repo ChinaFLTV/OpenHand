@@ -7240,4 +7240,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseCdpSubtitle(int count) {
     return '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · $count entries';
   }
+
+  @override
+  String get webReversePerfTitle => 'Performance Trace';
+
+  @override
+  String get webReversePerfSubtitle => 'Tracing → chrome-trace JSON';
+
+  @override
+  String get webReversePerfDuration => 'Duration';
+
+  @override
+  String get webReversePerfCategories => 'Trace Categories';
+
+  @override
+  String get webReversePerfCopyPath => 'Copy path';
+
+  @override
+  String get webReversePerfStop => 'Stop';
+
+  @override
+  String get webReversePerfStart => 'Start';
+
+  @override
+  String get webReversePerfClose => 'Close';
+
+  @override
+  String get webReversePerfTraceFailed => 'Trace failed or empty';
+
+  @override
+  String get webReversePerfStopping => 'Stopping, finalizing…';
+
+  @override
+  String get webReversePerfTraceSaved => 'Trace saved';
+
+  @override
+  String get webReversePerfPathCopied => 'Path copied';
+
+  @override
+  String webReversePerfRecording(int seconds) {
+    return 'Recording (${seconds}s left)';
+  }
+
+  @override
+  String webReversePerfSaved(String path, String kb) {
+    return 'Saved: $path ($kb KB)';
+  }
 }

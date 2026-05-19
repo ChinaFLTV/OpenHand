@@ -4973,5 +4973,38 @@
         "type": "int"
       }
     }
+  },
+  "webReversePerfTitle": "Performance Trace 録画",
+  "webReversePerfSubtitle": "Tracing → chrome-trace JSON",
+  "webReversePerfDuration": "時間",
+  "webReversePerfCategories": "Trace カテゴリ",
+  "webReversePerfCopyPath": "パスをコピー",
+  "webReversePerfStop": "停止",
+  "webReversePerfStart": "開始",
+  "webReversePerfClose": "閉じる",
+  "webReversePerfTraceFailed": "録画失敗またはデータなし",
+  "webReversePerfStopping": "停止要求、終了処理中…",
+  "webReversePerfTraceSaved": "Trace を保存しました",
+  "webReversePerfPathCopied": "パスをコピーしました",
+  "webReversePerfRecording": "録画中（残り {seconds}s）",
+  "@webReversePerfRecording": {
+    "description": "Web reverse perf trace: recording with seconds left.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "webReversePerfSaved": "保存しました: {path} ({kb} KB)",
+  "@webReversePerfSaved": {
+    "description": "Web reverse perf trace: saved file path with size.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "kb": {
+        "type": "String"
+      }
+    }
   }
 }

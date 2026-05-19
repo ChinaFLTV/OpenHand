@@ -12838,6 +12838,90 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'⌘/Ctrl+Enter 发送 · Ctrl+↑/↓ 翻历史 · 共 {count} 条'**
   String webReverseCdpSubtitle(int count);
+
+  /// No description provided for @webReversePerfTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Performance Trace 录制'**
+  String get webReversePerfTitle;
+
+  /// No description provided for @webReversePerfSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）'**
+  String get webReversePerfSubtitle;
+
+  /// No description provided for @webReversePerfDuration.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时长'**
+  String get webReversePerfDuration;
+
+  /// No description provided for @webReversePerfCategories.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Trace 分类'**
+  String get webReversePerfCategories;
+
+  /// No description provided for @webReversePerfCopyPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制路径'**
+  String get webReversePerfCopyPath;
+
+  /// No description provided for @webReversePerfStop.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止录制'**
+  String get webReversePerfStop;
+
+  /// No description provided for @webReversePerfStart.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始录制'**
+  String get webReversePerfStart;
+
+  /// No description provided for @webReversePerfClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReversePerfClose;
+
+  /// No description provided for @webReversePerfTraceFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'录制失败或无数据'**
+  String get webReversePerfTraceFailed;
+
+  /// No description provided for @webReversePerfStopping.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已请求停止，正在收尾…'**
+  String get webReversePerfStopping;
+
+  /// No description provided for @webReversePerfTraceSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Trace 已保存'**
+  String get webReversePerfTraceSaved;
+
+  /// No description provided for @webReversePerfPathCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'路径已复制'**
+  String get webReversePerfPathCopied;
+
+  /// Web reverse perf trace: recording with seconds left.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在录制（剩余 {seconds}s）'**
+  String webReversePerfRecording(int seconds);
+
+  /// Web reverse perf trace: saved file path with size.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已保存：{path} ({kb} KB)'**
+  String webReversePerfSaved(String path, String kb);
 }
 
 class _AppLocalizationsDelegate

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -31,6 +32,7 @@ Future<void> showWebReversePerfTraceDialog(
 class _PerfTraceDialog extends StatefulWidget {
   const _PerfTraceDialog({required this.controller, required this.isZh});
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
   @override
   State<_PerfTraceDialog> createState() => _PerfTraceDialogState();
@@ -79,23 +81,23 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   }
 
   Future<void> _start() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final secs = _seconds.round();
     final earlyStop = Completer<void>();
     setState(() {
       _busy = true;
       _ticksLeft = secs;
       _earlyStop = earlyStop;
-      _status = isZh ? '正在录制（剩余 ${secs}s）' : 'Recording (${secs}s left)';
+      _status = loc?.webReversePerfRecording(secs) ??
+          'Recording (${secs}s left)';
     });
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
         _ticksLeft = (_ticksLeft - 1).clamp(0, 999);
-        _status = isZh
-            ? '正在录制（剩余 ${_ticksLeft}s）'
-            : 'Recording (${_ticksLeft}s left)';
+        _status = loc?.webReversePerfRecording(_ticksLeft) ??
+            'Recording (${_ticksLeft}s left)';
       });
     });
     String? json;
@@ -115,7 +117,8 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       setState(() {
         _busy = false;
         _earlyStop = null;
-        _status = isZh ? '录制失败或无数据' : 'Trace failed or empty';
+        _status =
+            loc?.webReversePerfTraceFailed ?? 'Trace failed or empty';
       });
       return;
     }
@@ -129,16 +132,16 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       _earlyStop = null;
       _lastSaved = file.path;
       _lastBytes = json!.length;
-      _status = isZh
-          ? '已保存：${file.path} (${(_lastBytes / 1024).toStringAsFixed(1)} KB)'
-          : 'Saved: ${file.path} (${(_lastBytes / 1024).toStringAsFixed(1)} KB)';
+      final kb = (_lastBytes / 1024).toStringAsFixed(1);
+      _status = loc?.webReversePerfSaved(file.path, kb) ??
+          'Saved: ${file.path} ($kb KB)';
     });
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        isZh ? 'Trace 已保存' : 'Trace saved',
+        loc?.webReversePerfTraceSaved ?? 'Trace saved',
       );
     }
   }
@@ -148,12 +151,14 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     if (c != null && !c.isCompleted) {
       c.complete();
       setState(() {
-        _status = widget.isZh ? '已请求停止，正在收尾…' : 'Stopping, finalizing…';
+        _status = AppLocalizations.of(context)?.webReversePerfStopping ??
+            'Stopping, finalizing…';
       });
     }
   }
 
   Future<void> _copyPath() async {
+    final loc = AppLocalizations.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: _lastSaved));
     } catch (e, s) {
@@ -166,7 +171,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '路径已复制' : 'Path copied',
+        loc?.webReversePerfPathCopied ?? 'Path copied',
       );
     }
   }
@@ -175,7 +180,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -195,14 +200,13 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Performance Trace 录制' : 'Performance Trace',
+                          loc?.webReversePerfTitle ?? 'Performance Trace',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'Tracing 域 → chrome-trace JSON（Perfetto / chrome://tracing 加载）'
-                              : 'Tracing → chrome-trace JSON',
+                          loc?.webReversePerfSubtitle ??
+                              'Tracing → chrome-trace JSON',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -222,7 +226,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
               child: Row(
                 children: [
                   Text(
-                    isZh ? '时长' : 'Duration',
+                    loc?.webReversePerfDuration ?? 'Duration',
                     style: theme.textTheme.labelLarge,
                   ),
                   Expanded(
@@ -253,7 +257,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  isZh ? 'Trace 分类' : 'Trace Categories',
+                  loc?.webReversePerfCategories ?? 'Trace Categories',
                   style: theme.textTheme.labelLarge,
                 ),
               ),
@@ -307,24 +311,24 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                 children: [
                   if (_lastSaved.isNotEmpty)
                     OpenHandDialogActionButton.secondary(
-                      label: isZh ? '复制路径' : 'Copy path',
+                      label: loc?.webReversePerfCopyPath ?? 'Copy path',
                       icon: Icons.copy_rounded,
                       onPressed: _copyPath,
                     ),
                   if (_busy)
                     OpenHandDialogActionButton.destructive(
-                      label: isZh ? '停止录制' : 'Stop',
+                      label: loc?.webReversePerfStop ?? 'Stop',
                       icon: Icons.stop_circle_rounded,
                       onPressed: _earlyStop == null ? null : _stop,
                     )
                   else
                     OpenHandDialogActionButton.secondary(
-                      label: isZh ? '开始录制' : 'Start',
+                      label: loc?.webReversePerfStart ?? 'Start',
                       icon: Icons.fiber_manual_record_rounded,
                       onPressed: _selected.isEmpty ? null : _start,
                     ),
                   OpenHandDialogActionButton.primary(
-                    label: isZh ? '关闭' : 'Close',
+                    label: loc?.webReversePerfClose ?? 'Close',
                     onPressed: _busy
                         ? null
                         : () => Navigator.of(context).pop(),
