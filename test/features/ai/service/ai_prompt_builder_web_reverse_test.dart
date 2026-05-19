@@ -4,8 +4,12 @@ import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/model/ai_thread_template.dart';
+import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
+import 'package:openhand/features/mcp/model/mcp_server.dart';
+import 'package:openhand/features/mcp/model/mcp_tool.dart';
 
 void main() {
   test(
@@ -50,6 +54,10 @@ void main() {
       expect(webReverseRuntime, isA<Map<String, Object?>>());
       final runtimeMap = webReverseRuntime! as Map<String, Object?>;
       expect(runtimeMap['cdp_first_required'], true);
+      final availability =
+          runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+      expect(availability['current_turn_callable'], false);
+      expect(availability['warning'], contains('Do not invent cdp_*'));
       expect(runtimeMap['config'], containsPair('desired_cdp_port', 9222));
       expect(runtimeMap['config'], isNot(contains('cdp_port')));
       expect(
@@ -93,6 +101,53 @@ void main() {
       expect(fullPromptText, isNot(contains('CDP Bridge')));
     },
   );
+
+  test('marks callable CDP MCP tools in Web Reverse runtime state', () {
+    final now = DateTime.utc(2026, 5, 19);
+    final latestUserMessage = AiSessionMessage.user(
+      id: 'user-1',
+      content: 'Start reversing https://example.test',
+      createdAt: now,
+    );
+    final session = _webReverseSession(
+      now: now,
+      latestUserMessage: latestUserMessage,
+      metadata: const <String, Object?>{
+        'web_reverse_config': <String, Object?>{
+          'target_url': 'https://example.test',
+          'cdp_port': 9222,
+        },
+        'web_reverse_cdp_runtime': <String, Object?>{
+          'cdp_port': 9233,
+          'browser_alive': true,
+        },
+      },
+    );
+    final cdpTool = _mcpTool(
+      catalogName: 'mcp__chrome_devtools__navigate_page',
+      toolName: 'navigate_page',
+      description: 'Navigate a Chrome DevTools Protocol page target.',
+    );
+
+    final result = _buildWebReversePrompt(
+      session,
+      latestUserMessage,
+      availableTools: <AiToolDefinition>[cdpTool.definition],
+      resolvedToolsByName: <String, AiResolvedTool>{cdpTool.name: cdpTool},
+    );
+
+    final runtimeMap =
+        result.metadata['web_reverse_runtime']! as Map<String, Object?>;
+    final availability =
+        runtimeMap['cdp_mcp_tool_availability']! as Map<String, Object?>;
+    expect(availability['current_turn_callable'], true);
+    expect(availability['current_turn_callable_count'], 1);
+    expect(
+      availability['current_turn_callable_names'],
+      contains('mcp__chrome_devtools__navigate_page'),
+    );
+    expect(availability, isNot(contains('warning')));
+  });
 
   test(
     'strips live CDP endpoints and marks targets last when browser is dead',
@@ -258,8 +313,11 @@ AiSession _webReverseSession({
 
 AiPromptBuildResult _buildWebReversePrompt(
   AiSession session,
-  AiSessionMessage latestUserMessage,
-) {
+  AiSessionMessage latestUserMessage, {
+  List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+  Map<String, AiResolvedTool> resolvedToolsByName =
+      const <String, AiResolvedTool>{},
+}) {
   return const AiPromptBuilder().buildConversationPrompt(
     templateBundle: _templateBundle,
     session: session,
@@ -268,5 +326,42 @@ AiPromptBuildResult _buildWebReversePrompt(
     memoryEntries: const <Never>[],
     historyMessages: const <AiSessionMessage>[],
     latestUserMessage: latestUserMessage,
+    availableTools: availableTools,
+    resolvedToolsByName: resolvedToolsByName,
+  );
+}
+
+AiResolvedTool _mcpTool({
+  required String catalogName,
+  required String toolName,
+  required String description,
+}) {
+  return AiResolvedTool(
+    name: catalogName,
+    definition: AiToolDefinition(
+      name: catalogName,
+      description: description,
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
+      },
+    ),
+    source: AiRuntimeToolSource.mcp,
+    mcpServer: const McpServer(
+      name: 'chrome-devtools',
+      type: McpServerType.stdio,
+      enabled: true,
+      command: 'npx',
+      args: <String>['chrome-devtools-mcp'],
+    ),
+    mcpTool: McpTool(
+      id: toolName,
+      name: toolName,
+      description: description,
+      inputSchema: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
+      },
+    ),
   );
 }

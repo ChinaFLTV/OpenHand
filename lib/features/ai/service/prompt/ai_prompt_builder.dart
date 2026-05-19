@@ -20,6 +20,7 @@ import '../../tools/planning/ai_task_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
+import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 import 'ai_prompt_template_repository.dart';
@@ -265,7 +266,11 @@ class AiPromptBuilder {
       'post_compact_rehydration': postCompactRehydration,
       'environment': runtimeContext.toJson(),
     };
-    final webReverseRuntime = _buildWebReverseRuntimeSnapshot(session);
+    final webReverseRuntime = _buildWebReverseRuntimeSnapshot(
+      session,
+      availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
+    );
     if (webReverseRuntime != null) {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
@@ -1408,7 +1413,11 @@ class AiPromptBuilder {
     ];
   }
 
-  Map<String, Object?>? _buildWebReverseRuntimeSnapshot(AiSession session) {
+  Map<String, Object?>? _buildWebReverseRuntimeSnapshot(
+    AiSession session, {
+    required List<String> availableToolNames,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+  }) {
     if (session.templateId != 'web_reverse_expert') {
       return null;
     }
@@ -1430,6 +1439,10 @@ class AiPromptBuilder {
     final dashboardCurrentTarget = meta('web_reverse_browser_current_target');
     final cdpRuntimeDead = _isWebReverseCdpRuntimeDead(cdpRuntime);
     _disambiguateWebReverseConfigPort(config, cdpRuntime);
+    final cdpMcpToolNames = _webReverseCdpMcpToolNames(resolvedToolsByName);
+    final hasToolSearch = availableToolNames.any(
+      (name) => name.trim().toLowerCase() == 'toolsearch',
+    );
 
     final rootDir = p.join(
       OpenHandPaths.defaultRootDirectoryPath(),
@@ -1449,6 +1462,18 @@ class AiPromptBuilder {
       'fallback_policy': cdpRuntimeDead
           ? 'Live CDP MCP actions require browser_alive=true. With browser_alive=false, do not treat historical last_* values as live CDP state; use local jsonl/HAR artifacts, or ask the user to restart the browser before live browser operations. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after explaining that live CDP is unavailable.'
           : 'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+      'cdp_mcp_tool_availability': <String, Object?>{
+        'current_turn_callable': cdpMcpToolNames.isNotEmpty,
+        'current_turn_callable_count': cdpMcpToolNames.length,
+        'current_turn_callable_names': cdpMcpToolNames,
+        'tool_search_available': hasToolSearch,
+        if (cdpMcpToolNames.isEmpty)
+          'warning':
+              'No CDP / Chrome DevTools MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. Use local jsonl/HAR artifacts, or ask the user to enable/refresh chrome-devtools-mcp before live CDP actions.'
+        else
+          'guidance':
+              'Use only exact current_turn_callable_names from # [2] Tool Catalog for live CDP actions.',
+      },
       if (config.isNotEmpty) 'config': config,
       'cdp_runtime': cdpRuntime,
       if (cdpRuntimeDead)
@@ -1576,6 +1601,19 @@ class AiPromptBuilder {
       return;
     }
     config['desired_cdp_port'] = config.remove('cdp_port');
+  }
+
+  List<String> _webReverseCdpMcpToolNames(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+  ) {
+    final names = WebReverseMcpToolPolicy.forceVisibleToolNames(
+      AiResolvedToolCatalog(
+        definitions: const <AiToolDefinition>[],
+        toolsByName: resolvedToolsByName,
+      ),
+    ).toList();
+    names.sort();
+    return names;
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
