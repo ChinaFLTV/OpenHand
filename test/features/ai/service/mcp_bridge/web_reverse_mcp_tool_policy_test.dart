@@ -116,6 +116,47 @@ void main() {
       isNot(contains('mcp__Puppeteer__page_evaluate')),
     );
   });
+
+  test(
+    'keeps Browserless deferred even when identity mentions Chrome DevTools',
+    () {
+      final catalog = _catalog(<AiResolvedTool>[
+        _mcpTool(
+          catalogName: 'mcp__Browserless_Chrome_DevTools__evaluate',
+          serverName: 'Browserless Chrome DevTools',
+          command: 'npx',
+          args: const <String>['browserless-mcp'],
+          toolId: 'evaluate',
+          toolName: 'evaluate',
+          description: 'Evaluate JavaScript through a remote Browserless tab.',
+        ),
+      ]);
+
+      expect(
+        WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+        isNot(contains('mcp__Browserless_Chrome_DevTools__evaluate')),
+      );
+    },
+  );
+
+  test('keeps chrome-devtools-mcp visible despite a generic server label', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Generic_Browser__navigate_page',
+        serverName: 'Generic Browser',
+        command: 'npx',
+        args: const <String>['chrome-devtools-mcp@latest'],
+        toolId: 'navigate_page',
+        toolName: 'navigate page',
+        description: 'Navigate the current Chrome page.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      contains('mcp__Generic_Browser__navigate_page'),
+    );
+  });
 }
 
 AiResolvedToolCatalog _catalog(List<AiResolvedTool> tools) {

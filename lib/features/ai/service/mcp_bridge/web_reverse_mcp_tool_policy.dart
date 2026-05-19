@@ -49,21 +49,28 @@ class WebReverseMcpToolPolicy {
       mcpTool?.execution,
       mcpTool?.rawMetadata,
     ]);
+    final launchIdentity = _joinParts(<Object?>[
+      server?.command,
+      if (server != null) ...server.args,
+      server?.url,
+    ]);
 
     final chromeDevtoolsByIdentity = _hasChromeDevtoolsSignal(identity);
-    final nonCdpAutomationByIdentity =
-        !chromeDevtoolsByIdentity &&
-        _containsAny(identity, const <String>[
-          '@playwright/mcp',
-          'playwright',
-          'puppeteer',
-          'selenium',
-          'webdriver',
-          'browserless',
-        ]);
-    if (nonCdpAutomationByIdentity) return false;
+    final chromeDevtoolsMcpLaunch = launchIdentity.contains(
+      'chrome-devtools-mcp',
+    );
+    final nonCdpAutomationByIdentity = _containsAny(identity, const <String>[
+      '@playwright/mcp',
+      'playwright',
+      'puppeteer',
+      'selenium',
+      'webdriver',
+      'browserless',
+    ]);
+    if (nonCdpAutomationByIdentity && !chromeDevtoolsMcpLaunch) return false;
 
-    return chromeDevtoolsByIdentity ||
+    return chromeDevtoolsMcpLaunch ||
+        chromeDevtoolsByIdentity ||
         _hasCdpSignal(identity) ||
         _hasCdpSignal(descriptive);
   }
