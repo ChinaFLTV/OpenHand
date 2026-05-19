@@ -1448,6 +1448,9 @@ class AiPromptBuilder {
           'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       if (config.isNotEmpty) 'config': config,
       'cdp_runtime': cdpRuntime,
+      if (cdpRuntimeDead)
+        'cdp_runtime_warning':
+            'browser_alive=false: cdp_runtime contains historical last_* values only, not a live CDP endpoint. Use local jsonl/HAR artifacts, or ask the user to restart the browser before live CDP MCP actions.',
       'dashboard_state': <String, Object?>{
         'last_tab': meta('web_reverse_dashboard_last_tab'),
         'browser_tab_order': meta('web_reverse_browser_tab_order'),

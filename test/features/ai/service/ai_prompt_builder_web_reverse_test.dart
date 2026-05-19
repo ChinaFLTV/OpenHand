@@ -136,6 +136,10 @@ void main() {
       final runtimeMap =
           result.metadata['web_reverse_runtime']! as Map<String, Object?>;
       final cdpRuntime = runtimeMap['cdp_runtime']! as Map<String, Object?>;
+      expect(
+        runtimeMap['cdp_runtime_warning'],
+        contains('historical last_* values only'),
+      );
       expect(cdpRuntime['browser_alive'], false);
       expect(cdpRuntime['is_running'], false);
       expect(cdpRuntime['last_cdp_port'], 9233);
@@ -160,6 +164,7 @@ void main() {
       expect(promptText, contains('"browser_alive": false'));
       expect(promptText, contains('"last_cdp_port": 9233'));
       expect(promptText, contains('"last_current_target"'));
+      expect(promptText, contains('historical last_* values only'));
       expect(promptText, isNot(contains('http://127.0.0.1:9233')));
     },
   );
