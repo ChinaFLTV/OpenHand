@@ -75,6 +75,47 @@ void main() {
       isNot(contains('mcp__Playwright_MCP__browser_evaluate')),
     );
   });
+
+  test('keeps Playwright deferred even when launched with a CDP endpoint', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Playwright_MCP__browser_navigate',
+        serverName: 'Playwright MCP',
+        command: 'npx',
+        args: const <String>[
+          '@playwright/mcp',
+          '--cdp-endpoint=http://127.0.0.1:9222',
+        ],
+        toolId: 'browser_navigate',
+        toolName: 'browser navigate',
+        description: 'Navigate through the Playwright MCP browser session.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      isNot(contains('mcp__Playwright_MCP__browser_navigate')),
+    );
+  });
+
+  test('keeps Puppeteer automation deferred even when it mentions CDP', () {
+    final catalog = _catalog(<AiResolvedTool>[
+      _mcpTool(
+        catalogName: 'mcp__Puppeteer__page_evaluate',
+        serverName: 'Puppeteer',
+        command: 'npx',
+        args: const <String>['puppeteer-mcp'],
+        toolId: 'page_evaluate',
+        toolName: 'page evaluate',
+        description: 'Evaluate through a Puppeteer CDP session.',
+      ),
+    ]);
+
+    expect(
+      WebReverseMcpToolPolicy.forceVisibleToolNames(catalog),
+      isNot(contains('mcp__Puppeteer__page_evaluate')),
+    );
+  });
 }
 
 AiResolvedToolCatalog _catalog(List<AiResolvedTool> tools) {

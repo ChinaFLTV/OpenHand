@@ -50,28 +50,41 @@ class WebReverseMcpToolPolicy {
       mcpTool?.rawMetadata,
     ]);
 
-    final cdpByIdentity = _hasCdpSignal(identity);
-    final nonCdpAutomationByIdentity = _containsAny(identity, const <String>[
-      '@playwright/mcp',
-      'playwright',
-      'puppeteer',
-    ]);
-    if (nonCdpAutomationByIdentity && !cdpByIdentity) return false;
+    final chromeDevtoolsByIdentity = _hasChromeDevtoolsSignal(identity);
+    final nonCdpAutomationByIdentity =
+        !chromeDevtoolsByIdentity &&
+        _containsAny(identity, const <String>[
+          '@playwright/mcp',
+          'playwright',
+          'puppeteer',
+          'selenium',
+          'webdriver',
+          'browserless',
+        ]);
+    if (nonCdpAutomationByIdentity) return false;
 
-    return cdpByIdentity || _hasCdpSignal(descriptive);
+    return chromeDevtoolsByIdentity ||
+        _hasCdpSignal(identity) ||
+        _hasCdpSignal(descriptive);
   }
 
-  static bool _hasCdpSignal(String value) {
-    return _cdpTokenPattern.hasMatch(value) ||
-        _containsAny(value, const <String>[
+  static bool _hasChromeDevtoolsSignal(String value) {
+    return _containsAny(value, const <String>[
           'chrome-devtools',
           'chrome_devtools',
           'chrome devtools',
           'chrome devtools protocol',
-          'devtools protocol',
-          'remote debugging protocol',
         ]) ||
         (value.contains('chrome') && value.contains('devtools'));
+  }
+
+  static bool _hasCdpSignal(String value) {
+    return _cdpTokenPattern.hasMatch(value) ||
+        _hasChromeDevtoolsSignal(value) ||
+        _containsAny(value, const <String>[
+          'devtools protocol',
+          'remote debugging protocol',
+        ]);
   }
 
   static bool _containsAny(String value, Iterable<String> needles) {
