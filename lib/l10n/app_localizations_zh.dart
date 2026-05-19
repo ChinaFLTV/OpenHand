@@ -5821,6 +5821,66 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseMockRulesImportFailed(String error) {
     return '导入失败：$error';
   }
+
+  @override
+  String get webReverseStorageTitle => '存储管理器';
+
+  @override
+  String get webReverseStorageClose => '关闭';
+
+  @override
+  String get webReverseStorageCopied => '已复制';
+
+  @override
+  String get webReverseStorageAddCookie => '新增 Cookie';
+
+  @override
+  String get webReverseStorageCancel => '取消';
+
+  @override
+  String get webReverseStorageSave => '保存';
+
+  @override
+  String get webReverseStorageCookieSaved => 'Cookie 已保存';
+
+  @override
+  String get webReverseStorageSaveFailed => '保存失败';
+
+  @override
+  String get webReverseStorageAddEntry => '新增条目';
+
+  @override
+  String get webReverseStorageEditEntry => '编辑条目';
+
+  @override
+  String get webReverseStorageNoCookies => '没有 Cookie';
+
+  @override
+  String get webReverseStorageCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseStorageDelete => '删除';
+
+  @override
+  String get webReverseStorageAdd => '新增';
+
+  @override
+  String get webReverseStorageEmpty => '空';
+
+  @override
+  String get webReverseStorageNoDatabases => '没有数据库';
+
+  @override
+  String get webReverseStoragePickDb => '选择数据库';
+
+  @override
+  String get webReverseStoragePickStore => '选择 Object Store';
+
+  @override
+  String get webReverseStorageMoreRecords => '… 还有更多记录（仅显示前 50 条）';
+
+  @override
+  String get webReverseStorageRefresh => '刷新';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -11640,6 +11700,66 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseMockRulesImportFailed(String error) {
     return '导入失败：$error';
   }
+
+  @override
+  String get webReverseStorageTitle => '存储管理器';
+
+  @override
+  String get webReverseStorageClose => '关闭';
+
+  @override
+  String get webReverseStorageCopied => '已复制';
+
+  @override
+  String get webReverseStorageAddCookie => '新增 Cookie';
+
+  @override
+  String get webReverseStorageCancel => '取消';
+
+  @override
+  String get webReverseStorageSave => '保存';
+
+  @override
+  String get webReverseStorageCookieSaved => 'Cookie 已保存';
+
+  @override
+  String get webReverseStorageSaveFailed => '保存失败';
+
+  @override
+  String get webReverseStorageAddEntry => '新增条目';
+
+  @override
+  String get webReverseStorageEditEntry => '编辑条目';
+
+  @override
+  String get webReverseStorageNoCookies => '没有 Cookie';
+
+  @override
+  String get webReverseStorageCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseStorageDelete => '删除';
+
+  @override
+  String get webReverseStorageAdd => '新增';
+
+  @override
+  String get webReverseStorageEmpty => '空';
+
+  @override
+  String get webReverseStorageNoDatabases => '没有数据库';
+
+  @override
+  String get webReverseStoragePickDb => '选择数据库';
+
+  @override
+  String get webReverseStoragePickStore => '选择 Object Store';
+
+  @override
+  String get webReverseStorageMoreRecords => '… 还有更多记录（仅显示前 50 条）';
+
+  @override
+  String get webReverseStorageRefresh => '刷新';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -17458,4 +17578,64 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseMockRulesImportFailed(String error) {
     return '导入失败：$error';
   }
+
+  @override
+  String get webReverseStorageTitle => '存储管理器';
+
+  @override
+  String get webReverseStorageClose => '关闭';
+
+  @override
+  String get webReverseStorageCopied => '已复制';
+
+  @override
+  String get webReverseStorageAddCookie => '新增 Cookie';
+
+  @override
+  String get webReverseStorageCancel => '取消';
+
+  @override
+  String get webReverseStorageSave => '保存';
+
+  @override
+  String get webReverseStorageCookieSaved => 'Cookie 已保存';
+
+  @override
+  String get webReverseStorageSaveFailed => '保存失败';
+
+  @override
+  String get webReverseStorageAddEntry => '新增条目';
+
+  @override
+  String get webReverseStorageEditEntry => '编辑条目';
+
+  @override
+  String get webReverseStorageNoCookies => '没有 Cookie';
+
+  @override
+  String get webReverseStorageCopyJson => '复制 JSON';
+
+  @override
+  String get webReverseStorageDelete => '删除';
+
+  @override
+  String get webReverseStorageAdd => '新增';
+
+  @override
+  String get webReverseStorageEmpty => '空';
+
+  @override
+  String get webReverseStorageNoDatabases => '没有数据库';
+
+  @override
+  String get webReverseStoragePickDb => '选择数据库';
+
+  @override
+  String get webReverseStoragePickStore => '选择 Object Store';
+
+  @override
+  String get webReverseStorageMoreRecords => '… 还有更多记录（仅显示前 50 条）';
+
+  @override
+  String get webReverseStorageRefresh => '刷新';
 }

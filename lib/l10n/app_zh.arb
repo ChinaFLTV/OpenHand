@@ -3685,5 +3685,85 @@
         "type": "String"
       }
     }
+  },
+  "webReverseStorageTitle": "存储管理器",
+  "@webReverseStorageTitle": {
+    "description": "web_reverse: Storage dialog · title"
+  },
+  "webReverseStorageClose": "关闭",
+  "@webReverseStorageClose": {
+    "description": "web_reverse: Storage dialog · close"
+  },
+  "webReverseStorageCopied": "已复制",
+  "@webReverseStorageCopied": {
+    "description": "web_reverse: Storage dialog · copied"
+  },
+  "webReverseStorageAddCookie": "新增 Cookie",
+  "@webReverseStorageAddCookie": {
+    "description": "web_reverse: Storage dialog · addcookie"
+  },
+  "webReverseStorageCancel": "取消",
+  "@webReverseStorageCancel": {
+    "description": "web_reverse: Storage dialog · cancel"
+  },
+  "webReverseStorageSave": "保存",
+  "@webReverseStorageSave": {
+    "description": "web_reverse: Storage dialog · save"
+  },
+  "webReverseStorageCookieSaved": "Cookie 已保存",
+  "@webReverseStorageCookieSaved": {
+    "description": "web_reverse: Storage dialog · cookiesaved"
+  },
+  "webReverseStorageSaveFailed": "保存失败",
+  "@webReverseStorageSaveFailed": {
+    "description": "web_reverse: Storage dialog · savefailed"
+  },
+  "webReverseStorageAddEntry": "新增条目",
+  "@webReverseStorageAddEntry": {
+    "description": "web_reverse: Storage dialog · addentry"
+  },
+  "webReverseStorageEditEntry": "编辑条目",
+  "@webReverseStorageEditEntry": {
+    "description": "web_reverse: Storage dialog · editentry"
+  },
+  "webReverseStorageNoCookies": "没有 Cookie",
+  "@webReverseStorageNoCookies": {
+    "description": "web_reverse: Storage dialog · nocookies"
+  },
+  "webReverseStorageCopyJson": "复制 JSON",
+  "@webReverseStorageCopyJson": {
+    "description": "web_reverse: Storage dialog · copyjson"
+  },
+  "webReverseStorageDelete": "删除",
+  "@webReverseStorageDelete": {
+    "description": "web_reverse: Storage dialog · delete"
+  },
+  "webReverseStorageAdd": "新增",
+  "@webReverseStorageAdd": {
+    "description": "web_reverse: Storage dialog · add"
+  },
+  "webReverseStorageEmpty": "空",
+  "@webReverseStorageEmpty": {
+    "description": "web_reverse: Storage dialog · empty"
+  },
+  "webReverseStorageNoDatabases": "没有数据库",
+  "@webReverseStorageNoDatabases": {
+    "description": "web_reverse: Storage dialog · nodatabases"
+  },
+  "webReverseStoragePickDb": "选择数据库",
+  "@webReverseStoragePickDb": {
+    "description": "web_reverse: Storage dialog · pickdb"
+  },
+  "webReverseStoragePickStore": "选择 Object Store",
+  "@webReverseStoragePickStore": {
+    "description": "web_reverse: Storage dialog · pickstore"
+  },
+  "webReverseStorageMoreRecords": "… 还有更多记录（仅显示前 50 条）",
+  "@webReverseStorageMoreRecords": {
+    "description": "web_reverse: Storage dialog · morerecords"
+  },
+  "webReverseStorageRefresh": "刷新",
+  "@webReverseStorageRefresh": {
+    "description": "web_reverse: Storage dialog · refresh"
   }
 }

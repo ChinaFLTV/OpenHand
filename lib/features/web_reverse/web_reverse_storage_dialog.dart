@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -142,6 +143,7 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Future<void> _copyJson(Object? data) async {
+    final loc = AppLocalizations.of(context);
     try {
       await Clipboard.setData(
         ClipboardData(
@@ -157,13 +159,13 @@ class _StorageDialogState extends State<_StorageDialog>
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        widget.isZh ? '已复制' : 'Copied',
+        loc?.webReverseStorageCopied ?? 'Copied',
       );
     }
   }
 
   Future<void> _addCookieDialog() async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final nameCtl = TextEditingController();
     final valueCtl = TextEditingController();
     final domainCtl = TextEditingController();
@@ -186,7 +188,7 @@ class _StorageDialogState extends State<_StorageDialog>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(isZh ? '新增 Cookie' : 'Add Cookie',
+                  Text(loc?.webReverseStorageAddCookie ?? 'Add Cookie',
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
                   const SizedBox(height: 12),
@@ -233,12 +235,12 @@ class _StorageDialogState extends State<_StorageDialog>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OpenHandDialogActionButton.secondary(
-                        label: isZh ? '取消' : 'Cancel',
+                        label: loc?.webReverseStorageCancel ?? 'Cancel',
                         onPressed: () => Navigator.of(ctx).pop(false),
                       ),
                       const SizedBox(width: 8),
                       OpenHandDialogActionButton.primary(
-                        label: isZh ? '保存' : 'Save',
+                        label: loc?.webReverseStorageSave ?? 'Save',
                         onPressed: () => Navigator.of(ctx).pop(true),
                       ),
                     ],
@@ -268,13 +270,13 @@ class _StorageDialogState extends State<_StorageDialog>
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          isZh ? 'Cookie 已保存' : 'Cookie saved',
+          loc?.webReverseStorageCookieSaved ?? 'Cookie saved',
         );
       } else {
         OpenHandSnackBar.showErrorOn(
           context,
           m,
-          isZh ? '保存失败' : 'Save failed',
+          loc?.webReverseStorageSaveFailed ?? 'Save failed',
         );
       }
     }
@@ -282,7 +284,7 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Future<void> _editStorageDialog({required bool isLocal, String? key0, String? value0}) async {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final origin = _origin;
     if (origin == null) return;
     final keyCtl = TextEditingController(text: key0 ?? '');
@@ -305,8 +307,8 @@ class _StorageDialogState extends State<_StorageDialog>
                 children: [
                   Text(
                     key0 == null
-                        ? (isZh ? '新增条目' : 'Add entry')
-                        : (isZh ? '编辑条目' : 'Edit entry'),
+                        ? (loc?.webReverseStorageAddEntry ?? 'Add entry')
+                        : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
                     style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 16),
                   ),
@@ -333,12 +335,12 @@ class _StorageDialogState extends State<_StorageDialog>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OpenHandDialogActionButton.secondary(
-                        label: isZh ? '取消' : 'Cancel',
+                        label: loc?.webReverseStorageCancel ?? 'Cancel',
                         onPressed: () => Navigator.of(ctx).pop(false),
                       ),
                       const SizedBox(width: 8),
                       OpenHandDialogActionButton.primary(
-                        label: isZh ? '保存' : 'Save',
+                        label: loc?.webReverseStorageSave ?? 'Save',
                         onPressed: () => Navigator.of(ctx).pop(true),
                       ),
                     ],
@@ -364,20 +366,20 @@ class _StorageDialogState extends State<_StorageDialog>
 
   Widget _cookiesView() {
     final cs = Theme.of(context).colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Column(children: [
       _toolbar(
         right: [
           FilledButton.icon(
             onPressed: _addCookieDialog,
             icon: const Icon(Icons.add_rounded),
-            label: Text(isZh ? '新增 Cookie' : 'Add Cookie'),
+            label: Text(loc?.webReverseStorageAddCookie ?? 'Add Cookie'),
           ),
         ],
       ),
       Expanded(
         child: _cookies.isEmpty
-            ? _emptyHint(isZh ? '没有 Cookie' : 'No cookies')
+            ? _emptyHint(loc?.webReverseStorageNoCookies ?? 'No cookies')
             : ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 itemCount: _cookies.length,
@@ -404,13 +406,13 @@ class _StorageDialogState extends State<_StorageDialog>
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, size: 18),
-                        tooltip: isZh ? '复制 JSON' : 'Copy JSON',
+                        tooltip: loc?.webReverseStorageCopyJson ?? 'Copy JSON',
                         onPressed: () => _copyJson(c),
                       ),
                       IconButton(
                         icon: Icon(Icons.delete_rounded,
                             size: 18, color: cs.error),
-                        tooltip: isZh ? '删除' : 'Delete',
+                        tooltip: loc?.webReverseStorageDelete ?? 'Delete',
                         onPressed: () async {
                           await widget.controller.deleteCookie(
                             name: '${c['name']}',
@@ -430,7 +432,7 @@ class _StorageDialogState extends State<_StorageDialog>
 
   Widget _storageView({required bool isLocal}) {
     final list = isLocal ? _local : _session;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Column(children: [
       _toolbar(
@@ -438,13 +440,13 @@ class _StorageDialogState extends State<_StorageDialog>
           FilledButton.icon(
             onPressed: () => _editStorageDialog(isLocal: isLocal),
             icon: const Icon(Icons.add_rounded),
-            label: Text(isZh ? '新增' : 'Add'),
+            label: Text(loc?.webReverseStorageAdd ?? 'Add'),
           ),
         ],
       ),
       Expanded(
         child: list.isEmpty
-            ? _emptyHint(isZh ? '空' : 'Empty')
+            ? _emptyHint(loc?.webReverseStorageEmpty ?? 'Empty')
             : ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 itemCount: list.length,
@@ -498,7 +500,7 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Widget _idbView() {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Column(children: [
       _toolbar(),
@@ -513,7 +515,7 @@ class _StorageDialogState extends State<_StorageDialog>
             minLeft: 140,
             minRight: 120,
             left: _idbDbs.isEmpty
-                ? _emptyHint(isZh ? '没有数据库' : 'No databases')
+                ? _emptyHint(loc?.webReverseStorageNoDatabases ?? 'No databases')
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     children: [
@@ -528,7 +530,7 @@ class _StorageDialogState extends State<_StorageDialog>
                     ],
                   ),
             right: _idbStores.isEmpty
-                ? _emptyHint(isZh ? '选择数据库' : 'Pick DB')
+                ? _emptyHint(loc?.webReverseStoragePickDb ?? 'Pick DB')
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     children: [
@@ -544,7 +546,7 @@ class _StorageDialogState extends State<_StorageDialog>
                   ),
           ),
           right: _idbEntries.isEmpty
-              ? _emptyHint(isZh ? '选择 Object Store' : 'Pick store')
+              ? _emptyHint(loc?.webReverseStoragePickStore ?? 'Pick store')
               : ListView.separated(
                   padding: const EdgeInsets.all(8),
                   itemCount:
@@ -556,9 +558,8 @@ class _StorageDialogState extends State<_StorageDialog>
                       return Padding(
                         padding: const EdgeInsets.all(8),
                         child: Text(
-                          isZh
-                              ? '… 还有更多记录（仅显示前 50 条）'
-                              : '… more records (showing first 50)',
+                          loc?.webReverseStorageMoreRecords
+                              ?? '… more records (showing first 50)',
                           style: Theme.of(context)
                               .textTheme
                               .labelSmall
@@ -596,7 +597,7 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Widget _toolbar({List<Widget> right = const []}) {
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
@@ -608,7 +609,7 @@ class _StorageDialogState extends State<_StorageDialog>
         children: [
           if (_origin != null)
             Text(
-              '${isZh ? 'origin: ' : 'origin: '}${_origin!}',
+              'origin: ${_origin!}',
               style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 11,
@@ -617,7 +618,7 @@ class _StorageDialogState extends State<_StorageDialog>
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            tooltip: isZh ? '刷新' : 'Refresh',
+            tooltip: loc?.webReverseStorageRefresh ?? 'Refresh',
             onPressed: _loading ? null : _refreshActive,
           ),
           ...right,
@@ -640,7 +641,7 @@ class _StorageDialogState extends State<_StorageDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -655,7 +656,7 @@ class _StorageDialogState extends State<_StorageDialog>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isZh ? '存储管理器' : 'Storage Manager',
+                  loc?.webReverseStorageTitle ?? 'Storage Manager',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
@@ -692,7 +693,7 @@ class _StorageDialogState extends State<_StorageDialog>
             child: SizedBox(
               width: double.infinity,
               child: OpenHandDialogActionButton.primary(
-                label: isZh ? '关闭' : 'Close',
+                label: loc?.webReverseStorageClose ?? 'Close',
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),

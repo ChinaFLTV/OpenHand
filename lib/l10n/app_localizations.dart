@@ -10781,6 +10781,126 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'导入失败：{error}'**
   String webReverseMockRulesImportFailed(String error);
+
+  /// web_reverse: Storage dialog · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'存储管理器'**
+  String get webReverseStorageTitle;
+
+  /// web_reverse: Storage dialog · close
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get webReverseStorageClose;
+
+  /// web_reverse: Storage dialog · copied
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制'**
+  String get webReverseStorageCopied;
+
+  /// web_reverse: Storage dialog · addcookie
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增 Cookie'**
+  String get webReverseStorageAddCookie;
+
+  /// web_reverse: Storage dialog · cancel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get webReverseStorageCancel;
+
+  /// web_reverse: Storage dialog · save
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get webReverseStorageSave;
+
+  /// web_reverse: Storage dialog · cookiesaved
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cookie 已保存'**
+  String get webReverseStorageCookieSaved;
+
+  /// web_reverse: Storage dialog · savefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存失败'**
+  String get webReverseStorageSaveFailed;
+
+  /// web_reverse: Storage dialog · addentry
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增条目'**
+  String get webReverseStorageAddEntry;
+
+  /// web_reverse: Storage dialog · editentry
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑条目'**
+  String get webReverseStorageEditEntry;
+
+  /// web_reverse: Storage dialog · nocookies
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有 Cookie'**
+  String get webReverseStorageNoCookies;
+
+  /// web_reverse: Storage dialog · copyjson
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get webReverseStorageCopyJson;
+
+  /// web_reverse: Storage dialog · delete
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get webReverseStorageDelete;
+
+  /// web_reverse: Storage dialog · add
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增'**
+  String get webReverseStorageAdd;
+
+  /// web_reverse: Storage dialog · empty
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'空'**
+  String get webReverseStorageEmpty;
+
+  /// web_reverse: Storage dialog · nodatabases
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有数据库'**
+  String get webReverseStorageNoDatabases;
+
+  /// web_reverse: Storage dialog · pickdb
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择数据库'**
+  String get webReverseStoragePickDb;
+
+  /// web_reverse: Storage dialog · pickstore
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择 Object Store'**
+  String get webReverseStoragePickStore;
+
+  /// web_reverse: Storage dialog · morerecords
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'… 还有更多记录（仅显示前 50 条）'**
+  String get webReverseStorageMoreRecords;
+
+  /// web_reverse: Storage dialog · refresh
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseStorageRefresh;
 }
 
 class _AppLocalizationsDelegate

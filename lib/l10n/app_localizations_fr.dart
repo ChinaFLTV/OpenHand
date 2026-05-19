@@ -6170,4 +6170,65 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseMockRulesImportFailed(String error) {
     return 'Import failed: $error';
   }
+
+  @override
+  String get webReverseStorageTitle => 'Storage Manager';
+
+  @override
+  String get webReverseStorageClose => 'Close';
+
+  @override
+  String get webReverseStorageCopied => 'Copied';
+
+  @override
+  String get webReverseStorageAddCookie => 'Add Cookie';
+
+  @override
+  String get webReverseStorageCancel => 'Cancel';
+
+  @override
+  String get webReverseStorageSave => 'Save';
+
+  @override
+  String get webReverseStorageCookieSaved => 'Cookie saved';
+
+  @override
+  String get webReverseStorageSaveFailed => 'Save failed';
+
+  @override
+  String get webReverseStorageAddEntry => 'Add entry';
+
+  @override
+  String get webReverseStorageEditEntry => 'Edit entry';
+
+  @override
+  String get webReverseStorageNoCookies => 'No cookies';
+
+  @override
+  String get webReverseStorageCopyJson => 'Copy JSON';
+
+  @override
+  String get webReverseStorageDelete => 'Delete';
+
+  @override
+  String get webReverseStorageAdd => 'Add';
+
+  @override
+  String get webReverseStorageEmpty => 'Empty';
+
+  @override
+  String get webReverseStorageNoDatabases => 'No databases';
+
+  @override
+  String get webReverseStoragePickDb => 'Pick DB';
+
+  @override
+  String get webReverseStoragePickStore => 'Pick store';
+
+  @override
+  String get webReverseStorageMoreRecords =>
+      '… more records (showing first 50)';
+
+  @override
+  String get webReverseStorageRefresh => 'Refresh';
 }

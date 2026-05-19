@@ -3685,5 +3685,85 @@
         "type": "String"
       }
     }
+  },
+  "webReverseStorageTitle": "Storage Manager",
+  "@webReverseStorageTitle": {
+    "description": "web_reverse: Storage dialog · title"
+  },
+  "webReverseStorageClose": "Close",
+  "@webReverseStorageClose": {
+    "description": "web_reverse: Storage dialog · close"
+  },
+  "webReverseStorageCopied": "Copied",
+  "@webReverseStorageCopied": {
+    "description": "web_reverse: Storage dialog · copied"
+  },
+  "webReverseStorageAddCookie": "Add Cookie",
+  "@webReverseStorageAddCookie": {
+    "description": "web_reverse: Storage dialog · addcookie"
+  },
+  "webReverseStorageCancel": "Cancel",
+  "@webReverseStorageCancel": {
+    "description": "web_reverse: Storage dialog · cancel"
+  },
+  "webReverseStorageSave": "Save",
+  "@webReverseStorageSave": {
+    "description": "web_reverse: Storage dialog · save"
+  },
+  "webReverseStorageCookieSaved": "Cookie saved",
+  "@webReverseStorageCookieSaved": {
+    "description": "web_reverse: Storage dialog · cookiesaved"
+  },
+  "webReverseStorageSaveFailed": "Save failed",
+  "@webReverseStorageSaveFailed": {
+    "description": "web_reverse: Storage dialog · savefailed"
+  },
+  "webReverseStorageAddEntry": "Add entry",
+  "@webReverseStorageAddEntry": {
+    "description": "web_reverse: Storage dialog · addentry"
+  },
+  "webReverseStorageEditEntry": "Edit entry",
+  "@webReverseStorageEditEntry": {
+    "description": "web_reverse: Storage dialog · editentry"
+  },
+  "webReverseStorageNoCookies": "No cookies",
+  "@webReverseStorageNoCookies": {
+    "description": "web_reverse: Storage dialog · nocookies"
+  },
+  "webReverseStorageCopyJson": "Copy JSON",
+  "@webReverseStorageCopyJson": {
+    "description": "web_reverse: Storage dialog · copyjson"
+  },
+  "webReverseStorageDelete": "Delete",
+  "@webReverseStorageDelete": {
+    "description": "web_reverse: Storage dialog · delete"
+  },
+  "webReverseStorageAdd": "Add",
+  "@webReverseStorageAdd": {
+    "description": "web_reverse: Storage dialog · add"
+  },
+  "webReverseStorageEmpty": "Empty",
+  "@webReverseStorageEmpty": {
+    "description": "web_reverse: Storage dialog · empty"
+  },
+  "webReverseStorageNoDatabases": "No databases",
+  "@webReverseStorageNoDatabases": {
+    "description": "web_reverse: Storage dialog · nodatabases"
+  },
+  "webReverseStoragePickDb": "Pick DB",
+  "@webReverseStoragePickDb": {
+    "description": "web_reverse: Storage dialog · pickdb"
+  },
+  "webReverseStoragePickStore": "Pick store",
+  "@webReverseStoragePickStore": {
+    "description": "web_reverse: Storage dialog · pickstore"
+  },
+  "webReverseStorageMoreRecords": "… more records (showing first 50)",
+  "@webReverseStorageMoreRecords": {
+    "description": "web_reverse: Storage dialog · morerecords"
+  },
+  "webReverseStorageRefresh": "Refresh",
+  "@webReverseStorageRefresh": {
+    "description": "web_reverse: Storage dialog · refresh"
   }
 }
