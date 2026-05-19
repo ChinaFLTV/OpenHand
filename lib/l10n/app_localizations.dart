@@ -11153,6 +11153,126 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'反查命中 {count}：包含调用「{name}」的函数'**
   String webReverseCallgraphHitsHeader(int count, String name);
+
+  /// web_reverse: SW debug · enabling
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用 ServiceWorker 域...'**
+  String get webReverseSwDebugEnabling;
+
+  /// web_reverse: SW debug · fetchingregs
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拉取注册列表...'**
+  String get webReverseSwDebugFetchingRegs;
+
+  /// web_reverse: SW debug · togglefailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'切换失败'**
+  String get webReverseSwDebugToggleFailed;
+
+  /// web_reverse: SW debug · forceupdateon
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已开启强制更新'**
+  String get webReverseSwDebugForceUpdateOn;
+
+  /// web_reverse: SW debug · forceupdateoff
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已关闭'**
+  String get webReverseSwDebugForceUpdateOff;
+
+  /// web_reverse: SW debug · title
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Service Worker 调试'**
+  String get webReverseSwDebugTitle;
+
+  /// web_reverse: SW debug · subtitle
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'ServiceWorker 域：启停/更新/注销/触发 sync/push'**
+  String get webReverseSwDebugSubtitle;
+
+  /// web_reverse: SW debug · refresh
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get webReverseSwDebugRefresh;
+
+  /// web_reverse: SW debug · forceupdatelabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每次刷新强制取新版本 SW'**
+  String get webReverseSwDebugForceUpdateLabel;
+
+  /// web_reverse: SW debug · emptylist
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前 target 无 Service Worker'**
+  String get webReverseSwDebugEmptyList;
+
+  /// web_reverse: SW debug · pushdatalabel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'push 数据 (字符串)'**
+  String get webReverseSwDebugPushDataLabel;
+
+  /// web_reverse: SW debug · btnstart
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动'**
+  String get webReverseSwDebugBtnStart;
+
+  /// web_reverse: SW debug · btnstop
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'停止'**
+  String get webReverseSwDebugBtnStop;
+
+  /// web_reverse: SW debug · btnupdate
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新'**
+  String get webReverseSwDebugBtnUpdate;
+
+  /// web_reverse: SW debug · btnsync
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发 sync'**
+  String get webReverseSwDebugBtnSync;
+
+  /// web_reverse: SW debug · btnpush
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'送 push'**
+  String get webReverseSwDebugBtnPush;
+
+  /// web_reverse: SW debug · btnunregister
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'注销'**
+  String get webReverseSwDebugBtnUnregister;
+
+  /// web_reverse: SW debug · workerscount
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 个 Service Worker'**
+  String webReverseSwDebugWorkersCount(int count);
+
+  /// web_reverse: SW debug · methodfailed
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{method} 失败: {err}'**
+  String webReverseSwDebugMethodFailed(String method, String err);
+
+  /// web_reverse: SW debug · methodok
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已执行 {method}'**
+  String webReverseSwDebugMethodOk(String method);
 }
 
 class _AppLocalizationsDelegate

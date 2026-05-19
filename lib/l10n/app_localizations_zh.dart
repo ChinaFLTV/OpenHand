@@ -6020,6 +6020,73 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '反查命中 $count：包含调用「$name」的函数';
   }
+
+  @override
+  String get webReverseSwDebugEnabling => '启用 ServiceWorker 域...';
+
+  @override
+  String get webReverseSwDebugFetchingRegs => '拉取注册列表...';
+
+  @override
+  String get webReverseSwDebugToggleFailed => '切换失败';
+
+  @override
+  String get webReverseSwDebugForceUpdateOn => '已开启强制更新';
+
+  @override
+  String get webReverseSwDebugForceUpdateOff => '已关闭';
+
+  @override
+  String get webReverseSwDebugTitle => 'Service Worker 调试';
+
+  @override
+  String get webReverseSwDebugSubtitle =>
+      'ServiceWorker 域：启停/更新/注销/触发 sync/push';
+
+  @override
+  String get webReverseSwDebugRefresh => '刷新';
+
+  @override
+  String get webReverseSwDebugForceUpdateLabel => '每次刷新强制取新版本 SW';
+
+  @override
+  String get webReverseSwDebugEmptyList => '当前 target 无 Service Worker';
+
+  @override
+  String get webReverseSwDebugPushDataLabel => 'push 数据 (字符串)';
+
+  @override
+  String get webReverseSwDebugBtnStart => '启动';
+
+  @override
+  String get webReverseSwDebugBtnStop => '停止';
+
+  @override
+  String get webReverseSwDebugBtnUpdate => '更新';
+
+  @override
+  String get webReverseSwDebugBtnSync => '触发 sync';
+
+  @override
+  String get webReverseSwDebugBtnPush => '送 push';
+
+  @override
+  String get webReverseSwDebugBtnUnregister => '注销';
+
+  @override
+  String webReverseSwDebugWorkersCount(int count) {
+    return '共 $count 个 Service Worker';
+  }
+
+  @override
+  String webReverseSwDebugMethodFailed(String method, String err) {
+    return '$method 失败: $err';
+  }
+
+  @override
+  String webReverseSwDebugMethodOk(String method) {
+    return '已执行 $method';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -12038,6 +12105,73 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '反查命中 $count：包含调用「$name」的函数';
   }
+
+  @override
+  String get webReverseSwDebugEnabling => '启用 ServiceWorker 域...';
+
+  @override
+  String get webReverseSwDebugFetchingRegs => '拉取注册列表...';
+
+  @override
+  String get webReverseSwDebugToggleFailed => '切换失败';
+
+  @override
+  String get webReverseSwDebugForceUpdateOn => '已开启强制更新';
+
+  @override
+  String get webReverseSwDebugForceUpdateOff => '已关闭';
+
+  @override
+  String get webReverseSwDebugTitle => 'Service Worker 调试';
+
+  @override
+  String get webReverseSwDebugSubtitle =>
+      'ServiceWorker 域：启停/更新/注销/触发 sync/push';
+
+  @override
+  String get webReverseSwDebugRefresh => '刷新';
+
+  @override
+  String get webReverseSwDebugForceUpdateLabel => '每次刷新强制取新版本 SW';
+
+  @override
+  String get webReverseSwDebugEmptyList => '当前 target 无 Service Worker';
+
+  @override
+  String get webReverseSwDebugPushDataLabel => 'push 数据 (字符串)';
+
+  @override
+  String get webReverseSwDebugBtnStart => '启动';
+
+  @override
+  String get webReverseSwDebugBtnStop => '停止';
+
+  @override
+  String get webReverseSwDebugBtnUpdate => '更新';
+
+  @override
+  String get webReverseSwDebugBtnSync => '触发 sync';
+
+  @override
+  String get webReverseSwDebugBtnPush => '送 push';
+
+  @override
+  String get webReverseSwDebugBtnUnregister => '注销';
+
+  @override
+  String webReverseSwDebugWorkersCount(int count) {
+    return '共 $count 个 Service Worker';
+  }
+
+  @override
+  String webReverseSwDebugMethodFailed(String method, String err) {
+    return '$method 失败: $err';
+  }
+
+  @override
+  String webReverseSwDebugMethodOk(String method) {
+    return '已执行 $method';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -18054,5 +18188,72 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '反查命中 $count：包含调用「$name」的函数';
+  }
+
+  @override
+  String get webReverseSwDebugEnabling => '启用 ServiceWorker 域...';
+
+  @override
+  String get webReverseSwDebugFetchingRegs => '拉取注册列表...';
+
+  @override
+  String get webReverseSwDebugToggleFailed => '切换失败';
+
+  @override
+  String get webReverseSwDebugForceUpdateOn => '已开启强制更新';
+
+  @override
+  String get webReverseSwDebugForceUpdateOff => '已关闭';
+
+  @override
+  String get webReverseSwDebugTitle => 'Service Worker 调试';
+
+  @override
+  String get webReverseSwDebugSubtitle =>
+      'ServiceWorker 域：启停/更新/注销/触发 sync/push';
+
+  @override
+  String get webReverseSwDebugRefresh => '刷新';
+
+  @override
+  String get webReverseSwDebugForceUpdateLabel => '每次刷新强制取新版本 SW';
+
+  @override
+  String get webReverseSwDebugEmptyList => '当前 target 无 Service Worker';
+
+  @override
+  String get webReverseSwDebugPushDataLabel => 'push 数据 (字符串)';
+
+  @override
+  String get webReverseSwDebugBtnStart => '启动';
+
+  @override
+  String get webReverseSwDebugBtnStop => '停止';
+
+  @override
+  String get webReverseSwDebugBtnUpdate => '更新';
+
+  @override
+  String get webReverseSwDebugBtnSync => '触发 sync';
+
+  @override
+  String get webReverseSwDebugBtnPush => '送 push';
+
+  @override
+  String get webReverseSwDebugBtnUnregister => '注销';
+
+  @override
+  String webReverseSwDebugWorkersCount(int count) {
+    return '共 $count 个 Service Worker';
+  }
+
+  @override
+  String webReverseSwDebugMethodFailed(String method, String err) {
+    return '$method 失败: $err';
+  }
+
+  @override
+  String webReverseSwDebugMethodOk(String method) {
+    return '已执行 $method';
   }
 }

@@ -15,6 +15,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
@@ -90,9 +91,10 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   }
 
   Future<void> _enableAndRefresh() async {
+    final loc = AppLocalizations.of(context);
     setState(() {
       _loading = true;
-      _status = widget.isZh ? '启用 ServiceWorker 域...' : 'Enable ServiceWorker...';
+      _status = loc?.webReverseSwDebugEnabling ?? 'Enable ServiceWorker...';
     });
     await widget.controller.sendRawCdp(
       method: 'ServiceWorker.enable',
@@ -103,9 +105,10 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   }
 
   Future<void> _refresh() async {
+    final loc = AppLocalizations.of(context);
     setState(() {
       _loading = true;
-      _status = widget.isZh ? '拉取注册列表...' : 'Fetching registrations...';
+      _status = loc?.webReverseSwDebugFetchingRegs ?? 'Fetching registrations...';
     });
     try {
       final r = await widget.controller.sendRawCdp(
@@ -154,15 +157,15 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
       }
       _regs = regs;
       _versions = vers;
-      setState(() => _status = widget.isZh
-          ? '共 ${regs.length} 个 Service Worker'
-          : '${regs.length} Service Workers');
+      setState(() => _status = loc?.webReverseSwDebugWorkersCount(regs.length) ??
+          '${regs.length} Service Workers');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _setForceUpdate(bool v) async {
+    final loc = AppLocalizations.of(context);
     final r = await widget.controller.sendRawCdp(
       method: 'ServiceWorker.setForceUpdateOnPageLoad',
       paramsJson: jsonEncode({'forceUpdateOnPageLoad': v}),
@@ -170,17 +173,18 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     );
     if (!mounted) return;
     if (r == null || r['error'] != null) {
-      _toast(widget.isZh ? '切换失败' : 'Toggle failed', error: true);
+      _toast(loc?.webReverseSwDebugToggleFailed ?? 'Toggle failed', error: true);
       return;
     }
     setState(() => _forceUpdate = v);
     _toast(v
-        ? (widget.isZh ? '已开启强制更新' : 'Force-update on')
-        : (widget.isZh ? '已关闭' : 'Force-update off'));
+        ? (loc?.webReverseSwDebugForceUpdateOn ?? 'Force-update on')
+        : (loc?.webReverseSwDebugForceUpdateOff ?? 'Force-update off'));
   }
 
   Future<void> _runForScope(String method, String scope,
       {Map<String, Object?>? extra}) async {
+    final loc = AppLocalizations.of(context);
     final params = <String, Object?>{'scopeURL': scope, ...?extra};
     final r = await widget.controller.sendRawCdp(
       method: method,
@@ -190,17 +194,17 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     if (!mounted) return;
     if (r == null || r['error'] != null) {
       _toast(
-          widget.isZh
-              ? '$method 失败: ${r?['error'] ?? 'unknown'}'
-              : '$method failed: ${r?['error'] ?? 'unknown'}',
+          loc?.webReverseSwDebugMethodFailed(method, '${r?['error'] ?? 'unknown'}') ??
+              '$method failed: ${r?['error'] ?? 'unknown'}',
           error: true);
       return;
     }
-    _toast(widget.isZh ? '已执行 $method' : '$method ok');
+    _toast(loc?.webReverseSwDebugMethodOk(method) ?? '$method ok');
     await _refresh();
   }
 
   Future<void> _runForVersion(String method, String versionId) async {
+    final loc = AppLocalizations.of(context);
     final r = await widget.controller.sendRawCdp(
       method: method,
       paramsJson: jsonEncode({'versionId': versionId}),
@@ -209,13 +213,12 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     if (!mounted) return;
     if (r == null || r['error'] != null) {
       _toast(
-          widget.isZh
-              ? '$method 失败: ${r?['error'] ?? 'unknown'}'
-              : '$method failed: ${r?['error'] ?? 'unknown'}',
+          loc?.webReverseSwDebugMethodFailed(method, '${r?['error'] ?? 'unknown'}') ??
+              '$method failed: ${r?['error'] ?? 'unknown'}',
           error: true);
       return;
     }
-    _toast(widget.isZh ? '已执行 $method' : '$method ok');
+    _toast(loc?.webReverseSwDebugMethodOk(method) ?? '$method ok');
     await _refresh();
   }
 
@@ -233,7 +236,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -253,14 +256,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh ? 'Service Worker 调试' : 'Service Worker Debug',
+                          loc?.webReverseSwDebugTitle ?? 'Service Worker Debug',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
-                          isZh
-                              ? 'ServiceWorker 域：启停/更新/注销/触发 sync/push'
-                              : 'ServiceWorker domain: start/stop/update/unregister/sync/push',
+                          loc?.webReverseSwDebugSubtitle ??
+                              'ServiceWorker domain: start/stop/update/unregister/sync/push',
                           style: theme.textTheme.labelSmall
                               ?.copyWith(color: cs.onSurfaceVariant),
                         ),
@@ -268,7 +270,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: isZh ? '刷新' : 'Refresh',
+                    tooltip: loc?.webReverseSwDebugRefresh ?? 'Refresh',
                     onPressed: _loading ? null : _refresh,
                     icon: const Icon(Icons.refresh_rounded),
                   ),
@@ -289,9 +291,8 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                     onChanged: _loading ? null : _setForceUpdate,
                   ),
                   const SizedBox(width: 6),
-                  Text(isZh
-                      ? '每次刷新强制取新版本 SW'
-                      : 'Force update SW on every navigation'),
+                  Text(loc?.webReverseSwDebugForceUpdateLabel ??
+                      'Force update SW on every navigation'),
                 ],
               ),
             ),
@@ -302,7 +303,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                   : _regs.isEmpty
                       ? Center(
                           child: Text(
-                            isZh ? '当前 target 无 Service Worker' : 'No service workers',
+                            loc?.webReverseSwDebugEmptyList ?? 'No service workers',
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -328,7 +329,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                             return _RegTile(
                               reg: reg,
                               ver: v,
-                              isZh: isZh,
+                              loc: loc,
                               onStart: () => _runForScope(
                                   'ServiceWorker.startWorker', reg.scopeURL),
                               onStop: v.versionId.isEmpty
@@ -372,10 +373,10 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                     width: 200,
                     child: TextField(
                       controller: _syncTag,
-                      decoration: InputDecoration(
-                        labelText: isZh ? 'sync tag' : 'sync tag',
+                      decoration: const InputDecoration(
+                        labelText: 'sync tag',
                         isDense: true,
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(),
                       ),
                       style: const TextStyle(
                           fontFamily: 'monospace', fontSize: 12.5),
@@ -386,7 +387,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                     child: TextField(
                       controller: _pushData,
                       decoration: InputDecoration(
-                        labelText: isZh ? 'push 数据 (字符串)' : 'push data (string)',
+                        labelText: loc?.webReverseSwDebugPushDataLabel ?? 'push data (string)',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
@@ -419,7 +420,7 @@ class _RegTile extends StatelessWidget {
   const _RegTile({
     required this.reg,
     required this.ver,
-    required this.isZh,
+    required this.loc,
     required this.onStart,
     required this.onStop,
     required this.onUpdate,
@@ -429,7 +430,7 @@ class _RegTile extends StatelessWidget {
   });
   final _SwReg reg;
   final _SwVersion ver;
-  final bool isZh;
+  final AppLocalizations? loc;
   final VoidCallback onStart;
   final VoidCallback? onStop;
   final VoidCallback onUpdate;
@@ -490,19 +491,19 @@ class _RegTile extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _btn(isZh ? '启动' : 'Start', Icons.play_arrow_rounded, onStart),
-                _btn(isZh ? '停止' : 'Stop', Icons.stop_rounded, onStop),
-                _btn(isZh ? '更新' : 'Update', Icons.refresh_rounded, onUpdate),
+                _btn(loc?.webReverseSwDebugBtnStart ?? 'Start', Icons.play_arrow_rounded, onStart),
+                _btn(loc?.webReverseSwDebugBtnStop ?? 'Stop', Icons.stop_rounded, onStop),
+                _btn(loc?.webReverseSwDebugBtnUpdate ?? 'Update', Icons.refresh_rounded, onUpdate),
                 _btn(
-                    isZh ? '触发 sync' : 'Dispatch sync',
+                    loc?.webReverseSwDebugBtnSync ?? 'Dispatch sync',
                     Icons.sync_rounded,
                     onSync),
                 _btn(
-                    isZh ? '送 push' : 'Deliver push',
+                    loc?.webReverseSwDebugBtnPush ?? 'Deliver push',
                     Icons.notifications_active_rounded,
                     onPush),
                 _btn(
-                    isZh ? '注销' : 'Unregister',
+                    loc?.webReverseSwDebugBtnUnregister ?? 'Unregister',
                     Icons.delete_outline_rounded,
                     onUnregister,
                     destructive: true),

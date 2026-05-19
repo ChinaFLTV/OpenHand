@@ -4044,5 +4044,103 @@
         "type": "String"
       }
     }
+  },
+  "webReverseSwDebugEnabling": "启用 ServiceWorker 域...",
+  "@webReverseSwDebugEnabling": {
+    "description": "web_reverse: SW debug · enabling"
+  },
+  "webReverseSwDebugFetchingRegs": "拉取注册列表...",
+  "@webReverseSwDebugFetchingRegs": {
+    "description": "web_reverse: SW debug · fetchingregs"
+  },
+  "webReverseSwDebugToggleFailed": "切换失败",
+  "@webReverseSwDebugToggleFailed": {
+    "description": "web_reverse: SW debug · togglefailed"
+  },
+  "webReverseSwDebugForceUpdateOn": "已开启强制更新",
+  "@webReverseSwDebugForceUpdateOn": {
+    "description": "web_reverse: SW debug · forceupdateon"
+  },
+  "webReverseSwDebugForceUpdateOff": "已关闭",
+  "@webReverseSwDebugForceUpdateOff": {
+    "description": "web_reverse: SW debug · forceupdateoff"
+  },
+  "webReverseSwDebugTitle": "Service Worker 调试",
+  "@webReverseSwDebugTitle": {
+    "description": "web_reverse: SW debug · title"
+  },
+  "webReverseSwDebugSubtitle": "ServiceWorker 域：启停/更新/注销/触发 sync/push",
+  "@webReverseSwDebugSubtitle": {
+    "description": "web_reverse: SW debug · subtitle"
+  },
+  "webReverseSwDebugRefresh": "刷新",
+  "@webReverseSwDebugRefresh": {
+    "description": "web_reverse: SW debug · refresh"
+  },
+  "webReverseSwDebugForceUpdateLabel": "每次刷新强制取新版本 SW",
+  "@webReverseSwDebugForceUpdateLabel": {
+    "description": "web_reverse: SW debug · forceupdatelabel"
+  },
+  "webReverseSwDebugEmptyList": "当前 target 无 Service Worker",
+  "@webReverseSwDebugEmptyList": {
+    "description": "web_reverse: SW debug · emptylist"
+  },
+  "webReverseSwDebugPushDataLabel": "push 数据 (字符串)",
+  "@webReverseSwDebugPushDataLabel": {
+    "description": "web_reverse: SW debug · pushdatalabel"
+  },
+  "webReverseSwDebugBtnStart": "启动",
+  "@webReverseSwDebugBtnStart": {
+    "description": "web_reverse: SW debug · btnstart"
+  },
+  "webReverseSwDebugBtnStop": "停止",
+  "@webReverseSwDebugBtnStop": {
+    "description": "web_reverse: SW debug · btnstop"
+  },
+  "webReverseSwDebugBtnUpdate": "更新",
+  "@webReverseSwDebugBtnUpdate": {
+    "description": "web_reverse: SW debug · btnupdate"
+  },
+  "webReverseSwDebugBtnSync": "触发 sync",
+  "@webReverseSwDebugBtnSync": {
+    "description": "web_reverse: SW debug · btnsync"
+  },
+  "webReverseSwDebugBtnPush": "送 push",
+  "@webReverseSwDebugBtnPush": {
+    "description": "web_reverse: SW debug · btnpush"
+  },
+  "webReverseSwDebugBtnUnregister": "注销",
+  "@webReverseSwDebugBtnUnregister": {
+    "description": "web_reverse: SW debug · btnunregister"
+  },
+  "webReverseSwDebugWorkersCount": "共 {count} 个 Service Worker",
+  "@webReverseSwDebugWorkersCount": {
+    "description": "web_reverse: SW debug · workerscount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "webReverseSwDebugMethodFailed": "{method} 失败: {err}",
+  "@webReverseSwDebugMethodFailed": {
+    "description": "web_reverse: SW debug · methodfailed",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      },
+      "err": {
+        "type": "String"
+      }
+    }
+  },
+  "webReverseSwDebugMethodOk": "已执行 {method}",
+  "@webReverseSwDebugMethodOk": {
+    "description": "web_reverse: SW debug · methodok",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
   }
 }

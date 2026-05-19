@@ -6112,4 +6112,72 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '$count hits calling \"$name\"';
   }
+
+  @override
+  String get webReverseSwDebugEnabling => 'Enable ServiceWorker...';
+
+  @override
+  String get webReverseSwDebugFetchingRegs => 'Fetching registrations...';
+
+  @override
+  String get webReverseSwDebugToggleFailed => 'Toggle failed';
+
+  @override
+  String get webReverseSwDebugForceUpdateOn => 'Force-update on';
+
+  @override
+  String get webReverseSwDebugForceUpdateOff => 'Force-update off';
+
+  @override
+  String get webReverseSwDebugTitle => 'Service Worker Debug';
+
+  @override
+  String get webReverseSwDebugSubtitle =>
+      'ServiceWorker domain: start/stop/update/unregister/sync/push';
+
+  @override
+  String get webReverseSwDebugRefresh => 'Refresh';
+
+  @override
+  String get webReverseSwDebugForceUpdateLabel =>
+      'Force update SW on every navigation';
+
+  @override
+  String get webReverseSwDebugEmptyList => 'No service workers';
+
+  @override
+  String get webReverseSwDebugPushDataLabel => 'push data (string)';
+
+  @override
+  String get webReverseSwDebugBtnStart => 'Start';
+
+  @override
+  String get webReverseSwDebugBtnStop => 'Stop';
+
+  @override
+  String get webReverseSwDebugBtnUpdate => 'Update';
+
+  @override
+  String get webReverseSwDebugBtnSync => 'Dispatch sync';
+
+  @override
+  String get webReverseSwDebugBtnPush => 'Deliver push';
+
+  @override
+  String get webReverseSwDebugBtnUnregister => 'Unregister';
+
+  @override
+  String webReverseSwDebugWorkersCount(int count) {
+    return '$count Service Workers';
+  }
+
+  @override
+  String webReverseSwDebugMethodFailed(String method, String err) {
+    return '$method failed: $err';
+  }
+
+  @override
+  String webReverseSwDebugMethodOk(String method) {
+    return '$method ok';
+  }
 }
