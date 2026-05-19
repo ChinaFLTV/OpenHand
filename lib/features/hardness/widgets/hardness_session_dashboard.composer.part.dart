@@ -719,48 +719,60 @@ class _HePhaseApprovalBanner extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
             children: [
               if (onManualPhaseToggle != null) ...[
-                OutlinedButton.icon(
-                  onPressed: onManualPhaseToggle,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: accent,
-                    side: BorderSide(color: accent.withValues(alpha: 0.34)),
-                  ),
-                  icon: Icon(
-                    manualPhaseEnabled
-                        ? Icons.smart_toy_outlined
-                        : manualPhaseIcon,
-                    size: 18,
-                  ),
-                  label: Text(
-                    manualPhaseEnabled
-                        ? manualPhaseSwitchBackLabel
-                        : manualPhaseActionLabel,
+                SizedBox(
+                  height: kOpenHandDialogActionButtonHeight,
+                  child: OutlinedButton.icon(
+                    onPressed: onManualPhaseToggle,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accent,
+                      side: BorderSide(color: accent.withValues(alpha: 0.34)),
+                    ),
+                    icon: Icon(
+                      manualPhaseEnabled
+                          ? Icons.smart_toy_outlined
+                          : manualPhaseIcon,
+                      size: 18,
+                    ),
+                    label: Text(
+                      manualPhaseEnabled
+                          ? manualPhaseSwitchBackLabel
+                          : manualPhaseActionLabel,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
               ],
-              OutlinedButton(
-                onPressed: onReject,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.error,
-                  side: BorderSide(
-                    color: colorScheme.error.withValues(alpha: 0.4),
+              SizedBox(
+                width: kOpenHandDialogActionButtonWidth,
+                height: kOpenHandDialogActionButtonHeight,
+                child: OutlinedButton(
+                  onPressed: onReject,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(
+                      color: colorScheme.error.withValues(alpha: 0.4),
+                    ),
                   ),
+                  child: Text(isZh ? '中止' : 'Abort'),
                 ),
-                child: Text(isZh ? '中止' : 'Abort'),
               ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
-                onPressed: onApprove,
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text(isZh ? '继续' : 'Continue'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: Colors.white,
+              SizedBox(
+                width: kOpenHandDialogActionButtonWidth,
+                height: kOpenHandDialogActionButtonHeight,
+                child: FilledButton.icon(
+                  onPressed: onApprove,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(isZh ? '继续' : 'Continue'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ),
             ],

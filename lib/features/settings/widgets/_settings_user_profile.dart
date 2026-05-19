@@ -294,36 +294,36 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       const LinearProgressIndicator(),
                     ],
                     const SizedBox(height: 16),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 12,
+                      runSpacing: 10,
                       children: [
                         if (hasExisting)
-                          TextButton.icon(
+                          OpenHandDialogActionButton.destructive(
                             onPressed: _isSaving ? null : _handleClear,
-                            icon: Icon(
-                              Icons.delete_outline_rounded,
-                              color: colorScheme.error,
-                            ),
-                            label: Text(
-                              _localizedText(context, zh: '清空画像', en: 'Clear'),
-                              style: TextStyle(color: colorScheme.error),
+                            icon: Icons.delete_outline_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '清空画像',
+                              en: 'Clear',
                             ),
                           ),
-                        const Spacer(),
-                        OutlinedButton(
+                        OpenHandDialogActionButton.secondary(
                           onPressed: _isSaving
                               ? null
                               : () => Navigator.of(context).pop(false),
-                          child: Text(
-                            _localizedText(context, zh: '取消', en: 'Cancel'),
+                          label: _localizedText(
+                            context,
+                            zh: '取消',
+                            en: 'Cancel',
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
+                        OpenHandDialogActionButton.primary(
                           onPressed: _isSaving ? null : _handleSave,
-                          icon: const Icon(Icons.save_outlined),
-                          label: Text(
-                            _localizedText(context, zh: '保存', en: 'Save'),
-                          ),
+                          icon: Icons.save_outlined,
+                          busy: _isSaving,
+                          label: _localizedText(context, zh: '保存', en: 'Save'),
                         ),
                       ],
                     ),

@@ -1518,9 +1518,9 @@ class _SourcesGlobalSearchDialogState
                       color: cs.onSurfaceVariant,
                     ),
                   ),
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(isZh ? '关闭' : 'Close'),
+                    label: isZh ? '关闭' : 'Close',
                   ),
                 ],
               ),
