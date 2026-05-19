@@ -1031,7 +1031,7 @@ class AiPromptBuilder {
     // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
     // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
     // 2026-05-16 Web 逆向专家：CDP 通道由 OpenHand 管理。
-    // 2026-05-19 CDP MCP / Bridge 是逆向主路径，文件/终端/Skill 只做辅助。
+    // 2026-05-19 CDP MCP 是逆向主路径，文件/终端/Skill 只做辅助。
     final isMachineExpert = templateId == 'machine_expert';
     final isWebReverse = templateId == 'web_reverse_expert';
     final buffer = StringBuffer();

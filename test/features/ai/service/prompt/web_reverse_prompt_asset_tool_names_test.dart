@@ -26,6 +26,10 @@ void main() {
       const ambiguousToolLikeNames = <String>[
         'OpenHand CDP Bridge',
         'CDP Bridge',
+        '`navigate_page`',
+        '`list_network_requests`',
+        '`get_network_request`',
+        '`evaluate_script`',
       ];
 
       for (final file in files) {

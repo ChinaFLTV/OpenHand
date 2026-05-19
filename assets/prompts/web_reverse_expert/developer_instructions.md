@@ -7,7 +7,7 @@
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - dashboard 中人能看到的浏览器、网络、控制台、源码、元素、应用、性能等状态，与 AI 通过 CDP MCP、OpenHand 管理的 CDP runtime metadata、本地 jsonl/HAR 读取到的状态必须保持一致；不确定时先回拉 CDP 或读落盘文件。
 - 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP（包括 chrome-devtools-mcp；必要时结合 metadata 中的 `web_reverse_cdp_runtime`）；Playwright、Puppeteer 或其他非 CDP 自动化仅在 CDP 路径缺能力或连续失败后 fallback，并说明为什么切换。
-- CDP MCP 的实际工具名以 `# [2] Tool Catalog` 为准；OpenHand runtime metadata 不是工具名。常见 chrome-devtools-mcp 会暴露 `navigate_page` / `list_network_requests` / `get_network_request` / `evaluate_script` 等名字。不要凭空调用未列出的 `cdp_*` 名字。
+- CDP MCP 的实际可调用工具名以 `# [2] Tool Catalog` 为准；OpenHand runtime metadata 不是工具名。MCP 底层能力会被 OpenHand 包装成完整目录名，例如 `mcp__<server>__navigate_page` / `mcp__<server>__evaluate_script`；不要调用未列出的裸工具名或 `cdp_*` 名字。
 - 当前会话 metadata 包含：`target_url` / `objective` / `login_mode` / `proxy` / `keywords` / `cdp_port` / `browser_kind` / `web_reverse_cdp_runtime` / `web_reverse_dashboard_last_tab` / `web_reverse_browser_tab_order` / `web_reverse_browser_tab_urls` / `web_reverse_browser_current_target`。
 - OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
   - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
