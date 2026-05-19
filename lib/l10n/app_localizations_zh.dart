@@ -7476,6 +7476,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseHeapSaved(String path, String mb) {
     return '已保存：$path ($mb MB)';
   }
+
+  @override
+  String get webReverseRealtimeDirSent => '发出';
+
+  @override
+  String get webReverseRealtimeDirRecv => '收到';
+
+  @override
+  String get webReverseRealtimeDirError => '错误';
+
+  @override
+  String get webReverseRealtimePayloadCopied => '已复制载荷';
+
+  @override
+  String get webReverseRealtimeTitle => '实时连接';
+
+  @override
+  String get webReverseRealtimeEmpty =>
+      '当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。';
+
+  @override
+  String get webReverseRealtimePickPrompt => '从左侧选一个连接以查看帧流。';
+
+  @override
+  String get webReverseRealtimeFilterHint => '过滤载荷（子串）';
+
+  @override
+  String get webReverseRealtimeAutoFollow => '自动跟随';
+
+  @override
+  String get webReverseRealtimeNoMatching => '无匹配帧。';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count 帧';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -14950,6 +14986,42 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseHeapSaved(String path, String mb) {
     return '已保存：$path ($mb MB)';
   }
+
+  @override
+  String get webReverseRealtimeDirSent => '发出';
+
+  @override
+  String get webReverseRealtimeDirRecv => '收到';
+
+  @override
+  String get webReverseRealtimeDirError => '错误';
+
+  @override
+  String get webReverseRealtimePayloadCopied => '已复制载荷';
+
+  @override
+  String get webReverseRealtimeTitle => '实时连接';
+
+  @override
+  String get webReverseRealtimeEmpty =>
+      '当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。';
+
+  @override
+  String get webReverseRealtimePickPrompt => '从左侧选一个连接以查看帧流。';
+
+  @override
+  String get webReverseRealtimeFilterHint => '过滤载荷（子串）';
+
+  @override
+  String get webReverseRealtimeAutoFollow => '自动跟随';
+
+  @override
+  String get webReverseRealtimeNoMatching => '无匹配帧。';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count 帧';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -22422,5 +22494,41 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String webReverseHeapSaved(String path, String mb) {
     return '已保存：$path ($mb MB)';
+  }
+
+  @override
+  String get webReverseRealtimeDirSent => '发出';
+
+  @override
+  String get webReverseRealtimeDirRecv => '收到';
+
+  @override
+  String get webReverseRealtimeDirError => '错误';
+
+  @override
+  String get webReverseRealtimePayloadCopied => '已复制载荷';
+
+  @override
+  String get webReverseRealtimeTitle => '实时连接';
+
+  @override
+  String get webReverseRealtimeEmpty =>
+      '当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。';
+
+  @override
+  String get webReverseRealtimePickPrompt => '从左侧选一个连接以查看帧流。';
+
+  @override
+  String get webReverseRealtimeFilterHint => '过滤载荷（子串）';
+
+  @override
+  String get webReverseRealtimeAutoFollow => '自动跟随';
+
+  @override
+  String get webReverseRealtimeNoMatching => '无匹配帧。';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count 帧';
   }
 }

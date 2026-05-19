@@ -18,6 +18,7 @@ class _RealtimeBody extends StatefulWidget {
     required this.isZh,
   });
   final WebReverseSessionController controller;
+  // ignore: unused_field
   final bool isZh;
 
   @override
@@ -87,14 +88,14 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
     return null;
   }
 
-  String _dirLabel(CdpWebSocketDirection d) {
+  String _dirLabel(CdpWebSocketDirection d, AppLocalizations? loc) {
     switch (d) {
       case CdpWebSocketDirection.sent:
-        return widget.isZh ? '发出' : 'Sent';
+        return loc?.webReverseRealtimeDirSent ?? 'Sent';
       case CdpWebSocketDirection.received:
-        return widget.isZh ? '收到' : 'Recv';
+        return loc?.webReverseRealtimeDirRecv ?? 'Recv';
       case CdpWebSocketDirection.error:
-        return widget.isZh ? '错误' : 'Error';
+        return loc?.webReverseRealtimeDirError ?? 'Error';
     }
   }
 
@@ -124,7 +125,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
     Clipboard.setData(ClipboardData(text: f.payload));
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh ? '已复制载荷' : 'Payload copied',
+      AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
+          'Payload copied',
     );
   }
 
@@ -132,7 +134,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
+    final loc = AppLocalizations.of(context);
     final entries = _wsEntries();
     final selected = _selectedEntry();
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -160,7 +162,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isZh ? '实时连接' : 'Realtime',
+                            loc?.webReverseRealtimeTitle ?? 'Realtime',
                             style: theme.textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
@@ -181,9 +183,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
-                                isZh
-                                    ? '当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。'
-                                    : 'No WebSocket / EventSource yet.',
+                                loc?.webReverseRealtimeEmpty ??
+                                    'No WebSocket / EventSource yet.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     color: cs.onSurfaceVariant),
@@ -228,14 +229,13 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
               child: selected == null
                   ? Center(
                       child: Text(
-                        isZh
-                            ? '从左侧选一个连接以查看帧流。'
-                            : 'Pick a connection to view frames.',
+                        loc?.webReverseRealtimePickPrompt ??
+                            'Pick a connection to view frames.',
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     )
-                  : _buildFrameStream(selected, theme, cs, isZh),
+                  : _buildFrameStream(selected, theme, cs, loc),
             ),
           ),
         ],
@@ -244,7 +244,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   }
 
   Widget _buildFrameStream(
-      CdpNetworkEntry entry, ThemeData theme, ColorScheme cs, bool isZh) {
+      CdpNetworkEntry entry, ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final frames = entry.wsFrames.where((f) {
       if (!_dirFilter.contains(f.direction)) return false;
       if (_filter.isEmpty) return true;
@@ -258,7 +258,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           children: [
             for (final d in CdpWebSocketDirection.values) ...[
               FilterChip(
-                label: Text(_dirLabel(d)),
+                label: Text(_dirLabel(d, loc)),
                 avatar: Icon(_dirIcon(d), size: 14, color: _dirColor(d, cs)),
                 selected: _dirFilter.contains(d),
                 onSelected: (v) => setState(() {
@@ -278,14 +278,15 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded, size: 16),
                   border: const OutlineInputBorder(),
-                  hintText: isZh ? '过滤载荷（子串）' : 'Filter payload (substring)',
+                  hintText: loc?.webReverseRealtimeFilterHint ??
+                      'Filter payload (substring)',
                 ),
                 onChanged: (v) => setState(() => _filter = v.trim()),
               ),
             ),
             const SizedBox(width: 8),
             FilterChip(
-              label: Text(isZh ? '自动跟随' : 'Auto-follow'),
+              label: Text(loc?.webReverseRealtimeAutoFollow ?? 'Auto-follow'),
               avatar: const Icon(Icons.vertical_align_bottom_rounded, size: 14),
               selected: _autoFollow,
               onSelected: (v) => setState(() => _autoFollow = v),
@@ -316,7 +317,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
               ),
               const SizedBox(width: 6),
               Text(
-                '${entry.wsFrames.length} ${isZh ? "帧" : "frames"}',
+                loc?.webReverseRealtimeFrameCount(entry.wsFrames.length) ??
+                    '${entry.wsFrames.length} frames',
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: cs.onSurfaceVariant),
               ),
@@ -329,7 +331,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           child: frames.isEmpty
               ? Center(
                   child: Text(
-                    isZh ? '无匹配帧。' : 'No matching frames.',
+                    loc?.webReverseRealtimeNoMatching ?? 'No matching frames.',
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),

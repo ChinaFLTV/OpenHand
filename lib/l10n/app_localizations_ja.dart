@@ -7575,4 +7575,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseHeapSaved(String path, String mb) {
     return '保存しました: $path ($mb MB)';
   }
+
+  @override
+  String get webReverseRealtimeDirSent => '送信';
+
+  @override
+  String get webReverseRealtimeDirRecv => '受信';
+
+  @override
+  String get webReverseRealtimeDirError => 'エラー';
+
+  @override
+  String get webReverseRealtimePayloadCopied => 'ペイロードをコピーしました';
+
+  @override
+  String get webReverseRealtimeTitle => 'リアルタイム接続';
+
+  @override
+  String get webReverseRealtimeEmpty =>
+      '現在のページに WebSocket / EventSource はありません。\n動作をトリガーするとここがリアルタイム更新されます。';
+
+  @override
+  String get webReverseRealtimePickPrompt => '左から接続を選んでフレームを表示します。';
+
+  @override
+  String get webReverseRealtimeFilterHint => 'ペイロードを絞り込み（部分文字列）';
+
+  @override
+  String get webReverseRealtimeAutoFollow => '自動追従';
+
+  @override
+  String get webReverseRealtimeNoMatching => '一致するフレームはありません。';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count フレーム';
+  }
 }

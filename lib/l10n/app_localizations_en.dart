@@ -7774,4 +7774,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String webReverseHeapSaved(String path, String mb) {
     return 'Saved: $path ($mb MB)';
   }
+
+  @override
+  String get webReverseRealtimeDirSent => 'Sent';
+
+  @override
+  String get webReverseRealtimeDirRecv => 'Recv';
+
+  @override
+  String get webReverseRealtimeDirError => 'Error';
+
+  @override
+  String get webReverseRealtimePayloadCopied => 'Payload copied';
+
+  @override
+  String get webReverseRealtimeTitle => 'Realtime';
+
+  @override
+  String get webReverseRealtimeEmpty => 'No WebSocket / EventSource yet.';
+
+  @override
+  String get webReverseRealtimePickPrompt =>
+      'Pick a connection to view frames.';
+
+  @override
+  String get webReverseRealtimeFilterHint => 'Filter payload (substring)';
+
+  @override
+  String get webReverseRealtimeAutoFollow => 'Auto-follow';
+
+  @override
+  String get webReverseRealtimeNoMatching => 'No matching frames.';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count frames';
+  }
 }

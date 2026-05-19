@@ -7881,4 +7881,42 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseHeapSaved(String path, String mb) {
     return 'Enregistré : $path ($mb Mo)';
   }
+
+  @override
+  String get webReverseRealtimeDirSent => 'Envoyé';
+
+  @override
+  String get webReverseRealtimeDirRecv => 'Reçu';
+
+  @override
+  String get webReverseRealtimeDirError => 'Erreur';
+
+  @override
+  String get webReverseRealtimePayloadCopied => 'Charge utile copiée';
+
+  @override
+  String get webReverseRealtimeTitle => 'Temps réel';
+
+  @override
+  String get webReverseRealtimeEmpty =>
+      'Aucun WebSocket / EventSource pour l\'instant.\nUne action déclenchera une mise à jour en temps réel.';
+
+  @override
+  String get webReverseRealtimePickPrompt =>
+      'Sélectionnez une connexion à gauche pour voir les trames.';
+
+  @override
+  String get webReverseRealtimeFilterHint =>
+      'Filtrer la charge utile (sous-chaîne)';
+
+  @override
+  String get webReverseRealtimeAutoFollow => 'Suivi auto';
+
+  @override
+  String get webReverseRealtimeNoMatching => 'Aucune trame correspondante.';
+
+  @override
+  String webReverseRealtimeFrameCount(int count) {
+    return '$count trames';
+  }
 }

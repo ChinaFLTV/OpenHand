@@ -5688,5 +5688,54 @@
         "type": "String"
       }
     }
+  },
+  "webReverseRealtimeDirSent": "送信",
+  "@webReverseRealtimeDirSent": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirRecv": "受信",
+  "@webReverseRealtimeDirRecv": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirError": "エラー",
+  "@webReverseRealtimeDirError": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePayloadCopied": "ペイロードをコピーしました",
+  "@webReverseRealtimePayloadCopied": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeTitle": "リアルタイム接続",
+  "@webReverseRealtimeTitle": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeEmpty": "現在のページに WebSocket / EventSource はありません。\n動作をトリガーするとここがリアルタイム更新されます。",
+  "@webReverseRealtimeEmpty": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePickPrompt": "左から接続を選んでフレームを表示します。",
+  "@webReverseRealtimePickPrompt": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFilterHint": "ペイロードを絞り込み（部分文字列）",
+  "@webReverseRealtimeFilterHint": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeAutoFollow": "自動追従",
+  "@webReverseRealtimeAutoFollow": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeNoMatching": "一致するフレームはありません。",
+  "@webReverseRealtimeNoMatching": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFrameCount": "{count} フレーム",
+  "@webReverseRealtimeFrameCount": {
+    "description": "web_reverse: realtime panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

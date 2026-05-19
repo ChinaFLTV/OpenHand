@@ -5688,5 +5688,54 @@
         "type": "String"
       }
     }
+  },
+  "webReverseRealtimeDirSent": "发出",
+  "@webReverseRealtimeDirSent": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirRecv": "收到",
+  "@webReverseRealtimeDirRecv": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirError": "错误",
+  "@webReverseRealtimeDirError": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePayloadCopied": "已复制载荷",
+  "@webReverseRealtimePayloadCopied": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeTitle": "实时连接",
+  "@webReverseRealtimeTitle": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeEmpty": "当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。",
+  "@webReverseRealtimeEmpty": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePickPrompt": "从左侧选一个连接以查看帧流。",
+  "@webReverseRealtimePickPrompt": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFilterHint": "过滤载荷（子串）",
+  "@webReverseRealtimeFilterHint": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeAutoFollow": "自动跟随",
+  "@webReverseRealtimeAutoFollow": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeNoMatching": "无匹配帧。",
+  "@webReverseRealtimeNoMatching": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFrameCount": "{count} 帧",
+  "@webReverseRealtimeFrameCount": {
+    "description": "web_reverse: realtime panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

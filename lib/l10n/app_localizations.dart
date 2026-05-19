@@ -13744,6 +13744,72 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已保存：{path} ({mb} MB)'**
   String webReverseHeapSaved(String path, String mb);
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发出'**
+  String get webReverseRealtimeDirSent;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'收到'**
+  String get webReverseRealtimeDirRecv;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误'**
+  String get webReverseRealtimeDirError;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制载荷'**
+  String get webReverseRealtimePayloadCopied;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'实时连接'**
+  String get webReverseRealtimeTitle;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前页面未抓到 WebSocket / EventSource。\n触发动作后此处会实时刷新。'**
+  String get webReverseRealtimeEmpty;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'从左侧选一个连接以查看帧流。'**
+  String get webReverseRealtimePickPrompt;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'过滤载荷（子串）'**
+  String get webReverseRealtimeFilterHint;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动跟随'**
+  String get webReverseRealtimeAutoFollow;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无匹配帧。'**
+  String get webReverseRealtimeNoMatching;
+
+  /// web_reverse: realtime panel
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 帧'**
+  String webReverseRealtimeFrameCount(int count);
 }
 
 class _AppLocalizationsDelegate

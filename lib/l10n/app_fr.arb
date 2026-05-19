@@ -5688,5 +5688,54 @@
         "type": "String"
       }
     }
+  },
+  "webReverseRealtimeDirSent": "Envoyé",
+  "@webReverseRealtimeDirSent": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirRecv": "Reçu",
+  "@webReverseRealtimeDirRecv": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirError": "Erreur",
+  "@webReverseRealtimeDirError": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePayloadCopied": "Charge utile copiée",
+  "@webReverseRealtimePayloadCopied": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeTitle": "Temps réel",
+  "@webReverseRealtimeTitle": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeEmpty": "Aucun WebSocket / EventSource pour l'instant.\nUne action déclenchera une mise à jour en temps réel.",
+  "@webReverseRealtimeEmpty": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePickPrompt": "Sélectionnez une connexion à gauche pour voir les trames.",
+  "@webReverseRealtimePickPrompt": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFilterHint": "Filtrer la charge utile (sous-chaîne)",
+  "@webReverseRealtimeFilterHint": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeAutoFollow": "Suivi auto",
+  "@webReverseRealtimeAutoFollow": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeNoMatching": "Aucune trame correspondante.",
+  "@webReverseRealtimeNoMatching": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFrameCount": "{count} trames",
+  "@webReverseRealtimeFrameCount": {
+    "description": "web_reverse: realtime panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

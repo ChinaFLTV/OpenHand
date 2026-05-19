@@ -5688,5 +5688,54 @@
         "type": "String"
       }
     }
+  },
+  "webReverseRealtimeDirSent": "Sent",
+  "@webReverseRealtimeDirSent": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirRecv": "Recv",
+  "@webReverseRealtimeDirRecv": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirError": "Error",
+  "@webReverseRealtimeDirError": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePayloadCopied": "Payload copied",
+  "@webReverseRealtimePayloadCopied": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeTitle": "Realtime",
+  "@webReverseRealtimeTitle": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeEmpty": "No WebSocket / EventSource yet.",
+  "@webReverseRealtimeEmpty": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePickPrompt": "Pick a connection to view frames.",
+  "@webReverseRealtimePickPrompt": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFilterHint": "Filter payload (substring)",
+  "@webReverseRealtimeFilterHint": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeAutoFollow": "Auto-follow",
+  "@webReverseRealtimeAutoFollow": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeNoMatching": "No matching frames.",
+  "@webReverseRealtimeNoMatching": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFrameCount": "{count} frames",
+  "@webReverseRealtimeFrameCount": {
+    "description": "web_reverse: realtime panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

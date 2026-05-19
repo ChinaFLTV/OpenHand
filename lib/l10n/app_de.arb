@@ -5688,5 +5688,54 @@
         "type": "String"
       }
     }
+  },
+  "webReverseRealtimeDirSent": "Gesendet",
+  "@webReverseRealtimeDirSent": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirRecv": "Empfangen",
+  "@webReverseRealtimeDirRecv": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeDirError": "Fehler",
+  "@webReverseRealtimeDirError": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePayloadCopied": "Payload kopiert",
+  "@webReverseRealtimePayloadCopied": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeTitle": "Echtzeit",
+  "@webReverseRealtimeTitle": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeEmpty": "Noch kein WebSocket / EventSource auf der Seite.\nNach einer Aktion wird hier in Echtzeit aktualisiert.",
+  "@webReverseRealtimeEmpty": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimePickPrompt": "Wählen Sie links eine Verbindung, um Frames anzuzeigen.",
+  "@webReverseRealtimePickPrompt": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFilterHint": "Payload filtern (Teilstring)",
+  "@webReverseRealtimeFilterHint": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeAutoFollow": "Automatisch folgen",
+  "@webReverseRealtimeAutoFollow": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeNoMatching": "Keine passenden Frames.",
+  "@webReverseRealtimeNoMatching": {
+    "description": "web_reverse: realtime panel"
+  },
+  "webReverseRealtimeFrameCount": "{count} Frames",
+  "@webReverseRealtimeFrameCount": {
+    "description": "web_reverse: realtime panel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
