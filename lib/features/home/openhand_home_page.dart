@@ -2785,8 +2785,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (browserVersion != null && browserVersion.isNotEmpty)
         'browser_version': browserVersion,
       'artifacts_root_dir': controller.artifactsRootDir,
-      if (currentTarget != null)
+      if (currentTarget != null && browserAlive)
         'current_target': <String, Object?>{
+          'id': currentTarget.id,
+          'url': currentTarget.url,
+          'title': currentTarget.title,
+        },
+      if (currentTarget != null && !browserAlive)
+        'last_current_target': <String, Object?>{
           'id': currentTarget.id,
           'url': currentTarget.url,
           'title': currentTarget.title,

@@ -30,6 +30,11 @@ void main() {
             'cdp_http_endpoint': 'http://127.0.0.1:9233',
             'json_list_url': 'http://127.0.0.1:9233/json/list',
             'browser_alive': true,
+            'current_target': <String, Object?>{
+              'id': 'target-1',
+              'url': 'https://example.test/app',
+              'title': 'Example App',
+            },
           },
           'web_reverse_browser_current_target': <String, Object?>{
             'id': 'target-1',
@@ -56,6 +61,13 @@ void main() {
       expect(
         runtimeMap['cdp_runtime'],
         containsPair('json_list_url', 'http://127.0.0.1:9233/json/list'),
+      );
+      expect(
+        runtimeMap['cdp_runtime'],
+        containsPair(
+          'current_target',
+          containsPair('url', 'https://example.test/app'),
+        ),
       );
       expect(
         runtimeMap['dashboard_state'],
@@ -103,6 +115,11 @@ void main() {
           'json_list_url': 'http://127.0.0.1:9233/json/list',
           'browser_alive': false,
           'is_running': false,
+          'current_target': <String, Object?>{
+            'id': 'target-old',
+            'url': 'https://example.test/old-tab',
+            'title': 'Old Tab',
+          },
         },
       },
     );
@@ -115,14 +132,20 @@ void main() {
     expect(cdpRuntime['browser_alive'], false);
     expect(cdpRuntime['is_running'], false);
     expect(cdpRuntime['last_cdp_port'], 9233);
+    expect(
+      cdpRuntime['last_current_target'],
+      containsPair('url', 'https://example.test/old-tab'),
+    );
     expect(cdpRuntime, isNot(contains('cdp_port')));
     expect(cdpRuntime, isNot(contains('cdp_http_endpoint')));
     expect(cdpRuntime, isNot(contains('json_version_url')));
     expect(cdpRuntime, isNot(contains('json_list_url')));
+    expect(cdpRuntime, isNot(contains('current_target')));
 
     final promptText = result.messages.map((turn) => turn.content).join('\n');
     expect(promptText, contains('"browser_alive": false'));
     expect(promptText, contains('"last_cdp_port": 9233'));
+    expect(promptText, contains('"last_current_target"'));
     expect(promptText, isNot(contains('http://127.0.0.1:9233')));
   });
 }

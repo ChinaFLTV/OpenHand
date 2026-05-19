@@ -1532,14 +1532,20 @@ class AiPromptBuilder {
     if (runtime['browser_alive'] != false) return runtime;
 
     final lastPort = runtime['last_cdp_port'] ?? runtime['cdp_port'];
+    final lastTarget =
+        runtime['last_current_target'] ?? runtime['current_target'];
     runtime
       ..remove('cdp_port')
       ..remove('cdp_host')
       ..remove('cdp_http_endpoint')
       ..remove('json_version_url')
-      ..remove('json_list_url');
+      ..remove('json_list_url')
+      ..remove('current_target');
     if (lastPort != null) {
       runtime['last_cdp_port'] = lastPort;
+    }
+    if (lastTarget != null) {
+      runtime['last_current_target'] = lastTarget;
     }
     return runtime;
   }
