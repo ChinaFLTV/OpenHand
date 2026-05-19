@@ -50,6 +50,8 @@ void main() {
       expect(webReverseRuntime, isA<Map<String, Object?>>());
       final runtimeMap = webReverseRuntime! as Map<String, Object?>;
       expect(runtimeMap['cdp_first_required'], true);
+      expect(runtimeMap['config'], containsPair('desired_cdp_port', 9222));
+      expect(runtimeMap['config'], isNot(contains('cdp_port')));
       expect(
         runtimeMap['dashboard_visible_metadata_keys'],
         containsAll(<String>[

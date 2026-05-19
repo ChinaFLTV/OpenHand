@@ -1429,6 +1429,7 @@ class AiPromptBuilder {
     );
     final dashboardCurrentTarget = meta('web_reverse_browser_current_target');
     final cdpRuntimeDead = _isWebReverseCdpRuntimeDead(cdpRuntime);
+    _disambiguateWebReverseConfigPort(config, cdpRuntime);
 
     final rootDir = p.join(
       OpenHandPaths.defaultRootDirectoryPath(),
@@ -1562,6 +1563,15 @@ class AiPromptBuilder {
 
   bool _isWebReverseCdpRuntimeDead(Object? value) {
     return value is Map && value['browser_alive'] == false;
+  }
+
+  void _disambiguateWebReverseConfigPort(
+    Map<String, Object?> config,
+    Object? cdpRuntime,
+  ) {
+    if (!config.containsKey('cdp_port')) return;
+    if (cdpRuntime is! Map || !cdpRuntime.containsKey('cdp_port')) return;
+    config['desired_cdp_port'] = config.remove('cdp_port');
   }
 
   String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
