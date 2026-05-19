@@ -782,7 +782,6 @@ class _SettingsViewState extends State<SettingsView> {
         description: l10n.proxySectionBody,
         children: [
           _SystemProxySection(controller: settingsController),
-          const SizedBox(height: 12),
           const _InputRepairSection(),
         ],
       ),
@@ -1493,9 +1492,8 @@ class _SettingsViewState extends State<SettingsView> {
                       child: Switch(
                         value: settingsController.aiStreamThrottleAutoMode,
                         onChanged: settingsController.aiStreamThrottleEnabled
-                            ? (v) =>
-                                settingsController
-                                    .updateAiStreamThrottleAutoMode(v)
+                            ? (v) => settingsController
+                                  .updateAiStreamThrottleAutoMode(v)
                             : null,
                       ),
                     ),
@@ -1729,25 +1727,23 @@ class _SettingsViewState extends State<SettingsView> {
                   runSpacing: 8,
                   children: [
                     FilledButton.tonalIcon(
-                      onPressed: () =>
-                          _exportAiStreamThrottleConfig(context),
+                      onPressed: () => _exportAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.upload_rounded, size: 18),
                       label: Text(
                         Localizations.localeOf(
-                          context,
-                        ).languageCode.startsWith('zh')
+                              context,
+                            ).languageCode.startsWith('zh')
                             ? '导出 JSON'
                             : 'Export JSON',
                       ),
                     ),
                     FilledButton.tonalIcon(
-                      onPressed: () =>
-                          _importAiStreamThrottleConfig(context),
+                      onPressed: () => _importAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: Text(
                         Localizations.localeOf(
-                          context,
-                        ).languageCode.startsWith('zh')
+                              context,
+                            ).languageCode.startsWith('zh')
                             ? '从 JSON 导入'
                             : 'Import JSON',
                       ),
@@ -3972,18 +3968,18 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _streamThrottleDurationController.text = '$parsedValue';
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    _showSnackBar(
-      context,
-      isZh ? '节流持续时长已保存。' : 'Throttle duration saved.',
-    );
+    _showSnackBar(context, isZh ? '节流持续时长已保存。' : 'Throttle duration saved.');
   }
 
   /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
   Future<void> _exportAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final ts =
-        DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')
+        .first;
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     FileSaveLocation? location;
     try {
@@ -4009,7 +4005,9 @@ class _SettingsViewState extends State<SettingsView> {
     if (location == null) return;
     try {
       final doc = controller.exportAiStreamThrottleConfig();
-      final bytes = utf8.encode(const JsonEncoder.withIndent('  ').convert(doc));
+      final bytes = utf8.encode(
+        const JsonEncoder.withIndent('  ').convert(doc),
+      );
       final file = XFile.fromData(
         bytes,
         mimeType: 'application/json',
@@ -4046,9 +4044,7 @@ class _SettingsViewState extends State<SettingsView> {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     XFile? file;
     try {
-      file = await openFile(
-        acceptedTypeGroups: const <XTypeGroup>[typeGroup],
-      );
+      file = await openFile(acceptedTypeGroups: const <XTypeGroup>[typeGroup]);
     } catch (error, stack) {
       silentLog(
         'settings_view',
@@ -4107,10 +4103,8 @@ class _SettingsViewState extends State<SettingsView> {
     }
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
-      builder: (dialogContext) => _ThrottleImportDiffDialog(
-        diffs: diffs,
-        isZh: isZh,
-      ),
+      builder: (dialogContext) =>
+          _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
     );
     if (confirmed != true) return;
     if (!context.mounted) return;
@@ -4150,10 +4144,16 @@ class _SettingsViewState extends State<SettingsView> {
     final rows = <_ThrottleDiffRow>[];
     void add(String label, Object? before, Object? after) {
       if (before == after) return;
-      rows.add(_ThrottleDiffRow(label, _formatValue(before), _formatValue(after)));
+      rows.add(
+        _ThrottleDiffRow(label, _formatValue(before), _formatValue(after)),
+      );
     }
 
-    add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
+    add(
+      'throttle_enabled',
+      current['throttle_enabled'],
+      next['throttle_enabled'],
+    );
     add('auto_mode', current['auto_mode'], next['auto_mode']);
     add(
       'duration_seconds',
@@ -6066,7 +6066,6 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
   }
 }
 
-
 /// 节流被关闭（rate=0）时显示的醒目提示徽章。
 ///
 /// 2026-05-17 — 用户在设置面板把「每秒最大输出渲染字符」或「每秒最大输
@@ -6086,9 +6085,7 @@ class _ThrottleDisabledBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.errorContainer.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: scheme.error.withValues(alpha: 0.45),
-        ),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.45)),
       ),
       child: Row(
         children: [
@@ -6179,7 +6176,6 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   }
 }
 
-
 /// 节流配置 import 时的 diff 行：字段名 + 当前值 + 即将应用的值。
 class _ThrottleDiffRow {
   const _ThrottleDiffRow(this.label, this.before, this.after);
@@ -6194,10 +6190,7 @@ class _ThrottleDiffRow {
 /// 项以 「key · before → after」 行形式展示，并提供 取消 / 应用 两个
 /// OpenHandDialogActionButton 让用户做最后决策。
 class _ThrottleImportDiffDialog extends StatelessWidget {
-  const _ThrottleImportDiffDialog({
-    required this.diffs,
-    required this.isZh,
-  });
+  const _ThrottleImportDiffDialog({required this.diffs, required this.isZh});
 
   final List<_ThrottleDiffRow> diffs;
   final bool isZh;
@@ -6217,8 +6210,11 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.compare_arrows_rounded,
-                      size: 20, color: scheme.primary),
+                  Icon(
+                    Icons.compare_arrows_rounded,
+                    size: 20,
+                    color: scheme.primary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     isZh ? '节流配置 · 冲突预览' : 'Throttle Config · Diff Preview',
@@ -6313,7 +6309,9 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(context).pop(true),
-                    label: isZh ? '应用 ${diffs.length} 项' : 'Apply ${diffs.length}',
+                    label: isZh
+                        ? '应用 ${diffs.length} 项'
+                        : 'Apply ${diffs.length}',
                   ),
                 ],
               ),
@@ -6324,7 +6322,6 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
     );
   }
 }
-
 
 /// 节流配置云端同步编辑器：provider 选择 + endpoint / token 输入 +
 /// push / pull 按钮。
@@ -6355,9 +6352,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     _endpointCtrl = TextEditingController(
       text: c.aiStreamThrottleCloudSyncEndpoint,
     );
-    _tokenCtrl = TextEditingController(
-      text: c.aiStreamThrottleCloudSyncToken,
-    );
+    _tokenCtrl = TextEditingController(text: c.aiStreamThrottleCloudSyncToken);
     _endpointFocus = FocusNode();
     _tokenFocus = FocusNode();
   }
@@ -6405,7 +6400,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       _statusError = !result.ok;
       _status = result.ok
           ? (isZh ? '已推送：${result.message}' : 'Pushed: ${result.message}')
-          : (isZh ? '推送失败：${result.message}' : 'Push failed: ${result.message}');
+          : (isZh
+                ? '推送失败：${result.message}'
+                : 'Push failed: ${result.message}');
     });
   }
 
@@ -6434,7 +6431,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       setState(() {
         _busy = false;
         _statusError = true;
-        _status = isZh ? '拉取失败：${result.message}' : 'Pull failed: ${result.message}';
+        _status = isZh
+            ? '拉取失败：${result.message}'
+            : 'Pull failed: ${result.message}';
       });
       return;
     }
@@ -6513,7 +6512,11 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       rows.add(_ThrottleDiffRow(label, fmt(a), fmt(b)));
     }
 
-    add('throttle_enabled', current['throttle_enabled'], next['throttle_enabled']);
+    add(
+      'throttle_enabled',
+      current['throttle_enabled'],
+      next['throttle_enabled'],
+    );
     add('auto_mode', current['auto_mode'], next['auto_mode']);
     add(
       'duration_seconds',
@@ -6585,10 +6588,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
           if (providerEnum != ThrottleCloudSyncProvider.custom &&
               providerEnum != ThrottleCloudSyncProvider.gistGitHub)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: scheme.tertiaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
@@ -6602,10 +6602,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             ),
           if (providerEnum == ThrottleCloudSyncProvider.gistGitHub) ...[
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: scheme.tertiaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
@@ -6622,7 +6619,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
               decoration: InputDecoration(
-                labelText: isZh ? 'Gist ID（首次推送可留空）' : 'Gist ID (leave empty for first push)',
+                labelText: isZh
+                    ? 'Gist ID（首次推送可留空）'
+                    : 'Gist ID (leave empty for first push)',
                 hintText: '83a1b9b0...',
               ),
             ),
@@ -6632,7 +6631,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               focusNode: _tokenFocus,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: isZh ? 'GitHub PAT (需 gist scope)' : 'GitHub PAT (gist scope)',
+                labelText: isZh
+                    ? 'GitHub PAT (需 gist scope)'
+                    : 'GitHub PAT (gist scope)',
                 hintText: 'github_pat_••••••••',
               ),
             ),
@@ -6652,7 +6653,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               focusNode: _tokenFocus,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: isZh ? 'Bearer Token (可选)' : 'Bearer Token (optional)',
+                labelText: isZh
+                    ? 'Bearer Token (可选)'
+                    : 'Bearer Token (optional)',
                 hintText: '••••••••',
               ),
             ),
@@ -6679,8 +6682,11 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: (_statusError ? scheme.errorContainer : scheme.primaryContainer)
-                    .withValues(alpha: 0.6),
+                color:
+                    (_statusError
+                            ? scheme.errorContainer
+                            : scheme.primaryContainer)
+                        .withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(

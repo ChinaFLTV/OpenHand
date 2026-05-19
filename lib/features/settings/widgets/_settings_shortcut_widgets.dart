@@ -48,7 +48,7 @@ class _ShortcutBindingTile extends StatelessWidget {
             final controls = Wrap(
               spacing: 10,
               runSpacing: 10,
-              alignment: WrapAlignment.end,
+              alignment: stacked ? WrapAlignment.start : WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 ConstrainedBox(

@@ -535,31 +535,34 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   }
 }
 
-/// 2026-05-19 — 输入修复入口。点击后尝试：
-///   ① 卸下当前 primaryFocus（避免某些过时 Focus 把 IMK 上下文吃住）；
-///   ② `SystemChannels.textInput.invokeMethod('TextInput.hide')` 释放
-///      平台输入法 session；
-///   ③ macOS 上额外 SIGTERM-then-SIGKILL 一遍可能残留的 orphan
-///      osascript（safe_subprocess 已注册的全局子进程不在此触发，
-///      只兜底其它 trampoline）。
-/// 配合 [showAnimatedDialog] 的 CallbackShortcuts Esc 绑定，可恢复
-/// 「文本框不响应输入 / Esc 关弹窗失灵」状态。
-class _InputRepairSection extends StatelessWidget {
+class _InputRepairSection extends StatefulWidget {
   const _InputRepairSection();
 
+  @override
+  State<_InputRepairSection> createState() => _InputRepairSectionState();
+}
+
+class _InputRepairSectionState extends State<_InputRepairSection> {
+  bool _repairing = false;
+
   Future<void> _runRepair(BuildContext context) async {
+    if (_repairing) return;
+    setState(() {
+      _repairing = true;
+    });
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    // 1. unfocus 当前持有焦点的 widget。
-    final primary = FocusManager.instance.primaryFocus;
     try {
-      primary?.unfocus();
-    } catch (_) {}
-    // 2. 通知平台关闭输入法 session。
-    try {
+      FocusManager.instance.primaryFocus?.unfocus();
       await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     } catch (error, stack) {
-      silentLog('settings.system', 'TextInput.hide', error, stack);
+      silentLog('settings.system', 'repairTextInput', error, stack);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _repairing = false;
+        });
+      }
     }
     if (messenger != null && context.mounted) {
       OpenHandSnackBar.showSuccessOn(context, messenger, l10n.inputRepairDone);
@@ -569,33 +572,28 @@ class _InputRepairSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.inputRepairTitle,
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.inputRepairBody,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+    return _SettingsSubsectionCard(
+      title: l10n.inputRepairTitle,
+      description: l10n.inputRepairBody,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: OutlinedButton.icon(
+          onPressed: _repairing ? null : () => _runRepair(context),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: OutlinedButton.icon(
-              onPressed: () => _runRepair(context),
-              icon: const Icon(Icons.healing_rounded, size: 18),
-              label: Text(l10n.inputRepairButton),
-            ),
-          ),
-        ],
+          icon: _repairing
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.healing_rounded, size: 18),
+          label: Text(l10n.inputRepairButton),
+        ),
       ),
     );
   }
