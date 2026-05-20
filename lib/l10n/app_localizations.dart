@@ -4403,7 +4403,7 @@ abstract class AppLocalizations {
   /// No description provided for @inputRepairBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题'**
+  /// **'回收遗留的子进程（osascript、LSP、MCP 等），并重置 macOS 输入法上下文，修复全局文本框无法输入、复制、粘贴或 ESC 失效的问题'**
   String get inputRepairBody;
 
   /// No description provided for @inputRepairButton.
@@ -4415,8 +4415,14 @@ abstract class AppLocalizations {
   /// No description provided for @inputRepairDone.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'已尝试修复，请重新输入'**
+  /// **'已重置输入上下文'**
   String get inputRepairDone;
+
+  /// Snackbar shown after input repair, including count of orphan child processes reclaimed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已重置输入上下文，回收 {count} 个后台子进程'**
+  String inputRepairDoneDetail(int count);
 
   /// No description provided for @proxySectionTitle.
   ///

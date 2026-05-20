@@ -1085,9 +1085,14 @@
   "tsmRowToken": "Token",
   "tsmRowByKind": "Aufteilung",
   "inputRepairTitle": "Eingabe-Reparatur",
-  "inputRepairBody": "Behebt Probleme mit Texteingabe, Kopieren/Einfügen oder ESC in Dialogen",
+  "inputRepairBody": "Beseitigt verwaiste Kindprozesse (osascript, LSP, MCP, …) und setzt den macOS-Eingabe­methoden-Kontext zurück — behebt globale TextField-Probleme bei Eingabe, Kopieren/Einfügen oder ESC.",
   "inputRepairButton": "Eingabe reparieren",
-  "inputRepairDone": "Reparatur versucht, bitte erneut eingeben",
+  "inputRepairDone": "Eingabekontext zurückgesetzt.",
+  "inputRepairDoneDetail": "Eingabekontext zurückgesetzt; {count} Hintergrund-Kindprozesse beendet.",
+  "@inputRepairDoneDetail": {
+    "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "proxySectionTitle": "System",
   "proxySectionBody": "Alle internen HTTP-Clients (WebSearch / WebFetch usw.) verwenden den hier gewählten Proxy. Änderungen werden sofort übernommen, kein Neustart erforderlich.",
   "proxyModeLabel": "Proxy-Modus",

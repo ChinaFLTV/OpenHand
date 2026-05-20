@@ -2329,13 +2329,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get inputRepairTitle => '入力修復';
 
   @override
-  String get inputRepairBody => 'テキスト入力、コピー/ペースト、ダイアログのESCが効かない問題を修復';
+  String get inputRepairBody =>
+      '残存する子プロセス（osascript / LSP / MCP など）を回収し、macOS の入力コンテキストをリセット — グローバル TextField の入力・コピー/ペースト・ESC が効かない問題を修復します。';
 
   @override
   String get inputRepairButton => '入力を修復';
 
   @override
-  String get inputRepairDone => '修復を試みました。もう一度入力してください';
+  String get inputRepairDone => '入力コンテキストをリセットしました';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return '入力コンテキストをリセットし、$count 個の子プロセスを回収しました';
+  }
 
   @override
   String get proxySectionTitle => 'システム';

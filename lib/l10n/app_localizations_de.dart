@@ -2454,13 +2454,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get inputRepairBody =>
-      'Behebt Probleme mit Texteingabe, Kopieren/Einfügen oder ESC in Dialogen';
+      'Beseitigt verwaiste Kindprozesse (osascript, LSP, MCP, …) und setzt den macOS-Eingabe­methoden-Kontext zurück — behebt globale TextField-Probleme bei Eingabe, Kopieren/Einfügen oder ESC.';
 
   @override
   String get inputRepairButton => 'Eingabe reparieren';
 
   @override
-  String get inputRepairDone => 'Reparatur versucht, bitte erneut eingeben';
+  String get inputRepairDone => 'Eingabekontext zurückgesetzt.';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return 'Eingabekontext zurückgesetzt; $count Hintergrund-Kindprozesse beendet.';
+  }
 
   @override
   String get proxySectionTitle => 'System';

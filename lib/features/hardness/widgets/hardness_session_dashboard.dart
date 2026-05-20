@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/model/openhand_shortcut.dart';
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';

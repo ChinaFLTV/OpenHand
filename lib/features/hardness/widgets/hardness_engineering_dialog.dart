@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/safe_subprocess.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -389,18 +390,19 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     }
 
     try {
+      bool launched = false;
       if (Platform.isMacOS) {
-        await Process.run('open', [normalizedUrl]);
+        launched = await runDetachedSystemOpen('open', [normalizedUrl]);
       } else if (Platform.isLinux) {
-        await Process.run('xdg-open', [normalizedUrl]);
+        launched = await runDetachedSystemOpen('xdg-open', [normalizedUrl]);
       } else if (Platform.isWindows) {
-        await Process.run('cmd', [
-          '/c',
-          'start',
-          '',
-          normalizedUrl,
-        ], runInShell: true);
-      } else {
+        launched = await runDetachedSystemOpen(
+          'cmd',
+          ['/c', 'start', '', normalizedUrl],
+          runInShell: true,
+        );
+      }
+      if (!launched) {
         await Clipboard.setData(ClipboardData(text: normalizedUrl));
       }
     } catch (_) {

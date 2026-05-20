@@ -545,6 +545,27 @@ class _InputRepairSection extends StatefulWidget {
 class _InputRepairSectionState extends State<_InputRepairSection> {
   bool _repairing = false;
 
+  /// 真正"有效"的输入修复流水线，按因果链顺序执行：
+  ///
+  ///   1) **回收孤儿子进程** —— macOS IMK 输入上下文最常见的污染源是遗留
+  ///      在系统里的 `osascript` / `mitmdump` / `node` (LSP/MCP) /
+  ///      `xcrun` 等子进程，它们持续向 LaunchServices / Apple Events 投递
+  ///      消息，把宿主 Flutter 的 IMKCFRunLoop wake-up port 挤占掉。
+  ///      [killAllTrackedChildren] SIGTERM → 400ms grace → SIGKILL，把
+  ///      登记在 [_trackedChildren] 里的所有外部进程一次性回收。
+  ///   2) **解除当前焦点** —— 让框架释放占用 platform input client。
+  ///   3) **`TextInput.clearClient`** —— 让 Flutter engine 把当前
+  ///      attached TextInputClient 断开（macOS 这边会触发
+  ///      `[FlutterTextInputView resignFirstResponder]`，进而触发 IMK
+  ///      `IMKInputSession deactivate`）。
+  ///   4) **`TextInput.hide`** —— 让 IMK candidate window 收起。
+  ///   5) **`TextInput.finishAutofillContext`** —— 重置自动填充上下文。
+  ///   6) **post-frame 触发一次空 attach + detach** —— 强制 Flutter
+  ///      engine 在下一帧把 TextInput 通道重新握手，相当于把整条
+  ///      TextField → engine → platform → IMK 链路重置一次。
+  ///
+  /// 全部完成后用 [HighlightPulse] 触发一次顶栏 Q 弹高亮，并通过 Snackbar
+  /// 真实回报本次回收掉的子进程数（而不是空话）。
   Future<void> _runRepair(BuildContext context) async {
     if (_repairing) return;
     setState(() {
@@ -552,9 +573,50 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
     });
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.maybeOf(context);
+
+    int killedCount = 0;
     try {
+      // (1) 孤儿子进程兜底回收（真正的"修复"动作）。先采样数量再杀，
+      // 让 snackbar 能给出可验证的回报。
+      killedCount = debugTrackedChildPids().length;
+      await killAllTrackedChildren();
+
+      // (2) 释放当前焦点。
       FocusManager.instance.primaryFocus?.unfocus();
-      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+
+      // (3) 断开当前 TextInputClient（关键：触发 IMKInputSession 失活）。
+      try {
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.clearClient',
+        );
+      } catch (error, stack) {
+        silentLog('settings.system', 'clearClient', error, stack);
+      }
+
+      // (4) IMK candidate window 收起。
+      try {
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      } catch (error, stack) {
+        silentLog('settings.system', 'hideTextInput', error, stack);
+      }
+
+      // (5) 重置自动填充上下文（false = 丢弃未提交内容）。
+      try {
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.finishAutofillContext',
+          false,
+        );
+      } catch (error, stack) {
+        silentLog('settings.system', 'finishAutofillContext', error, stack);
+      }
+
+      // (6) 下一帧再次让框架重新握手一次 TextInput 通道。空 attach 触发
+      // engine 把"我现在可以接收输入"重新讲给 platform 层。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+        } catch (_) {}
+      });
     } catch (error, stack) {
       silentLog('settings.system', 'repairTextInput', error, stack);
     } finally {
@@ -564,8 +626,12 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         });
       }
     }
+
     if (messenger != null && context.mounted) {
-      OpenHandSnackBar.showSuccessOn(context, messenger, l10n.inputRepairDone);
+      final detail = killedCount > 0
+          ? l10n.inputRepairDoneDetail(killedCount)
+          : l10n.inputRepairDone;
+      OpenHandSnackBar.showSuccessOn(context, messenger, detail);
     }
   }
 

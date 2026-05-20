@@ -1085,9 +1085,14 @@
   "tsmRowToken": "Token",
   "tsmRowByKind": "佔比",
   "inputRepairTitle": "輸入修復",
-  "inputRepairBody": "修復無法輸入、複製、貼上或彈窗 ESC 關閉失效的問題",
+  "inputRepairBody": "回收遺留的子行程（osascript、LSP、MCP 等），並重置 macOS 輸入法上下文，修復全域文字框無法輸入、複製、貼上或 ESC 失效的問題",
   "inputRepairButton": "修復輸入",
-  "inputRepairDone": "已嘗試修復，請重新輸入",
+  "inputRepairDone": "已重置輸入上下文",
+  "inputRepairDoneDetail": "已重置輸入上下文，回收 {count} 個背景子行程",
+  "@inputRepairDoneDetail": {
+    "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "proxySectionTitle": "系統",
   "proxySectionBody": "所有 OpenHand 內建 HTTP 客戶端（WebSearch / WebFetch 等）將按此處代理設定選擇路由。儲存後即時生效，無需重啟。",
   "proxyModeLabel": "代理模式",

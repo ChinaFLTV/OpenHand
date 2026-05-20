@@ -2470,14 +2470,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get inputRepairBody =>
-      'Corrige les problèmes de saisie, copier/coller ou ESC non réactif dans les dialogues';
+      'Récupère les processus enfants orphelins (osascript, LSP, MCP, …) et réinitialise le contexte de saisie macOS — corrige les TextField globaux qui refusent la saisie, le copier/coller ou ESC.';
 
   @override
   String get inputRepairButton => 'Réparer la saisie';
 
   @override
-  String get inputRepairDone =>
-      'Réparation tentée, veuillez réessayer la saisie';
+  String get inputRepairDone => 'Contexte de saisie réinitialisé.';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return 'Contexte de saisie réinitialisé ; $count processus enfants récupérés.';
+  }
 
   @override
   String get proxySectionTitle => 'Système';

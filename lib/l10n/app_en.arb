@@ -1085,9 +1085,14 @@
   "tsmRowToken": "Token",
   "tsmRowByKind": "By kind",
   "inputRepairTitle": "Input Repair",
-  "inputRepairBody": "Fix issues with text input, copy/paste, or unresponsive ESC in dialogs",
+  "inputRepairBody": "Reclaim leftover child processes (osascript, LSP, MCP, …) and reset the macOS input-method context — fixes global TextField failing to accept input, copy/paste, or ESC dismiss.",
   "inputRepairButton": "Repair Input",
-  "inputRepairDone": "Repair attempted, please try input again",
+  "inputRepairDone": "Input context reset.",
+  "inputRepairDoneDetail": "Input context reset; reclaimed {count} background child processes.",
+  "@inputRepairDoneDetail": {
+    "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "proxySectionTitle": "System",
   "proxySectionBody": "Every internal HTTP client (WebSearch / WebFetch, etc.) routes through the proxy chosen here. Changes apply immediately, no restart required.",
   "proxyModeLabel": "Proxy mode",

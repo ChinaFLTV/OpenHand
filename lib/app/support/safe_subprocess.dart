@@ -226,3 +226,76 @@ Future<ProcessResult> runTrackedProcessOrFailed(
   );
   return r ?? ProcessResult(-1, -1, '', '');
 }
+
+/// 跨平台「拉起系统 GUI 应用打开 URL / 文件 / 目录」专用通道。
+///
+/// 历史教训（与 `Process.run('open', ...)` 等价用法的差别）：
+///   - macOS `open` 本身只是个轻量 launcher，会通过 LaunchServices 派发
+///     Apple Event 给 Finder/Safari/默认浏览器；这条 IPC 必须立即让出
+///     线程，否则在 `await Process.run(...)` 期间，子进程持续向系统
+///     LaunchServices 发包，把宿主 Flutter 的 IMK 输入上下文挤掉，
+///     全局 `TextField` 输入/复制/粘贴随即被冻结，伴随 console
+///     `error messaging the mach port for IMKCFRunLoopWakeUpReliable`。
+///   - Windows `explorer` / `cmd /c start` 偶发卡 5s+；Linux
+///     `xdg-open` 在桌面环境异常时同样会无限等待。
+///   - 这些子进程从未登记到 [_trackedChildren]，应用退出兜底也清不掉
+///     ([killAllTrackedChildren] 触达不到)，导致重启后仍有遗留子进程
+///     继续投递事件、污染下一轮宿主的 IMK。
+///
+/// 因此本方法：
+///   1) 以 [ProcessStartMode.detached] 启动，spawn 完立即返回，宿主
+///      事件循环不被挂；
+///   2) 由于 detached 不会回调 exitCode，我们用一个内置 1s 看门狗：
+///      若 pid 仍然存在（仅 macOS / Linux 探测），SIGKILL 兜底 —— `open`
+///      / `xdg-open` 正常 launch 完都会瞬退，超过 1s 没退就是异常；
+///   3) 当 [trackUntilExit] 为 true 时改用 normal 模式 + [_registerTrackedChild]
+///      把 `open -W`、`cmd /c start /WAIT` 这类「等待 GUI 关闭」的场景
+///      纳入退出兜底（默认不需要）。
+///
+/// 返回 true 表示 spawn 成功，false 表示 launcher 二进制不可用（不抛）。
+Future<bool> runDetachedSystemOpen(
+  String executable,
+  List<String> arguments, {
+  String tag = 'safe_subprocess.open',
+  Duration watchdog = const Duration(seconds: 1),
+  bool trackUntilExit = false,
+  bool runInShell = false,
+}) async {
+  try {
+    final process = await Process.start(
+      executable,
+      arguments,
+      runInShell: runInShell,
+      mode: trackUntilExit
+          ? ProcessStartMode.normal
+          : ProcessStartMode.detached,
+    );
+    if (trackUntilExit) {
+      _registerTrackedChild(process);
+      return true;
+    }
+    // detached 模式：1s 后若 pid 仍存活则 SIGKILL 兜底（仅 POSIX 平台
+    // 能优雅探测——Windows detached 子进程已和宿主完全脱钩，无害）。
+    if (Platform.isMacOS || Platform.isLinux) {
+      final pid = process.pid;
+      Timer(watchdog, () {
+        try {
+          // ProcessSignal.sigterm 不存在于 detached 的 Process 句柄上；
+          // 直接用 POSIX kill 默认 SIGTERM、再补一发 SIGKILL。
+          Process.killPid(pid);
+          Timer(const Duration(milliseconds: 300), () {
+            try {
+              Process.killPid(pid, ProcessSignal.sigkill);
+            } catch (_) {}
+          });
+        } catch (_) {
+          // 已退出 → killPid 返回 false / 抛错，正常路径，无需处理。
+        }
+      });
+    }
+    return true;
+  } catch (error, stack) {
+    silentLog(tag, '$executable ${arguments.take(1).join(' ')}', error, stack);
+    return false;
+  }
+}

@@ -277,31 +277,28 @@ Future<void> _heOpenPathInFileBrowser(
   required bool isDirectory,
 }) async {
   try {
-    late final ProcessResult result;
+    final bool launched;
     if (Platform.isMacOS) {
       // `-R` reveals the file in its parent Finder window; for directories
       // just open the directory itself.
-      result = await Process.run(
+      launched = await runDetachedSystemOpen(
         'open',
         isDirectory ? <String>[path] : <String>['-R', path],
       );
     } else if (Platform.isWindows) {
-      result = await Process.run(
+      launched = await runDetachedSystemOpen(
         'explorer',
         isDirectory ? <String>[path] : <String>['/select,$path'],
       );
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[
+      launched = await runDetachedSystemOpen('xdg-open', <String>[
         isDirectory ? path : File(path).parent.path,
       ]);
     } else {
       throw const FileSystemException('Unsupported platform.');
     }
-    if (result.exitCode == 0) return;
-    final msg = '${result.stderr}'.trim();
-    throw FileSystemException(
-      msg.isEmpty ? 'Unable to open file location.' : msg,
-    );
+    if (launched) return;
+    throw const FileSystemException('Unable to open file location.');
   } catch (error) {
     if (!context.mounted) return;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');

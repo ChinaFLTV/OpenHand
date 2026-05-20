@@ -2299,13 +2299,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get inputRepairTitle => '输入修复';
 
   @override
-  String get inputRepairBody => '修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题';
+  String get inputRepairBody =>
+      '回收遗留的子进程（osascript、LSP、MCP 等），并重置 macOS 输入法上下文，修复全局文本框无法输入、复制、粘贴或 ESC 失效的问题';
 
   @override
   String get inputRepairButton => '修复输入';
 
   @override
-  String get inputRepairDone => '已尝试修复，请重新输入';
+  String get inputRepairDone => '已重置输入上下文';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return '已重置输入上下文，回收 $count 个后台子进程';
+  }
 
   @override
   String get proxySectionTitle => '系统';
@@ -10045,13 +10051,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get inputRepairTitle => '输入修复';
 
   @override
-  String get inputRepairBody => '修复无法输入、复制、粘贴或弹窗 ESC 关闭失效的问题';
+  String get inputRepairBody =>
+      '回收遗留的子进程（osascript、LSP、MCP 等），并重置 macOS 输入法上下文，修复全局文本框无法输入、复制、粘贴或 ESC 失效的问题';
 
   @override
   String get inputRepairButton => '修复输入';
 
   @override
-  String get inputRepairDone => '已尝试修复，请重新输入';
+  String get inputRepairDone => '已重置输入上下文';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return '已重置输入上下文，回收 $count 个后台子进程';
+  }
 
   @override
   String get proxySectionTitle => '系统';
@@ -17790,13 +17802,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get inputRepairTitle => '輸入修復';
 
   @override
-  String get inputRepairBody => '修復無法輸入、複製、貼上或彈窗 ESC 關閉失效的問題';
+  String get inputRepairBody =>
+      '回收遺留的子行程（osascript、LSP、MCP 等），並重置 macOS 輸入法上下文，修復全域文字框無法輸入、複製、貼上或 ESC 失效的問題';
 
   @override
   String get inputRepairButton => '修復輸入';
 
   @override
-  String get inputRepairDone => '已嘗試修復，請重新輸入';
+  String get inputRepairDone => '已重置輸入上下文';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return '已重置輸入上下文，回收 $count 個背景子行程';
+  }
 
   @override
   String get proxySectionTitle => '系統';

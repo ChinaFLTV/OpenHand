@@ -2424,13 +2424,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inputRepairBody =>
-      'Fix issues with text input, copy/paste, or unresponsive ESC in dialogs';
+      'Reclaim leftover child processes (osascript, LSP, MCP, …) and reset the macOS input-method context — fixes global TextField failing to accept input, copy/paste, or ESC dismiss.';
 
   @override
   String get inputRepairButton => 'Repair Input';
 
   @override
-  String get inputRepairDone => 'Repair attempted, please try input again';
+  String get inputRepairDone => 'Input context reset.';
+
+  @override
+  String inputRepairDoneDetail(int count) {
+    return 'Input context reset; reclaimed $count background child processes.';
+  }
 
   @override
   String get proxySectionTitle => 'System';

@@ -2718,24 +2718,21 @@ Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {
     return;
   }
   try {
-    late final ProcessResult result;
     final target = uri.toString();
+    final bool launched;
     if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[target]);
+      launched = await runDetachedSystemOpen('open', <String>[target]);
     } else if (Platform.isWindows) {
-      result = await Process.run('explorer', <String>[target]);
+      launched = await runDetachedSystemOpen('explorer', <String>[target]);
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[target]);
+      launched = await runDetachedSystemOpen('xdg-open', <String>[target]);
     } else {
       throw const FileSystemException('Unsupported platform.');
     }
-    if (result.exitCode == 0) {
+    if (launched) {
       return;
     }
-    final message = '${result.stderr}'.trim();
-    throw FileSystemException(
-      message.isEmpty ? 'Unable to open link.' : message,
-    );
+    throw const FileSystemException('Unable to open link.');
   } catch (error) {
     if (!context.mounted) {
       return;

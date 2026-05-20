@@ -1326,11 +1326,15 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       await htmlFile.writeAsString(widget.htmlContent);
       final uri = Uri.file(htmlFile.path);
       if (Platform.isMacOS) {
-        await Process.run('open', [uri.toFilePath()]);
+        await runDetachedSystemOpen('open', [uri.toFilePath()]);
       } else if (Platform.isWindows) {
-        await Process.run('start', ['', uri.toFilePath()], runInShell: true);
+        await runDetachedSystemOpen(
+          'cmd',
+          ['/c', 'start', '', uri.toFilePath()],
+          runInShell: true,
+        );
       } else if (Platform.isLinux) {
-        await Process.run('xdg-open', [uri.toFilePath()]);
+        await runDetachedSystemOpen('xdg-open', [uri.toFilePath()]);
       }
     } catch (_) {
       if (!context.mounted) {

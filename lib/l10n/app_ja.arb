@@ -1085,9 +1085,14 @@
   "tsmRowToken": "トークン",
   "tsmRowByKind": "種類別",
   "inputRepairTitle": "入力修復",
-  "inputRepairBody": "テキスト入力、コピー/ペースト、ダイアログのESCが効かない問題を修復",
+  "inputRepairBody": "残存する子プロセス（osascript / LSP / MCP など）を回収し、macOS の入力コンテキストをリセット — グローバル TextField の入力・コピー/ペースト・ESC が効かない問題を修復します。",
   "inputRepairButton": "入力を修復",
-  "inputRepairDone": "修復を試みました。もう一度入力してください",
+  "inputRepairDone": "入力コンテキストをリセットしました",
+  "inputRepairDoneDetail": "入力コンテキストをリセットし、{count} 個の子プロセスを回収しました",
+  "@inputRepairDoneDetail": {
+    "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "proxySectionTitle": "システム",
   "proxySectionBody": "OpenHand のすべての内部 HTTP クライアント（WebSearch / WebFetch など）は、ここで選択したプロキシ設定に従ってルーティングされます。保存後すぐに反映され、再起動は不要です。",
   "proxyModeLabel": "プロキシモード",
