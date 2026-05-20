@@ -105,12 +105,10 @@ class AppSettingsSnapshot {
       aiResponseTimeoutSeconds: defaultAiResponseTimeoutSeconds,
       aiStreamIdleTimeoutSeconds: defaultAiStreamIdleTimeoutSeconds,
       aiStreamMaxCharsPerSecond: defaultAiStreamMaxCharsPerSecond,
-      aiStreamMaxMessageCardsPerSecond:
-          defaultAiStreamMaxMessageCardsPerSecond,
+      aiStreamMaxMessageCardsPerSecond: defaultAiStreamMaxMessageCardsPerSecond,
       aiStreamThrottleEnabled: defaultAiStreamThrottleEnabled,
       aiStreamThrottleAutoMode: defaultAiStreamThrottleAutoMode,
-      aiStreamThrottleDurationSeconds:
-          defaultAiStreamThrottleDurationSeconds,
+      aiStreamThrottleDurationSeconds: defaultAiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider:
           defaultAiStreamThrottleCloudSyncProvider,
       aiStreamThrottleCloudSyncEndpoint:
@@ -125,8 +123,18 @@ class AppSettingsSnapshot {
       selectedAiModelId: null,
       recentModelSelections: const <RecentModelSelection>[],
       shortcutBindings: defaultOpenHandShortcutBindings(),
-      dialogAnimationSettings: const DialogAnimationSettings(),
-      menuAnimationSettings: const DialogAnimationSettings(),
+      dialogAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 360,
+        curve: DialogAnimationCurve.easeOutCubic,
+      ),
+      menuAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 260,
+        curve: DialogAnimationCurve.easeOutCubic,
+      ),
       pageAnimationSettings: const DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.fade,
         exitStyle: DialogAnimationStyle.fade,
@@ -1130,7 +1138,8 @@ class AppSettingsSnapshot {
           aiStreamThrottleEnabled ?? this.aiStreamThrottleEnabled,
       aiStreamThrottleAutoMode:
           aiStreamThrottleAutoMode ?? this.aiStreamThrottleAutoMode,
-      aiStreamThrottleDurationSeconds: aiStreamThrottleDurationSeconds ??
+      aiStreamThrottleDurationSeconds:
+          aiStreamThrottleDurationSeconds ??
           this.aiStreamThrottleDurationSeconds,
       aiStreamThrottleCloudSyncProvider:
           aiStreamThrottleCloudSyncProvider ??

@@ -7,6 +7,19 @@ import 'package:provider/provider.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 
+const DialogAnimationSettings _kNoDialogAnimationSettings =
+    DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.none,
+      exitStyle: DialogAnimationStyle.none,
+      durationMs: 0,
+    );
+
+const DialogAnimationSettings _kFallbackDialogAnimationSettings =
+    DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      durationMs: 360,
+    );
+
 Color resolveAnimatedDialogBarrierColor(
   BuildContext context, {
   Color? override,
@@ -44,8 +57,9 @@ Future<T?> showAnimatedDialog<T>({
     dismissOnEscape: dismissOnEscape,
     alignment: alignment,
   );
-  final effectiveSettings =
-      settings ?? _resolveDialogAnimationSettings(context);
+  final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
+      ? _kNoDialogAnimationSettings
+      : (settings ?? _resolveDialogAnimationSettings(context));
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
       effectiveSettings.exitStyle == DialogAnimationStyle.none) {
     return showDialog<T>(
@@ -92,7 +106,7 @@ DialogAnimationSettings _resolveDialogAnimationSettings(BuildContext context) {
   try {
     return context.read<SettingsController>().dialogAnimationSettings;
   } catch (_) {
-    return const DialogAnimationSettings();
+    return _kFallbackDialogAnimationSettings;
   }
 }
 
@@ -325,10 +339,7 @@ Widget buildAnimationStyleTransition({
   );
 
   return switch (style) {
-    DialogAnimationStyle.none => FadeTransition(
-      opacity: animation,
-      child: child,
-    ),
+    DialogAnimationStyle.none => child,
     DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
     DialogAnimationStyle.fadeScale => _FadeScaleTransition(
       animation: curved,
@@ -392,7 +403,7 @@ class _FadeScaleTransition extends StatelessWidget {
     return FadeTransition(
       opacity: animation,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(animation),
         child: child,
       ),
     );
@@ -437,7 +448,7 @@ class _ExpandTransition extends StatelessWidget {
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+        scale: Tween<double>(begin: 0.88, end: 1.0).animate(
           CurvedAnimation(
             parent: animation,
             curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
@@ -456,7 +467,7 @@ class _RotateScaleTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scale = Tween<double>(begin: 0.7, end: 1.0).animate(animation);
+    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(animation);
     final rotation = Tween<double>(begin: -0.05, end: 0.0).animate(animation);
     return FadeTransition(
       opacity: animation,
@@ -485,7 +496,7 @@ class _ElasticTransition extends StatelessWidget {
       curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
-    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(
+    final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
       CurvedAnimation(
         parent: animation,
         curve: curve.curve,
@@ -513,7 +524,7 @@ class _SpringScaleTransition extends StatelessWidget {
       curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
-    final scale = Tween<double>(begin: 0.6, end: 1.0).animate(
+    final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
       CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutBack,

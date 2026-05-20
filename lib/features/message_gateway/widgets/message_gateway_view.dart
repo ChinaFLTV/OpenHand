@@ -4223,7 +4223,7 @@ class _MultiSelectDropdownMenuState<T>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final settings = _dialogMotionSettingsOf(context);
+    final settings = _menuMotionSettingsOf(context);
     _lastMotionSettings = settings;
     _transitionController
       ..duration = settings.duration
@@ -4257,7 +4257,7 @@ class _MultiSelectDropdownMenuState<T>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final settings = _lastMotionSettings ?? _dialogMotionSettingsOf(context);
+    final settings = _lastMotionSettings ?? _menuMotionSettingsOf(context);
     final query = _searchController.text.trim().toLowerCase();
     final filtered = query.isEmpty
         ? widget.options
@@ -4545,11 +4545,14 @@ bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
   return noneValue != null && selected.contains(noneValue);
 }
 
-DialogAnimationSettings _dialogMotionSettingsOf(BuildContext context) {
+DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
   try {
-    return context.read<SettingsController>().dialogAnimationSettings;
+    return context.read<SettingsController>().menuAnimationSettings;
   } catch (_) {
-    return const DialogAnimationSettings();
+    return const DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      durationMs: 260,
+    );
   }
 }
 

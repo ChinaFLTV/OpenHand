@@ -78,15 +78,17 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             OpenHandSnackBar.show(
               context,
               messenger,
-              SnackBar(
-                content: Text(
-                  allSaved
-                      ? (isZh ? '已恢复默认动画设置' : 'Animation defaults restored')
-                      : (isZh
-                            ? '部分设置保存失败，请重试'
-                            : 'Some settings failed to persist, please retry'),
-                ),
-              ),
+              allSaved
+                  ? OpenHandSnackBar.success(
+                      context,
+                      isZh ? '已恢复默认动画设置' : 'Animation defaults restored',
+                    )
+                  : OpenHandSnackBar.error(
+                      context,
+                      isZh
+                          ? '部分设置保存失败，请重试'
+                          : 'Some settings failed to persist, please retry',
+                    ),
             );
           },
         ),

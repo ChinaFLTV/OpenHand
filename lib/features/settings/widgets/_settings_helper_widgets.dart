@@ -898,7 +898,11 @@ class _AiModelTileState extends State<_AiModelTile> {
       child: InkWell(
         onTap: widget.onSelect,
         borderRadius: BorderRadius.circular(24),
-        child: DecoratedBox(
+        child: AnimatedContainer(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? colorScheme.primaryContainer.withValues(alpha: 0.52)
@@ -909,6 +913,15 @@ class _AiModelTileState extends State<_AiModelTile> {
                   ? colorScheme.primary
                   : colorScheme.outlineVariant,
             ),
+            boxShadow: widget.isSelected
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const <BoxShadow>[],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),

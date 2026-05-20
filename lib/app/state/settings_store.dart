@@ -823,16 +823,17 @@ class SettingsStore {
     final aiStreamThrottleEnabled = json['ai_stream_throttle_enabled'] is bool
         ? json['ai_stream_throttle_enabled'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleEnabled;
-    final aiStreamThrottleAutoMode = json['ai_stream_throttle_auto_mode'] is bool
+    final aiStreamThrottleAutoMode =
+        json['ai_stream_throttle_auto_mode'] is bool
         ? json['ai_stream_throttle_auto_mode'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
     final aiStreamThrottleDurationSeconds =
         json['ai_stream_throttle_duration_seconds'] is int
-            ? (json['ai_stream_throttle_duration_seconds'] as int).clamp(
-                AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
-                AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
-              )
-            : AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
+        ? (json['ai_stream_throttle_duration_seconds'] as int).clamp(
+            AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
+            AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+          )
+        : AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
     final aiStreamThrottleCloudSyncProvider =
         '${json['ai_stream_throttle_cloud_sync_provider'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncProvider}'
             .trim();
@@ -935,14 +936,42 @@ class SettingsStore {
 
     // Animation settings.
     final rawDialogAnim = json['dialog_animation_settings'];
-    var dialogAnimationSettings = const DialogAnimationSettings();
+    const dialogAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.fadeScale,
+      durationMs: 360,
+    );
+    var dialogAnimationSettings = dialogAnimationDefault;
     if (rawDialogAnim is Map<String, dynamic>) {
       dialogAnimationSettings = DialogAnimationSettings.fromJson(rawDialogAnim);
+      final isLegacyDialogDefault =
+          dialogAnimationSettings.entranceStyle ==
+              DialogAnimationStyle.fadeScale &&
+          dialogAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
+          dialogAnimationSettings.durationMs == 320 &&
+          dialogAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      if (isLegacyDialogDefault) {
+        dialogAnimationSettings = dialogAnimationDefault;
+      }
     }
     final rawMenuAnim = json['menu_animation_settings'];
-    var menuAnimationSettings = const DialogAnimationSettings();
+    const menuAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.fadeScale,
+      durationMs: 260,
+    );
+    var menuAnimationSettings = menuAnimationDefault;
     if (rawMenuAnim is Map<String, dynamic>) {
       menuAnimationSettings = DialogAnimationSettings.fromJson(rawMenuAnim);
+      final isLegacyMenuDefault =
+          menuAnimationSettings.entranceStyle ==
+              DialogAnimationStyle.fadeScale &&
+          menuAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
+          menuAnimationSettings.durationMs == 320 &&
+          menuAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      if (isLegacyMenuDefault) {
+        menuAnimationSettings = menuAnimationDefault;
+      }
     }
     final rawPageAnim = json['page_animation_settings'];
     const pageAnimationDefault = DialogAnimationSettings(

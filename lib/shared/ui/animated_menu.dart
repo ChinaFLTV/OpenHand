@@ -4,6 +4,20 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'micro_press_feedback.dart';
+
+const DialogAnimationSettings _kNoMenuAnimationSettings =
+    DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.none,
+      exitStyle: DialogAnimationStyle.none,
+      durationMs: 0,
+    );
+
+const DialogAnimationSettings _kFallbackMenuAnimationSettings =
+    DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      durationMs: 260,
+    );
 
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
@@ -21,8 +35,9 @@ Future<T?> showAnimatedMenu<T>({
   DialogAnimationSettings? settings,
   bool useRootNavigator = false,
 }) {
-  final effectiveSettings =
-      settings ?? context.read<SettingsController>().menuAnimationSettings;
+  final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
+      ? _kNoMenuAnimationSettings
+      : (settings ?? _resolveMenuAnimationSettings(context));
 
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
       effectiveSettings.exitStyle == DialogAnimationStyle.none) {
@@ -57,6 +72,14 @@ Future<T?> showAnimatedMenu<T>({
       ),
     ),
   );
+}
+
+DialogAnimationSettings _resolveMenuAnimationSettings(BuildContext context) {
+  try {
+    return context.read<SettingsController>().menuAnimationSettings;
+  } catch (_) {
+    return _kFallbackMenuAnimationSettings;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,25 +196,32 @@ class _PopupMenuContent<T> extends StatelessWidget {
       );
     }
 
-    return ConstrainedBox(
-      constraints:
-          route.constraints ??
-          const BoxConstraints(minWidth: 112, maxWidth: 280),
-      child: Material(
-        type: MaterialType.card,
-        elevation:
-            route.elevation ?? popupMenuTheme.elevation ?? defaults.elevation!,
-        shadowColor: popupMenuTheme.shadowColor ?? defaults.shadowColor,
-        surfaceTintColor:
-            popupMenuTheme.surfaceTintColor ?? defaults.surfaceTintColor,
-        color: route.color ?? popupMenuTheme.color ?? defaults.color,
-        shape: route.shape ?? popupMenuTheme.shape ?? defaults.shape,
-        clipBehavior: Clip.hardEdge,
-        child: IntrinsicWidth(
-          stepWidth: 56,
-          child: SingleChildScrollView(
-            padding: popupMenuTheme.menuPadding ?? defaults.menuPadding,
-            child: ListBody(children: children),
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      role: SemanticsRole.menu,
+      child: ConstrainedBox(
+        constraints:
+            route.constraints ??
+            const BoxConstraints(minWidth: 112, maxWidth: 280),
+        child: Material(
+          type: MaterialType.card,
+          elevation:
+              route.elevation ??
+              popupMenuTheme.elevation ??
+              defaults.elevation!,
+          shadowColor: popupMenuTheme.shadowColor ?? defaults.shadowColor,
+          surfaceTintColor:
+              popupMenuTheme.surfaceTintColor ?? defaults.surfaceTintColor,
+          color: route.color ?? popupMenuTheme.color ?? defaults.color,
+          shape: route.shape ?? popupMenuTheme.shape ?? defaults.shape,
+          clipBehavior: Clip.hardEdge,
+          child: IntrinsicWidth(
+            stepWidth: 56,
+            child: SingleChildScrollView(
+              padding: popupMenuTheme.menuPadding ?? defaults.menuPadding,
+              child: ListBody(children: children),
+            ),
           ),
         ),
       ),
@@ -322,7 +352,7 @@ Widget _buildMenuTransition(
     DialogAnimationStyle.fadeScale => FadeTransition(
       opacity: curved,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
         alignment: Alignment.topLeft,
         child: child,
       ),
@@ -353,7 +383,7 @@ Widget _buildMenuTransition(
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+        scale: Tween<double>(begin: 0.88, end: 1.0).animate(
           CurvedAnimation(
             parent: curved,
             curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
@@ -366,7 +396,7 @@ Widget _buildMenuTransition(
     DialogAnimationStyle.rotateScale => FadeTransition(
       opacity: curved,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.7, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
         child: RotationTransition(
           turns: Tween<double>(begin: -0.03, end: 0.0).animate(curved),
           child: child,
@@ -380,7 +410,7 @@ Widget _buildMenuTransition(
         reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
         alignment: Alignment.topLeft,
         child: child,
       ),
@@ -412,7 +442,7 @@ Widget _buildMenuTransition(
         reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.6, end: 1.0).animate(
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(
           CurvedAnimation(
             parent: animation,
             curve: Curves.easeOutBack,
@@ -426,7 +456,7 @@ Widget _buildMenuTransition(
     DialogAnimationStyle.flipX => FadeTransition(
       opacity: curved,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
         alignment: Alignment.topLeft,
         child: child,
       ),
@@ -560,18 +590,27 @@ class _AnimatedPopupMenuButtonState<T>
         borderRadius: BorderRadius.circular(4),
         child: widget.child,
       );
+      final pressed = MicroPressFeedback(
+        enabled: widget.enabled,
+        scale: 0.94,
+        child: button,
+      );
       final tooltip = widget.tooltip;
-      if (tooltip == null || tooltip.isEmpty) return button;
-      return Tooltip(message: tooltip, child: button);
+      if (tooltip == null || tooltip.isEmpty) return pressed;
+      return Tooltip(message: tooltip, child: pressed);
     }
-    return IconButton(
-      icon: widget.icon ?? const Icon(Icons.more_vert),
-      iconSize: widget.iconSize,
-      tooltip: widget.tooltip,
-      padding: widget.padding,
-      splashRadius: widget.splashRadius,
-      constraints: widget.buttonConstraints,
-      onPressed: widget.enabled ? _showMenu : null,
+    return MicroPressFeedback(
+      enabled: widget.enabled,
+      scale: 0.92,
+      child: IconButton(
+        icon: widget.icon ?? const Icon(Icons.more_vert),
+        iconSize: widget.iconSize,
+        tooltip: widget.tooltip,
+        padding: widget.padding,
+        splashRadius: widget.splashRadius,
+        constraints: widget.buttonConstraints,
+        onPressed: widget.enabled ? _showMenu : null,
+      ),
     );
   }
 }
@@ -627,7 +666,7 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(4)),
+    borderRadius: BorderRadius.all(Radius.circular(8)),
   );
 
   @override
@@ -650,7 +689,7 @@ class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(4)),
+    borderRadius: BorderRadius.all(Radius.circular(8)),
   );
 
   @override
