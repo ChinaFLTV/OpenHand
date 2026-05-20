@@ -2727,11 +2727,22 @@ class _StreamThrottleSessionDialogState
     // 2026-05-19 — 当前生效的启用态：会话级 > 全局。
     final globalEnabled = settings.aiStreamThrottleEnabled;
     final effectiveEnabled = _enabledOverride ?? globalEnabled;
+    final viewport = MediaQuery.sizeOf(context);
+    final dialogMaxWidth = math
+        .min(860.0, math.max(360.0, viewport.width - 48.0))
+        .toDouble();
+    final dialogMaxHeight = math
+        .min(780.0, math.max(420.0, viewport.height - 48.0))
+        .toDouble();
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxWidth: dialogMaxWidth,
+          maxHeight: dialogMaxHeight,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2820,8 +2831,8 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 12),
-              // 2026-05-18 — 实时字符吞吐 mini 仪表盘：30s 滑窗，每秒
-              // 一个柱；柱高 = chars/sec / max。流式过程中持续刷新。
+              // 2026-05-18 — 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
+              // 降采样；主曲线使用节流后的展示吞吐。
               _StreamThroughputMiniGauge(
                 sessionId: widget.sessionId,
                 maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
@@ -2930,12 +2941,11 @@ class _StreamThrottleSessionDialogState
   }
 }
 
-/// 节流 mini 仪表盘：30 秒滑动窗口的 AI 侧字符吞吐曲线图。
+/// 节流仪表盘：展示侧字符吞吐曲线图。
 ///
-/// 2026-05-18 — 让用户在节流弹窗里直接看到 AI 当前正以多快的速度流出
-/// 字符；2026-05-25 改为平滑曲线 + 渐变填充，且支持 macOS 触控板双指
-/// 捏合放缩时间区间（PointerPanZoom.scale），让用户聚焦最近几秒的细节。
-/// 200ms 节奏轮询 controller，自带 reduceMotion 跳过动画。
+/// 主曲线使用节流器真正放给 UI 的 grapheme 数，原始模型流入只作为辅助
+/// 统计展示。这样阈值 30/s 时，模型瞬时回吐 300+/s 不会被误读成节流
+/// 失效；长窗口按秒保留 6h，绘制前降采样到固定点数，避免大窗口卡顿。
 class _StreamThroughputMiniGauge extends StatefulWidget {
   const _StreamThroughputMiniGauge({
     required this.sessionId,
@@ -2953,10 +2963,15 @@ class _StreamThroughputMiniGauge extends StatefulWidget {
 class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     with SingleTickerProviderStateMixin {
   Timer? _ticker;
-  List<int> _samples = const <int>[];
+  List<int> _displaySamples = const <int>[];
+  List<int> _rawSamples = const <int>[];
+  _ThroughputChartData _chartData = const _ThroughputChartData(
+    samples: <int>[],
+    bucketSeconds: 1,
+  );
   // 2026-05-19 — 平滑过渡：高频拉取新 snapshot，painter 读取的
   // 是 `_displaySamples`，由 AnimationController 把 `_fromSamples →
-  // _toSamples` 跨 500ms 用 easeOutCubic 插值，曲线随 AI 实时吞吐 Q 弹
+  // _toSamples` 跨 200ms 用 easeOutCubic 插值，曲线随展示吞吐 Q 弹
   // 流畅滑动而不再跳变。
   List<double> _fromSamples = const <double>[];
   List<double> _toSamples = const <double>[];
@@ -2964,13 +2979,19 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
   int? _hoveredIndex;
   Offset? _hoverLocal;
-  // 2026-05-25 — 时间轴放大倍数（1=全部 30s，4=最近约 7s）。trackpad
-  // 双指捏合 pan-zoom 时实时改写；保持 anchored on now（右端 = 当前秒）。
+  int _rangeSeconds = 5 * 60;
   double _zoom = 1.0;
   double _zoomBase = 1.0;
   static const double _kMinZoom = 1.0;
-  static const double _kMaxZoom = 4.0;
+  static const int _kMinWindowSeconds = 30;
+  static const int _kMaxPaintSamples = 420;
   static const Duration _kRefreshInterval = Duration(milliseconds: 200);
+  static const List<int> _kRangeOptions = <int>[
+    5 * 60,
+    10 * 60,
+    30 * 60,
+    60 * 60,
+  ];
 
   @override
   void initState() {
@@ -2983,8 +3004,13 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     // 首次同步走 _morph.value=1.0 的"无动画跳变"路径；后续 Timer 触发的
     // _refresh 已在 build 帧之后，可安全读 MediaQuery。
     final controller = context.read<AiSessionController>();
-    _samples = controller.sessionStreamCharThroughputSnapshot(widget.sessionId);
-    _toSamples = <double>[for (final v in _samples) v.toDouble()];
+    final snapshot = controller.sessionStreamThroughputSnapshot(
+      widget.sessionId,
+    );
+    _displaySamples = snapshot.displaySamples;
+    _rawSamples = snapshot.rawSamples;
+    _chartData = _buildChartData(_displaySamples);
+    _toSamples = <double>[for (final v in _chartData.samples) v.toDouble()];
     _fromSamples = List<double>.from(_toSamples);
     _morph.value = 1.0;
     _ticker = Timer.periodic(_kRefreshInterval, (_) {
@@ -3007,16 +3033,20 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   void _refresh() {
     final controller = context.read<AiSessionController>();
-    final next = controller.sessionStreamCharThroughputSnapshot(
-      widget.sessionId,
-    );
-    if (_listsEqual(next, _samples)) return;
+    final next = controller.sessionStreamThroughputSnapshot(widget.sessionId);
+    if (_listsEqual(next.displaySamples, _displaySamples) &&
+        _listsEqual(next.rawSamples, _rawSamples)) {
+      return;
+    }
     // 把上一帧已渲染的插值结果作为起点，向新 snapshot 平滑过渡。
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final prevDisplay = _currentDisplaySamples();
-    final target = <double>[for (final v in next) v.toDouble()];
+    final chartData = _buildChartData(next.displaySamples);
+    final target = <double>[for (final v in chartData.samples) v.toDouble()];
     setState(() {
-      _samples = next;
+      _displaySamples = next.displaySamples;
+      _rawSamples = next.rawSamples;
+      _chartData = chartData;
       _toSamples = target;
       _fromSamples = _alignLength(prevDisplay, target.length);
     });
@@ -3028,6 +3058,113 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
         ..value = 0.0
         ..forward();
     }
+  }
+
+  void _updateWindow({int? rangeSeconds, double? zoom, bool animate = true}) {
+    final nextRange = rangeSeconds ?? _rangeSeconds;
+    final maxZoom = _maxZoomForRange(nextRange);
+    final nextZoom = (zoom ?? _zoom).clamp(_kMinZoom, maxZoom).toDouble();
+    if (nextRange == _rangeSeconds && (nextZoom - _zoom).abs() <= 0.001) {
+      return;
+    }
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final prevDisplay = _currentDisplaySamples();
+    final chartData = _buildChartData(
+      _displaySamples,
+      rangeSeconds: nextRange,
+      zoom: nextZoom,
+    );
+    final target = <double>[for (final v in chartData.samples) v.toDouble()];
+    setState(() {
+      _rangeSeconds = nextRange;
+      _zoom = nextZoom;
+      _zoomBase = nextZoom;
+      _hoveredIndex = null;
+      _hoverLocal = null;
+      _chartData = chartData;
+      _toSamples = target;
+      _fromSamples = _alignLength(prevDisplay, target.length);
+    });
+    if (!animate || reduceMotion) {
+      _morph.value = 1.0;
+    } else {
+      _morph
+        ..stop()
+        ..value = 0.0
+        ..forward();
+    }
+  }
+
+  double _maxZoomForRange(int rangeSeconds) =>
+      math.max(_kMinZoom, rangeSeconds / _kMinWindowSeconds);
+
+  int _visibleWindowSeconds({int? rangeSeconds, double? zoom}) {
+    final range = rangeSeconds ?? _rangeSeconds;
+    final z = (zoom ?? _zoom)
+        .clamp(_kMinZoom, _maxZoomForRange(range))
+        .toDouble();
+    return (range / z).round().clamp(_kMinWindowSeconds, range).toInt();
+  }
+
+  _ThroughputChartData _buildChartData(
+    List<int> source, {
+    int? rangeSeconds,
+    double? zoom,
+  }) {
+    final window = _visibleWindowSeconds(
+      rangeSeconds: rangeSeconds,
+      zoom: zoom,
+    );
+    final visible = source
+        .take(math.min(window, source.length))
+        .toList(growable: false);
+    if (visible.length <= _kMaxPaintSamples) {
+      return _ThroughputChartData(samples: visible, bucketSeconds: 1);
+    }
+    final bucketSeconds = (visible.length / _kMaxPaintSamples).ceil();
+    final downsampled = <int>[];
+    for (var i = 0; i < visible.length; i += bucketSeconds) {
+      var bucketPeak = 0;
+      final end = math.min(i + bucketSeconds, visible.length);
+      for (var j = i; j < end; j++) {
+        if (visible[j] > bucketPeak) bucketPeak = visible[j];
+      }
+      downsampled.add(bucketPeak);
+    }
+    return _ThroughputChartData(
+      samples: List<int>.unmodifiable(downsampled),
+      bucketSeconds: bucketSeconds,
+    );
+  }
+
+  String _formatRangeLabel(BuildContext context, int seconds) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    if (seconds < 60) return isZh ? '$seconds秒' : '${seconds}s';
+    final minutes = seconds ~/ 60;
+    if (seconds % 60 != 0 && seconds < 60 * 60) {
+      final value = (seconds / 60).toStringAsFixed(1);
+      return isZh ? '$value分' : '${value}m';
+    }
+    if (minutes < 60) return isZh ? '$minutes分' : '${minutes}m';
+    final hours = minutes ~/ 60;
+    return isZh ? '$hours小时' : '${hours}h';
+  }
+
+  int _peak(List<int> values) {
+    var peak = 0;
+    for (final value in values) {
+      if (value > peak) peak = value;
+    }
+    return peak;
+  }
+
+  int _average(List<int> values) {
+    if (values.isEmpty) return 0;
+    var sum = 0;
+    for (final value in values) {
+      sum += value;
+    }
+    return (sum / values.length).round();
   }
 
   List<double> _currentDisplaySamples() {
@@ -3065,27 +3202,25 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final fullSamples = _samples;
-    // 视窗：anchored on now（samples.first = 当前秒），保留前 visibleN 个桶。
-    final visibleN = fullSamples.isEmpty
-        ? 0
-        : math
-              .max(3, (fullSamples.length / _zoom).round())
-              .clamp(3, fullSamples.length);
-    final samples = fullSamples.isEmpty
-        ? fullSamples
-        : fullSamples.sublist(0, visibleN);
-    // 平滑显示样本：用从 _fromSamples → _toSamples 的 easeOutCubic 插值，
-    // 让 500ms 刷新节奏下曲线连续 Q 弹流动而非跳点。
+    final windowSeconds = _visibleWindowSeconds();
+    final displayWindow = _displaySamples
+        .take(math.min(windowSeconds, _displaySamples.length))
+        .toList(growable: false);
+    final rawWindow = _rawSamples
+        .take(math.min(windowSeconds, _rawSamples.length))
+        .toList(growable: false);
+    final samples = _chartData.samples;
     final displaySamples = _currentDisplaySamples();
     final visibleDisplay = displaySamples.isEmpty
         ? const <double>[]
-        : displaySamples.sublist(0, math.min(visibleN, displaySamples.length));
-    final peak = samples.isEmpty ? 0 : samples.reduce(math.max);
-    final current = samples.isEmpty ? 0 : samples.first;
+        : displaySamples;
+    final peak = _peak(displayWindow);
+    final current = displayWindow.isEmpty ? 0 : displayWindow.first;
+    final average = _average(displayWindow);
+    final rawPeak = _peak(rawWindow);
+    final rawCurrent = rawWindow.isEmpty ? 0 : rawWindow.first;
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
-    final windowSeconds = samples.length;
-    final headerWindow = isZh ? '$windowSeconds 秒窗' : '${windowSeconds}s win';
+    final headerWindow = _formatRangeLabel(context, windowSeconds);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -3102,8 +3237,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 6),
               Text(
                 isZh
-                    ? 'AI 侧字符吞吐 · $headerWindow'
-                    : 'AI-side Chars · $headerWindow',
+                    ? '节流后字符吞吐 · $headerWindow'
+                    : 'Throttled Chars · $headerWindow',
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurfaceVariant,
@@ -3112,8 +3247,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 6),
               Tooltip(
                 message: isZh
-                    ? '触控板双指捏合可放缩时间区间（${_kMinZoom.toInt()}–${_kMaxZoom.toInt()}x）'
-                    : 'Trackpad pinch to zoom the time range (${_kMinZoom.toInt()}\u2013${_kMaxZoom.toInt()}x)',
+                    ? '触控板双指捏合或 Ctrl+滚轮放缩时间区间'
+                    : 'Pinch or Ctrl+wheel to zoom the time range',
                 child: Icon(
                   Icons.pinch_rounded,
                   size: 12,
@@ -3123,8 +3258,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const Spacer(),
               Text(
                 isZh
-                    ? '当前 $current/s · 峰 $peak/s · 上限 ${widget.maxRate}/s'
-                    : 'now $current/s · peak $peak/s · cap ${widget.maxRate}/s',
+                    ? '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s'
+                    : 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.onSurface,
                   fontFeatures: const [FontFeature.tabularFigures()],
@@ -3133,8 +3268,34 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
             ],
           ),
           const SizedBox(height: 8),
+          SegmentedButton<int>(
+            showSelectedIcon: false,
+            segments: <ButtonSegment<int>>[
+              for (final seconds in _kRangeOptions)
+                ButtonSegment<int>(
+                  value: seconds,
+                  label: Text(_formatRangeLabel(context, seconds)),
+                ),
+            ],
+            selected: <int>{_rangeSeconds},
+            onSelectionChanged: (selection) {
+              final next = selection.isEmpty ? null : selection.first;
+              if (next != null) {
+                _updateWindow(rangeSeconds: next, zoom: 1.0);
+              }
+            },
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStatePropertyAll<TextStyle?>(
+                theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
-            height: 56,
+            height: 96,
             // 2026-05-18 — 鼠标悬停 / 触屏拖动时高亮当前桶并展示
             // tooltip：根据指针 X 计算 bucketIndex，setState 重绘
             // painter 让对应柱子 stroke 一圈高亮 + 头顶气泡显示
@@ -3159,13 +3320,12 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                     _zoomBase = _zoom;
                   },
                   onPointerPanZoomUpdate: (event) {
-                    if (fullSamples.isEmpty) return;
-                    final next = (_zoomBase * event.scale).clamp(
-                      _kMinZoom,
-                      _kMaxZoom,
-                    );
+                    if (_displaySamples.isEmpty) return;
+                    final next = (_zoomBase * event.scale)
+                        .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
+                        .toDouble();
                     if ((next - _zoom).abs() > 0.01) {
-                      setState(() => _zoom = next);
+                      _updateWindow(zoom: next, animate: false);
                     }
                   },
                   onPointerPanZoomEnd: (_) {
@@ -3176,12 +3336,11 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                     if (signal is PointerScrollEvent &&
                         HardwareKeyboard.instance.isControlPressed) {
                       final delta = -signal.scrollDelta.dy / 200.0;
-                      final next = (_zoom * (1.0 + delta)).clamp(
-                        _kMinZoom,
-                        _kMaxZoom,
-                      );
+                      final next = (_zoom * (1.0 + delta))
+                          .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
+                          .toDouble();
                       if ((next - _zoom).abs() > 0.01) {
-                        setState(() => _zoom = next);
+                        _updateWindow(zoom: next, animate: false);
                       }
                     }
                   },
@@ -3250,6 +3409,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                               hoveredIndex: _hoveredIndex!,
                               anchor: _hoverLocal!,
                               limitValue: widget.maxRate,
+                              bucketSeconds: _chartData.bucketSeconds,
                               isZh: isZh,
                             ),
                         ],
@@ -3260,10 +3420,30 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               },
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            isZh
+                ? '模型原始流入 当前 $rawCurrent/s · 峰 $rawPeak/s'
+                : 'Raw ingress now $rawCurrent/s · peak $rawPeak/s',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+class _ThroughputChartData {
+  const _ThroughputChartData({
+    required this.samples,
+    required this.bucketSeconds,
+  });
+
+  final List<int> samples;
+  final int bucketSeconds;
 }
 
 class _ThroughputBarsPainter extends CustomPainter {
@@ -3475,6 +3655,7 @@ class _ThroughputTooltip extends StatelessWidget {
     required this.hoveredIndex,
     required this.anchor,
     required this.limitValue,
+    required this.bucketSeconds,
     required this.isZh,
   });
 
@@ -3482,6 +3663,7 @@ class _ThroughputTooltip extends StatelessWidget {
   final int hoveredIndex;
   final Offset anchor;
   final int limitValue;
+  final int bucketSeconds;
   final bool isZh;
 
   @override
@@ -3492,14 +3674,17 @@ class _ThroughputTooltip extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final value = samples[hoveredIndex];
-    final ago = hoveredIndex; // bucket 0 = 当前秒，i = i 秒前
+    final agoStart = hoveredIndex * bucketSeconds;
+    final agoEnd = agoStart + bucketSeconds - 1;
     final overLimit = limitValue > 0 && value > limitValue;
     final color = overLimit ? scheme.error : scheme.primary;
     final bg = overLimit ? scheme.errorContainer : scheme.primaryContainer;
     final fg = overLimit ? scheme.onErrorContainer : scheme.onPrimaryContainer;
-    final timeLabel = ago == 0
+    final timeLabel = agoStart == 0 && bucketSeconds == 1
         ? (isZh ? '当前秒' : 'now')
-        : (isZh ? '${ago}s 前' : '${ago}s ago');
+        : bucketSeconds <= 1
+        ? (isZh ? '${agoStart}s 前' : '${agoStart}s ago')
+        : (isZh ? '$agoStart-${agoEnd}s 前' : '$agoStart-${agoEnd}s ago');
     return Positioned(
       left: anchor.dx,
       top: 0,

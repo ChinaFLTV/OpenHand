@@ -162,12 +162,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
   // 让 layout-change / composer 折叠 / 流式新消息触发的 jumpTo 抢到一帧，
   // 表现为视口被一股力反复拽回底部，呈现"抽搐/鬼畜"。给 scroll-end 加上
-  // 220 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
+  // 420 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
   // 滚动活动才视为用户真正松手。快速滑动时 ballistic 持续 → scroll-end
   // 推迟到松手才发，不依赖此宽限。
   Timer? _userScrollGraceTimer;
   static const Duration _userScrollEndGraceDuration = Duration(
-    milliseconds: 220,
+    milliseconds: 420,
   );
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
@@ -1751,7 +1751,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (userScrollEnded &&
         _autoFollowEnabled &&
         (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
-      _scheduleScrollToBottom(force: true, animated: true);
+      if (_autoFollowEnabled &&
+          _shouldAutoFollowMessages &&
+          !_userScrollInProgress) {
+        _scheduleScrollToBottom(force: true, animated: true);
+      }
     }
     // 2026-05-01: Resume gating tightened.
     //
@@ -4984,42 +4988,44 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _composerLayoutMeasureScheduled = false;
       if (!mounted) return;
-      _measureComposerHeightAndCompensate();
+      final compensation = _measureComposerHeightAndCompensate();
       if (_shouldDeferAutoFollowScheduling()) {
         return;
       }
-      _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+      _scheduleAutoFollowIfNeeded(
+        animated: compensation.grew && !compensation.compensated,
+        allowSettlePasses: false,
+      );
     });
   }
 
-  void _measureComposerHeightAndCompensate() {
+  ({bool compensated, bool grew}) _measureComposerHeightAndCompensate() {
     // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
     // scrollOffset，让上方消息无论用户是否在底部，都被 Q 弹自然地"压下来 /
     // 顶上去"，与 AnimatedSize 节奏（260ms easeInOutCubicEmphasized）严丝合缝。
-    //
-    // 2026-05-21：correctBy 虽不会派发滚动通知，但依然会改写 pixels。
-    // 当用户正在慢速滚轮/trackpad 读历史，或已暂停自动跟随时，任何底部
-    // composer 高度补偿都会变成一股反向拉力；此时让布局自然变化，避免
-    // 与用户手势抢占 ScrollPosition。
-    if (_userScrollInProgress || !_shouldAutoFollowMessages) {
-      return;
-    }
     final composerCtx = _composerPanelKey.currentContext;
     final renderObject = composerCtx?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) {
-      return;
+      return (compensated: false, grew: false);
     }
     final newHeight = renderObject.size.height;
     final prev = _lastComposerHeight;
     _lastComposerHeight = newHeight;
-    if (prev == null) return;
+    if (prev == null) return (compensated: false, grew: false);
     final delta = newHeight - prev;
     if (delta.abs() <= 0.5) {
-      return;
+      return (compensated: false, grew: false);
+    }
+    final grew = delta > 0;
+    // correctBy 虽不会派发滚动通知，但依然会改写 pixels。用户正在慢速
+    // 滚轮/trackpad 读历史，或已暂停自动跟随时，只刷新高度基线，不改写
+    // ScrollPosition，避免下一次恢复时用陈旧 prev 算出一记大幅反向拉扯。
+    if (_userScrollInProgress || !_shouldAutoFollowMessages) {
+      return (compensated: false, grew: grew);
     }
     final position = _activeMessageScrollPosition();
     if (position == null) {
-      return;
+      return (compensated: false, grew: grew);
     }
     // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
     // 视觉上往上挪同等距离 = 像是被新出现的 composer 顶上去；反之 composer
@@ -5027,6 +5033,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // _maybeAutoFollowSession / ballistic settle 兜底；越界量在动画下一帧
     // 自动回拉，体感上是 Q 弹自然的回弹而非硬截断。
     position.correctBy(delta);
+    return (compensated: true, grew: grew);
   }
 
   void _handleTranscriptLayoutChanged() {

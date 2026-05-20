@@ -20,15 +20,16 @@
 /// 兼容窗口结束后整体删除。
 part of '../ai_session_controller.dart';
 
-/// 30 秒滑动窗口吞吐采样器，每秒一个桶，桶 0 = 当前秒。
+/// 滑动窗口吞吐采样器，每秒一个桶，桶 0 = 当前秒。
 ///
 /// 用于两条口径：
 ///   * AI 原始流入侧：stream event 一到就记录，供弹窗实时显示模型侧速率；
 ///   * UI 放出侧：节流器真正放出 grapheme 时记录，供内部诊断保留。
 class _StreamThroughputSampler {
-  static const int bucketCount = 30;
+  static const int defaultWindowSeconds = 30;
+  static const int retentionSeconds = 6 * 60 * 60;
 
-  final List<int> _buckets = List<int>.filled(bucketCount, 0);
+  final List<int> _buckets = List<int>.filled(retentionSeconds, 0);
   int _bucketSecond = 0;
 
   void recordText(String value) {
@@ -54,9 +55,10 @@ class _StreamThroughputSampler {
     _buckets[0] = graphemes;
   }
 
-  List<int> snapshot() {
+  List<int> snapshot({int windowSeconds = defaultWindowSeconds}) {
     _advanceByWallClock();
-    return List<int>.unmodifiable(_buckets);
+    final window = windowSeconds.clamp(1, retentionSeconds).toInt();
+    return List<int>.unmodifiable(_buckets.take(window));
   }
 
   int get currentSecondValue => _buckets[0];
@@ -71,13 +73,13 @@ class _StreamThroughputSampler {
   }
 
   void _advanceBy(int delta) {
-    if (delta >= bucketCount) {
-      for (var i = 0; i < bucketCount; i++) {
+    if (delta >= retentionSeconds) {
+      for (var i = 0; i < retentionSeconds; i++) {
         _buckets[i] = 0;
       }
       return;
     }
-    for (var i = bucketCount - 1; i >= delta; i--) {
+    for (var i = retentionSeconds - 1; i >= delta; i--) {
       _buckets[i] = _buckets[i - delta];
     }
     for (var i = 0; i < delta; i++) {
@@ -266,8 +268,8 @@ class _StreamCharThrottle {
 
   /// 最近 30 秒的每秒 grapheme 放出快照，桶 0 =
   /// 当前秒，越往后越旧。返回不可变副本，UI 可直接喂给 painter。
-  List<int> throughputSnapshot() {
-    return _displayThroughput.snapshot();
+  List<int> throughputSnapshot({int windowSeconds = 30}) {
+    return _displayThroughput.snapshot(windowSeconds: windowSeconds);
   }
 
   /// 当前秒（桶 0）累计已放出的 grapheme 数。
