@@ -294,38 +294,47 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       const LinearProgressIndicator(),
                     ],
                     const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      runSpacing: 10,
-                      children: [
-                        if (hasExisting)
-                          OpenHandDialogActionButton.destructive(
-                            onPressed: _isSaving ? null : _handleClear,
-                            icon: Icons.delete_outline_rounded,
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        runAlignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          if (hasExisting)
+                            OpenHandDialogActionButton.destructive(
+                              onPressed: _isSaving ? null : _handleClear,
+                              icon: Icons.delete_outline_rounded,
+                              label: _localizedText(
+                                context,
+                                zh: '清空画像',
+                                en: 'Clear',
+                              ),
+                            ),
+                          OpenHandDialogActionButton.secondary(
+                            onPressed: _isSaving
+                                ? null
+                                : () => Navigator.of(context).pop(false),
                             label: _localizedText(
                               context,
-                              zh: '清空画像',
-                              en: 'Clear',
+                              zh: '取消',
+                              en: 'Cancel',
                             ),
                           ),
-                        OpenHandDialogActionButton.secondary(
-                          onPressed: _isSaving
-                              ? null
-                              : () => Navigator.of(context).pop(false),
-                          label: _localizedText(
-                            context,
-                            zh: '取消',
-                            en: 'Cancel',
+                          OpenHandDialogActionButton.primary(
+                            onPressed: _isSaving ? null : _handleSave,
+                            icon: Icons.save_outlined,
+                            busy: _isSaving,
+                            label: _localizedText(
+                              context,
+                              zh: '保存',
+                              en: 'Save',
+                            ),
                           ),
-                        ),
-                        OpenHandDialogActionButton.primary(
-                          onPressed: _isSaving ? null : _handleSave,
-                          icon: Icons.save_outlined,
-                          busy: _isSaving,
-                          label: _localizedText(context, zh: '保存', en: 'Save'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
