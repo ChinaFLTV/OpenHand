@@ -17,6 +17,7 @@ const DialogAnimationSettings _kNoDialogAnimationSettings =
 const DialogAnimationSettings _kFallbackDialogAnimationSettings =
     DialogAnimationSettings(
       entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.springScale,
       durationMs: 360,
     );
 

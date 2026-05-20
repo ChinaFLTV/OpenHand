@@ -4551,6 +4551,7 @@ DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
   } catch (_) {
     return const DialogAnimationSettings(
       entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.springScale,
       durationMs: 260,
     );
   }

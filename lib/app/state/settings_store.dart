@@ -938,7 +938,7 @@ class SettingsStore {
     final rawDialogAnim = json['dialog_animation_settings'];
     const dialogAnimationDefault = DialogAnimationSettings(
       entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.fadeScale,
+      exitStyle: DialogAnimationStyle.springScale,
       durationMs: 360,
     );
     var dialogAnimationSettings = dialogAnimationDefault;
@@ -950,14 +950,20 @@ class SettingsStore {
           dialogAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
           dialogAnimationSettings.durationMs == 320 &&
           dialogAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
-      if (isLegacyDialogDefault) {
+      final isPreviousDialogDefault =
+          dialogAnimationSettings.entranceStyle ==
+              DialogAnimationStyle.springScale &&
+          dialogAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
+          dialogAnimationSettings.durationMs == 360 &&
+          dialogAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      if (isLegacyDialogDefault || isPreviousDialogDefault) {
         dialogAnimationSettings = dialogAnimationDefault;
       }
     }
     final rawMenuAnim = json['menu_animation_settings'];
     const menuAnimationDefault = DialogAnimationSettings(
       entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.fadeScale,
+      exitStyle: DialogAnimationStyle.springScale,
       durationMs: 260,
     );
     var menuAnimationSettings = menuAnimationDefault;
@@ -969,7 +975,13 @@ class SettingsStore {
           menuAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
           menuAnimationSettings.durationMs == 320 &&
           menuAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
-      if (isLegacyMenuDefault) {
+      final isPreviousMenuDefault =
+          menuAnimationSettings.entranceStyle ==
+              DialogAnimationStyle.springScale &&
+          menuAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
+          menuAnimationSettings.durationMs == 260 &&
+          menuAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      if (isLegacyMenuDefault || isPreviousMenuDefault) {
         menuAnimationSettings = menuAnimationDefault;
       }
     }

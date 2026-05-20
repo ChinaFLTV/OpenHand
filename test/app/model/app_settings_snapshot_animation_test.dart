@@ -12,7 +12,7 @@ void main() {
     );
     expect(
       snapshot.dialogAnimationSettings.exitStyle,
-      DialogAnimationStyle.fadeScale,
+      DialogAnimationStyle.springScale,
     );
     expect(snapshot.dialogAnimationSettings.durationMs, 360);
 
@@ -22,7 +22,7 @@ void main() {
     );
     expect(
       snapshot.menuAnimationSettings.exitStyle,
-      DialogAnimationStyle.fadeScale,
+      DialogAnimationStyle.springScale,
     );
     expect(snapshot.menuAnimationSettings.durationMs, 260);
   });

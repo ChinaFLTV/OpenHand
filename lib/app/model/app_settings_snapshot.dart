@@ -125,13 +125,13 @@ class AppSettingsSnapshot {
       shortcutBindings: defaultOpenHandShortcutBindings(),
       dialogAnimationSettings: const DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
+        exitStyle: DialogAnimationStyle.springScale,
         durationMs: 360,
         curve: DialogAnimationCurve.easeOutCubic,
       ),
       menuAnimationSettings: const DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
+        exitStyle: DialogAnimationStyle.springScale,
         durationMs: 260,
         curve: DialogAnimationCurve.easeOutCubic,
       ),

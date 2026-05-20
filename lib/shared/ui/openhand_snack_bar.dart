@@ -19,6 +19,7 @@ class OpenHandSnackBar {
   static const DialogAnimationSettings _fallbackMotionSettings =
       DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.springScale,
         durationMs: 360,
       );
 
@@ -26,7 +27,10 @@ class OpenHandSnackBar {
       DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.none,
         exitStyle: DialogAnimationStyle.none,
+        durationMs: 0,
       );
+
+  static const Duration _maximumDisplayDuration = Duration(seconds: 8);
 
   static bool _motionDisabled(DialogAnimationSettings settings) {
     return settings.entranceStyle == DialogAnimationStyle.none &&
@@ -66,14 +70,16 @@ class OpenHandSnackBar {
     );
   }
 
-  static Widget _withDismissControl(Widget content) {
-    return Row(
-      children: [
-        Expanded(child: content),
-        const SizedBox(width: 8),
-        const _SnackBarCloseButton(),
-      ],
-    );
+  static Duration _boundedDuration(Duration duration) {
+    if (duration > _maximumDisplayDuration) return _maximumDisplayDuration;
+    return duration;
+  }
+
+  static Widget _withActionsAndDismissControl(
+    Widget content,
+    SnackBarAction? action,
+  ) {
+    return _OpenHandSnackBarContent(message: content, action: action);
   }
 
   static Widget _messageContent({
@@ -118,15 +124,18 @@ class OpenHandSnackBar {
     final content = snackBar.content;
     if (content is _OpenHandSnackBarMotion) return snackBar;
     final modernContent = _modernizeLegacyTextContent(context, content);
-    final wrappedContent = _withDismissControl(modernContent);
+    final wrappedContent = _withActionsAndDismissControl(
+      modernContent,
+      snackBar.action,
+    );
     return SnackBar(
       key: snackBar.key,
       content: _OpenHandSnackBarMotion(
         settings: motionSettings,
         child: wrappedContent,
       ),
-      action: snackBar.action,
-      duration: snackBar.duration,
+      duration: _boundedDuration(snackBar.duration),
+      persist: false,
       backgroundColor: snackBar.backgroundColor,
       behavior: snackBar.behavior,
       dismissDirection: snackBar.dismissDirection,
@@ -378,68 +387,58 @@ class _OpenHandSnackBarMessage extends StatelessWidget {
   }
 }
 
-class _OpenHandSnackBarMotion extends StatefulWidget {
+class _OpenHandSnackBarContent extends StatelessWidget {
+  const _OpenHandSnackBarContent({required this.message, required this.action});
+
+  final Widget message;
+  final SnackBarAction? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = this.action;
+    return Row(
+      children: [
+        Expanded(child: message),
+        if (action != null) ...[
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: action,
+          ),
+        ],
+        const SizedBox(width: 6),
+        const _SnackBarCloseButton(),
+      ],
+    );
+  }
+}
+
+class _OpenHandSnackBarMotion extends StatelessWidget {
   const _OpenHandSnackBarMotion({required this.settings, required this.child});
 
   final DialogAnimationSettings settings;
   final Widget child;
 
   @override
-  State<_OpenHandSnackBarMotion> createState() =>
-      _OpenHandSnackBarMotionState();
-}
-
-class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this);
-    _applyControllerDurations();
-  }
-
-  @override
-  void didUpdateWidget(covariant _OpenHandSnackBarMotion oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.settings != widget.settings) {
-      _applyControllerDurations();
-    }
-  }
-
-  void _applyControllerDurations() {
-    _controller.duration = widget.settings.duration;
-    _controller.reverseDuration = widget.settings.duration;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context) ||
-        OpenHandSnackBar._motionDisabled(widget.settings)) {
-      _controller.value = 1;
-    } else if (_controller.status == AnimationStatus.dismissed) {
-      _controller.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context) ||
-        OpenHandSnackBar._motionDisabled(widget.settings)) {
-      return widget.child;
+        OpenHandSnackBar._motionDisabled(settings)) {
+      return child;
     }
-    return buildAnimationStyleTransition(
-      animation: _controller,
-      settings: widget.settings,
-      child: widget.child,
+    final animation = context
+        .findAncestorWidgetOfExactType<SnackBar>()
+        ?.animation;
+    if (animation == null) return child;
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        return buildAnimationStyleTransition(
+          animation: animation,
+          settings: settings,
+          child: child!,
+        );
+      },
     );
   }
 }
