@@ -870,18 +870,16 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         // SnackBar 反馈与 undo/redo 节奏一致：2s。
         _showDataCleanupSnackBar(
           context,
-          SnackBar(
-            duration: const Duration(seconds: 2),
-            content: Text(
-              _localizedText(
-                context,
-                zh:
-                    '已清理 · 释放 ${gc.removed} 个 blob · '
-                    '${formatHumanBytes(gc.bytesFreed)}',
-                en:
-                    'Cleaned · ${gc.removed} blob(s) · '
-                    '${formatHumanBytes(gc.bytesFreed)} freed',
-              ),
+          OpenHandSnackBar.success(
+            context,
+            _localizedText(
+              context,
+              zh:
+                  '已清理 · 释放 ${gc.removed} 个 blob · '
+                  '${formatHumanBytes(gc.bytesFreed)}',
+              en:
+                  'Cleaned · ${gc.removed} blob(s) · '
+                  '${formatHumanBytes(gc.bytesFreed)} freed',
             ),
           ),
         );
@@ -908,9 +906,10 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     );
     _showDataCleanupSnackBar(
       context,
-      SnackBar(
+      OpenHandSnackBar.info(
+        context,
+        pendingText,
         duration: const Duration(seconds: 1),
-        content: Text(pendingText),
       ),
     );
     try {
@@ -921,14 +920,12 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       final bytes = utf8.encode(json).length;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          duration: const Duration(seconds: 2),
-          content: Text(
-            _localizedText(
-              context,
-              zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
-              en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          _localizedText(
+            context,
+            zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
+            en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
           ),
         ),
       );
@@ -937,14 +934,12 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!mounted) return;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text(
-            _localizedText(
-              context,
-              zh: '导出失败：$error',
-              en: 'Export failed: $error',
-            ),
+        OpenHandSnackBar.error(
+          context,
+          _localizedText(
+            context,
+            zh: '导出失败：$error',
+            en: 'Export failed: $error',
           ),
         ),
       );
@@ -958,10 +953,9 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     if (raw.trim().isEmpty) {
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
-          ),
+        OpenHandSnackBar.info(
+          context,
+          _localizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
         ),
       );
       return;
@@ -998,14 +992,12 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!mounted) return;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          duration: const Duration(seconds: 2),
-          content: Text(
-            _localizedText(
-              context,
-              zh: '已导入 $imported 条新记录',
-              en: 'Imported $imported new record(s)',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          _localizedText(
+            context,
+            zh: '已导入 $imported 条新记录',
+            en: 'Imported $imported new record(s)',
           ),
         ),
       );
@@ -1014,14 +1006,12 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!mounted) return;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text(
-            _localizedText(
-              context,
-              zh: '导入失败：$error',
-              en: 'Import failed: $error',
-            ),
+        OpenHandSnackBar.error(
+          context,
+          _localizedText(
+            context,
+            zh: '导入失败：$error',
+            en: 'Import failed: $error',
           ),
         ),
       );
@@ -1403,14 +1393,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     if (!mounted) return;
     _showDataCleanupSnackBar(
       context,
-      SnackBar(
-        duration: const Duration(seconds: 2),
-        content: Text(
-          _localizedText(
-            context,
-            zh: '已复制 ${_results.length} 条结果到剪贴板',
-            en: 'Copied ${_results.length} record(s) to clipboard',
-          ),
+      OpenHandSnackBar.success(
+        context,
+        _localizedText(
+          context,
+          zh: '已复制 ${_results.length} 条结果到剪贴板',
+          en: 'Copied ${_results.length} record(s) to clipboard',
         ),
       ),
     );
@@ -1428,14 +1416,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       if (!mounted) return;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          duration: const Duration(seconds: 2),
-          content: Text(
-            _localizedText(
-              context,
-              zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
-              en: 'Exported ${_results.length} filtered record(s) (with blobs)',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          _localizedText(
+            context,
+            zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
+            en: 'Exported ${_results.length} filtered record(s) (with blobs)',
           ),
         ),
       );
@@ -1444,14 +1430,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       if (!mounted) return;
       _showDataCleanupSnackBar(
         context,
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.errorContainer,
-          content: Text(
-            _localizedText(
-              context,
-              zh: '导出失败：$error',
-              en: 'Export failed: $error',
-            ),
+        OpenHandSnackBar.error(
+          context,
+          _localizedText(
+            context,
+            zh: '导出失败：$error',
+            en: 'Export failed: $error',
           ),
         ),
       );

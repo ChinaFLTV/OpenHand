@@ -584,8 +584,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     OpenHandSnackBar.show(
       context,
       messenger,
-      SnackBar(
-        content: Text(AppLocalizations.of(context)!.proxyTestConsoleCopied),
+      OpenHandSnackBar.success(
+        context,
+        AppLocalizations.of(context)!.proxyTestConsoleCopied,
         duration: const Duration(milliseconds: 1400),
       ),
     );
@@ -1003,8 +1004,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     OpenHandSnackBar.show(
       context,
       messenger,
-      SnackBar(
-        content: Text(AppLocalizations.of(context)!.proxyTestConsoleCopied),
+      OpenHandSnackBar.success(
+        context,
+        AppLocalizations.of(context)!.proxyTestConsoleCopied,
         duration: const Duration(milliseconds: 1200),
       ),
     );
