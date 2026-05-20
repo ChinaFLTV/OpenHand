@@ -713,6 +713,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
 
     return _AuditDialogSizeAnimator(
       child: AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         backgroundColor: colorScheme.surfaceContainerHighest,
         surfaceTintColor: Colors.transparent,
         titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
@@ -1309,6 +1311,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(AppLocalizations.of(dialogContext)!.auditDeleteMessage),
         content: Text(
           AppLocalizations.of(
@@ -1350,6 +1354,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
 
     return _AuditDialogSizeAnimator(
       child: AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         backgroundColor: colorScheme.surfaceContainerHighest,
         surfaceTintColor: Colors.transparent,
         titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),

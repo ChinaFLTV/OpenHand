@@ -320,6 +320,8 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         : (isZh ? '等待 CLI 交互...' : 'Waiting for CLI interaction...');
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '${_cli.name} 登录' : '${_cli.name} Login'),
       content: SizedBox(
         width: 860,

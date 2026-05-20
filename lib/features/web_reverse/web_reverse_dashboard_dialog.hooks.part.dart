@@ -178,6 +178,8 @@ class _HooksBodyState extends State<_HooksBody> {
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(loc?.webReverseHooksDeleteTitle ?? 'Delete hook?'),
         content: Text(
@@ -207,6 +209,8 @@ class _HooksBodyState extends State<_HooksBody> {
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(
           loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',

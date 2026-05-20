@@ -28,6 +28,8 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             final confirmed = await showAnimatedDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
+                actionsAlignment: MainAxisAlignment.center,
+                actionsOverflowAlignment: OverflowBarAlignment.center,
                 title: Text(isZh ? '恢复默认动画？' : 'Restore default animations?'),
                 content: Text(
                   isZh

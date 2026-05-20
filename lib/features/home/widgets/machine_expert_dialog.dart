@@ -687,6 +687,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: const Text('机器专家模板配置'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),

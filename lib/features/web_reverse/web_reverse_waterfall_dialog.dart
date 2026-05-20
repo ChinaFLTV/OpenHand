@@ -305,7 +305,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseWaterfallClose ?? 'Close',
@@ -752,7 +752,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OpenHandDialogActionButton.secondary(
                         label: loc?.webReverseWaterfallClose ?? 'Close',
@@ -791,6 +791,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         builder: (dctx) {
           final dloc = AppLocalizations.of(dctx);
           return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(dloc?.webReverseWaterfallLoadHarTitle ?? 'Load HAR'),
             content: Text(
               dloc?.webReverseWaterfallLoadHarPrompt(existing) ??

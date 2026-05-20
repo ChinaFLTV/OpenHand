@@ -151,7 +151,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(

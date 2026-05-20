@@ -123,6 +123,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         loc?.webReverseProfileResetTitle ??
             'Locks still present — reset profile?',

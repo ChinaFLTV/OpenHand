@@ -105,6 +105,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,
@@ -301,6 +303,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,

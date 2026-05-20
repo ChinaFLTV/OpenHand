@@ -1913,6 +1913,8 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
     });
     if (session == null) {
       return AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(
           _localizedText(context, zh: '上下文使用情况', en: 'Context usage'),
         ),
@@ -1976,6 +1978,8 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
     }
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Row(
         children: [
           Icon(Icons.speed_rounded, color: statusColor),

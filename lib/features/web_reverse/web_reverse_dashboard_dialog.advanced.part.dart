@@ -873,6 +873,8 @@ Future<void> _showExtraHeadersDialog(
   final ok = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '持久注入 Headers' : 'Persistent Headers'),
       content: SizedBox(
         width: 520,
@@ -948,6 +950,8 @@ Future<void> _showCdpPaletteDialog(
   await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
       content: SizedBox(
         width: 640,
@@ -1130,6 +1134,8 @@ Future<void> _showDiffPicker(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (_, setState) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '选择两个请求对比' : 'Pick two requests'),
         content: SizedBox(
           width: 640,
@@ -1311,6 +1317,8 @@ Future<void> _showServiceWorkersDialog(
   await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? 'Service Workers' : 'Service Workers'),
       content: SizedBox(
         width: 560,
@@ -1444,6 +1452,8 @@ Future<void> _toggleMitmproxyBridge(
     await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '未检测到 mitmdump' : 'mitmdump not found'),
         content: Text(
           isZh
@@ -1468,6 +1478,8 @@ Future<void> _toggleMitmproxyBridge(
   final go = await showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge'),
       content: Text(
         isZh
@@ -2443,6 +2455,8 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
   await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
       content: SizedBox(
         width: 760,
@@ -2756,7 +2770,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
@@ -2819,6 +2833,8 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
   Widget build(BuildContext context) {
     final isZh = widget.isZh;
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '编辑规则' : 'Edit rule'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),

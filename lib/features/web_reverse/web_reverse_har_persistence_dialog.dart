@@ -521,7 +521,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseHarClose ?? 'Close',

@@ -235,7 +235,7 @@ class _ReplDialogState extends State<_ReplDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Wrap(
-                alignment: WrapAlignment.end,
+                alignment: WrapAlignment.center,
                 spacing: 10,
                 runSpacing: 10,
                 children: [

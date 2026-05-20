@@ -181,7 +181,7 @@ class _HeapDialogState extends State<_HeapDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Wrap(
-                alignment: WrapAlignment.end,
+                alignment: WrapAlignment.center,
                 spacing: 10,
                 runSpacing: 10,
                 children: [

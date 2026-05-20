@@ -439,6 +439,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final mode = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '加载 HAR' : 'Load HAR'),
           content: Text(
             isZh
@@ -602,6 +604,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     await showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? 'HAR 对比' : 'HAR diff'),
         content: SizedBox(
           width: 880,

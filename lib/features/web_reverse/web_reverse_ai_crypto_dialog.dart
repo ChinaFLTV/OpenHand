@@ -650,7 +650,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseAiCryptoClose ?? 'Close',

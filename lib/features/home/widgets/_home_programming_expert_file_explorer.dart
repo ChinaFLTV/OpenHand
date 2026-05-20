@@ -502,6 +502,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           dialogContext,
         ).languageCode.startsWith('zh');
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '重命名' : 'Rename'),
           content: TextField(
             controller: controller,
@@ -551,6 +553,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '删除确认' : 'Confirm Delete'),
           content: Text(
             isZh
@@ -2786,7 +2790,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   const SizedBox(height: 14),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OpenHandDialogActionButton.secondary(
                         onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -2863,6 +2867,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           dialogContext,
         ).languageCode.startsWith('zh');
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '重命名符号' : 'Rename Symbol'),
           content: TextField(
             controller: controller,
@@ -8360,6 +8366,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             isZh ? '文件未保存' : 'Unsaved Changes',
             style: theme.textTheme.titleMedium,
@@ -9320,6 +9328,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(title),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460, maxHeight: 320),

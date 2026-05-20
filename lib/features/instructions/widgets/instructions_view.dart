@@ -235,6 +235,8 @@ class InstructionsView extends StatelessWidget {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(l10n.instructionDeleteConfirmTitle),
         content: Text('${l10n.instructionDeleteConfirmBody}\n\n${entry.name}'),
         actions: <Widget>[
@@ -952,7 +954,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     OpenHandDialogActionButton.secondary(
                       onPressed: _saving

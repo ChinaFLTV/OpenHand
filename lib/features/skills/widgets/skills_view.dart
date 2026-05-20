@@ -543,6 +543,8 @@ class _SkillsViewState extends State<SkillsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(l10n.skillsDeleteConfirmTitle),
           content: Text('${l10n.skillsDeleteConfirmBody}\n\n${skill.name}'),
           actions: [
@@ -873,7 +875,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                 ],
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: _isSaving
@@ -1333,7 +1335,7 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                 ],
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: _isSaving

@@ -358,6 +358,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     final text = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(loc?.webReverseMarkupAddTextTitle ?? 'Add text label'),
         content: TextField(
           controller: ctrl,

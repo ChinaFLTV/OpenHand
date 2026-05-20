@@ -576,7 +576,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
               // ── Close button ──
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),

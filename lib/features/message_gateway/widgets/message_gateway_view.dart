@@ -1078,7 +1078,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             ),
                     ),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OpenHandDialogActionButton.secondary(
                           label: '取消',
@@ -2760,6 +2760,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(title),
         content: Text(message),
         actions: [

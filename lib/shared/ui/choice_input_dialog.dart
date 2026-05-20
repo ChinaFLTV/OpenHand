@@ -304,7 +304,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
               ),
               const SizedBox(height: 14),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: cancel,

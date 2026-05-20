@@ -435,6 +435,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '确认登出' : 'Confirm Logout'),
         content: Text(
           isZh

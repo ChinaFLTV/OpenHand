@@ -2082,6 +2082,8 @@ class _SamplingTopList extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '调用栈：${row.label}' : 'Call stack: ${row.label}'),
           content: SizedBox(
             width: 720,
@@ -2464,6 +2466,8 @@ class _CookiesTableState extends State<_CookiesTable> {
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(widget.isZh ? '清空全部 cookie？' : 'Clear all cookies?'),
         content: Text(
           widget.isZh
@@ -2656,6 +2660,8 @@ Future<Map<String, Object?>?> _showCookieEditor(
   final result = await showAnimatedDialog<Map<String, Object?>>(
     context: context,
     builder: (_) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie',
       ),
@@ -2796,6 +2802,8 @@ class _StorageTableState extends State<_StorageTable> {
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(widget.isZh ? '清空全部条目？' : 'Clear all entries?'),
         content: Text(
           widget.isZh
@@ -2963,6 +2971,8 @@ Future<({String key, String value})?> _showStorageEditor(
   final result = await showAnimatedDialog<({String key, String value})>(
     context: context,
     builder: (_) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '存储条目' : 'Storage entry'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 380),
@@ -3079,6 +3089,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除数据库' : 'Delete database'),
         content: Text(
           isZh
@@ -3133,6 +3145,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '清空 Object Store' : 'Clear object store'),
         content: Text(
           isZh
@@ -3194,6 +3208,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除记录' : 'Delete record'),
         content: Text(
           isZh
@@ -3663,6 +3679,8 @@ class _ServiceWorkersTable extends StatelessWidget {
     final ok = await showAnimatedDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '注册 Service Worker' : 'Register SW'),
         content: TextField(
           controller: ctrl,
@@ -4250,6 +4268,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(
           kind == 'assertText'
               ? (isZh ? '断言：元素文本包含' : 'Assert: element text contains')
@@ -4643,6 +4663,8 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
     showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '事件详情' : 'Event detail'),
         content: SizedBox(
           width: 560,

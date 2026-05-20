@@ -268,6 +268,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
         content: SizedBox(
           width: 520,
@@ -522,6 +524,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? 'LSP Hover' : 'LSP Hover'),
         content: SizedBox(
           width: 560,
@@ -585,6 +589,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final newName = await showAnimatedDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '重命名为' : 'Rename to'),
         content: TextField(
           controller: ctrl,
@@ -623,6 +629,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     showAnimatedDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)'),
         content: SizedBox(
           width: 600,

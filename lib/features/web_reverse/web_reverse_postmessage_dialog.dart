@@ -500,7 +500,7 @@ class _PmDialogState extends State<_PmDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReversePmClose ?? 'Close',

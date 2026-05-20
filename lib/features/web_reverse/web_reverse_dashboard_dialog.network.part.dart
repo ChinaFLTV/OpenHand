@@ -734,6 +734,8 @@ class _NetworkRow extends StatelessWidget {
     await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(
           isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
         ),
@@ -785,6 +787,8 @@ class _NetworkRow extends StatelessWidget {
     await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(
           isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
         ),
@@ -995,6 +999,8 @@ class _PendingFetchBanner extends StatelessWidget {
       final action = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '处理拦截请求' : 'Handle intercepted request'),
           content: SizedBox(
             width: 520,
@@ -1056,6 +1062,8 @@ class _PendingFetchBanner extends StatelessWidget {
     final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),
         content: SizedBox(
           width: 560,
@@ -1176,6 +1184,8 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
   Widget build(BuildContext context) {
     final isZh = widget.isZh;
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '编辑后重放' : 'Edit & replay'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),

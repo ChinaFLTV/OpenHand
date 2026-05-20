@@ -479,6 +479,8 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     }
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Row(
         children: [
           Icon(Icons.download_rounded, size: 22, color: colorScheme.primary),

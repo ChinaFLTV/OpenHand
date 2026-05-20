@@ -118,6 +118,8 @@ class HooksView extends StatelessWidget {
     showAnimatedDialog(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除 Hook' : 'Delete Hook'),
         content: Text(
           isZh
@@ -378,6 +380,8 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final colorScheme = theme.colorScheme;
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         _isEditing
             ? (isZh ? '编辑 Hook' : 'Edit Hook')

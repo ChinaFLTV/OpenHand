@@ -10,6 +10,8 @@ class _ThreadTemplateDialog extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(l10n.threadTemplateDialogTitle),
       content: SizedBox(
         width: 1080,
@@ -408,6 +410,8 @@ Future<String?> _showEditQueuedMessageDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '编辑等待消息' : 'Edit Queued Message'),
           content: SizedBox(
             width: 480,

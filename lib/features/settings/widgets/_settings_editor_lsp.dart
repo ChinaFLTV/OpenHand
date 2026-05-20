@@ -621,6 +621,8 @@ extension on _SettingsViewState {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(
           _localizedText(
             dialogContext,
@@ -1628,6 +1630,8 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     }
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         isZh
             ? '配置 ${_editorLspLanguageLabel(context, widget.language)} 的工具链'
@@ -2032,6 +2036,8 @@ class _EditorLspInstallRunnerDialogState
     const terminalMuted = Color(0xFF8B949E);
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         isZh
             ? '安装 ${widget.backend.displayName}'

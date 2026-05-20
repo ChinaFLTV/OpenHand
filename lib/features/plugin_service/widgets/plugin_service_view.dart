@@ -517,6 +517,8 @@ class _PluginCard extends StatelessWidget {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?'),
         content: Text(
           isZh
@@ -562,6 +564,8 @@ class _PluginCard extends StatelessWidget {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?'),
         content: Text(
           isZh
@@ -620,6 +624,8 @@ class _PluginCard extends StatelessWidget {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?'),
         content: Text(
           isZh

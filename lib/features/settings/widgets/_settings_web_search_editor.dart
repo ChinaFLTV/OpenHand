@@ -114,6 +114,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,
@@ -323,6 +325,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,

@@ -1977,6 +1977,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除阶段' : 'Delete Phase'),
         content: Text(
           isZh
@@ -2004,6 +2006,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '确认中止' : 'Confirm Cancel'),
         content: Text(
           isZh

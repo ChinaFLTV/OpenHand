@@ -148,6 +148,8 @@ class CronsView extends StatelessWidget {
     showAnimatedDialog(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除定时任务' : 'Delete Cron Job'),
         content: Text(
           isZh
@@ -757,6 +759,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     );
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         _isEditing
             ? (isZh ? '编辑定时任务' : 'Edit Cron Job')
@@ -1953,6 +1957,8 @@ class _CronHistoryDialog extends StatelessWidget {
     final controller = context.read<CronsController>();
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Row(
         children: [
           Expanded(
@@ -2039,6 +2045,8 @@ class _CronHistoryDialog extends StatelessWidget {
     showAnimatedDialog(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '清空执行历史' : 'Clear Execution History'),
         content: Text(
           isZh
@@ -2066,6 +2074,8 @@ class _CronHistoryDialog extends StatelessWidget {
     final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(isZh ? '删除执行记录' : 'Delete Execution Record'),
         content: Text(isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?'),
         actions: [

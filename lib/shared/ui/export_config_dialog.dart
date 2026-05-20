@@ -217,6 +217,8 @@ class _AiSessionExportConfigDialogState
     final allKindsSelected =
         _kinds.length == AiSessionMessageKind.values.length;
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
       content: SizedBox(
         width: 480,
@@ -467,6 +469,8 @@ class _HardnessSessionExportConfigDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
       content: SizedBox(
         width: 460,

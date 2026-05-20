@@ -531,7 +531,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               OpenHandDialogActionButton.destructive(
                 label: loc?.webReverseReqBpDeleteBreakpoint ??

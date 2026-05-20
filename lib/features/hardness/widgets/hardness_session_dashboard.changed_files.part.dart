@@ -297,7 +297,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
               ),
               const SizedBox(height: 16),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: _computing

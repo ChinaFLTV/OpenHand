@@ -425,7 +425,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseGeoClear ?? 'Clear',

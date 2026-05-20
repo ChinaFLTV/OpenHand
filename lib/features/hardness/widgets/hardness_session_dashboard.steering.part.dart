@@ -591,6 +591,8 @@ class _HeSteeringFileEditorDialogState
     final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(widget.isZh ? '放弃更改？' : 'Discard changes?'),
         content: Text(
           widget.isZh

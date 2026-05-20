@@ -2001,7 +2001,7 @@ class _FileMutationHistoryInspectorDialogState
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.primary(
                     onPressed: () => Navigator.of(context).maybePop(),

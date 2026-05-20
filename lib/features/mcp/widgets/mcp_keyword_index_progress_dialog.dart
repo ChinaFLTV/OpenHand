@@ -150,6 +150,8 @@ class _McpKeywordIndexProgressDialogState
     }
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(l10n.mcpKeywordIndexBuildTitle),
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 360, maxWidth: 460),

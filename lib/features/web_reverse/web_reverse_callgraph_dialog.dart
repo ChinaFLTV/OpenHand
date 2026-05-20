@@ -529,7 +529,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseCallgraphClose ?? 'Close',

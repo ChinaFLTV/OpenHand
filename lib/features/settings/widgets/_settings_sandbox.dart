@@ -854,6 +854,8 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         widget.initialRule == null
             ? _localizedText(context, zh: '新增文件规则', en: 'Add File Rule')
@@ -1009,6 +1011,8 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(widget.title),
       content: SizedBox(
         width: 560,

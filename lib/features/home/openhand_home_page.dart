@@ -896,6 +896,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context: context,
           barrierDismissible: false,
           builder: (dialogContext) => AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(
               _localizedText(
                 dialogContext,
@@ -3820,6 +3822,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (context) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
           ),
@@ -5316,6 +5320,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(context, zh: 'Slash Commands', en: 'Slash Commands'),
           ),
@@ -5351,6 +5357,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(_localizedText(context, zh: '反馈信息', en: 'Feedback Info')),
           content: SelectableText(
             _localizedText(
@@ -5394,6 +5402,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(
               _localizedText(dialogContext, zh: '重命名线程', en: 'Rename Thread'),
             ),
@@ -5600,6 +5610,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(dialogContext, zh: '删除线程', en: 'Delete Thread'),
           ),
@@ -5657,6 +5669,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(
               _localizedText(
                 dialogContext,
@@ -5714,6 +5728,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,
@@ -6093,6 +6109,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(dialogContext, zh: '删除消息', en: 'Delete Message'),
           ),
@@ -6141,6 +6159,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(
             _localizedText(
               dialogContext,

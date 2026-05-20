@@ -873,7 +873,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                 // ── Actions ──
                 const SizedBox(height: 20),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: _isSaving

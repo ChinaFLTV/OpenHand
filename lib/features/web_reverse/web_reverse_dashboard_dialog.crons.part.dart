@@ -224,6 +224,8 @@ class _CronsBodyState extends State<_CronsBody> {
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(isZh ? '删除任务？' : 'Delete cron?'),
         content: Text(isZh ? '将立即取消定时并不可撤销。' : 'Timer will be cancelled.'),
@@ -250,6 +252,8 @@ class _CronsBodyState extends State<_CronsBody> {
     showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?'),
         actions: [

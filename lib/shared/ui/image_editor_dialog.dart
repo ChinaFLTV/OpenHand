@@ -1672,7 +1672,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             ).toColor();
             return AlertDialog(
               title: Text(l10n.imageEditorWatermarkColorLabel),
-              actionsAlignment: MainAxisAlignment.end,
+              actionsAlignment: MainAxisAlignment.center,
+              actionsOverflowAlignment: OverflowBarAlignment.center,
               actionsOverflowButtonSpacing: 12,
               actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               content: SizedBox(

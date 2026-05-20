@@ -486,6 +486,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final l10n = AppLocalizations.of(context)!;
     final groups = _groupByServer(_names);
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Row(
         children: [
           Expanded(child: Text(l10n.snackToolSearchLoadedDialogTitle)),
@@ -1076,6 +1078,8 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(l10n.toolSearchLoadedHistoryImportDialogTitle),
       content: SizedBox(
         width: 520,

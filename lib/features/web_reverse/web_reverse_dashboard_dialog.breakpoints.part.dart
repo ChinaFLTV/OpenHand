@@ -112,6 +112,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(isZh ? '编辑条件断点' : 'Edit conditional breakpoint'),
           content: SizedBox(
             width: 480,

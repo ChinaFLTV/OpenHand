@@ -386,7 +386,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: loc?.webReverseWebauthnClose ?? 'Close',

@@ -678,6 +678,8 @@ class _ProgrammingExpertProjectDialogState
             _lspController.text.trim().isNotEmpty);
 
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(isZh ? '编程专家配置' : 'Programming Expert Configuration'),
       content: SizedBox(
         width: 620,

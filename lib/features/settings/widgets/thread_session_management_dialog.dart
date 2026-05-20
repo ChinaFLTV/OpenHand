@@ -226,6 +226,8 @@ class _ThreadSessionManagementDialogState
         builder: (dialogContext) {
           final dl10n = AppLocalizations.of(dialogContext)!;
           return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(dl10n.tsmRenameThreadTitle),
             content: TextField(
               controller: titleController,
@@ -277,6 +279,8 @@ class _ThreadSessionManagementDialogState
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: Text(AppLocalizations.of(dialogContext)!.tsmDeleteThreadTitle),
         content: Text(session.title),
         actions: [
@@ -304,6 +308,8 @@ class _ThreadSessionManagementDialogState
       builder: (dialogContext) {
         final dl10n = AppLocalizations.of(dialogContext)!;
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(dl10n.tsmDeleteSelectedTitle),
           content: Text(dl10n.tsmDeleteSelectedConfirm(ids.length)),
           actions: [
@@ -1403,7 +1409,7 @@ class _ThreadSessionManagementDialogState
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),

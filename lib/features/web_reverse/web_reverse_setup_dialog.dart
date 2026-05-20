@@ -306,7 +306,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),

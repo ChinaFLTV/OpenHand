@@ -848,7 +848,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
               ),
               const SizedBox(height: 22),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(false),

@@ -231,7 +231,7 @@ class _StorageDialogState extends State<_StorageDialog>
                   ]),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OpenHandDialogActionButton.secondary(
                         label: loc?.webReverseStorageCancel ?? 'Cancel',
@@ -331,7 +331,7 @@ class _StorageDialogState extends State<_StorageDialog>
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OpenHandDialogActionButton.secondary(
                         label: loc?.webReverseStorageCancel ?? 'Cancel',

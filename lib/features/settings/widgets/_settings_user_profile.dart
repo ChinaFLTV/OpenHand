@@ -295,7 +295,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                     ],
                     const SizedBox(height: 16),
                     Wrap(
-                      alignment: WrapAlignment.end,
+                      alignment: WrapAlignment.center,
                       spacing: 12,
                       runSpacing: 10,
                       children: [

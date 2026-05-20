@@ -3109,6 +3109,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           icon: const Icon(Icons.restart_alt_rounded),
           title: Text(
             AppLocalizations.of(context)!.settingsResetBuiltInToolConfigs,
@@ -3144,6 +3146,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           icon: const Icon(Icons.delete_outline_rounded),
           title: Text(AppLocalizations.of(context)!.settingsDeleteCustomTool),
           content: Text(
@@ -4888,6 +4892,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(AppLocalizations.of(context)!.settingsDeleteDenyRule),
           content: Text(rule.pattern),
           actions: [
@@ -4971,6 +4977,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(AppLocalizations.of(context)!.settingsDeleteAllowRule),
           content: Text(rule.pattern),
           actions: [
@@ -5112,6 +5120,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(l10n.mcpStdioCacheResetConfirmTitle),
           content: Text(l10n.mcpStdioCacheResetConfirmBody),
           actions: <Widget>[
@@ -5248,6 +5258,8 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(l10n.aiModelDeleteConfirmTitle),
           content: Text(
             '${l10n.aiModelDeleteConfirmBody}\n\n${model.providerLabel}',
@@ -6300,7 +6312,7 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(false),

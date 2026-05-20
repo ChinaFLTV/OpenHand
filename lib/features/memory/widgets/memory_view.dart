@@ -368,6 +368,8 @@ class MemoryView extends StatelessWidget {
       builder: (dialogContext) {
         if (isProfile) {
           return AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
             title: Text(l10n.memoryDeleteConfirmTitle),
             content: const Text(
               '用户画像将被删除。Self-learning will recreate this on next cycle.',
@@ -385,6 +387,8 @@ class MemoryView extends StatelessWidget {
           );
         }
         return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
           title: Text(l10n.memoryDeleteConfirmTitle),
           content: Text(l10n.memoryDeleteConfirmBody),
           actions: [
@@ -663,7 +667,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                 ],
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: _isSaving

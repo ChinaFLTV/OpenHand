@@ -634,7 +634,7 @@ class _DataCleanupConfirmDialog extends StatelessWidget {
               Text(body, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 24),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
                     label: cancelLabel,

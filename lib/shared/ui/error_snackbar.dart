@@ -78,6 +78,8 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
     builder: (dialogContext) {
       final theme = Theme.of(dialogContext);
       return AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
         title: const Text('错误详情 / Error details'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),

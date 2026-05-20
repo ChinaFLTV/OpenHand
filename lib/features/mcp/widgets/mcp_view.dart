@@ -431,6 +431,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
+              actionsAlignment: MainAxisAlignment.center,
+              actionsOverflowAlignment: OverflowBarAlignment.center,
               title: Text(l10n.mcpDeleteConfirmTitle),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1045,7 +1047,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                 ],
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: _isSaving

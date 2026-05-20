@@ -269,7 +269,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OpenHandDialogActionButton.secondary(
                         label: loc?.webReverseAccountSnapClose ?? 'Close',

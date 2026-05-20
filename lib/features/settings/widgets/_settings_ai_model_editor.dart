@@ -978,7 +978,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                     ],
                     const SizedBox(height: 16),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OpenHandDialogActionButton.secondary(
                           onPressed: _isSaving
@@ -1313,6 +1313,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
         style: theme.textTheme.titleMedium,
