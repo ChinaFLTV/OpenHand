@@ -171,7 +171,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             height: 32,
             child: Tooltip(
               message: isZh ? '复制为...' : 'Copy as...',
-              child: PopupMenuButton<String>(
+              child: AnimatedPopupMenuButton<String>(
                 icon: const Icon(Icons.content_copy_rounded, size: 18),
                 padding: EdgeInsets.zero,
                 splashRadius: 18,

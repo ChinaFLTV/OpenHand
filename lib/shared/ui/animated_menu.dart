@@ -17,6 +17,7 @@ Future<T?> showAnimatedMenu<T>({
   double? elevation,
   Color? color,
   ShapeBorder? shape,
+  BoxConstraints? constraints,
   DialogAnimationSettings? settings,
   bool useRootNavigator = false,
 }) {
@@ -33,6 +34,7 @@ Future<T?> showAnimatedMenu<T>({
       elevation: elevation,
       color: color,
       shape: shape,
+      constraints: constraints,
       useRootNavigator: useRootNavigator,
     );
   }
@@ -46,6 +48,7 @@ Future<T?> showAnimatedMenu<T>({
       elevation: elevation,
       color: color,
       shape: shape,
+      constraints: constraints,
       animationSettings: effectiveSettings,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       capturedThemes: InheritedTheme.capture(
@@ -71,6 +74,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     this.elevation,
     this.color,
     this.shape,
+    this.constraints,
   }) : itemSizes = List<Size?>.filled(items.length, null);
 
   final RelativeRect position;
@@ -79,6 +83,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   final double? elevation;
   final Color? color;
   final ShapeBorder? shape;
+  final BoxConstraints? constraints;
   final DialogAnimationSettings animationSettings;
   final CapturedThemes capturedThemes;
   final List<Size?> itemSizes;
@@ -169,7 +174,9 @@ class _PopupMenuContent<T> extends StatelessWidget {
     }
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+      constraints:
+          route.constraints ??
+          const BoxConstraints(minWidth: 112, maxWidth: 280),
       child: Material(
         type: MaterialType.card,
         elevation:
@@ -443,6 +450,8 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
     this.elevation,
     this.color,
     this.shape,
+    this.initialValue,
+    this.position = PopupMenuPosition.over,
     this.icon,
     this.iconSize,
     this.offset = Offset.zero,
@@ -451,6 +460,8 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
     this.child,
     this.enabled = true,
     this.constraints,
+    this.buttonConstraints,
+    this.useRootNavigator = false,
   });
 
   final PopupMenuItemBuilder<T> itemBuilder;
@@ -460,6 +471,8 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
   final double? elevation;
   final Color? color;
   final ShapeBorder? shape;
+  final T? initialValue;
+  final PopupMenuPosition position;
   final Widget? icon;
   final double? iconSize;
   final Offset offset;
@@ -468,6 +481,8 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
   final Widget? child;
   final bool enabled;
   final BoxConstraints? constraints;
+  final BoxConstraints? buttonConstraints;
+  final bool useRootNavigator;
 
   @override
   State<AnimatedPopupMenuButton<T>> createState() =>
@@ -479,16 +494,38 @@ class _AnimatedPopupMenuButtonState<T>
   void _showMenu() {
     final button = context.findRenderObject()! as RenderBox;
     final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+        Navigator.of(
+              context,
+              rootNavigator: widget.useRootNavigator,
+            ).overlay!.context.findRenderObject()!
+            as RenderBox;
     final offset = widget.offset;
+    final anchorRect = widget.position == PopupMenuPosition.under
+        ? Rect.fromLTWH(
+            button
+                .localToGlobal(
+                  Offset(offset.dx, button.size.height + offset.dy),
+                  ancestor: overlay,
+                )
+                .dx,
+            button
+                .localToGlobal(
+                  Offset(offset.dx, button.size.height + offset.dy),
+                  ancestor: overlay,
+                )
+                .dy,
+            button.size.width,
+            0,
+          )
+        : Rect.fromPoints(
+            button.localToGlobal(offset, ancestor: overlay),
+            button.localToGlobal(
+              button.size.bottomRight(Offset.zero) + offset,
+              ancestor: overlay,
+            ),
+          );
     final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(offset, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero) + offset,
-          ancestor: overlay,
-        ),
-      ),
+      anchorRect,
       Offset.zero & overlay.size,
     );
 
@@ -499,9 +536,12 @@ class _AnimatedPopupMenuButtonState<T>
       context: context,
       position: position,
       items: items,
+      initialValue: widget.initialValue,
       elevation: widget.elevation,
       color: widget.color,
       shape: widget.shape,
+      constraints: widget.constraints,
+      useRootNavigator: widget.useRootNavigator,
     ).then((value) {
       if (!mounted) return;
       if (value == null) {
@@ -515,14 +555,14 @@ class _AnimatedPopupMenuButtonState<T>
   @override
   Widget build(BuildContext context) {
     if (widget.child != null) {
-      return Tooltip(
-        message: widget.tooltip ?? '',
-        child: InkWell(
-          onTap: widget.enabled ? _showMenu : null,
-          borderRadius: BorderRadius.circular(4),
-          child: widget.child,
-        ),
+      final button = InkWell(
+        onTap: widget.enabled ? _showMenu : null,
+        borderRadius: BorderRadius.circular(4),
+        child: widget.child,
       );
+      final tooltip = widget.tooltip;
+      if (tooltip == null || tooltip.isEmpty) return button;
+      return Tooltip(message: tooltip, child: button);
     }
     return IconButton(
       icon: widget.icon ?? const Icon(Icons.more_vert),
@@ -530,7 +570,7 @@ class _AnimatedPopupMenuButtonState<T>
       tooltip: widget.tooltip,
       padding: widget.padding,
       splashRadius: widget.splashRadius,
-      constraints: widget.constraints,
+      constraints: widget.buttonConstraints,
       onPressed: widget.enabled ? _showMenu : null,
     );
   }

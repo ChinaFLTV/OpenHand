@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/export_config_dialog.dart';
 import '../../../shared/ui/export_progress_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
@@ -604,7 +605,7 @@ class _ThreadSessionManagementDialogState
     final isPinned = flag?.pinned ?? false;
     final isArchived = flag?.archived ?? false;
     final l10n = AppLocalizations.of(context)!;
-    final selected = await showMenu<_SessionRowAction>(
+    final selected = await showAnimatedMenu<_SessionRowAction>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),

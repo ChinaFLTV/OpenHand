@@ -475,7 +475,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   ) async {
     final col = _estimateColumn(details.localPosition.dx, text);
     final pos = details.globalPosition;
-    final selected = await showMenu<String>(
+    final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1),
       items: [
@@ -977,7 +977,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   /// 切到原始源视图。N = sources 数。
   Widget _buildSourceMapChip(ThemeData theme, ColorScheme cs, bool isZh) {
     final sm = _sourceMap!;
-    return PopupMenuButton<int>(
+    return AnimatedPopupMenuButton<int>(
       tooltip: isZh ? '切到原始源' : 'Pick original source',
       position: PopupMenuPosition.under,
       constraints: const BoxConstraints(minWidth: 300, maxWidth: 560),

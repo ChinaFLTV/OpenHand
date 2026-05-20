@@ -12,6 +12,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -1126,7 +1127,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                     ),
                   ),
-                  PopupMenuButton<_NotificationTestScenario>(
+                  AnimatedPopupMenuButton<_NotificationTestScenario>(
                     tooltip: isZh ? '测试通知' : 'Test notification',
                     onSelected: _testNotification,
                     itemBuilder: (context) => [

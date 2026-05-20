@@ -1249,7 +1249,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       overlay.size.width - globalPos.dx,
       overlay.size.height - globalPos.dy,
     );
-    final selected = await showMenu<String>(
+    final selected = await showAnimatedMenu<String>(
       context: context,
       position: position,
       items: [
@@ -1922,7 +1922,7 @@ class _ZoomMenu extends StatelessWidget {
       message: isZh ? '页面缩放' : 'Page zoom',
       child: SizedBox(
         height: _kToolbarHeight,
-        child: PopupMenuButton<double>(
+        child: AnimatedPopupMenuButton<double>(
           enabled: enabled,
           tooltip: '',
           onSelected: onChanged,
@@ -2570,7 +2570,7 @@ class _ResolutionMenu extends StatelessWidget {
       message: isZh ? '画面分辨率' : 'Frame resolution',
       child: SizedBox(
         height: _kToolbarHeight,
-        child: PopupMenuButton<({int? w, int? h})>(
+        child: AnimatedPopupMenuButton<({int? w, int? h})>(
           enabled: enabled,
           tooltip: '',
           onSelected: (p) {
@@ -2684,7 +2684,7 @@ class _DevicePresetMenu extends StatelessWidget {
       message: isZh ? '设备模拟' : 'Device emulation',
       child: SizedBox(
         height: _kToolbarHeight,
-        child: PopupMenuButton<WebReverseDevicePreset?>(
+        child: AnimatedPopupMenuButton<WebReverseDevicePreset?>(
           enabled: enabled,
           tooltip: '',
           onSelected: onChanged,
@@ -2759,7 +2759,7 @@ class _HistoryDropdownIcon extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final visible = history.reversed.take(30).toList(growable: false);
-    return PopupMenuButton<String>(
+    return AnimatedPopupMenuButton<String>(
       enabled: enabled && visible.isNotEmpty,
       tooltip: isZh ? '导航历史' : 'Navigation history',
       onSelected: onPick,

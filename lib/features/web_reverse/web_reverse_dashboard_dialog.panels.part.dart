@@ -4377,7 +4377,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 label: Text(isZh ? '导出 JSON' : 'Export'),
               ),
               const SizedBox(width: 8),
-              PopupMenuButton<String>(
+              AnimatedPopupMenuButton<String>(
                 tooltip: isZh ? '导出为代码' : 'Export as code',
                 onSelected: (k) => _exportAsCode(k),
                 itemBuilder: (_) => [
@@ -4405,7 +4405,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 label: Text(isZh ? '导入 JSON' : 'Import'),
               ),
               const SizedBox(width: 8),
-              PopupMenuButton<String>(
+              AnimatedPopupMenuButton<String>(
                 tooltip: isZh ? '添加断言' : 'Add assertion',
                 onSelected: (kind) => _addAssertion(kind),
                 itemBuilder: (_) => [

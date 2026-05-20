@@ -950,7 +950,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return PopupMenuButton<_Tab>(
+    return AnimatedPopupMenuButton<_Tab>(
       tooltip: isZh ? '切换面板' : 'Switch panel',
       position: PopupMenuPosition.under,
       onSelected: onChanged,
@@ -1398,7 +1398,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
     final cs = theme.colorScheme;
     return SizedBox(
       height: _kToolbarHeight,
-      child: PopupMenuButton<WebReverseThrottlePreset>(
+      child: AnimatedPopupMenuButton<WebReverseThrottlePreset>(
         tooltip: isZh ? '网络节流' : 'Throttling',
         initialValue: value,
         onSelected: onChanged,

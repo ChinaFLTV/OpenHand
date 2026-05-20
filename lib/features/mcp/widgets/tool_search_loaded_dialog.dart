@@ -10,6 +10,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -647,7 +648,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               ),
             ),
             const SizedBox(width: 8),
-            PopupMenuButton<_HistoryExportAction>(
+            AnimatedPopupMenuButton<_HistoryExportAction>(
               tooltip: l10n.snackToolSearchLoadedHistoryExportTooltip,
               icon: const Icon(Icons.ios_share_rounded, size: 18),
               padding: EdgeInsets.zero,

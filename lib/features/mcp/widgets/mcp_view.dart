@@ -564,26 +564,18 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   /// 弹出半屏 ModalBottomSheet 展示该服务的最近 30 条探测历史，用 Selector 监听
   /// controller 的健康表，使得 reconnect / 自动健康检查刷新历史时抽屉内容会自动跟新。
   void _showHealthHistorySheet(BuildContext context, String serverName) {
-    showModalBottomSheet<void>(
+    showAnimatedModalSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       builder: (sheetContext) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
-              minHeight: 240,
-            ),
-            child: Selector<McpController, McpServerHealth>(
-              selector: (_, controller) =>
-                  controller.healthStatusFor(serverName),
-              builder: (context, health, _) => _McpHealthHistorySheet(
-                serverName: serverName,
-                health: health,
-              ),
-            ),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
+            minHeight: 240,
+          ),
+          child: Selector<McpController, McpServerHealth>(
+            selector: (_, controller) => controller.healthStatusFor(serverName),
+            builder: (context, health, _) =>
+                _McpHealthHistorySheet(serverName: serverName, health: health),
           ),
         );
       },
@@ -593,41 +585,36 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   /// 服务详情抽屉：基于 healthStatus / toolCatalog 聚合可读统计（成功率、平均耗时、
   /// 最近成功 / 失败时间、Tool 数量），同时展示 server 的关键配置摘要。仅读，不可编辑。
   void _showServerDetailsSheet(BuildContext context, McpServer server) {
-    showModalBottomSheet<void>(
+    showAnimatedModalSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       builder: (sheetContext) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.86,
-              minHeight: 320,
-            ),
-            child:
-                Selector<
-                  McpController,
-                  ({McpServerHealth health, McpToolCatalog catalog})
-                >(
-                  selector: (_, controller) => (
-                    health: controller.healthStatusFor(server.name),
-                    catalog: controller.toolCatalogFor(server.name),
-                  ),
-                  builder: (context, snapshot, _) => _McpServerDetailsSheet(
-                    server: server,
-                    health: snapshot.health,
-                    toolCatalog: snapshot.catalog,
-                    onEdit: () {
-                      Navigator.of(sheetContext).pop();
-                      if (!context.mounted) {
-                        return;
-                      }
-                      _showServerDialog(context, initialServer: server);
-                    },
-                  ),
-                ),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.86,
+            minHeight: 320,
           ),
+          child:
+              Selector<
+                McpController,
+                ({McpServerHealth health, McpToolCatalog catalog})
+              >(
+                selector: (_, controller) => (
+                  health: controller.healthStatusFor(server.name),
+                  catalog: controller.toolCatalogFor(server.name),
+                ),
+                builder: (context, snapshot, _) => _McpServerDetailsSheet(
+                  server: server,
+                  health: snapshot.health,
+                  toolCatalog: snapshot.catalog,
+                  onEdit: () {
+                    Navigator.of(sheetContext).pop();
+                    if (!context.mounted) {
+                      return;
+                    }
+                    _showServerDialog(context, initialServer: server);
+                  },
+                ),
+              ),
         );
       },
     );
@@ -648,7 +635,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       ),
       Offset.zero & overlay.size,
     );
-    final selected = await showMenu<_McpHistoryExportFormat>(
+    final selected = await showAnimatedMenu<_McpHistoryExportFormat>(
       context: context,
       position: position,
       items: [
@@ -2982,7 +2969,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
                 ),
               ),
               if (probes.isNotEmpty)
-                PopupMenuButton<_McpHistoryExportFormat>(
+                AnimatedPopupMenuButton<_McpHistoryExportFormat>(
                   tooltip: _localizedText(
                     context,
                     zh: '复制探测历史',

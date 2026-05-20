@@ -869,7 +869,7 @@ class _FileMutationCardRow extends StatelessWidget {
         position ??
         (box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero);
     final l10n = AppLocalizations.of(context)!;
-    final selected = await showMenu<String>(
+    final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(origin.dx, origin.dy, 0, 0),
@@ -2214,12 +2214,13 @@ class _InspectorEntryRow extends StatelessWidget {
             as RenderBox?;
     if (overlay == null) return;
     final isZh = Localizations.localeOf(context).languageCode == 'zh';
-    final selected = await showMenu<String>(
+    final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(globalPos.dx, globalPos.dy, 0, 0),
         Offset.zero & overlay.size,
       ),
+      useRootNavigator: true,
       items: <PopupMenuEntry<String>>[
         PopupMenuItem<String>(
           value: 'copy_json',

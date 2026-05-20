@@ -37,10 +37,12 @@ Future<T?> showAnimatedDialog<T>({
   Color? barrierColor,
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
 }) {
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
     dismissOnEscape: dismissOnEscape,
+    alignment: alignment,
   );
   final effectiveSettings =
       settings ?? _resolveDialogAnimationSettings(context);
@@ -107,6 +109,7 @@ Future<T?> showAnimatedThemedDialog<T>({
   Color? barrierColor,
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
 }) {
   return showAnimatedDialog<T>(
     context: context,
@@ -117,13 +120,82 @@ Future<T?> showAnimatedThemedDialog<T>({
     barrierColor: barrierColor,
     useRootNavigator: useRootNavigator,
     routeSettings: routeSettings,
+    alignment: alignment,
     builder: builder,
+  );
+}
+
+Future<T?> showAnimatedModalSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+  RouteSettings? routeSettings,
+  bool showDragHandle = true,
+  Color? backgroundColor,
+  ShapeBorder? shape,
+  EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(8, 0, 8, 8),
+}) {
+  return showAnimatedDialog<T>(
+    context: context,
+    settings: settings,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    alignment: Alignment.bottomCenter,
+    builder: (sheetContext) {
+      final theme = Theme.of(sheetContext);
+      final colorScheme = theme.colorScheme;
+      final size = MediaQuery.sizeOf(sheetContext);
+      final viewportWidth = size.width * 0.95;
+      final sheetWidth = viewportWidth > 980 ? 980.0 : viewportWidth;
+      final sheetShape =
+          shape ??
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28));
+      final content = builder(sheetContext);
+      final body = showDragHandle
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _ModalSheetDragHandle(),
+                Flexible(child: content),
+              ],
+            )
+          : content;
+
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: margin,
+          child: ConstrainedBox(
+            constraints: BoxConstraints.tightFor(width: sheetWidth),
+            child: Material(
+              type: MaterialType.card,
+              elevation: 8,
+              color: backgroundColor ?? colorScheme.surfaceContainerHigh,
+              surfaceTintColor: colorScheme.surfaceTint,
+              shape: sheetShape,
+              clipBehavior: Clip.antiAlias,
+              child: body,
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 
 WidgetBuilder _wrapDialogBuilderWithTheme(
   WidgetBuilder builder, {
   required bool dismissOnEscape,
+  required AlignmentGeometry alignment,
 }) {
   return (dialogContext) {
     final theme = Theme.of(dialogContext);
@@ -143,7 +215,7 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     // 视口收缩：保证任何子弹窗的最大尺寸不超过当前屏幕的 95%，
     // 在窄屏 / 浮动小窗模式下不会贴边或溢出。
     // 只设置上限，不强行撑满，原本小弹窗（install_guide 等）不受影响。
-    final clamped = _ViewportClamp(child: themed);
+    final clamped = _ViewportClamp(alignment: alignment, child: themed);
     if (!dismissOnEscape) return clamped;
     return _EscapeDismissDialogScope(child: clamped);
   };
@@ -152,8 +224,9 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
 /// 在弹窗外层套一个 MediaQuery 感知的 ConstrainedBox，把最大宽 / 高限制为
 /// 视口的 95%。子弹窗自身的 maxWidth/maxHeight 仍生效——两个约束取最小值。
 class _ViewportClamp extends StatelessWidget {
-  const _ViewportClamp({required this.child});
+  const _ViewportClamp({required this.alignment, required this.child});
 
+  final AlignmentGeometry alignment;
   final Widget child;
 
   @override
@@ -161,10 +234,30 @@ class _ViewportClamp extends StatelessWidget {
     final size = MediaQuery.sizeOf(context);
     final maxW = size.width * 0.95;
     final maxH = size.height * 0.95;
-    return Center(
+    return Align(
+      alignment: alignment,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
         child: child,
+      ),
+    );
+  }
+}
+
+class _ModalSheetDragHandle extends StatelessWidget {
+  const _ModalSheetDragHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.36),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: const SizedBox(width: 36, height: 4),
       ),
     );
   }

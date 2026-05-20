@@ -553,7 +553,7 @@ class _NetworkRow extends StatelessWidget {
     if (overlay == null) return;
     final blocked = controller.blockedUrls.contains(entry.url);
     final messenger = ScaffoldMessenger.of(context);
-    final selected = await showMenu<String>(
+    final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(position.dx, position.dy, 0, 0),
@@ -963,7 +963,7 @@ class _PendingFetchBanner extends StatelessWidget {
               child: Text(isZh ? '全部放行' : 'Continue all'),
             ),
             const SizedBox(width: 6),
-            PopupMenuButton<String>(
+            AnimatedPopupMenuButton<String>(
               tooltip: isZh ? '查看待决策请求' : 'Pending requests',
               icon: const Icon(Icons.list_alt_rounded, size: 18),
               itemBuilder: (_) => [
