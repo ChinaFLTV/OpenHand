@@ -1532,8 +1532,9 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
+    final userScrollActivity = explicitUserScroll || implicitUserScrollGesture;
 
-    if (explicitUserScroll || implicitUserScrollGesture) {
+    if (userScrollActivity) {
       _markUserFeedScrollInProgress();
     } else if (userScrollEnded) {
       _scheduleUserFeedScrollEndGrace();
@@ -1550,13 +1551,25 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final isNearBottom = distanceToBottom <= _feedAutoFollowDistanceThreshold;
 
-    if (!_autoFollowEnabled && explicitUserScroll) {
+    if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowFeed = false;
       _clearPendingFeedAutoFollowState();
       return false;
     }
 
-    if (!isNearBottom && explicitUserScroll) {
+    final userScrolledUpwardFromBottom =
+        notification is UserScrollNotification &&
+        notification.direction == ScrollDirection.reverse &&
+        distanceToBottom > 0;
+    final pointerSignalScrolledUpwardFromBottom =
+        implicitUserScrollGesture &&
+        notification is ScrollUpdateNotification &&
+        (notification.scrollDelta ?? 0) < -0.5 &&
+        distanceToBottom > 0;
+
+    if ((!isNearBottom && userScrollActivity) ||
+        userScrolledUpwardFromBottom ||
+        pointerSignalScrolledUpwardFromBottom) {
       _shouldAutoFollowFeed = false;
       _clearPendingFeedAutoFollowState();
       return false;
@@ -1568,7 +1581,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       _scheduleFeedAutoScroll(force: true);
     }
 
-    if (isNearBottom && _autoFollowEnabled) {
+    if (isNearBottom && _autoFollowEnabled && userScrollEnded) {
       _shouldAutoFollowFeed = true;
     }
     return false;

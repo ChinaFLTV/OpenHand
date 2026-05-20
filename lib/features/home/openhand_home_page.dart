@@ -1696,7 +1696,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    if (explicitUserScroll || implicitUserScrollGesture) {
+    final userScrollActivity = explicitUserScroll || implicitUserScrollGesture;
+    if (userScrollActivity) {
       _markUserScrollInProgress();
     } else if (userScrollEnded) {
       _scheduleUserScrollEndGrace();
@@ -1712,13 +1713,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final isNearBottom = distanceToBottom <= _autoFollowDistanceThreshold;
-    if (!_autoFollowEnabled && explicitUserScroll) {
+    if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
       return false;
     }
-    final userScrolledAwayFromBottom = !isNearBottom && explicitUserScroll;
+    final userScrolledAwayFromBottom = !isNearBottom && userScrollActivity;
     // 2026-05-02: Honor the user's mental model — "any deliberate upward
     // scroll while a new message could arrive should pause auto-follow,
     // even if I'm only a few pixels above the floor". Without this, a
@@ -1734,7 +1735,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is UserScrollNotification &&
         notification.direction == ScrollDirection.reverse &&
         distanceToBottom > 0;
-    if (userScrolledAwayFromBottom || userScrolledUpwardFromBottom) {
+    final pointerSignalScrolledUpwardFromBottom =
+        implicitUserScrollGesture &&
+        notification is ScrollUpdateNotification &&
+        (notification.scrollDelta ?? 0) < -0.5 &&
+        distanceToBottom > 0;
+    if (userScrolledAwayFromBottom ||
+        userScrolledUpwardFromBottom ||
+        pointerSignalScrolledUpwardFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
@@ -4989,12 +4997,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // scrollOffset，让上方消息无论用户是否在底部，都被 Q 弹自然地"压下来 /
     // 顶上去"，与 AnimatedSize 节奏（260ms easeInOutCubicEmphasized）严丝合缝。
     //
-    // 2026-05-19：从 jumpTo 切换到 ScrollPosition.correctBy(delta) ——
-    //   * correctBy 在 layout 阶段静默偏移 pixels，不触发 notification、
-    //     不与正在进行的用户拖动 / wheel tick / ballistic 抢 ScrollPosition；
-    //   * jumpTo 会发出 ScrollUpdateNotification 并打断 ballistic，造成
-    //     trackpad 慢速滚动时视口"抽搐"。
-    // 因此原先的 `_userScrollInProgress` 早退保护可以撤掉了。
+    // 2026-05-21：correctBy 虽不会派发滚动通知，但依然会改写 pixels。
+    // 当用户正在慢速滚轮/trackpad 读历史，或已暂停自动跟随时，任何底部
+    // composer 高度补偿都会变成一股反向拉力；此时让布局自然变化，避免
+    // 与用户手势抢占 ScrollPosition。
+    if (_userScrollInProgress || !_shouldAutoFollowMessages) {
+      return;
+    }
     final composerCtx = _composerPanelKey.currentContext;
     final renderObject = composerCtx?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) {
@@ -5005,10 +5014,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _lastComposerHeight = newHeight;
     if (prev == null) return;
     final delta = newHeight - prev;
-    if (delta.abs() <= 0.5 || !_messageScrollController.hasClients) {
+    if (delta.abs() <= 0.5) {
       return;
     }
-    final position = _messageScrollController.position;
+    final position = _activeMessageScrollPosition();
+    if (position == null) {
+      return;
+    }
     // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
     // 视觉上往上挪同等距离 = 像是被新出现的 composer 顶上去；反之 composer
     // 收起 → 内容自然滑下来填补空间。correctBy 不做 clamp，由下一帧
