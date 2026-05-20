@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'preact/hooks';
 import { MessageCard } from './MessageCard';
 import type { SessionMessage } from '../api/sessions';
@@ -13,6 +13,7 @@ vi.mock('./Markdown', () => ({
 
 vi.mock('./MessageMedia', () => ({
   MessageMedia: () => null,
+  stripCollectedNetworkMedia: (content: string) => content,
 }));
 
 vi.mock('./MessageToolMeta', () => ({
@@ -78,7 +79,40 @@ function MessageListHarness() {
 }
 
 describe('MessageCard actions', () => {
-  afterEach(() => cleanup());
+  beforeEach(() => {
+    class ImmediateIntersectionObserver implements IntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = '0px';
+      readonly thresholds = [0];
+
+      constructor(private readonly callback: IntersectionObserverCallback) {}
+
+      observe(target: Element): void {
+        this.callback([
+          {
+            boundingClientRect: {} as DOMRectReadOnly,
+            intersectionRatio: 1,
+            intersectionRect: {} as DOMRectReadOnly,
+            isIntersecting: true,
+            rootBounds: null,
+            target,
+            time: 0,
+          },
+        ], this);
+      }
+
+      disconnect(): void {}
+      takeRecords(): IntersectionObserverEntry[] { return []; }
+      unobserve(): void {}
+    }
+
+    vi.stubGlobal('IntersectionObserver', ImmediateIntersectionObserver);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('shows actions only for the clicked card without focus outline or danger-colored delete actions', () => {
     const { container } = render(<MessageListHarness />);
@@ -121,7 +155,7 @@ describe('MessageCard actions', () => {
     expect(screen.getByText(/(附件|Attachment).*PDF/)).not.toBeNull();
   });
 
-  it('animates assistant card height when streamed content grows', () => {
+  it('animates assistant card height when streamed content grows', async () => {
     const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
     const animate = vi.fn(function animateMock(
       _keyframes?: Keyframe[] | PropertyIndexedKeyframes | null,
@@ -145,13 +179,14 @@ describe('MessageCard actions', () => {
       const { rerender } = render(
         <MessageCard message={makeAssistantMessage('assistant-1', '第一行')} />,
       );
+      await waitFor(() => expect(rectSpy).toHaveBeenCalledTimes(1));
       expect(animate).not.toHaveBeenCalled();
 
       rerender(
         <MessageCard message={makeAssistantMessage('assistant-1', '第一行\n第二行')} />,
       );
 
-      expect(animate).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(animate).toHaveBeenCalledTimes(1));
       const [keyframes, options] = animate.mock.calls[0] as [Keyframe[], KeyframeAnimationOptions];
       expect((keyframes as Keyframe[])[0]!.height).toBe('80px');
       expect((keyframes as Keyframe[]).at(-1)!.height).toBe('120px');
@@ -166,7 +201,7 @@ describe('MessageCard actions', () => {
     }
   });
 
-  it('skips assistant height measurement for tiny same-line streaming deltas', () => {
+  it('skips assistant height measurement for tiny same-line streaming deltas', async () => {
     const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
     const animate = vi.fn(function animateMock(
       _keyframes?: Keyframe[] | PropertyIndexedKeyframes | null,
@@ -188,7 +223,7 @@ describe('MessageCard actions', () => {
       const { rerender } = render(
         <MessageCard message={makeAssistantMessage('assistant-1', '短句')} />,
       );
-      expect(rectSpy).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(rectSpy).toHaveBeenCalledTimes(1));
 
       rerender(
         <MessageCard message={makeAssistantMessage('assistant-1', '短句继续补几个字')} />,

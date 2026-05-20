@@ -7,6 +7,9 @@ const PREFIX = 'openhand.web.';
 const DEVICE_ID_KEY = `${PREFIX}device_id`;
 const TOKEN_KEY = `${PREFIX}token`;
 const PROFILE_KEY = `${PREFIX}profile`;
+let fallbackDeviceId = '';
+let fallbackToken: string | null = null;
+let fallbackProfile: AuthProfile | null = null;
 
 export interface AuthProfile {
   device_id?: string;
@@ -20,30 +23,33 @@ export interface AuthProfile {
 /// 首次访问时生成一个 v4 UUID 作为设备 ID 持久化；不依赖 cookie，避免
 /// 跨域 / 隐私模式的兼容问题。
 export function ensureDeviceId(): string {
-  let id = localStorage.getItem(DEVICE_ID_KEY);
+  let id = readStorage(DEVICE_ID_KEY) ?? fallbackDeviceId;
   if (!id) {
-    id = crypto.randomUUID?.() ?? `web-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-    localStorage.setItem(DEVICE_ID_KEY, id);
+    id = globalThis.crypto?.randomUUID?.() ?? `web-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+    fallbackDeviceId = id;
+    writeStorage(DEVICE_ID_KEY, id);
   }
   return id;
 }
 
 export function readToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return readStorage(TOKEN_KEY) ?? fallbackToken;
 }
 
 export function writeToken(token: string, profile: AuthProfile | null): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  fallbackToken = token;
+  fallbackProfile = profile;
+  writeStorage(TOKEN_KEY, token);
   if (profile) {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    writeStorage(PROFILE_KEY, JSON.stringify(profile));
   } else {
-    localStorage.removeItem(PROFILE_KEY);
+    removeStorage(PROFILE_KEY);
   }
 }
 
 export function readProfile(): AuthProfile | null {
-  const raw = localStorage.getItem(PROFILE_KEY);
-  if (!raw) return null;
+  const raw = readStorage(PROFILE_KEY);
+  if (!raw) return fallbackProfile;
   try {
     return JSON.parse(raw) as AuthProfile;
   } catch {
@@ -52,6 +58,51 @@ export function readProfile(): AuthProfile | null {
 }
 
 export function clearAuthStorage(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(PROFILE_KEY);
+  fallbackToken = null;
+  fallbackProfile = null;
+  removeStorage(TOKEN_KEY);
+  removeStorage(PROFILE_KEY);
+}
+
+function browserStorage(): Storage | null {
+  try {
+    if (typeof window !== 'undefined') {
+      return window.localStorage ?? null;
+    }
+  } catch {
+    return null;
+  }
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    if (descriptor && 'value' in descriptor) {
+      return descriptor.value ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return browserStorage()?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    browserStorage()?.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in private mode or blocked third-party contexts.
+  }
+}
+
+function removeStorage(key: string): void {
+  try {
+    browserStorage()?.removeItem(key);
+  } catch {
+    // Ignore storage failures; in-memory fallback has already been updated.
+  }
 }

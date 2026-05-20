@@ -1,4 +1,5 @@
 import { cleanup, render, waitFor } from '@testing-library/preact';
+import type { ComponentChildren } from 'preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -7,13 +8,34 @@ const mocks = vi.hoisted(() => ({
   route: vi.fn(),
 }));
 
-vi.mock('../api/logs', () => ({
+vi.mock('../../../api/logs', () => ({
   listLogs: mocks.listLogs,
   exportLogsBundle: mocks.exportLogsBundle,
 }));
 
-vi.mock('../hooks/useAnimatedLocation', () => ({
+vi.mock('../../../hooks/useAnimatedLocation', () => ({
   useAnimatedLocation: () => ({ route: mocks.route }),
+}));
+
+vi.mock('../../../components/TopBar', () => ({
+  TopBar: ({
+    title,
+    subtitle,
+    leadingSlot,
+    actionSlot,
+  }: {
+    title: string;
+    subtitle?: string;
+    leadingSlot?: ComponentChildren;
+    actionSlot?: ComponentChildren;
+  }) => (
+    <header>
+      {leadingSlot}
+      <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
+      {actionSlot}
+    </header>
+  ),
 }));
 
 import { LogsPage } from './LogsPage';
@@ -21,12 +43,10 @@ import { LogsPage } from './LogsPage';
 describe('LogsPage polling stability', () => {
   afterEach(() => {
     cleanup();
-    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
   it('aborts the active tail request when unmounted', async () => {
-    vi.useFakeTimers();
     mocks.listLogs.mockReturnValue(new Promise(() => undefined));
 
     const view = render(<LogsPage />);
