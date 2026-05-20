@@ -400,10 +400,15 @@ class _WebPlatformServiceCard extends StatelessWidget {
     if (!context.mounted) return;
     _showGatewaySnackBar(
       context,
-      SnackBar(
-        content: Text('${result.summary} (${result.durationMs}ms)'),
-        backgroundColor: result.ok ? const Color(0xFF16A34A) : null,
-      ),
+      result.ok
+          ? OpenHandSnackBar.success(
+              context,
+              '${result.summary} (${result.durationMs}ms)',
+            )
+          : OpenHandSnackBar.error(
+              context,
+              '${result.summary} (${result.durationMs}ms)',
+            ),
     );
   }
 
@@ -1401,9 +1406,10 @@ class _WebGatewayConnectivityDialogState
     if (!mounted) return;
     _showGatewaySnackBar(
       context,
-      const SnackBar(
-        content: Text('连通性测试结果已复制'),
-        duration: Duration(milliseconds: 1600),
+      OpenHandSnackBar.success(
+        context,
+        '连通性测试结果已复制',
+        duration: const Duration(milliseconds: 1600),
       ),
     );
   }
@@ -2016,9 +2022,10 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
     });
     _showGatewaySnackBar(
       context,
-      const SnackBar(
-        content: Text('终端显示已清空，底层日志文件保持不变'),
-        duration: Duration(milliseconds: 1600),
+      OpenHandSnackBar.success(
+        context,
+        '终端显示已清空，底层日志文件保持不变',
+        duration: const Duration(milliseconds: 1600),
       ),
     );
   }
@@ -2159,25 +2166,17 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text(
-            '当前日志已导出到 ${location.path}',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+        OpenHandSnackBar.success(
+          context,
+          '当前日志已导出到 ${location.path}',
+          maxLines: 2,
         ),
       );
     } catch (error) {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text(
-            '当前日志导出失败: $error',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        OpenHandSnackBar.error(context, '当前日志导出失败: $error', maxLines: 2),
       );
     } finally {
       if (mounted) setState(() => _isExportingLog = false);
@@ -2799,8 +2798,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text('$label 已完成'),
+        OpenHandSnackBar.success(
+          context,
+          '$label 已完成',
           duration: const Duration(milliseconds: 1600),
         ),
       );
@@ -2808,13 +2808,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text(
-            '$label 失败: $error',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        OpenHandSnackBar.error(context, '$label 失败: $error', maxLines: 2),
       );
     } finally {
       if (mounted) setState(() => _isServiceActing = false);
@@ -2830,23 +2824,23 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text('${result.summary} (${result.durationMs}ms)'),
-          backgroundColor: result.ok ? const Color(0xFF16A34A) : null,
-          duration: const Duration(milliseconds: 1800),
-        ),
+        result.ok
+            ? OpenHandSnackBar.success(
+                context,
+                '${result.summary} (${result.durationMs}ms)',
+                duration: const Duration(milliseconds: 1800),
+              )
+            : OpenHandSnackBar.error(
+                context,
+                '${result.summary} (${result.durationMs}ms)',
+                duration: const Duration(milliseconds: 1800),
+              ),
       );
     } catch (error) {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text(
-            '健康诊断失败: $error',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        OpenHandSnackBar.error(context, '健康诊断失败: $error', maxLines: 2),
       );
     } finally {
       if (mounted) setState(() => _isHealthChecking = false);
@@ -3023,22 +3017,22 @@ class _AccessibleUrlsBar extends StatelessWidget {
 
   Future<void> _open(BuildContext context, String url) async {
     try {
-      final result = Platform.isMacOS
-          ? await runProcessWithTimeout('open', <String>[
+      final opened = Platform.isMacOS
+          ? await runDetachedSystemOpen('open', <String>[
               url,
             ], tag: 'message_gateway.open_url')
           : Platform.isWindows
-          ? await runProcessWithTimeout(
+          ? await runDetachedSystemOpen(
               'cmd',
               <String>['/c', 'start', '', url],
               tag: 'message_gateway.open_url',
               runInShell: true,
             )
-          : await runProcessWithTimeout('xdg-open', <String>[
+          : await runDetachedSystemOpen('xdg-open', <String>[
               url,
             ], tag: 'message_gateway.open_url');
       if (!context.mounted) return;
-      if (result == null) {
+      if (!opened) {
         _showGatewaySnackBar(
           context,
           OpenHandSnackBar.error(context, '打开失败: $url'),
