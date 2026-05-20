@@ -3,12 +3,13 @@
  *   1. 提供轻量的 App Shell 离线支持 (/、/app.js、/app.css、/openhand_logo.png)。
  *   2. /api/* 一律走网络优先 (避免缓存到了过期的 session/messages)，
  *      网络失败时返回明确的离线 JSON, 让前端显示离线 banner 而非整体崩溃。
- *   3. 静态资源 (chunks/* 与 assets/*) 走 cache-first, 失败回退网络。
+ *   3. 内容哈希静态资源 (chunks/* 与 assets/*) 走 cache-first, 失败回退网络。
  *
  * app.js / app.css 使用确定性文件名, 所以 App Shell 必须网络优先，避免发布后
- * 已安装过 Service Worker 的浏览器继续吃旧 bundle。
+ * 已安装过 Service Worker 的浏览器继续吃旧 bundle。Vite 派生 chunk/assets 使用
+ * 内容 hash 文件名, 可安全 cache-first。
  */
-const CACHE_VERSION = 'openhand-shell-v4';
+const CACHE_VERSION = 'openhand-shell-v5';
 const APP_SHELL_PRECACHE = [
   '/',
   '/app.js',
@@ -122,7 +123,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Vite 派生静态资源: cache-first, 没命中再 fetch 并 put 进缓存。
+  // Vite 派生静态资源: 文件名含内容 hash, 可 cache-first；入口 app.js/css 仍在上方网络优先。
   if (CACHE_FIRST_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) {
     event.respondWith(cacheFirst(req));
     return;

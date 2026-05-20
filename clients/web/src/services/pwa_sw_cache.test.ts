@@ -7,9 +7,14 @@ const serviceWorkerPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../public/sw.js',
 );
+const viteConfigPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../vite.config.ts',
+);
 
 describe('service worker cache strategy', () => {
   const source = readFileSync(serviceWorkerPath, 'utf8');
+  const viteConfig = readFileSync(viteConfigPath, 'utf8');
 
   it('keeps fixed app shell bundle paths on a network-first strategy', () => {
     expect(source).toContain('APP_SHELL_NETWORK_FIRST');
@@ -29,7 +34,9 @@ describe('service worker cache strategy', () => {
     expect(source).toContain('self.skipWaiting()');
   });
 
-  it('keeps Vite derived asset folders on a cache-first strategy', () => {
+  it('only cache-firsts content-hashed Vite derived asset folders', () => {
+    expect(viteConfig).toContain("chunkFileNames: 'chunks/[name]-[hash].js'");
+    expect(viteConfig).toContain("return 'assets/[name]-[hash][extname]'");
     expect(source).toContain('CACHE_FIRST_PREFIXES');
     expect(source).toContain("'/chunks/'");
     expect(source).toContain("'/assets/'");

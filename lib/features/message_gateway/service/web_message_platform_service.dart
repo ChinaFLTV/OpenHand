@@ -3137,11 +3137,14 @@ class WebMessagePlatformService {
           .toList(growable: false);
       // 2026-05-17 — 把当前会话生效的字符 / 卡片节流速率推给前端，让 Web
       // 端的 TopBar 节流指示器可以无需额外接口直接展示绿/灰状态。
-      final throttleOverride = _sessionController
-          .sessionStreamThrottleOverride(live.id);
-      final effChars = throttleOverride?.charsPerSecond ??
+      final throttleOverride = _sessionController.sessionStreamThrottleOverride(
+        live.id,
+      );
+      final effChars =
+          throttleOverride?.charsPerSecond ??
           _settingsController.effectiveStreamMaxCharsPerSecond(live.templateId);
-      final effCards = throttleOverride?.cardsPerSecond ??
+      final effCards =
+          throttleOverride?.cardsPerSecond ??
           _settingsController.effectiveStreamMaxMessageCardsPerSecond(
             live.templateId,
           );
@@ -3165,17 +3168,18 @@ class WebMessagePlatformService {
           'has_session_override': throttleOverride != null,
           // 2026-05-19 — 启用态：会话级 > 全局。前端据此渲染 Switch 与
           // 灰色胶囊。
-          'enabled': throttleOverride?.enabled ??
+          'enabled':
+              throttleOverride?.enabled ??
               _settingsController.aiStreamThrottleEnabled,
           // 2026-05-19 — 会话历史上是否曾节流。胶囊可见性所需。
           'was_initially_throttled': _sessionController
               .sessionWasInitiallyThrottled(live.id),
-          'duration_expired':
-              _sessionController.sessionStreamThrottleDurationExpired(live.id),
+          'duration_expired': _sessionController
+              .sessionStreamThrottleDurationExpired(live.id),
           // 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹
           // 窗渲染和 App 端一致的柱状图。非流式 / 从未流式时也会回填全 0。
-          'throughput_buckets':
-              _sessionController.sessionStreamCharThroughputSnapshot(live.id),
+          'throughput_buckets': _sessionController
+              .sessionStreamCharThroughputSnapshot(live.id),
         },
         'served_at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -4679,6 +4683,7 @@ class WebMessagePlatformService {
       body: html,
       headers: const <String, String>{
         HttpHeaders.contentTypeHeader: 'text/html; charset=utf-8',
+        HttpHeaders.cacheControlHeader: 'no-cache, max-age=0, must-revalidate',
       },
     );
   }
@@ -4714,8 +4719,8 @@ class WebMessagePlatformService {
   }
 
   /// 静态资源（app.js / app.css / chunks/* / assets/*）从 rootBundle 取，
-  /// 缺失或读取失败 → 404。`Cache-Control: max-age=0,must-revalidate` 保证
-  /// 重新构建后旧浏览器拿到的是新版本（文件名是确定性的，没有 hash）。
+  /// 缺失或读取失败 → 404。入口固定文件名资源要求重新校验；内容哈希资源允许
+  /// immutable 强缓存，兼顾升级正确性与加载性能。
   Future<shelf.Response> _serveBundleAsset(
     String key,
     String contentType,
@@ -4730,7 +4735,7 @@ class WebMessagePlatformService {
         bytes,
         headers: <String, String>{
           HttpHeaders.contentTypeHeader: contentType,
-          HttpHeaders.cacheControlHeader: 'max-age=0, must-revalidate',
+          HttpHeaders.cacheControlHeader: _bundleCacheControlFor(key),
           HttpHeaders.contentLengthHeader: bytes.length.toString(),
         },
       );
@@ -4738,6 +4743,22 @@ class WebMessagePlatformService {
       silentLog('web_gateway_service', '_serveBundleAsset:$key', e, stack);
       return shelf.Response.notFound('asset_not_found: $key');
     }
+  }
+
+  String _bundleCacheControlFor(String key) {
+    final normalized = key.replaceAll('\\', '/');
+    if (_isContentHashedBundleAsset(normalized)) {
+      return 'public, max-age=31536000, immutable';
+    }
+    return 'no-cache, max-age=0, must-revalidate';
+  }
+
+  bool _isContentHashedBundleAsset(String key) {
+    if (!key.startsWith('assets/web/chunks/') &&
+        !key.startsWith('assets/web/assets/')) {
+      return false;
+    }
+    return RegExp(r'-[A-Za-z0-9_-]{8,}\.[^.]+$').hasMatch(p.basename(key));
   }
 
   /// 极简 MIME 推断，只覆盖 Vite 构建会产生的扩展名。

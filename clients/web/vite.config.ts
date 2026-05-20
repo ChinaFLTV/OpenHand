@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 
 // 产物输出到 ../../assets/web/，由 scripts/build_web.sh 调用 `pnpm build` 后
-// Flutter rootBundle 直接拉取；assetsDir 设为空字符串以让 index.html 与 .js/.css
-// 同级输出，规避 shelf-router 的 <path|.+> 通配符匹配复杂度。
+// Flutter rootBundle 直接拉取。入口 app.js / app.css 固定文件名便于服务端白名单
+// 暴露；拆分 chunk 与派生 assets 使用内容 hash，避免旧 Service Worker / 浏览器缓存
+// 把新 app.js 和旧 vendor chunk 混用导致 ESM export 错配。
 export default defineConfig({
   plugins: [preact()],
   base: '/',
@@ -23,12 +24,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        // 用确定性文件名，避免每次构建产生新 hash 导致 git diff 噪声
+        // 入口固定，派生 chunk 带内容 hash：兼顾服务端路由稳定性与缓存正确性。
         entryFileNames: 'app.js',
-        chunkFileNames: 'chunks/[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (asset) => {
           if (asset.name?.endsWith('.css')) return 'app.css';
-          return 'assets/[name][extname]';
+          return 'assets/[name]-[hash][extname]';
         },
         // 按 vendor 与重 feature 拆 chunk，把 app.js 主块缩小。
         manualChunks(id) {
