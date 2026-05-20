@@ -20,6 +20,72 @@
 /// 兼容窗口结束后整体删除。
 part of '../ai_session_controller.dart';
 
+/// 30 秒滑动窗口吞吐采样器，每秒一个桶，桶 0 = 当前秒。
+///
+/// 用于两条口径：
+///   * AI 原始流入侧：stream event 一到就记录，供弹窗实时显示模型侧速率；
+///   * UI 放出侧：节流器真正放出 grapheme 时记录，供内部诊断保留。
+class _StreamThroughputSampler {
+  static const int bucketCount = 30;
+
+  final List<int> _buckets = List<int>.filled(bucketCount, 0);
+  int _bucketSecond = 0;
+
+  void recordText(String value) {
+    if (value.isEmpty) return;
+    recordGraphemes(value.characters.length);
+  }
+
+  void recordGraphemes(int graphemes) {
+    if (graphemes <= 0) return;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (_bucketSecond == 0) {
+      _bucketSecond = nowSec;
+      _buckets[0] = graphemes;
+      return;
+    }
+    final delta = nowSec - _bucketSecond;
+    if (delta <= 0) {
+      _buckets[0] += graphemes;
+      return;
+    }
+    _advanceBy(delta);
+    _bucketSecond = nowSec;
+    _buckets[0] = graphemes;
+  }
+
+  List<int> snapshot() {
+    _advanceByWallClock();
+    return List<int>.unmodifiable(_buckets);
+  }
+
+  int get currentSecondValue => _buckets[0];
+
+  void _advanceByWallClock() {
+    if (_bucketSecond == 0) return;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final delta = nowSec - _bucketSecond;
+    if (delta <= 0) return;
+    _advanceBy(delta);
+    _bucketSecond = nowSec;
+  }
+
+  void _advanceBy(int delta) {
+    if (delta >= bucketCount) {
+      for (var i = 0; i < bucketCount; i++) {
+        _buckets[i] = 0;
+      }
+      return;
+    }
+    for (var i = bucketCount - 1; i >= delta; i--) {
+      _buckets[i] = _buckets[i - delta];
+    }
+    for (var i = 0; i < delta; i++) {
+      _buckets[i] = 0;
+    }
+  }
+}
+
 /// 显示侧 grapheme 级令牌桶限速器。
 ///
 /// 调用方在拿到完整 sanitized 文本后通过 [renderableGraphemeCount] 询问当前
@@ -191,86 +257,21 @@ class _StreamCharThrottle {
   int renderableLength(int totalSanitizedLength) =>
       renderableGraphemeCount(totalSanitizedLength);
 
-  // ── 吞吐采样：保留最近 [_kThroughputBuckets] 秒的 grapheme 放出量，
-  // 给 TopBar 仪表盘画曲线。每秒一个桶，O(1) 更新。
-  static const int _kThroughputBuckets = 30;
-  final List<int> _graphemeThroughputBuckets = List<int>.filled(
-    _kThroughputBuckets,
-    0,
-  );
-  int _throughputBucketSecond = 0;
+  // ── 显示侧吞吐采样：保留最近 30 秒 grapheme 放出量，O(1) 更新。
+  final _displayThroughput = _StreamThroughputSampler();
 
   void _recordEmission(int graphemes) {
-    if (graphemes <= 0) return;
-    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    if (_throughputBucketSecond == 0) {
-      _throughputBucketSecond = nowSec;
-      _graphemeThroughputBuckets[0] = graphemes;
-      return;
-    }
-    final delta = nowSec - _throughputBucketSecond;
-    if (delta <= 0) {
-      _graphemeThroughputBuckets[0] += graphemes;
-      return;
-    }
-    if (delta >= _kThroughputBuckets) {
-      for (var i = 0; i < _kThroughputBuckets; i++) {
-        _graphemeThroughputBuckets[i] = 0;
-      }
-    } else {
-      // 把现有桶向后挪 delta 位，老的丢失，新桶清零。
-      for (var i = _kThroughputBuckets - 1; i >= delta; i--) {
-        _graphemeThroughputBuckets[i] = _graphemeThroughputBuckets[i - delta];
-      }
-      for (var i = 0; i < delta; i++) {
-        _graphemeThroughputBuckets[i] = 0;
-      }
-    }
-    _throughputBucketSecond = nowSec;
-    _graphemeThroughputBuckets[0] = graphemes;
+    _displayThroughput.recordGraphemes(graphemes);
   }
 
-  /// 最近 [_kThroughputBuckets] 秒的每秒 grapheme 吞吐快照，桶 0 =
+  /// 最近 30 秒的每秒 grapheme 放出快照，桶 0 =
   /// 当前秒，越往后越旧。返回不可变副本，UI 可直接喂给 painter。
-  ///
-  /// 2026-05-19 — 读取时按当前墙钟主动把过时桶向后移并清零，使得：
-  ///   ① 流式中本秒未触发 emission 时，UI 也能看到「当前 0/s」而不是
-  ///      上一秒残留的数值；
-  ///   ② mini-gauge 200ms ticker 在两次 emission 之间也能正确滚动出
-  ///      最近 30s 的空闲带；
-  ///   ③ 流结束后 `_lastCharThroughputSnapshot` 缓存仍是「当时的桶」，
-  ///      不会被这里的副作用污染（缓存写入发生在 [release] 之后，桶
-  ///      已被 1<<30 短路占满前一次正常 snapshot 已落盘）。
   List<int> throughputSnapshot() {
-    _advanceBucketsByWallClock();
-    return List<int>.unmodifiable(_graphemeThroughputBuckets);
-  }
-
-  /// 把过时桶按 nowSec - _throughputBucketSecond 向后挪，并把腾出的桶
-  /// 置零。仅在已经至少有过一次 emission（_throughputBucketSecond != 0）
-  /// 且差值 > 0 时生效；无副作用读。
-  void _advanceBucketsByWallClock() {
-    if (_throughputBucketSecond == 0) return;
-    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final delta = nowSec - _throughputBucketSecond;
-    if (delta <= 0) return;
-    if (delta >= _kThroughputBuckets) {
-      for (var i = 0; i < _kThroughputBuckets; i++) {
-        _graphemeThroughputBuckets[i] = 0;
-      }
-    } else {
-      for (var i = _kThroughputBuckets - 1; i >= delta; i--) {
-        _graphemeThroughputBuckets[i] = _graphemeThroughputBuckets[i - delta];
-      }
-      for (var i = 0; i < delta; i++) {
-        _graphemeThroughputBuckets[i] = 0;
-      }
-    }
-    _throughputBucketSecond = nowSec;
+    return _displayThroughput.snapshot();
   }
 
   /// 当前秒（桶 0）累计已放出的 grapheme 数。
-  int get currentSecondEmitted => _graphemeThroughputBuckets[0];
+  int get currentSecondEmitted => _displayThroughput.currentSecondValue;
 
   void _refill() {
     final now = DateTime.now();

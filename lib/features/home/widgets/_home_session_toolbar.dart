@@ -2930,12 +2930,12 @@ class _StreamThrottleSessionDialogState
   }
 }
 
-/// 节流 mini 仪表盘：30 秒滑动窗口的字符吞吐曲线图。
+/// 节流 mini 仪表盘：30 秒滑动窗口的 AI 侧字符吞吐曲线图。
 ///
 /// 2026-05-18 — 让用户在节流弹窗里直接看到 AI 当前正以多快的速度流出
 /// 字符；2026-05-25 改为平滑曲线 + 渐变填充，且支持 macOS 触控板双指
 /// 捏合放缩时间区间（PointerPanZoom.scale），让用户聚焦最近几秒的细节。
-/// 200ms 节奏轮询 controller 即可，自带 reduceMotion 跳过动画。
+/// 200ms 节奏轮询 controller，自带 reduceMotion 跳过动画。
 class _StreamThroughputMiniGauge extends StatefulWidget {
   const _StreamThroughputMiniGauge({
     required this.sessionId,
@@ -2954,7 +2954,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     with SingleTickerProviderStateMixin {
   Timer? _ticker;
   List<int> _samples = const <int>[];
-  // 2026-05-19 — 平滑过渡：每 500ms 拉一次新 snapshot，painter 读取的
+  // 2026-05-19 — 平滑过渡：高频拉取新 snapshot，painter 读取的
   // 是 `_displaySamples`，由 AnimationController 把 `_fromSamples →
   // _toSamples` 跨 500ms 用 easeOutCubic 插值，曲线随 AI 实时吞吐 Q 弹
   // 流畅滑动而不再跳变。
@@ -2970,7 +2970,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   double _zoomBase = 1.0;
   static const double _kMinZoom = 1.0;
   static const double _kMaxZoom = 4.0;
-  static const Duration _kRefreshInterval = Duration(milliseconds: 500);
+  static const Duration _kRefreshInterval = Duration(milliseconds: 200);
 
   @override
   void initState() {
@@ -3102,8 +3102,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 6),
               Text(
                 isZh
-                    ? '字符吞吐 · $headerWindow'
-                    : 'Chars Throughput · $headerWindow',
+                    ? 'AI 侧字符吞吐 · $headerWindow'
+                    : 'AI-side Chars · $headerWindow',
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurfaceVariant,

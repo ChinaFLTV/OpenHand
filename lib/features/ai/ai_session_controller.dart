@@ -592,9 +592,16 @@ class AiSessionController extends ChangeNotifier {
       <String, _StreamCardThrottle>{};
 
   /// 2026-05-18 — 会话级活跃 charThrottle 引用，仅在该会话流式中存在；
-  /// 供 TopBar 仪表盘读取最近 30s 字符吞吐曲线。
+  /// 保留 UI 放出侧吞吐，作为 AI 侧采样器缺席时的兼容回退。
   final Map<String, _StreamCharThrottle> _activeCharThrottles =
       <String, _StreamCharThrottle>{};
+
+  /// 2026-05-21 — 会话级 AI 原始流入侧吞吐采样器。stream event 一到就
+  /// 记录 text / reasoning / tool-call argument 的 grapheme 数，供本会话
+  /// 节流弹窗秒级展示真实模型侧输出速率，不再受 UI 字符节流、reasoning
+  /// 排空顺序或卡片限速影响。
+  final Map<String, _StreamThroughputSampler> _activeAiThroughputSamplers =
+      <String, _StreamThroughputSampler>{};
 
   /// 2026-05-19 — 会话级活跃 reasoning charThrottle 引用，仅在思考流式
   /// 段存在。会话弹窗 Apply 速率/启用变更时需要把变更同步到这一份，
@@ -611,8 +618,8 @@ class AiSessionController extends ChangeNotifier {
   /// 也算作「初始已节流」，否则重启后胶囊会消失）。
   final Set<String> _sessionsInitiallyThrottled = <String>{};
 
-  /// 2026-05-24 — 最近一次 charThrottle release 时 dump 的 30s 吞吐桶，
-  /// 用于「会话非流式时打开节流弹窗也能看见上一次的吞吐曲线」。
+  /// 2026-05-24 — 最近一次流式结束时 dump 的 30s AI 侧吞吐桶，用于
+  /// 「会话非流式时打开节流弹窗也能看见上一次的吞吐曲线」。
   /// key=sessionId，value=immutable buckets（桶 0 = 当时的当前秒）。
   final Map<String, List<int>> _lastCharThroughputSnapshot =
       <String, List<int>>{};
@@ -705,9 +712,11 @@ class AiSessionController extends ChangeNotifier {
   }
 
   /// 2026-05-18 — 当前会话最近 30s 字符吞吐曲线快照（每秒一个桶，桶 0
-  /// = 当前秒）。非流式时回退到最近一次释放时缓存的快照；从未流式过则
-  /// 返回长度为 30 的全零列表，让 UI 也能渲染出占位网格。
+  /// = 当前秒）。流式中优先返回 AI 原始流入侧采样；非流式时回退到最近
+  /// 一次结束时缓存的快照；从未流式过则返回长度为 30 的全零列表。
   List<int> sessionStreamCharThroughputSnapshot(String sessionId) {
+    final aiSampler = _activeAiThroughputSamplers[sessionId];
+    if (aiSampler != null) return aiSampler.snapshot();
     final throttle = _activeCharThrottles[sessionId];
     if (throttle != null) return throttle.throughputSnapshot();
     final last = _lastCharThroughputSnapshot[sessionId];
@@ -3482,6 +3491,7 @@ class AiSessionController extends ChangeNotifier {
       late final _StreamCharThrottle charThrottle;
       late final _StreamCharThrottle reasoningCharThrottle;
       late final _StreamCardThrottle cardThrottle;
+      final aiThroughputSampler = _StreamThroughputSampler();
 
       // 2026-05-17 — 思考-响应顺序保护：当模型同时返回思考与正式响应时，
       // 先把思考节流式渲染完，再放出 assistant 卡片的字符，保证视觉上
@@ -3624,6 +3634,7 @@ class AiSessionController extends ChangeNotifier {
       _activeCardThrottles[workingSession.id] = cardThrottle;
       _activeCharThrottles[workingSession.id] = charThrottle;
       _activeReasoningCharThrottles[workingSession.id] = reasoningCharThrottle;
+      _activeAiThroughputSamplers[workingSession.id] = aiThroughputSampler;
       // 2026-05-19 — 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
       // 之后即便用户在弹窗里关闭节流，胶囊也会以灰色保留入口。
       if (effChars > 0 || effCards > 0) {
@@ -3659,6 +3670,7 @@ class AiSessionController extends ChangeNotifier {
             if (delta.isEmpty) {
               return;
             }
+            aiThroughputSampler.recordText(delta);
             assistantRawBuffer.write(delta);
             // 2026-05-17 — 顺序保护：思考还没排空时不创建 assistant 卡片，
             // raw 缓冲已记下来；reasoning 完成后会回放 renderAssistantBuffered。
@@ -3766,6 +3778,7 @@ class AiSessionController extends ChangeNotifier {
             if (delta.isEmpty) {
               return;
             }
+            aiThroughputSampler.recordText(delta);
             reasoningRawBuffer.write(delta);
             // 推理卡片首次创建时遵守卡片限速；后续仅追加内容时直接走
             // renderReasoningBuffered（内部含字符级限速）。
@@ -3784,6 +3797,7 @@ class AiSessionController extends ChangeNotifier {
             if (delta == null) {
               return;
             }
+            aiThroughputSampler.recordText(delta.argumentsFragment);
             // 卡片限速：如果这是该 index 的首次出现且无可用令牌，
             // 直接丢弃本次 UI 追加（raw 数据无丢失：下一次 delta 会
             // 再次到达，届时令牌可能已经补充；流结束时 result.toolCalls
@@ -3914,14 +3928,15 @@ class AiSessionController extends ChangeNotifier {
         throttleExpiryTimer = null;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
-        _lastCharThroughputSnapshot[workingSession.id] = charThrottle
-            .throughputSnapshot();
+        _lastCharThroughputSnapshot[workingSession.id] = aiThroughputSampler
+            .snapshot();
         charThrottle.release();
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
         _activeCardThrottles.remove(workingSession.id);
         _activeCharThrottles.remove(workingSession.id);
         _activeReasoningCharThrottles.remove(workingSession.id);
+        _activeAiThroughputSamplers.remove(workingSession.id);
         _sessionStreamThrottleSignal.value =
             _sessionStreamThrottleSignal.value + 1;
         await subscription.cancel();
@@ -4130,8 +4145,8 @@ class AiSessionController extends ChangeNotifier {
           : null;
       // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
       // 超时也能把残余字符一次性补到 UI（兜底）。
-      _lastCharThroughputSnapshot[workingSession.id] = charThrottle
-          .throughputSnapshot();
+      _lastCharThroughputSnapshot[workingSession.id] = aiThroughputSampler
+          .snapshot();
       charThrottle.release();
       reasoningCharThrottle.release();
       if (didCancelStream) {
@@ -4144,6 +4159,7 @@ class AiSessionController extends ChangeNotifier {
       _activeCardThrottles.remove(workingSession.id);
       _activeCharThrottles.remove(workingSession.id);
       _activeReasoningCharThrottles.remove(workingSession.id);
+      _activeAiThroughputSamplers.remove(workingSession.id);
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
       materializePendingReasoningPreview();
