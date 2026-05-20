@@ -251,9 +251,15 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     }
     if (!mounted) return;
     if (errorText != null) {
-      _showDataCleanupSnackBar(context, SnackBar(content: Text(errorText)));
+      _showDataCleanupSnackBar(
+        context,
+        OpenHandSnackBar.error(context, errorText),
+      );
     } else {
-      _showDataCleanupSnackBar(context, SnackBar(content: Text(successText)));
+      _showDataCleanupSnackBar(
+        context,
+        OpenHandSnackBar.success(context, successText),
+      );
     }
     // 重新测算，让 UI 反映最新体积。
     await _measureAll();

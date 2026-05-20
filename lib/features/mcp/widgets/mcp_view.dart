@@ -804,7 +804,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           OpenHandSnackBar.show(
             context,
             messenger,
-            SnackBar(content: Text(message)),
+            OpenHandSnackBar.info(context, message),
           );
       }
     });

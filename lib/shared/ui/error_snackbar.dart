@@ -40,8 +40,10 @@ void showFriendlyErrorSnackBar(
   OpenHandSnackBar.show(
     context,
     messenger,
-    SnackBar(
-      content: Text(headline, maxLines: 2, overflow: TextOverflow.ellipsis),
+    OpenHandSnackBar.error(
+      context,
+      headline,
+      maxLines: 2,
       duration: hasDetails
           ? const Duration(seconds: 6)
           : const Duration(seconds: 4),
@@ -95,9 +97,9 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
               OpenHandSnackBar.show(
                 dialogContext,
                 messenger,
-                const SnackBar(
-                  content: Text('已复制到剪贴板 / Copied to clipboard'),
-                  duration: Duration(seconds: 2),
+                OpenHandSnackBar.success(
+                  dialogContext,
+                  '已复制到剪贴板 / Copied to clipboard',
                 ),
               );
             },

@@ -451,7 +451,7 @@ class MemoryView extends StatelessWidget {
           OpenHandSnackBar.show(
             context,
             messenger,
-            SnackBar(content: Text(message)),
+            OpenHandSnackBar.info(context, message),
           );
       }
     });

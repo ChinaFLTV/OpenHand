@@ -2898,7 +2898,7 @@ class _RoundFileMutationSummaryCardState
         OpenHandSnackBar.show(
           context,
           messenger,
-          SnackBar(content: Text(lastError!)),
+          OpenHandSnackBar.error(context, lastError!),
         );
       }
     }

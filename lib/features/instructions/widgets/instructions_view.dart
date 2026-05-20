@@ -1062,7 +1062,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
         OpenHandSnackBar.show(
           context,
           messenger,
-          SnackBar(content: Text(l10n.instructionSaveFailed)),
+          OpenHandSnackBar.error(context, l10n.instructionSaveFailed),
         );
       }
     } finally {

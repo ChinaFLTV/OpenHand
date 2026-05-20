@@ -5593,7 +5593,7 @@ class _SettingsViewState extends State<SettingsView> {
           OpenHandSnackBar.show(
             context,
             messenger,
-            SnackBar(content: Text(message)),
+            OpenHandSnackBar.info(context, message),
           );
       }
     });

@@ -1184,7 +1184,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(context, SnackBar(content: Text('保存失败: $error')));
+      _showGatewaySnackBar(
+        context,
+        OpenHandSnackBar.error(context, '保存失败: $error'),
+      );
       setState(() {
         _saveError = '$error';
         _saving = false;
@@ -2129,7 +2132,10 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       ClipboardData(text: logs.map((entry) => entry.toLogLine()).join('\n')),
     );
     if (!mounted) return;
-    _showGatewaySnackBar(context, const SnackBar(content: Text('日志已保存到剪贴板')));
+    _showGatewaySnackBar(
+      context,
+      OpenHandSnackBar.success(context, '日志已保存到剪贴板'),
+    );
   }
 
   Future<void> _exportCurrentLog() async {
@@ -2858,10 +2864,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(
-          content: Text(
-            '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
-          ),
+        OpenHandSnackBar.success(
+          context,
+          '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
         ),
       );
       await _tick();
@@ -2869,7 +2874,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        SnackBar(content: Text('$label清理失败: $error')),
+        OpenHandSnackBar.error(context, '$label清理失败: $error'),
       );
     } finally {
       if (mounted) setState(() => _isCleaning = false);
@@ -3010,7 +3015,10 @@ class _AccessibleUrlsBar extends StatelessWidget {
   Future<void> _copy(BuildContext context, String url) async {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    _showGatewaySnackBar(context, SnackBar(content: Text('已复制 $url')));
+    _showGatewaySnackBar(
+      context,
+      OpenHandSnackBar.success(context, '已复制 $url'),
+    );
   }
 
   Future<void> _open(BuildContext context, String url) async {
@@ -3031,14 +3039,23 @@ class _AccessibleUrlsBar extends StatelessWidget {
             ], tag: 'message_gateway.open_url');
       if (!context.mounted) return;
       if (result == null) {
-        _showGatewaySnackBar(context, SnackBar(content: Text('打开失败: $url')));
+        _showGatewaySnackBar(
+          context,
+          OpenHandSnackBar.error(context, '打开失败: $url'),
+        );
         return;
       }
-      _showGatewaySnackBar(context, SnackBar(content: Text('正在打开 $url')));
+      _showGatewaySnackBar(
+        context,
+        OpenHandSnackBar.info(context, '正在打开 $url'),
+      );
     } catch (error, stack) {
       silentLog('message_gateway_view', 'open url', error, stack);
       if (!context.mounted) return;
-      _showGatewaySnackBar(context, SnackBar(content: Text('打开失败: $error')));
+      _showGatewaySnackBar(
+        context,
+        OpenHandSnackBar.error(context, '打开失败: $error'),
+      );
     }
   }
 

@@ -3912,7 +3912,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       OpenHandSnackBar.show(
         context,
         messenger,
-        SnackBar(content: Text(l10n.aiModelSelectionRequired)),
+        OpenHandSnackBar.error(context, l10n.aiModelSelectionRequired),
       );
       return;
     }
@@ -4358,7 +4358,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         OpenHandSnackBar.show(
           context,
           messenger,
-          SnackBar(content: Text(l10n.threadCompressionNotice)),
+          OpenHandSnackBar.info(context, l10n.threadCompressionNotice),
         );
       }
       _scheduleScrollToBottom(force: true, animated: true);
@@ -4518,7 +4518,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       OpenHandSnackBar.show(
         context,
         messenger,
-        SnackBar(content: Text(l10n.aiModelSelectionRequired)),
+        OpenHandSnackBar.error(context, l10n.aiModelSelectionRequired),
       );
       return;
     }
@@ -5382,7 +5382,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 _showHomeSnackBarWithMessenger(
                   context,
                   scaffoldMessenger,
-                  SnackBar(content: Text(copiedLabel)),
+                  OpenHandSnackBar.success(context, copiedLabel),
                 );
               },
               label: _localizedText(context, zh: '复制模板', en: 'Copy Template'),
@@ -6032,6 +6032,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   ) {
     final ctx = context;
     final String message;
+    late final SnackBar snackBar;
     switch (result.kind) {
       case ExportResultKind.success:
         message = _localizedText(
@@ -6039,9 +6040,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           zh: '导出成功：$destinationPath',
           en: 'Export succeeded: $destinationPath',
         );
+        snackBar = OpenHandSnackBar.success(
+          ctx,
+          message,
+          duration: const Duration(seconds: 6),
+        );
         break;
       case ExportResultKind.cancelled:
         message = _localizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.');
+        snackBar = OpenHandSnackBar.info(ctx, message);
         break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
@@ -6050,9 +6057,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           zh: '导出失败：$reason',
           en: 'Export failed: $reason',
         );
+        snackBar = OpenHandSnackBar.error(
+          ctx,
+          message,
+          maxLines: 2,
+          duration: const Duration(seconds: 6),
+        );
         break;
     }
-    OpenHandSnackBar.show(ctx, messenger, SnackBar(content: Text(message)));
+    OpenHandSnackBar.show(ctx, messenger, snackBar);
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {

@@ -730,7 +730,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           OpenHandSnackBar.show(
             context,
             messenger,
-            SnackBar(content: Text(message)),
+            OpenHandSnackBar.info(context, message),
           );
       }
     });

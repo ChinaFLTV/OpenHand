@@ -610,7 +610,7 @@ class _SkillsViewState extends State<SkillsView> {
           OpenHandSnackBar.show(
             context,
             messenger,
-            SnackBar(content: Text(message)),
+            OpenHandSnackBar.info(context, message),
           );
       }
     });

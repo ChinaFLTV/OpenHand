@@ -1447,7 +1447,11 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.show(context, messenger, SnackBar(content: Text(message)));
+    OpenHandSnackBar.show(
+      context,
+      messenger,
+      OpenHandSnackBar.info(context, message),
+    );
   }
 
   void _clearPendingFeedAutoFollowState() {

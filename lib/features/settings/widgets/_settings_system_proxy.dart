@@ -183,7 +183,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
       OpenHandSnackBar.show(
         context,
         messenger,
-        SnackBar(content: Text(localizedSaved)),
+        OpenHandSnackBar.error(context, localizedSaved),
       );
       return;
     }
@@ -192,10 +192,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     OpenHandSnackBar.show(
       context,
       messenger,
-      SnackBar(
-        content: Text(localizedSaved),
-        duration: const Duration(seconds: 2),
-      ),
+      OpenHandSnackBar.success(context, localizedSaved),
     );
     // l10n 占位：上面字符串依赖 Localizations.localeOf 而非 l10n 生成的
     // 键，避免增加 7 个 ARB 。

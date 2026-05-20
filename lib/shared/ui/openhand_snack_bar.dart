@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
+import 'animated_dialog.dart';
 
 /// Lightweight helpers for building consistent, icon-prefixed
 /// [SnackBar]s on top of the global [SnackBarThemeData].
@@ -11,53 +16,113 @@ import 'package:flutter/material.dart';
 class OpenHandSnackBar {
   OpenHandSnackBar._();
 
-  static const AnimationStyle _motionStyle = AnimationStyle(
-    duration: Duration(milliseconds: 360),
-    reverseDuration: Duration(milliseconds: 230),
-    curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
-  );
+  static const DialogAnimationSettings _fallbackMotionSettings =
+      DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.springScale,
+        durationMs: 360,
+      );
+
+  static const DialogAnimationSettings _disabledMotionSettings =
+      DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.none,
+        exitStyle: DialogAnimationStyle.none,
+      );
+
+  static bool _motionDisabled(DialogAnimationSettings settings) {
+    return settings.entranceStyle == DialogAnimationStyle.none &&
+        settings.exitStyle == DialogAnimationStyle.none;
+  }
+
+  static DialogAnimationSettings _resolveMotionSettings(BuildContext context) {
+    try {
+      return context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      return _fallbackMotionSettings;
+    }
+  }
+
+  static AnimationStyle _resolveRouteAnimationStyle(
+    DialogAnimationSettings settings,
+  ) {
+    if (_motionDisabled(settings)) return AnimationStyle.noAnimation;
+    return AnimationStyle(
+      duration: settings.duration,
+      reverseDuration: settings.duration,
+      curve: settings.curve.curve,
+      reverseCurve: settings.curve.reverseCurve,
+    );
+  }
+
+  static Widget _modernizeLegacyTextContent(
+    BuildContext context,
+    Widget content,
+  ) {
+    if (content is! Text) return content;
+    final cs = Theme.of(context).colorScheme;
+    return _OpenHandSnackBarMessage(
+      icon: Icons.info_rounded,
+      tint: cs.inversePrimary,
+      child: content,
+    );
+  }
+
+  static Widget _withDismissControl(Widget content) {
+    return Row(
+      children: [
+        Expanded(child: content),
+        const SizedBox(width: 8),
+        const _SnackBarCloseButton(),
+      ],
+    );
+  }
+
+  static Widget _messageContent({
+    required IconData icon,
+    required Color tint,
+    required Widget child,
+  }) {
+    return _OpenHandSnackBarMessage(icon: icon, tint: tint, child: child);
+  }
+
+  static TextStyle? _foregroundTextStyle(Color? foregroundColor) {
+    return foregroundColor == null ? null : TextStyle(color: foregroundColor);
+  }
 
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> show(
     BuildContext context,
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {
-    final wrapped = _ensureMotionWrapped(snackBar);
+    final animationsDisabled =
+        MediaQuery.maybeDisableAnimationsOf(context) == true;
+    final motionSettings = animationsDisabled
+        ? _disabledMotionSettings
+        : _resolveMotionSettings(context);
+    final wrapped = _ensureMotionWrapped(context, snackBar, motionSettings);
     return messenger.showSnackBar(
       wrapped,
-      snackBarAnimationStyle:
-          MediaQuery.maybeDisableAnimationsOf(context) == true
-          ? AnimationStyle.noAnimation
-          : _motionStyle,
+      snackBarAnimationStyle: _resolveRouteAnimationStyle(motionSettings),
     );
   }
 
-  /// Re-emits a [SnackBar] with its content wrapped in [_OpenHandSnackBarMotion]
-  /// (idempotent — already-wrapped content is left untouched), preserving every
-  /// caller-supplied field. Ensures every snackbar that flows through
-  /// [OpenHandSnackBar.show] receives the same Q-bouncy entry / decay-out
-  /// motion regardless of where it was constructed.
-  /// 同时注入无背景的自定义关闭按钮，替代框架内置的有白色背景的 close icon。
-  static SnackBar _ensureMotionWrapped(SnackBar snackBar) {
+  /// Re-emits a [SnackBar] with modern OpenHand content treatment, preserving
+  /// caller-supplied timing, action and layout fields. This is the compatibility
+  /// gate for older call sites: raw text snackbars get the neutral info affordance,
+  /// every snackbar gets the same close control, and all motion follows the app's
+  /// dialog animation settings / reduce-motion signal.
+  static SnackBar _ensureMotionWrapped(
+    BuildContext context,
+    SnackBar snackBar,
+    DialogAnimationSettings motionSettings,
+  ) {
     final content = snackBar.content;
     if (content is _OpenHandSnackBarMotion) return snackBar;
-    // 当 SnackBar 有 action 时不注入关闭按钮（action 本身提供了交互入口，
-    // 且 Flutter 会在 action 右侧自动布局，再加关闭按钮会导致底部拥挤）。
-    final hasAction = snackBar.action != null;
-    final wrappedContent = hasAction
-        ? content
-        : Row(
-            children: [
-              Expanded(child: content),
-              const SizedBox(width: 8),
-              const _SnackBarCloseButton(),
-            ],
-          );
+    final modernContent = _modernizeLegacyTextContent(context, content);
+    final wrappedContent = _withDismissControl(modernContent);
     return SnackBar(
       key: snackBar.key,
       content: _OpenHandSnackBarMotion(
-        duration: snackBar.duration,
+        settings: motionSettings,
         child: wrappedContent,
       ),
       action: snackBar.action,
@@ -86,6 +151,7 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = const Duration(seconds: 2),
     SnackBarAction? action,
+    int? maxLines,
   }) {
     return _build(
       context,
@@ -94,6 +160,7 @@ class OpenHandSnackBar {
       tint: const Color(0xFF22C55E),
       duration: duration,
       action: action,
+      maxLines: maxLines,
     );
   }
 
@@ -104,6 +171,7 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = const Duration(seconds: 4),
     SnackBarAction? action,
+    int? maxLines,
   }) {
     return _build(
       context,
@@ -112,6 +180,7 @@ class OpenHandSnackBar {
       tint: const Color(0xFFEF4444),
       duration: duration,
       action: action,
+      maxLines: maxLines,
     );
   }
 
@@ -122,6 +191,7 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = const Duration(seconds: 3),
     SnackBarAction? action,
+    int? maxLines,
   }) {
     final cs = Theme.of(context).colorScheme;
     return _build(
@@ -131,14 +201,14 @@ class OpenHandSnackBar {
       tint: cs.inversePrimary,
       duration: duration,
       action: action,
+      maxLines: maxLines,
     );
   }
 
   /// One-shot helper: build + show an info snackbar with the unified
   /// motion / close-affordance treatment. Used as the single replacement
-  /// for legacy `messenger.showSnackBar(SnackBar(content: Text(...)))`
-  /// call sites so every snackbar in the app travels through the same
-  /// presentation pipeline.
+  /// for legacy plain-text call sites so every snackbar in the app travels
+  /// through the same presentation pipeline.
   static void showInfo(
     BuildContext context,
     String message, {
@@ -147,7 +217,11 @@ class OpenHandSnackBar {
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    show(context, messenger, info(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      info(context, message, duration: duration, action: action),
+    );
   }
 
   /// Same as [showInfo] but reuses an already-resolved [ScaffoldMessengerState].
@@ -160,7 +234,11 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 3),
     SnackBarAction? action,
   }) {
-    show(context, messenger, info(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      info(context, message, duration: duration, action: action),
+    );
   }
 
   /// One-shot helper: success snackbar.
@@ -172,7 +250,11 @@ class OpenHandSnackBar {
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    show(context, messenger, success(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      success(context, message, duration: duration, action: action),
+    );
   }
 
   static void showSuccessOn(
@@ -182,7 +264,11 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 2),
     SnackBarAction? action,
   }) {
-    show(context, messenger, success(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      success(context, message, duration: duration, action: action),
+    );
   }
 
   /// One-shot helper: error snackbar.
@@ -194,7 +280,11 @@ class OpenHandSnackBar {
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    show(context, messenger, error(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      error(context, message, duration: duration, action: action),
+    );
   }
 
   static void showErrorOn(
@@ -204,7 +294,11 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 4),
     SnackBarAction? action,
   }) {
-    show(context, messenger, error(context, message, duration: duration, action: action));
+    show(
+      context,
+      messenger,
+      error(context, message, duration: duration, action: action),
+    );
   }
 
   static SnackBar notification(
@@ -239,43 +333,55 @@ class OpenHandSnackBar {
     Color? foregroundColor,
     int? maxLines,
   }) {
-    final textStyle = foregroundColor == null
-        ? null
-        : TextStyle(color: foregroundColor);
+    final textStyle = _foregroundTextStyle(foregroundColor);
     return SnackBar(
       duration: duration,
       action: action,
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
       dismissDirection: DismissDirection.down,
-      // Material's built-in close icon is enabled globally via SnackBarThemeData
-      // (see openhand_theme.dart). We deliberately do NOT pass `showCloseIcon`
-      // here so the theme default wins, and snackbars that have an action still
-      // get a close affordance — fixing the long-stuck "auth-failed" bar that
-      // previously could only be dismissed by waiting out the duration.
-      content: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, color: tint, size: 20),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              message,
-              maxLines: maxLines,
-              overflow: maxLines == null ? null : TextOverflow.ellipsis,
-              style: textStyle,
-            ),
-          ),
-        ],
+      content: _messageContent(
+        icon: icon,
+        tint: tint,
+        child: Text(
+          message,
+          maxLines: maxLines,
+          overflow: maxLines == null ? null : TextOverflow.ellipsis,
+          style: textStyle,
+        ),
       ),
     );
   }
 }
 
-class _OpenHandSnackBarMotion extends StatefulWidget {
-  const _OpenHandSnackBarMotion({required this.duration, required this.child});
+class _OpenHandSnackBarMessage extends StatelessWidget {
+  const _OpenHandSnackBarMessage({
+    required this.icon,
+    required this.tint,
+    required this.child,
+  });
 
-  final Duration duration;
+  final IconData icon;
+  final Color tint;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, color: tint, size: 20),
+        const SizedBox(width: 12),
+        Flexible(child: child),
+      ],
+    );
+  }
+}
+
+class _OpenHandSnackBarMotion extends StatefulWidget {
+  const _OpenHandSnackBarMotion({required this.settings, required this.child});
+
+  final DialogAnimationSettings settings;
   final Widget child;
 
   @override
@@ -286,33 +392,32 @@ class _OpenHandSnackBarMotion extends StatefulWidget {
 class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _offset;
-  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 380),
-    );
-    final entry = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    );
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _offset = Tween<Offset>(
-      begin: const Offset(0, 0.22),
-      end: Offset.zero,
-    ).animate(entry);
-    _scale = Tween<double>(begin: 0.94, end: 1).animate(entry);
+    _controller = AnimationController(vsync: this);
+    _applyControllerDurations();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OpenHandSnackBarMotion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _applyControllerDurations();
+    }
+  }
+
+  void _applyControllerDurations() {
+    _controller.duration = widget.settings.duration;
+    _controller.reverseDuration = widget.settings.duration;
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (MediaQuery.disableAnimationsOf(context) ||
+        OpenHandSnackBar._motionDisabled(widget.settings)) {
       _controller.value = 1;
     } else if (_controller.status == AnimationStatus.dismissed) {
       _controller.forward();
@@ -327,13 +432,14 @@ class _OpenHandSnackBarMotionState extends State<_OpenHandSnackBarMotion>
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _offset,
-        child: ScaleTransition(scale: _scale, child: widget.child),
-      ),
+    if (MediaQuery.disableAnimationsOf(context) ||
+        OpenHandSnackBar._motionDisabled(widget.settings)) {
+      return widget.child;
+    }
+    return buildAnimationStyleTransition(
+      animation: _controller,
+      settings: widget.settings,
+      child: widget.child,
     );
   }
 }
@@ -349,16 +455,24 @@ class _SnackBarCloseButton extends StatelessWidget {
     final color = Theme.of(
       context,
     ).colorScheme.onInverseSurface.withValues(alpha: 0.7);
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(
-          context,
-        ).hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(Icons.close_rounded, size: 18, color: color),
+    final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          onTap: () {
+            ScaffoldMessenger.of(
+              context,
+            ).hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Icon(Icons.close_rounded, size: 18, color: color),
+          ),
+        ),
       ),
     );
   }
