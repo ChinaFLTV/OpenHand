@@ -74,6 +74,7 @@ Future<T?> showAnimatedDialog<T>({
       ),
       useRootNavigator: useRootNavigator,
       routeSettings: routeSettings,
+      animationStyle: AnimationStyle.noAnimation,
     );
   }
 

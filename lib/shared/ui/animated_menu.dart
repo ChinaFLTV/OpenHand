@@ -52,6 +52,7 @@ Future<T?> showAnimatedMenu<T>({
       shape: shape,
       constraints: constraints,
       useRootNavigator: useRootNavigator,
+      popUpAnimationStyle: AnimationStyle.noAnimation,
     );
   }
 
@@ -345,10 +346,7 @@ Widget _buildMenuTransition(
   );
 
   return switch (style) {
-    DialogAnimationStyle.none => FadeTransition(
-      opacity: animation,
-      child: child,
-    ),
+    DialogAnimationStyle.none => child,
     DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
     DialogAnimationStyle.fadeScale => FadeTransition(
       opacity: curved,
