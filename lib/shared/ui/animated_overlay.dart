@@ -48,6 +48,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   late final AnimationController _controller;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
+  bool _animationsDisabled = false;
 
   @override
   void initState() {
@@ -84,15 +85,21 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (widget.useMenuSettings &&
-        widget.customDuration == null &&
-        _controller.duration != null) {
-      // Update duration from settings if available.
+    _syncAnimationPreference();
+  }
+
+  void _syncAnimationPreference() {
+    var disabled =
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled;
+    if (widget.useMenuSettings) {
       try {
         final settings = context
             .read<SettingsController>()
             .menuAnimationSettings;
-        if (settings.entranceStyle != DialogAnimationStyle.none) {
+        disabled =
+            disabled || settings.entranceStyle == DialogAnimationStyle.none;
+        if (!disabled && widget.customDuration == null) {
           final newDuration = settings.duration;
           if (_controller.duration != newDuration && !_controller.isAnimating) {
             _controller.duration = newDuration;
@@ -101,6 +108,13 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       } catch (_) {
         // SettingsController not available, use defaults.
       }
+    }
+    _animationsDisabled = disabled;
+    if (disabled) {
+      _controller.stop();
+      _controller.value = 1.0;
+    } else if (_controller.value == 0 && !_controller.isAnimating) {
+      _controller.forward();
     }
   }
 
@@ -112,6 +126,9 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
 
   @override
   Widget build(BuildContext context) {
+    if (_animationsDisabled) {
+      return widget.child;
+    }
     Widget result = FadeTransition(
       opacity: _fadeAnimation,
       child: widget.child,
@@ -147,6 +164,7 @@ class _FadeInOverlayContentState extends State<FadeInOverlayContent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
+  bool _animationsDisabled = false;
 
   @override
   void initState() {
@@ -157,6 +175,21 @@ class _FadeInOverlayContentState extends State<FadeInOverlayContent>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disabled =
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled;
+    _animationsDisabled = disabled;
+    if (disabled) {
+      _controller.stop();
+      _controller.value = 1.0;
+    } else if (_controller.value == 0 && !_controller.isAnimating) {
+      _controller.forward();
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -164,6 +197,9 @@ class _FadeInOverlayContentState extends State<FadeInOverlayContent>
 
   @override
   Widget build(BuildContext context) {
+    if (_animationsDisabled) {
+      return widget.child;
+    }
     return FadeTransition(opacity: _animation, child: widget.child);
   }
 }
