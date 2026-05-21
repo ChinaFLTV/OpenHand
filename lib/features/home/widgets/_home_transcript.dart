@@ -1042,7 +1042,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // Remember current scroll metrics so we can restore visual position later.
     final scrollController = widget.controller;
     final hadClients = scrollController.hasClients;
-    final currentOffset = hadClients ? scrollController.offset : 0.0;
     final currentMaxExtent = hadClients
         ? scrollController.position.maxScrollExtent
         : 0.0;
@@ -1069,22 +1068,48 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // After the frame rebuilds with new items at the top, adjust scroll offset
     // so the user sees the same content as before (the "Load earlier" button's
     // position just replaced by older messages, but the later messages stay
-    // in view).
+    // in view). Deferred markdown/code highlighting can keep increasing the
+    // prepended content height for a few frames, so settle repeatedly and stop
+    // as soon as an external scroll (usually the user) takes over.
     if (hadClients) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !scrollController.hasClients) return;
-
-        // New content was prepended. The maxScrollExtent has increased by the
-        // total height of the new items. To keep the user viewing the same
-        // messages, we need to jump forward by that delta.
-        final newMaxExtent = scrollController.position.maxScrollExtent;
-        final delta = newMaxExtent - currentMaxExtent;
-
-        if (delta > 0) {
-          final targetOffset = (currentOffset + delta).clamp(0.0, newMaxExtent);
-          scrollController.jumpTo(targetOffset);
+      var previousMaxExtent = currentMaxExtent;
+      double? lastAdjustedOffset;
+      var stableFrames = 0;
+      void settlePrependedHeight(int remainingFrames) {
+        if (remainingFrames <= 0) {
+          return;
         }
-      });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !scrollController.hasClients) return;
+          final position = scrollController.positions.isNotEmpty
+              ? scrollController.positions.last
+              : null;
+          if (position == null) return;
+          if (lastAdjustedOffset != null &&
+              (position.pixels - lastAdjustedOffset!).abs() > 1) {
+            return;
+          }
+
+          final newMaxExtent = position.maxScrollExtent;
+          final delta = newMaxExtent - previousMaxExtent;
+          previousMaxExtent = newMaxExtent;
+          if (delta.abs() <= 0.5) {
+            stableFrames += 1;
+            if (stableFrames >= 2) return;
+          } else {
+            stableFrames = 0;
+            final targetOffset = (position.pixels + delta).clamp(
+              position.minScrollExtent,
+              newMaxExtent,
+            );
+            position.jumpTo(targetOffset);
+            lastAdjustedOffset = targetOffset;
+          }
+          settlePrependedHeight(remainingFrames - 1);
+        });
+      }
+
+      settlePrependedHeight(10);
     }
   }
 
