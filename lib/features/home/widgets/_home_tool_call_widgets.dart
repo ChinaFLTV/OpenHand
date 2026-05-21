@@ -763,8 +763,8 @@ class _ToolOutputPanel extends StatefulWidget {
 class _ToolOutputPanelState extends State<_ToolOutputPanel> {
   bool _isExpanded = false;
   bool _isWrapped = false;
-  List<String>? _cachedLines;
-  String? _cachedLinesKey;
+  _ToolOutputPreview? _cachedPreview;
+  String? _cachedPreviewKey;
 
   void _toggleExpanded() {
     setState(() {
@@ -792,16 +792,15 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
   @override
   Widget build(BuildContext context) {
-    // Cache line splitting to avoid re-splitting large tool output on every build.
-    if (_cachedLinesKey != widget.content.text) {
-      _cachedLinesKey = widget.content.text;
-      _cachedLines = const LineSplitter().convert(widget.content.text);
+    if (_cachedPreviewKey != widget.content.text) {
+      _cachedPreviewKey = widget.content.text;
+      _cachedPreview = _buildToolOutputPreview(widget.content.text);
     }
-    final lines = _cachedLines!;
-    final bool isLong = widget.content.text.length > 800 || lines.length > 15;
+    final preview = _cachedPreview!;
+    final bool isLong = preview.isLong;
 
     final displayContent = isLong && !_isExpanded
-        ? '${lines.take(15).join('\n')}${lines.length > 15 || widget.content.text.length > 800 ? '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]' : ''}'
+        ? preview.collapsedText
         : widget.content.text;
 
     return Column(
@@ -914,6 +913,81 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
       ],
     );
   }
+}
+
+const int _toolOutputPreviewMaxLines = 15;
+const int _toolOutputPreviewMaxChars = 800;
+const String _toolOutputPreviewCollapsedNotice =
+    '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]';
+
+class _ToolOutputPreview {
+  const _ToolOutputPreview({required this.isLong, required this.collapsedText});
+
+  final bool isLong;
+  final String collapsedText;
+}
+
+_ToolOutputPreview _buildToolOutputPreview(String content) {
+  if (content.isEmpty) {
+    return const _ToolOutputPreview(isLong: false, collapsedText: '');
+  }
+  final buffer = StringBuffer();
+  var index = 0;
+  var lineCount = 0;
+  var writtenChars = 0;
+  var truncatedByChars = false;
+  while (index < content.length &&
+      lineCount < _toolOutputPreviewMaxLines &&
+      writtenChars < _toolOutputPreviewMaxChars) {
+    final lineStart = index;
+    var lineEnd = index;
+    while (lineEnd < content.length) {
+      final unit = content.codeUnitAt(lineEnd);
+      if (unit == 0x0A || unit == 0x0D) {
+        break;
+      }
+      lineEnd += 1;
+    }
+    if (lineCount > 0) {
+      if (writtenChars + 1 > _toolOutputPreviewMaxChars) {
+        truncatedByChars = true;
+        break;
+      }
+      buffer.write('\n');
+      writtenChars += 1;
+    }
+    final remainingChars = _toolOutputPreviewMaxChars - writtenChars;
+    final lineLength = lineEnd - lineStart;
+    if (lineLength > remainingChars) {
+      buffer.write(content.substring(lineStart, lineStart + remainingChars));
+      writtenChars += remainingChars;
+      truncatedByChars = true;
+      break;
+    }
+    buffer.write(content.substring(lineStart, lineEnd));
+    writtenChars += lineLength;
+    lineCount += 1;
+    if (lineEnd >= content.length) {
+      index = lineEnd;
+      break;
+    }
+    final newlineUnit = content.codeUnitAt(lineEnd);
+    if (newlineUnit == 0x0D &&
+        lineEnd + 1 < content.length &&
+        content.codeUnitAt(lineEnd + 1) == 0x0A) {
+      index = lineEnd + 2;
+    } else {
+      index = lineEnd + 1;
+    }
+  }
+  final hasMore = index < content.length || truncatedByChars;
+  if (!hasMore && content.length <= _toolOutputPreviewMaxChars) {
+    return _ToolOutputPreview(isLong: false, collapsedText: content);
+  }
+  return _ToolOutputPreview(
+    isLong: true,
+    collapsedText: '${buffer.toString()}$_toolOutputPreviewCollapsedNotice',
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2627,15 +2701,30 @@ String _toolExecutionPreviewText(
 }
 
 String _lastNonEmptyToolOutputLine(String content) {
-  final lines = const LineSplitter()
-      .convert(content)
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty)
-      .toList(growable: false);
-  if (lines.isEmpty) {
-    return '';
+  var lineEnd = content.length;
+  while (lineEnd > 0) {
+    var lineStart = lineEnd;
+    while (lineStart > 0) {
+      final unit = content.codeUnitAt(lineStart - 1);
+      if (unit == 0x0A || unit == 0x0D) {
+        break;
+      }
+      lineStart -= 1;
+    }
+    final line = content.substring(lineStart, lineEnd).trim();
+    if (line.isNotEmpty) {
+      return line;
+    }
+    while (lineStart > 0) {
+      final unit = content.codeUnitAt(lineStart - 1);
+      if (unit != 0x0A && unit != 0x0D) {
+        break;
+      }
+      lineStart -= 1;
+    }
+    lineEnd = lineStart;
   }
-  return lines.last;
+  return '';
 }
 
 int _toolExecutionDurationMs(AiSessionMessage message) {
