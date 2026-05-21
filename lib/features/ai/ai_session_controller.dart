@@ -773,24 +773,23 @@ class AiSessionController extends ChangeNotifier {
     return _zeroThroughputWindow(_StreamThroughputSampler.defaultWindowSeconds);
   }
 
-  AiStreamThroughputSnapshot sessionStreamThroughputSnapshot(String sessionId) {
+  AiStreamThroughputSnapshot sessionStreamThroughputSnapshot(
+    String sessionId, {
+    int windowSeconds = _StreamThroughputSampler.retentionSeconds,
+  }) {
+    final window = windowSeconds
+        .clamp(1, _StreamThroughputSampler.retentionSeconds)
+        .toInt();
     final displaySamples =
-        _sessionDisplayThroughputSnapshot(
-          sessionId,
-          windowSeconds: _StreamThroughputSampler.retentionSeconds,
-        ) ??
-        (_lastCharThroughputSnapshot[sessionId]?.window(
-              _StreamThroughputSampler.retentionSeconds,
-            ) ??
-            _zeroThroughputWindow(_StreamThroughputSampler.retentionSeconds));
+        _sessionDisplayThroughputSnapshot(sessionId, windowSeconds: window) ??
+        (_lastCharThroughputSnapshot[sessionId]?.window(window) ??
+            _zeroThroughputWindow(window));
     final rawSamples =
         _activeAiThroughputSamplers[sessionId]?.snapshot(
-          windowSeconds: _StreamThroughputSampler.retentionSeconds,
+          windowSeconds: window,
         ) ??
-        (_lastRawCharThroughputSnapshot[sessionId]?.window(
-              _StreamThroughputSampler.retentionSeconds,
-            ) ??
-            _zeroThroughputWindow(_StreamThroughputSampler.retentionSeconds));
+        (_lastRawCharThroughputSnapshot[sessionId]?.window(window) ??
+            _zeroThroughputWindow(window));
     return AiStreamThroughputSnapshot(
       displaySamples: displaySamples,
       rawSamples: rawSamples,
@@ -3719,15 +3718,20 @@ class AiSessionController extends ChangeNotifier {
       final throttleDuration = throttleDurationSec > 0
           ? Duration(seconds: throttleDurationSec)
           : null;
+      final sharedCharBudget = _StreamCharThrottleBudget(
+        maxCharsPerSecond: effChars,
+      );
       charThrottle = _StreamCharThrottle(
         maxCharsPerSecond: effChars,
         onTick: renderAssistantBuffered,
         throttleDuration: throttleDuration,
+        sharedBudget: sharedCharBudget,
       );
       reasoningCharThrottle = _StreamCharThrottle(
         maxCharsPerSecond: effChars,
         onTick: renderReasoningBuffered,
         throttleDuration: throttleDuration,
+        sharedBudget: sharedCharBudget,
       );
       cardThrottle = _StreamCardThrottle(
         maxCardsPerSecond: effCards,
@@ -4135,9 +4139,7 @@ class AiSessionController extends ChangeNotifier {
       //     drain 时长等待，让 pending grapheme 通过 onTick 一帧一帧
       //     释放；release() 仅在 stream 真正结束（drain 完成）后执行；
       //   * 时长节流（throttleDuration != null）路径保留 8s 上限，因为
-      //     时长一到 throttle 自身就会 _isExpired，UI 已切到真实节奏；
-      //   * 极端情况下增加一个 90s 防呆上限，避免单轮被无限拉长（>90s
-      //     的内容用户也会主动 stop）。
+      //     时长一到 throttle 自身就会 _isExpired，UI 已切到真实节奏。
       didCancelStreamEarly =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
       if (!didCancelStreamEarly) {
@@ -4145,17 +4147,17 @@ class AiSessionController extends ChangeNotifier {
         // 长估算改用 grapheme 长度。继续用 raw buffer 的 UTF-16 长度会
         // 在中文 / emoji 场景下放大 maxWaitMs，让流末尾的 idle 等待变
         // 得不必要地长。这里先把 raw buffer sanitize 一遍，再用
-        // `package:characters` 的 grapheme 长度估 pendingChars。
+        // `package:characters` 的 grapheme 长度估 pendingChars。assistant
+        // 与 reasoning 共享同一个会话级字符预算，所以等待时长按两者总和
+        // 估算，而不是取 max。
         final assistantPendingGraphemes = _sanitizeVisibleModelContent(
           assistantRawBuffer.toString(),
         ).characters.length;
         final reasoningPendingGraphemes = _sanitizeVisibleModelContent(
           reasoningRawBuffer.toString(),
         ).characters.length;
-        final pendingChars = math.max(
-          assistantPendingGraphemes,
-          reasoningPendingGraphemes,
-        );
+        final pendingChars =
+            assistantPendingGraphemes + reasoningPendingGraphemes;
         final effectiveCharsPerSec = effChars;
         // 2026-05-25 — Bug 1 复发修复：彻底移除「持续节流」路径的 drain
         // 上限。之前留了 90s 防呆顶，结果对几百到上千 grapheme 的正式

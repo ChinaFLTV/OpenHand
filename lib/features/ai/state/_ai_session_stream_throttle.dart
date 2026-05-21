@@ -38,20 +38,24 @@ class _StreamThroughputSampler {
   }
 
   void recordGraphemes(int graphemes) {
-    if (graphemes <= 0) return;
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    recordGraphemesAt(graphemes, nowSec);
+  }
+
+  void recordGraphemesAt(int graphemes, int epochSecond) {
+    if (graphemes <= 0) return;
     if (_bucketSecond == 0) {
-      _bucketSecond = nowSec;
+      _bucketSecond = epochSecond;
       _buckets[0] = graphemes;
       return;
     }
-    final delta = nowSec - _bucketSecond;
+    final delta = epochSecond - _bucketSecond;
     if (delta <= 0) {
       _buckets[0] += graphemes;
       return;
     }
     _advanceBy(delta);
-    _bucketSecond = nowSec;
+    _bucketSecond = epochSecond;
     _buckets[0] = graphemes;
   }
 
@@ -88,6 +92,77 @@ class _StreamThroughputSampler {
   }
 }
 
+/// 会话级字符显示预算。
+///
+/// assistant 与 reasoning 两条流共享同一个实例，确保「字符 / 秒」配置约束
+/// 的是本会话总展示吞吐，而不是每张卡各自拿一份额度。令牌桶仍保留平滑
+/// 补给，但每个自然秒再加一道硬上限，避免初始预算或双流叠加把弹窗峰值
+/// 冲到用户配置之上。
+class _StreamCharThrottleBudget {
+  _StreamCharThrottleBudget({required int maxCharsPerSecond})
+    : _maxCharsPerSecond = maxCharsPerSecond,
+      _budget = maxCharsPerSecond > 0 ? maxCharsPerSecond.toDouble() : 0.0,
+      _lastTickAt = DateTime.now();
+
+  int _maxCharsPerSecond;
+  double _budget;
+  DateTime _lastTickAt;
+  int _wallSecond = 0;
+  int _emittedThisWallSecond = 0;
+
+  int get maxCharsPerSecond => _maxCharsPerSecond;
+
+  set maxCharsPerSecond(int next) {
+    if (next == _maxCharsPerSecond) return;
+    _maxCharsPerSecond = next;
+    if (next <= 0) {
+      _budget = 0;
+      _emittedThisWallSecond = 0;
+      return;
+    }
+    if (_budget > next) _budget = next.toDouble();
+    if (_emittedThisWallSecond > next) _emittedThisWallSecond = next;
+  }
+
+  ({int count, int wallSecond}) grant(int pendingGraphemes) {
+    if (pendingGraphemes <= 0 || _maxCharsPerSecond <= 0) {
+      return (count: 0, wallSecond: _wallSecond);
+    }
+    _refill();
+    final remainingThisSecond = _maxCharsPerSecond - _emittedThisWallSecond;
+    if (remainingThisSecond <= 0) return (count: 0, wallSecond: _wallSecond);
+    final allowance = math.min(_budget.floor(), remainingThisSecond);
+    if (allowance <= 0) return (count: 0, wallSecond: _wallSecond);
+    final granted = math.min(allowance, pendingGraphemes);
+    _budget -= granted;
+    _emittedThisWallSecond += granted;
+    return (count: granted, wallSecond: _wallSecond);
+  }
+
+  double get partialCharProgress {
+    if (_maxCharsPerSecond <= 0) return 1;
+    return _budget.clamp(0.0, 1.0).toDouble();
+  }
+
+  void _refill() {
+    final now = DateTime.now();
+    final nowSec = now.millisecondsSinceEpoch ~/ 1000;
+    if (_wallSecond != nowSec) {
+      _wallSecond = nowSec;
+      _emittedThisWallSecond = 0;
+    }
+    final elapsedMicros = now.difference(_lastTickAt).inMicroseconds;
+    if (elapsedMicros <= 0) {
+      return;
+    }
+    _budget += elapsedMicros * _maxCharsPerSecond / 1000000.0;
+    if (_budget > _maxCharsPerSecond) {
+      _budget = _maxCharsPerSecond.toDouble();
+    }
+    _lastTickAt = now;
+  }
+}
+
 /// 显示侧 grapheme 级令牌桶限速器。
 ///
 /// 调用方在拿到完整 sanitized 文本后通过 [renderableGraphemeCount] 询问当前
@@ -109,10 +184,11 @@ class _StreamCharThrottle {
     required int maxCharsPerSecond,
     required void Function() onTick,
     Duration? throttleDuration,
-  }) : _maxCharsPerSecond = maxCharsPerSecond,
+    _StreamCharThrottleBudget? sharedBudget,
+  }) : _budget =
+           sharedBudget ??
+           _StreamCharThrottleBudget(maxCharsPerSecond: maxCharsPerSecond),
        _onTick = onTick,
-       _budget = maxCharsPerSecond.toDouble(),
-       _lastTickAt = DateTime.now(),
        _expireAt =
            (throttleDuration != null && throttleDuration.inMilliseconds > 0)
            ? DateTime.now().add(throttleDuration)
@@ -145,13 +221,8 @@ class _StreamCharThrottle {
   /// 每秒允许被「展示」的 grapheme 数；<=0 视为关闭限速。
   /// 2026-05-24 — 改为可变，供「会话级临时节流」弹窗 Apply 立即生效。
   /// 写入新值时同步把 [_budget] 钳到新上限内，防止旧时钟下累积出超额令牌。
-  int _maxCharsPerSecond;
-  int get maxCharsPerSecond => _maxCharsPerSecond;
-  set maxCharsPerSecond(int next) {
-    if (next == _maxCharsPerSecond) return;
-    _maxCharsPerSecond = next;
-    if (_budget > next) _budget = next.toDouble();
-  }
+  int get maxCharsPerSecond => _budget.maxCharsPerSecond;
+  set maxCharsPerSecond(int next) => _budget.maxCharsPerSecond = next;
 
   /// 2026-05-19 — 会话级运行时开关：用户在节流弹窗中关闭节流时，控制
   /// 器把 `false` 推到当前活跃 throttle，立即从限速桶切换到 pass-through。
@@ -175,14 +246,13 @@ class _StreamCharThrottle {
   final void Function() _onTick;
   Timer? _drainTimer;
   bool _disposed = false;
-  double _budget;
+  final _StreamCharThrottleBudget _budget;
   // 已被允许显示的 grapheme 数。命名从 `_emittedChars` 切换为
   // `_emittedGraphemes`，对外通过 [renderableGraphemeCount] 暴露。
   int _emittedGraphemes = 0;
   // 最近一次 [renderableGraphemeCount] 的总 grapheme 数；用于
   // [hasPending] / [drainGracefully] 判定。
   int _lastKnownTotalGraphemes = 0;
-  DateTime _lastTickAt;
   final DateTime? _expireAt;
 
   bool get isEnabled =>
@@ -233,14 +303,11 @@ class _StreamCharThrottle {
     if (totalSanitizedGraphemeCount <= _emittedGraphemes) {
       return _emittedGraphemes;
     }
-    _refill();
-    final allowance = _budget.floor();
-    if (allowance > 0) {
-      final pending = totalSanitizedGraphemeCount - _emittedGraphemes;
-      final granted = allowance >= pending ? pending : allowance;
-      _emittedGraphemes += granted;
-      _budget -= granted;
-      _recordEmission(granted);
+    final pending = totalSanitizedGraphemeCount - _emittedGraphemes;
+    final grant = _budget.grant(pending);
+    if (grant.count > 0) {
+      _emittedGraphemes += grant.count;
+      _recordEmission(grant.count, epochSecond: grant.wallSecond);
     }
     if (_emittedGraphemes < totalSanitizedGraphemeCount) {
       _scheduleDrain();
@@ -262,8 +329,12 @@ class _StreamCharThrottle {
   // ── 显示侧吞吐采样：保留最近 30 秒 grapheme 放出量，O(1) 更新。
   final _displayThroughput = _StreamThroughputSampler();
 
-  void _recordEmission(int graphemes) {
-    _displayThroughput.recordGraphemes(graphemes);
+  void _recordEmission(int graphemes, {int? epochSecond}) {
+    if (epochSecond == null) {
+      _displayThroughput.recordGraphemes(graphemes);
+      return;
+    }
+    _displayThroughput.recordGraphemesAt(graphemes, epochSecond);
   }
 
   /// 最近 30 秒的每秒 grapheme 放出快照，桶 0 =
@@ -274,20 +345,6 @@ class _StreamCharThrottle {
 
   /// 当前秒（桶 0）累计已放出的 grapheme 数。
   int get currentSecondEmitted => _displayThroughput.currentSecondValue;
-
-  void _refill() {
-    final now = DateTime.now();
-    final elapsedMicros = now.difference(_lastTickAt).inMicroseconds;
-    if (elapsedMicros <= 0) {
-      return;
-    }
-    // 单位：graphemes/sec。换算 micros → graphemes：micros * rate / 1e6。
-    _budget += elapsedMicros * maxCharsPerSecond / 1000000.0;
-    if (_budget > maxCharsPerSecond) {
-      _budget = maxCharsPerSecond.toDouble();
-    }
-    _lastTickAt = now;
-  }
 
   void _scheduleDrain() {
     if (_drainTimer != null || _disposed) {
@@ -319,8 +376,7 @@ class _StreamCharThrottle {
   /// 用于给 UI 渲染半透明的"待出场字符"，让低速率下的渲染拥有连续动画。
   double get partialCharProgress {
     if (!isEnabled) return 1;
-    final clamped = _budget.clamp(0.0, 1.0);
-    return clamped;
+    return _budget.partialCharProgress;
   }
 
   /// 立刻释放剩余预算，供流结束 / 取消时把全部内容一次性显式刷出。
@@ -329,7 +385,6 @@ class _StreamCharThrottle {
     _drainTimer?.cancel();
     _drainTimer = null;
     _emittedGraphemes = 1 << 30;
-    _budget = (1 << 30).toDouble();
   }
 
   /// 当前是否还有 pending grapheme 未被释放给 UI（仅在 isEnabled=true 时

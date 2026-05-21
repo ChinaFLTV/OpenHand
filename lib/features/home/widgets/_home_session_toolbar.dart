@@ -3006,6 +3006,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final controller = context.read<AiSessionController>();
     final snapshot = controller.sessionStreamThroughputSnapshot(
       widget.sessionId,
+      windowSeconds: _rangeSeconds,
     );
     _displaySamples = snapshot.displaySamples;
     _rawSamples = snapshot.rawSamples;
@@ -3033,7 +3034,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   void _refresh() {
     final controller = context.read<AiSessionController>();
-    final next = controller.sessionStreamThroughputSnapshot(widget.sessionId);
+    final next = controller.sessionStreamThroughputSnapshot(
+      widget.sessionId,
+      windowSeconds: _rangeSeconds,
+    );
     if (_listsEqual(next.displaySamples, _displaySamples) &&
         _listsEqual(next.rawSamples, _rawSamples)) {
       return;
@@ -3069,8 +3073,20 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     }
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final prevDisplay = _currentDisplaySamples();
+    var sourceDisplay = _displaySamples;
+    var sourceRaw = _rawSamples;
+    if (nextRange > sourceDisplay.length || nextRange != _rangeSeconds) {
+      final snapshot = context
+          .read<AiSessionController>()
+          .sessionStreamThroughputSnapshot(
+            widget.sessionId,
+            windowSeconds: nextRange,
+          );
+      sourceDisplay = snapshot.displaySamples;
+      sourceRaw = snapshot.rawSamples;
+    }
     final chartData = _buildChartData(
-      _displaySamples,
+      sourceDisplay,
       rangeSeconds: nextRange,
       zoom: nextZoom,
     );
@@ -3079,6 +3095,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       _rangeSeconds = nextRange;
       _zoom = nextZoom;
       _zoomBase = nextZoom;
+      _displaySamples = sourceDisplay;
+      _rawSamples = sourceRaw;
       _hoveredIndex = null;
       _hoverLocal = null;
       _chartData = chartData;
@@ -3221,6 +3239,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final rawCurrent = rawWindow.isEmpty ? 0 : rawWindow.first;
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
     final headerWindow = _formatRangeLabel(context, windowSeconds);
+    final maxZoom = _maxZoomForRange(_rangeSeconds);
+    final zoomValue = _zoom.clamp(_kMinZoom, maxZoom).toDouble();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -3235,13 +3255,18 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
             children: [
               Icon(Icons.show_chart_rounded, size: 14, color: scheme.primary),
               const SizedBox(width: 6),
-              Text(
-                isZh
-                    ? '节流后字符吞吐 · $headerWindow'
-                    : 'Throttled Chars · $headerWindow',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurfaceVariant,
+              Expanded(
+                child: Text(
+                  isZh
+                      ? '节流后字符吞吐 · $headerWindow'
+                      : 'Throttled Chars · $headerWindow',
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -3255,43 +3280,86 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
-              const Spacer(),
-              Text(
-                isZh
-                    ? '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s'
-                    : 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurface,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  isZh
+                      ? '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s'
+                      : 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurface,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          SegmentedButton<int>(
-            showSelectedIcon: false,
-            segments: <ButtonSegment<int>>[
-              for (final seconds in _kRangeOptions)
-                ButtonSegment<int>(
-                  value: seconds,
-                  label: Text(_formatRangeLabel(context, seconds)),
-                ),
-            ],
-            selected: <int>{_rangeSeconds},
-            onSelectionChanged: (selection) {
-              final next = selection.isEmpty ? null : selection.first;
-              if (next != null) {
-                _updateWindow(rangeSeconds: next, zoom: 1.0);
-              }
-            },
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll<TextStyle?>(
-                theme.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: <ButtonSegment<int>>[
+                for (final seconds in _kRangeOptions)
+                  ButtonSegment<int>(
+                    value: seconds,
+                    label: Text(_formatRangeLabel(context, seconds)),
+                  ),
+              ],
+              selected: <int>{_rangeSeconds},
+              onSelectionChanged: (selection) {
+                final next = selection.isEmpty ? null : selection.first;
+                if (next != null) {
+                  _updateWindow(rangeSeconds: next, zoom: 1.0);
+                }
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStatePropertyAll<TextStyle?>(
+                  theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                Icons.zoom_in_map_rounded,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
+              Expanded(
+                child: Slider(
+                  min: _kMinZoom,
+                  max: maxZoom,
+                  value: zoomValue,
+                  label: headerWindow,
+                  onChanged: (value) =>
+                      _updateWindow(zoom: value, animate: false),
+                ),
+              ),
+              SizedBox(
+                width: 52,
+                child: Text(
+                  headerWindow,
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           SizedBox(

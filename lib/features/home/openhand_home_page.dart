@@ -157,6 +157,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _pendingAnimatedScrollToBottom = false;
   bool _programmaticAutoFollowScrollInProgress = false;
   bool _userScrollInProgress = false;
+  bool _composerScrollCompensationInProgress = false;
+  double? _lastMessageScrollPixels;
   // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
   // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
   // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
@@ -170,6 +172,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     milliseconds: 420,
   );
   int _pendingScrollToBottomSettlePasses = 0;
+  int _composerTransitionMeasurePassesRemaining = 0;
+  bool _composerTransitionMeasureQueued = false;
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
@@ -503,10 +507,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool collapsed, {
     bool requestFocusWhenExpanded = false,
   }) {
-    if (_composerCollapsed != collapsed) {
+    final changed = _composerCollapsed != collapsed;
+    if (changed) {
       setState(() {
         _composerCollapsed = collapsed;
       });
+      _scheduleComposerTransitionMeasurements();
     }
     if (collapsed) {
       if (_composerFocusNode.hasFocus) {
@@ -1632,32 +1638,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleMessageScroll() {
-    final nextValue = _isNearBottom();
-    if (!nextValue) {
+    final position = _activeMessageScrollPosition();
+    if (position == null) return;
+    final pixels = position.pixels;
+    final previousPixels = _lastMessageScrollPixels;
+    _lastMessageScrollPixels = pixels;
+    if (_programmaticAutoFollowScrollInProgress ||
+        _composerScrollCompensationInProgress) {
+      return;
+    }
+    final delta = previousPixels == null ? 0.0 : pixels - previousPixels;
+    final distanceToBottom = position.maxScrollExtent - pixels;
+    if (delta < -0.5 && distanceToBottom > 0) {
+      _markUserScrollInProgress();
+      _shouldAutoFollowMessages = false;
+      _clearPendingAutoFollowState();
+      _syncAutoFollowPausedState();
       return;
     }
     if (!_autoFollowEnabled) {
       return;
     }
-    // 2026-05-01: Don't re-arm auto-follow mid-gesture.
-    //
-    // ScrollController listeners fire on every pixel change, including
-    // updates emitted while the user is still actively dragging. Mirroring
-    // the tighter contract enforced in `_handleMessageScrollNotification`,
-    // we now require the user to finish the gesture (no in-progress drag)
-    // before this redundant fallback path may flip `_shouldAutoFollowMessages`
-    // back on. Programmatic scrolls don't go through here either way
-    // because we early-return on `_programmaticAutoFollowScrollInProgress`
-    // upstream.
-    if (_userScrollInProgress) {
-      return;
-    }
-    if (!_shouldAutoFollowMessages) {
-      _shouldAutoFollowMessages = true;
-    }
-    if (_pendingForcedScrollToBottom) {
-      _pendingForcedScrollToBottom = false;
-    }
+    // ScrollController listeners can fire before ScrollNotification has had
+    // a chance to classify the delta as user input. Do not resume auto-follow
+    // from this fallback path; terminal ScrollEnd / idle notifications own
+    // that transition so a slow upward wheel tick cannot re-arm follow for
+    // one frame and then get corrected back, which is the visible tug/jitter.
     _syncAutoFollowPausedState();
   }
 
@@ -4919,15 +4925,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return Duration(milliseconds: milliseconds);
   }
 
-  bool _isNearBottom() {
-    final activePosition = _activeMessageScrollPosition();
-    if (activePosition == null) {
-      return true;
-    }
-    return activePosition.maxScrollExtent - activePosition.pixels <=
-        _autoFollowDistanceThreshold;
-  }
-
   void _maybeAutoFollowSession(AiSession? session) {
     final nextSignature = _sessionAutoScrollSignature(session);
     if (_lastAutoScrollSignature == nextSignature) {
@@ -4988,15 +4985,45 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _composerLayoutMeasureScheduled = false;
       if (!mounted) return;
-      final compensation = _measureComposerHeightAndCompensate();
-      if (_shouldDeferAutoFollowScheduling()) {
+      _measureComposerAndMaybeFollow();
+    });
+  }
+
+  void _scheduleComposerTransitionMeasurements() {
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _composerTransitionMeasurePassesRemaining = math.max(
+      _composerTransitionMeasurePassesRemaining,
+      reduceMotion ? 2 : 24,
+    );
+    _queueComposerTransitionMeasurePass();
+  }
+
+  void _queueComposerTransitionMeasurePass() {
+    if (_composerTransitionMeasureQueued ||
+        _composerTransitionMeasurePassesRemaining <= 0) {
+      return;
+    }
+    _composerTransitionMeasureQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _composerTransitionMeasureQueued = false;
+      if (!mounted || _composerTransitionMeasurePassesRemaining <= 0) {
         return;
       }
-      _scheduleAutoFollowIfNeeded(
-        animated: compensation.grew && !compensation.compensated,
-        allowSettlePasses: false,
-      );
+      _composerTransitionMeasurePassesRemaining -= 1;
+      _measureComposerAndMaybeFollow();
+      _queueComposerTransitionMeasurePass();
     });
+  }
+
+  void _measureComposerAndMaybeFollow() {
+    final compensation = _measureComposerHeightAndCompensate();
+    if (_shouldDeferAutoFollowScheduling()) {
+      return;
+    }
+    _scheduleAutoFollowIfNeeded(
+      animated: compensation.grew && !compensation.compensated,
+      allowSettlePasses: false,
+    );
   }
 
   ({bool compensated, bool grew}) _measureComposerHeightAndCompensate() {
@@ -5032,7 +5059,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 收起 → 内容自然滑下来填补空间。correctBy 不做 clamp，由下一帧
     // _maybeAutoFollowSession / ballistic settle 兜底；越界量在动画下一帧
     // 自动回拉，体感上是 Q 弹自然的回弹而非硬截断。
+    _composerScrollCompensationInProgress = true;
     position.correctBy(delta);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _composerScrollCompensationInProgress = false;
+      }
+    });
     return (compensated: true, grew: grew);
   }
 
