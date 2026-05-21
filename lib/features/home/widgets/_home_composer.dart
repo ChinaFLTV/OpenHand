@@ -1206,22 +1206,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               // 2026-04-26: Wrap the editable text in a Shortcuts/Actions
               // pair driven by the global SettingsController bindings so
               // that send-message and toggle-composer hotkeys (Ctrl+Enter
-              // and Ctrl+P by default) work *inside* the focused TextField.
+              // and Ctrl+P by default) are consumed *inside* the focused
+              // TextField before default editing shortcuts see them.
               //
               // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
-              // to MoveSelectionUpTextIntent at the WidgetsApp level, which
-              // intercepts our HardwareKeyboard handler before it has a
-              // chance to fire (the symptom users reported was a brief
-              // border flash and nothing else).  Because Shortcuts widgets
-              // are walked from the focused node outward, declaring the
-              // bindings *here*, just above the EditableText, beats the
-              // global text-editing shortcuts and forwards the keystroke
-              // to our composer callbacks instead.
+              // to MoveSelectionUpTextIntent at the WidgetsApp level. The
+              // actual send/toggle action is still dispatched once by
+              // _handleGlobalShortcutKeyEvent; this local host only stops
+              // the focus-tree shortcut from leaking onward.
               child: _ComposerShortcutsHost(
                 bindings: context.watch<SettingsController>().shortcutBindings,
-                onSend: () => unawaited(widget.onSend()),
-                onToggleCollapsed: () =>
-                    widget.onCollapsedChanged(!widget.isCollapsed),
                 child: TextField(
                   controller: widget.controller,
                   focusNode: widget.focusNode,
@@ -3590,16 +3584,9 @@ class _ComposerToggleCollapsedIntent extends Intent {
 }
 
 class _ComposerShortcutsHost extends StatelessWidget {
-  const _ComposerShortcutsHost({
-    required this.bindings,
-    required this.onSend,
-    required this.onToggleCollapsed,
-    required this.child,
-  });
+  const _ComposerShortcutsHost({required this.bindings, required this.child});
 
   final Map<OpenHandShortcutAction, List<int>> bindings;
-  final VoidCallback onSend;
-  final VoidCallback onToggleCollapsed;
   final Widget child;
 
   @override
@@ -3627,17 +3614,11 @@ class _ComposerShortcutsHost extends StatelessWidget {
       child: Actions(
         actions: <Type, Action<Intent>>{
           _ComposerSendIntent: CallbackAction<_ComposerSendIntent>(
-            onInvoke: (_) {
-              onSend();
-              return null;
-            },
+            onInvoke: (_) => null,
           ),
           _ComposerToggleCollapsedIntent:
               CallbackAction<_ComposerToggleCollapsedIntent>(
-                onInvoke: (_) {
-                  onToggleCollapsed();
-                  return null;
-                },
+                onInvoke: (_) => null,
               ),
         },
         child: child,
