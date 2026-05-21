@@ -1,16 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
-import '../../app/model/dialog_animation_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import 'animated_dialog.dart';
-
-const DialogAnimationSettings _kModelSearchDialogAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.elastic,
-      durationMs: 380,
-      curve: DialogAnimationCurve.elasticOut,
-    );
 
 /// Entry representing a single selectable model inside a provider group.
 class ModelEntry {
@@ -76,7 +68,6 @@ Future<(String, String)?> showModelSearchSelector({
 
   return showAnimatedDialog<(String, String)>(
     context: context,
-    settings: _kModelSearchDialogAnimationSettings,
     builder: (_) => _ModelSearchDialog(
       entries: entries,
       recentEntries: recentEntries,
