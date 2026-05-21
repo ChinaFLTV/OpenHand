@@ -697,6 +697,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       _userScrollInProgress = false;
+      if (_autoFollowEnabled &&
+          _shouldAutoFollowMessages &&
+          (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
+        _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
+      }
     });
   }
 
