@@ -190,6 +190,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   _CodeBlockPalette? _cachedPalette;
   int? _cachedPaletteSignature;
   bool _highlightScheduled = false;
+  bool _highlightIsPlaceholder = false;
 
   @override
   void didChangeDependencies() {
@@ -215,6 +216,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
             widget.theme.textTheme.bodyMedium?.height) {
       _highlightedSpan = null;
       _highlightSignature = null;
+      _highlightIsPlaceholder = false;
     }
     if (oldWidget.content != widget.content) {
       _copiedResetTimer?.cancel();
@@ -368,17 +370,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
-    final signature = Object.hashAll(<Object?>[
-      widget.content,
-      effectiveLanguage,
-      widget.allowAutoDetection,
-      widget.baseColor.toARGB32(),
-      useDarkPalette,
-      widget.theme.textTheme.bodyMedium?.fontSize,
-      widget.theme.textTheme.bodyMedium?.fontFamily,
-      widget.theme.textTheme.bodyMedium?.height,
-    ]);
-    if (_highlightedSpan != null && _highlightSignature == signature) {
+    final signature = _highlightSignatureFor(
+      effectiveLanguage: effectiveLanguage,
+      useDarkPalette: useDarkPalette,
+    );
+    if (_highlightedSpan != null &&
+        _highlightSignature == signature &&
+        !_highlightIsPlaceholder) {
       return;
     }
     // Fast path: try the global LRU cache. Identical code blocks rendered
@@ -389,6 +387,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (cached != null) {
       _highlightedSpan = cached;
       _highlightSignature = signature;
+      _highlightIsPlaceholder = false;
       return;
     }
     // Skip syntax highlighting entirely for very large code blocks. The
@@ -403,41 +402,63 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         style: _baseStyleForCurrentTheme(useDarkPalette),
       );
       _highlightSignature = signature;
+      _highlightIsPlaceholder = false;
       return;
     }
     // For blocks above the defer threshold, defer highlight via the global
     // frame-spread scheduler. When a message with N code blocks expands,
     // each block registers its highlight task with the scheduler, which
-    // executes at most 2 per frame — spreading N highlights across
-    // ceil(N/2) frames instead of jamming them all into one.
+    // executes at most 1 per frame instead of jamming them all into one.
     //
     // The LRU cache ensures that on second expand (user's observation: "再次
     // 打开折叠消息卡片，卡顿情况会减少很多"), the highlight is instant.
-    if (widget.content.length > _highlightDeferThresholdChars &&
-        _highlightedSpan == null) {
+    if (widget.content.length > _highlightDeferThresholdChars) {
+      _highlightedSpan = TextSpan(
+        text: widget.content,
+        style: _baseStyleForCurrentTheme(useDarkPalette),
+      );
+      _highlightSignature = signature;
+      _highlightIsPlaceholder = true;
       if (!_highlightScheduled) {
         _highlightScheduled = true;
-        _highlightedSpan = TextSpan(
-          text: widget.content,
-          style: _baseStyleForCurrentTheme(useDarkPalette),
-        );
-        _highlightSignature = signature;
         _HighlightFrameScheduler.instance.schedule(() {
           if (!mounted) return;
           _highlightScheduled = false;
-          if (_highlightSignature != signature) return;
-          final span = _runHighlight(
-            effectiveLanguage,
-            useDarkPalette,
-            signature,
+          final currentEffectiveLanguage = _normalizeCodeLanguage(
+            widget.language,
           );
+          final currentUseDarkPalette =
+              widget.forceDarkSurface ||
+              widget.theme.brightness == Brightness.dark;
+          final currentSignature = _highlightSignatureFor(
+            effectiveLanguage: currentEffectiveLanguage,
+            useDarkPalette: currentUseDarkPalette,
+          );
+          if (_highlightedSpan != null &&
+              _highlightSignature == currentSignature &&
+              !_highlightIsPlaceholder) {
+            return;
+          }
+          final span = widget.content.length > _highlightSkipThresholdChars
+              ? TextSpan(
+                  text: widget.content,
+                  style: _baseStyleForCurrentTheme(currentUseDarkPalette),
+                )
+              : _highlightSpanCache.get(currentSignature) ??
+                    _runHighlight(
+                      currentEffectiveLanguage,
+                      currentUseDarkPalette,
+                      currentSignature,
+                    );
           if (!mounted) return;
           setState(() {
             _highlightedSpan = span;
+            _highlightSignature = currentSignature;
+            _highlightIsPlaceholder = false;
           });
         });
-        return;
       }
+      return;
     }
     _highlightedSpan = _runHighlight(
       effectiveLanguage,
@@ -445,6 +466,23 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       signature,
     );
     _highlightSignature = signature;
+    _highlightIsPlaceholder = false;
+  }
+
+  int _highlightSignatureFor({
+    required String? effectiveLanguage,
+    required bool useDarkPalette,
+  }) {
+    return Object.hashAll(<Object?>[
+      widget.content,
+      effectiveLanguage,
+      widget.allowAutoDetection,
+      widget.baseColor.toARGB32(),
+      useDarkPalette,
+      widget.theme.textTheme.bodyMedium?.fontSize,
+      widget.theme.textTheme.bodyMedium?.fontFamily,
+      widget.theme.textTheme.bodyMedium?.height,
+    ]);
   }
 
   TextStyle _baseStyleForCurrentTheme(bool useDarkPalette) {
@@ -1328,11 +1366,12 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       if (Platform.isMacOS) {
         await runDetachedSystemOpen('open', [uri.toFilePath()]);
       } else if (Platform.isWindows) {
-        await runDetachedSystemOpen(
-          'cmd',
-          ['/c', 'start', '', uri.toFilePath()],
-          runInShell: true,
-        );
+        await runDetachedSystemOpen('cmd', [
+          '/c',
+          'start',
+          '',
+          uri.toFilePath(),
+        ], runInShell: true);
       } else if (Platform.isLinux) {
         await runDetachedSystemOpen('xdg-open', [uri.toFilePath()]);
       }
