@@ -3607,12 +3607,14 @@ class _ComposerShortcutsHost extends StatelessWidget {
     final shortcutMap = <ShortcutActivator, Intent>{};
     final sendActivators = _activatorsForBinding(
       bindings[OpenHandShortcutAction.sendMessage],
+      includeRepeats: false,
     );
     for (final activator in sendActivators) {
       shortcutMap[activator] = const _ComposerSendIntent();
     }
     final toggleActivators = _activatorsForBinding(
       bindings[OpenHandShortcutAction.toggleComposer],
+      includeRepeats: false,
     );
     for (final activator in toggleActivators) {
       shortcutMap[activator] = const _ComposerToggleCollapsedIntent();
@@ -3645,7 +3647,10 @@ class _ComposerShortcutsHost extends StatelessWidget {
 
   // Convert the user-configured key binding (a normalised list of logical
   // key ids that already includes any modifiers) to a SingleActivator.
-  static List<ShortcutActivator> _activatorsForBinding(List<int>? keyIds) {
+  static List<ShortcutActivator> _activatorsForBinding(
+    List<int>? keyIds, {
+    bool includeRepeats = true,
+  }) {
     if (keyIds == null || keyIds.isEmpty) {
       return const <ShortcutActivator>[];
     }
@@ -3679,6 +3684,7 @@ class _ComposerShortcutsHost extends StatelessWidget {
         shift: shift,
         alt: alt,
         meta: meta,
+        includeRepeats: includeRepeats,
       ),
     ];
   }

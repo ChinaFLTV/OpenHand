@@ -1893,6 +1893,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (shortcutAction == null) {
       return false;
     }
+    if (event is KeyRepeatEvent &&
+        !_shortcutActionAllowsRepeat(shortcutAction)) {
+      return true;
+    }
     if (isEditableFocused) {
       final composerShortcutAllowed =
           _composerFocusNode.hasFocus &&
@@ -2064,6 +2068,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     return null;
+  }
+
+  bool _shortcutActionAllowsRepeat(OpenHandShortcutAction action) {
+    return switch (action) {
+      OpenHandShortcutAction.selectPreviousModel ||
+      OpenHandShortcutAction.selectNextModel ||
+      OpenHandShortcutAction.selectPreviousSession ||
+      OpenHandShortcutAction.selectNextSession => true,
+      OpenHandShortcutAction.sendMessage ||
+      OpenHandShortcutAction.toggleComposer ||
+      OpenHandShortcutAction.toggleAutoFollow ||
+      OpenHandShortcutAction.undoLastFileMutation => false,
+    };
   }
 
   Future<void> _performShortcutAction(OpenHandShortcutAction action) async {
