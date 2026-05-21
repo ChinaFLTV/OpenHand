@@ -530,6 +530,16 @@ class _PulsingDotState extends State<_PulsingDot>
 
   @override
   Widget build(BuildContext context) {
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _controller.stop();
+      return _buildDot(1);
+    }
+    if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
     // Bake the pulsing opacity into the BoxDecoration color rather than
     // wrapping the dot in `Opacity` \u2014 `Opacity` always allocates a
     // saveLayer (offscreen pass) which is wasted overhead for a 6-8 px
@@ -548,6 +558,17 @@ class _PulsingDotState extends State<_PulsingDot>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDot(double opacity) {
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: widget.color.withValues(alpha: opacity),
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

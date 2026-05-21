@@ -933,29 +933,48 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
     final cs = Theme.of(context).colorScheme;
     final baseColor = cs.surfaceContainerHighest;
     final highlightColor = cs.surfaceContainerLow;
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _ctrl.stop();
+      return _buildPlaceholder(cs, baseColor, highlightColor, 0.5);
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
-        return SizedBox.expand(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
-                end: Alignment(-1.0 + 2.0 * _ctrl.value + 1.0, 0),
-                colors: [baseColor, highlightColor, baseColor],
-              ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.image_outlined,
-                size: 48,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-        );
+        return _buildPlaceholder(cs, baseColor, highlightColor, _ctrl.value);
       },
+    );
+  }
+
+  Widget _buildPlaceholder(
+    ColorScheme cs,
+    Color baseColor,
+    Color highlightColor,
+    double progress,
+  ) {
+    return SizedBox.expand(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment(-1.0 + 2.0 * progress, 0),
+            end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
+            colors: [baseColor, highlightColor, baseColor],
+          ),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.image_outlined,
+            size: 48,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3923,7 +3942,8 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!TickerMode.valuesOf(context).enabled ||
+        MediaQuery.disableAnimationsOf(context)) {
       _ctrl.stop();
       return _buildBlock(1);
     }

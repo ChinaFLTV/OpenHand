@@ -127,22 +127,36 @@ class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
     final cs = Theme.of(context).colorScheme;
     final baseColor = cs.surfaceContainerHighest;
     final highlightColor = cs.surfaceContainerLow;
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _ctrl.stop();
+      return _buildBar(baseColor, highlightColor, 0.5);
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
-        return Container(
-          width: widget.width ?? double.infinity,
-          height: 14,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
-              end: Alignment(-1.0 + 2.0 * _ctrl.value + 1.0, 0),
-              colors: [baseColor, highlightColor, baseColor],
-            ),
-          ),
-        );
+        return _buildBar(baseColor, highlightColor, _ctrl.value);
       },
+    );
+  }
+
+  Widget _buildBar(Color baseColor, Color highlightColor, double progress) {
+    return Container(
+      width: widget.width ?? double.infinity,
+      height: 14,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        gradient: LinearGradient(
+          begin: Alignment(-1.0 + 2.0 * progress, 0),
+          end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
+          colors: [baseColor, highlightColor, baseColor],
+        ),
+      ),
     );
   }
 }

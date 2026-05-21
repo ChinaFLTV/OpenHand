@@ -119,10 +119,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
         const SizedBox(width: 6),
         AnimatedRotation(
           turns: widget.expanded ? 0.5 : 0,
-          duration: cardMotionDurationFor(
-            context,
-            expanding: widget.expanded,
-          ),
+          duration: cardMotionDurationFor(context, expanding: widget.expanded),
           curve: kCardMotionCurve,
           child: Icon(
             Icons.keyboard_arrow_down_rounded,
@@ -270,54 +267,69 @@ class _SweepBadgeState extends State<_SweepBadge>
 
   @override
   Widget build(BuildContext context) {
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _controller.stop();
+      return _buildBadge(context, progress: null);
+    }
+    if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+    return AnimatedBuilder(
+      animation: _controller,
+      child: Padding(padding: widget.padding, child: widget.child),
+      builder: (context, child) {
+        return _buildBadge(context, progress: _controller.value, child: child);
+      },
+    );
+  }
+
+  Widget _buildBadge(
+    BuildContext context, {
+    required double? progress,
+    Widget? child,
+  }) {
     final theme = Theme.of(context);
     const borderRadius = BorderRadius.all(Radius.circular(999));
+    final backgroundColor =
+        widget.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
+    final borderColor =
+        widget.borderColor ??
+        theme.colorScheme.outlineVariant.withValues(alpha: 0.45);
+    final sweepColor =
+        widget.sweepColor ??
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2);
     return ClipRRect(
       borderRadius: borderRadius,
-      child: AnimatedBuilder(
-        animation: _controller,
-        child: Padding(padding: widget.padding, child: widget.child),
-        builder: (context, child) {
-          final start = -1.8 + (_controller.value * 2.8);
-          final end = start + 0.9;
-          final sweepColor =
-              widget.sweepColor ??
-              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2);
-          final backgroundColor =
-              widget.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
-          final borderColor =
-              widget.borderColor ??
-              theme.colorScheme.outlineVariant.withValues(alpha: 0.45);
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: borderRadius,
-              border: borderColor.a <= 0
-                  ? null
-                  : Border.all(color: borderColor),
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(start, 0),
-                        end: Alignment(end, 0),
-                        colors: [
-                          Colors.transparent,
-                          sweepColor,
-                          Colors.transparent,
-                        ],
-                      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: borderRadius,
+          border: borderColor.a <= 0 ? null : Border.all(color: borderColor),
+        ),
+        child: Stack(
+          children: [
+            if (progress != null)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(-1.8 + progress * 2.8, 0),
+                      end: Alignment(-0.9 + progress * 2.8, 0),
+                      colors: [
+                        Colors.transparent,
+                        sweepColor,
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
-                child ?? const SizedBox.shrink(),
-              ],
-            ),
-          );
-        },
+              ),
+            child ?? Padding(padding: widget.padding, child: widget.child),
+          ],
+        ),
       ),
     );
   }

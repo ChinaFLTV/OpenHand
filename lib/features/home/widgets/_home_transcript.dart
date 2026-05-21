@@ -2356,44 +2356,57 @@ class _PendingCreationPlaceholderCardState
       AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
     };
     final label = _localizedText(context, zh: labelZh, en: labelEn);
+    Widget buildCard(double t) {
+      return Container(
+        width: 280,
+        height: 220,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: borderColor),
+          gradient: LinearGradient(
+            begin: Alignment(-1.0 + 2.0 * t, -0.4),
+            end: Alignment(-1.0 + 2.0 * t + 0.9, 0.4),
+            colors: [baseColor, highlightColor, baseColor],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 40,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _ctrl.stop();
+      return Align(alignment: Alignment.centerLeft, child: buildCard(0.5));
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
     return Align(
       alignment: Alignment.centerLeft,
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, child) {
-          final t = _ctrl.value;
-          return Container(
-            width: 280,
-            height: 220,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: borderColor),
-              gradient: LinearGradient(
-                begin: Alignment(-1.0 + 2.0 * t, -0.4),
-                end: Alignment(-1.0 + 2.0 * t + 0.9, 0.4),
-                colors: [baseColor, highlightColor, baseColor],
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 40,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return buildCard(_ctrl.value);
         },
       ),
     );

@@ -1555,44 +1555,58 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
         : cs.surfaceContainerHighest;
     final baseBorder = isSubmitting ? cs.tertiary : cs.outline;
     final fg = isSubmitting ? cs.onTertiaryContainer : cs.onSurfaceVariant;
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    Widget buildBadge(double t) {
+      return AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
+          borderRadius: _borderRadius999,
+          border: Border.all(
+            color: baseBorder.withValues(alpha: 0.3 + 0.25 * t),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.6,
+                value: animationsEnabled ? null : 1,
+                valueColor: AlwaysStoppedAnimation<Color>(fg),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              widget.label,
+              style: theme.textTheme.labelMedium?.copyWith(color: fg),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!animationsEnabled) {
+      _ctrl.stop();
+      return Tooltip(message: widget.hint, child: buildBadge(0.5));
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat(reverse: true);
+    }
     return Tooltip(
       message: widget.hint,
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, _) {
-          final t = _ctrl.value;
-          return AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
-              borderRadius: _borderRadius999,
-              border: Border.all(
-                color: baseBorder.withValues(alpha: 0.3 + 0.25 * t),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.6,
-                    valueColor: AlwaysStoppedAnimation<Color>(fg),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  widget.label,
-                  style: theme.textTheme.labelMedium?.copyWith(color: fg),
-                ),
-              ],
-            ),
-          );
+          return buildBadge(_ctrl.value);
         },
       ),
     );

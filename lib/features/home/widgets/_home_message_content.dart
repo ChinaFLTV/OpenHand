@@ -93,10 +93,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
               const SizedBox(height: 8),
               ClipRect(
                 child: AnimatedSize(
-                  duration: cardMotionDurationFor(
-                    context,
-                    expanding: expanded,
-                  ),
+                  duration: cardMotionDurationFor(context, expanding: expanded),
                   curve: kCardMotionCurve,
                   alignment: Alignment.topLeft,
                   child: expanded
@@ -419,10 +416,7 @@ class _CollapsibleMessageMarkdownBodyState
         const SizedBox(height: 8),
         ClipRect(
           child: AnimatedSize(
-            duration: cardMotionDurationFor(
-              context,
-              expanding: !_collapsed,
-            ),
+            duration: cardMotionDurationFor(context, expanding: !_collapsed),
             curve: kCardMotionCurve,
             alignment: Alignment.topLeft,
             clipBehavior: Clip.none,
@@ -1090,6 +1084,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // 残留旧色。
       final astCacheKey = Object.hashAll(<Object?>[
         normalizedSource,
+        widget.parseKey,
         widget.inlineSyntaxes.length,
         for (final syn in widget.inlineSyntaxes) syn.runtimeType,
       ]);

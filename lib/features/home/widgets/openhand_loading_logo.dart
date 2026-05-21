@@ -45,6 +45,57 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
 
     final size = widget.size;
     final logoSize = size * 0.66;
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+
+    Widget buildLogo(double t) {
+      final breath = animationsEnabled
+          ? (math.sin(t * math.pi * 2) + 1) / 2
+          : 0.5;
+      final pulseScale = animationsEnabled ? 0.96 + breath * 0.06 : 1.0;
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(size, size),
+            painter: _HaloPainter(
+              breath: breath,
+              color: colorScheme.primary.withValues(
+                alpha: isDark ? 0.28 : 0.18,
+              ),
+            ),
+          ),
+          if (animationsEnabled)
+            CustomPaint(
+              size: Size(size * 0.92, size * 0.92),
+              painter: _OrbitPainter(
+                progress: t,
+                color1: colorScheme.primary.withValues(alpha: 0.55),
+                color2: colorScheme.tertiary.withValues(alpha: 0.55),
+              ),
+            ),
+          Transform.scale(
+            scale: pulseScale,
+            child: SizedBox(
+              width: logoSize,
+              height: logoSize,
+              child: Image.asset('assets/branding/openhand_logo.png'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!animationsEnabled) {
+      _controller.stop();
+      return Center(
+        child: SizedBox(width: size, height: size, child: buildLogo(0)),
+      );
+    }
+    if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
 
     return Center(
       child: TweenAnimationBuilder<double>(
@@ -59,43 +110,7 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
-              final t = _controller.value;
-              final breath = (math.sin(t * math.pi * 2) + 1) / 2; // 0..1
-              final pulseScale = 0.96 + breath * 0.06;
-
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Soft breathing halo behind the logo.
-                  CustomPaint(
-                    size: Size(size, size),
-                    painter: _HaloPainter(
-                      breath: breath,
-                      color: colorScheme.primary.withValues(
-                        alpha: isDark ? 0.28 : 0.18,
-                      ),
-                    ),
-                  ),
-                  // Counter-rotating orbital arcs.
-                  CustomPaint(
-                    size: Size(size * 0.92, size * 0.92),
-                    painter: _OrbitPainter(
-                      progress: t,
-                      color1: colorScheme.primary.withValues(alpha: 0.55),
-                      color2: colorScheme.tertiary.withValues(alpha: 0.55),
-                    ),
-                  ),
-                  // The brand mark.
-                  Transform.scale(
-                    scale: pulseScale,
-                    child: SizedBox(
-                      width: logoSize,
-                      height: logoSize,
-                      child: Image.asset('assets/branding/openhand_logo.png'),
-                    ),
-                  ),
-                ],
-              );
+              return buildLogo(_controller.value);
             },
           ),
         ),
