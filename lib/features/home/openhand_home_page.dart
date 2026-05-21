@@ -159,6 +159,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _userScrollInProgress = false;
   bool _composerScrollCompensationInProgress = false;
   double? _lastMessageScrollPixels;
+  DateTime? _lastPointerSignalScrollAt;
   // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
   // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
   // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
@@ -170,6 +171,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Timer? _userScrollGraceTimer;
   static const Duration _userScrollEndGraceDuration = Duration(
     milliseconds: 420,
+  );
+  static const Duration _pointerSignalScrollActivityWindow = Duration(
+    milliseconds: 260,
   );
   int _pendingScrollToBottomSettlePasses = 0;
   int _composerTransitionMeasurePassesRemaining = 0;
@@ -684,6 +688,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _userScrollGraceTimer?.cancel();
     _userScrollGraceTimer = null;
     _userScrollInProgress = true;
+  }
+
+  void _handleMessagePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) {
+      return;
+    }
+    _lastPointerSignalScrollAt = DateTime.now();
+    _markUserScrollInProgress();
+    _scheduleUserScrollEndGrace();
+  }
+
+  bool _hasRecentPointerSignalScrollActivity() {
+    final last = _lastPointerSignalScrollAt;
+    if (last == null) {
+      return false;
+    }
+    return DateTime.now().difference(last) <=
+        _pointerSignalScrollActivityWindow;
   }
 
   /// 用户当前 tick 的 scroll-end 已触发，但 trackpad / 滚轮的下一 tick
@@ -1697,19 +1719,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
-    // 2026-05-17：trackpad / 滚轮 pointer-signal 滚动每 tick 都会发完整
-    // start→update→end；ScrollStartNotification 即便没有 dragDetails，
-    // 在非 programmatic 路径下也只能来自用户输入设备。把它视作用户活动
-    // 的延续，配合宽限计时器避免 _userScrollInProgress 在两 tick 之间
-    // 抖回 false。
-    final implicitUserScrollGesture =
+    // 2026-05-21：只有 Listener 真实捕获到 PointerScrollEvent 后，才把
+    // 无 dragDetails 的 start/update/overscroll 归类为鼠标滚轮 / 触控板
+    // 滚动。流式内容增高、Sliver 几何修正同样会产生无 dragDetails 的
+    // scroll notification；若继续一概当作用户输入，会把贴底跟随误判成
+    // "用户正在滚动"，导致 AI 增量输出不再及时追到最新消息。
+    final recentPointerSignalScroll = _hasRecentPointerSignalScrollActivity();
+    final implicitPointerSignalScroll =
         !_programmaticAutoFollowScrollInProgress &&
+        recentPointerSignalScroll &&
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    final userScrollActivity = explicitUserScroll || implicitUserScrollGesture;
+    final userScrollActivity =
+        explicitUserScroll || implicitPointerSignalScroll;
     if (userScrollActivity) {
-      _markUserScrollInProgress();
+      if (!implicitPointerSignalScroll || explicitUserScroll) {
+        _markUserScrollInProgress();
+      }
     } else if (userScrollEnded) {
       _scheduleUserScrollEndGrace();
     }
@@ -1747,7 +1774,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification.direction == ScrollDirection.reverse &&
         distanceToBottom > 0;
     final pointerSignalScrolledUpwardFromBottom =
-        implicitUserScrollGesture &&
+        implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5 &&
         distanceToBottom > 0;
@@ -1786,6 +1813,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // top of this method skips them entirely.
     if (isNearBottom && _autoFollowEnabled && userScrollEnded) {
       _shouldAutoFollowMessages = true;
+      _userScrollGraceTimer?.cancel();
+      _userScrollGraceTimer = null;
+      _userScrollInProgress = false;
+      if (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom) {
+        _scheduleScrollToBottom(force: true, animated: true);
+      }
     }
     _syncAutoFollowPausedState();
     return false;
@@ -6647,6 +6680,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         draftController: _composerController,
         messageScrollController: _messageScrollController,
         onMessageScrollNotification: _handleMessageScrollNotification,
+        onMessagePointerSignal: _handleMessagePointerSignal,
         currentSession: currentSession,
         liveRuntimeToolPreview: liveRuntimeToolPreview,
         transcriptPreparing: transcriptPreparing,

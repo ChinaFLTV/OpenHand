@@ -2980,6 +2980,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   int? _hoveredIndex;
   Offset? _hoverLocal;
   int _rangeSeconds = 5 * 60;
+  int _bucketSeconds = 1;
   double _zoom = 1.0;
   double _zoomBase = 1.0;
   static const double _kMinZoom = 1.0;
@@ -2991,6 +2992,17 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     10 * 60,
     30 * 60,
     60 * 60,
+  ];
+  static const List<int> _kGranularityOptions = <int>[
+    1,
+    2,
+    5,
+    10,
+    15,
+    30,
+    60,
+    120,
+    300,
   ];
 
   @override
@@ -3064,11 +3076,26 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     }
   }
 
-  void _updateWindow({int? rangeSeconds, double? zoom, bool animate = true}) {
+  void _updateWindow({
+    int? rangeSeconds,
+    double? zoom,
+    int? bucketSeconds,
+    bool animate = true,
+  }) {
     final nextRange = rangeSeconds ?? _rangeSeconds;
     final maxZoom = _maxZoomForRange(nextRange);
     final nextZoom = (zoom ?? _zoom).clamp(_kMinZoom, maxZoom).toDouble();
-    if (nextRange == _rangeSeconds && (nextZoom - _zoom).abs() <= 0.001) {
+    final nextWindow = _visibleWindowSeconds(
+      rangeSeconds: nextRange,
+      zoom: nextZoom,
+    );
+    final nextBucket = _normalizedBucketSeconds(
+      bucketSeconds ?? _bucketSeconds,
+      nextWindow,
+    );
+    if (nextRange == _rangeSeconds &&
+        (nextZoom - _zoom).abs() <= 0.001 &&
+        nextBucket == _bucketSeconds) {
       return;
     }
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -3089,12 +3116,14 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       sourceDisplay,
       rangeSeconds: nextRange,
       zoom: nextZoom,
+      bucketSeconds: nextBucket,
     );
     final target = <double>[for (final v in chartData.samples) v.toDouble()];
     setState(() {
       _rangeSeconds = nextRange;
       _zoom = nextZoom;
       _zoomBase = nextZoom;
+      _bucketSeconds = nextBucket;
       _displaySamples = sourceDisplay;
       _rawSamples = sourceRaw;
       _hoveredIndex = null;
@@ -3124,10 +3153,32 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     return (range / z).round().clamp(_kMinWindowSeconds, range).toInt();
   }
 
+  List<int> _granularityOptionsForWindow(int windowSeconds) {
+    final maxBucket = math.max(1, windowSeconds ~/ 2);
+    final options = <int>[
+      for (final seconds in _kGranularityOptions)
+        if (seconds <= maxBucket) seconds,
+    ];
+    return options.isEmpty ? const <int>[1] : List<int>.unmodifiable(options);
+  }
+
+  int _normalizedBucketSeconds(int seconds, int windowSeconds) {
+    final options = _granularityOptionsForWindow(windowSeconds);
+    var selected = options.first;
+    for (final option in options) {
+      if (option > seconds) {
+        break;
+      }
+      selected = option;
+    }
+    return selected;
+  }
+
   _ThroughputChartData _buildChartData(
     List<int> source, {
     int? rangeSeconds,
     double? zoom,
+    int? bucketSeconds,
   }) {
     final window = _visibleWindowSeconds(
       rangeSeconds: rangeSeconds,
@@ -3136,14 +3187,21 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final visible = source
         .take(math.min(window, source.length))
         .toList(growable: false);
-    if (visible.length <= _kMaxPaintSamples) {
+    final requestedBucket = _normalizedBucketSeconds(
+      bucketSeconds ?? _bucketSeconds,
+      window,
+    );
+    final autoBucket = visible.length <= _kMaxPaintSamples
+        ? 1
+        : (visible.length / _kMaxPaintSamples).ceil();
+    final effectiveBucket = math.max(requestedBucket, autoBucket);
+    if (effectiveBucket <= 1) {
       return _ThroughputChartData(samples: visible, bucketSeconds: 1);
     }
-    final bucketSeconds = (visible.length / _kMaxPaintSamples).ceil();
     final downsampled = <int>[];
-    for (var i = 0; i < visible.length; i += bucketSeconds) {
+    for (var i = 0; i < visible.length; i += effectiveBucket) {
       var bucketPeak = 0;
-      final end = math.min(i + bucketSeconds, visible.length);
+      final end = math.min(i + effectiveBucket, visible.length);
       for (var j = i; j < end; j++) {
         if (visible[j] > bucketPeak) bucketPeak = visible[j];
       }
@@ -3151,7 +3209,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     }
     return _ThroughputChartData(
       samples: List<int>.unmodifiable(downsampled),
-      bucketSeconds: bucketSeconds,
+      bucketSeconds: effectiveBucket,
     );
   }
 
@@ -3166,6 +3224,12 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     if (minutes < 60) return isZh ? '$minutes分' : '${minutes}m';
     final hours = minutes ~/ 60;
     return isZh ? '$hours小时' : '${hours}h';
+  }
+
+  String _formatGranularityLabel(BuildContext context, int seconds) {
+    final unit = _formatRangeLabel(context, seconds);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    return isZh ? '$unit/点' : '$unit/pt';
   }
 
   int _peak(List<int> values) {
@@ -3241,6 +3305,15 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final headerWindow = _formatRangeLabel(context, windowSeconds);
     final maxZoom = _maxZoomForRange(_rangeSeconds);
     final zoomValue = _zoom.clamp(_kMinZoom, maxZoom).toDouble();
+    final granularityOptions = _granularityOptionsForWindow(windowSeconds);
+    final effectiveGranularity = _normalizedBucketSeconds(
+      _bucketSeconds,
+      windowSeconds,
+    );
+    final granularityIndex = math.max(
+      0,
+      granularityOptions.indexOf(effectiveGranularity),
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -3361,6 +3434,48 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ],
           ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
+              Expanded(
+                child: Slider(
+                  max: (granularityOptions.length - 1).toDouble(),
+                  divisions: math.max(1, granularityOptions.length - 1),
+                  value: granularityIndex.toDouble(),
+                  label: _formatGranularityLabel(context, effectiveGranularity),
+                  onChanged: (value) {
+                    final index = value
+                        .round()
+                        .clamp(0, granularityOptions.length - 1)
+                        .toInt();
+                    _updateWindow(
+                      bucketSeconds: granularityOptions[index],
+                      animate: false,
+                    );
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 64,
+                child: Text(
+                  _formatGranularityLabel(context, effectiveGranularity),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           SizedBox(
             height: 96,
@@ -3451,6 +3566,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                         _hoverLocal = null;
                       }),
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
                           Positioned.fill(
                             child: CustomPaint(
@@ -3477,6 +3593,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                               hoveredIndex: _hoveredIndex!,
                               anchor: _hoverLocal!,
                               limitValue: widget.maxRate,
+                              cap: cap,
                               bucketSeconds: _chartData.bucketSeconds,
                               isZh: isZh,
                             ),
@@ -3715,14 +3832,15 @@ class _ThroughputBarsPainter extends CustomPainter {
   }
 }
 
-/// 仪表盘 hover tooltip 气泡：固定 anchor.x ± 56 偏移，避免触屏点击
-/// 时手指挡住读数；超出右边界自动翻转到左侧。
+/// 仪表盘 hover tooltip 气泡：始终约束在图表内部，避免边缘点、高点
+/// 或对话框窄屏时被 Stack / Dialog 裁切到看不见。
 class _ThroughputTooltip extends StatelessWidget {
   const _ThroughputTooltip({
     required this.samples,
     required this.hoveredIndex,
     required this.anchor,
     required this.limitValue,
+    required this.cap,
     required this.bucketSeconds,
     required this.isZh,
   });
@@ -3731,6 +3849,7 @@ class _ThroughputTooltip extends StatelessWidget {
   final int hoveredIndex;
   final Offset anchor;
   final int limitValue;
+  final int cap;
   final int bucketSeconds;
   final bool isZh;
 
@@ -3753,46 +3872,100 @@ class _ThroughputTooltip extends StatelessWidget {
         : bucketSeconds <= 1
         ? (isZh ? '${agoStart}s 前' : '${agoStart}s ago')
         : (isZh ? '$agoStart-${agoEnd}s 前' : '$agoStart-${agoEnd}s ago');
-    return Positioned(
-      left: anchor.dx,
-      top: 0,
-      child: FractionalTranslation(
-        translation: const Offset(-0.5, -1.05),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: bg.withValues(alpha: 0.96),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: color.withValues(alpha: 0.46)),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: scheme.shadow.withValues(alpha: 0.16),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    final valueLabel = bucketSeconds <= 1
+        ? '$value/s'
+        : (isZh ? '峰 $value/s' : 'peak $value/s');
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const margin = 4.0;
+            const bubbleHeight = 28.0;
+            final chartWidth = constraints.maxWidth;
+            final chartHeight = constraints.maxHeight;
+            final bubbleWidth = math.min(
+              158.0,
+              math.max(104.0, chartWidth - margin * 2),
+            );
+            final maxLeft = math.max(margin, chartWidth - bubbleWidth - margin);
+            final left = (anchor.dx - bubbleWidth / 2)
+                .clamp(margin, maxLeft)
+                .toDouble();
+            final chartCap = math.max(1, cap);
+            final pointY =
+                chartHeight -
+                (value.clamp(0, chartCap) / chartCap) * chartHeight;
+            final maxTop = math.max(
+              margin,
+              chartHeight - bubbleHeight - margin,
+            );
+            final aboveTop = pointY - bubbleHeight - 8;
+            final belowTop = pointY + 8;
+            final top = (aboveTop >= margin ? aboveTop : belowTop)
+                .clamp(margin, maxTop)
+                .toDouble();
+            return Stack(
+              clipBehavior: Clip.none,
               children: [
-                Icon(
-                  overLimit ? Icons.priority_high_rounded : Icons.bolt_rounded,
-                  size: 12,
-                  color: color,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isZh ? '$timeLabel · $value/s' : '$timeLabel · $value/s',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: fg,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                Positioned(
+                  left: left,
+                  top: top,
+                  width: bubbleWidth,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bg.withValues(alpha: 0.96),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.46),
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: scheme.shadow.withValues(alpha: 0.16),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            overLimit
+                                ? Icons.priority_high_rounded
+                                : Icons.bolt_rounded,
+                            size: 12,
+                            color: color,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              '$timeLabel · $valueLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: fg,
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

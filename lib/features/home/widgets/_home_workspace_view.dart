@@ -5,6 +5,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.draftController,
     required this.messageScrollController,
     required this.onMessageScrollNotification,
+    required this.onMessagePointerSignal,
     required this.currentSession,
     required this.liveRuntimeToolPreview,
     required this.transcriptPreparing,
@@ -68,6 +69,7 @@ class _WorkspaceView extends StatelessWidget {
   final ScrollController messageScrollController;
   final bool Function(ScrollNotification notification)
   onMessageScrollNotification;
+  final ValueChanged<PointerSignalEvent> onMessagePointerSignal;
   final AiSession? currentSession;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final bool transcriptPreparing;
@@ -199,48 +201,53 @@ class _WorkspaceView extends StatelessWidget {
                                 curve: Curves.easeOutCubic,
                                 child: transcriptPreparing
                                     ? const SizedBox.expand()
-                                    : _SessionTranscript(
-                                        key: ValueKey<String>(
-                                          'messages-${currentSession!.id}',
+                                    : Listener(
+                                        behavior: HitTestBehavior.translucent,
+                                        onPointerSignal: onMessagePointerSignal,
+                                        child: _SessionTranscript(
+                                          key: ValueKey<String>(
+                                            'messages-${currentSession!.id}',
+                                          ),
+                                          controller: messageScrollController,
+                                          onScrollNotification:
+                                              onMessageScrollNotification,
+                                          session: currentSession!,
+                                          liveRuntimeToolPreview:
+                                              liveRuntimeToolPreview,
+                                          sendPhase: sendPhase,
+                                          planTimelineCollapsed:
+                                              planTimelineCollapsed,
+                                          onPlanTimelineCollapsedChanged:
+                                              onPlanTimelineCollapsedChanged,
+                                          onLayoutChanged:
+                                              onTranscriptLayoutChanged,
+                                          onRevealOlderMessages:
+                                              onRevealOlderMessages,
+                                          onEditMessage: onEditMessage,
+                                          onCopyMessage: onCopyMessage,
+                                          onDeleteMessage: onDeleteMessage,
+                                          onDeleteMessageFromHere:
+                                              onDeleteMessageFromHere,
+                                          onDismissError: onDismissError,
+                                          // Jump to the very bottom on the first
+                                          // frame when the session was just
+                                          // activated, so the user never sees a
+                                          // flash from scroll-top to
+                                          // scroll-bottom.
+                                          jumpToBottomOnInit:
+                                              jumpToBottomOnInit,
+                                          fileExplorerVisible:
+                                              fileExplorerVisible,
+                                          onFileExplorerToggled:
+                                              onFileExplorerToggled,
+                                          activeProfile:
+                                              selectedModel
+                                                  ?.modelProfiles[selectedModel!
+                                                  .modelId],
+                                          claudeStyle:
+                                              selectedModel?.protocolType ==
+                                              AiProtocolType.claude,
                                         ),
-                                        controller: messageScrollController,
-                                        onScrollNotification:
-                                            onMessageScrollNotification,
-                                        session: currentSession!,
-                                        liveRuntimeToolPreview:
-                                            liveRuntimeToolPreview,
-                                        sendPhase: sendPhase,
-                                        planTimelineCollapsed:
-                                            planTimelineCollapsed,
-                                        onPlanTimelineCollapsedChanged:
-                                            onPlanTimelineCollapsedChanged,
-                                        onLayoutChanged:
-                                            onTranscriptLayoutChanged,
-                                        onRevealOlderMessages:
-                                            onRevealOlderMessages,
-                                        onEditMessage: onEditMessage,
-                                        onCopyMessage: onCopyMessage,
-                                        onDeleteMessage: onDeleteMessage,
-                                        onDeleteMessageFromHere:
-                                            onDeleteMessageFromHere,
-                                        onDismissError: onDismissError,
-                                        // Jump to the very bottom on the first
-                                        // frame when the session was just
-                                        // activated, so the user never sees a
-                                        // flash from scroll-top to
-                                        // scroll-bottom.
-                                        jumpToBottomOnInit: jumpToBottomOnInit,
-                                        fileExplorerVisible:
-                                            fileExplorerVisible,
-                                        onFileExplorerToggled:
-                                            onFileExplorerToggled,
-                                        activeProfile:
-                                            selectedModel
-                                                ?.modelProfiles[selectedModel!
-                                                .modelId],
-                                        claudeStyle:
-                                            selectedModel?.protocolType ==
-                                            AiProtocolType.claude,
                                       ),
                               ),
                             ),
