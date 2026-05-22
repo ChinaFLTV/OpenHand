@@ -479,23 +479,14 @@ class _MarkdownPreviewBody extends StatefulWidget {
 }
 
 class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
-  // Hard cap on the character count that is actually handed to the
-  // markdown parser for the collapsed preview. The preview only ever shows
-  // `maxHeight` (≈142px) of content, but the underlying `_SafeMarkdownBody`
-  // is laid out in an unconstrained-height `OverflowBox` so it can be
-  // measured for the fade decision.  For long streaming reasoning blocks
-  // (e.g. several KB), parsing + laying out the entire content on every
-  // tick of the stream was the dominant UI-thread cost (observed 2.7s
-  // build frames during streaming). Since we only need the top `maxHeight`
-  // worth of rendered text, trimming to a modest character budget makes
-  // the parse/layout O(constant) without changing visible output (the
-  // truncated prefix still far exceeds `maxHeight`, so the fade still
-  // triggers correctly).
-  // 阶段㉒ — 2000 → 1200：240 px maxHeight 大约 9-12 行实际可见，
-  // 1200 字符（≈ 30 行 markdown）已远超可视范围；越短越快 parse。
+  // 预览字符上限：解析量 O(constant)，防止流式大块重复 parse/layout。
+  // 1200 chars ≈ 30 行 markdown，远超 maxHeight 可见行数，
+  // 可滚动后用户能看到约 15 行预览内容（约 maxHeight 的 2-3 倍）。
   static const int _previewCharCap = 1200;
 
   double? _contentHeight;
+  final ScrollController _scrollController = ScrollController();
+  bool _atBottom = false;
 
   String get _effectiveData {
     final data = widget.data;
@@ -506,21 +497,49 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
+  @override
   void didUpdateWidget(covariant _MarkdownPreviewBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.parseKey != widget.parseKey) {
       _contentHeight = null;
+      _atBottom = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final measuredHeight = _contentHeight;
+    final hasOverflow =
+        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
     final effectiveHeight = measuredHeight == null
         ? widget.maxHeight
         : math.min(measuredHeight, widget.maxHeight);
-    final showFade =
-        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
+    // 滚到底部时淡出遮罩；初次渲染内容高度未知时先隐藏（与旧行为一致）。
+    final showFade = hasOverflow && !_atBottom;
     return LayoutBuilder(
       builder: (context, constraints) {
         final constrainedWidth = constraints.maxWidth.isFinite
@@ -532,67 +551,75 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
             children: [
               Positioned.fill(
                 child: ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.topLeft,
-                    minWidth: constrainedWidth,
-                    maxWidth: constrainedWidth,
-                    minHeight: 0,
-                    maxHeight: double.infinity,
-                    child: _MeasureSize(
-                      onChange: (size) {
-                        if (!mounted) {
-                          return;
-                        }
-                        final nextHeight = size.height;
-                        final currentHeight = _contentHeight;
-                        if (currentHeight != null &&
-                            (currentHeight - nextHeight).abs() < 0.5) {
-                          return;
-                        }
-                        setState(() {
-                          _contentHeight = nextHeight;
-                        });
-                      },
-                      // 2026-04-27: 不再用 IgnorePointer 包裹预览体，让代码块
-                      // 内部的复制 / 下载 / 运行按钮在折叠状态也能响应点击。
-                      // 外层的展开按钮位于同一个 Column 中的独立 InkWell，
-                      // 互不干扰；渐变 fade 遮罩依然保留 IgnorePointer 以免拦截点击。
-                      child: _SafeMarkdownBody(
-                        data: _effectiveData,
-                        // 2026-04-27: 折叠预览体也启用 selectable，让用户在折叠
-                        // 状态下也能选中并复制可见文本，与展开态保持一致。
-                        selectable: true,
-                        builders: widget.builders,
-                        styleSheet: widget.styleSheet,
-                        inlineSyntaxes: widget.inlineSyntaxes,
-                        pathRoots: widget.pathRoots,
-                        parseKey: widget.parseKey,
+                  // 折叠预览体改为可滚动视图：用户无需展开即可上下浏览内容。
+                  // 保留 _MeasureSize 测量实际内容高度，用于：
+                  //   (1) 计算 effectiveHeight（内容较短时容器自动收缩）；
+                  //   (2) 判断是否出现溢出，从而决定是否显示底部渐隐遮罩。
+                  // ScrollConfiguration 隐藏滚动条（视觉简洁）。
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
+                      physics: hasOverflow
+                          ? const BouncingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: constrainedWidth,
+                        child: _MeasureSize(
+                          onChange: (size) {
+                            if (!mounted) return;
+                            final nextHeight = size.height;
+                            final currentHeight = _contentHeight;
+                            if (currentHeight != null &&
+                                (currentHeight - nextHeight).abs() < 0.5) {
+                              return;
+                            }
+                            setState(() => _contentHeight = nextHeight);
+                          },
+                          child: _SafeMarkdownBody(
+                            data: _effectiveData,
+                            selectable: true,
+                            builders: widget.builders,
+                            styleSheet: widget.styleSheet,
+                            inlineSyntaxes: widget.inlineSyntaxes,
+                            pathRoots: widget.pathRoots,
+                            parseKey: widget.parseKey,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              if (showFade)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
+              // 底部渐隐遮罩：滚到底时 AnimatedOpacity 平滑淡出，
+              // 告知用户已无更多预览内容（需展开查看完整正文）。
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: showFade ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
                     child: Container(
-                      height: 26,
+                      height: 40,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
                             widget.fadeColor.withValues(alpha: 0),
-                            widget.fadeColor.withValues(alpha: 0.96),
+                            widget.fadeColor.withValues(alpha: 1),
                           ],
                         ),
                       ),
                     ),
                   ),
                 ),
+              ),
             ],
           ),
         );
@@ -1626,6 +1653,28 @@ class _PlainTextMessageBody extends StatefulWidget {
 class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   late bool _collapsed = _shouldCollapse(widget.data);
   bool _userToggled = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _atBottom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
 
   @override
   void didUpdateWidget(covariant _PlainTextMessageBody oldWidget) {
@@ -1676,10 +1725,20 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
           child: InkWell(
             borderRadius: _borderRadius18,
             onTap: () {
+              final nextCollapsed = !_collapsed;
               setState(() {
-                _collapsed = !_collapsed;
+                _collapsed = nextCollapsed;
                 _userToggled = true;
+                if (nextCollapsed) _atBottom = false;
               });
+              // 重新折叠时将预览滚回顶部，保证每次折叠都从头开始浏览。
+              if (nextCollapsed) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _scrollController.hasClients) {
+                    _scrollController.jumpTo(0);
+                  }
+                });
+              }
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1719,22 +1778,46 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                     height: 240,
                     child: Stack(
                       children: [
-                        SelectableText(data, style: effectiveStyle),
+                        // 折叠态改为可滚动：用户无需展开即可浏览长文本。
+                        Positioned.fill(
+                          child: ClipRect(
+                            child: ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(context)
+                                  .copyWith(scrollbars: false),
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                physics: const BouncingScrollPhysics(),
+                                child: SelectableText(
+                                  data,
+                                  style: effectiveStyle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // 底部渐隐遮罩：滚到底时平滑淡出，与 _MarkdownPreviewBody 行为一致。
                         Positioned(
                           left: 0,
                           right: 0,
                           bottom: 0,
                           child: IgnorePointer(
-                            child: Container(
-                              height: 40,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    widget.backgroundColor.withValues(alpha: 0),
-                                    widget.backgroundColor.withValues(alpha: 1),
-                                  ],
+                            child: AnimatedOpacity(
+                              opacity: _atBottom ? 0.0 : 1.0,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeInOut,
+                              child: Container(
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      widget.backgroundColor
+                                          .withValues(alpha: 0),
+                                      widget.backgroundColor
+                                          .withValues(alpha: 1),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
