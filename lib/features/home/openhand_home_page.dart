@@ -165,15 +165,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
   // 让 layout-change / composer 折叠 / 流式新消息触发的 jumpTo 抢到一帧，
   // 表现为视口被一股力反复拽回底部，呈现"抽搐/鬼畜"。给 scroll-end 加上
-  // 420 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
+  // 800 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
   // 滚动活动才视为用户真正松手。快速滑动时 ballistic 持续 → scroll-end
   // 推迟到松手才发，不依赖此宽限。
+  // 2026-05-26 — 420→800 ms：极慢速触控板滚动时单 tick 间隔可超 420 ms，
+  // 导致宽限期在两 tick 间过期→_userScrollInProgress 抖回 false→自动跟随
+  // 抢一帧 jumpTo 把视口拽回底部→用户再拉回→往复振荡抽搐。
   Timer? _userScrollGraceTimer;
   static const Duration _userScrollEndGraceDuration = Duration(
-    milliseconds: 420,
+    milliseconds: 800,
   );
   static const Duration _pointerSignalScrollActivityWindow = Duration(
-    milliseconds: 260,
+    milliseconds: 500,
   );
   int _pendingScrollToBottomSettlePasses = 0;
   int _composerTransitionMeasurePassesRemaining = 0;
@@ -1678,6 +1681,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final distanceToBottom = position.maxScrollExtent - pixels;
     if (delta < -0.5 && distanceToBottom > 0) {
       _markUserScrollInProgress();
+      // 2026-05-26 — 每次检测到向上滚动时也重启宽限计时器，
+      // 确保极慢速触控板滚动（单 tick 间隔可达 500+ ms）不会
+      // 在两 tick 间让 _userScrollInProgress 过期，杜绝自动跟随
+      // 趁机 jumpTo 造成的"往复拽回→抽搐/鬼畜"。
+      _scheduleUserScrollEndGrace();
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();

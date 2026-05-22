@@ -2851,16 +2851,9 @@ class _StreamThrottleSessionDialogState
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                 ),
-                // 2026-05-19 — 立即生效：用户每输入一个字符都把覆盖推到
-                // 当前活跃 throttle，避免「等 Apply 才生效 / 等下一轮才生效」
-                // 的体感卡顿。空串 = 清除覆盖、回退到全局。
-                onChanged: (value) {
-                  session.setSessionStreamCharsOverride(
-                    widget.sessionId,
-                    _parse(value),
-                  );
-                  // 2026-05-19 — 重新读 override 给“当前生效”标签、gauge
-                  // 上限、文本框下方状态提示马上刷新。
+                // 2026-05-26 — 不再在输入时实时推送覆盖；仅在点击”应用”后
+                // 才正式生效。输入过程中仅刷新 UI 标签展示。
+                onChanged: (_) {
                   if (mounted) setState(() {});
                 },
               ),
@@ -2878,11 +2871,7 @@ class _StreamThrottleSessionDialogState
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
                 ),
-                onChanged: (value) {
-                  session.setSessionStreamCardsOverride(
-                    widget.sessionId,
-                    _parse(value),
-                  );
+                onChanged: (_) {
                   if (mounted) setState(() {});
                 },
               ),

@@ -453,6 +453,32 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           child: _SelfLearningCard(message: message),
                         ),
                       )
+                    else if (isUser)
+                      // 2026-05-26 — 用户侧消息不进行 Markdown 解析渲染，
+                      // 直接展示原始文本，降低进入线程会话的卡顿概率，
+                      // 提升滚动流畅度。多媒体附件、@技能、指令仍正常展示。
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (attachments.isNotEmpty) ...[
+                            _MessageAttachmentSummaryBlock(
+                              attachments: attachments,
+                              textColor: textColor,
+                              backgroundColor: backgroundColor,
+                              onAttachmentTap: (attachment) =>
+                                  _openAttachment(context, attachment),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          _PlainTextMessageBody(
+                            data: effectiveContent.isEmpty
+                                ? ' '
+                                : effectiveContent,
+                            textColor: textColor,
+                            style: markdownStyleSheet.styleSheet.p,
+                          ),
+                        ],
+                      )
                     else
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1601,3 +1601,150 @@ bool _cachedMarkdownImageFileExists(String path) {
   }
   return exists;
 }
+
+/// 用户消息纯文本渲染体 - 不对用户输入内容做 Markdown 解析，
+/// 直接展示原始文本，减少进入线程会话时的解析开销与卡顿。
+///
+/// 仍保留超长消息折叠逻辑，阈值与 markdown 折叠体保持一致。
+class _PlainTextMessageBody extends StatefulWidget {
+  const _PlainTextMessageBody({
+    required this.data,
+    required this.textColor,
+    this.style,
+  });
+
+  final String data;
+  final Color textColor;
+  final TextStyle? style;
+
+  @override
+  State<_PlainTextMessageBody> createState() => _PlainTextMessageBodyState();
+}
+
+class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
+  late bool _collapsed = _shouldCollapse(widget.data);
+  bool _userToggled = false;
+
+  @override
+  void didUpdateWidget(covariant _PlainTextMessageBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_userToggled && oldWidget.data != widget.data) {
+      _collapsed = _shouldCollapse(widget.data);
+    }
+  }
+
+  bool _shouldCollapse(String value) {
+    if (value.length > _messageMarkdownCollapseCharThreshold) return true;
+    var lineCount = 1;
+    for (final unit in value.codeUnits) {
+      if (unit == 0x0A) {
+        lineCount += 1;
+        if (lineCount > _messageMarkdownCollapseLineThreshold) return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    final shouldCollapse = _shouldCollapse(data);
+    final effectiveStyle = widget.style?.copyWith(color: widget.textColor) ??
+        TextStyle(color: widget.textColor, height: 1.55);
+
+    if (!shouldCollapse) {
+      return SelectableText(data, style: effectiveStyle);
+    }
+
+    final label = _collapsed
+        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
+        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
+    final detail = _localizedText(
+      context,
+      zh: '${data.length} 字符',
+      en: '${data.length} chars',
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: _borderRadius18,
+            onTap: () {
+              setState(() {
+                _collapsed = !_collapsed;
+                _userToggled = true;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    _collapsed
+                        ? Icons.unfold_more_rounded
+                        : Icons.unfold_less_rounded,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$label · $detail',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ClipRect(
+          child: AnimatedSize(
+            duration: cardMotionDurationFor(context, expanding: !_collapsed),
+            curve: kCardMotionCurve,
+            alignment: Alignment.topLeft,
+            clipBehavior: Clip.none,
+            child: _collapsed
+                ? SizedBox(
+                    height: 240,
+                    child: Stack(
+                      children: [
+                        SelectableText(data, style: effectiveStyle),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: Container(
+                              height: 26,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    widget.textColor.withValues(alpha: 0),
+                                    widget.textColor.withValues(alpha: 0.96),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SelectableText(data, style: effectiveStyle),
+          ),
+        ),
+      ],
+    );
+  }
+}
