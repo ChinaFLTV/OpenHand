@@ -1610,11 +1610,13 @@ class _PlainTextMessageBody extends StatefulWidget {
   const _PlainTextMessageBody({
     required this.data,
     required this.textColor,
+    required this.backgroundColor,
     this.style,
   });
 
   final String data;
   final Color textColor;
+  final Color backgroundColor;
   final TextStyle? style;
 
   @override
@@ -1688,14 +1690,14 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                         ? Icons.unfold_more_rounded
                         : Icons.unfold_less_rounded,
                     size: 18,
-                    color: theme.colorScheme.primary,
+                    color: widget.textColor.withValues(alpha: 0.82),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '$label · $detail',
                       style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
+                        color: widget.textColor.withValues(alpha: 0.82),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1724,14 +1726,14 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                           bottom: 0,
                           child: IgnorePointer(
                             child: Container(
-                              height: 26,
+                              height: 40,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
-                                    widget.textColor.withValues(alpha: 0),
-                                    widget.textColor.withValues(alpha: 0.96),
+                                    widget.backgroundColor.withValues(alpha: 0),
+                                    widget.backgroundColor.withValues(alpha: 1),
                                   ],
                                 ),
                               ),

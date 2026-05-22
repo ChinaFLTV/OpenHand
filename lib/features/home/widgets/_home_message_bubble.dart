@@ -475,6 +475,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 ? ' '
                                 : effectiveContent,
                             textColor: textColor,
+                            backgroundColor: backgroundColor,
                             style: markdownStyleSheet.styleSheet.p,
                           ),
                         ],
