@@ -97,6 +97,63 @@ Future<void> killAllTrackedChildren({
 List<int> debugTrackedChildPids() =>
     List<int>.unmodifiable(_trackedChildren.keys);
 
+/// 扫出本进程下所有直接子进程并 SIGKILL，返回杀死的进程数。
+///
+/// [killAllTrackedChildren] 只能清理走 [startTrackedProcess] /
+/// [runProcessWithTimeout] / [runTrackedProcessOrFailed] 登记过的子进程；
+/// 对于 `Process.run`、`Process.start` 裸调用以及通过 shell 间接拉起的
+/// osascript / mitmdump / npm / node 等遗孤则触达不到。本方法用平台原语
+/// 枚举直接子进程并强制终结，是输入修复流水线的关键补充。
+Future<int> killAllDirectChildren() async {
+  int killed = 0;
+  try {
+    final myPid = pid;
+    if (Platform.isMacOS || Platform.isLinux) {
+      final result = await Process.run('pgrep', ['-P', '$myPid']);
+      if (result.exitCode == 0) {
+        final stdout = (result.stdout as String).trim();
+        if (stdout.isNotEmpty) {
+          for (final line in stdout.split('\n')) {
+            final childPid = int.tryParse(line.trim());
+            if (childPid != null && childPid != myPid) {
+              try {
+                Process.killPid(childPid, ProcessSignal.sigterm);
+                // 不等待——直接补 SIGKILL
+                Process.killPid(childPid, ProcessSignal.sigkill);
+                killed++;
+              } catch (_) {}
+            }
+          }
+        }
+      }
+      // 第二遍：pgrep 默认只列直接子进程；为防子进程又 fork 出孙进程，
+      // 额外用 pkill -P 把以本 pid 为根的整棵进程树一次性拔除。
+      try {
+        final r2 = await Process.run('pkill', ['-P', '$myPid']);
+        if (r2.exitCode == 0) killed = killed + 1; // pkill 本身不报数，保守计 1
+      } catch (_) {}
+    } else if (Platform.isWindows) {
+      final result = await Process.run('wmic', [
+        'process', 'where', '(ParentProcessId=$myPid)', 'get', 'ProcessId',
+      ]);
+      if (result.exitCode == 0) {
+        final stdout = (result.stdout as String).trim();
+        for (final line in stdout.split('\n')) {
+          final childPid = int.tryParse(line.trim());
+          if (childPid != null && childPid != myPid) {
+            try {
+              Process.killPid(childPid, ProcessSignal.sigterm);
+              Process.killPid(childPid, ProcessSignal.sigkill);
+              killed++;
+            } catch (_) {}
+          }
+        }
+      }
+    }
+  } catch (_) {}
+  return killed;
+}
+
 /// Runs an external command with a hard wall-clock timeout that **kills**
 /// the child process on expiry.
 ///

@@ -542,27 +542,29 @@ class _InputRepairSection extends StatefulWidget {
 class _InputRepairSectionState extends State<_InputRepairSection> {
   bool _repairing = false;
 
-  /// 真正"有效"的输入修复流水线，按因果链顺序执行：
+  /// 输入修复流水线（强化版），按因果链顺序执行：
   ///
-  ///   1) **回收孤儿子进程** —— macOS IMK 输入上下文最常见的污染源是遗留
-  ///      在系统里的 `osascript` / `mitmdump` / `node` (LSP/MCP) /
-  ///      `xcrun` 等子进程，它们持续向 LaunchServices / Apple Events 投递
-  ///      消息，把宿主 Flutter 的 IMKCFRunLoop wake-up port 挤占掉。
-  ///      [killAllTrackedChildren] SIGTERM → 400ms grace → SIGKILL，把
-  ///      登记在 [_trackedChildren] 里的所有外部进程一次性回收。
-  ///   2) **解除当前焦点** —— 让框架释放占用 platform input client。
-  ///   3) **`TextInput.clearClient`** —— 让 Flutter engine 把当前
-  ///      attached TextInputClient 断开（macOS 这边会触发
-  ///      `[FlutterTextInputView resignFirstResponder]`，进而触发 IMK
+  ///   1) **回收已登记子进程** —— [killAllTrackedChildren] 把
+  ///      [_trackedChildren] 里登记的外部进程全部 SIGTERM → SIGKILL。
+  ///   2) **回收未登记子进程** —— [killAllDirectChildren] 用 pgrep/pkill
+  ///      平台原语扫出本进程下所有直接子进程，把通过 `Process.run` 裸调用 /
+  ///      shell 间接拉起的 osascript / mitmdump / npm / node 等遗孤全部
+  ///      SIGKILL，补充第 1 步触达不到的漏网之鱼。
+  ///   3) **保存焦点现场 + 解除当前焦点** —— 记下当前聚焦节点，然后释放
+  ///      platform input client 占用，为后续 IMK 失活扫清障碍。
+  ///   4) **`TextInput.clearClient`** —— 让 Flutter engine 把当前的
+  ///      attached TextInputClient 断开（macOS 侧触发
+  ///      `[FlutterTextInputView resignFirstResponder]` → IMK
   ///      `IMKInputSession deactivate`）。
-  ///   4) **`TextInput.hide`** —— 让 IMK candidate window 收起。
-  ///   5) **`TextInput.finishAutofillContext`** —— 重置自动填充上下文。
-  ///   6) **post-frame 触发一次空 attach + detach** —— 强制 Flutter
-  ///      engine 在下一帧把 TextInput 通道重新握手，相当于把整条
-  ///      TextField → engine → platform → IMK 链路重置一次。
-  ///
-  /// 全部完成后用 [HighlightPulse] 触发一次顶栏 Q 弹高亮，并通过 Snackbar
-  /// 真实回报本次回收掉的子进程数（而不是空话）。
+  ///   5) **`TextInput.hide`** —— 收起 IMK candidate window。
+  ///   6) **`TextInput.finishAutofillContext(false)`** —— 清空自动填充上下文。
+  ///   7) **`TextInput.requestExistingInputState`** —— 验证 engine 侧
+  ///      TextInput 通道是否恢复可用，同时让 platform 层重新建立状态机。
+  ///   8) **post-frame 焦点重连** —— 在下一帧用一个临时 FocusNode 触发
+  ///      engine 的 TextInput.attach → detach 全周期，迫使 platform 把
+  ///      `[FlutterTextInputView becomeFirstResponder]` → IMK
+  ///      `IMKInputSession activate` 整条链路重新走通。最后把焦点交还给
+  ///      此前保存的节点（如果有），用户无需手动重新点击输入框。
   Future<void> _runRepair(BuildContext context) async {
     if (_repairing) return;
     setState(() {
@@ -572,16 +574,22 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
     final messenger = ScaffoldMessenger.maybeOf(context);
 
     int killedCount = 0;
+    int untrackedKilled = 0;
+    FocusNode? savedFocus;
     try {
-      // (1) 孤儿子进程兜底回收（真正的"修复"动作）。先采样数量再杀，
-      // 让 snackbar 能给出可验证的回报。
+      // ── 阶段 1：子进程回收 ──────────────────────────────────────────
+      // (1a) 已登记子进程批量终止。
       killedCount = debugTrackedChildPids().length;
       await killAllTrackedChildren();
+      // (1b) 平台级全量子进程扫出 + 终结（补刀未登记遗孤）。
+      untrackedKilled = await killAllDirectChildren();
 
-      // (2) 释放当前焦点。
+      // ── 阶段 2：IMK 输入上下文重置 ──────────────────────────────────
+      // (2a) 保存当前焦点节点，随后释放焦点。
+      savedFocus = FocusManager.instance.primaryFocus;
       FocusManager.instance.primaryFocus?.unfocus();
 
-      // (3) 断开当前 TextInputClient（关键：触发 IMKInputSession 失活）。
+      // (2b) 断开 TextInputClient —— 触发 IMKInputSession deactivate。
       try {
         await SystemChannels.textInput.invokeMethod<void>(
           'TextInput.clearClient',
@@ -590,14 +598,14 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         silentLog('settings.system', 'clearClient', error, stack);
       }
 
-      // (4) IMK candidate window 收起。
+      // (2c) IMK candidate window 收起。
       try {
         await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
       } catch (error, stack) {
         silentLog('settings.system', 'hideTextInput', error, stack);
       }
 
-      // (5) 重置自动填充上下文（false = 丢弃未提交内容）。
+      // (2d) 重置自动填充上下文。
       try {
         await SystemChannels.textInput.invokeMethod<void>(
           'TextInput.finishAutofillContext',
@@ -607,12 +615,36 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         silentLog('settings.system', 'finishAutofillContext', error, stack);
       }
 
-      // (6) 下一帧再次让框架重新握手一次 TextInput 通道。空 attach 触发
-      // engine 把"我现在可以接收输入"重新讲给 platform 层。
+      // (2e) 请求 engine 回读当前输入状态，验证通道可用性
+      // 并促使 platform 层重新同步 IMK 状态机。
+      try {
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.requestExistingInputState',
+        );
+      } catch (_) {}
+
+      // ── 阶段 3：焦点重连（post-frame） ──────────────────────────────
+      // 在下一帧用一个临时 FocusNode 走完 attach → detach 全周期，
+      // 确保 engine 重新创建 TextInput 通道 → platform IMK session activate。
+      // 之后再交还焦点给原始节点（如果有），用户无需手动重选输入框。
+      final restoreTarget = savedFocus;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
+          // 先 hide 清除可能的候选窗残留。
           SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
         } catch (_) {}
+        // 临时 focus → unfocus 驱动完整的 TextInput 重建握手。
+        final tempNode = FocusNode();
+        tempNode.requestFocus();
+        // 用微延迟让 engine 的 TextInput.attach 有时间落地。
+        Future<void>.delayed(const Duration(milliseconds: 60), () {
+          tempNode.unfocus();
+          tempNode.dispose();
+          // 把焦点交还给之前活跃的输入框。
+          if (restoreTarget != null && restoreTarget.context != null) {
+            restoreTarget.requestFocus();
+          }
+        });
       });
     } catch (error, stack) {
       silentLog('settings.system', 'repairTextInput', error, stack);
@@ -625,8 +657,9 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
     }
 
     if (messenger != null && context.mounted) {
-      final detail = killedCount > 0
-          ? l10n.inputRepairDoneDetail(killedCount)
+      final total = killedCount + untrackedKilled;
+      final detail = total > 0
+          ? l10n.inputRepairDoneDetail(total)
           : l10n.inputRepairDone;
       OpenHandSnackBar.showSuccessOn(context, messenger, detail);
     }

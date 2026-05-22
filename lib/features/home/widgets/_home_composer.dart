@@ -108,6 +108,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   int _atMentionDismissedOffset = -1;
   // Project file/directory references selected via the @ mention overlay.
   List<_AtMentionItem> _projectFileReferences = [];
+  // Drives the @‑mention overlay exit animation.
+  ValueNotifier<bool>? _atMentionVisible;
 
   // ── Skill picker (leading `/` slash trigger) ──
   //
@@ -349,10 +351,22 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   void _showAtMentionOverlay() {
     if (_atMentionOverlay != null) {
+      _atMentionVisible?.value = true;
       _atMentionOverlay!.markNeedsBuild();
       return;
     }
     final overlay = Overlay.of(context, rootOverlay: true);
+    final visible = ValueNotifier<bool>(true);
+    _atMentionVisible = visible;
+    DialogAnimationSettings animationSettings;
+    try {
+      animationSettings = Provider.of<SettingsController>(
+        context,
+        listen: false,
+      ).dialogAnimationSettings;
+    } catch (_) {
+      animationSettings = const DialogAnimationSettings();
+    }
     _atMentionOverlay = OverlayEntry(
       builder: (ctx) {
         return _AtMentionOverlayPanel(
@@ -365,6 +379,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           onDrillDown: _handleAtMentionDrillDown,
           onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
           onDismiss: _userDismissAtMentionOverlay,
+          visible: visible,
+          animationSettings: animationSettings,
         );
       },
     );
@@ -381,8 +397,27 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _dismissAtMentionOverlay() {
-    _atMentionOverlay?.remove();
-    _atMentionOverlay = null;
+    // Trigger exit animation via ValueNotifier; the panel rebuilds with
+    // AnimatedOpacity reversing to 0.  When the overlay is being disposed
+    // synchronously (widget tree torn down), fall back to instant removal.
+    final visible = _atMentionVisible;
+    if (visible != null && mounted) {
+      visible.value = false;
+      // Schedule removal after the exit animation completes.
+      final entry = _atMentionOverlay;
+      final notifier = _atMentionVisible;
+      Future<void>.delayed(const Duration(milliseconds: 320), () {
+        entry?.remove();
+        notifier?.dispose();
+        if (_atMentionOverlay == entry) _atMentionOverlay = null;
+        if (_atMentionVisible == notifier) _atMentionVisible = null;
+      });
+    } else {
+      _atMentionOverlay?.remove();
+      _atMentionOverlay = null;
+      _atMentionVisible?.dispose();
+      _atMentionVisible = null;
+    }
     if (_atMentionTriggerOffset >= 0) {
       _atMentionTriggerOffset = -1;
       _atMentionCurrentDirectory = '';
@@ -2579,6 +2614,8 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     required this.onDrillDown,
     required this.onBreadcrumbTap,
     required this.onDismiss,
+    required this.visible,
+    required this.animationSettings,
   });
 
   final LayerLink link;
@@ -2590,6 +2627,8 @@ class _AtMentionOverlayPanel extends StatelessWidget {
   final void Function(_AtMentionItem item) onDrillDown;
   final void Function(int depth) onBreadcrumbTap;
   final VoidCallback onDismiss;
+  final ValueListenable<bool> visible;
+  final DialogAnimationSettings animationSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -2597,8 +2636,11 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final baseMs = animationSettings.duration.inMilliseconds;
+    final animMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
 
-    return Stack(
+    final content = Stack(
       children: [
         // Dismiss barrier.
         Positioned.fill(
@@ -2611,17 +2653,15 @@ class _AtMentionOverlayPanel extends StatelessWidget {
           link: link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
-          // 2026-05 — soften the @-mention popup entrance: 160ms
-          // easeOutCubic fade + slight upward translate + scale-up from
-          // 0.97 anchored at bottom-left so the chip feels like it's
-          // sprouting from the cursor. Honors MediaQuery.disableAnimations
-          // (user reduceMotion or OS a11y) by using Duration.zero.
+          // Q-springy entrance: fade + slight up-translate + scale-up from
+          // 0.97, anchored at bottom-left. Duration/curve follow global
+          // dialog-animation settings. Disabled animations → instant.
           child: TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: MediaQuery.disableAnimationsOf(context)
+            duration: disableAnim || animMs == 0
                 ? Duration.zero
-                : const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
+                : Duration(milliseconds: animMs),
+            curve: animationSettings.curve.curve,
             builder: (context, t, child) {
               return Opacity(
                 opacity: t,
@@ -2813,6 +2853,21 @@ class _AtMentionOverlayPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: visible,
+      builder: (context, isVisible, child) {
+        return AnimatedOpacity(
+          opacity: isVisible ? 1.0 : 0.0,
+          duration: disableAnim || animMs == 0
+              ? Duration.zero
+              : Duration(milliseconds: animMs),
+          curve: animationSettings.curve.curve,
+          child: child,
+        );
+      },
+      child: content,
     );
   }
 
