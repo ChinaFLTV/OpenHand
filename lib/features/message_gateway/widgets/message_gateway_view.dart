@@ -2193,7 +2193,8 @@ class _WebGatewayOpsDialog extends StatefulWidget {
   State<_WebGatewayOpsDialog> createState() => _WebGatewayOpsDialogState();
 }
 
-class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
+class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
+    with WidgetsBindingObserver {
   static const Duration _refreshInterval = Duration(seconds: 2);
   static const int _trendLimit = 40;
 
@@ -2208,15 +2209,39 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tick();
-    _timer = Timer.periodic(_refreshInterval, (_) => _tick());
+    _startTimerIfForeground();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 应用切到后台时暂停 2s 一次的 runtime snapshot 轮询；回到前台再恢复。
+    // 避免后台持续走网络/IPC 拉 snapshot 浪费资源。
+    if (state == AppLifecycleState.resumed) {
+      _startTimerIfForeground();
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  void _startTimerIfForeground() {
+    _timer?.cancel();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      return;
+    }
+    _timer = Timer.periodic(_refreshInterval, (_) => _tick());
   }
 
   Future<void> _tick() async {
