@@ -3311,17 +3311,41 @@ class _VideoThumbnailCaptureHost extends StatefulWidget {
 }
 
 class _VideoThumbnailCaptureHostState
-    extends State<_VideoThumbnailCaptureHost> {
+    extends State<_VideoThumbnailCaptureHost> with WidgetsBindingObserver {
   WebViewController? _controller;
   String? _tempHtmlPath;
   bool _slotHeld = false;
   bool _done = false;
   Timer? _watchdog;
+  // 应用切到后台时 WebView/JS 通道可能被 OS 暂停，需将 watchdog 一并暂停，
+  // 否则 18s 后会误判为超时并标记失败；回到前台时按完整预算重新计时。
+  bool _watchdogPausedForLifecycle = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _start();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (_done) return;
+    if (state != AppLifecycleState.resumed) {
+      if (_watchdog != null && _watchdog!.isActive) {
+        _watchdog!.cancel();
+        _watchdog = null;
+        _watchdogPausedForLifecycle = true;
+      }
+      return;
+    }
+    if (_watchdogPausedForLifecycle && _watchdog == null) {
+      _watchdogPausedForLifecycle = false;
+      _watchdog = Timer(const Duration(seconds: 18), () {
+        if (!_done) _finish(null);
+      });
+    }
   }
 
   Future<void> _start() async {
@@ -3426,6 +3450,7 @@ class _VideoThumbnailCaptureHostState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (!_done) {
       _done = true;
       _watchdog?.cancel();

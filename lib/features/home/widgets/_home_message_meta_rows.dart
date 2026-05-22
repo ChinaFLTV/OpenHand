@@ -51,12 +51,14 @@ class _ReasoningMetaRow extends StatefulWidget {
   State<_ReasoningMetaRow> createState() => _ReasoningMetaRowState();
 }
 
-class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
+class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
+    with WidgetsBindingObserver {
   Timer? _elapsedTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncElapsedTimer();
   }
 
@@ -71,14 +73,27 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 应用进入后台时立刻熄火秒级 tick，回到前台再续；避免后台持续唤醒
+    // 主 isolate 浪费 CPU（思考耗时显示无需在不可见时刷新）。
+    _syncElapsedTimer();
+  }
+
+  @override
   void dispose() {
     _elapsedTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   void _syncElapsedTimer() {
     _elapsedTimer?.cancel();
     if (!widget.showSweep) {
+      return;
+    }
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
       return;
     }
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
