@@ -113,6 +113,23 @@ class _TranscriptScrollDispatcher {
     }
   }
 
+  /// 立即把 [sessionId] 对应 transcript 的「分批 drip」全部落地，等价于
+  /// 取消 timer + 把 `_materializedTailLimit` 置 null + 一次性物化全部
+  /// tail 消息。用于：(1) 应用从后台切回前台后，避免 drip 残留导致
+  /// auto-follow 跳到的是被截断的尾部；(2) 用户主动点击「跳到最新」时
+  /// 也应立刻看到所有消息而非按 400 ms 步长漫长展开。
+  bool flushDripFor(String sessionId) {
+    final state = _statesBySession[sessionId];
+    if (state == null) return false;
+    return state.flushIncrementalDrip();
+  }
+
+  void flushAllDrips() {
+    for (final state in _statesBySession.values) {
+      state.flushIncrementalDrip();
+    }
+  }
+
   Future<bool> scrollToMessage(
     String sessionId,
     String messageId, {
@@ -594,6 +611,39 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _materializedTailLimit = null;
   }
 
+  /// 立即把 drip 截断的尾部一次性物化为完整 tail。返回 true 表示当前
+  /// 确实存在一个进行中的 drip 并已被冲刷；false 表示无需操作。安全在
+  /// 任意帧阶段调用：若处于 layout / paint / persistent callbacks 中，
+  /// `setState` 会被推迟到 post-frame，避免触发 build-during-frame 断言。
+  bool flushIncrementalDrip() {
+    if (!mounted) return false;
+    final wasDripping =
+        _dripTimer != null || _materializedTailLimit != null;
+    if (!wasDripping) return false;
+    _stopIncrementalDrip();
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final inFrame =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks ||
+        phase == SchedulerPhase.transientCallbacks;
+    void apply() {
+      if (!mounted) return;
+      setState(() {
+        _replaceRenderEntries(
+          _visibleMessagesForWindow(),
+          animate: false,
+        );
+      });
+    }
+
+    if (inFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => apply());
+    } else {
+      apply();
+    }
+    return true;
+  }
+
   void _replaceRenderEntries(
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
@@ -668,9 +718,20 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       final dripInProgress =
           _dripTimer != null && _materializedTailLimit != null;
-      final shouldDrip =
-          newAdditions >= _dripActivationThreshold ||
-          (dripInProgress && newAdditions > 0);
+      // 2026-05-23 (修复)：应用进入后台 / 非 resumed 生命周期时，drip 的
+      // 「分帧动效」毫无意义（UI 根本没在绘制），反而会让消息持续被截断；
+      // 一旦回到前台，截断的尾部会让 auto-follow 把视口拉到「假底部」，
+      // 之后还要逐 400ms 漫长展开。此处直接放弃 drip 改为同步全量物化，
+      // 让后续 lifecycle-resume 钩子拿到真实的 maxScrollExtent。
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      final lifecycleSuspended = lifecycle != null &&
+          lifecycle != AppLifecycleState.resumed;
+      final shouldDrip = !lifecycleSuspended &&
+          (newAdditions >= _dripActivationThreshold ||
+              (dripInProgress && newAdditions > 0));
+      if (lifecycleSuspended && dripInProgress) {
+        _stopIncrementalDrip();
+      }
       if (shouldDrip) {
         final initialLimit = dripInProgress
             ? (_materializedTailLimit ?? activeIdSet.length)
