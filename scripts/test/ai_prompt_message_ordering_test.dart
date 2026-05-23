@@ -459,4 +459,146 @@ void main() {
     expect(dynamicMsg.content.contains('"date"'), isTrue,
         reason: '[3d] 必须包含 context.date（跨天会变）');
   });
+
+  testWidgets(
+      'tool-continuation turn keeps latestUser in natural position (prefix '
+      'cache hit)', (tester) async {
+    // 模拟一轮工具调用后的两次连续 API 调用：
+    // - 第一次：latestUser=msg-1，紧跟 assistant 工具调用 + tool 结果
+    // - 第二次（同一轮的“续写”）：latestUser 仍是 msg-1，但中间又多了一个
+    //   assistant + tool 结果
+    // 之前的实现会把 latestUser 抽出后追加到末尾，导致两次请求的 wire 顺序
+    // 在 msg-1 处发散：前一次 [user, asst-toolcall, tool, user] 而后一次
+    // [user, asst-toolcall, tool, asst-toolcall, tool, user]——这跟自然顺序
+    // 完全不同，prefix cache 全无。修复后，latestUser 应留在自然位置，
+    // 二次调用的 wire 序与首次保持 prefix 一致。
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
+
+    final session1 = _buildMinimalSession(messages: [
+      AiSessionMessage.user(id: 'msg-1', content: 'Search XYZ', createdAt: now),
+      AiSessionMessage.toolCall(
+        id: 'msg-2',
+        content: '',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_calls': [
+            {
+              'id': 'tc-1',
+              'name': 'WebSearch',
+              'arguments': '{"q":"XYZ"}',
+            },
+          ],
+        },
+      ),
+      AiSessionMessage.toolResult(
+        id: 'msg-3',
+        content: '{"hits":[1,2,3]}',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_call_id': 'tc-1',
+          'tool_name': 'WebSearch',
+        },
+      ),
+    ]);
+    final result1 = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session1,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session1.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    final session2 = _buildMinimalSession(messages: [
+      AiSessionMessage.user(id: 'msg-1', content: 'Search XYZ', createdAt: now),
+      AiSessionMessage.toolCall(
+        id: 'msg-2',
+        content: '',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_calls': [
+            {
+              'id': 'tc-1',
+              'name': 'WebSearch',
+              'arguments': '{"q":"XYZ"}',
+            },
+          ],
+        },
+      ),
+      AiSessionMessage.toolResult(
+        id: 'msg-3',
+        content: '{"hits":[1,2,3]}',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_call_id': 'tc-1',
+          'tool_name': 'WebSearch',
+        },
+      ),
+      AiSessionMessage.toolCall(
+        id: 'msg-4',
+        content: '',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_calls': [
+            {
+              'id': 'tc-2',
+              'name': 'WebSearch',
+              'arguments': '{"q":"XYZ extras"}',
+            },
+          ],
+        },
+      ),
+      AiSessionMessage.toolResult(
+        id: 'msg-5',
+        content: '{"hits":[4,5]}',
+        createdAt: now,
+        metadata: const <String, Object?>{
+          'tool_call_id': 'tc-2',
+          'tool_name': 'WebSearch',
+        },
+      ),
+    ]);
+    final result2 = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session2,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session2.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    // 提取“稳定区” = 用户消息及之前的所有 turn（不含末尾 volatile system 块）。
+    // 修复后，第一次和第二次的稳定区 wire 序列在 user 消息之前/之中应严格
+    // 互为前缀关系：second 的前 N 项 == first 的前 N 项（N = first.length 中
+    // 直到 user 那条 turn 的位置）。
+    List<AiChatTurn> stableHeadIncludingUser(List<AiChatTurn> messages) {
+      final firstUser = messages.indexWhere((m) => m.role == AiChatRole.user);
+      if (firstUser < 0) return messages;
+      return messages.sublist(0, firstUser + 1);
+    }
+
+    final head1 = stableHeadIncludingUser(result1.messages);
+    final head2 = stableHeadIncludingUser(result2.messages);
+
+    // 关键断言：head1 应当是 head2 的严格前缀 —— 即 result2 的前 head1.length
+    // 项与 head1 完全一致（role + content）。否则 latestUser 的位置就跑了，
+    // prefix cache 必然失效。
+    expect(result2.messages.length >= head1.length, isTrue);
+    for (var i = 0; i < head1.length; i++) {
+      expect(result2.messages[i].role, head1[i].role,
+          reason: '工具续写时 latestUser 之前/之中 wire 顺序必须保持稳定 '
+              '(turn $i role 不一致)');
+      expect(result2.messages[i].content, head1[i].content,
+          reason: '工具续写时 latestUser 之前/之中 wire 内容必须保持稳定 '
+              '(turn $i content 不一致)');
+    }
+    // sanity: head2 在自然位置（即第一次出现 user）应当与 head1 末尾的 user 对齐
+    expect(head2.last.role, AiChatRole.user);
+  });
 }

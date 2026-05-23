@@ -160,19 +160,44 @@ class AiPromptBuilder {
     // 边界之前的消息属于历史轮次（可以压缩），边界之后的消息属于当前轮次
     // （禁止压缩），避免工具结果压缩在同轮连续 API 调用之间改变历史内容、
     // 破坏前缀缓存。
+    //
+    // 2026-05-23 v2 — 追加：若 latestUser 之后已经有助手 / 工具消息（即
+    // 当前是工具回合后的“续写轮”），则不再把 latestUser 抽出来追加到末尾，
+    // 而是把它留在自然位置参与 history。否则同一回合内连续的两次 API 调用
+    // 会得到两份截然不同的 messages 序列（前一份把 latestUser 放在工具结果
+    // 之后，后一份把它放在工具结果之前），prefix cache 永远在第二条消息处
+    // 就断裂，导致命中率塌方。
+    //
+    // 实现：先把 latestUser 暂存到 historyMessages，扫完之后若发现它身后
+    // 没有任何非 reasoning 的消息，则把它从 history 中剥离、走原来的“追加
+    // 到末尾”路径；若身后有内容，则就地留在自然位置，并通过
+    // latestUserMessageIdForInlineAttachments 把 isLatestUserMessage 语义
+    // （inline 图片 + [Attachment]/id= 块）传递给 _mapHistoryMessages。
     var preTurnHistoryCount = 0;
     var foundLatestUser = false;
+    var latestUserHasSubsequentTurns = false;
+    int? latestUserHistoryIndex;
     for (final message in visibleSessionMessages) {
       if (message.id == latestUserMessageId &&
           message.kind == AiSessionMessageKind.user) {
         latestUserMessage = message;
         foundLatestUser = true;
+        latestUserHistoryIndex = historyMessages.length;
+        historyMessages.add(message);
         continue;
       }
       if (!foundLatestUser) {
         preTurnHistoryCount += 1;
+      } else if (message.kind != AiSessionMessageKind.reasoning) {
+        latestUserHasSubsequentTurns = true;
       }
       historyMessages.add(message);
+    }
+    final latestUserInline =
+        latestUserMessage != null && latestUserHasSubsequentTurns;
+    if (!latestUserInline && latestUserHistoryIndex != null) {
+      // 没有续写场景：把 latestUser 从 history 里剥离，走原来的“附加到末尾”路径。
+      historyMessages.removeAt(latestUserHistoryIndex);
     }
     final historyTurns = _sanitizeToolSequence(
       _mapHistoryMessages(
@@ -181,9 +206,11 @@ class AiPromptBuilder {
         model,
         _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
         preTurnHistoryCount: preTurnHistoryCount,
+        latestUserMessageIdForInlineAttachments:
+            latestUserInline ? latestUserMessage?.id : null,
       ),
     );
-    final latestUserTurns = latestUserMessage == null
+    final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
             latestUserMessage,
@@ -1800,6 +1827,7 @@ $identity''';
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
     required int preTurnHistoryCount,
+    String? latestUserMessageIdForInlineAttachments,
   }) {
     final turns = <AiChatTurn>[];
     var index = 0;
@@ -1878,6 +1906,8 @@ $identity''';
         messageIndex: index,
         lastConsumerIndex: stableConsumerBoundary,
         microCompactMessageIds: microCompactMessageIds,
+        isLatestUserInline: latestUserMessageIdForInlineAttachments != null &&
+            message.id == latestUserMessageIdForInlineAttachments,
       );
       if (mapped.isNotEmpty) {
         turns.addAll(_attachReasoningToAssistantTurns(mapped, roundReasoning));
@@ -2061,6 +2091,7 @@ $identity''';
     required int messageIndex,
     required int lastConsumerIndex,
     required Set<String> microCompactMessageIds,
+    bool isLatestUserInline = false,
   }) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
@@ -2070,6 +2101,7 @@ $identity''';
           session: session,
           model: model,
           content: promptContent,
+          isLatestUserMessage: isLatestUserInline,
         );
       case AiSessionMessageKind.assistant:
         return _mapMessageContent(
