@@ -1633,6 +1633,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                     message: message,
                                     session: session,
                                     controller: aiSessionController,
+                                    claudeStyle: widget.claudeStyle,
                                   );
                                 }
                               : null,

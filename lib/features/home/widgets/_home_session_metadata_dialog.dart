@@ -125,6 +125,7 @@ class _SessionMetadataDialog extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+              ..._buildCacheHitTrendSection(context, theme, colorScheme),
               ..._buildSessionCostSection(context, theme, colorScheme),
               const SizedBox(height: 18),
               Expanded(
@@ -745,6 +746,106 @@ class _SessionMetadataDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 在 summaryBlocks 之后渲染缓存命中率随消息推进的折线趋势图。
+  /// 数据源：遍历 `session.messages` 中带 usage 的 assistant 消息，
+  /// 按协议公式（Claude 系：read/(prompt+read)；OpenAI/Gemini 系：read/prompt）
+  /// 计算每条消息的 hit ratio。低于 2 个数据点时不渲染。
+  List<Widget> _buildCacheHitTrendSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final ratios = <double>[];
+    for (final m in session.messages) {
+      final usage = m.usage;
+      if (usage == null) continue;
+      final prompt = usage.promptTokens ?? 0;
+      final read = usage.cacheReadTokens ?? 0;
+      if (prompt <= 0 && read <= 0) continue;
+      final denom = claudeStyle ? (prompt + read) : prompt;
+      if (denom <= 0) continue;
+      final r = (read / denom).clamp(0.0, 1.0).toDouble();
+      ratios.add(r);
+    }
+    if (ratios.length < 2) return const <Widget>[];
+
+    final l10n = AppLocalizations.of(context)!;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final avg = ratios.reduce((a, b) => a + b) / ratios.length;
+    final last = ratios.last;
+    final maxRatio = ratios.reduce((a, b) => a > b ? a : b);
+
+    final headStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+    );
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurface,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    String pct(double v) => '${(v * 100).round()}%';
+
+    return [
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(l10n.sessMetaCacheHitTrend, style: headStyle),
+                const Spacer(),
+                Text(
+                  '${l10n.sessMetaCacheHitLast}: ${pct(last)}'
+                  ' · ${l10n.sessMetaCacheHitAvg}: ${pct(avg)}'
+                  ' · ${l10n.sessMetaCacheHitMax}: ${pct(maxRatio)}'
+                  ' · n=${ratios.length}',
+                  style: valueStyle,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 56,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: reduceMotion ? 1.0 : 0.0, end: 1.0),
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 520),
+                curve: Curves.easeOutCubic,
+                builder: (context, t, _) {
+                  return CustomPaint(
+                    painter: _CacheHitSparklinePainter(
+                      ratios: ratios,
+                      progress: t,
+                      lineColor: colorScheme.primary,
+                      fillColor: colorScheme.primary.withValues(alpha: 0.18),
+                      gridColor: colorScheme.outlineVariant.withValues(
+                        alpha: 0.35,
+                      ),
+                      dotColor: colorScheme.primary,
+                    ),
+                    size: Size.infinite,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   /// 1C-C：在 summaryBlocks 之后追加按 4 分量拆解的成本估算。
@@ -1694,5 +1795,116 @@ class _MetadataJsonPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CacheHitSparklinePainter extends CustomPainter {
+  _CacheHitSparklinePainter({
+    required this.ratios,
+    required this.progress,
+    required this.lineColor,
+    required this.fillColor,
+    required this.gridColor,
+    required this.dotColor,
+  });
+
+  final List<double> ratios;
+  final double progress;
+  final Color lineColor;
+  final Color fillColor;
+  final Color gridColor;
+  final Color dotColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (ratios.isEmpty) return;
+    final w = size.width;
+    final h = size.height;
+
+    // 网格：25% / 50% / 75% 三条参考线。
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.6
+      ..style = PaintingStyle.stroke;
+    for (final f in const <double>[0.25, 0.5, 0.75]) {
+      final y = h - h * f;
+      canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+    }
+
+    if (ratios.length < 2) return;
+    final n = ratios.length;
+    final stepX = w / (n - 1);
+
+    // progress 控制曲线从左到右逐步揭示。
+    final visibleCount = (n * progress).clamp(1, n).toDouble();
+    final fullCount = visibleCount.floor();
+    final partial = visibleCount - fullCount;
+
+    final path = Path();
+    final fillPath = Path();
+    Offset? lastPoint;
+    final pts = <Offset>[];
+
+    Offset pointFor(int i) {
+      final x = i * stepX;
+      final y = h - h * ratios[i].clamp(0.0, 1.0);
+      return Offset(x, y);
+    }
+
+    for (var i = 0; i < fullCount && i < n; i++) {
+      final p = pointFor(i);
+      pts.add(p);
+      if (i == 0) {
+        path.moveTo(p.dx, p.dy);
+        fillPath.moveTo(p.dx, h);
+        fillPath.lineTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+        fillPath.lineTo(p.dx, p.dy);
+      }
+      lastPoint = p;
+    }
+    if (partial > 0 && fullCount < n && fullCount >= 1) {
+      final a = pointFor(fullCount - 1);
+      final b = pointFor(fullCount);
+      final ip = Offset(
+        a.dx + (b.dx - a.dx) * partial,
+        a.dy + (b.dy - a.dy) * partial,
+      );
+      path.lineTo(ip.dx, ip.dy);
+      fillPath.lineTo(ip.dx, ip.dy);
+      lastPoint = ip;
+    }
+    if (lastPoint != null) {
+      fillPath.lineTo(lastPoint.dx, h);
+      fillPath.close();
+    }
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(fillPath, fillPaint);
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(path, linePaint);
+
+    // 最后一个已显示点画一个小圆点高亮。
+    if (lastPoint != null) {
+      final dotPaint = Paint()..color = dotColor;
+      canvas.drawCircle(lastPoint, 2.6, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CacheHitSparklinePainter old) {
+    return old.progress != progress ||
+        old.ratios.length != ratios.length ||
+        old.lineColor != lineColor ||
+        old.fillColor != fillColor;
   }
 }

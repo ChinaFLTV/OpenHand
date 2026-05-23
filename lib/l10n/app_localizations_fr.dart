@@ -3544,6 +3544,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tlCallJustNow => 'à l’instant';
 
   @override
+  String get sessMetaCacheHitTrend => 'TENDANCE DU TAUX DE SUCCÈS DU CACHE';
+
+  @override
+  String get sessMetaCacheHitLast => 'dernier';
+
+  @override
+  String get sessMetaCacheHitAvg => 'moyenne';
+
+  @override
+  String get sessMetaCacheHitMax => 'max';
+
+  @override
   String get sessMetaMessages => 'Messages';
 
   @override
@@ -3842,6 +3854,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get auditTotalTokens => 'Jetons totaux';
+
+  @override
+  String get auditCacheHitRatio => 'Taux de succès du cache';
 
   @override
   String get auditPromptTokens => 'Jetons d’invite';

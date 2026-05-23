@@ -3483,6 +3483,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tlCallJustNow => 'just now';
 
   @override
+  String get sessMetaCacheHitTrend => 'CACHE HIT RATE TREND';
+
+  @override
+  String get sessMetaCacheHitLast => 'latest';
+
+  @override
+  String get sessMetaCacheHitAvg => 'avg';
+
+  @override
+  String get sessMetaCacheHitMax => 'max';
+
+  @override
   String get sessMetaMessages => 'Messages';
 
   @override
@@ -3780,6 +3792,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditTotalTokens => 'Total Tokens';
+
+  @override
+  String get auditCacheHitRatio => 'Cache Hit Rate';
 
   @override
   String get auditPromptTokens => 'Prompt Tokens';

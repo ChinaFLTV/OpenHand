@@ -3304,6 +3304,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallJustNow => '刚刚';
 
   @override
+  String get sessMetaCacheHitTrend => '缓存命中率趋势';
+
+  @override
+  String get sessMetaCacheHitLast => '末轮';
+
+  @override
+  String get sessMetaCacheHitAvg => '平均';
+
+  @override
+  String get sessMetaCacheHitMax => '峰值';
+
+  @override
   String get sessMetaMessages => '消息总数';
 
   @override
@@ -3596,6 +3608,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditCacheHitRatio => '缓存命中率';
 
   @override
   String get auditPromptTokens => '输入 Token';
@@ -11063,6 +11078,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallJustNow => '刚刚';
 
   @override
+  String get sessMetaCacheHitTrend => '缓存命中率趋势';
+
+  @override
+  String get sessMetaCacheHitLast => '末轮';
+
+  @override
+  String get sessMetaCacheHitAvg => '平均';
+
+  @override
+  String get sessMetaCacheHitMax => '峰值';
+
+  @override
   String get sessMetaMessages => '消息总数';
 
   @override
@@ -11355,6 +11382,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditCacheHitRatio => '缓存命中率';
 
   @override
   String get auditPromptTokens => '输入 Token';
@@ -18821,6 +18851,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tlCallJustNow => '刚刚';
 
   @override
+  String get sessMetaCacheHitTrend => '快取命中率趨勢';
+
+  @override
+  String get sessMetaCacheHitLast => '末輪';
+
+  @override
+  String get sessMetaCacheHitAvg => '平均';
+
+  @override
+  String get sessMetaCacheHitMax => '峰值';
+
+  @override
   String get sessMetaMessages => '消息总数';
 
   @override
@@ -19113,6 +19155,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditCacheHitRatio => '快取命中率';
 
   @override
   String get auditPromptTokens => '输入 Token';

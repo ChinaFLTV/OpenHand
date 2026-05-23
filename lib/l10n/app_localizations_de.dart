@@ -3526,6 +3526,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallJustNow => 'gerade eben';
 
   @override
+  String get sessMetaCacheHitTrend => 'CACHE-TREFFERQUOTE-TREND';
+
+  @override
+  String get sessMetaCacheHitLast => 'aktuell';
+
+  @override
+  String get sessMetaCacheHitAvg => 'Schnitt';
+
+  @override
+  String get sessMetaCacheHitMax => 'max';
+
+  @override
   String get sessMetaMessages => 'Nachrichten';
 
   @override
@@ -3824,6 +3836,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get auditTotalTokens => 'Gesamt-Token';
+
+  @override
+  String get auditCacheHitRatio => 'Cache-Trefferquote';
 
   @override
   String get auditPromptTokens => 'Prompt-Token';

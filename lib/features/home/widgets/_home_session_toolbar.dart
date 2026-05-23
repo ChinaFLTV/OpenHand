@@ -156,6 +156,7 @@ class _SessionToolbar extends StatelessWidget {
                                     session: session,
                                     controller: context
                                         .read<AiSessionController>(),
+                                    claudeStyle: claudeStyle,
                                   );
                                 },
                               ),

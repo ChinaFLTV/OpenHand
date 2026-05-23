@@ -6272,6 +6272,30 @@ abstract class AppLocalizations {
   /// **'刚刚'**
   String get tlCallJustNow;
 
+  /// No description provided for @sessMetaCacheHitTrend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存命中率趋势'**
+  String get sessMetaCacheHitTrend;
+
+  /// No description provided for @sessMetaCacheHitLast.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'末轮'**
+  String get sessMetaCacheHitLast;
+
+  /// No description provided for @sessMetaCacheHitAvg.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'平均'**
+  String get sessMetaCacheHitAvg;
+
+  /// No description provided for @sessMetaCacheHitMax.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'峰值'**
+  String get sessMetaCacheHitMax;
+
   /// No description provided for @sessMetaMessages.
   ///
   /// In zh_Hans, this message translates to:
@@ -6847,6 +6871,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'总 Token'**
   String get auditTotalTokens;
+
+  /// No description provided for @auditCacheHitRatio.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存命中率'**
+  String get auditCacheHitRatio;
 
   /// No description provided for @auditPromptTokens.
   ///

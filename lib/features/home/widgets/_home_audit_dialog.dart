@@ -53,6 +53,32 @@ String _auditFormatOrDash(Object? value) {
   return text.isEmpty ? '—' : text;
 }
 
+/// 返回单条消息维度的 prefix cache 命中率（0..1）。
+/// 与 [_TokenDial.cacheHitRatio] 同步的协议公式：
+/// - Claude / Anthropic：prompt 不含 cache_read → 分母 = prompt + read。
+/// - OpenAI 兼容系 / Gemini：prompt 已含 cache_read → 分母 = prompt。
+/// 返回 null 表示无足够数据（usage 缺失 / 分母为 0）。
+double? _auditMessageHitRatio({
+  required int? promptTokens,
+  required int? cacheReadTokens,
+  required bool claudeStyle,
+}) {
+  final prompt = promptTokens ?? 0;
+  final read = cacheReadTokens ?? 0;
+  if (prompt <= 0 && read <= 0) return null;
+  final denom = claudeStyle ? (prompt + read) : prompt;
+  if (denom <= 0) return null;
+  final ratio = read / denom;
+  if (ratio.isNaN || ratio.isInfinite) return null;
+  return ratio.clamp(0.0, 1.0).toDouble();
+}
+
+String _auditFormatHitRatio(double? ratio) {
+  if (ratio == null) return '—';
+  final percent = (ratio * 100).round();
+  return '$percent%';
+}
+
 AiSessionMessage? _auditRelatedTelemetryMessage(
   AiSession session,
   AiSessionMessage message,
@@ -531,11 +557,13 @@ class _MessageAuditDialog extends StatefulWidget {
     required this.message,
     required this.session,
     required this.controller,
+    required this.claudeStyle,
   });
 
   final AiSessionMessage message;
   final AiSession session;
   final AiSessionController controller;
+  final bool claudeStyle;
 
   @override
   State<_MessageAuditDialog> createState() => _MessageAuditDialogState();
@@ -955,6 +983,25 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             )!.tokenPopupCacheWrite,
                             value: '${displayUsage!.cacheCreationTokens}',
                           ),
+                        if (displayUsage != null &&
+                            _auditMessageHitRatio(
+                                  promptTokens: displayUsage.promptTokens,
+                                  cacheReadTokens: displayUsage.cacheReadTokens,
+                                  claudeStyle: widget.claudeStyle,
+                                ) !=
+                                null)
+                          _AuditKvRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.auditCacheHitRatio,
+                            value: _auditFormatHitRatio(
+                              _auditMessageHitRatio(
+                                promptTokens: displayUsage.promptTokens,
+                                cacheReadTokens: displayUsage.cacheReadTokens,
+                                claudeStyle: widget.claudeStyle,
+                              ),
+                            ),
+                          ),
                       ],
                       if (displayUsage != null)
                         _AuditJsonBlock(
@@ -1177,10 +1224,15 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
 /// Session-level audit dialog. Shows structured overview of the session and
 /// exposes CRUD controls for the title, metadata JSON and individual messages.
 class _SessionAuditDialog extends StatefulWidget {
-  const _SessionAuditDialog({required this.session, required this.controller});
+  const _SessionAuditDialog({
+    required this.session,
+    required this.controller,
+    required this.claudeStyle,
+  });
 
   final AiSession session;
   final AiSessionController controller;
+  final bool claudeStyle;
 
   @override
   State<_SessionAuditDialog> createState() => _SessionAuditDialogState();
@@ -1463,6 +1515,31 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                           )!.tokenPopupReasoning,
                           value: '${statistics.reasoningTokens}',
                         ),
+                      Builder(
+                        builder: (context) {
+                          // 会话维度的命中率：与 [_TokenDial.cacheHitRatio] 对齐，
+                          // 扣除首轮 prompt（必然 miss）。
+                          final read = statistics.cacheReadTokens ?? 0;
+                          final totalPrompt = statistics.totalPromptTokens ?? 0;
+                          final firstPrompt = (statistics.firstPromptTokens ?? 0)
+                              .clamp(0, totalPrompt);
+                          final adjustedPrompt = totalPrompt - firstPrompt;
+                          final ratio = _auditMessageHitRatio(
+                            promptTokens: adjustedPrompt,
+                            cacheReadTokens: read,
+                            claudeStyle: widget.claudeStyle,
+                          );
+                          if (ratio == null) {
+                            return const SizedBox.shrink();
+                          }
+                          return _AuditKvRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.auditCacheHitRatio,
+                            value: _auditFormatHitRatio(ratio),
+                          );
+                        },
+                      ),
                       _AuditKvRow(
                         label: AppLocalizations.of(context)!.auditLastModel,
                         value: _auditFormatOrDash(
@@ -1616,6 +1693,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                                       message: message,
                                       session: session,
                                       controller: widget.controller,
+                                      claudeStyle: widget.claudeStyle,
                                     );
                                   },
                                   onDelete: _busy
@@ -1820,6 +1898,7 @@ Future<void> _showMessageAuditDialog(
   required AiSessionMessage message,
   required AiSession session,
   required AiSessionController controller,
+  required bool claudeStyle,
 }) {
   return showAnimatedDialog<void>(
     context: context,
@@ -1827,6 +1906,7 @@ Future<void> _showMessageAuditDialog(
       message: message,
       session: session,
       controller: controller,
+      claudeStyle: claudeStyle,
     ),
   );
 }
@@ -1837,10 +1917,14 @@ Future<void> _showSessionAuditDialog(
   BuildContext context, {
   required AiSession session,
   required AiSessionController controller,
+  required bool claudeStyle,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) =>
-        _SessionAuditDialog(session: session, controller: controller),
+    builder: (dialogContext) => _SessionAuditDialog(
+      session: session,
+      controller: controller,
+      claudeStyle: claudeStyle,
+    ),
   );
 }

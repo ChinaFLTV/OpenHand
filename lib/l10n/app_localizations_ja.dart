@@ -3347,6 +3347,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallJustNow => 'たった今';
 
   @override
+  String get sessMetaCacheHitTrend => 'キャッシュヒット率トレンド';
+
+  @override
+  String get sessMetaCacheHitLast => '最新';
+
+  @override
+  String get sessMetaCacheHitAvg => '平均';
+
+  @override
+  String get sessMetaCacheHitMax => '最大';
+
+  @override
   String get sessMetaMessages => 'メッセージ';
 
   @override
@@ -3640,6 +3652,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get auditTotalTokens => '合計トークン';
+
+  @override
+  String get auditCacheHitRatio => 'キャッシュヒット率';
 
   @override
   String get auditPromptTokens => 'プロンプトトークン';
