@@ -57,6 +57,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     _service = DataCleanupService(
       aiSessionController: context.read<AiSessionController>(),
       cronsController: context.read<CronsController>(),
+      hooksController: context.read<HooksController>(),
+      instructionsController: context.read<InstructionsController>(),
       memoryController: context.read<MemoryController>(),
       mcpController: context.read<McpController>(),
       skillsController: context.read<SkillsController>(),
@@ -109,6 +111,12 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       measureOne(DataCleanupCategory.logs, _service.measureLogs),
       measureOne(DataCleanupCategory.userMemory, _service.measureUserMemory),
       measureOne(DataCleanupCategory.mcpConfig, _service.measureMcpConfig),
+      measureOne(DataCleanupCategory.hooks, _service.measureHooks),
+      measureOne(DataCleanupCategory.crons, _service.measureCrons),
+      measureOne(
+        DataCleanupCategory.instructions,
+        _service.measureInstructions,
+      ),
       measureOne(
         DataCleanupCategory.skillsDirectory,
         _service.measureSkillsDirectory,
@@ -222,6 +230,15 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           break;
         case DataCleanupCategory.mcpConfig:
           await _service.cleanMcpConfig();
+          break;
+        case DataCleanupCategory.hooks:
+          await _service.cleanHooks();
+          break;
+        case DataCleanupCategory.crons:
+          await _service.cleanCrons();
+          break;
+        case DataCleanupCategory.instructions:
+          await _service.cleanInstructions();
           break;
         case DataCleanupCategory.skillsDirectory:
           await _service.cleanSkillsDirectory();
@@ -675,6 +692,12 @@ IconData _categoryIcon(DataCleanupCategory category) {
       return Icons.psychology_outlined;
     case DataCleanupCategory.mcpConfig:
       return Icons.cable_outlined;
+    case DataCleanupCategory.hooks:
+      return Icons.webhook_outlined;
+    case DataCleanupCategory.crons:
+      return Icons.schedule_outlined;
+    case DataCleanupCategory.instructions:
+      return Icons.menu_book_outlined;
     case DataCleanupCategory.skillsDirectory:
       return Icons.auto_awesome_outlined;
     case DataCleanupCategory.lspDirectory:
@@ -700,6 +723,12 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
       return _localizedText(context, zh: '用户记忆', en: 'User Memory');
     case DataCleanupCategory.mcpConfig:
       return _localizedText(context, zh: 'MCP 配置', en: 'MCP Config');
+    case DataCleanupCategory.hooks:
+      return _localizedText(context, zh: 'Hooks 配置', en: 'Hooks');
+    case DataCleanupCategory.crons:
+      return _localizedText(context, zh: '定时任务', en: 'Cron Jobs');
+    case DataCleanupCategory.instructions:
+      return _localizedText(context, zh: '用户指令', en: 'Instructions');
     case DataCleanupCategory.skillsDirectory:
       return _localizedText(context, zh: '技能目录', en: 'Skills Directory');
     case DataCleanupCategory.lspDirectory:
@@ -756,6 +785,32 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
         en:
             'Configured MCP Server list (JSON file). The MCP list will be '
             'empty after cleanup.',
+      );
+    case DataCleanupCategory.hooks:
+      return _localizedText(
+        context,
+        zh: '全局设置 → Hooks 中配置的钩子脚本（sqlite hooks 表）。清理后 Hooks 列表会变空。',
+        en:
+            'Hook scripts configured under Settings → Hooks (sqlite `hooks` '
+            'table). The Hooks list will be empty after cleanup.',
+      );
+    case DataCleanupCategory.crons:
+      return _localizedText(
+        context,
+        zh: '用户创建的定时任务（不含 Hermes Talker 自主学习、MCP 关键词索引等系统内置任务）。清理后用户任务列表会变空，执行历史在「日志数据」中独立清理。',
+        en:
+            'User-created cron jobs. System-managed entries (Hermes Talker '
+            'self-learning, MCP keyword index, etc.) are preserved. Execution '
+            'history is cleaned separately under "Logs".',
+      );
+    case DataCleanupCategory.instructions:
+      return _localizedText(
+        context,
+        zh: '全局设置 → 指令中用户自定义的指令条目（sqlite user_instructions 表）。清理后指令列表会变空。',
+        en:
+            'User-authored instruction entries under Settings → Instructions '
+            '(sqlite `user_instructions` table). The list will be empty '
+            'after cleanup.',
       );
     case DataCleanupCategory.skillsDirectory:
       return _localizedText(

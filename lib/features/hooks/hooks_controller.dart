@@ -109,6 +109,16 @@ class HooksController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 删除所有 hook 条目（数据清理面板使用）。批处理走单次 saveAll([])。
+  Future<bool> clearAll() async {
+    return _commitMutation(() async {
+      if (_entries.isEmpty) return true;
+      _setEntries(const <HookEntry>[]);
+      await _store.saveAll(const <HookEntry>[]);
+      return true;
+    });
+  }
+
   void _setEntries(List<HookEntry> entries) {
     _entries = entries;
     _entriesView = List<HookEntry>.unmodifiable(entries);

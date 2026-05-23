@@ -605,6 +605,39 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return affected;
   }
 
+  /// 2026-05-23 — 清空全部"非系统"cron 任务（保留 Hermes Talker / MCP
+  /// 关键词索引等带 [systemTag] 的内置条目，避免清理后丢失自学习能力）。
+  /// 同步取消调度、清理历史缓存，返回受影响条目数。
+  Future<int> clearAllNonSystemCrons() async {
+    int removed = 0;
+    await _commitMutation(() async {
+      final preserved = _entries
+          .where((entry) => entry.tags.contains(systemTag))
+          .toList();
+      removed = _entries.length - preserved.length;
+      if (removed == 0) return true;
+      for (final entry in _entries) {
+        if (entry.tags.contains(systemTag)) continue;
+        _cancelTimer(entry.id);
+        _historyCache.remove(entry.id);
+        try {
+          await _store.deleteHistoryForCron(entry.id);
+        } catch (error, stack) {
+          silentLog(
+            'crons_controller',
+            'clearAllNonSystemCrons/history/${entry.id}',
+            error,
+            stack,
+          );
+        }
+      }
+      _setEntries(preserved);
+      await _store.saveAll(preserved);
+      return true;
+    });
+    return removed;
+  }
+
   Future<void> refresh() async {
     final entries = await _store.loadAll();
     _setEntries(entries);

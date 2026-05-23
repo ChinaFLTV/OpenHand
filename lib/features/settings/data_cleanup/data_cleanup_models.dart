@@ -27,6 +27,16 @@ enum DataCleanupCategory {
   /// MCP Server 配置文件（`~/.openhand/mcp/mcp_servers.json`）。
   mcpConfig,
 
+  /// Hooks 钩子配置（sqlite `hooks` 表）。
+  hooks,
+
+  /// 定时任务（sqlite `cron_jobs` 表）。系统内置条目（如 Hermes Talker
+  /// 自主学习、MCP 关键词索引）会被自动保留。
+  crons,
+
+  /// 用户自定义指令条目（sqlite `user_instructions` 表）。
+  instructions,
+
   /// 技能目录（默认 `~/.openhand/skills/`，可被设置覆盖）。
   skillsDirectory,
 

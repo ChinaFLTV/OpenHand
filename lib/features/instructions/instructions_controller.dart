@@ -221,6 +221,14 @@ class InstructionsController extends ChangeNotifier {
     });
   }
 
+  /// 清空全部指令条目（数据清理面板使用）。单次批量提交。
+  Future<bool> clearAll() async {
+    return _enqueueOperation(() async {
+      if (_entries.isEmpty) return true;
+      return _commitSaveLocked(const <UserInstructionEntry>[]);
+    });
+  }
+
   /// 整体重排：新顺序由调用方按 UI 拖拽结果给出（id 列表）。
   /// 列表中缺失或重复的 id 会被忽略，未列出的尾随项会保持在末尾。
   Future<bool> reorder(List<String> orderedIds) async {

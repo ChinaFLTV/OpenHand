@@ -24,6 +24,8 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
+import '../../hooks/hooks_controller.dart';
+import '../../instructions/instructions_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
 import '../../skills/skills_controller.dart';
@@ -34,12 +36,16 @@ class DataCleanupService {
   DataCleanupService({
     required AiSessionController aiSessionController,
     required CronsController cronsController,
+    required HooksController hooksController,
+    required InstructionsController instructionsController,
     required MemoryController memoryController,
     required McpController mcpController,
     required SkillsController skillsController,
     required SettingsController settingsController,
   }) : _aiSessionController = aiSessionController,
        _cronsController = cronsController,
+       _hooksController = hooksController,
+       _instructionsController = instructionsController,
        _memoryController = memoryController,
        _mcpController = mcpController,
        _skillsController = skillsController,
@@ -47,6 +53,8 @@ class DataCleanupService {
 
   final AiSessionController _aiSessionController;
   final CronsController _cronsController;
+  final HooksController _hooksController;
+  final InstructionsController _instructionsController;
   final MemoryController _memoryController;
   final McpController _mcpController;
   final SkillsController _skillsController;
@@ -132,6 +140,92 @@ class DataCleanupService {
     return compute(_isolateMeasureFile, _settingsController.mcpServersFilePath);
   }
 
+  /// Hooks 配置：sqlite `hooks` 表的行数 + LENGTH 估算。
+  Future<DataCleanupSizeReport> measureHooks() async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS cnt, '
+        'COALESCE(SUM('
+        'LENGTH(IFNULL(label, \'\')) '
+        '+ LENGTH(IFNULL(script_path, \'\')) '
+        '+ LENGTH(IFNULL(script_content, \'\')) '
+        '+ LENGTH(IFNULL(event, \'\'))'
+        '), 0) AS bytes '
+        'FROM hooks',
+      );
+      if (rows.isEmpty) return DataCleanupSizeReport.empty;
+      final row = rows.first;
+      return DataCleanupSizeReport(
+        bytes: (row['bytes'] as int?) ?? 0,
+        itemCount: (row['cnt'] as int?) ?? 0,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureHooks', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+
+  /// 定时任务：仅统计「非系统」cron_jobs 行（保留 Hermes Talker 等
+  /// `system` 标签的内置条目）。bytes 通过 LENGTH 聚合估算；带 system
+  /// 标签的行通过 `tags NOT LIKE '%system%'` 排除。
+  Future<DataCleanupSizeReport> measureCrons() async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS cnt, '
+        'COALESCE(SUM('
+        'LENGTH(IFNULL(name, \'\')) '
+        '+ LENGTH(IFNULL(description, \'\')) '
+        '+ LENGTH(IFNULL(script_content, \'\')) '
+        '+ LENGTH(IFNULL(script_path, \'\')) '
+        '+ LENGTH(IFNULL(cron_expression, \'\')) '
+        '+ LENGTH(IFNULL(environment, \'\'))'
+        '), 0) AS bytes '
+        'FROM cron_jobs '
+        "WHERE COALESCE(tags, '') NOT LIKE '%system%'",
+      );
+      if (rows.isEmpty) return DataCleanupSizeReport.empty;
+      final row = rows.first;
+      return DataCleanupSizeReport(
+        bytes: (row['bytes'] as int?) ?? 0,
+        itemCount: (row['cnt'] as int?) ?? 0,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureCrons', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+
+  /// 用户自定义指令：sqlite `user_instructions` 表的行数 + LENGTH 估算。
+  Future<DataCleanupSizeReport> measureInstructions() async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS cnt, '
+        'COALESCE(SUM('
+        'LENGTH(IFNULL(name, \'\')) '
+        '+ LENGTH(IFNULL(body, \'\')) '
+        '+ LENGTH(IFNULL(description, \'\')) '
+        '+ LENGTH(IFNULL(apply_to, \'\')) '
+        '+ LENGTH(IFNULL(notes_json, \'\')) '
+        '+ LENGTH(IFNULL(task_types_json, \'\')) '
+        '+ LENGTH(IFNULL(keywords_json, \'\'))'
+        '), 0) AS bytes '
+        'FROM user_instructions',
+      );
+      if (rows.isEmpty) return DataCleanupSizeReport.empty;
+      final row = rows.first;
+      return DataCleanupSizeReport(
+        bytes: (row['bytes'] as int?) ?? 0,
+        itemCount: (row['cnt'] as int?) ?? 0,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureInstructions', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+
   /// 技能目录体积。
   Future<DataCleanupSizeReport> measureSkillsDirectory() {
     return compute(
@@ -177,6 +271,9 @@ class DataCleanupService {
         measureLogs(),
         measureUserMemory(),
         measureMcpConfig(),
+        measureHooks(),
+        measureCrons(),
+        measureInstructions(),
         measureSkillsDirectory(),
         measureLspDirectory(),
         measureMutationLedger(),
@@ -249,6 +346,52 @@ class DataCleanupService {
     }
   }
 
+  /// 清空全部 Hooks 条目（sqlite `hooks` 表整表删除），并让 controller
+  /// 重新加载（变成空列表）。
+  Future<void> cleanHooks() async {
+    try {
+      await _hooksController.clearAll();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanHooks', error, stack);
+      // controller 路径异常时兜底直接走 DB，再 refresh 一次。
+      try {
+        final db = DatabaseService.instance.database;
+        await db.delete('hooks');
+        await _hooksController.refresh();
+      } catch (error2, stack2) {
+        silentLog('data_cleanup', 'cleanHooks/fallback', error2, stack2);
+      }
+    }
+  }
+
+  /// 清空全部「非系统」cron 任务（Hermes Talker 自主学习、MCP 关键词索引
+  /// 等带 `system` 标签的内置条目会被保留）。controller 内部已负责取消
+  /// 调度、清理历史缓存。
+  Future<void> cleanCrons() async {
+    try {
+      await _cronsController.clearAllNonSystemCrons();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanCrons', error, stack);
+    }
+  }
+
+  /// 清空全部用户自定义指令条目。
+  Future<void> cleanInstructions() async {
+    try {
+      await _instructionsController.clearAll();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanInstructions', error, stack);
+      // controller 路径异常时兜底直接走 DB，再 refresh 一次。
+      try {
+        final db = DatabaseService.instance.database;
+        await db.delete('user_instructions');
+        await _instructionsController.refresh();
+      } catch (error2, stack2) {
+        silentLog('data_cleanup', 'cleanInstructions/fallback', error2, stack2);
+      }
+    }
+  }
+
   /// 删除 MCP Server 配置文件，然后让 controller 重新加载（变成空列表）。
   Future<void> cleanMcpConfig() async {
     final path = _settingsController.mcpServersFilePath;
@@ -309,6 +452,9 @@ class DataCleanupService {
     await runStep('logs', cleanLogs);
     await runStep('userMemory', cleanUserMemory);
     await runStep('mcpConfig', cleanMcpConfig);
+    await runStep('hooks', cleanHooks);
+    await runStep('crons', cleanCrons);
+    await runStep('instructions', cleanInstructions);
     await runStep('skillsDirectory', cleanSkillsDirectory);
     await runStep('lspDirectory', cleanLspDirectory);
     await runStep('mutationLedger', cleanMutationLedger);

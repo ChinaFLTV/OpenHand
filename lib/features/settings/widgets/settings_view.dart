@@ -47,6 +47,8 @@ import '../../../shared/ui/rolling_text.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/index.dart';
+import '../../hooks/hooks_controller.dart';
+import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
 import '../../memory/memory_controller.dart';
 import '../../skills/skills_controller.dart';
