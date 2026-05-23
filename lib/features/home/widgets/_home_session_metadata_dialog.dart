@@ -752,12 +752,16 @@ class _SessionMetadataDialog extends StatelessWidget {
   /// 数据源：遍历 `session.messages` 中带 usage 的 assistant 消息，
   /// 按协议公式（Claude 系：read/(prompt+read)；OpenAI/Gemini 系：read/prompt）
   /// 计算每条消息的 hit ratio。低于 2 个数据点时不渲染。
+  ///
+  /// 2026-05-24 v2: 抽出独立的 [_CacheHitTrendChart] 子部件支持
+  /// (a) 悬停 tooltip 标注每点 %；(b) 切换显示另一条协议公式的叠加曲线。
   List<Widget> _buildCacheHitTrendSection(
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    final ratios = <double>[];
+    // 提前过滤一遍数据,只为决定是否渲染容器(<2 个有效点直接返回)。
+    var validCount = 0;
     for (final m in session.messages) {
       final usage = m.usage;
       if (usage == null) continue;
@@ -766,84 +770,16 @@ class _SessionMetadataDialog extends StatelessWidget {
       if (prompt <= 0 && read <= 0) continue;
       final denom = claudeStyle ? (prompt + read) : prompt;
       if (denom <= 0) continue;
-      final r = (read / denom).clamp(0.0, 1.0).toDouble();
-      ratios.add(r);
+      validCount += 1;
+      if (validCount >= 2) break;
     }
-    if (ratios.length < 2) return const <Widget>[];
-
-    final l10n = AppLocalizations.of(context)!;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final avg = ratios.reduce((a, b) => a + b) / ratios.length;
-    final last = ratios.last;
-    final maxRatio = ratios.reduce((a, b) => a > b ? a : b);
-
-    final headStyle = theme.textTheme.labelSmall?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.6,
-    );
-    final valueStyle = theme.textTheme.bodySmall?.copyWith(
-      color: colorScheme.onSurface,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-
-    String pct(double v) => '${(v * 100).round()}%';
+    if (validCount < 2) return const <Widget>[];
 
     return [
       const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(l10n.sessMetaCacheHitTrend, style: headStyle),
-                const Spacer(),
-                Text(
-                  '${l10n.sessMetaCacheHitLast}: ${pct(last)}'
-                  ' · ${l10n.sessMetaCacheHitAvg}: ${pct(avg)}'
-                  ' · ${l10n.sessMetaCacheHitMax}: ${pct(maxRatio)}'
-                  ' · n=${ratios.length}',
-                  style: valueStyle,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 56,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: reduceMotion ? 1.0 : 0.0, end: 1.0),
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 520),
-                curve: Curves.easeOutCubic,
-                builder: (context, t, _) {
-                  return CustomPaint(
-                    painter: _CacheHitSparklinePainter(
-                      ratios: ratios,
-                      progress: t,
-                      lineColor: colorScheme.primary,
-                      fillColor: colorScheme.primary.withValues(alpha: 0.18),
-                      gridColor: colorScheme.outlineVariant.withValues(
-                        alpha: 0.35,
-                      ),
-                      dotColor: colorScheme.primary,
-                    ),
-                    size: Size.infinite,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      _CacheHitTrendChart(
+        session: session,
+        primaryClaudeStyle: claudeStyle,
       ),
     ];
   }
@@ -1806,14 +1742,24 @@ class _CacheHitSparklinePainter extends CustomPainter {
     required this.fillColor,
     required this.gridColor,
     required this.dotColor,
+    this.altRatios,
+    this.altLineColor,
+    this.altDotColor,
+    this.focusedIndex,
+    this.focusGuideColor,
   });
 
-  final List<double> ratios;
+  final List<double?> ratios;
+  final List<double?>? altRatios;
   final double progress;
   final Color lineColor;
   final Color fillColor;
   final Color gridColor;
   final Color dotColor;
+  final Color? altLineColor;
+  final Color? altDotColor;
+  final int? focusedIndex;
+  final Color? focusGuideColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1835,55 +1781,119 @@ class _CacheHitSparklinePainter extends CustomPainter {
     final n = ratios.length;
     final stepX = w / (n - 1);
 
-    // progress 控制曲线从左到右逐步揭示。
+    // 焦点引导线（hover tooltip 时垂直高亮）。在曲线下方先画。
+    final fi = focusedIndex;
+    if (fi != null && fi >= 0 && fi < n && focusGuideColor != null) {
+      final x = fi * stepX;
+      final guidePaint = Paint()
+        ..color = focusGuideColor!
+        ..strokeWidth = 1.0;
+      canvas.drawLine(Offset(x, 0), Offset(x, h), guidePaint);
+    }
+
+    _drawSeries(
+      canvas: canvas,
+      w: w,
+      h: h,
+      stepX: stepX,
+      data: ratios,
+      lineColor: lineColor,
+      fillColor: fillColor,
+      dotColor: dotColor,
+      drawFill: true,
+      focusedIndex: fi,
+    );
+
+    final alt = altRatios;
+    if (alt != null && alt.length == n) {
+      _drawSeries(
+        canvas: canvas,
+        w: w,
+        h: h,
+        stepX: stepX,
+        data: alt,
+        lineColor: altLineColor ?? lineColor,
+        fillColor: null,
+        dotColor: altDotColor ?? dotColor,
+        drawFill: false,
+        focusedIndex: fi,
+      );
+    }
+  }
+
+  void _drawSeries({
+    required Canvas canvas,
+    required double w,
+    required double h,
+    required double stepX,
+    required List<double?> data,
+    required Color lineColor,
+    required Color? fillColor,
+    required Color dotColor,
+    required bool drawFill,
+    required int? focusedIndex,
+  }) {
+    final n = data.length;
     final visibleCount = (n * progress).clamp(1, n).toDouble();
     final fullCount = visibleCount.floor();
     final partial = visibleCount - fullCount;
 
-    final path = Path();
-    final fillPath = Path();
-    Offset? lastPoint;
-    final pts = <Offset>[];
+    // 把数据切成连续段，每段独立画线 + 可选填充。
+    final segments = <List<Offset>>[];
+    var current = <Offset>[];
 
-    Offset pointFor(int i) {
+    Offset? pointFor(int i) {
+      final r = data[i];
+      if (r == null) return null;
       final x = i * stepX;
-      final y = h - h * ratios[i].clamp(0.0, 1.0);
+      final y = h - h * r.clamp(0.0, 1.0);
       return Offset(x, y);
+    }
+
+    void flush() {
+      if (current.length >= 1) {
+        segments.add(List<Offset>.from(current));
+      }
+      current = <Offset>[];
     }
 
     for (var i = 0; i < fullCount && i < n; i++) {
       final p = pointFor(i);
-      pts.add(p);
-      if (i == 0) {
-        path.moveTo(p.dx, p.dy);
-        fillPath.moveTo(p.dx, h);
-        fillPath.lineTo(p.dx, p.dy);
-      } else {
-        path.lineTo(p.dx, p.dy);
-        fillPath.lineTo(p.dx, p.dy);
+      if (p == null) {
+        flush();
+        continue;
       }
-      lastPoint = p;
+      current.add(p);
     }
     if (partial > 0 && fullCount < n && fullCount >= 1) {
       final a = pointFor(fullCount - 1);
       final b = pointFor(fullCount);
-      final ip = Offset(
-        a.dx + (b.dx - a.dx) * partial,
-        a.dy + (b.dy - a.dy) * partial,
-      );
-      path.lineTo(ip.dx, ip.dy);
-      fillPath.lineTo(ip.dx, ip.dy);
-      lastPoint = ip;
+      if (a != null && b != null) {
+        final ip = Offset(
+          a.dx + (b.dx - a.dx) * partial,
+          a.dy + (b.dy - a.dy) * partial,
+        );
+        current.add(ip);
+      }
     }
-    if (lastPoint != null) {
-      fillPath.lineTo(lastPoint.dx, h);
-      fillPath.close();
-    }
+    flush();
 
-    final fillPaint = Paint()
-      ..color = fillColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(fillPath, fillPaint);
+    if (drawFill && fillColor != null) {
+      final fillPaint = Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill;
+      for (final seg in segments) {
+        if (seg.length < 2) continue;
+        final path = Path()..moveTo(seg.first.dx, h);
+        for (final p in seg) {
+          path.lineTo(p.dx, p.dy);
+        }
+        path
+          ..lineTo(seg.last.dx, h)
+          ..close();
+        canvas.drawPath(path, fillPaint);
+      }
+    }
 
     final linePaint = Paint()
       ..color = lineColor
@@ -1891,12 +1901,38 @@ class _CacheHitSparklinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-    canvas.drawPath(path, linePaint);
+    for (final seg in segments) {
+      if (seg.length < 2) continue;
+      final path = Path()..moveTo(seg.first.dx, seg.first.dy);
+      for (var i = 1; i < seg.length; i++) {
+        path.lineTo(seg[i].dx, seg[i].dy);
+      }
+      canvas.drawPath(path, linePaint);
+    }
 
-    // 最后一个已显示点画一个小圆点高亮。
-    if (lastPoint != null) {
-      final dotPaint = Paint()..color = dotColor;
-      canvas.drawCircle(lastPoint, 2.6, dotPaint);
+    // 末点高亮（取最后一段的最后一个点）。
+    if (segments.isNotEmpty) {
+      final tail = segments.last;
+      if (tail.isNotEmpty) {
+        final dotPaint = Paint()..color = dotColor;
+        canvas.drawCircle(tail.last, 2.6, dotPaint);
+      }
+    }
+
+    // 焦点点突出显示。
+    if (focusedIndex != null &&
+        focusedIndex >= 0 &&
+        focusedIndex < n &&
+        focusedIndex < fullCount) {
+      final p = pointFor(focusedIndex);
+      if (p != null) {
+        final ringPaint = Paint()
+          ..color = dotColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4;
+        canvas.drawCircle(p, 4.0, ringPaint);
+        canvas.drawCircle(p, 1.8, Paint()..color = dotColor);
+      }
     }
   }
 
@@ -1905,6 +1941,332 @@ class _CacheHitSparklinePainter extends CustomPainter {
     return old.progress != progress ||
         old.ratios.length != ratios.length ||
         old.lineColor != lineColor ||
-        old.fillColor != fillColor;
+        old.fillColor != fillColor ||
+        old.altRatios?.length != altRatios?.length ||
+        old.altLineColor != altLineColor ||
+        old.focusedIndex != focusedIndex;
+  }
+}
+
+/// 2026-05-24 缓存命中率趋势图 (stateful)：
+/// - 鼠标悬停 / 触屏点击曲线时显示 tooltip 标注该点的轮次序号与命中率
+/// - 提供「叠加另一条协议公式」开关，将 Claude 与 OpenAI 两种公式同图对比
+class _CacheHitTrendChart extends StatefulWidget {
+  const _CacheHitTrendChart({
+    required this.session,
+    required this.primaryClaudeStyle,
+  });
+
+  final AiSession session;
+  final bool primaryClaudeStyle;
+
+  @override
+  State<_CacheHitTrendChart> createState() => _CacheHitTrendChartState();
+}
+
+class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
+  bool _overlayOn = false;
+  int? _focusedIndex;
+
+  static const double _chartHeight = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    // 同步收集 primary / alt 两条曲线;长度对齐,缺失点为 null。
+    final primary = <double?>[];
+    final alt = <double?>[];
+    for (final m in widget.session.messages) {
+      final usage = m.usage;
+      if (usage == null) continue;
+      final prompt = usage.promptTokens ?? 0;
+      final read = usage.cacheReadTokens ?? 0;
+      if (prompt <= 0 && read <= 0) continue;
+      final primaryDenom = widget.primaryClaudeStyle
+          ? (prompt + read)
+          : prompt;
+      if (primaryDenom <= 0) {
+        // 主曲线无法绘制就跳过整条 message。
+        continue;
+      }
+      primary.add((read / primaryDenom).clamp(0.0, 1.0).toDouble());
+      final altDenom = widget.primaryClaudeStyle ? prompt : (prompt + read);
+      alt.add(
+        altDenom <= 0 ? null : (read / altDenom).clamp(0.0, 1.0).toDouble(),
+      );
+    }
+    if (primary.length < 2) return const SizedBox.shrink();
+
+    final primaryNonNull = primary.whereType<double>().toList(growable: false);
+    final last = primaryNonNull.last;
+    final avg = primaryNonNull.reduce((a, b) => a + b) / primaryNonNull.length;
+    final maxRatio = primaryNonNull.reduce((a, b) => a > b ? a : b);
+
+    final headStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+    );
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurface,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    String pct(double v) => '${(v * 100).round()}%';
+
+    final primaryLabel = widget.primaryClaudeStyle
+        ? l10n.sessMetaCacheHitFormulaClaude
+        : l10n.sessMetaCacheHitFormulaOpenAi;
+    final altLabel = widget.primaryClaudeStyle
+        ? l10n.sessMetaCacheHitFormulaOpenAi
+        : l10n.sessMetaCacheHitFormulaClaude;
+
+    final altColor = colorScheme.tertiary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(l10n.sessMetaCacheHitTrend, style: headStyle),
+              const SizedBox(width: 8),
+              _CacheHitLegendChip(
+                color: colorScheme.primary,
+                label: primaryLabel,
+                solid: true,
+              ),
+              if (_overlayOn) ...[
+                const SizedBox(width: 6),
+                _CacheHitLegendChip(
+                  color: altColor,
+                  label: altLabel,
+                  solid: false,
+                ),
+              ],
+              const Spacer(),
+              Text(
+                '${l10n.sessMetaCacheHitLast}: ${pct(last)}'
+                ' · ${l10n.sessMetaCacheHitAvg}: ${pct(avg)}'
+                ' · ${l10n.sessMetaCacheHitMax}: ${pct(maxRatio)}'
+                ' · n=${primary.length}',
+                style: valueStyle,
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => setState(() => _overlayOn = !_overlayOn),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    _overlayOn
+                        ? l10n.sessMetaCacheHitOverlayOff
+                        : l10n.sessMetaCacheHitOverlayOn,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: _chartHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final n = primary.length;
+                final stepX = n <= 1 ? width : width / (n - 1);
+
+                void updateFocus(Offset local) {
+                  if (n <= 1) return;
+                  final raw = (local.dx / stepX).round();
+                  final clamped = raw.clamp(0, n - 1);
+                  if (_focusedIndex != clamped) {
+                    setState(() => _focusedIndex = clamped);
+                  }
+                }
+
+                final fi = _focusedIndex;
+                final tooltipChildren = <Widget>[];
+                if (fi != null && fi >= 0 && fi < primary.length) {
+                  final pv = primary[fi];
+                  final av = _overlayOn && fi < alt.length ? alt[fi] : null;
+                  final tooltipX = (fi * stepX).clamp(0.0, width);
+
+                  final label = StringBuffer()
+                    ..write(l10n.sessMetaCacheHitPoint(fi + 1));
+                  if (pv != null) {
+                    label
+                      ..write('  ')
+                      ..write(primaryLabel)
+                      ..write(': ')
+                      ..write(pct(pv));
+                  }
+                  if (av != null) {
+                    label
+                      ..write('  ')
+                      ..write(altLabel)
+                      ..write(': ')
+                      ..write(pct(av));
+                  }
+                  tooltipChildren.add(
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: Alignment(
+                            n <= 1 ? 0 : ((tooltipX / width) * 2 - 1),
+                            -1,
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.inverseSurface.withValues(
+                                alpha: 0.9,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              label.toString(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onInverseSurface,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return MouseRegion(
+                  onHover: (event) => updateFocus(event.localPosition),
+                  onExit: (_) {
+                    if (_focusedIndex != null) {
+                      setState(() => _focusedIndex = null);
+                    }
+                  },
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (d) => updateFocus(d.localPosition),
+                    onPanUpdate: (d) => updateFocus(d.localPosition),
+                    onPanEnd: (_) {
+                      if (_focusedIndex != null) {
+                        setState(() => _focusedIndex = null);
+                      }
+                    },
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(
+                              begin: reduceMotion ? 1.0 : 0.0,
+                              end: 1.0,
+                            ),
+                            duration: reduceMotion
+                                ? Duration.zero
+                                : const Duration(milliseconds: 520),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, t, _) {
+                              return CustomPaint(
+                                painter: _CacheHitSparklinePainter(
+                                  ratios: primary,
+                                  altRatios: _overlayOn ? alt : null,
+                                  progress: t,
+                                  lineColor: colorScheme.primary,
+                                  fillColor: colorScheme.primary.withValues(
+                                    alpha: 0.18,
+                                  ),
+                                  gridColor: colorScheme.outlineVariant
+                                      .withValues(alpha: 0.35),
+                                  dotColor: colorScheme.primary,
+                                  altLineColor: altColor,
+                                  altDotColor: altColor,
+                                  focusedIndex: _focusedIndex,
+                                  focusGuideColor: colorScheme.outline
+                                      .withValues(alpha: 0.45),
+                                ),
+                                size: Size.infinite,
+                              );
+                            },
+                          ),
+                        ),
+                        ...tooltipChildren,
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CacheHitLegendChip extends StatelessWidget {
+  const _CacheHitLegendChip({
+    required this.color,
+    required this.label,
+    required this.solid,
+  });
+
+  final Color color;
+  final String label;
+  final bool solid;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: solid ? color : Colors.transparent,
+            shape: BoxShape.circle,
+            border: solid ? null : Border.all(color: color, width: 1.4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
   }
 }

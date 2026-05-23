@@ -3316,6 +3316,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sessMetaCacheHitMax => '峰值';
 
   @override
+  String get sessMetaCacheHitOverlayOn => '叠加另一条公式';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => '隐藏叠加公式';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Claude 公式';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'OpenAI 公式';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return '第 $index 轮';
+  }
+
+  @override
   String get sessMetaMessages => '消息总数';
 
   @override
@@ -11090,6 +11107,23 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get sessMetaCacheHitMax => '峰值';
 
   @override
+  String get sessMetaCacheHitOverlayOn => '叠加另一条公式';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => '隐藏叠加公式';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Claude 公式';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'OpenAI 公式';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return '第 $index 轮';
+  }
+
+  @override
   String get sessMetaMessages => '消息总数';
 
   @override
@@ -18861,6 +18895,23 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sessMetaCacheHitMax => '峰值';
+
+  @override
+  String get sessMetaCacheHitOverlayOn => '疊加另一條公式';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => '隱藏疊加公式';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Claude 公式';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'OpenAI 公式';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return '第 $index 輪';
+  }
 
   @override
   String get sessMetaMessages => '消息总数';

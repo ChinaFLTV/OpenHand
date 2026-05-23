@@ -3538,6 +3538,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sessMetaCacheHitMax => 'max';
 
   @override
+  String get sessMetaCacheHitOverlayOn => 'Andere Formel überlagern';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => 'Überlagerung ausblenden';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Claude-Formel';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'OpenAI-Formel';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return 'Runde $index';
+  }
+
+  @override
   String get sessMetaMessages => 'Nachrichten';
 
   @override

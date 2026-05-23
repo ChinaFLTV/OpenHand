@@ -45,20 +45,32 @@ class McpLazyLoadingApplier {
       return _stripToolSearch(catalog);
     }
 
-    final forceVisibleEntryNames = mcpEntries
-        .where((entry) => forceVisibleNames.contains(entry.key))
-        .map((entry) => entry.key)
-        .toList(growable: false);
+    // 2026-05-24 — 强可见名单按字典序排序，避免 MCP 服务器重连或
+    // 控制器刷新导致 `forceVisibleNames` 的 Set 迭代顺序漂移，进而让
+    // notice 文案在轮次间字节不一致、撕裂前缀缓存。
+    final forceVisibleEntryNames =
+        mcpEntries
+            .where((entry) => forceVisibleNames.contains(entry.key))
+            .map((entry) => entry.key)
+            .toList(growable: true)
+          ..sort();
     final forceVisibleNotice = forceVisibleEntryNames.isEmpty
         ? null
         : 'MCP lazy loading policy kept ${forceVisibleEntryNames.length} MCP tool(s) directly visible: ${forceVisibleEntryNames.join(', ')}.';
-    final deferredEntries = mcpEntries
-        .where(
-          (entry) =>
-              !alreadyLoadedNames.contains(entry.key) &&
-              !forceVisibleNames.contains(entry.key),
-        )
-        .toList(growable: false);
+    // 2026-05-24 — `deferredEntries` 直接喂给 ToolSearch 的 description
+    // 渲染（见 _augmentToolSearchDefinition），其遍历顺序决定了 [2] Tool
+    // Catalog 整段文本。改用按工具名字典序排列，确保即便上游 MCP catalog
+    // 的 Map 插入顺序漂移（服务器异步重连、刷新、单工具增删），描述区文本
+    // 仍然字节一致，前缀缓存命中率不会被这条隐藏漂移点踩破。
+    final deferredEntries =
+        mcpEntries
+            .where(
+              (entry) =>
+                  !alreadyLoadedNames.contains(entry.key) &&
+                  !forceVisibleNames.contains(entry.key),
+            )
+            .toList(growable: true)
+          ..sort((a, b) => a.key.compareTo(b.key));
     final deferredDefinitions = <String, AiToolDefinition>{
       for (final entry in deferredEntries) entry.key: entry.value.definition,
     };

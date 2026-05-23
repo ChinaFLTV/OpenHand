@@ -3556,6 +3556,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sessMetaCacheHitMax => 'max';
 
   @override
+  String get sessMetaCacheHitOverlayOn => 'Superposer l\'autre formule';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => 'Masquer la superposition';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Formule Claude';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'Formule OpenAI';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return 'Tour $index';
+  }
+
+  @override
   String get sessMetaMessages => 'Messages';
 
   @override

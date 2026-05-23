@@ -3495,6 +3495,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sessMetaCacheHitMax => 'max';
 
   @override
+  String get sessMetaCacheHitOverlayOn => 'Overlay other formula';
+
+  @override
+  String get sessMetaCacheHitOverlayOff => 'Hide overlay';
+
+  @override
+  String get sessMetaCacheHitFormulaClaude => 'Claude formula';
+
+  @override
+  String get sessMetaCacheHitFormulaOpenAi => 'OpenAI formula';
+
+  @override
+  String sessMetaCacheHitPoint(int index) {
+    return 'Turn $index';
+  }
+
+  @override
   String get sessMetaMessages => 'Messages';
 
   @override

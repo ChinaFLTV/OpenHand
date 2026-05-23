@@ -6296,6 +6296,36 @@ abstract class AppLocalizations {
   /// **'峰值'**
   String get sessMetaCacheHitMax;
 
+  /// No description provided for @sessMetaCacheHitOverlayOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'叠加另一条公式'**
+  String get sessMetaCacheHitOverlayOn;
+
+  /// No description provided for @sessMetaCacheHitOverlayOff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'隐藏叠加公式'**
+  String get sessMetaCacheHitOverlayOff;
+
+  /// No description provided for @sessMetaCacheHitFormulaClaude.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Claude 公式'**
+  String get sessMetaCacheHitFormulaClaude;
+
+  /// No description provided for @sessMetaCacheHitFormulaOpenAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenAI 公式'**
+  String get sessMetaCacheHitFormulaOpenAi;
+
+  /// No description provided for @sessMetaCacheHitPoint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'第 {index} 轮'**
+  String sessMetaCacheHitPoint(int index);
+
   /// No description provided for @sessMetaMessages.
   ///
   /// In zh_Hans, this message translates to:
