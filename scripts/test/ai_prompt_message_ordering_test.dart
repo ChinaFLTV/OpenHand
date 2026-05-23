@@ -97,7 +97,7 @@ void main() {
     final messages = result.messages;
 
     final userTurnIndex =
-        messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
+        messages.lastIndexWhere((m) => m.role == AiChatRole.user);
     final dynamicStateIndex =
         messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 
@@ -132,7 +132,7 @@ void main() {
 
     final messages = result.messages;
     final userTurnIndex =
-        messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
+        messages.lastIndexWhere((m) => m.role == AiChatRole.user);
 
     if (userTurnIndex >= 0) {
       // 用户消息之后的所有 system turn 都是 volatile，包含了 [3d] Dynamic Session State
@@ -214,7 +214,7 @@ void main() {
     // 提取稳定前缀（用户消息之前的部分）
     List<AiChatTurn> stablePrefix(List<AiChatTurn> messages) {
       final idx =
-          messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
+          messages.lastIndexWhere((m) => m.role == AiChatRole.user);
       return idx >= 0 ? messages.sublist(0, idx) : messages;
     }
 
@@ -275,7 +275,7 @@ void main() {
 
     final messages = result.messages;
     final userTurnIndex =
-        messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
+        messages.lastIndexWhere((m) => m.role == AiChatRole.user);
 
     expect(userTurnIndex, greaterThanOrEqualTo(0),
         reason: '应该有用户消息');
@@ -341,7 +341,7 @@ void main() {
 
     final messages = result.messages;
     final userMsgIndex =
-        messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
+        messages.lastIndexWhere((m) => m.role == AiChatRole.user);
     final dynamicStateIndex =
         messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 

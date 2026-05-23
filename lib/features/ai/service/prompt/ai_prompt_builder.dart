@@ -188,8 +188,7 @@ class AiPromptBuilder {
             latestUserMessage,
             session: session,
             model: model,
-            content:
-                '# [6] Your latest message\n\n${_promptContentForMessage(latestUserMessage)}',
+            content: _promptContentForMessage(latestUserMessage),
             isLatestUserMessage: true,
           );
     final todoReminder = _buildTodoWriteReminder(
@@ -1001,6 +1000,13 @@ class AiPromptBuilder {
           .toList(growable: false);
     }
 
+    if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
+      staticState['workspace_instructions'] = runtimeContext
+          .workspaceInstructionDocuments
+          .map((item) => item.path)
+          .toList(growable: false);
+    }
+
     return staticState;
   }
 
@@ -1042,13 +1048,6 @@ class AiPromptBuilder {
 
     if (postCompactRehydration.isNotEmpty) {
       dynamicState['rehydration'] = postCompactRehydration;
-    }
-
-    if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
-      dynamicState['workspace_instructions'] = runtimeContext
-          .workspaceInstructionDocuments
-          .map((item) => item.path)
-          .toList(growable: false);
     }
 
     if (session.todoItems.isNotEmpty) {

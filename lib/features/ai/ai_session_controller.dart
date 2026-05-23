@@ -559,7 +559,8 @@ class AiSessionController extends ChangeNotifier {
     '# [5] Conversation Context',
     '# [5] Recent Conversations Summary (past chats, titles + snippets)',
     '# [5.5] Focus Context',
-    '# [6] Your latest message',
+    // 2026-05-23 — 移除 "# [6] Your latest message" 前缀以统一 history/latest
+    // 用户消息格式，消除跨轮缓存断裂点。
     '# System Reminder',
     '# Plan Mode Reminder',
     '# Runtime Environment Snapshot',
