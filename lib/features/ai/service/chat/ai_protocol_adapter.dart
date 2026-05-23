@@ -718,11 +718,30 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    final systemContent = messages
-        .where((item) => item.role == AiChatRole.system)
-        .map((item) => item.content.trim())
-        .where((item) => item.isNotEmpty)
-        .join('\n\n');
+    // 2026-05-23 — 按稳定性拆分 system 消息：
+    // - pre-user system（[0]-[5]、restored contexts）→ 加 cache_control
+    // - post-user system（reminders、[3] Session State、[5.5] Focus）→ 不加缓存
+    // 避免每轮变动的 [3] JSON 让 system 缓存块失效（cache_write 每轮触发）。
+    // 分界线 = 最后一条非 system 消息的索引。
+    var lastNonSystemIndex = -1;
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].role != AiChatRole.system) lastNonSystemIndex = i;
+    }
+    final preUserSystemContent = <String>[];
+    final postUserSystemContent = <String>[];
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].role != AiChatRole.system) continue;
+      final content = messages[i].content.trim();
+      if (content.isEmpty) continue;
+      if (i < lastNonSystemIndex) {
+        preUserSystemContent.add(content);
+      } else {
+        postUserSystemContent.add(content);
+      }
+    }
+    final stableSystemContent = preUserSystemContent.join('\n\n');
+    final volatileSystemContent = postUserSystemContent.join('\n\n');
+
     final nonSystemMessages = messages
         .where((item) => item.role != AiChatRole.system)
         .toList();
@@ -738,19 +757,26 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         : 0;
 
     Object? systemPayload;
-    if (systemContent.isNotEmpty) {
-      if (cacheEnabled && remainingBreakpoints > 0) {
-        systemPayload = <Map<String, Object?>>[
-          <String, Object?>{
+    if (stableSystemContent.isNotEmpty || volatileSystemContent.isNotEmpty) {
+      final blocks = <Map<String, Object?>>[];
+      if (stableSystemContent.isNotEmpty) {
+        if (cacheEnabled && remainingBreakpoints > 0) {
+          blocks.add(<String, Object?>{
             'type': 'text',
-            'text': systemContent,
+            'text': stableSystemContent,
             'cache_control': <String, Object?>{'type': 'ephemeral'},
-          },
-        ];
-        remainingBreakpoints -= 1;
-      } else {
-        systemPayload = systemContent;
+          });
+          remainingBreakpoints -= 1;
+        } else {
+          blocks.add(<String, Object?>{'type': 'text', 'text': stableSystemContent});
+        }
       }
+      if (volatileSystemContent.isNotEmpty) {
+        blocks.add(<String, Object?>{'type': 'text', 'text': volatileSystemContent});
+      }
+      systemPayload = blocks.length == 1 && !cacheEnabled
+          ? blocks.first['text'] as String
+          : blocks;
     }
 
     Object? toolsPayload;

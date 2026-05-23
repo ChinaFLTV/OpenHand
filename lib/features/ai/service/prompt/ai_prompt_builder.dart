@@ -348,13 +348,19 @@ class AiPromptBuilder {
         content:
             '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
-      // 2026-05-23 — Cache-prefix optimization: 移除原先位于 [2] 与 [4] 之间的
-      // `[3] Session State` / 「System Reminder」 / 「Plan Mode Reminder」，
-      // 将它们重新安置到 history + 5.6-5.12 之后、`latestUserTurns` 之前。
-      // 原因：会话状态 JSON 每轮都会变动（todos、planning、git status、
-      // rehydration、reminders…），它出现在前缀中间会让 OpenAI 协议的隐式
-      // prefix-cache 命中率退化到 [0]+[1]+[2] 的体积比，多数厂商表现为 5-10%。
-      // 重排后，前缀 [0..5] + history + 5.6-5.12 全部稳定可缓存。
+      // 2026-05-23 — Cache-prefix optimization v2:
+      // 将所有每轮变动的 volatile 块（[3] Session State、System Reminder、
+      // Plan Mode Reminder、[5.5] Focus Context）移至 latestUserTurns 之后。
+      //
+      // 原因：OpenAI 兼容协议（DeepSeek / OpenAI / Qwen / Kimi / GLM 等）
+      // 使用隐式 prefix-cache，cache key = messages 数组的公共前缀哈希。
+      // 若 volatile 块出现在 latestUserTurns 之前，它们会与 restored context
+      // 合并为一条 system 消息（_mergeConsecutiveSystemMessages），该消息
+      // 每轮都变，导致前缀缓存在此断裂，命中率退化至个位数。
+      //
+      // 重排后，前缀 [0..5] + history + 5.6-5.12 全部稳定可缓存，latestUserTurns
+      // 成为第一个 cache-miss 点，之后所有 volatile 块都在 cache-miss 区内。
+      // 语义上模型按章节标题查找，位置不影响正确性。
       AiChatTurn(
         role: AiChatRole.system,
         // 注：记忆口吻政策（"自然融入、不外露记忆来源"）已由
@@ -432,9 +438,10 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
-      // 2026-05-23 — Volatile tail（每轮变化的状态、提醒与 Focus 简报）。
-      // 仅放在最尾部，前缀稳定性最大化。语义上等价于前置，模型仍按章节
-      // 标题查找而非依赖位置。
+      ...latestUserTurns,
+      // ── Volatile tail（每轮变化）──
+      // 放在 latestUserTurns 之后，确保前缀缓存可以覆盖从 [0] 到
+      // latestUserTurns 之间的所有稳定内容。模型按章节标题查找，位置不影响语义。
       if (todoReminder != null && !isCompactTemplate)
         AiChatTurn(
           role: AiChatRole.system,
@@ -450,15 +457,11 @@ class AiPromptBuilder {
         content:
             '# [3] Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(promptMetadata)}\n```',
       ),
-      // [5.5] Focus Context — last few tool outcomes + latest-user attachments,
-      // 仅在有信号时注入；用于在主 transcript 之外提供"刚才发生了什么"的高
-      // 优先级简报，等价于 Warp 的 block_context（命令 + 输出 + cwd）。
       if (focusContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
         ),
-      ...latestUserTurns,
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)
