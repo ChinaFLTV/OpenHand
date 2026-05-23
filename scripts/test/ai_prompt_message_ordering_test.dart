@@ -9,9 +9,11 @@ import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repositor
 import 'package:openhand/features/instructions/model/user_instruction_entry.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
 
-/// 验证缓存前缀优化后的消息顺序：
-/// - 稳定内容（[0]-[5]、历史、恢复上下文、用户消息本体）在 volatile 内容之前
-/// - [3] Session State、[5.5] Focus Context 等 volatile 块在用户消息之后
+/// 验证 prefix-extension cache 架构下的消息顺序（v5）：
+/// - [3d] Dynamic Session State / [5.5] Focus Context 置于 history 之前
+/// - history turns 在 [3d]/[5.5] 之后、用户消息之前
+/// - Hook system-reminder（从用户消息中提取）仍在用户消息之后（volatile tail）
+/// - 相邻轮次的 token 序列满足"前缀扩展"性质：Turn N+1 = Turn N ++ [asst][user_new]
 void main() {
   final repo = AiPromptTemplateRepository();
 
@@ -83,83 +85,100 @@ void main() {
     );
   }
 
-  testWidgets('[3d] Dynamic Session State is placed after user message',
+  testWidgets('[3d] Dynamic Session State is placed BEFORE user message (and before history)',
       (tester) async {
     final templateBundle = await repo.loadBundle('default');
-    final session = _buildMinimalSession();
     final model = _buildModel();
     final runtimeContext = _buildRuntimeContext();
     final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
 
+    // Use a session with a user message so positions are meaningful.
+    final session = _buildMinimalSession(messages: [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hello world',
+        createdAt: now,
+      ),
+    ]);
     final result = builder.buildSessionPrompt(
       templateBundle: templateBundle,
       session: session,
       model: model,
       runtimeContext: runtimeContext,
       memoryEntries: const <UserMemoryEntry>[],
-      sessionMessages: const <AiSessionMessage>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'msg-1',
     );
 
     final messages = result.messages;
-
     final userTurnIndex =
         messages.lastIndexWhere((m) => m.role == AiChatRole.user);
     final dynamicStateIndex =
         messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 
-    if (userTurnIndex >= 0) {
-      expect(
-        userTurnIndex,
-        lessThan(dynamicStateIndex),
-        reason: '[3d] Dynamic Session State 必须在用户消息之后。'
-            '若在之前，它会与 restored contexts 合并为一条 system 消息，'
-            '每轮变化导致前缀缓存断裂，命中率退化至个位数。',
-      );
-    }
+    expect(dynamicStateIndex, greaterThanOrEqualTo(0),
+        reason: '[3d] Dynamic Session State が存在すること');
+    expect(userTurnIndex, greaterThanOrEqualTo(0),
+        reason: 'ユーザーターンが存在すること');
+    expect(
+      dynamicStateIndex,
+      lessThan(userTurnIndex),
+      reason: '[3d] Dynamic Session State は prefix-extension cache 架構のため '
+          'history / 用户消息より前に置かれなければならない。',
+    );
   });
 
   testWidgets(
-      'volatile content (System Reminder, Plan Mode Reminder) after user message',
+      '[3d] and [5.5] are before user message; hook reminder is after user message',
       (tester) async {
     final templateBundle = await repo.loadBundle('default');
-    final session = _buildMinimalSession();
     final model = _buildModel();
     final runtimeContext = _buildRuntimeContext();
     final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
 
+    final session = _buildMinimalSession(messages: [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hello world',
+        createdAt: now,
+      ),
+    ]);
     final result = builder.buildSessionPrompt(
       templateBundle: templateBundle,
       session: session,
       model: model,
       runtimeContext: runtimeContext,
       memoryEntries: const <UserMemoryEntry>[],
-      sessionMessages: const <AiSessionMessage>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'msg-1',
     );
 
     final messages = result.messages;
     final userTurnIndex =
         messages.lastIndexWhere((m) => m.role == AiChatRole.user);
 
-    if (userTurnIndex >= 0) {
-      // 用户消息之后的所有 system turn 都是 volatile，包含了 [3d] Dynamic Session State
-      final afterUser = messages.sublist(userTurnIndex + 1);
-      final hasDynamicState = afterUser.any(
-        (m) => m.role == AiChatRole.system && m.content.contains('[3d] Dynamic Session State'),
-      );
-      expect(hasDynamicState, isTrue,
-          reason: '[3d] Dynamic Session State 必须在用户消息之后');
+    expect(userTurnIndex, greaterThanOrEqualTo(0), reason: '用户消息必须存在');
 
-      // 验证用户消息之前没有 volatile 标记（[3d]、[5.5]）
-      final beforeUser = messages.sublist(0, userTurnIndex);
-      final volatileInStableZone = beforeUser.where(
-        (m) => m.role == AiChatRole.system &&
-            (m.content.contains('[3d] Dynamic Session State') ||
-             m.content.contains('[5.5] Focus Context')),
-      );
-      expect(volatileInStableZone, isEmpty,
-          reason: '用户消息之前（稳定前缀区）不得包含任何 volatile 内容。'
-              '发现 volatile 块: ${volatileInStableZone.map((m) => m.content.substring(0, 80))}');
-    }
+    // [3d] and [5.5] must appear BEFORE the user turn (prefix-extension cache).
+    final beforeUser = messages.sublist(0, userTurnIndex);
+    final hasDynamicState = beforeUser.any(
+      (m) => m.role == AiChatRole.system && m.content.contains('[3d] Dynamic Session State'),
+    );
+    expect(hasDynamicState, isTrue,
+        reason: '[3d] Dynamic Session State 必须在用户消息之前（prefix-extension cache）');
+
+    // After the user, only hook system-reminders may appear (no [3d] or [5.5]).
+    final afterUser = messages.sublist(userTurnIndex + 1);
+    final dynamicInVolatile = afterUser.where(
+      (m) => m.role == AiChatRole.system &&
+          (m.content.contains('[3d] Dynamic Session State') ||
+           m.content.contains('[5.5] Focus Context')),
+    );
+    expect(dynamicInVolatile, isEmpty,
+        reason: '用户消息之後（volatile tail）に [3d] / [5.5] が現れてはいけない。'
+            'これらは prefix-extension cache のため history 前に配置されている。');
   });
 
   testWidgets(
@@ -308,9 +327,9 @@ void main() {
     }
   });
 
-  testWidgets('history turns are before user message, after restored contexts',
+  testWidgets('history turns are after [3d]/[5.5] but before user message',
       (tester) async {
-    // 验证：history 在 restored contexts 之后、用户消息之前。
+    // 验证：[3d] → history → 用户消息 的顺序。
     final templateBundle = await repo.loadBundle('default');
     final model = _buildModel();
     final runtimeContext = _buildRuntimeContext();
@@ -351,17 +370,19 @@ void main() {
     final dynamicStateIndex =
         messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 
-    // 找到历史轮次
+    // 找到第一个 non-system (i.e. history) turn
     final firstHistoryIndex = messages.indexWhere((m) =>
-        (m.role == AiChatRole.user && !m.content.contains('[6]')) ||
-        m.role == AiChatRole.assistant);
+        m.role == AiChatRole.user || m.role == AiChatRole.assistant);
 
     if (firstHistoryIndex >= 0 && userMsgIndex >= 0) {
+      // [3d] must appear before the first history turn.
+      expect(dynamicStateIndex, lessThan(firstHistoryIndex),
+          reason: '[3d] Dynamic Session State は prefix-extension cache 架構のため '
+              'history より前に配置されなければならない。');
+      // History turns must appear before the latest user message.
       expect(firstHistoryIndex, lessThan(userMsgIndex),
           reason: 'History turns 必须在用户最新消息之前，'
               '确保模型先读取对话上下文再理解当前问题。');
-      expect(userMsgIndex, lessThan(dynamicStateIndex),
-          reason: '[3d] Dynamic Session State 必须在用户消息之后（volatile tail）。');
     }
   });
 
@@ -518,58 +539,21 @@ void main() {
   });
 
   testWidgets(
-      'tool-continuation turn keeps latestUser in natural position (prefix '
-      'cache hit)', (tester) async {
-    // 模拟一轮工具调用后的两次连续 API 调用：
-    // - 第一次：latestUser=msg-1，紧跟 assistant 工具调用 + tool 结果
-    // - 第二次（同一轮的“续写”）：latestUser 仍是 msg-1，但中间又多了一个
-    //   assistant + tool 结果
-    // 之前的实现会把 latestUser 抽出后追加到末尾，导致两次请求的 wire 顺序
-    // 在 msg-1 处发散：前一次 [user, asst-toolcall, tool, user] 而后一次
-    // [user, asst-toolcall, tool, asst-toolcall, tool, user]——这跟自然顺序
-    // 完全不同，prefix cache 全无。修复后，latestUser 应留在自然位置，
-    // 二次调用的 wire 序与首次保持 prefix 一致。
+      'tool-continuation: latestUser stays inline; [3d] before user turn',
+      (tester) async {
+    // Verify: in a tool-continuation sequence, latestUser stays at its natural
+    // inline position (not extracted to the tail). Also verify [3d] appears
+    // before the user turn (prefix-extension architecture).
+    // Note: [5.5] Focus Context content differs between the first call (no tool
+    // outcomes) and the second call (outcomes present), so the two calls are NOT
+    // strict prefix extensions of each other — that is expected and acceptable.
+    // The core consecutive-user-turn prefix-extension invariant is covered by
+    // the separate "consecutive user turns form prefix extension" test.
     final templateBundle = await repo.loadBundle('default');
     final model = _buildModel();
     final runtimeContext = _buildRuntimeContext();
     final builder = const AiPromptBuilder();
     final now = DateTime.now().toUtc();
-
-    final session1 = _buildMinimalSession(messages: [
-      AiSessionMessage.user(id: 'msg-1', content: 'Search XYZ', createdAt: now),
-      AiSessionMessage.toolCall(
-        id: 'msg-2',
-        content: '',
-        createdAt: now,
-        metadata: const <String, Object?>{
-          'tool_calls': [
-            {
-              'id': 'tc-1',
-              'name': 'WebSearch',
-              'arguments': '{"q":"XYZ"}',
-            },
-          ],
-        },
-      ),
-      AiSessionMessage.toolResult(
-        id: 'msg-3',
-        content: '{"hits":[1,2,3]}',
-        createdAt: now,
-        metadata: const <String, Object?>{
-          'tool_call_id': 'tc-1',
-          'tool_name': 'WebSearch',
-        },
-      ),
-    ]);
-    final result1 = builder.buildSessionPrompt(
-      templateBundle: templateBundle,
-      session: session1,
-      model: model,
-      runtimeContext: runtimeContext,
-      memoryEntries: const <UserMemoryEntry>[],
-      sessionMessages: session1.messages,
-      latestUserMessageId: 'msg-1',
-    );
 
     final session2 = _buildMinimalSession(messages: [
       AiSessionMessage.user(id: 'msg-1', content: 'Search XYZ', createdAt: now),
@@ -630,33 +614,104 @@ void main() {
       latestUserMessageId: 'msg-1',
     );
 
-    // 提取“稳定区” = 用户消息及之前的所有 turn（不含末尾 volatile system 块）。
-    // 修复后，第一次和第二次的稳定区 wire 序列在 user 消息之前/之中应严格
-    // 互为前缀关系：second 的前 N 项 == first 的前 N 项（N = first.length 中
-    // 直到 user 那条 turn 的位置）。
-    List<AiChatTurn> stableHeadIncludingUser(List<AiChatTurn> messages) {
-      final firstUser = messages.indexWhere((m) => m.role == AiChatRole.user);
-      if (firstUser < 0) return messages;
-      return messages.sublist(0, firstUser + 1);
+    final messages = result2.messages;
+
+    // 1. [3d] must appear before the first user turn.
+    final firstUserIndex = messages.indexWhere((m) => m.role == AiChatRole.user);
+    final dynamicStateIndex =
+        messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
+    expect(dynamicStateIndex, greaterThanOrEqualTo(0), reason: '[3d] must exist');
+    expect(firstUserIndex, greaterThanOrEqualTo(0), reason: 'user must exist');
+    expect(dynamicStateIndex, lessThan(firstUserIndex),
+        reason: '[3d] must appear before user turn (prefix-extension cache)');
+
+    // 2. latestUser (msg-1) is inline: non-system messages follow it (the tool turns).
+    final userTurnIdx = messages.indexWhere(
+      (m) => m.role == AiChatRole.user && m.content.contains('Search XYZ'),
+    );
+    expect(userTurnIdx, greaterThanOrEqualTo(0), reason: 'latestUser must appear');
+    final afterUserNonSystem = messages
+        .sublist(userTurnIdx + 1)
+        .where((m) => m.role != AiChatRole.system)
+        .toList();
+    expect(afterUserNonSystem, isNotEmpty,
+        reason: 'After inline latestUser, tool-call/result turns must follow');
+
+    // 3. latestUser is NOT duplicated at the tail.
+    final lastNonSystem =
+        messages.lastWhere((m) => m.role != AiChatRole.system);
+    expect(lastNonSystem.content.contains('Search XYZ'), isFalse,
+        reason: 'latestUser is inline so it must not be duplicated at the tail');
+  });
+
+  testWidgets(
+      'consecutive user turns form prefix extension (core cache invariant)',
+      (tester) async {
+    // Core invariant: consecutive turns (different user messages) satisfy the
+    // prefix-extension property: Turn N's message sequence is a strict byte-
+    // identical prefix of Turn N+1's sequence (when [3d]/[5.5] content is
+    // unchanged). This guarantees DeepSeek KV cache hits ~100% of Turn N's
+    // tokens on Turn N+1.
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
+
+    // Turn N: user1 is the latest user message (no history yet).
+    final sessionN = _buildMinimalSession(messages: [
+      AiSessionMessage.user(id: 'msg-1', content: 'Hello', createdAt: now),
+    ]);
+    final resultN = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: sessionN,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: sessionN.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    // Turn N+1: user1 is now history; user2 is the new latest user message.
+    // Same runtimeContext => same [3d]/[5.5] content => prefix extension holds.
+    final sessionN1 = _buildMinimalSession(messages: [
+      AiSessionMessage.user(id: 'msg-1', content: 'Hello', createdAt: now),
+      AiSessionMessage.assistant(id: 'msg-2', content: 'Hi there!', createdAt: now),
+      AiSessionMessage.user(id: 'msg-3', content: 'How are you?', createdAt: now),
+    ]);
+    final resultN1 = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: sessionN1,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: sessionN1.messages,
+      latestUserMessageId: 'msg-3',
+    );
+
+    final msgsN = resultN.messages;
+    final msgsN1 = resultN1.messages;
+
+    // Turn N+1 must have MORE messages (history + assistant + new user appended).
+    expect(msgsN1.length, greaterThan(msgsN.length),
+        reason: 'Turn N+1 should have more messages (history + new user)');
+
+    // The first msgsN.length messages in Turn N+1 must be identical to Turn N.
+    for (var i = 0; i < msgsN.length; i++) {
+      expect(msgsN1[i].role, msgsN[i].role,
+          reason: 'Turn N+1 message [$i] role must match Turn N (prefix extension)');
+      expect(msgsN1[i].content, msgsN[i].content,
+          reason: 'Turn N+1 message [$i] content must match Turn N (prefix extension)');
     }
 
-    final head1 = stableHeadIncludingUser(result1.messages);
-    final head2 = stableHeadIncludingUser(result2.messages);
-
-    // 关键断言：head1 应当是 head2 的严格前缀 —— 即 result2 的前 head1.length
-    // 项与 head1 完全一致（role + content）。否则 latestUser 的位置就跑了，
-    // prefix cache 必然失效。
-    expect(result2.messages.length >= head1.length, isTrue);
-    for (var i = 0; i < head1.length; i++) {
-      expect(result2.messages[i].role, head1[i].role,
-          reason: '工具续写时 latestUser 之前/之中 wire 顺序必须保持稳定 '
-              '(turn $i role 不一致)');
-      expect(result2.messages[i].content, head1[i].content,
-          reason: '工具续写时 latestUser 之前/之中 wire 内容必须保持稳定 '
-              '(turn $i content 不一致)');
-    }
-    // sanity: head2 在自然位置（即第一次出现 user）应当与 head1 末尾的 user 对齐
-    expect(head2.last.role, AiChatRole.user);
+    // The extra messages in Turn N+1 are the assistant response + new user.
+    final extraMsgs = msgsN1.sublist(msgsN.length);
+    expect(extraMsgs.any((m) => m.role == AiChatRole.assistant), isTrue,
+        reason: 'Extra messages should include the assistant response from Turn N');
+    expect(extraMsgs.last.role, AiChatRole.user,
+        reason: 'Last extra message should be the new user message');
+    expect(extraMsgs.last.content, contains('How are you?'),
+        reason: 'New user message content should be correct');
   });
 
   testWidgets('[4.5] User Instructions stays byte-identical across skip toggle',
