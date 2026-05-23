@@ -61,7 +61,8 @@ class AiPromptBuilder {
     'workspace_instruction_paths',
     'allow_command_rule_count',
     'allow_command_rules',
-    'repository_snapshot',
+    // 2026-05-23 — repository_snapshot 的 git status 在工具修改文件后会变化，
+    // 已迁至 [3d] 动态区。environment 包含可配置项，保留在静态区（会话内不变）。
     'environment',
     'tool_catalog_authoritative',
     'current_file_editing_tool_names',
