@@ -1,7 +1,7 @@
 // 2026-05-05 — 缓存断点位置控件（结构条 + 可拖拽插桩）。
 // 顶部展示一条对照实际 prompt 结构的彩色分段条（[0] 系统指令 / [1] 开发者指令 /
-// [2] 工具目录 / [3] 会话状态 / [4] 用户记忆 / [4.5] 用户指令 / [5] 会话摘要 /
-// 历史 / [6] 最新消息），鼠标悬停显示该段简要概述与缓存稳定性提示；
+// [2] 工具目录 / [4] 用户记忆 / [4.5] 用户指令 / [5] 会话摘要 / 历史 /
+// [3] 会话状态 / [6] 最新消息），鼠标悬停显示该段简要概述与缓存稳定性提示；
 // 上方铺有 N-1 个静态插桩（用户可拖动），尾部固定一个动态插桩（跟随
 // 缓存更新间隔）。拖拽实时更新本地草稿，松手时提交持久化。
 //
@@ -98,14 +98,6 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
         weight: 1.5,
       ),
       _PromptStructureSegment(
-        id: 'state',
-        label: l10n.cacheBarSectionStateLabel,
-        summary: l10n.cacheBarSectionStateSummary,
-        cacheHint: l10n.cacheBarSectionStateCacheHint,
-        color: const Color(0xFF3E847B),
-        weight: 0.6,
-      ),
-      _PromptStructureSegment(
         id: 'memory',
         label: l10n.cacheBarSectionMemoryLabel,
         summary: l10n.cacheBarSectionMemorySummary,
@@ -136,6 +128,16 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
         cacheHint: l10n.cacheBarSectionHistoryCacheHint,
         color: const Color(0xFFB85549),
         weight: 2.4,
+      ),
+      // 2026-05-23 — Session State 重排到尾部，与 prompt builder 一致；
+      // 这样 [0..5] + history 形成稳定可缓存的长前缀。
+      _PromptStructureSegment(
+        id: 'state',
+        label: l10n.cacheBarSectionStateLabel,
+        summary: l10n.cacheBarSectionStateSummary,
+        cacheHint: l10n.cacheBarSectionStateCacheHint,
+        color: const Color(0xFF3E847B),
+        weight: 0.6,
       ),
       _PromptStructureSegment(
         id: 'latest',
