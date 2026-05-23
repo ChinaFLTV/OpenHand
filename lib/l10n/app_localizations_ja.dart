@@ -1513,6 +1513,13 @@ class AppLocalizationsJa extends AppLocalizations {
       'マスタースイッチ。無効にすると、閾値に関わらず生のツール出力は圧縮されません。完全なツール出力をデバッグするときに便利です。';
 
   @override
+  String get aiMicroCompressionEnabledLabel => '微圧縮';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      '有効にすると、通常の会話中に消費済みの古いツール結果がクリアされコンテキストを節約します。無効（推奨）にすると、能動的/受動的圧縮の前にのみ微圧縮が実行され、ターンをまたいだプロンプトキャッシュのヒット率が向上しAPIコストが削減されます。';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '圧縮の先頭/末尾ウィンドウ';
 
   @override

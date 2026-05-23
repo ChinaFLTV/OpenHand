@@ -57,6 +57,7 @@ class AppSettingsSnapshot {
       aiToolResultCompressionThresholdChars:
           defaultAiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: true,
+      aiMicroCompressionEnabled: false,
       aiToolResultCompressionHeadTailWindowChars:
           defaultAiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits:
@@ -201,6 +202,7 @@ class AppSettingsSnapshot {
     required this.aiMessageCompressionThresholdChars,
     required this.aiToolResultCompressionThresholdChars,
     required this.aiToolResultCompressionEnabled,
+    this.aiMicroCompressionEnabled = false,
     required this.aiToolResultCompressionHeadTailWindowChars,
     required this.aiToolResultCompressionMaxPathHits,
     required this.aiInputCacheEnabled,
@@ -692,6 +694,10 @@ class AppSettingsSnapshot {
   /// 2026-04-27 — 总开关：关闭后工具调用输出不再进行压缩。
   final bool aiToolResultCompressionEnabled;
 
+  /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
+  /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
+  final bool aiMicroCompressionEnabled;
+
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int aiToolResultCompressionHeadTailWindowChars;
 
@@ -920,6 +926,7 @@ class AppSettingsSnapshot {
     int? aiMessageCompressionThresholdChars,
     int? aiToolResultCompressionThresholdChars,
     bool? aiToolResultCompressionEnabled,
+    bool? aiMicroCompressionEnabled,
     int? aiToolResultCompressionHeadTailWindowChars,
     int? aiToolResultCompressionMaxPathHits,
     bool? aiInputCacheEnabled,
@@ -1042,6 +1049,8 @@ class AppSettingsSnapshot {
           this.aiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled:
           aiToolResultCompressionEnabled ?? this.aiToolResultCompressionEnabled,
+      aiMicroCompressionEnabled:
+          aiMicroCompressionEnabled ?? this.aiMicroCompressionEnabled,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars ??
           this.aiToolResultCompressionHeadTailWindowChars,

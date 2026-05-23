@@ -181,6 +181,7 @@ class SettingsStore {
           snapshot.aiToolResultCompressionThresholdChars,
       'ai_tool_result_compression_enabled':
           snapshot.aiToolResultCompressionEnabled,
+      'ai_micro_compression_enabled': snapshot.aiMicroCompressionEnabled,
       'ai_tool_result_compression_head_tail_window_chars':
           snapshot.aiToolResultCompressionHeadTailWindowChars,
       'ai_tool_result_compression_max_path_hits':
@@ -441,6 +442,10 @@ class SettingsStore {
         json['ai_tool_result_compression_enabled'] is bool
         ? json['ai_tool_result_compression_enabled'] as bool
         : true;
+    final aiMicroCompressionEnabled =
+        json['ai_micro_compression_enabled'] is bool
+        ? json['ai_micro_compression_enabled'] as bool
+        : false;
     final aiToolResultCompressionHeadTailWindowChars =
         json['ai_tool_result_compression_head_tail_window_chars'] is int &&
             (json['ai_tool_result_compression_head_tail_window_chars']
@@ -1244,6 +1249,7 @@ class SettingsStore {
       aiToolResultCompressionThresholdChars:
           aiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: aiToolResultCompressionEnabled,
+      aiMicroCompressionEnabled: aiMicroCompressionEnabled,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: aiToolResultCompressionMaxPathHits,

@@ -1497,6 +1497,13 @@ class AppLocalizationsZh extends AppLocalizations {
       '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
 
   @override
+  String get aiMicroCompressionEnabledLabel => '微压缩';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
 
   @override
@@ -9247,6 +9254,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get aiToolResultCompressionEnabledBody =>
       '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
+
+  @override
+  String get aiMicroCompressionEnabledLabel => '微压缩';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
 
   @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';

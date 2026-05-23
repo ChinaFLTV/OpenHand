@@ -1581,6 +1581,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Hauptschalter. Wenn deaktiviert, umgeht die rohe Werkzeugausgabe unabhängig vom Schwellwert die Kompression – nützlich beim Debuggen vollständiger Werkzeugausgaben.';
 
   @override
+  String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Kompressions-Kopf-/Endfenster';
 

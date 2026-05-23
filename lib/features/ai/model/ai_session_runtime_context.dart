@@ -93,6 +93,7 @@ class AiSessionRuntimeContext {
     required this.compressionThresholdChars,
     this.toolResultCompressionThresholdChars = 1024,
     this.toolResultCompressionEnabled = true,
+    this.microCompressionEnabled = false,
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
@@ -204,6 +205,10 @@ class AiSessionRuntimeContext {
 
   /// 2026-04-27 — 工具调用输出压缩总开关。关闭后返回原始内容。
   final bool toolResultCompressionEnabled;
+
+  /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
+  /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
+  final bool microCompressionEnabled;
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int toolResultCompressionHeadTailWindowChars;

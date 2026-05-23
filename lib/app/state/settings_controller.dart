@@ -104,6 +104,7 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiToolResultCompressionThresholdChars,
        _aiToolResultCompressionEnabled =
            snapshot.aiToolResultCompressionEnabled,
+       _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled,
        _aiToolResultCompressionHeadTailWindowChars =
            snapshot.aiToolResultCompressionHeadTailWindowChars,
        _aiToolResultCompressionMaxPathHits =
@@ -253,6 +254,7 @@ class SettingsController extends ChangeNotifier {
   int _aiMessageCompressionThresholdChars;
   int _aiToolResultCompressionThresholdChars;
   bool _aiToolResultCompressionEnabled;
+  bool _aiMicroCompressionEnabled;
   int _aiToolResultCompressionHeadTailWindowChars;
   int _aiToolResultCompressionMaxPathHits;
   bool _aiInputCacheEnabled;
@@ -407,6 +409,7 @@ class SettingsController extends ChangeNotifier {
   int get aiToolResultCompressionThresholdChars =>
       _aiToolResultCompressionThresholdChars;
   bool get aiToolResultCompressionEnabled => _aiToolResultCompressionEnabled;
+  bool get aiMicroCompressionEnabled => _aiMicroCompressionEnabled;
   int get aiToolResultCompressionHeadTailWindowChars =>
       _aiToolResultCompressionHeadTailWindowChars;
   int get aiToolResultCompressionMaxPathHits =>
@@ -935,6 +938,16 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiToolResultCompressionEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMicroCompressionEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_aiMicroCompressionEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMicroCompressionEnabled = value;
       return _MutationDisposition.apply;
     });
   }
@@ -2558,6 +2571,7 @@ class SettingsController extends ChangeNotifier {
       aiToolResultCompressionThresholdChars:
           _aiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: _aiToolResultCompressionEnabled,
+      aiMicroCompressionEnabled: _aiMicroCompressionEnabled,
       aiToolResultCompressionHeadTailWindowChars:
           _aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
@@ -2676,6 +2690,7 @@ class SettingsController extends ChangeNotifier {
     _aiToolResultCompressionThresholdChars =
         snapshot.aiToolResultCompressionThresholdChars;
     _aiToolResultCompressionEnabled = snapshot.aiToolResultCompressionEnabled;
+    _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled;
     _aiToolResultCompressionHeadTailWindowChars =
         snapshot.aiToolResultCompressionHeadTailWindowChars;
     _aiToolResultCompressionMaxPathHits =

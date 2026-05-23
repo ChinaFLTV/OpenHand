@@ -1561,6 +1561,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.';
 
   @override
+  String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Compression Head/Tail Window';
 

@@ -933,6 +933,18 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
+    final microCompressionEnabledControl = Align(
+      alignment: Alignment.centerLeft,
+      child: _SettingsSwitch(
+        key: const ValueKey<String>(
+          'settingsMicroCompressionEnabledSwitch',
+        ),
+        value: settingsController.aiMicroCompressionEnabled,
+        onChanged: (value) async {
+          await settingsController.updateAiMicroCompressionEnabled(value);
+        },
+      ),
+    );
     final toolResultCompressionHeadTailWindowControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2027,6 +2039,13 @@ class _SettingsViewState extends State<SettingsView> {
                 title: l10n.aiToolResultCompressionEnabledLabel,
                 subtitle: l10n.aiToolResultCompressionEnabledBody,
                 control: toolResultCompressionEnabledControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiMicroCompressionEnabledLabel,
+                subtitle: l10n.aiMicroCompressionEnabledBody,
+                control: microCompressionEnabledControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),

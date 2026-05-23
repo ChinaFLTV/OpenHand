@@ -1586,6 +1586,13 @@ class AppLocalizationsFr extends AppLocalizations {
       'Commutateur principal. Lorsqu’il est désactivé, la sortie d’outil brute contourne la compression quel que soit le seuil — utile pour déboguer la sortie complète d’un outil.';
 
   @override
+  String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Fenêtre début/fin de compression';
 

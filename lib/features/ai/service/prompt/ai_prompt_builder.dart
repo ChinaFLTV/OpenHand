@@ -1463,10 +1463,19 @@ class AiPromptBuilder {
     final resourceManifest = _renderCompressionResourceManifest(
       messagesToCompress,
     );
+    // 2026-05-23 — 微压缩关闭时，正常对话不执行微压缩，但压缩前必须补做。
+    final microCompactContentMap = runtimeContext.microCompressionEnabled
+        ? const <String, String>{}
+        : _computeMicroCompactContentMap(messagesToCompress);
+    String _renderForCompression(AiSessionMessage m) {
+      final compacted = microCompactContentMap[m.id];
+      if (compacted != null) return compacted;
+      return _renderMessageForCompression(m);
+    }
     final transcript = messagesToCompress
         .map(
           (message) =>
-              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${_renderMessageForCompression(message)}',
+              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${_renderForCompression(message)}',
         )
         .join('\n');
     final previousCheckpointText = previousCompressionPoint == null
@@ -1816,6 +1825,7 @@ $identity''';
     final microCompactMessageIds = _microCompactToolMessageIds(
       messages,
       stableConsumerBoundary,
+      microCompressionEnabled: compressionConfig.microCompressionEnabled,
     );
     while (index < messages.length) {
       final message = messages[index];
@@ -3747,9 +3757,10 @@ $content
 
   Set<String> _microCompactToolMessageIds(
     List<AiSessionMessage> messages,
-    int lastConsumerIndex,
-  ) {
-    if (lastConsumerIndex <= 0) {
+    int lastConsumerIndex, {
+    required bool microCompressionEnabled,
+  }) {
+    if (!microCompressionEnabled || lastConsumerIndex <= 0) {
       return const <String>{};
     }
     final consumedToolMessages = <AiSessionMessage>[];
@@ -3792,6 +3803,41 @@ $content
       'note: Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
     ];
     return lines.join('\n');
+  }
+
+  /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果
+  /// 计算 [old_tool_result_cleared] 摘要，返回 messageId → 摘要的映射。
+  Map<String, String> _computeMicroCompactContentMap(
+    List<AiSessionMessage> messages,
+  ) {
+    var lastConsumerIndex = -1;
+    for (var i = 0; i < messages.length; i++) {
+      final kind = messages[i].kind;
+      if (kind == AiSessionMessageKind.assistant ||
+          kind == AiSessionMessageKind.toolCall) {
+        lastConsumerIndex = i;
+      }
+    }
+    if (lastConsumerIndex <= 0) {
+      return const <String, String>{};
+    }
+    final consumedToolMessages = <AiSessionMessage>[];
+    for (var index = 0; index < lastConsumerIndex; index++) {
+      final message = messages[index];
+      if (message.kind == AiSessionMessageKind.tool && !message.isDeleted) {
+        consumedToolMessages.add(message);
+      }
+    }
+    final clearCount =
+        consumedToolMessages.length - _microCompactKeepRecentToolResults;
+    if (clearCount <= 0) {
+      return const <String, String>{};
+    }
+    final result = <String, String>{};
+    for (final message in consumedToolMessages.take(clearCount)) {
+      result[message.id] = _microCompactToolResultContent(message);
+    }
+    return result;
   }
 
   AiToolCall _sanitizeToolCallForPromptHistory(
@@ -4515,6 +4561,7 @@ class _ToolCompressionConfig {
     required this.headTailWindowChars,
     required this.maxPathHits,
     required this.writeSummaryMaxChars,
+    required this.microCompressionEnabled,
   });
 
   factory _ToolCompressionConfig.fromRuntimeContext(
@@ -4536,6 +4583,7 @@ class _ToolCompressionConfig {
         0,
         1 << 20,
       ),
+      microCompressionEnabled: runtimeContext.microCompressionEnabled,
     );
   }
 
@@ -4544,6 +4592,7 @@ class _ToolCompressionConfig {
   final int headTailWindowChars;
   final int maxPathHits;
   final int writeSummaryMaxChars;
+  final bool microCompressionEnabled;
 }
 
 class _ExtractedReminderContent {
