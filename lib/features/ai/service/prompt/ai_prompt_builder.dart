@@ -155,11 +155,21 @@ class AiPromptBuilder {
         .toList(growable: false);
     AiSessionMessage? latestUserMessage;
     final historyMessages = <AiSessionMessage>[];
+    // 2026-05-23 — 记录 latestUserMessage 在可见消息中的位置，作为当前轮次边界。
+    // 边界之前的消息属于历史轮次（可以压缩），边界之后的消息属于当前轮次
+    // （禁止压缩），避免工具结果压缩在同轮连续 API 调用之间改变历史内容、
+    // 破坏前缀缓存。
+    var preTurnHistoryCount = 0;
+    var foundLatestUser = false;
     for (final message in visibleSessionMessages) {
       if (message.id == latestUserMessageId &&
           message.kind == AiSessionMessageKind.user) {
         latestUserMessage = message;
+        foundLatestUser = true;
         continue;
+      }
+      if (!foundLatestUser) {
+        preTurnHistoryCount += 1;
       }
       historyMessages.add(message);
     }
@@ -169,6 +179,7 @@ class AiPromptBuilder {
         session,
         model,
         _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
+        preTurnHistoryCount: preTurnHistoryCount,
       ),
     );
     final latestUserTurns = latestUserMessage == null
@@ -1778,8 +1789,9 @@ $identity''';
     List<AiSessionMessage> messages,
     AiSession session,
     AiModelConfig model,
-    _ToolCompressionConfig compressionConfig,
-  ) {
+    _ToolCompressionConfig compressionConfig, {
+    required int preTurnHistoryCount,
+  }) {
     final turns = <AiChatTurn>[];
     var index = 0;
     String? roundReasoning;
@@ -1788,6 +1800,8 @@ $identity''';
     // 因此 index 大于 `lastConsumerIndex` 的 tool 结果属于尚未被消费的
     // 最新一轮，需在 prompt 中保留原文，避免被压缩成 head/tail 摘要后
     // 让模型在"首次看到该结果"时就丢掉关键信息。
+    // 2026-05-23 — 当前轮次边界（preTurnHistoryCount）之内的消息不受压缩，
+    // 确保同轮连续 API 调用之间工具结果内容不变，维持前缀缓存命中。
     var lastConsumerIndex = -1;
     for (var i = 0; i < messages.length; i++) {
       final kind = messages[i].kind;
@@ -1796,9 +1810,12 @@ $identity''';
         lastConsumerIndex = i;
       }
     }
+    final stableConsumerBoundary = lastConsumerIndex < preTurnHistoryCount
+        ? lastConsumerIndex
+        : preTurnHistoryCount - 1;
     final microCompactMessageIds = _microCompactToolMessageIds(
       messages,
-      lastConsumerIndex,
+      stableConsumerBoundary,
     );
     while (index < messages.length) {
       final message = messages[index];
@@ -1828,7 +1845,7 @@ $identity''';
           session,
           model,
           compressionConfig,
-          lastConsumerIndex: lastConsumerIndex,
+          lastConsumerIndex: stableConsumerBoundary,
           microCompactMessageIds: microCompactMessageIds,
         );
         if (mappedGroup.turns.isNotEmpty) {
@@ -1849,7 +1866,7 @@ $identity''';
         model,
         compressionConfig,
         messageIndex: index,
-        lastConsumerIndex: lastConsumerIndex,
+        lastConsumerIndex: stableConsumerBoundary,
         microCompactMessageIds: microCompactMessageIds,
       );
       if (mapped.isNotEmpty) {
