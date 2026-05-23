@@ -365,7 +365,7 @@ class AiPromptBuilder {
       // 将所有每轮变动的 volatile 块（[3] Session State、System Reminder、
       // Plan Mode Reminder、[5.5] Focus Context）移至 latestUserTurns 之后。
       // 将 restored contexts [5.6]-[5.12] 移至 history 之前——
-      // 它们在压缩点之前保持稳定，放在稳定前缀区可增加缓存命中 token 数。
+      // 它们在压缩点前保持稳定，放在稳定前缀区可增加缓存命中 token 数。
       //
       // 原因：OpenAI 兼容协议（DeepSeek / OpenAI / Qwen / Kimi / GLM 等）
       // 使用隐式 prefix-cache，cache key = messages 数组的公共前缀哈希。
@@ -373,8 +373,8 @@ class AiPromptBuilder {
       // 合并为一条 system 消息（_mergeConsecutiveSystemMessages），该消息
       // 每轮都变，导致前缀缓存在此断裂，命中率退化至个位数。
       //
-      // 重排后，前缀 [0..5] + 5.6-5.12 + history + 用户消息本体全部稳定可缓存，
-      // 用户消息之后的 volatile 块全都在 cache-miss 区内。
+      // 重排后，前缀 [0..5] + restored [5.6-5.12] + history + 用户消息本体
+      // 全部稳定可缓存；用户消息之后的 volatile 块全都在 cache-miss 区内。
       // 语义上模型按章节标题查找，位置不影响正确性。
       AiChatTurn(
         role: AiChatRole.system,
@@ -454,7 +454,8 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
-      // 用户消息本体（不含 hook system reminder）→ 稳定前缀区的最后一项。
+      ...historyTurns,
+      // 用户消息本体（不含 hook system reminder）→ 第一个 cache-miss 点。
       ...latestUserNonSystemTurns,
       // ═══════════════════════════════════════════════════════════════
       // Volatile tail（每轮变化，全部在 cache-miss 区内）
@@ -481,11 +482,6 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
         ),
-      // 2026-05-23 v3 — 历史轮次移至 volatile tail 之后：
-      // 这样前缀 [0..5] + restored + user + volatile 的位置和计数在轮次间保持一致，
-      // 不会因 history 插入导致消息数变化而破坏 prefix-cache 的结构相似性。
-      // 模型在生成前读取全部消息，history 置后不影响上下文理解。
-      ...historyTurns,
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)

@@ -297,9 +297,9 @@ void main() {
     }
   });
 
-  testWidgets('history turns are placed after volatile tail (v3 ordering)',
+  testWidgets('history turns are before user message, after restored contexts',
       (tester) async {
-    // 验证 v3 排序：history 在 Focus Context 之后，确保前缀位置固定。
+    // 验证：history 在 restored contexts 之后、用户消息之前。
     final templateBundle = await repo.loadBundle('default');
     final model = _buildModel();
     final runtimeContext = _buildRuntimeContext();
@@ -335,24 +335,22 @@ void main() {
     );
 
     final messages = result.messages;
-    final focusContextIndex =
-        messages.indexWhere((m) => m.content.contains('[5.5] Focus Context'));
+    final userMsgIndex =
+        messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
     final sessionStateIndex =
         messages.indexWhere((m) => m.content.contains('[3] Session State'));
-    final lastVolatileIndex = focusContextIndex >= 0
-        ? focusContextIndex
-        : sessionStateIndex;
 
-    // 找到历史轮次（不含 [6] 前缀的 user message 或 assistant message）
+    // 找到历史轮次
     final firstHistoryIndex = messages.indexWhere((m) =>
         (m.role == AiChatRole.user && !m.content.contains('[6]')) ||
         m.role == AiChatRole.assistant);
 
-    if (firstHistoryIndex >= 0 && lastVolatileIndex >= 0) {
-      expect(firstHistoryIndex, greaterThan(lastVolatileIndex),
-          reason: 'History turns 必须在 volatile tail（[3]/[5.5]）之后。'
-              '当前 history 在 index=$firstHistoryIndex，volatile 末尾在 $lastVolatileIndex。'
-              '若 history 在 volatile 之前，会导致消息位置随轮次漂移，破坏前缀缓存。');
+    if (firstHistoryIndex >= 0 && userMsgIndex >= 0) {
+      expect(firstHistoryIndex, lessThan(userMsgIndex),
+          reason: 'History turns 必须在用户最新消息之前，'
+              '确保模型先读取对话上下文再理解当前问题。');
+      expect(userMsgIndex, lessThan(sessionStateIndex),
+          reason: '[3] Session State 必须在用户消息之后（volatile tail）。');
     }
   });
 }
