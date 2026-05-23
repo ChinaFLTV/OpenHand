@@ -207,7 +207,7 @@ class AiPromptBuilder {
         _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
         preTurnHistoryCount: preTurnHistoryCount,
         latestUserMessageIdForInlineAttachments:
-            latestUserInline ? latestUserMessage?.id : null,
+            latestUserInline ? latestUserMessage.id : null,
       ),
     );
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
@@ -1001,9 +1001,8 @@ class AiPromptBuilder {
         : runtimeContext.workingDirectory.trim();
 
     final staticState = <String, Object?>{
-      'session': <String, Object?>{
-        'mode': session.mode.storageValue,
-      },
+      // 2026-05-23 v5 — session.mode 不会一生不变（用户随时可在 plan / normal
+      // 之间切换），迁到 [3d] Dynamic；避免切换模式就抹掉所有 prefix cache。
       'context': <String, Object?>{
         'cwd': workingDirectory,
         'platform': runtimeContext.platformName,
@@ -1050,6 +1049,7 @@ class AiPromptBuilder {
 
     dynamicState['session'] = <String, Object?>{
       'title': session.title,
+      'mode': session.mode.storageValue,
     };
     dynamicState['context'] = <String, Object?>{
       'date': runtimeContext.todayLocalDate,

@@ -432,6 +432,57 @@ void main() {
             '否则整个合并 system message 的缓存都会断裂。');
   });
 
+  testWidgets('[3s] Static stays byte-identical across session.mode toggle', (tester) async {
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+    final baseMessages = [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hello',
+        createdAt: DateTime.now().toUtc(),
+      ),
+    ];
+
+    final sessionChat = _buildMinimalSession(messages: baseMessages)
+        .copyWith(mode: AiSessionMode.chat);
+    final sessionPlan = _buildMinimalSession(messages: baseMessages)
+        .copyWith(mode: AiSessionMode.plan);
+
+    final resultChat = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: sessionChat,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: sessionChat.messages,
+      latestUserMessageId: 'msg-1',
+    );
+    final resultPlan = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: sessionPlan,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: sessionPlan.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    String? extract3s(List<AiChatTurn> messages) {
+      for (final m in messages) {
+        if (m.content.contains('[3s] Static Session State')) {
+          return m.content;
+        }
+      }
+      return null;
+    }
+
+    expect(extract3s(resultChat.messages), equals(extract3s(resultPlan.messages)),
+        reason:
+            'session.mode 必须留在 [3d] Dynamic；放在 [3s] 会让 plan/chat 切换断掉所有 prefix cache。');
+  });
+
   testWidgets('[3d] Dynamic Session State contains mutable fields', (tester) async {
     final templateBundle = await repo.loadBundle('default');
     final session = _buildMinimalSession();
