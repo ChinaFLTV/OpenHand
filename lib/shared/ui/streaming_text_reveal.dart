@@ -104,6 +104,9 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
               animation: _ctrl,
               builder: (context, child) {
                 final t = Curves.easeOutCubic.transform(_ctrl.value);
+                // 动画已稳定 → 跳过 ShaderMask（全白 dstIn = 空操作），
+                // 避免产生无意义的 GPU 合成层。
+                if (t >= 1.0) return child!;
                 // 动态 stop 拉伸回缩：新字符触发时淡入带拉长（≈32% 梯度
                 // 覆盖），随后平滑收窄至稳定态（≈18%），配合 alpha 从
                 // 0.50 升至 1.0，产生"字符从底部淡入 + 弹性回弹"的 Q 弹

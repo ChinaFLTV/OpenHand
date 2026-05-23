@@ -802,11 +802,12 @@ function MessageCardImpl({
     !reduceMotion,
   );
 
-  const streamingReveal = useStreamingReveal(
-    streamingContent && !isUserBubble,
-    visibleContent.length,
-    reduceMotion,
-  );
+  const { containerRef: streamingMaskRef, streamingClass } =
+    useStreamingReveal(
+      streamingContent && !isUserBubble,
+      visibleContent.length,
+      reduceMotion,
+    );
 
   const handleBadgeToggle = useCallback((e: Event) => {
     e.stopPropagation();
@@ -960,13 +961,8 @@ function MessageCardImpl({
           content.length > 0 ? <ToolResultBody content={content} /> : null
         ) : (
           <div
-            class={streamingContent && !isUserBubble ? 'oh-streaming-reveal' : undefined}
-            style={streamingReveal.animateMask
-              ? {
-                  WebkitMaskImage: streamingReveal.maskImage,
-                  maskImage: streamingReveal.maskImage,
-                }
-              : undefined}
+            ref={streamingMaskRef}
+            class={streamingClass ? 'oh-streaming-reveal' : undefined}
           >
             <Markdown
               source={visibleContent}
