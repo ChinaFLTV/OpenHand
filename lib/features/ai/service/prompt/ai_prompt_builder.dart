@@ -454,7 +454,6 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
-      ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 稳定前缀区的最后一项。
       ...latestUserNonSystemTurns,
       // ═══════════════════════════════════════════════════════════════
@@ -482,6 +481,11 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
         ),
+      // 2026-05-23 v3 — 历史轮次移至 volatile tail 之后：
+      // 这样前缀 [0..5] + restored + user + volatile 的位置和计数在轮次间保持一致，
+      // 不会因 history 插入导致消息数变化而破坏 prefix-cache 的结构相似性。
+      // 模型在生成前读取全部消息，history 置后不影响上下文理解。
+      ...historyTurns,
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)
