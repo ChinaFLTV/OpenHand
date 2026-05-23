@@ -534,8 +534,9 @@ void main() {
     // [3d] 应包含可变字段
     expect(dynamicMsg.content.contains('"title"'), isTrue,
         reason: '[3d] 必须包含 session.title（自动标题会变）');
-    expect(dynamicMsg.content.contains('"date"'), isTrue,
-        reason: '[3d] 必须包含 context.date（跨天会变）');
+    // context.date 已从 [3d] 移除（日期跨天会改变 merged system hash，破坏 prefix-cache）。
+    expect(dynamicMsg.content.contains('"date"'), isFalse,
+        reason: '[3d] 不得包含 context.date（跨天会破坏 prefix-cache）');
   });
 
   testWidgets(

@@ -315,7 +315,8 @@ class AiPromptBuilder {
       'single_round_tool_call_limit': runtimeContext.singleRoundToolCallLimit,
       'sequential_tool_round_limit': runtimeContext.sequentialToolRoundLimit,
       'platform_name': runtimeContext.platformName,
-      'today_local_date': runtimeContext.todayLocalDate,
+      // today_local_date 已移除：日期跨天会变，非紧凑模板存入 metadata
+      // 会导致 [3d] 在午夜改变哈希，破坏 prefix-cache。
       'time_zone_name': runtimeContext.timeZoneName,
       'write_command_confirmation_enabled':
           runtimeContext.writeCommandConfirmationEnabled,
@@ -442,7 +443,7 @@ class AiPromptBuilder {
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分，均置于 history 之前：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
-      // - [3d] Dynamic（date、git、todos、plan、mode）— 同日同 git 状态时不变。
+      // - [3d] Dynamic（git、todos、plan、mode）— 同 git 状态时不变。date 已移除：跨天改变 hash 破坏 prefix-cache。
       //
       // 原因（实测 DeepSeek-v4-flash 9 轮会话，整体命中率 44%）：
       // 旧设计将 [3d]/[5.5] 放在用户消息之后（volatile tail）。
@@ -1062,9 +1063,9 @@ class AiPromptBuilder {
       'title': session.title,
       'mode': session.mode.storageValue,
     };
-    dynamicState['context'] = <String, Object?>{
-      'date': runtimeContext.todayLocalDate,
-    };
+    // 2026-05-25 — 不在 [3d] 注入当前日期。日期跨天即变 → merged system message
+    // hash 改变 → prefix-cache 全量冷启，当日剩余会话命中率归零。模型可通过
+    // [3s].context.tz 推算时区、由用户在对话中补充精确日期。
 
     if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
       final gitInfo = <String, Object?>{};
