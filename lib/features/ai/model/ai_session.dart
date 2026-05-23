@@ -760,6 +760,7 @@ class AiSessionStatistics {
       cacheCreationTokens: _readNullableInt(json['cache_creation_tokens']),
       cacheReadTokens: _readNullableInt(json['cache_read_tokens']),
       reasoningTokens: _readNullableInt(json['reasoning_tokens']),
+      firstPromptTokens: _readNullableInt(json['first_prompt_tokens']),
       lastPromptSystemMessageCount: _readInt(
         json['last_prompt_system_message_count'],
       ),
@@ -787,6 +788,7 @@ class AiSessionStatistics {
     this.cacheCreationTokens,
     this.cacheReadTokens,
     this.reasoningTokens,
+    this.firstPromptTokens,
     this.lastPromptSystemMessageCount = 0,
     this.lastPromptHistoryMessageCount = 0,
   });
@@ -810,6 +812,7 @@ class AiSessionStatistics {
       cacheCreationTokens = null,
       cacheReadTokens = null,
       reasoningTokens = null,
+      firstPromptTokens = null,
       lastPromptSystemMessageCount = 0,
       lastPromptHistoryMessageCount = 0;
 
@@ -831,6 +834,10 @@ class AiSessionStatistics {
   final int? cacheCreationTokens;
   final int? cacheReadTokens;
   final int? reasoningTokens;
+
+  /// 第一轮 prompt 的 token 数，用于排除首轮计算缓存命中率。
+  /// 首轮必然 cache miss（此前无上下文可缓存），将其计入分母会拉低真实命中率。
+  final int? firstPromptTokens;
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
@@ -853,6 +860,7 @@ class AiSessionStatistics {
     int? cacheCreationTokens,
     int? cacheReadTokens,
     int? reasoningTokens,
+    int? firstPromptTokens,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
   }) {
@@ -880,6 +888,7 @@ class AiSessionStatistics {
       cacheCreationTokens: cacheCreationTokens ?? this.cacheCreationTokens,
       cacheReadTokens: cacheReadTokens ?? this.cacheReadTokens,
       reasoningTokens: reasoningTokens ?? this.reasoningTokens,
+      firstPromptTokens: firstPromptTokens ?? this.firstPromptTokens,
       lastPromptSystemMessageCount:
           lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount:
@@ -907,6 +916,7 @@ class AiSessionStatistics {
       'cache_creation_tokens': cacheCreationTokens,
       'cache_read_tokens': cacheReadTokens,
       'reasoning_tokens': reasoningTokens,
+      'first_prompt_tokens': firstPromptTokens,
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
     };
@@ -918,6 +928,7 @@ class AiSessionStatistics {
     required int promptBuildCount,
     required int compressionRunCount,
     required AiTokenUsage totalUsage,
+    int? firstPromptTokens,
     required int lastPromptSystemMessageCount,
     required int lastPromptHistoryMessageCount,
   }) {
@@ -988,6 +999,7 @@ class AiSessionStatistics {
       cacheCreationTokens: totalUsage.cacheCreationTokens,
       cacheReadTokens: totalUsage.cacheReadTokens,
       reasoningTokens: totalUsage.reasoningTokens,
+      firstPromptTokens: firstPromptTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
     );

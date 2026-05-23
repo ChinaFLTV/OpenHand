@@ -16,10 +16,11 @@ class _TokenDial extends StatefulWidget {
   int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
   /// 当前会话的 cache 命中率（cache_read / (prompt + cache_read)），范围 0..1。
-  /// 当 prompt + cache_read = 0 时返回 0。
+  /// 分母排除首轮 prompt tokens，因为首轮必然 cache miss，会拉低真实命中率。
   double get cacheHitRatio {
     final read = cacheReadTokens ?? 0;
-    final prompt = statistics.totalPromptTokens ?? 0;
+    final prompt = (statistics.totalPromptTokens ?? 0) -
+        (statistics.firstPromptTokens ?? 0).clamp(0, statistics.totalPromptTokens ?? 0);
     final denom = prompt + read;
     if (denom == 0) return 0.0;
     return read / denom;
@@ -227,7 +228,9 @@ class _TokenDialPopup extends StatelessWidget {
     final reasoningValueStyle = valueStyle?.copyWith(
       color: Colors.purple.shade400,
     );
-    final promptTokens = statistics.totalPromptTokens ?? 0;
+    final promptTokensTotal = statistics.totalPromptTokens ?? 0;
+    final firstPrompt = statistics.firstPromptTokens ?? 0;
+    final promptTokens = (promptTokensTotal - firstPrompt).clamp(0, promptTokensTotal);
     final completionTokens = statistics.totalCompletionTokens ?? 0;
     final cacheRead = statistics.cacheReadTokens ?? 0;
     final cacheWrite = statistics.cacheCreationTokens ?? 0;

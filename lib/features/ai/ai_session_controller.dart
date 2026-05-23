@@ -8244,18 +8244,27 @@ $trimmedSummary''';
     final effectiveUsage =
         totalUsage ?? _usageFromStatistics(session.statistics);
     final trackedSession = _syncPlanHistory(session);
+    final resolvedPromptBuildCount =
+        promptBuildCount ?? trackedSession.statistics.promptBuildCount;
+    // 首轮 prompt（promptBuildCount==1）必然 cache miss，捕获其 prompt token 数，
+    // 后续计算缓存命中率时从分母中扣除，避免首轮拉低真实命中率。
+    final resolvedFirstPromptTokens =
+        trackedSession.statistics.firstPromptTokens ??
+            (resolvedPromptBuildCount == 1
+                ? effectiveUsage.promptTokens
+                : null);
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,
         totalPromptCharacters:
             totalPromptCharacters ??
             trackedSession.statistics.totalPromptCharacters,
-        promptBuildCount:
-            promptBuildCount ?? trackedSession.statistics.promptBuildCount,
+        promptBuildCount: resolvedPromptBuildCount,
         compressionRunCount:
             compressionRunCount ??
             trackedSession.statistics.compressionRunCount,
         totalUsage: effectiveUsage,
+        firstPromptTokens: resolvedFirstPromptTokens,
         lastPromptSystemMessageCount:
             lastPromptSystemMessageCount ??
             trackedSession.statistics.lastPromptSystemMessageCount,
