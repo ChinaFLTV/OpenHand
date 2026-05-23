@@ -3192,17 +3192,21 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
       toolCatalog = applyMcpLazyLoadingForCurrentSession();
+      // 2026-05-23 v6 — 「等待计划批准」的轮次仍然要在 prompt 里渲染「完整目录」，
+      // 但给 SDK / DSML 验证层的实际可用工具是空；避免全调用与 [2] 文本随 
+      // awaitingPlanApproval 反转而变动，从而保护 prefix cache。
+      final fullCatalogForDisplay = _toolCatalogForRound(
+        session: workingSession,
+        baseCatalog: toolCatalog,
+        executionApprovedForSend: planModeExecutionApprovedForSend,
+        recoveryInspectionRequired: planModeRecoveryInspectionRequired,
+      );
       final toolCatalogForRound = workingSession.awaitingPlanApproval
           ? const AiResolvedToolCatalog(
               definitions: <AiToolDefinition>[],
               toolsByName: <String, AiResolvedTool>{},
             )
-          : _toolCatalogForRound(
-              session: workingSession,
-              baseCatalog: toolCatalog,
-              executionApprovedForSend: planModeExecutionApprovedForSend,
-              recoveryInspectionRequired: planModeRecoveryInspectionRequired,
-            );
+          : fullCatalogForDisplay;
       final toolsForRound = toolCatalogForRound.definitions;
       _debugSessionLog(
         workingSession.id,
@@ -3227,6 +3231,9 @@ class AiSessionController extends ChangeNotifier {
         mcpServerInstructionsByName:
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
+        displayCatalogOverride: workingSession.awaitingPlanApproval
+            ? fullCatalogForDisplay.definitions
+            : null,
       );
       preRequestTimingsMs['prompt_build'] =
           promptBuildStopwatch.elapsedMilliseconds;

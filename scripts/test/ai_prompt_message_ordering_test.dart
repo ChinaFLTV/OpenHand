@@ -6,6 +6,7 @@ import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/instructions/model/user_instruction_entry.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
 
 /// 验证缓存前缀优化后的消息顺序：
@@ -59,7 +60,10 @@ void main() {
     );
   }
 
-  AiSessionRuntimeContext _buildRuntimeContext() {
+  AiSessionRuntimeContext _buildRuntimeContext({
+    List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
+    Set<String> skippedInstructionIds = const <String>{},
+  }) {
     return AiSessionRuntimeContext(
       localeTag: 'zh-CN',
       appVersion: '1.0.0',
@@ -74,6 +78,8 @@ void main() {
       workingDirectory: '/tmp/work',
       todayLocalDate: '2026-05-23',
       timeZoneName: 'Asia/Shanghai',
+      userInstructions: userInstructions,
+      skippedInstructionIds: skippedInstructionIds,
     );
   }
 
@@ -651,5 +657,151 @@ void main() {
     }
     // sanity: head2 在自然位置（即第一次出现 user）应当与 head1 末尾的 user 对齐
     expect(head2.last.role, AiChatRole.user);
+  });
+
+  testWidgets('[4.5] User Instructions stays byte-identical across skip toggle',
+      (tester) async {
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
+    final instructions = <UserInstructionEntry>[
+      UserInstructionEntry(
+        id: 'inst-1',
+        name: 'Be concise',
+        body: '请用最少篇幅作答。',
+        createdAt: now,
+        updatedAt: now,
+        sortOrder: 0,
+      ),
+      UserInstructionEntry(
+        id: 'inst-2',
+        name: 'Cite sources',
+        body: '回答时附上来源链接。',
+        createdAt: now,
+        updatedAt: now,
+        sortOrder: 1,
+      ),
+    ];
+    final session = _buildMinimalSession(messages: [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hi',
+        createdAt: now,
+      ),
+    ]);
+
+    String? extract45(List<AiChatTurn> messages) {
+      for (final m in messages) {
+        if (m.content.contains('[4.5] User Instructions')) {
+          return m.content;
+        }
+      }
+      return null;
+    }
+
+    final resultNoSkip = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session,
+      model: model,
+      runtimeContext: _buildRuntimeContext(userInstructions: instructions),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'msg-1',
+    );
+    final resultSkipOne = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session,
+      model: model,
+      runtimeContext: _buildRuntimeContext(
+        userInstructions: instructions,
+        skippedInstructionIds: const <String>{'inst-2'},
+      ),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    expect(extract45(resultNoSkip.messages), isNotNull);
+    expect(extract45(resultSkipOne.messages), equals(extract45(resultNoSkip.messages)),
+        reason: '[4.5] User Instructions 必须始终渲染所有 enabled 指令，'
+            'skippedInstructionIds 只能影响 [3d] Dynamic，否则 prefix cache 会被勾选打穿。');
+
+    String? extract3d(List<AiChatTurn> messages) {
+      for (final m in messages) {
+        if (m.content.contains('[3d] Dynamic Session State')) {
+          return m.content;
+        }
+      }
+      return null;
+    }
+
+    expect(extract3d(resultSkipOne.messages)!.contains('skipped_user_instruction_ids'),
+        isTrue,
+        reason: '本轮被跳过的指令 id 必须出现在 [3d] Dynamic，让模型能在动态尾部读到。');
+    expect(extract3d(resultSkipOne.messages)!.contains('inst-2'), isTrue);
+  });
+
+  testWidgets('[2] Tool Catalog stays byte-identical across awaitingPlanApproval toggle',
+      (tester) async {
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+    final now = DateTime.now().toUtc();
+    final session = _buildMinimalSession(messages: [
+      AiSessionMessage.user(id: 'msg-1', content: 'Hi', createdAt: now),
+    ]);
+    final approvingSession = session.copyWith(awaitingPlanApproval: true);
+
+    // 模拟控制器：固定一份「完整工具目录」用于 [2] 渲染；当 awaiting 时
+    // availableTools=[] 但 displayCatalogOverride 仍传入完整目录。
+    const fakeCatalog = <AiToolDefinition>[
+      AiToolDefinition(
+        name: 'Bash',
+        description: 'Run shell command',
+        parameters: <String, Object?>{},
+      ),
+      AiToolDefinition(
+        name: 'Write',
+        description: 'Write file',
+        parameters: <String, Object?>{},
+      ),
+    ];
+
+    final resultNormal = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'msg-1',
+      availableTools: fakeCatalog,
+    );
+    final resultAwaiting = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: approvingSession,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: approvingSession.messages,
+      latestUserMessageId: 'msg-1',
+      availableTools: const <AiToolDefinition>[],
+      displayCatalogOverride: fakeCatalog,
+    );
+
+    String? extract2(List<AiChatTurn> messages) {
+      for (final m in messages) {
+        if (m.content.contains('[2] Tool Catalog')) {
+          return m.content;
+        }
+      }
+      return null;
+    }
+
+    expect(extract2(resultNormal.messages), equals(extract2(resultAwaiting.messages)),
+        reason: '提供 displayCatalogOverride 时 [2] Tool Catalog 应当跨 awaitingPlanApproval '
+            '保持字节一致，由 [3d] plan.awaiting_approval 单独告知模型不可调用。');
   });
 }

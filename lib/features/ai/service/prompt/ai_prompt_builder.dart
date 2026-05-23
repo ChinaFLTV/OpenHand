@@ -145,6 +145,11 @@ class AiPromptBuilder {
         const <String, AiResolvedTool>{},
     Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
+    // 2026-05-23 v6 — 供调用方（AiSessionController）在「等待计划批准」
+    // 轮次传入「完整目录」，让 [2] Tool Catalog 文本跨轮保持字节一致，
+    // 仅靠 [3d] 里的 plan.awaiting_approval 告诉模型「本轮不能调用工具」。
+    // 同时 availableTools 可以保持为空，让 SDK 层 / 本地验证层拒绝任何工具调用。
+    List<AiToolDefinition>? displayCatalogOverride,
   }) {
     final repositorySnapshot = _effectiveRepositorySnapshot(
       session: session,
@@ -432,7 +437,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
+            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
       // 2026-05-23 v4 — Session State 拆分为静态/动态两部分：
       // - [3s] Static（session 标识、环境、限制、git、workspace_instructions）
@@ -466,20 +471,23 @@ class AiPromptBuilder {
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
-      // 2026-04-25 — 【指令】模块注入。仅在存在 enabled 且未被本轮临时
-      // 取消的指令时才追加这条 system turn，避免对既有提示词布局造成
-      // 任何 token 影响。
+      // 2026-04-25 — 【指令】模块注入。
+      // 2026-05-23 v6 — 为了不让「本轮临时跳过某条指令」的勾选击穿
+      // [4.5] 这块的 prefix cache，[4.5] 始终渲染「全部 enabled 指令」，本轮
+      // 要忽略哪几条由 [3d] Dynamic Session State 的
+      // `skipped_user_instruction_ids` 告诉模型。渲染时会在每条指令标
+      // 题里携带 id，保证模型能精准匹配。
       if (_renderUserInstructionsBody(
         runtimeContext.userInstructions,
-        runtimeContext.skippedInstructionIds,
+        const <String>{},
       ).isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
               '# [4.5] User Instructions\n\n'
-              '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。 / '
-              'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above.\n\n'
-              '${_renderUserInstructionsBody(runtimeContext.userInstructions, runtimeContext.skippedInstructionIds)}',
+              '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。若 [3d] Dynamic Session State 里出现了 `skipped_user_instruction_ids`，本轮临时忽略该 id 对应的指令。 / '
+              'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
+              '${_renderUserInstructionsBody(runtimeContext.userInstructions, const <String>{})}',
         ),
       AiChatTurn(
         role: AiChatRole.system,
@@ -779,7 +787,7 @@ class AiPromptBuilder {
         'workspace_instructions',
       if (_renderUserInstructionsBody(
         runtimeContext.userInstructions,
-        runtimeContext.skippedInstructionIds,
+        const <String>{},
       ).isNotEmpty)
         'user_instructions',
       if (repositorySnapshot != null) 'repository_snapshot',
@@ -1099,6 +1107,13 @@ class AiPromptBuilder {
     }
     if (planModeReminder != null && planModeReminder.isNotEmpty) {
       dynamicState['plan_reminder'] = planModeReminder;
+    }
+
+    // 2026-05-23 v6 — 本轮被临时跳过的用户指令 id 列表，让 [4.5] 保持
+    // 字节稳定（缓存友好），实际忽略哪几条从 [3d] 读取。
+    if (runtimeContext.skippedInstructionIds.isNotEmpty) {
+      final ids = runtimeContext.skippedInstructionIds.toList()..sort();
+      dynamicState['skipped_user_instruction_ids'] = ids;
     }
 
     return dynamicState;
@@ -2611,7 +2626,9 @@ $identity''';
       final name = entry.name.trim().isEmpty
           ? 'Instruction'
           : entry.name.trim();
-      buf.writeln('## ${i + 1}. $name (v${entry.version})');
+      // 2026-05-23 v6 — 携带 id，供 [3d] Dynamic State 中的
+      // `skipped_user_instruction_ids` 精准定位。
+      buf.writeln('## ${i + 1}. $name (v${entry.version}, id=${entry.id})');
       if (entry.description.trim().isNotEmpty) {
         buf.writeln('_${entry.description.trim()}_');
       }
