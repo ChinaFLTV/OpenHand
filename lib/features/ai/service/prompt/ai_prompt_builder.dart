@@ -331,6 +331,19 @@ class AiPromptBuilder {
           latestCompressionPoint: latestCompressionPoint,
         );
 
+    // 2026-05-23 — latestUserTurns 可能包含 hook 注入的 system reminder
+    // （`<system-reminder>` 标签被 _mapMessageContent 提取为 system turn）。
+    // 这些 system turn 每轮都变，必须与 stable restored contexts 隔离 → 放入 volatile tail。
+    final latestUserSystemTurns = <AiChatTurn>[];
+    final latestUserNonSystemTurns = <AiChatTurn>[];
+    for (final turn in latestUserTurns) {
+      if (turn.role == AiChatRole.system) {
+        latestUserSystemTurns.add(turn);
+      } else {
+        latestUserNonSystemTurns.add(turn);
+      }
+    }
+
     final messages = <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
@@ -358,8 +371,8 @@ class AiPromptBuilder {
       // 合并为一条 system 消息（_mergeConsecutiveSystemMessages），该消息
       // 每轮都变，导致前缀缓存在此断裂，命中率退化至个位数。
       //
-      // 重排后，前缀 [0..5] + history + 5.6-5.12 全部稳定可缓存，latestUserTurns
-      // 成为第一个 cache-miss 点，之后所有 volatile 块都在 cache-miss 区内。
+      // 重排后，前缀 [0..5] + history + 5.6-5.12 + 用户消息本体全部稳定可缓存，
+      // 用户消息之后的 volatile 块全都在 cache-miss 区内。
       // 语义上模型按章节标题查找，位置不影响正确性。
       AiChatTurn(
         role: AiChatRole.system,
@@ -438,10 +451,13 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
-      ...latestUserTurns,
-      // ── Volatile tail（每轮变化）──
-      // 放在 latestUserTurns 之后，确保前缀缓存可以覆盖从 [0] 到
-      // latestUserTurns 之间的所有稳定内容。模型按章节标题查找，位置不影响语义。
+      // 用户消息本体（不含 hook system reminder）→ 稳定前缀区的最后一项。
+      ...latestUserNonSystemTurns,
+      // ═══════════════════════════════════════════════════════════════
+      // Volatile tail（每轮变化，全部在 cache-miss 区内）
+      // ═══════════════════════════════════════════════════════════════
+      // Hook system reminder（从用户消息的 <system-reminder> 中提取）。
+      ...latestUserSystemTurns,
       if (todoReminder != null && !isCompactTemplate)
         AiChatTurn(
           role: AiChatRole.system,
