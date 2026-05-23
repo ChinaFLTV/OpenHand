@@ -15,13 +15,24 @@ class _TokenDial extends StatefulWidget {
   int? get cacheReadTokens => statistics.cacheReadTokens;
   int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
-  /// 当前会话的 cache 命中率（cache_read / (prompt + cache_read)），范围 0..1。
-  /// 分母排除首轮 prompt tokens，因为首轮必然 cache miss，会拉低真实命中率。
+  /// 当前会话的 cache 命中率，范围 0..1。
+  ///
+  /// 分母排除首轮 prompt tokens（首轮必然 cache miss，会拉低真实命中率）。
+  ///
+  /// 协议差异：
+  /// - Claude / Anthropic：prompt_tokens 不包含 cache_read，二者独立。
+  ///   → 分母 = prompt + cache_read（即总输入 token 数）。
+  /// - OpenAI 兼容系（OpenAI / DeepSeek / Qwen / GLM / Kimi / Grok / Seed /
+  ///   StepFun / LongCat / MiniMax 等）及 Gemini：
+  ///   prompt_tokens 已包含 cache_read 子集。
+  ///   → 分母 = prompt（含 cache_read 的总 prompt token 数）。
   double get cacheHitRatio {
     final read = cacheReadTokens ?? 0;
     final prompt = (statistics.totalPromptTokens ?? 0) -
         (statistics.firstPromptTokens ?? 0).clamp(0, statistics.totalPromptTokens ?? 0);
-    final denom = prompt + read;
+    if (prompt <= 0) return 0.0;
+    // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
+    final denom = claudeStyle ? (prompt + read) : prompt;
     if (denom == 0) return 0.0;
     return read / denom;
   }
@@ -236,8 +247,9 @@ class _TokenDialPopup extends StatelessWidget {
     final cacheWrite = statistics.cacheCreationTokens ?? 0;
     final reasoning = statistics.reasoningTokens ?? 0;
     final total = statistics.totalTokens ?? 0;
-    final cacheDenominator = promptTokens + cacheRead;
-    final cacheHitRatio = cacheDenominator == 0
+    // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
+    final cacheDenominator = claudeStyle ? (promptTokens + cacheRead) : promptTokens;
+    final cacheHitRatio = cacheDenominator <= 0
         ? 0.0
         : cacheRead / cacheDenominator;
     return Material(
@@ -341,7 +353,9 @@ class _TokenDialPopup extends StatelessWidget {
                 ratio: cacheHitRatio,
                 cacheRead: cacheRead,
                 cacheWrite: cacheWrite,
-                prompt: promptTokens,
+                prompt: claudeStyle
+                    ? promptTokens
+                    : (promptTokens - cacheRead).clamp(0, promptTokens),
               ),
             ],
             const SizedBox(height: 10),
