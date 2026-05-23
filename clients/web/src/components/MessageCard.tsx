@@ -23,6 +23,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useStreamingReveal } from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 
 function formatTimestamp(iso: string): string {
@@ -801,6 +802,12 @@ function MessageCardImpl({
     !reduceMotion,
   );
 
+  const streamingReveal = useStreamingReveal(
+    streamingContent && !isUserBubble,
+    visibleContent.length,
+    reduceMotion,
+  );
+
   const handleBadgeToggle = useCallback((e: Event) => {
     e.stopPropagation();
     setBadgeCollapsedOverride((current) => {
@@ -952,7 +959,15 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} /> : null
         ) : (
-          <div class={streamingContent && !isUserBubble ? 'oh-streaming-reveal' : undefined}>
+          <div
+            class={streamingContent && !isUserBubble ? 'oh-streaming-reveal' : undefined}
+            style={streamingReveal.animateMask
+              ? {
+                  WebkitMaskImage: streamingReveal.maskImage,
+                  maskImage: streamingReveal.maskImage,
+                }
+              : undefined}
+          >
             <Markdown
               source={visibleContent}
               raw={style.mono === true}

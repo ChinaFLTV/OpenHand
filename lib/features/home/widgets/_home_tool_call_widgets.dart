@@ -3660,8 +3660,16 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _reasoningExpanded = !_reasoningExpanded;
               });
             },
-            expandedBuilder: (context) =>
-                _SelfLearningMarkdown(data: aiReasoning, muted: true),
+            expandedBuilder: (context) => isStreaming
+                ? StreamingTextReveal(
+                    textLength: aiReasoning.length,
+                    streaming: true,
+                    child: _SelfLearningMarkdown(
+                      data: aiReasoning,
+                      muted: true,
+                    ),
+                  )
+                : _SelfLearningMarkdown(data: aiReasoning, muted: true),
           ),
         ],
         if (aiResponse.isNotEmpty) ...[
@@ -3677,8 +3685,16 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _responseExpanded = !_responseExpanded;
               });
             },
-            expandedBuilder: (context) =>
-                _SelfLearningMarkdown(data: aiResponse, muted: false),
+            expandedBuilder: (context) => isStreaming
+                ? StreamingTextReveal(
+                    textLength: aiResponse.length,
+                    streaming: true,
+                    child: _SelfLearningMarkdown(
+                      data: aiResponse,
+                      muted: false,
+                    ),
+                  )
+                : _SelfLearningMarkdown(data: aiResponse, muted: false),
           ),
         ],
         if (status == 'error' && aiResponse.isEmpty) ...[
