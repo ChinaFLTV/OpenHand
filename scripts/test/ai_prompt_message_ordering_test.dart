@@ -77,7 +77,7 @@ void main() {
     );
   }
 
-  testWidgets('volatile [3] Session State is placed after user message',
+  testWidgets('[3d] Dynamic Session State is placed after user message',
       (tester) async {
     final templateBundle = await repo.loadBundle('default');
     final session = _buildMinimalSession();
@@ -96,18 +96,16 @@ void main() {
 
     final messages = result.messages;
 
-    // 找到用户消息和 Session State 的索引
     final userTurnIndex =
         messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
-    final sessionStateIndex =
-        messages.indexWhere((m) => m.content.contains('[3] Session State'));
+    final dynamicStateIndex =
+        messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 
-    // 没有用户消息时，Session State 在 system messages 中也合理
     if (userTurnIndex >= 0) {
       expect(
         userTurnIndex,
-        lessThan(sessionStateIndex),
-        reason: '[3] Session State 必须在用户消息之后。'
+        lessThan(dynamicStateIndex),
+        reason: '[3d] Dynamic Session State 必须在用户消息之后。'
             '若在之前，它会与 restored contexts 合并为一条 system 消息，'
             '每轮变化导致前缀缓存断裂，命中率退化至个位数。',
       );
@@ -137,19 +135,19 @@ void main() {
         messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
 
     if (userTurnIndex >= 0) {
-      // 用户消息之后的所有 system turn 都是 volatile，包含了 [3] Session State
+      // 用户消息之后的所有 system turn 都是 volatile，包含了 [3d] Dynamic Session State
       final afterUser = messages.sublist(userTurnIndex + 1);
-      final hasSessionState = afterUser.any(
-        (m) => m.role == AiChatRole.system && m.content.contains('[3] Session State'),
+      final hasDynamicState = afterUser.any(
+        (m) => m.role == AiChatRole.system && m.content.contains('[3d] Dynamic Session State'),
       );
-      expect(hasSessionState, isTrue,
-          reason: '[3] Session State 必须在用户消息之后');
+      expect(hasDynamicState, isTrue,
+          reason: '[3d] Dynamic Session State 必须在用户消息之后');
 
-      // 验证用户消息之前没有 volatile 标记
+      // 验证用户消息之前没有 volatile 标记（[3d]、[5.5]）
       final beforeUser = messages.sublist(0, userTurnIndex);
       final volatileInStableZone = beforeUser.where(
         (m) => m.role == AiChatRole.system &&
-            (m.content.contains('[3] Session State') ||
+            (m.content.contains('[3d] Dynamic Session State') ||
              m.content.contains('[5.5] Focus Context')),
       );
       expect(volatileInStableZone, isEmpty,
@@ -232,6 +230,13 @@ void main() {
         .where((m) => m.role == AiChatRole.system)
         .map((m) => m.content)
         .toList();
+
+    // 验证 [3s] Static Session State 在稳定前缀中（用户消息之前）
+    final prefix1HasStaticState = prefix1.any(
+      (m) => m.content.contains('[3s] Static Session State'),
+    );
+    expect(prefix1HasStaticState, isTrue,
+        reason: '[3s] Static Session State 必须在稳定前缀中（history 之前）');
 
     // 第一条 system message（[0] System Instructions）应该一致
     expect(prefix1Systems.first, equals(prefix2Systems.first),
@@ -337,8 +342,8 @@ void main() {
     final messages = result.messages;
     final userMsgIndex =
         messages.indexWhere((m) => m.content.contains('[6] Your latest message'));
-    final sessionStateIndex =
-        messages.indexWhere((m) => m.content.contains('[3] Session State'));
+    final dynamicStateIndex =
+        messages.indexWhere((m) => m.content.contains('[3d] Dynamic Session State'));
 
     // 找到历史轮次
     final firstHistoryIndex = messages.indexWhere((m) =>
@@ -349,8 +354,8 @@ void main() {
       expect(firstHistoryIndex, lessThan(userMsgIndex),
           reason: 'History turns 必须在用户最新消息之前，'
               '确保模型先读取对话上下文再理解当前问题。');
-      expect(userMsgIndex, lessThan(sessionStateIndex),
-          reason: '[3] Session State 必须在用户消息之后（volatile tail）。');
+      expect(userMsgIndex, lessThan(dynamicStateIndex),
+          reason: '[3d] Dynamic Session State 必须在用户消息之后（volatile tail）。');
     }
   });
 }

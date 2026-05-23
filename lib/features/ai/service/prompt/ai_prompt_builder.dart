@@ -45,6 +45,28 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
+  static const _nonCompactStaticSessionKeys = <String>{
+    'session_title',
+    'session_created_at',
+    'session_id',
+    'session_template_id',
+    'session_template_name',
+    'session_template_version',
+    'platform_name',
+    'time_zone_name',
+    'working_directory',
+    'single_round_tool_call_limit',
+    'sequential_tool_round_limit',
+    'write_command_confirmation_enabled',
+    'workspace_instruction_document_count',
+    'workspace_instruction_paths',
+    'allow_command_rule_count',
+    'allow_command_rules',
+    'repository_snapshot',
+    'environment',
+    'tool_catalog_authoritative',
+    'current_file_editing_tool_names',
+  };
   static const int _microCompactKeepRecentToolResults = 5;
   static const int _contextBudgetEstimatedCharsPerToken = 4;
   static const int _contextBudgetSummaryReserveTokens = 20000;
@@ -280,18 +302,31 @@ class AiPromptBuilder {
     final isCompactTemplate =
         templateBundle.template.id == 'default' ||
         templateBundle.template.id == 'programming_expert';
-    final promptMetadata = isCompactTemplate
-        ? _buildCompactPromptMetadata(
-            session: session,
-            runtimeContext: runtimeContext,
-            repositorySnapshot: repositorySnapshot,
-            availableToolNames: availableToolNames,
-            model: model,
-            postCompactRehydration: postCompactRehydration,
-            todoReminder: todoReminder,
-            planModeReminder: planModeReminder,
-          )
-        : metadata;
+    final Map<String, Object?> staticSessionState;
+    final Map<String, Object?> dynamicSessionState;
+    if (isCompactTemplate) {
+      staticSessionState = _buildCompactStaticSessionState(
+        session: session,
+        runtimeContext: runtimeContext,
+        repositorySnapshot: repositorySnapshot,
+        postCompactRehydration: postCompactRehydration,
+      );
+      dynamicSessionState = _buildCompactDynamicSessionState(
+        session: session,
+        todoReminder: todoReminder,
+        planModeReminder: planModeReminder,
+      );
+    } else {
+      staticSessionState = <String, Object?>{};
+      dynamicSessionState = <String, Object?>{};
+      for (final entry in metadata.entries) {
+        if (_nonCompactStaticSessionKeys.contains(entry.key)) {
+          staticSessionState[entry.key] = entry.value;
+        } else {
+          dynamicSessionState[entry.key] = entry.value;
+        }
+      }
+    }
     final focusContext = _renderFocusContext(
       historyMessages: historyMessages,
       latestUserMessage: latestUserMessage,
@@ -361,11 +396,12 @@ class AiPromptBuilder {
         content:
             '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
-      // 2026-05-23 — Cache-prefix optimization v3:
-      // 将所有每轮变动的 volatile 块（[3] Session State、System Reminder、
-      // Plan Mode Reminder、[5.5] Focus Context）移至 latestUserTurns 之后。
-      // 将 restored contexts [5.6]-[5.12] 移至 history 之前——
-      // 它们在压缩点前保持稳定，放在稳定前缀区可增加缓存命中 token 数。
+      // 2026-05-23 v4 — Session State 拆分为静态/动态两部分：
+      // - [3s] Static（session 标识、环境、限制、git、workspace_instructions）
+      //   放在 history 之前 → 稳定前缀区，享受缓存命中。
+      // - [3d] Dynamic（todos、plan、reminders）放在用户消息之后 → volatile tail。
+      // System Reminder / Hook Reminder 移至 Focus Context 之后（prompt 最尾部），
+      // 进一步将每轮变动的 volatile 块集中在尾部，扩大稳定前缀。
       //
       // 原因：OpenAI 兼容协议（DeepSeek / OpenAI / Qwen / Kimi / GLM 等）
       // 使用隐式 prefix-cache，cache key = messages 数组的公共前缀哈希。
@@ -373,9 +409,8 @@ class AiPromptBuilder {
       // 合并为一条 system 消息（_mergeConsecutiveSystemMessages），该消息
       // 每轮都变，导致前缀缓存在此断裂，命中率退化至个位数。
       //
-      // 重排后，前缀 [0..5] + restored [5.6-5.12] + history + 用户消息本体
+      // 重排后，前缀 [0..5] + restored [5.6-5.12] + [3s] + history + 用户消息
       // 全部稳定可缓存；用户消息之后的 volatile 块全都在 cache-miss 区内。
-      // 语义上模型按章节标题查找，位置不影响正确性。
       AiChatTurn(
         role: AiChatRole.system,
         // 注：记忆口吻政策（"自然融入、不外露记忆来源"）已由
@@ -454,13 +489,30 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
+      // [3s] Static Session State — in stable prefix, before history.
+      AiChatTurn(
+        role: AiChatRole.system,
+        content:
+            '# [3s] Static Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
+      ),
       ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 第一个 cache-miss 点。
       ...latestUserNonSystemTurns,
       // ═══════════════════════════════════════════════════════════════
       // Volatile tail（每轮变化，全部在 cache-miss 区内）
       // ═══════════════════════════════════════════════════════════════
-      // Hook system reminder（从用户消息的 <system-reminder> 中提取）。
+      AiChatTurn(
+        role: AiChatRole.system,
+        content:
+            '# [3d] Dynamic Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
+      ),
+      if (focusContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.5] Focus Context\n\n$focusContext',
+        ),
+      // Hook system reminder（从用户消息的 <system-reminder> 中提取）
+      // 放在 prompt 最尾部，避免污染缓存前缀。
       ...latestUserSystemTurns,
       if (todoReminder != null && !isCompactTemplate)
         AiChatTurn(
@@ -471,16 +523,6 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
-        ),
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '# [3] Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(promptMetadata)}\n```',
-      ),
-      if (focusContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content: '# [5.5] Focus Context\n\n$focusContext',
         ),
     ];
     final systemMessageCount = messages
@@ -912,39 +954,21 @@ class AiPromptBuilder {
     return buffer.toString().trimRight();
   }
 
-  /// Builds a compact metadata dict for the programming_expert template.
-  ///
-  /// This reduces token overhead by ~40% compared to the full metadata format:
-  /// - Eliminates the `environment` duplication
-  /// - Removes debug/internal fields (session timestamps, IDs, token counts)
-  /// - Removes computable fields (tool count, prompt message counts)
-  /// - Conditionally includes fields only when populated (git, todos, plan)
-  /// - Folds system reminders (todo, plan) into metadata instead of separate
-  ///   system messages, reducing per-message API overhead.
-  ///
-  /// 2026-04-13: Enhanced clarity for working_directory/project_root:
-  /// - Renamed 'cwd' to 'working_directory' for clarity
-  /// - Added 'project_root' as alias for tool path resolution context
-  Map<String, Object?> _buildCompactPromptMetadata({
+  Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
     required AiRepositorySnapshot? repositorySnapshot,
-    required List<String> availableToolNames,
-    required AiModelConfig model,
     required Map<String, Object?> postCompactRehydration,
-    String? todoReminder,
-    String? planModeReminder,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
         : runtimeContext.workingDirectory.trim();
 
-    final compact = <String, Object?>{
+    final staticState = <String, Object?>{
       'session': <String, Object?>{
         'title': session.title,
         'mode': session.mode.storageValue,
       },
-      // 2026-04-13: Use explicit field names for AI clarity
       'context': <String, Object?>{
         'cwd': workingDirectory,
         'platform': runtimeContext.platformName,
@@ -976,28 +1000,12 @@ class AiPromptBuilder {
         gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
       }
       if (gitInfo.isNotEmpty) {
-        compact['git'] = gitInfo;
+        staticState['git'] = gitInfo;
       }
     }
 
-    if (session.todoItems.isNotEmpty) {
-      compact['todos'] = session.todoItems
-          .map((item) => item.toJson())
-          .toList(growable: false);
-    }
-
-    if (session.mode == AiSessionMode.plan || session.awaitingPlanApproval) {
-      compact['plan'] = <String, Object?>{
-        'active': session.mode == AiSessionMode.plan,
-        'awaiting_approval': session.awaitingPlanApproval,
-        if (session.pendingPlan != null &&
-            session.pendingPlan!.trim().isNotEmpty)
-          'pending_plan': session.pendingPlan!.trim(),
-      };
-    }
-
     if (runtimeContext.allowCommandRules.isNotEmpty) {
-      compact['allow_cmd_rules'] = runtimeContext.allowCommandRules
+      staticState['allow_cmd_rules'] = runtimeContext.allowCommandRules
           .map((rule) {
             final note = rule.note.trim();
             return note.isEmpty
@@ -1008,22 +1016,46 @@ class AiPromptBuilder {
     }
 
     if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
-      compact['workspace_instructions'] = runtimeContext
+      staticState['workspace_instructions'] = runtimeContext
           .workspaceInstructionDocuments
           .map((item) => item.path)
           .toList(growable: false);
     }
 
-    // Fold system reminders into metadata so they don't require separate
-    // system messages, saving per-turn API overhead.
-    if (todoReminder != null && todoReminder.isNotEmpty) {
-      compact['system_reminder'] = todoReminder;
-    }
-    if (planModeReminder != null && planModeReminder.isNotEmpty) {
-      compact['plan_reminder'] = planModeReminder;
+    return staticState;
+  }
+
+  Map<String, Object?> _buildCompactDynamicSessionState({
+    required AiSession session,
+    String? todoReminder,
+    String? planModeReminder,
+  }) {
+    final dynamicState = <String, Object?>{};
+
+    if (session.todoItems.isNotEmpty) {
+      dynamicState['todos'] = session.todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false);
     }
 
-    return compact;
+    if (session.mode == AiSessionMode.plan || session.awaitingPlanApproval) {
+      dynamicState['plan'] = <String, Object?>{
+        'active': session.mode == AiSessionMode.plan,
+        'awaiting_approval': session.awaitingPlanApproval,
+        if (session.pendingPlan != null &&
+            session.pendingPlan!.trim().isNotEmpty)
+          'pending_plan': session.pendingPlan!.trim(),
+      };
+    }
+
+    if (todoReminder != null && todoReminder.isNotEmpty) {
+      dynamicState['system_reminder'] = todoReminder;
+    }
+    if (planModeReminder != null && planModeReminder.isNotEmpty) {
+      dynamicState['plan_reminder'] = planModeReminder;
+    }
+
+    return dynamicState;
   }
 
   String _renderRuntimeToolCatalog(

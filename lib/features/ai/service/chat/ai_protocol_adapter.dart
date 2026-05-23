@@ -719,9 +719,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     // 2026-05-23 — 按稳定性拆分 system 消息：
-    // - pre-user system（[0]-[5]、restored contexts）→ 加 cache_control
-    // - post-user system（reminders、[3] Session State、[5.5] Focus）→ 不加缓存
-    // 避免每轮变动的 [3] JSON 让 system 缓存块失效（cache_write 每轮触发）。
+    // - pre-user system（[0]-[5]、[3s]、restored contexts）→ 加 cache_control
+    // - post-user system（[3d] Dynamic Session State、[5.5] Focus、reminders）→ 不加缓存
+    // 避免每轮变动的 [3d] JSON 让 system 缓存块失效（cache_write 每轮触发）。
     // 分界线 = 最后一条非 system 消息的索引。
     var lastNonSystemIndex = -1;
     for (var i = 0; i < messages.length; i++) {
