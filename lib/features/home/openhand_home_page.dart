@@ -159,6 +159,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _programmaticAutoFollowScrollInProgress = false;
   bool _userScrollInProgress = false;
   bool _userDragActive = false;
+  int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
   double? _lastMessageScrollPixels;
   DateTime? _lastPointerSignalScrollAt;
@@ -1687,29 +1688,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _composerScrollCompensationInProgress) {
       return;
     }
-    // 2026-05-24 (修复): 弹道阶段（弹簧回弹/fling 减速）的像素变化来自
-    // 物理模拟而非用户主动输入——此时 ScrollController listener 没有能力
-    // 区分「用户拖拽」和「BouncingScrollPhysics 弹簧从 overshoot 回位」。
-    // 如果在弹道阶段做 delta 检测，弹簧将 viewport 从 maxScrollExtent 上方
-    // 拽回正常区域时会产生一个很大的负 delta，被误判为「用户向上滚动」→
-    // 暂停自动跟随→重启 800 ms 宽限期→宽限到期后 jumpTo 再次触发→再次
-    // overshoot→弹簧回位→再次被误判……形成闭环振荡，表现为使劲滑到底时
-    // 消息盒子持续小幅度快速弹跳/抽搐/鬼畜。
-    //
-    // 检测策略：若上一帧 pixels 在 overshoot 区域 (> maxScrollExtent) 且
-    // 当前帧已回到正常区域，说明弹簧正在回弹。再配合 _userDragActive 为
-    // false（无活跃拖拽手势），即可安全判定为「物理回弹而非用户上滑」。
-    // _handleMessageScrollNotification 通过 dragDetails 元数据可在下一帧
-    // 正确分类真正的用户 fling，不需要本 listener 越俎代庖。
-    final maxExt = position.maxScrollExtent;
-    if (previousPixels != null &&
-        previousPixels > maxExt + 0.5 &&
-        pixels <= maxExt + 0.5 &&
-        !_userDragActive) {
+    // 2026-05-24 (修复): isScrollingNotifier 为 true 但 _userDragActive 为
+    // false 时，说明当前滚动由物理模拟驱动（弹簧回弹、fling 减速）而非用户
+    // 拖拽手势。ScrollController listener 无法区分「物理回弹」和「用户上滑」，
+    // 在弹道阶段做 delta 检测会将弹簧从 overshoot 回位误判为用户操作→暂停
+    // 自动跟随→重启宽限期→jumpTo 再次触发→再次 overshoot→形成闭环振荡，
+    // 表现为使劲滑到底时消息盒子持续快速弹跳/抽搐/鬼畜。
+    // _handleMessageScrollNotification 通过 dragDetails + UserScrollNotification
+    // 方向元数据可正确分类弹道阶段的用户 fling，不需要本 listener 越俎代庖。
+    if (position.isScrollingNotifier.value && !_userDragActive) {
       return;
     }
     final delta = previousPixels == null ? 0.0 : pixels - previousPixels;
-    final distanceToBottom = maxExt - pixels;
+    final distanceToBottom = position.maxScrollExtent - pixels;
     if (delta < -0.5 && distanceToBottom > 0) {
       _markUserScrollInProgress();
       // 2026-05-26 — 每次检测到向上滚动时也重启宽限计时器，
@@ -4964,10 +4955,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // BouncingScrollPhysics 的弹簧产生对抗，导致 overshoot→回弹→再 jumpTo
       // 的闭环振荡。用 isScrollingNotifier + _userDragActive 判定弹道阶段：
       // isScrolling 为 true 但无活跃拖拽手势 → 大概率是弹簧/fling 减速。
-      // 跳过当前帧，交给 settle pass 后续帧重试——
-      // 弹簧回弹（stiffness 180）通常 1–2 帧内结束。
+      // 此时不执行 jumpTo，而是延迟一帧重试——弹簧回弹（stiffness 180）通常
+      // 1–2 帧内结束；若 8 帧后仍未结束则放弃，避免无限重试。
       if (activePosition.isScrollingNotifier.value && !_userDragActive) {
         _scrollToBottomCallbackQueued = false;
+        final retryCount = (_ballisticRetryCounter ?? 0) + 1;
+        if (retryCount <= 8) {
+          _ballisticRetryCounter = retryCount;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _ballisticRetryCounter = null;
+            if (!mounted) return;
+            _scheduleScrollToBottom(
+              force: shouldForce,
+              animated: shouldAnimate,
+              allowSettlePasses: allowSettlePasses,
+            );
+          });
+        }
         return;
       }
       final targetOffset = activePosition.maxScrollExtent
