@@ -351,6 +351,7 @@ class AiPromptBuilder {
       staticSessionState = _buildCompactStaticSessionState(
         session: session,
         runtimeContext: runtimeContext,
+        repositorySnapshot: repositorySnapshot,
       );
       dynamicSessionState = _buildCompactDynamicSessionState(
         session: session,
@@ -443,7 +444,8 @@ class AiPromptBuilder {
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分，均置于 history 之前：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
-      // - [3d] Dynamic（git、todos、plan、mode）— 同 git 状态时不变。date 已移除：跨天改变 hash 破坏 prefix-cache。
+      // - [3d] Dynamic（todos、plan、mode、title）— 仅包含会话内真正可变字段。
+      //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
       //
       // 原因（实测 DeepSeek-v4-flash 9 轮会话，整体命中率 44%）：
       // 旧设计将 [3d]/[5.5] 放在用户消息之后（volatile tail）。
@@ -1007,6 +1009,7 @@ class AiPromptBuilder {
   Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
+    required AiRepositorySnapshot? repositorySnapshot,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
@@ -1046,6 +1049,29 @@ class AiPromptBuilder {
           .toList(growable: false);
     }
 
+    // 2026-05-25 — git 信息迁入 [3s] Static（会话开启快照），从 [3d] Dynamic 移除。
+    // 原因：每次模型写文件后 git status 改变 → [3d] hash 改变 → prefix-cache 全量
+    // 冷启。迁到 [3s] 后 git 信息作为会话开启快照保持字节稳定；模型可随时调用
+    // `bash git status` 获取最新状态。
+    if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
+      final gitInfo = <String, Object?>{};
+      if (repositorySnapshot.currentBranch.trim().isNotEmpty) {
+        gitInfo['branch'] = repositorySnapshot.currentBranch;
+      }
+      if (repositorySnapshot.mainBranch.trim().isNotEmpty) {
+        gitInfo['main'] = repositorySnapshot.mainBranch;
+      }
+      if (repositorySnapshot.statusSnapshot.trim().isNotEmpty) {
+        gitInfo['status'] = repositorySnapshot.statusSnapshot.trim();
+      }
+      if (repositorySnapshot.recentCommits.isNotEmpty) {
+        gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
+      }
+      if (gitInfo.isNotEmpty) {
+        staticState['git'] = gitInfo;
+      }
+    }
+
     return staticState;
   }
 
@@ -1063,28 +1089,8 @@ class AiPromptBuilder {
       'title': session.title,
       'mode': session.mode.storageValue,
     };
-    // 2026-05-25 — 不在 [3d] 注入当前日期。日期跨天即变 → merged system message
-    // hash 改变 → prefix-cache 全量冷启，当日剩余会话命中率归零。模型可通过
-    // [3s].context.tz 推算时区、由用户在对话中补充精确日期。
-
-    if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
-      final gitInfo = <String, Object?>{};
-      if (repositorySnapshot.currentBranch.trim().isNotEmpty) {
-        gitInfo['branch'] = repositorySnapshot.currentBranch;
-      }
-      if (repositorySnapshot.mainBranch.trim().isNotEmpty) {
-        gitInfo['main'] = repositorySnapshot.mainBranch;
-      }
-      if (repositorySnapshot.statusSnapshot.trim().isNotEmpty) {
-        gitInfo['status'] = repositorySnapshot.statusSnapshot.trim();
-      }
-      if (repositorySnapshot.recentCommits.isNotEmpty) {
-        gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
-      }
-      if (gitInfo.isNotEmpty) {
-        dynamicState['git'] = gitInfo;
-      }
-    }
+    // 2026-05-25 — 不在 [3d] 注入当前日期（见上方注释）。
+    // git 信息已迁入 [3s] Static（会话开启快照），[3d] 不再包含 git 字段。
 
     if (postCompactRehydration.isNotEmpty) {
       dynamicState['rehydration'] = postCompactRehydration;
