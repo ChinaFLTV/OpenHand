@@ -58,6 +58,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/section_placeholder.dart';
+import '../../shared/ui/streaming_text_reveal.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../hardness/index.dart';

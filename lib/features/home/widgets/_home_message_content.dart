@@ -247,14 +247,18 @@ class _StreamingReasoningBody extends StatelessWidget {
             key: const ValueKey<String>(
               'streaming-reasoning-markdown-expanded',
             ),
-            child: _SafeMarkdownBody(
-              data: effectiveContent,
-              selectable: selectable,
-              builders: builders,
-              styleSheet: styleSheet,
-              inlineSyntaxes: inlineSyntaxes,
-              pathRoots: pathRoots,
-              parseKey: '$parseKey|streaming-markdown',
+            child: StreamingTextReveal(
+              textLength: effectiveContent.length,
+              streaming: true,
+              child: _SafeMarkdownBody(
+                data: effectiveContent,
+                selectable: selectable,
+                builders: builders,
+                styleSheet: styleSheet,
+                inlineSyntaxes: inlineSyntaxes,
+                pathRoots: pathRoots,
+                parseKey: '$parseKey|streaming-markdown',
+              ),
             ),
           )
         : KeyedSubtree(

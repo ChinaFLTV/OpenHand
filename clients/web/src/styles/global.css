@@ -4222,6 +4222,30 @@ button.oh-composer-pill:not(:disabled):hover {
   animation: oh-spin 840ms linear infinite;
 }
 
+/* 流式追加文本的 Q 弹软淡入遮罩：
+   - 底部 22% 渐隐成更轻的 mask（让最新刚到达的字符自然「淡入显形」）
+   - mask-image 切换走 320ms easeOutCubic transition，停流瞬间无缝复原
+   - AnimatedSize 等效：min-height 通过容器自适应，过渡走 transform 不强制 */
+.oh-streaming-reveal {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 78%,
+    rgba(0, 0, 0, 0.85) 92%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 78%,
+    rgba(0, 0, 0, 0.85) 92%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  transition:
+    -webkit-mask-image 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    mask-image 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 /* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。
    - prefers-reduced-motion: 系统设置
    - [data-motion='reduced']: 用户在 Flutter 应用设置里关「reduceMotion」时由 JS 写入

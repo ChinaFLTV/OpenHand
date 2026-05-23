@@ -494,25 +494,50 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          _CollapsibleMessageMarkdownBody(
-                            data: effectiveContent.isEmpty
-                                ? ' '
-                                : effectiveContent,
-                            selectable: true,
-                            builders: markdownBuilders,
-                            styleSheet: markdownStyleSheet.styleSheet,
-                            inlineSyntaxes: inlineSyntaxes,
-                            pathRoots: filePathRoots,
-                            parseKey: filePathParseKey,
-                            fadeColor: backgroundColor,
-                            collapseCharThreshold: isToolResult
-                                ? _toolResultMarkdownCollapseCharThreshold
-                                : _messageMarkdownCollapseCharThreshold,
-                            collapseLineThreshold: isToolResult
-                                ? _toolResultMarkdownCollapseLineThreshold
-                                : _messageMarkdownCollapseLineThreshold,
-                            previewMaxHeight: isToolResult ? 176 : 240,
-                          ),
+                          if (isStreamingAssistant)
+                            StreamingTextReveal(
+                              textLength: effectiveContent.length,
+                              streaming: true,
+                              child: _CollapsibleMessageMarkdownBody(
+                                data: effectiveContent.isEmpty
+                                    ? ' '
+                                    : effectiveContent,
+                                selectable: true,
+                                builders: markdownBuilders,
+                                styleSheet: markdownStyleSheet.styleSheet,
+                                inlineSyntaxes: inlineSyntaxes,
+                                pathRoots: filePathRoots,
+                                parseKey: filePathParseKey,
+                                fadeColor: backgroundColor,
+                                collapseCharThreshold: isToolResult
+                                    ? _toolResultMarkdownCollapseCharThreshold
+                                    : _messageMarkdownCollapseCharThreshold,
+                                collapseLineThreshold: isToolResult
+                                    ? _toolResultMarkdownCollapseLineThreshold
+                                    : _messageMarkdownCollapseLineThreshold,
+                                previewMaxHeight: isToolResult ? 176 : 240,
+                              ),
+                            )
+                          else
+                            _CollapsibleMessageMarkdownBody(
+                              data: effectiveContent.isEmpty
+                                  ? ' '
+                                  : effectiveContent,
+                              selectable: true,
+                              builders: markdownBuilders,
+                              styleSheet: markdownStyleSheet.styleSheet,
+                              inlineSyntaxes: inlineSyntaxes,
+                              pathRoots: filePathRoots,
+                              parseKey: filePathParseKey,
+                              fadeColor: backgroundColor,
+                              collapseCharThreshold: isToolResult
+                                  ? _toolResultMarkdownCollapseCharThreshold
+                                  : _messageMarkdownCollapseCharThreshold,
+                              collapseLineThreshold: isToolResult
+                                  ? _toolResultMarkdownCollapseLineThreshold
+                                  : _messageMarkdownCollapseLineThreshold,
+                              previewMaxHeight: isToolResult ? 176 : 240,
+                            ),
                           if (isStreamingAssistant) ...[
                             const SizedBox(height: 4),
                             _TypewriterCaret(color: textColor),

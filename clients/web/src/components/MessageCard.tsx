@@ -952,11 +952,13 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} /> : null
         ) : (
-          <Markdown
-            source={visibleContent}
-            raw={style.mono === true}
-            mono={style.mono === true}
-          />
+          <div class={streamingContent && !isUserBubble ? 'oh-streaming-reveal' : undefined}>
+            <Markdown
+              source={visibleContent}
+              raw={style.mono === true}
+              mono={style.mono === true}
+            />
+          </div>
         )}
         {!isUserBubble &&
           !useStructuredToolBody &&
