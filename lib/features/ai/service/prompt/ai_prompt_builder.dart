@@ -46,7 +46,6 @@ class AiPromptBuilder {
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const _nonCompactStaticSessionKeys = <String>{
-    'session_title',
     'session_created_at',
     'session_id',
     'session_template_id',
@@ -308,11 +307,12 @@ class AiPromptBuilder {
       staticSessionState = _buildCompactStaticSessionState(
         session: session,
         runtimeContext: runtimeContext,
-        repositorySnapshot: repositorySnapshot,
-        postCompactRehydration: postCompactRehydration,
       );
       dynamicSessionState = _buildCompactDynamicSessionState(
         session: session,
+        runtimeContext: runtimeContext,
+        repositorySnapshot: repositorySnapshot,
+        postCompactRehydration: postCompactRehydration,
         todoReminder: todoReminder,
         planModeReminder: planModeReminder,
       );
@@ -957,8 +957,6 @@ class AiPromptBuilder {
   Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
-    required AiRepositorySnapshot? repositorySnapshot,
-    required Map<String, Object?> postCompactRehydration,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
@@ -966,23 +964,50 @@ class AiPromptBuilder {
 
     final staticState = <String, Object?>{
       'session': <String, Object?>{
-        'title': session.title,
         'mode': session.mode.storageValue,
       },
       'context': <String, Object?>{
         'cwd': workingDirectory,
         'platform': runtimeContext.platformName,
-        'date': runtimeContext.todayLocalDate,
         'tz': runtimeContext.timeZoneName,
       },
       'limits': <String, Object?>{
         'tpr': runtimeContext.singleRoundToolCallLimit,
         'r': runtimeContext.sequentialToolRoundLimit,
       },
-      if (postCompactRehydration.isNotEmpty)
-        'rehydration': postCompactRehydration,
       if (runtimeContext.writeCommandConfirmationEnabled)
         'write_cmd_confirm': true,
+    };
+
+    if (runtimeContext.allowCommandRules.isNotEmpty) {
+      staticState['allow_cmd_rules'] = runtimeContext.allowCommandRules
+          .map((rule) {
+            final note = rule.note.trim();
+            return note.isEmpty
+                ? '${rule.matchMode.storageValue}:${rule.pattern}'
+                : '${rule.matchMode.storageValue}:${rule.pattern} ($note)';
+          })
+          .toList(growable: false);
+    }
+
+    return staticState;
+  }
+
+  Map<String, Object?> _buildCompactDynamicSessionState({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiRepositorySnapshot? repositorySnapshot,
+    required Map<String, Object?> postCompactRehydration,
+    String? todoReminder,
+    String? planModeReminder,
+  }) {
+    final dynamicState = <String, Object?>{};
+
+    dynamicState['session'] = <String, Object?>{
+      'title': session.title,
+    };
+    dynamicState['context'] = <String, Object?>{
+      'date': runtimeContext.todayLocalDate,
     };
 
     if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
@@ -1000,37 +1025,20 @@ class AiPromptBuilder {
         gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
       }
       if (gitInfo.isNotEmpty) {
-        staticState['git'] = gitInfo;
+        dynamicState['git'] = gitInfo;
       }
     }
 
-    if (runtimeContext.allowCommandRules.isNotEmpty) {
-      staticState['allow_cmd_rules'] = runtimeContext.allowCommandRules
-          .map((rule) {
-            final note = rule.note.trim();
-            return note.isEmpty
-                ? '${rule.matchMode.storageValue}:${rule.pattern}'
-                : '${rule.matchMode.storageValue}:${rule.pattern} ($note)';
-          })
-          .toList(growable: false);
+    if (postCompactRehydration.isNotEmpty) {
+      dynamicState['rehydration'] = postCompactRehydration;
     }
 
     if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
-      staticState['workspace_instructions'] = runtimeContext
+      dynamicState['workspace_instructions'] = runtimeContext
           .workspaceInstructionDocuments
           .map((item) => item.path)
           .toList(growable: false);
     }
-
-    return staticState;
-  }
-
-  Map<String, Object?> _buildCompactDynamicSessionState({
-    required AiSession session,
-    String? todoReminder,
-    String? planModeReminder,
-  }) {
-    final dynamicState = <String, Object?>{};
 
     if (session.todoItems.isNotEmpty) {
       dynamicState['todos'] = session.todoItems

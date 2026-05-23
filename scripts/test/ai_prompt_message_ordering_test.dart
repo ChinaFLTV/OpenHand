@@ -358,4 +358,105 @@ void main() {
           reason: '[3d] Dynamic Session State 必须在用户消息之后（volatile tail）。');
     }
   });
+
+  testWidgets('[3s] Static Session State is immutable across turns', (tester) async {
+    final templateBundle = await repo.loadBundle('default');
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+
+    // Round 1
+    final session1 = _buildMinimalSession(messages: [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hello',
+        createdAt: DateTime.now().toUtc(),
+      ),
+    ]);
+    final result1 = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session1,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session1.messages,
+      latestUserMessageId: 'msg-1',
+    );
+
+    // Round 2: session title changed (simulating auto-title)
+    final session2 = _buildMinimalSession(messages: [
+      AiSessionMessage.user(
+        id: 'msg-1',
+        content: 'Hello',
+        createdAt: DateTime.now().toUtc(),
+      ),
+      AiSessionMessage.assistant(
+        id: 'msg-2',
+        content: 'Hi there!',
+        createdAt: DateTime.now().toUtc(),
+      ),
+      AiSessionMessage.user(
+        id: 'msg-3',
+        content: 'How are you?',
+        createdAt: DateTime.now().toUtc(),
+      ),
+    ]).copyWith(title: 'Changed Title');
+
+    final result2 = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session2,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session2.messages,
+      latestUserMessageId: 'msg-3',
+    );
+
+    // Extract [3s] content from both rounds
+    String? extract3s(List<AiChatTurn> messages) {
+      for (final m in messages) {
+        if (m.content.contains('[3s] Static Session State')) {
+          return m.content;
+        }
+      }
+      return null;
+    }
+
+    final s3s1 = extract3s(result1.messages);
+    final s3s2 = extract3s(result2.messages);
+
+    expect(s3s1, isNotNull, reason: 'Round 1 应有 [3s]');
+    expect(s3s2, isNotNull, reason: 'Round 2 应有 [3s]');
+    expect(s3s1, equals(s3s2),
+        reason: '[3s] Static Session State 在标题变更后必须完全一致，'
+            '否则整个合并 system message 的缓存都会断裂。');
+  });
+
+  testWidgets('[3d] Dynamic Session State contains mutable fields', (tester) async {
+    final templateBundle = await repo.loadBundle('default');
+    final session = _buildMinimalSession();
+    final model = _buildModel();
+    final runtimeContext = _buildRuntimeContext();
+    final builder = const AiPromptBuilder();
+
+    final result = builder.buildSessionPrompt(
+      templateBundle: templateBundle,
+      session: session,
+      model: model,
+      runtimeContext: runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: const <AiSessionMessage>[],
+    );
+
+    final messages = result.messages;
+    final dynamicMsg = messages.firstWhere(
+      (m) => m.content.contains('[3d] Dynamic Session State'),
+    );
+
+    // [3d] 应包含可变字段
+    expect(dynamicMsg.content.contains('"title"'), isTrue,
+        reason: '[3d] 必须包含 session.title（自动标题会变）');
+    expect(dynamicMsg.content.contains('"date"'), isTrue,
+        reason: '[3d] 必须包含 context.date（跨天会变）');
+  });
 }
