@@ -361,9 +361,11 @@ class AiPromptBuilder {
         content:
             '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
-      // 2026-05-23 — Cache-prefix optimization v2:
+      // 2026-05-23 — Cache-prefix optimization v3:
       // 将所有每轮变动的 volatile 块（[3] Session State、System Reminder、
       // Plan Mode Reminder、[5.5] Focus Context）移至 latestUserTurns 之后。
+      // 将 restored contexts [5.6]-[5.12] 移至 history 之前——
+      // 它们在压缩点之前保持稳定，放在稳定前缀区可增加缓存命中 token 数。
       //
       // 原因：OpenAI 兼容协议（DeepSeek / OpenAI / Qwen / Kimi / GLM 等）
       // 使用隐式 prefix-cache，cache key = messages 数组的公共前缀哈希。
@@ -371,7 +373,7 @@ class AiPromptBuilder {
       // 合并为一条 system 消息（_mergeConsecutiveSystemMessages），该消息
       // 每轮都变，导致前缀缓存在此断裂，命中率退化至个位数。
       //
-      // 重排后，前缀 [0..5] + history + 5.6-5.12 + 用户消息本体全部稳定可缓存，
+      // 重排后，前缀 [0..5] + 5.6-5.12 + history + 用户消息本体全部稳定可缓存，
       // 用户消息之后的 volatile 块全都在 cache-miss 区内。
       // 语义上模型按章节标题查找，位置不影响正确性。
       AiChatTurn(
@@ -412,7 +414,8 @@ class AiPromptBuilder {
             ? '# [5] Conversation Context\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
             : '# [5] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
       ),
-      ...historyTurns,
+      // 2026-05-23 v3 — restored contexts 移至 history 之前：
+      // 它们在压缩点前保持稳定，放在此前缀区可增加缓存命中 token。
       if (restoredFileContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
@@ -451,6 +454,7 @@ class AiPromptBuilder {
           content:
               '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
         ),
+      ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 稳定前缀区的最后一项。
       ...latestUserNonSystemTurns,
       // ═══════════════════════════════════════════════════════════════
@@ -942,18 +946,17 @@ class AiPromptBuilder {
       },
       // 2026-04-13: Use explicit field names for AI clarity
       'context': <String, Object?>{
-        'working_directory': workingDirectory,
-        'project_root': workingDirectory, // Alias for tool path resolution
+        'cwd': workingDirectory,
         'platform': runtimeContext.platformName,
         'date': runtimeContext.todayLocalDate,
-        'timezone': runtimeContext.timeZoneName,
+        'tz': runtimeContext.timeZoneName,
       },
       'limits': <String, Object?>{
-        'tools_per_round': runtimeContext.singleRoundToolCallLimit,
-        'rounds': runtimeContext.sequentialToolRoundLimit,
+        'tpr': runtimeContext.singleRoundToolCallLimit,
+        'r': runtimeContext.sequentialToolRoundLimit,
       },
-      'tools': availableToolNames,
-      'rehydration': postCompactRehydration,
+      if (postCompactRehydration.isNotEmpty)
+        'rehydration': postCompactRehydration,
       if (runtimeContext.writeCommandConfirmationEnabled)
         'write_cmd_confirm': true,
     };
