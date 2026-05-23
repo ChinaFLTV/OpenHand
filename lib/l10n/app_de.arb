@@ -686,6 +686,8 @@
   "aiToolResultCompressionThresholdInvalid": "Gültigen positiven ganzzahligen Schwellwert eingeben.",
   "aiToolResultCompressionEnabledLabel": "Werkzeugaufruf-Ausgabekompression aktivieren",
   "aiToolResultCompressionEnabledBody": "Hauptschalter. Wenn deaktiviert, umgeht die rohe Werkzeugausgabe unabhängig vom Schwellwert die Kompression – nützlich beim Debuggen vollständiger Werkzeugausgaben.",
+  "aiMicroCompressionEnabledLabel": "Mikro-Kompression",
+  "aiMicroCompressionEnabledBody": "Wenn aktiviert, werden alte konsumierte Werkzeugergebnisse während normaler Gespräche gelöscht, um Kontext zu sparen. Wenn deaktiviert (empfohlen), wird die Mikro-Kompression nur vor aktiver/passiver Kompression ausgeführt — dies verbessert die promptübergreifende Cache-Trefferquote und senkt API-Kosten.",
   "aiToolResultCompressionHeadTailWindowLabel": "Kompressions-Kopf-/Endfenster",
   "aiToolResultCompressionHeadTailWindowBody": "Wie viele Kopf-/Endzeichen der Rohausgabe in der verdichteten Zusammenfassung erhalten bleiben. Standard 256; 0 deaktiviert Kopf-/Endausschnitte; Bereich 0–8192.",
   "aiToolResultCompressionHeadTailWindowSave": "Fenster speichern",

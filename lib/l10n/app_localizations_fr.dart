@@ -1590,7 +1590,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
+      'Lorsqu’elle est activée, les anciens résultats d’outils consommés sont effacés pendant la conversation normale pour économiser du contexte. Lorsqu’elle est désactivée (recommandé), la micro-compression ne s’exécute qu’avant la compression active/passive — cela améliore le taux de succès du cache de prompt inter-tours et réduit les coûts API.';
 
   @override
   String get aiToolResultCompressionHeadTailWindowLabel =>

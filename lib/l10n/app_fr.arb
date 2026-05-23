@@ -686,6 +686,8 @@
   "aiToolResultCompressionThresholdInvalid": "Saisissez un seuil entier positif valide.",
   "aiToolResultCompressionEnabledLabel": "Activer la compression de la sortie d’appel d’outil",
   "aiToolResultCompressionEnabledBody": "Commutateur principal. Lorsqu’il est désactivé, la sortie d’outil brute contourne la compression quel que soit le seuil — utile pour déboguer la sortie complète d’un outil.",
+  "aiMicroCompressionEnabledLabel": "Micro-Compression",
+  "aiMicroCompressionEnabledBody": "Lorsqu’elle est activée, les anciens résultats d’outils consommés sont effacés pendant la conversation normale pour économiser du contexte. Lorsqu’elle est désactivée (recommandé), la micro-compression ne s’exécute qu’avant la compression active/passive — cela améliore le taux de succès du cache de prompt inter-tours et réduit les coûts API.",
   "aiToolResultCompressionHeadTailWindowLabel": "Fenêtre début/fin de compression",
   "aiToolResultCompressionHeadTailWindowBody": "Nombre de caractères de début/fin de la sortie brute conservés dans le résumé condensé. Par défaut 256 ; 0 désactive les extraits début/fin ; plage 0–8192.",
   "aiToolResultCompressionHeadTailWindowSave": "Enregistrer la fenêtre",

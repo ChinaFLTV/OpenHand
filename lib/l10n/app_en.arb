@@ -686,6 +686,8 @@
   "aiToolResultCompressionThresholdInvalid": "Enter a valid positive integer threshold.",
   "aiToolResultCompressionEnabledLabel": "Enable Tool Call Output Compression",
   "aiToolResultCompressionEnabledBody": "Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.",
+  "aiMicroCompressionEnabledLabel": "Micro-Compression",
+  "aiMicroCompressionEnabledBody": "When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.",
   "aiToolResultCompressionHeadTailWindowLabel": "Compression Head/Tail Window",
   "aiToolResultCompressionHeadTailWindowBody": "How many head/tail characters of the raw output to retain in the condensed summary. Default 256; 0 disables head/tail snippets; range 0–8192.",
   "aiToolResultCompressionHeadTailWindowSave": "Save Window",

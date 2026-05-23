@@ -2933,7 +2933,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMicroCompressionEnabledBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后，仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。'**
+  /// **'开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。'**
   String get aiMicroCompressionEnabledBody;
 
   /// No description provided for @aiToolResultCompressionHeadTailWindowLabel.

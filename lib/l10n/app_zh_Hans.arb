@@ -686,6 +686,8 @@
   "aiToolResultCompressionThresholdInvalid": "请输入有效的正整数阈值。",
   "aiToolResultCompressionEnabledLabel": "启用工具调用输出压缩",
   "aiToolResultCompressionEnabledBody": "总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。",
+  "aiMicroCompressionEnabledLabel": "微压缩",
+  "aiMicroCompressionEnabledBody": "开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。",
   "aiToolResultCompressionHeadTailWindowLabel": "压缩摘要首尾片段窗口",
   "aiToolResultCompressionHeadTailWindowBody": "压缩后摘要中保留 raw 输出首尾各多少个字符。默认 256；0 表示不保留首尾片段；范围 0~8192。",
   "aiToolResultCompressionHeadTailWindowSave": "保存窗口长度",

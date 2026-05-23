@@ -17014,6 +17014,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '總開關。關閉後不管閾值多大都不壓縮工具輸出原文，適合需要調試完整輸出的場景。';
 
   @override
+  String get aiMicroCompressionEnabledLabel => '微壓縮';
+
+  @override
+  String get aiMicroCompressionEnabledBody =>
+      '開啟後，正常對話中會清除已被消費的舊工具結果以節省上下文。關閉後（推薦），僅在主動/被動壓縮前執行微壓縮——可提高跨輪提示詞緩存命中率，降低API費用。';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '壓縮摘要首尾片段視窗';
 
   @override

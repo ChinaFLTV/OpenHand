@@ -686,6 +686,8 @@
   "aiToolResultCompressionThresholdInvalid": "有効な正の整数の閾値を入力してください。",
   "aiToolResultCompressionEnabledLabel": "ツール呼び出し出力の圧縮を有効化",
   "aiToolResultCompressionEnabledBody": "マスタースイッチ。無効にすると、閾値に関わらず生のツール出力は圧縮されません。完全なツール出力をデバッグするときに便利です。",
+  "aiMicroCompressionEnabledLabel": "微圧縮",
+  "aiMicroCompressionEnabledBody": "有効にすると、通常の会話中に消費済みの古いツール結果がクリアされコンテキストを節約します。無効（推奨）にすると、能動的/受動的圧縮の前にのみ微圧縮が実行され、ターンをまたいだプロンプトキャッシュのヒット率が向上しAPIコストが削減されます。",
   "aiToolResultCompressionHeadTailWindowLabel": "圧縮の先頭/末尾ウィンドウ",
   "aiToolResultCompressionHeadTailWindowBody": "圧縮サマリに保持する生出力の先頭/末尾文字数。既定値 256、0 で先頭/末尾スニペットを無効化、範囲は 0–8192。",
   "aiToolResultCompressionHeadTailWindowSave": "ウィンドウを保存",
