@@ -3,11 +3,11 @@ part of '../openhand_home_page.dart';
 /// 写命令确认弹窗。返回值：
 /// * [BashCommandApprovalDecision.approved] —— 用户点击「允许执行」或敲回车
 /// * [BashCommandApprovalDecision.rejected] —— 用户点击「取消」按钮
-/// * [BashCommandApprovalDecision.dismissed] —— 用户按 Esc 关闭弹窗
 /// * `null` —— 调用方主动 pop（如外部 cancel），视为 dismissed 由调用方解释
 ///
-/// 弹窗显式禁用 barrierDismissible：点击外部空白处不会关闭，避免误触
-/// 引发"已隐式同意"的歧义。Esc 始终可关闭，结果与点击「取消」明确区分。
+/// 弹窗显式禁用 barrierDismissible + dismissOnEscape：点击外部空白处与
+/// 按 Esc 均不会关闭，必须用户显式点击「允许执行」或「取消」按钮才能
+/// 关闭，避免误触引发「已隐式同意」或「意外丢弃」的歧义。
 Future<BashCommandApprovalDecision?> showWriteCommandConfirmationDialog(
   BuildContext context, {
   required BashCommandApprovalRequest request,
@@ -91,10 +91,8 @@ class _WriteCommandConfirmationDialogState
         if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
           return KeyEventResult.ignored;
         }
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          _closeWith(BashCommandApprovalDecision.dismissed);
-          return KeyEventResult.handled;
-        }
+        // Esc 故意不响应：写命令确认弹窗必须用户显式点击「允许执行」
+        // 或「取消」按钮才能关闭，避免误触意外丢弃。
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter) {
           _closeWith(BashCommandApprovalDecision.approved);

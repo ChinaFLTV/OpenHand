@@ -280,29 +280,57 @@ class _ModalSheetDragHandle extends StatelessWidget {
 }
 
 /// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
-/// inputs. Uses ONLY [CallbackShortcuts] — `Focus(autofocus: true)` and
-/// `FocusScope(autofocus: true)` both regress macOS IMK and leave every
-/// `TextField` (in this dialog and globally afterwards) unable to receive
-/// input / copy / paste. The dialog's `ModalRoute` already installs a focus
-/// scope that traps key events to the dialog subtree, so ESC keystrokes will
-/// bubble up through this [CallbackShortcuts] whether a `TextField` /
-/// `Button` has focus or the modal route's own focus node owns it.
-class _EscapeDismissDialogScope extends StatelessWidget {
+/// inputs. Uses a [HardwareKeyboard] handler instead of [CallbackShortcuts]:
+/// `Focus(autofocus: true)` and `FocusScope(autofocus: true)` both regress
+/// macOS IMK and leave every `TextField` unable to receive input/copy/paste;
+/// `CallbackShortcuts` is fine for most dialogs but is silently swallowed by
+/// descendants like [SelectionArea] (which consumes ESC to clear the current
+/// selection) — that prevented dialogs such as 代理连通性诊断弹窗 from
+/// closing on ESC. The HW handler runs before focus dispatch and pops the
+/// route directly, guarded by `ModalRoute.isCurrent` so nested dialogs don't
+/// double-pop.
+class _EscapeDismissDialogScope extends StatefulWidget {
   const _EscapeDismissDialogScope({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          unawaited(Navigator.of(context).maybePop());
-        },
-      },
-      child: child,
-    );
+  State<_EscapeDismissDialogScope> createState() =>
+      _EscapeDismissDialogScopeState();
+}
+
+class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
+  ModalRoute<Object?>? _route;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKey);
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    super.dispose();
+  }
+
+  bool _handleKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
+    final route = _route;
+    if (route == null || !route.isCurrent) return false;
+    unawaited(Navigator.of(context).maybePop());
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 Widget _buildTransition({

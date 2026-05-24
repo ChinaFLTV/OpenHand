@@ -1205,6 +1205,28 @@ class _HtmlPreviewDialog extends StatefulWidget {
 
 class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   bool _isCleaning = false;
+  double _zoom = 1.0;
+  final GlobalKey<_HtmlWebViewPreviewState> _previewKey =
+      GlobalKey<_HtmlWebViewPreviewState>();
+
+  static const double _zoomMin = 0.4;
+  static const double _zoomMax = 3.0;
+  static const double _zoomStep = 0.1;
+
+  void _applyZoom(double next) {
+    final clamped = next.clamp(_zoomMin, _zoomMax);
+    if ((clamped - _zoom).abs() < 0.001) return;
+    setState(() => _zoom = clamped);
+    _previewKey.currentState?.setZoom(clamped);
+  }
+
+  void _resetZoom() => _applyZoom(1.0);
+
+  void _onZoomChangedFromWebView(double next) {
+    final clamped = next.clamp(_zoomMin, _zoomMax);
+    if ((clamped - _zoom).abs() < 0.005) return;
+    setState(() => _zoom = clamped);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1213,6 +1235,10 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     final closeText = isZh ? '关闭' : 'Close';
     final openInBrowserText = isZh ? '在浏览器中打开' : 'Open in Browser';
     final cleanupText = isZh ? '清理缓存' : 'Clean Cache';
+    final zoomInText = isZh ? '放大' : 'Zoom In';
+    final zoomOutText = isZh ? '缩小' : 'Zoom Out';
+    final zoomResetText = isZh ? '重置缩放' : 'Reset Zoom';
+    final zoomPercentText = '${(_zoom * 100).round()}%';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -1233,7 +1259,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: widget.theme.colorScheme.surfaceContainerHigh,
                 borderRadius: const BorderRadius.vertical(
@@ -1262,7 +1288,40 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton.icon(
+                  IconButton(
+                    tooltip: zoomOutText,
+                    onPressed: _zoom <= _zoomMin + 0.001
+                        ? null
+                        : () => _applyZoom(_zoom - _zoomStep),
+                    icon: const Icon(Icons.zoom_out_rounded, size: 20),
+                  ),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 48),
+                    child: Center(
+                      child: Text(
+                        zoomPercentText,
+                        style: widget.theme.textTheme.bodySmall?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: zoomInText,
+                    onPressed: _zoom >= _zoomMax - 0.001
+                        ? null
+                        : () => _applyZoom(_zoom + _zoomStep),
+                    icon: const Icon(Icons.zoom_in_rounded, size: 20),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: zoomResetText,
+                    onPressed: (_zoom - 1.0).abs() < 0.001 ? null : _resetZoom,
+                    icon: const Icon(Icons.restart_alt_rounded, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    tooltip: cleanupText,
                     onPressed: _isCleaning ? null : _cleanupTempHtmlFiles,
                     icon: _isCleaning
                         ? const SizedBox(
@@ -1270,20 +1329,19 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.cleaning_services_rounded, size: 18),
-                    label: Text(cleanupText),
+                        : const Icon(Icons.cleaning_services_rounded, size: 20),
                   ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: openInBrowserText,
                     onPressed: () => _openInBrowser(context),
-                    icon: const Icon(Icons.open_in_browser_rounded, size: 18),
-                    label: Text(openInBrowserText),
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 20),
                   ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: closeText,
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    label: Text(closeText),
+                    icon: const Icon(Icons.close_rounded, size: 20),
                   ),
                 ],
               ),
@@ -1293,7 +1351,11 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(20),
                 ),
-                child: _HtmlWebViewPreview(htmlContent: widget.htmlContent),
+                child: _HtmlWebViewPreview(
+                  key: _previewKey,
+                  htmlContent: widget.htmlContent,
+                  onZoomChanged: _onZoomChangedFromWebView,
+                ),
               ),
             ),
           ],
@@ -1393,9 +1455,14 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
 }
 
 class _HtmlWebViewPreview extends StatefulWidget {
-  const _HtmlWebViewPreview({required this.htmlContent});
+  const _HtmlWebViewPreview({
+    super.key,
+    required this.htmlContent,
+    this.onZoomChanged,
+  });
 
   final String htmlContent;
+  final ValueChanged<double>? onZoomChanged;
 
   @override
   State<_HtmlWebViewPreview> createState() => _HtmlWebViewPreviewState();
@@ -1407,6 +1474,67 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   bool _isLoading = true;
   String? _errorMessage;
   double _loadingProgress = 0;
+  double _currentZoom = 1.0;
+
+  /// Called by parent dialog to programmatically set zoom.
+  Future<void> setZoom(double zoom) async {
+    _currentZoom = zoom;
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.runJavaScript(
+        'window.__openhandSetZoom && window.__openhandSetZoom(${zoom.toStringAsFixed(3)});',
+      );
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'html preview setZoom failed', error, stack);
+    }
+  }
+
+  void _onZoomMessage(JavaScriptMessage message) {
+    final value = double.tryParse(message.message);
+    if (value == null || !value.isFinite) return;
+    _currentZoom = value;
+    widget.onZoomChanged?.call(value);
+  }
+
+  Future<void> _installZoomBridge() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.runJavaScript(_zoomBridgeScript);
+      if (_currentZoom != 1.0) {
+        await controller.runJavaScript(
+          'window.__openhandSetZoom(${_currentZoom.toStringAsFixed(3)});',
+        );
+      }
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'install zoom bridge failed', error, stack);
+    }
+  }
+
+  static const String _zoomBridgeScript =
+      '(function(){if(window.__openhandZoomInstalled)return;window.__openhandZoomInstalled=true;'
+      'var meta=document.querySelector(\'meta[name="viewport"]\');'
+      'if(!meta){meta=document.createElement("meta");meta.name="viewport";'
+      'meta.content="width=device-width, initial-scale=1, minimum-scale=0.4, maximum-scale=3.0, user-scalable=yes";'
+      'document.head&&document.head.appendChild(meta);}'
+      'var z=1.0;function clamp(v){return Math.max(0.4,Math.min(3.0,v));}'
+      'function apply(v){z=clamp(v);'
+      'document.documentElement.style.transformOrigin="0 0";'
+      'document.documentElement.style.transform="scale("+z+")";'
+      'document.documentElement.style.width=(100/z)+"%";'
+      'try{OpenHandZoom.postMessage(String(z));}catch(_){}}'
+      'window.__openhandSetZoom=apply;'
+      'window.addEventListener("wheel",function(e){if(e.ctrlKey||e.metaKey){e.preventDefault();var d=e.deltaY<0?0.05:-0.05;apply(z+d);}},{passive:false});'
+      'var pinchBase=z;'
+      'window.addEventListener("gesturestart",function(e){e.preventDefault();pinchBase=z;},{passive:false});'
+      'window.addEventListener("gesturechange",function(e){e.preventDefault();apply(pinchBase*e.scale);},{passive:false});'
+      'window.addEventListener("gestureend",function(e){e.preventDefault();},{passive:false});'
+      'var touchInitialDist=0,touchInitialZoom=1.0;'
+      'function dist(t){var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}'
+      'window.addEventListener("touchstart",function(e){if(e.touches.length===2){touchInitialDist=dist(e.touches);touchInitialZoom=z;}});'
+      'window.addEventListener("touchmove",function(e){if(e.touches.length===2&&touchInitialDist>0){var d=dist(e.touches);apply(touchInitialZoom*(d/touchInitialDist));e.preventDefault();}},{passive:false});'
+      '})();';
 
   @override
   void initState() {
@@ -1445,6 +1573,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
       // Set JavaScript mode (safe on all platforms).
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.addJavaScriptChannel(
+        'OpenHandZoom',
+        onMessageReceived: _onZoomMessage,
+      );
 
       // Set navigation delegate for progress and error handling.
       await controller.setNavigationDelegate(
@@ -1469,6 +1601,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                 _isLoading = false;
               });
             }
+            _installZoomBridge();
           },
           onWebResourceError: (error) {
             if (mounted) {
@@ -1512,6 +1645,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
       final controller = WebViewController();
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.addJavaScriptChannel(
+        'OpenHandZoom',
+        onMessageReceived: _onZoomMessage,
+      );
       await controller.setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
@@ -1527,6 +1664,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                 _isLoading = false;
               });
             }
+            _installZoomBridge();
           },
           onWebResourceError: (error) {
             if (mounted) {
