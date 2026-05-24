@@ -2645,29 +2645,23 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ? const SizedBox.shrink()
           : KeyedSubtree(
               key: _webViewRegionKey,
-              // 2026-05-25: 显式声明 WebView 在 gesture arena 中"竞标"
-              // tap / vertical+horizontal drag / long press / pan，
-              // 否则祖先（SelectionArea / 外层 Listener / ListView 滚动）
-              // 会抢走指针，导致 HTML 内部按钮/链接/表单点击没反应。
-              child: WebViewWidget(
-                controller: controller,
-                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                  Factory<TapGestureRecognizer>(
-                    () => TapGestureRecognizer(),
-                  ),
-                  Factory<LongPressGestureRecognizer>(
-                    () => LongPressGestureRecognizer(),
-                  ),
-                  Factory<VerticalDragGestureRecognizer>(
-                    () => VerticalDragGestureRecognizer(),
-                  ),
-                  Factory<HorizontalDragGestureRecognizer>(
-                    () => HorizontalDragGestureRecognizer(),
-                  ),
-                  Factory<PanGestureRecognizer>(
-                    () => PanGestureRecognizer(),
-                  ),
-                },
+              // 2026-05-25: WebView 用 EagerGestureRecognizer 立即赢下
+              // gesture arena —— 不再让祖先 SelectionArea / Listener /
+              // ListView 滚动等抢走指针，HTML 内部按钮 / 链接 / 表单可点。
+              // 同时外层包 MouseRegion(cursor: defer) 屏蔽 Flutter 鼠标
+              // 跟踪器对该区域的光标决策，避免与 WKWebView 自己的 NSCursor
+              // 在悬停链接时反复切换出现"箭头-手指"闪烁。
+              child: MouseRegion(
+                opaque: false,
+                child: WebViewWidget(
+                  controller: controller,
+                  gestureRecognizers:
+                      <Factory<OneSequenceGestureRecognizer>>{
+                        Factory<EagerGestureRecognizer>(
+                          () => EagerGestureRecognizer(),
+                        ),
+                      },
+                ),
               ),
             ),
     );
