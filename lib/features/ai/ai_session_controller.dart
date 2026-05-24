@@ -4184,6 +4184,17 @@ class AiSessionController extends ChangeNotifier {
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000;
+        if (kDebugMode && effectiveCharsPerSec > 0) {
+          debugPrint(
+            '[oh.stream] drain-start session=${workingSession.id} '
+            'assistantTotal=$assistantPendingGraphemes '
+            'reasoningTotal=$reasoningPendingGraphemes '
+            'effChars=$effectiveCharsPerSec maxWaitMs=$maxWaitMs '
+            'durationSec=$throttleDurationSec '
+            'assistantPending=${charThrottle.hasPending} '
+            'reasoningPending=${reasoningCharThrottle.hasPending}',
+          );
+        }
         if (maxWaitMs > 0) {
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
@@ -4262,6 +4273,14 @@ class AiSessionController extends ChangeNotifier {
           : null;
       // 流正常结束：此处应已按显示侧节流排空字符队列；release 只负责
       // 清理计时器和活跃 throttle 记录。取消/错误路径才允许立即放开余量。
+      if (kDebugMode) {
+        debugPrint(
+          '[oh.stream] release session=${workingSession.id} '
+          'didCancel=$didCancelStream '
+          'assistantPending=${charThrottle.hasPending} '
+          'reasoningPending=${reasoningCharThrottle.hasPending}',
+        );
+      }
       _lastCharThroughputSnapshot[workingSession
           .id] = _CachedStreamThroughputSnapshot(
         _sessionDisplayThroughputSnapshot(

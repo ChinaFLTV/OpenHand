@@ -27,6 +27,7 @@ import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
 import { useStreamingReveal } from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
+import { streamDebugLog } from '../utils/stream_debug';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -1018,6 +1019,45 @@ function MessageCardImpl({
     setBadgeCollapsedOverride(null);
   }, [message.id]);
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
+  useEffect(() => {
+    if (isUserBubble || useToolBody || message.kind === 'file_mutation_summary') return;
+    streamDebugLog(
+      `card:${message.id}`,
+      'card-state',
+      {
+        id: message.id,
+        role: message.role,
+        kind: message.kind,
+        length: content.length,
+        streamingProp: streaming,
+        metadataStreaming: asBool(metadata['streaming']),
+        recentlyUpdatedContent,
+        turnActive,
+        stableTurnActive,
+        streamingContent,
+        canCollapse,
+        collapsed,
+        badgeCollapsed,
+      },
+      350,
+    );
+  }, [
+    badgeCollapsed,
+    canCollapse,
+    collapsed,
+    content.length,
+    isUserBubble,
+    message.id,
+    message.kind,
+    message.role,
+    metadata,
+    recentlyUpdatedContent,
+    stableTurnActive,
+    streaming,
+    streamingContent,
+    turnActive,
+    useToolBody,
+  ]);
 
   // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
   const [shouldAnimate] = useState(() => !appearedMessageIds.has(message.id));
