@@ -11,6 +11,8 @@ vi.mock('./Markdown', () => ({
   Markdown: ({ source, raw }: { source: string; raw?: boolean }) => (
     <div data-raw={raw ? 'true' : 'false'}>{source}</div>
   ),
+  looksLikeHtml: (value: string) => /<[a-zA-Z]/.test(value ?? ''),
+  openHtmlInNewTab: vi.fn(),
 }));
 
 vi.mock('./MessageMedia', () => ({
