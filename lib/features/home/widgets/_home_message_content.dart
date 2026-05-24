@@ -1853,12 +1853,25 @@ bool _looksLikeHtml(String value) {
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
 /// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
 ///
-/// 流式期间，模型边写边输出的 `<div style="display:flex">` 子节点常自然宽度溢出
-/// 容器（HtmlFlex overflowed by N pixels on the right）。修复策略：
-///   1. 外层 ClipRect 兜底避免视觉撕裂
-///   2. customStylesBuilder 为所有 display:flex 元素强制注入 flex-wrap:wrap +
-///      min-width:0 + max-width:100%，让多列内容换行而非溢出
+/// 流式期间，模型边写边输出的 `<div style="display:flex">` 子节点自然宽度持续
+/// 溢出气泡容器（HtmlFlex overflowed by N pixels on the right）。
+/// flutter_widget_from_html_core 0.16.x 的 `HtmlFlex` 硬编码 horizontal 且不识别
+/// `flex-wrap:wrap`，customStylesBuilder 注入对它无效。修复策略：
+///   1. 渲染前正则去除所有 `display:flex` / `display:inline-flex` 内联样式，让 div
+///      退化为块级流式布局（流式 HTML 在窄气泡里本就更适合块级垂直堆叠）
+///   2. 外层 ClipRect 兜底避免视觉撕裂
 ///   3. 主题感知的代码/引用/表格/标题默认样式注入，深色模适配
+final RegExp _stripDisplayFlexPattern = RegExp(
+  r'display\s*:\s*(?:inline-)?flex\s*;?',
+  caseSensitive: false,
+);
+
+String _sanitizeStreamingHtml(String value) {
+  if (value.isEmpty) return value;
+  if (!value.toLowerCase().contains('flex')) return value;
+  return value.replaceAll(_stripDisplayFlexPattern, '');
+}
+
 class _HtmlMessageBody extends StatelessWidget {
   const _HtmlMessageBody({
     required this.data,
@@ -1898,26 +1911,15 @@ class _HtmlMessageBody extends StatelessWidget {
     final codeBgHex = hex(codeBg);
     final mutedHex = hex(mutedText);
 
+    final sanitized = _sanitizeStreamingHtml(data);
     return ClipRect(
       child: SelectionArea(
         child: HtmlWidget(
-          data.isEmpty ? ' ' : data,
+          sanitized.isEmpty ? ' ' : sanitized,
           textStyle: base,
           renderMode: RenderMode.column,
           customStylesBuilder: (element) {
-            // 1) 修复流式 HTML 中 display:flex 子节点宽度溢出：强制换行 + 自适应
-            final inlineStyle = element.attributes['style']?.toLowerCase() ?? '';
-            if (inlineStyle.contains('display:flex') ||
-                inlineStyle.contains('display: flex') ||
-                inlineStyle.contains('display:inline-flex') ||
-                inlineStyle.contains('display: inline-flex')) {
-              return <String, String>{
-                'flex-wrap': 'wrap',
-                'min-width': '0',
-                'max-width': '100%',
-              };
-            }
-            // 2) 主题感知的默认样式
+            // 主题感知的默认样式（display:flex 已在数据层剥离，此处无需处理）
             switch (element.localName) {
               case 'code':
                 return <String, String>{
