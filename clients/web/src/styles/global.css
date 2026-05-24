@@ -4288,10 +4288,24 @@ button.oh-composer-pill:not(:disabled):hover {
  * 计算 / 布局 / 绘制 (content-visibility: auto)。 contain-intrinsic-size
  * 给一个保守的占位高度，避免滚动条跳动。可视区进入后浏览器自动
  * 完成 layout/paint。Chromium / Edge / Safari 16+ 全部支持，旧浏览器
- * 自动忽略此属性退化为正常渲染。 */
+ * 自动忽略此属性退化为正常渲染。
+ *
+ * 注意：`contain-intrinsic-size: auto 220px` 中的 `auto` 关键字让浏览器
+ * 记忆「首次实际渲染过」的真实尺寸；之后即使该卡片滑出视窗被 c-v 跳过
+ * 渲染，占位尺寸仍是上次记下的真实高度，而不是死板的 220px。这避免了
+ * 流式输出过程中正文卡片快速增高时 c-v 边界判定把卡片瞬间塌缩到 220px
+ * 又恢复，造成「消息盒每隔几秒突然消失再立刻显示并剧烈滚动」的异常。
+ *
+ * 此外，正在流式输出的消息（`is-streaming-now` 标记）整段禁用 c-v，
+ * 避免浏览器在内容尺寸高频变化时把卡片误判为 off-screen 而隐藏。流式
+ * 结束后才放开 c-v 让浏览器节省非可视区渲染开销。 */
 .oh-message-card {
   content-visibility: auto;
-  contain-intrinsic-size: 1px 220px;
+  contain-intrinsic-size: auto 220px;
+}
+.oh-message-card.is-streaming-now {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
 .oh-markdown {

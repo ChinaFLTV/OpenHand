@@ -1067,6 +1067,10 @@ export function SessionDetailPage() {
   const autoFollowRef = useRef<boolean>(true);
   const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
+  // 区分「用户主动向上滑动」与「内容增长导致的视觉远离底部」：
+  // recalc 仅在 scrollTop 真正减小 (用户上滑) 时才允许 setAutoFollowPaused=true。
+  // 否则 (内容增长 / 程序滚动) 不应自动暂停跟随，让 ResizeObserver follow 接管。
+  const lastScrollTopRef = useRef<number>(0);
   const followFrameRef = useRef<number | null>(null);
   const followSettleFrameRef = useRef<number | null>(null);
   const resizeFollowFrameRef = useRef<number | null>(null);
@@ -1495,7 +1499,11 @@ export function SessionDetailPage() {
     function recalc() {
       const el = mainRef.current;
       if (!el) return;
-      const dist = el.scrollHeight - (el.scrollTop + el.clientHeight);
+      const currentScrollTop = el.scrollTop;
+      const prevScrollTop = lastScrollTopRef.current;
+      const scrolledUp = currentScrollTop < prevScrollTop - 1; // 1px 容差
+      lastScrollTopRef.current = currentScrollTop;
+      const dist = el.scrollHeight - (currentScrollTop + el.clientHeight);
       isNearBottomRef.current = dist <= 64;
       if (Date.now() <= programmaticScrollUntilRef.current) {
         if (autoFollowRef.current && autoFollowPausedRef.current) {
@@ -1510,12 +1518,15 @@ export function SessionDetailPage() {
       if (isNearBottomRef.current) {
         if (unreadCount !== 0) clearUnreadCount();
         if (autoFollowPaused) setAutoFollowPausedValue(false);
-      } else if (!autoFollowPaused && Date.now() > programmaticScrollUntilRef.current) {
+      } else if (!autoFollowPaused && scrolledUp && Date.now() > programmaticScrollUntilRef.current) {
+        // 仅在用户主动上滑时暂停跟随。tool-call 内容暴涨导致的「视觉远离底部」
+        // 不再触发暂停，由 ResizeObserver-driven follow 兜底拉回底部。
         setAutoFollowPausedValue(true);
       }
     }
     recalc();
     const el = mainRef.current;
+    if (el) lastScrollTopRef.current = el.scrollTop;
     el?.addEventListener('scroll', recalc, { passive: true });
     window.addEventListener('resize', recalc);
     return () => {
@@ -1528,12 +1539,18 @@ export function SessionDetailPage() {
     const target = messagesContentRef.current;
     const scroller = mainRef.current;
     if (!target || !scroller || typeof ResizeObserver === 'undefined') return;
+    // 内容增长跟随：autoFollow 开启且未被用户上滑暂停时，无论当前 isNearBottom
+    // 是否 ≤64px 都跟随到底部。修复 tool-call 内容暴涨一帧 >64px、isNearBottom
+    // 已翻 false 时 ResizeObserver 不再 follow 的 BUG。仅 autoFollowPaused
+    // (= 用户主动上滑) 时不跟随。
+    const shouldFollowOnGrow = () =>
+      autoFollowRef.current && !autoFollowPausedRef.current;
     const observer = new ResizeObserver(() => {
-      if (!shouldFollowPinnedMessages()) return;
+      if (!shouldFollowOnGrow()) return;
       if (resizeFollowFrameRef.current != null) return;
       resizeFollowFrameRef.current = requestAnimationFrame(() => {
         resizeFollowFrameRef.current = null;
-        if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
+        if (shouldFollowOnGrow()) scheduleFollowToBottom('auto');
       });
     });
     observer.observe(target);

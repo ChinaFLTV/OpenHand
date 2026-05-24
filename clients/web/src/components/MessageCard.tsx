@@ -996,7 +996,7 @@ function MessageCardImpl({
     <>
     <article
       ref={cardRef}
-      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4${appearClass}`}
+      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
       style={{
         display: 'block',
         width: 'fit-content',
@@ -1208,7 +1208,7 @@ function MessageCardImpl({
               onClick={() => setShowRawContent((v) => !v)}
             />
           ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && contentFormat === 'html' && looksLikeHtml(content) ? (
+          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && looksLikeHtml(content) ? (
             <ActionBtn
               icon="globe"
               label={t('message.openInBrowser', '浏览器打开')}

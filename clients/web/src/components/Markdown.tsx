@@ -576,6 +576,16 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     // fall through to markdown rendering
   }
 
+  // 自适应：WEB 端 contentFormat 由本机 localStorage 控制，可能与 APP 端
+  // 实际设置不同步——若用户在 APP 把输出格式切到 HTML，AI 已经返回 HTML 内容，
+  // 而 WEB 此时 format 仍是 'markdown' 时，会把 <h2>...</h2> 当作纯文本展示
+  // (markdown 不会主动解析裸 HTML 标签作为渲染指令)。这里在 markdown 路径上
+  // 检测内容是否像 HTML，自动升级到 HtmlBody 渲染，使 WEB 端对 AI 输出
+  // 自愈，无需用户手动切设置项。sticky 与 'html' 分支共用同一 hook 结果。
+  if (format === 'markdown' && stickyLooksHtml) {
+    return <HtmlBody source={content} mono={mono} />;
+  }
+
   // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。
   if (tooBig) {
     return (
