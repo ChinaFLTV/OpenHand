@@ -1856,6 +1856,43 @@ bool _looksLikeHtml(String value) {
   return _htmlLikelyTagPattern.hasMatch(value);
 }
 
+// 自闭合标签，不参与开/闭配平。
+const Set<String> _htmlVoidTags = <String>{
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link',
+  'meta', 'param', 'source', 'track', 'wbr',
+};
+
+final RegExp _htmlTagScanPattern = RegExp(
+  r'<\s*(/?)\s*([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(/?)\s*>',
+);
+
+/// 粗粒度结构平衡检查：未匹配的开标签或残缺尖括号会让流式 HTML 在 wfh
+/// layout 阶段崩溃（`RenderBox was not laid out`）。这里只校验「无残缺
+/// `<` 且开闭标签栈最终为空」，避免阻塞绝大多数完整 HTML 片段。
+bool _isHtmlStructurallyBalanced(String value) {
+  if (value.isEmpty) return true;
+  final lastLt = value.lastIndexOf('<');
+  final lastGt = value.lastIndexOf('>');
+  if (lastLt > lastGt) return false; // 末尾有残缺 `<...` 未闭合。
+  final stack = <String>[];
+  for (final match in _htmlTagScanPattern.allMatches(value)) {
+    final isClosing = (match.group(1) ?? '').isNotEmpty;
+    final tag = (match.group(2) ?? '').toLowerCase();
+    final selfClose = (match.group(3) ?? '').isNotEmpty;
+    if (_htmlVoidTags.contains(tag) || selfClose) continue;
+    if (isClosing) {
+      if (stack.isEmpty) return false;
+      // 容忍轻量错位：弹出到最近匹配。
+      final idx = stack.lastIndexOf(tag);
+      if (idx < 0) return false;
+      stack.removeRange(idx, stack.length);
+    } else {
+      stack.add(tag);
+    }
+  }
+  return stack.isEmpty;
+}
+
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
 /// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
 ///
@@ -2412,6 +2449,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     required this.collapseCharThreshold,
     required this.collapseLineThreshold,
     required this.previewMaxHeight,
+    this.isStreaming = false,
   });
 
   final String data;
@@ -2427,6 +2465,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final int collapseCharThreshold;
   final int collapseLineThreshold;
   final double previewMaxHeight;
+  final bool isStreaming;
 
   Widget _buildMarkdown() {
     return _CollapsibleMessageMarkdownBody(
@@ -2454,6 +2493,15 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildHtmlOrFallback() {
+    // 流式过程中，HTML DOM 尚未闭合，交给 flutter_widget_from_html_core 会因
+    // 半成品节点（孤立 <div>、未完成的 style 属性、被截断的 flex/grid 等）
+    // 在 layout 期抛 `RenderBox was not laid out`，整段气泡变空。在流尚未
+    // 结束前先用纯文本/Markdown 兜底，等 stream 完整再切到 HTML 渲染。
+    if (isStreaming || !_isHtmlStructurallyBalanced(data)) {
+      return htmlFallback == AiHtmlRenderFallback.plainText
+          ? _buildPlainText()
+          : _buildMarkdown();
+    }
     if (_looksLikeHtml(data)) {
       return SizedBox(
         width: double.infinity,

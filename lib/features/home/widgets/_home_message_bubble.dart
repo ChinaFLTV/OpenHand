@@ -511,6 +511,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               streaming: true,
                               animateSize: false,
                               child: _AssistantMessageBodyDispatcher(
+                                isStreaming: true,
                                 data: effectiveContent.isEmpty
                                     ? ' '
                                     : effectiveContent,
