@@ -3758,9 +3758,14 @@ class AiSessionController extends ChangeNotifier {
               _sessionStreamThrottleSignal.value + 1;
         },
       );
-      _activeCardThrottles[workingSession.id] = cardThrottle;
-      _activeCharThrottles[workingSession.id] = charThrottle;
-      _activeReasoningCharThrottles[workingSession.id] = reasoningCharThrottle;
+      // 媒体生成模式下不把 throttle 注册进 _active* 表 —— 既避免设置面板的
+      // 「立即应用」把 0 速率改回非零打破旁路，也让顶栏胶囊找不到节流入口。
+      if (!isMediaCreation) {
+        _activeCardThrottles[workingSession.id] = cardThrottle;
+        _activeCharThrottles[workingSession.id] = charThrottle;
+        _activeReasoningCharThrottles[workingSession.id] =
+            reasoningCharThrottle;
+      }
       _activeAiThroughputSamplers[workingSession.id] = aiThroughputSampler;
       // 2026-05-19 — 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
       // 之后即便用户在弹窗里关闭节流，胶囊也会以灰色保留入口。
