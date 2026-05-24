@@ -2490,7 +2490,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (!identical(nextBubble, _bubbleStateForRegion)) {
       _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
       _bubbleStateForRegion = nextBubble;
-      _bubbleStateForRegion?.registerHtmlInteractiveRegion(_webViewRegionKey);
+      _bubbleStateForRegion?.registerHtmlInteractiveRegion(
+        _webViewRegionKey,
+        this,
+      );
     }
   }
 
@@ -2522,6 +2525,37 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
     setState(() => _height = next);
+  }
+
+  /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
+  /// 平台视图——Flutter Listener 看得到 DOWN/UP，但 DOM 完全收不到 click。
+  /// 外层气泡 Listener 在检测到在此 WebView 区域内 tap-like 抬起时调用
+  /// 此方法，以 globalToLocal 折算到 WebView 内坐标后用 evaluateJavascript 在
+  /// document.elementFromPoint() 上依次合成 mousedown / mouseup / click
+  /// （表单控件额外 .focus()）。这样 `<details>` / `<summary>` / `<a>` /
+  /// `<button>` / `<input>` 都可以交互。
+  Future<void> simulateTapAtGlobal(Offset globalPosition) async {
+    final controller = _controller;
+    if (controller == null) return;
+    final context = _webViewRegionKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final local = renderObject.globalToLocal(globalPosition);
+    final x = local.dx.toStringAsFixed(2);
+    final y = local.dy.toStringAsFixed(2);
+    try {
+      await controller.evaluateJavascript(
+        source:
+            "(function(){try{var x=$x,y=$y;var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}}catch(_){}})();",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_content',
+        'html bubble simulate tap failed',
+        error,
+        stack,
+      );
+    }
   }
 
   String _buildDocument() {
@@ -2578,26 +2612,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       height: height,
       child: KeyedSubtree(
         key: _webViewRegionKey,
-        // 2026-05-25: 改用 flutter_inappwebview —— macOS WKWebView 通过
-        // webview_flutter 的 AppKitView 路径长期收不到鼠标点击；
-        // flutter_inappwebview 走自己的平台通道封装，macOS 下 <details>
-        // / <button> / <a> 等可正常交互。onContentSizeChanged 直接给出
-        // 内容真实高度，省掉原先 ResizeObserver + JS 通道回传。
+        // 2026-05-25: HTML 气泡用 flutter_inappwebview 渲染。
+        // macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
+        // 平台视图（Listener 能看到 DOWN/UP，但 DOM 收不到 click），所以
+        // 内部交互通过 `_MessageBubble` 的外层 Listener 调用
+        // `simulateTapAtGlobal` 用 JS 在对应坐标合成点击事件。
+        // 高度自适应仍用 JS 注入 ResizeObserver + callHandler 回传 scrollHeight。
         child: iaw.InAppWebView(
           initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
           initialSettings: iaw.InAppWebViewSettings(
             transparentBackground: !Platform.isMacOS,
             disableVerticalScroll: true,
           ),
-          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-            Factory<EagerGestureRecognizer>(
-              () => EagerGestureRecognizer(),
-            ),
-          },
           onWebViewCreated: (controller) {
             _controller = controller;
-            // ignore: avoid_print
-            print('[bubble.webview.debug] onWebViewCreated');
             controller.addJavaScriptHandler(
               handlerName: 'OpenHandHeight',
               callback: (args) {
@@ -2610,26 +2638,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
                 _onContentSizeChanged(Size(0, value));
               },
             );
-            controller.addJavaScriptHandler(
-              handlerName: 'OpenHandDebug',
-              callback: (args) {
-                // ignore: avoid_print
-                print('[bubble.webview.debug] js->dart $args');
-                return null;
-              },
-            );
           },
           onLoadStop: (controller, url) async {
-            // ignore: avoid_print
-            print('[bubble.webview.debug] onLoadStop url=$url');
             try {
               await controller.evaluateJavascript(
                 source:
-                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);"
-                    "function dbg(tag,extra){try{window.flutter_inappwebview.callHandler('OpenHandDebug',tag,extra||'');}catch(_){}}"
-                    "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(ev){document.addEventListener(ev,function(e){dbg(ev,(e.target&&e.target.tagName)||'?');},true);});"
-                    "dbg('inject_ok',String(document.body?document.body.children.length:-1));"
-                    "})();",
+                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
               );
             } catch (error, stack) {
               silentLog(

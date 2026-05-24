@@ -66,17 +66,35 @@ class _MessageBubbleState extends State<_MessageBubble> {
   Timer? _pendingSelectionToggleTimer;
   // 2026-05-25: HTML 消息正文以 WebView 渲染时，内部按钮/超链接/输入框
   // 等交互元素的点击落点会被外层 Listener 的"选中切换"吃掉（HitTestBehavior
-  // .translucent 让 Listener 总能收到指针）。让 `_HtmlBubbleWebView` 在
-  // initState/dispose 时把自己的 GlobalKey 注册到这里，pointerUp 命中
-  // 即跳过选中切换，让事件留给 WebView 内部处理。
-  final Set<GlobalKey> _htmlInteractiveRegionKeys = <GlobalKey>{};
+  // .translucent 让 Listener 总能收到指针）；同时 macOS Flutter embedder
+  // 不会把鼠标 NSEvent 转发给嵌入的 WKWebView 平台视图（已通过临时日志
+  // 验证：Listener 看得到 DOWN/UP，但 WebView DOM 完全收不到 click）。
+  // 让 `_HtmlBubbleWebView` 把自身 state 一并注册过来；命中区域时既跳过
+  // 选中切换，又主动调用 simulateTapAtGlobal 用 JS 在对应坐标合成点击。
+  final Map<GlobalKey, _HtmlBubbleWebViewState> _htmlInteractiveRegionStates =
+      <GlobalKey, _HtmlBubbleWebViewState>{};
 
-  void registerHtmlInteractiveRegion(GlobalKey key) {
-    _htmlInteractiveRegionKeys.add(key);
+  void registerHtmlInteractiveRegion(
+    GlobalKey key,
+    _HtmlBubbleWebViewState state,
+  ) {
+    _htmlInteractiveRegionStates[key] = state;
   }
 
   void unregisterHtmlInteractiveRegion(GlobalKey key) {
-    _htmlInteractiveRegionKeys.remove(key);
+    _htmlInteractiveRegionStates.remove(key);
+  }
+
+  _HtmlBubbleWebViewState? _htmlInteractiveStateAt(Offset globalPosition) {
+    if (_htmlInteractiveRegionStates.isEmpty) return null;
+    for (final entry in _htmlInteractiveRegionStates.entries) {
+      final box = entry.key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final topLeft = box.localToGlobal(Offset.zero);
+      final rect = topLeft & box.size;
+      if (rect.contains(globalPosition)) return entry.value;
+    }
+    return null;
   }
 
   // Cached expensive objects to avoid re-allocation on every build.
@@ -125,17 +143,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return rect.contains(globalPosition);
   }
 
-  bool _isPointerInsideHtmlInteractiveRegion(Offset globalPosition) {
-    if (_htmlInteractiveRegionKeys.isEmpty) return false;
-    for (final key in _htmlInteractiveRegionKeys) {
-      final box = key.currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.attached) continue;
-      final topLeft = box.localToGlobal(Offset.zero);
-      final rect = topLeft & box.size;
-      if (rect.contains(globalPosition)) return true;
-    }
-    return false;
-  }
+  // ignore: unused_element
+  bool get _hasHtmlInteractiveRegions =>
+      _htmlInteractiveRegionStates.isNotEmpty;
 
   /// 子交互回调（Markdown 链接、图片附件、代码块工具栏按钮等）在
   /// 触发自身动作之前调用此方法，告知气泡"本次点击已被消费"，从而
@@ -796,23 +806,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
       onPointerDown: (event) {
         _pointerDownPosition = event.position;
         _pointerDownAt = DateTime.now();
-        // ignore: avoid_print
-        print(
-          '[bubble.pointer.debug] DOWN pos=${event.position} '
-          'insideHtml=${_isPointerInsideHtmlInteractiveRegion(event.position)} '
-          'regions=${_htmlInteractiveRegionKeys.length}',
-        );
       },
       onPointerUp: (event) {
         final downPos = _pointerDownPosition;
         final downAt = _pointerDownAt;
         _pointerDownPosition = null;
         _pointerDownAt = null;
-        // ignore: avoid_print
-        print(
-          '[bubble.pointer.debug] UP pos=${event.position} '
-          'insideHtml=${_isPointerInsideHtmlInteractiveRegion(event.position)}',
-        );
         if (downPos == null || downAt == null) {
           return;
         }
@@ -824,8 +823,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
         }
         // HTML 消息中 WebView 内部按钮/链接/表单的点击不能被气泡
         // 选中切换吞掉，否则点了没反应、还多了一条功能按钮条。
-        if (_isPointerInsideHtmlInteractiveRegion(event.position) ||
-            _isPointerInsideHtmlInteractiveRegion(downPos)) {
+        // 同时——macOS Flutter embedder 不会把鼠标事件转发给嵌入的
+        // WKWebView 平台视图，所以这里在 tap-like 抬起时主动把坐标
+        // 喂给对应 WebView 的 simulateTapAtGlobal()，用 JS 合成点击。
+        final htmlStateUp = _htmlInteractiveStateAt(event.position);
+        final htmlStateDown = _htmlInteractiveStateAt(downPos);
+        if (htmlStateUp != null || htmlStateDown != null) {
+          final movement = (event.position - downPos).distance;
+          final elapsed = DateTime.now().difference(downAt);
+          if (movement <= 8 && elapsed.inMilliseconds <= 600) {
+            (htmlStateUp ?? htmlStateDown)
+                ?.simulateTapAtGlobal(event.position);
+          }
           return;
         }
         final movement = (event.position - downPos).distance;
