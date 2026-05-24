@@ -159,6 +159,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _programmaticAutoFollowScrollInProgress = false;
   bool _userScrollInProgress = false;
   bool _userDragActive = false;
+  bool _transcriptLayoutAutoFollowQueued = false;
   int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
   DateTime? _lastPointerSignalScrollAt;
@@ -5197,7 +5198,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_shouldDeferAutoFollowScheduling()) {
       return;
     }
-    _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+    if (_transcriptLayoutAutoFollowQueued) {
+      return;
+    }
+    _transcriptLayoutAutoFollowQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _transcriptLayoutAutoFollowQueued = false;
+      if (!mounted || _shouldDeferAutoFollowScheduling()) {
+        return;
+      }
+      _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+    });
   }
 
   void _handleRevealOlderMessages() {
