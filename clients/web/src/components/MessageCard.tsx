@@ -920,7 +920,25 @@ function MessageCardImpl({
   const streamingContent = streaming || asBool(metadata['streaming']);
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
   // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
-  const keepExpandedDuringTurn = turnActive && message.role === 'assistant';
+  //
+  // 关键去抖：服务器 send_phase 在 SSE / 2.5s phase guard / polling 三路之间
+  // 存在竞态，turnActive 会瞬态 true → false → true 跳变 (~ 每隔几秒一次)，
+  // 直接驱动 keepExpandedDuringTurn → 长正文卡的 collapsed 跟着跳变 → CSS
+  // 360ms max-height (4000px ↔ 240px) 过渡每隔几秒跑一遍 → 视觉上正文
+  // 区每隔几秒"消失再立刻显示"（卡片外框稳定，因 collapsed 只裁 body），
+  // 同时撑高的工具卡在视窗中表现为"折叠 → 展开 → 折叠"。
+  // 这里把 turnActive 的 false 沿做 3s 去抖：只有持续 3s false 才认为回合
+  // 真正结束，吞掉中间所有 idle 抖动。true 沿立即生效。
+  const [stableTurnActive, setStableTurnActive] = useState(turnActive);
+  useEffect(() => {
+    if (turnActive) {
+      setStableTurnActive(true);
+      return;
+    }
+    const handle = window.setTimeout(() => setStableTurnActive(false), 3000);
+    return () => window.clearTimeout(handle);
+  }, [turnActive]);
+  const keepExpandedDuringTurn = stableTurnActive && message.role === 'assistant';
   const canCollapse =
     !useToolBody &&
     !forceExpanded &&
