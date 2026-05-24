@@ -4284,29 +4284,13 @@ button.oh-composer-pill:not(:disabled):hover {
 
 /* Markdown 渲染 (react-markdown) 专用样式 + highlight.js GitHub 配色子集 */
 
-/* 阶段㉔: 长会话首次打开性能 — 让消息卡片在视窗外时由浏览器跳过样式
- * 计算 / 布局 / 绘制 (content-visibility: auto)。 contain-intrinsic-size
- * 给一个保守的占位高度，避免滚动条跳动。可视区进入后浏览器自动
- * 完成 layout/paint。Chromium / Edge / Safari 16+ 全部支持，旧浏览器
- * 自动忽略此属性退化为正常渲染。
- *
- * 注意：`contain-intrinsic-size: auto 220px` 中的 `auto` 关键字让浏览器
- * 记忆「首次实际渲染过」的真实尺寸；之后即使该卡片滑出视窗被 c-v 跳过
- * 渲染，占位尺寸仍是上次记下的真实高度，而不是死板的 220px。这避免了
- * 流式输出过程中正文卡片快速增高时 c-v 边界判定把卡片瞬间塌缩到 220px
- * 又恢复，造成「消息盒每隔几秒突然消失再立刻显示并剧烈滚动」的异常。
- *
- * 此外，正在流式输出的消息（`is-streaming-now` 标记）整段禁用 c-v，
- * 避免浏览器在内容尺寸高频变化时把卡片误判为 off-screen 而隐藏。流式
- * 结束后才放开 c-v 让浏览器节省非可视区渲染开销。 */
-.oh-message-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 220px;
-}
-.oh-message-card.is-streaming-now {
-  content-visibility: visible;
-  contain-intrinsic-size: none;
-}
+/* 阶段㉔（撤回）: 早期为了长会话首屏性能给消息卡片加了 `content-visibility:auto`
+ * + `contain-intrinsic-size`。实际表现是：流式增长 / 消息上下文切换 / 反复滚动
+ * 触发 cv 边界判定时，浏览器把已挂载卡片塌缩到 fallback intrinsic size 再恢复，
+ * 视觉上每隔几秒卡片瞬间消失再立刻出现并伴随剧烈滚动。即使加了 `is-streaming-now`
+ * 限于当前流式卡片禁用 cv，前几条非流式卡片仍会在视窗边界附近抽搐——尤其是
+ * 流结束后 cv 重新生效那一瞬。直接撤掉 cv，保持稳定的视觉呈现。视窗外卡片的
+ * 性能由 react-markdown 帧节流调度器 + 首屏 20 条限流承担。 */
 
 .oh-markdown {
   line-height: 1.65;

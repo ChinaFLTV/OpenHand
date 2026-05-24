@@ -757,8 +757,13 @@ function StreamingMarkdownReveal({
   // 1. HTML 模式：上下层都会触发 DOMPurify 解析 + dangerouslySetInnerHTML 渲染，
   //    两份相似 DOM 叠加产生肉眼可见的"重影"；
   // 2. plain_text 模式：纯文本拼接已经无延迟，underlay 多余；
+  // 3. WEB localStorage 还停在 'markdown' 但 AI 已返回 HTML 时，Markdown 内部
+  //    会自适应升级为 HtmlBody —— 此处也得同步禁用 underlay，否则上下两个
+  //    HtmlBody 叠加同样产生肉眼可见的"重影"（这是用户截图里仍能看到重影的
+  //    根因）。直接基于 content 判断更可靠。
   // 仅 markdown 流式走 diff underlay 平滑过渡。
-  const supportsDiffAnimation = format !== 'html' && format !== 'plain_text';
+  const contentIsHtml = looksLikeHtml(content);
+  const supportsDiffAnimation = format !== 'html' && format !== 'plain_text' && !contentIsHtml;
   const canAnimateDiff = !reduceMotion && streaming && revealAllowed && previous.content.length > 0 && supportsDiffAnimation;
   let immediateOutgoing: StreamingContentSnapshot | null = null;
   if (canAnimateDiff && previous.content !== content) {
