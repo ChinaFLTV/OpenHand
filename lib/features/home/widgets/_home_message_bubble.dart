@@ -678,6 +678,34 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                     en: 'Show Raw',
                                   ),
                           ),
+                        if (!isUser &&
+                            !isToolCall &&
+                            !isReasoning &&
+                            !isSelfLearning &&
+                            !isCompressionPoint &&
+                            !isStatus &&
+                            context
+                                    .read<SettingsController>()
+                                    .aiMessageContentFormat ==
+                                AiMessageContentFormat.html &&
+                            _looksLikeHtml(effectiveContent))
+                          _MessageActionButton(
+                            onPressed: () async {
+                              await showAnimatedDialog<void>(
+                                context: context,
+                                builder: (dialogContext) => _HtmlPreviewDialog(
+                                  htmlContent: effectiveContent,
+                                  theme: Theme.of(context),
+                                ),
+                              );
+                            },
+                            icon: Icons.open_in_browser_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '浏览器打开',
+                              en: 'Open in Browser',
+                            ),
+                          ),
                       ],
                     ),
                   ),
