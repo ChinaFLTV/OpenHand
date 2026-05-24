@@ -1001,7 +1001,7 @@ function MessageCardImpl({
   // 用于折叠/展开/操作栏出现等"步进式"高度变化的丝滑过渡。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
-    !reduceMotion && !streamingContent,
+    !reduceMotion && !streamingContent && !keepExpandedDuringTurn,
   );
 
   const handleBadgeToggle = useCallback((e: Event) => {
