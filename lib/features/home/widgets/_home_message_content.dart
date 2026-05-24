@@ -2589,6 +2589,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             transparentBackground: !Platform.isMacOS,
             disableVerticalScroll: true,
           ),
+          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+            Factory<EagerGestureRecognizer>(
+              () => EagerGestureRecognizer(),
+            ),
+          },
           onWebViewCreated: (controller) {
             _controller = controller;
             controller.addJavaScriptHandler(
