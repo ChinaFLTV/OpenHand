@@ -3431,6 +3431,7 @@ export function SessionDetailPage() {
                         message={m}
                         active={activeMessageId === m.id}
                         streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)}
+                        turnActive={responseRunning}
                         sessionId={sessionId}
                         onActiveChange={handleMessageActiveChange}
                         onCopy={handleCopyMessage}

@@ -872,6 +872,10 @@ export interface MessageCardProps {
   forceExpanded?: boolean;
   /// 当前消息是否仍在流式增长；长正文在流式期间保持展开，结束后自动折叠。
   streaming?: boolean;
+  /// 当前会话回合是否仍在运行；运行期间长正文/reasoning 卡片保持展开，避免
+  /// 在同一回合中后续 reasoning/text 卡接管流式状态后，先前卡片瞬间自动折叠
+  /// 造成「消息盒子剧烈滚动 + 卡片瞬隐」的观感。
+  turnActive?: boolean;
   /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
   sessionId?: string;
   /// 复制本条消息正文（必传时显示「复制」按钮）。
@@ -892,6 +896,7 @@ function MessageCardImpl({
   active = false,
   forceExpanded = false,
   streaming = false,
+  turnActive = false,
   sessionId,
   onCopy,
   onDelete,
@@ -912,6 +917,9 @@ function MessageCardImpl({
   const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
   const metadata = message.metadata ?? {};
   const streamingContent = streaming || asBool(metadata['streaming']);
+  // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
+  // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
+  const keepExpandedDuringTurn = turnActive && message.role === 'assistant';
   const canCollapse =
     !useToolBody &&
     !forceExpanded &&
@@ -922,7 +930,7 @@ function MessageCardImpl({
   useEffect(() => {
     setExpandedOverride(null);
   }, [message.id]);
-  const expanded = forceExpanded || streamingContent || expandedOverride === true || !canCollapse;
+  const expanded = forceExpanded || streamingContent || keepExpandedDuringTurn || expandedOverride === true || !canCollapse;
   const collapsed = canCollapse && !expanded;
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
@@ -940,7 +948,7 @@ function MessageCardImpl({
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
   const isLongReasoning =
     message.kind === 'reasoning' && isReasoningLong(content);
-  const defaultBadgeCollapsed = !streamingContent && isLongReasoning;
+  const defaultBadgeCollapsed = !streamingContent && !keepExpandedDuringTurn && isLongReasoning;
   const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(null);
   useEffect(() => {
     setBadgeCollapsedOverride(null);
