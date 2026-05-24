@@ -2587,13 +2587,18 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
         '-webkit-font-smoothing:antialiased;}'
         'body{padding:2px 2px 4px 2px;overflow-x:auto;}'
+        // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
+        // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
+        // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
+        // 不能变小）。oh-root 以 fit-content 取真实内容高。
+        '#oh-root{display:block;width:100%;height:fit-content;}'
         'img,video,canvas,svg{max-width:100%;height:auto;}'
         'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
         'pre{overflow-x:auto;}'
         'table{border-collapse:collapse;}'
         'a{color:inherit;}'
         '</style></head>'
-        '<body>${widget.data}</body></html>';
+        '<body><div id="oh-root">${widget.data}</div></body></html>';
   }
 
   @override
@@ -2607,10 +2612,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
     final height = _height ?? fallbackHeight;
-    return SizedBox(
-      width: double.infinity,
-      height: height,
-      child: KeyedSubtree(
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    // 2026-05-25: HTML 内容展开/收起时高度双向变化 (oh-root 提供真实几何)
+    // 外层用 AnimatedSize 包起来，Q 弹 easeOutBack 曲线（reduceMotion 时退化为
+    // 1ms easeOutCubic，与全局动画设置保持一致）。
+    return AnimatedSize(
+      duration: reduceMotion
+          ? const Duration(milliseconds: 1)
+          : const Duration(milliseconds: 320),
+      curve: reduceMotion ? Curves.easeOutCubic : Curves.easeOutBack,
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: double.infinity,
+        height: height,
+        child: KeyedSubtree(
         key: _webViewRegionKey,
         // 2026-05-25: HTML 气泡用 flutter_inappwebview 渲染。
         // macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
@@ -2643,7 +2658,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             try {
               await controller.evaluateJavascript(
                 source:
-                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
+                    "(function(){var root=document.getElementById('oh-root')||document.body;function send(){try{var r=root.getBoundingClientRect();var h=Math.ceil(r.height);if(h>0)window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{var ro=new ResizeObserver(send);ro.observe(root);if(root!==document.body&&document.body)ro.observe(document.body);}catch(_){}try{var mo=new MutationObserver(send);mo.observe(document.body,{subtree:true,attributes:true,childList:true,characterData:true});}catch(_){}document.addEventListener('toggle',send,true);document.addEventListener('transitionend',send,true);document.addEventListener('animationend',send,true);window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
               );
             } catch (error, stack) {
               silentLog(
@@ -2663,6 +2678,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             if (mounted) setState(() => _hasError = true);
           },
         ),
+      ),
       ),
     );
   }
