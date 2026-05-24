@@ -43,6 +43,7 @@ class _MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<_MessageBubble> {
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
+  bool _showRawContent = false;
 
   // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -494,7 +495,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          if (isStreamingAssistant)
+                          if (_showRawContent)
+                            SelectableText(
+                              effectiveContent.isEmpty
+                                  ? ' '
+                                  : effectiveContent,
+                              style: markdownStyleSheet.styleSheet.p?.copyWith(
+                                color: textColor,
+                              ),
+                            )
+                          else if (isStreamingAssistant)
                             StreamingTextReveal(
                               textLength: effectiveContent.length,
                               streaming: true,
@@ -641,6 +651,31 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               zh: '审计',
                               en: 'Audit',
                             ),
+                          ),
+                        if (!isUser &&
+                            !isToolCall &&
+                            !isReasoning &&
+                            !isSelfLearning &&
+                            !isCompressionPoint &&
+                            !isStatus)
+                          _MessageActionButton(
+                            onPressed: () async => setState(
+                              () => _showRawContent = !_showRawContent,
+                            ),
+                            icon: _showRawContent
+                                ? Icons.code_off_outlined
+                                : Icons.code_outlined,
+                            label: _showRawContent
+                                ? _localizedText(
+                                    context,
+                                    zh: '显示渲染',
+                                    en: 'Show Rendered',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '显示原始',
+                                    en: 'Show Raw',
+                                  ),
                           ),
                       ],
                     ),
