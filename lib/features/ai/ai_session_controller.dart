@@ -3193,7 +3193,7 @@ class AiSessionController extends ChangeNotifier {
       }
       toolCatalog = applyMcpLazyLoadingForCurrentSession();
       // 2026-05-23 v6 — 「等待计划批准」的轮次仍然要在 prompt 里渲染「完整目录」，
-      // 但给 SDK / DSML 验证层的实际可用工具是空；避免全调用与 [2] 文本随 
+      // 但给 SDK / DSML 验证层的实际可用工具是空；避免全调用与 [2] 文本随
       // awaitingPlanApproval 反转而变动，从而保护 prefix cache。
       final fullCatalogForDisplay = _toolCatalogForRound(
         session: workingSession,
@@ -4176,22 +4176,14 @@ class AiSessionController extends ChangeNotifier {
         // message content，用户看到的就是「思考节流正常 → 正式响应
         // 突然一股脑输出」。
         //
-        // 现在策略：
-        //   * 持续节流（throttleDuration == null）：完全按
-        //     `pendingChars / rate * 1.2 + 1s` 等待，不设上限。流式
-        //     卡片随节奏一格一格铺完才允许 release。用户主动 stop 时
-        //     `didCancelStreamEarly` 已经走 cancel 分支跳过等待。
-        //   * 时长节流（throttleDuration != null）：沿用旧 8s 上限，
-        //     因为 throttle 在 duration 后会自然 _isExpired，UI 立刻
-        //     恢复实时节奏，不会再有「等不完」的问题。
+        // 现在策略：无论是否配置 throttleDuration，正常完成路径都完全按
+        // `pendingChars / rate * 1.2 + 1s` 等待，不设上限。throttleDuration
+        // 只影响 UI 的「持续时长已耗尽」提示，不再绕过显示侧字符节流；
+        // 流式卡片必须随阈值一格一格铺完才允许 release。用户主动 stop 时
+        // `didCancelStreamEarly` 已经走 cancel 分支跳过等待。
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
-            : throttleDuration == null
-            ? ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000
-            : math.min(
-                8000,
-                ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000,
-              );
+            : ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000;
         if (maxWaitMs > 0) {
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
@@ -4235,12 +4227,7 @@ class AiSessionController extends ChangeNotifier {
                     math.min(200, (1000 / effChars).ceil()),
                   ),
                 );
-          // 兜底总时长上限 5s，避免卡死 UI；超出后强制 release。
-          final fallbackDeadline = DateTime.now().add(
-            const Duration(seconds: 5),
-          );
-          while (DateTime.now().isBefore(fallbackDeadline) &&
-              !_isDisposed &&
+          while (!_isDisposed &&
               !_isStopRequestedForSession(workingSession.id) &&
               (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
             await Future<void>.delayed(fallbackStep);
@@ -4273,8 +4260,8 @@ class AiSessionController extends ChangeNotifier {
                 ? pendingReasoningContent!
                 : visibleMessageContent(reasoningMessageId))
           : null;
-      // 流正常结束：放开字符余量、回放 pending 卡片，确保即便 drain
-      // 超时也能把残余字符一次性补到 UI（兜底）。
+      // 流正常结束：此处应已按显示侧节流排空字符队列；release 只负责
+      // 清理计时器和活跃 throttle 记录。取消/错误路径才允许立即放开余量。
       _lastCharThroughputSnapshot[workingSession
           .id] = _CachedStreamThroughputSnapshot(
         _sessionDisplayThroughputSnapshot(
@@ -8258,9 +8245,7 @@ $trimmedSummary''';
     // 后续计算缓存命中率时从分母中扣除，避免首轮拉低真实命中率。
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
-            (resolvedPromptBuildCount == 1
-                ? effectiveUsage.promptTokens
-                : null);
+        (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,

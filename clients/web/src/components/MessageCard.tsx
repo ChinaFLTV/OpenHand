@@ -713,6 +713,32 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
   return ref;
 }
 
+function useRecentMessageActivity(
+  signal: string,
+  enabled: boolean,
+  holdMs: number,
+): boolean {
+  const [active, setActive] = useState(false);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      initializedRef.current = true;
+      setActive(false);
+      return;
+    }
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+    setActive(true);
+    const handle = window.setTimeout(() => setActive(false), holdMs);
+    return () => window.clearTimeout(handle);
+  }, [signal, enabled, holdMs]);
+
+  return active;
+}
+
 interface StreamingContentSnapshot {
   key: string;
   content: string;
@@ -912,13 +938,21 @@ function MessageCardImpl({
   const [showRawContent, setShowRawContent] = useState(false);
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
+  const isUserBubble = message.role === 'user';
   const useStructuredToolBody =
     message.kind === 'tool' ||
     message.kind === 'tool_call' ||
     message.kind === 'mcp';
   const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
   const metadata = message.metadata ?? {};
-  const streamingContent = streaming || asBool(metadata['streaming']);
+  const recentlyUpdatedContent = useRecentMessageActivity(
+    content,
+    !isUserBubble &&
+      ((isAssistantResponseMessage(message) && content.length > AUTO_COLLAPSE_CHAR_LIMIT) ||
+        (message.kind === 'reasoning' && isReasoningLong(content))),
+    8000,
+  );
+  const streamingContent = streaming || asBool(metadata['streaming']) || recentlyUpdatedContent;
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
   // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
   //
@@ -991,7 +1025,6 @@ function MessageCardImpl({
 
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
-  const isUserBubble = message.role === 'user';
   const isWideSystemCard =
     useToolBody ||
     message.kind === 'reasoning' ||

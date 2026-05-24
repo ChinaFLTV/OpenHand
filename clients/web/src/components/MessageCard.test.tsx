@@ -408,6 +408,22 @@ describe('MessageCard actions', () => {
     expect(document.body.textContent ?? '').toContain(tail);
   });
 
+  it('keeps recently updated long assistant text expanded even when phase flickers idle', () => {
+    const longText = 'A'.repeat(1280);
+    const { rerender, container } = render(
+      <MessageCard message={makeAssistantMessage('assistant-recent-long', longText)} />,
+    );
+
+    const body = container.querySelector<HTMLElement>('.oh-reasoning-collapsible-body')!;
+    expect(body.getAttribute('data-collapsed')).toBe('true');
+
+    rerender(
+      <MessageCard message={makeAssistantMessage('assistant-recent-long', `${longText}新增内容`)} />,
+    );
+
+    expect(body.getAttribute('data-collapsed')).toBe('false');
+  });
+
   it('auto-collapses long reasoning body once streaming completes', () => {
     const reasoningText = ['第一行', '第二行', '第三行', '第四行', '第五行', '第六行', '第七行', 'TAIL_REASONING']
       .join('\n');

@@ -112,6 +112,10 @@ export function ModelPickerDialog({
   }, [query, models]);
 
   const grouped = useMemo(() => {
+    const activeModel = models.find((m) => m.key === selectedKey);
+    const activeGroupKey = activeModel
+      ? `${activeModel.provider}\u0000${activeModel.protocol ?? ''}`
+      : '';
     const map = new Map<string, { label: string; items: ApiMetaModel[] }>();
     for (const m of filtered) {
       const protocol = m.protocol ?? '';
@@ -121,8 +125,20 @@ export function ModelPickerDialog({
       group.items.push(m);
       map.set(key, group);
     }
-    return [...map.entries()].map(([key, group]) => ({ key, ...group }));
-  }, [filtered]);
+    const groups = [...map.entries()].map(([key, group]) => ({ key, ...group }));
+    for (const group of groups) {
+      group.items = [...group.items].sort((a, b) => {
+        if (a.key === selectedKey && b.key !== selectedKey) return -1;
+        if (b.key === selectedKey && a.key !== selectedKey) return 1;
+        return 0;
+      });
+    }
+    return groups.sort((a, b) => {
+      if (a.key === activeGroupKey && b.key !== activeGroupKey) return -1;
+      if (b.key === activeGroupKey && a.key !== activeGroupKey) return 1;
+      return 0;
+    });
+  }, [filtered, models, selectedKey]);
 
   const recentKeys = useMemo(() => readRecent().map((r) => r.key), []);
   const recent = useMemo(() => {

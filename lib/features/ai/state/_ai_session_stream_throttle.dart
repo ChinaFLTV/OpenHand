@@ -169,11 +169,12 @@ class _StreamCharThrottleBudget {
 /// 时刻最多可对外渲染多少个 grapheme cluster；剩余 grapheme 会随着时间推
 /// 进自动放开。限速器内部维护一个 ~16ms 节奏的周期 Timer，在余量未释放
 /// 时持续触发调用方的 [_onTick] 回调，驱动 UI 把后续 grapheme 滚动出来。
-/// 流结束时调用 [release] 即可立刻放开全部预算。
+/// 流结束且显示队列已自然排空后调用 [release] 清理计时器。
 ///
 /// [throttleDuration] 启用「节流时长」：从 throttle 创建时刻起经过该时长后，
-/// [renderableGraphemeCount] 会直接返回 totalSanitizedGraphemeCount，相当
-/// 于关闭节流；null = 持续节流，永不超时。
+/// [isDurationExpired] 会变为 true 供 UI 表示持续时长已耗尽；显示侧仍继续
+/// 遵守 [maxCharsPerSecond]，避免已积压的正式响应内容突然一次性倾泻。
+/// null = 不显示时长耗尽态。
 ///
 /// 命名约定：所有 `*Chars` / `*chars` 计数（包括对外 [maxCharsPerSecond]
 /// 字段名以及内部 [_budget] / 节流桶）均按 grapheme 语义解释；
@@ -255,8 +256,7 @@ class _StreamCharThrottle {
   int _lastKnownTotalGraphemes = 0;
   final DateTime? _expireAt;
 
-  bool get isEnabled =>
-      (_enabledOverride ?? true) && maxCharsPerSecond > 0 && !_isExpired;
+  bool get isEnabled => (_enabledOverride ?? true) && maxCharsPerSecond > 0;
 
   bool get _isExpired {
     final exp = _expireAt;
@@ -280,15 +280,11 @@ class _StreamCharThrottle {
       // 只允许两种合法原因：
       //   ① [_disposed] == true   —— 调用方主动 release（错误/取消/
       //                                  流末尾兜底）；
-      //   ② [_isExpired] == true  —— [throttleDuration] 模式下时长
-      //                                  耗尽，UI 切回真实节奏。
+      //   ② [_enabledOverride] == false —— 用户显式关闭节流。
       // 在持续节流（throttleDuration == null）+ 仍在流期（未 release）
       // 的路径里命中本短路就是真 bug —— 字符会被一次性 dump。
       assert(
-        !(maxCharsPerSecond > 0) ||
-            _disposed ||
-            _isExpired ||
-            _enabledOverride == false,
+        !(maxCharsPerSecond > 0) || _disposed || _enabledOverride == false,
         'positive-rate _StreamCharThrottle short-circuited to pass-through '
         'while still active — this would dump the whole assistant_final '
         'response in one frame. rate=$maxCharsPerSecond '
