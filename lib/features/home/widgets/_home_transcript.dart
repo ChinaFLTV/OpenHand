@@ -747,14 +747,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _stopIncrementalDrip();
       }
       if (shouldDrip) {
-        final initialLimit = dripInProgress
-            ? (_materializedTailLimit ?? activeIdSet.length)
-            : math.min(
-                activeIdSet.length + _dripStartChunkSize,
-                fullTailLength,
-              );
-        _materializedTailLimit = initialLimit;
-        _beginIncrementalDrip(initialLimit);
+        // Drip 进行中时不要重启 timer：流式 token 更新会高频触发
+        // _syncRenderEntries，若每次都取消并重建 400 ms timer，后续卡片
+        // 会在模型持续输出时被无限延后。现有 timer 每拍都会重读 tail 长度，
+        // 新到的消息自然会被下一拍吸收。
+        if (!dripInProgress) {
+          final initialLimit = math.min(
+            activeIdSet.length + _dripStartChunkSize,
+            fullTailLength,
+          );
+          _beginIncrementalDrip(initialLimit);
+        }
       } else {
         _stopIncrementalDrip();
       }
