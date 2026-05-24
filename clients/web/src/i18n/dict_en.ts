@@ -246,6 +246,7 @@ export const dict_en: Record<string, string> = {
   'modelPicker.recent': 'Recent',
   'modelPicker.available': 'Available models',
   'modelPicker.active': 'Current default',
+  'modelPicker.activeProvider': 'Current provider',
   'modelPicker.empty': 'No model configured on the console',
   'modelPicker.noMatch': 'No matching model',
   'files.title': 'Workspace files',

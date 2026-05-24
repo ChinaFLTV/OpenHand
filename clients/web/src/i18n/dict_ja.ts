@@ -244,6 +244,7 @@ export const dict_ja: Record<string, string> = {
   'modelPicker.recent': '最近使用',
   'modelPicker.available': '利用可能なモデル',
   'modelPicker.active': '現在の既定',
+  'modelPicker.activeProvider': '現在のプロバイダー',
   'modelPicker.empty': 'コンソールにモデル未設定',
   'modelPicker.noMatch': '一致するモデルなし',
   'files.title': 'ワークスペースファイル',

@@ -111,11 +111,12 @@ export function ModelPickerDialog({
     });
   }, [query, models]);
 
-  const grouped = useMemo(() => {
+  const activeGroupKey = useMemo(() => {
     const activeModel = models.find((m) => m.key === selectedKey);
-    const activeGroupKey = activeModel
-      ? `${activeModel.provider}\u0000${activeModel.protocol ?? ''}`
-      : '';
+    return activeModel ? `${activeModel.provider}\u0000${activeModel.protocol ?? ''}` : '';
+  }, [models, selectedKey]);
+
+  const grouped = useMemo(() => {
     const map = new Map<string, { label: string; items: ApiMetaModel[] }>();
     for (const m of filtered) {
       const protocol = m.protocol ?? '';
@@ -138,7 +139,7 @@ export function ModelPickerDialog({
       if (b.key === activeGroupKey && a.key !== activeGroupKey) return 1;
       return 0;
     });
-  }, [filtered, models, selectedKey]);
+  }, [activeGroupKey, filtered, selectedKey]);
 
   const recentKeys = useMemo(() => readRecent().map((r) => r.key), []);
   const recent = useMemo(() => {
@@ -361,6 +362,7 @@ export function ModelPickerDialog({
                 <Section
                   key={group.key}
                   label={group.label}
+                  activeProvider={group.key === activeGroupKey}
                   items={group.items}
                   selectedKey={selectedKey}
                   highlightKey={highlightKey}
@@ -386,6 +388,7 @@ function Section({
   onPick,
   onHover,
   showProviderSubtitle = false,
+  activeProvider = false,
 }: {
   label: string;
   items: ApiMetaModel[];
@@ -395,6 +398,7 @@ function Section({
   onHover(key: string): void;
   /** 「最近使用」分组下显示 provider+protocol 副标题，避免不同服务商的同名模型混淆。 */
   showProviderSubtitle?: boolean;
+  activeProvider?: boolean;
 }) {
   return (
     <div>
@@ -406,7 +410,20 @@ function Section({
           letterSpacing: 0,
         }}
       >
-        {label}
+        <span>{label}</span>
+        {activeProvider ? (
+          <span
+            class="ml-2 text-[10px] px-1.5 py-0.5 rounded-m3-sm"
+            style={{
+              color: 'var(--m3-primary)',
+              background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--m3-primary) 28%, transparent)',
+              fontWeight: 700,
+            }}
+          >
+            {t('modelPicker.activeProvider', '当前提供商')}
+          </span>
+        ) : null}
       </p>
       {items.map((m) => {
         const active = m.key === selectedKey;
