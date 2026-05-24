@@ -60,7 +60,8 @@ class _WorkspaceView extends StatelessWidget {
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
     this.projectRoot,
-    this.composerPanelKey,
+    this.onComposerStateCreated,
+    this.onComposerStateDisposed,
     this.skippedInstructionIds = const <String>{},
     this.onToggleInstructionSkip,
   });
@@ -126,7 +127,8 @@ class _WorkspaceView extends StatelessWidget {
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
   final String? projectRoot;
-  final GlobalKey<_ComposerPanelState>? composerPanelKey;
+  final ValueChanged<_ComposerPanelState>? onComposerStateCreated;
+  final ValueChanged<_ComposerPanelState>? onComposerStateDisposed;
 
   /// 2026-04-25 — 【指令】胶囊：本轮被临时取消的指令 ID 集合。
   final Set<String> skippedInstructionIds;
@@ -148,6 +150,9 @@ class _WorkspaceView extends StatelessWidget {
           children: [
             Expanded(
               child: _WorkspacePrimarySwitcher(
+                key: ValueKey<String>(
+                  'primary-switcher-${currentSession?.id ?? 'none'}',
+                ),
                 child: currentSession == null
                     ? const _WorkspaceEmptyState(
                         key: ValueKey<String>('no-session'),
@@ -306,7 +311,8 @@ class _WorkspaceView extends StatelessWidget {
                 child: SizeChangedLayoutNotifier(
                   child: RepaintBoundary(
                     child: _ComposerPanel(
-                      key: composerPanelKey,
+                      onStateCreated: onComposerStateCreated,
+                      onStateDisposed: onComposerStateDisposed,
                       currentSession: currentSession,
                       liveRuntimeToolPreview: liveRuntimeToolPreview,
                       controller: draftController,
@@ -497,7 +503,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
 /// empty-state placeholders to overlap during the transition; transcript
 /// content always swaps atomically.
 class _WorkspacePrimarySwitcher extends StatelessWidget {
-  const _WorkspacePrimarySwitcher({required this.child});
+  const _WorkspacePrimarySwitcher({super.key, required this.child});
 
   final Widget child;
 
@@ -550,12 +556,6 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
       transitionBuilder: (animatedChild, animation) {
         return _WorkspacePrimarySwitchTransition(
           allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
-          // Layer a subtle 6px horizontal paint-time offset on top of
-          // whatever transition the user picked, so cross-session swaps
-          // pick up a faint side-slide cue (works even when the style
-          // is `fade` / `none` because `_PaintOffsetTransition` only
-          // touches the paint offset). Honors `disableAnimationsOf`
-          // via the render object itself.
           child: _PaintOffsetTransition(
             animation: animation,
             maxYOffset: 0,

@@ -38,6 +38,17 @@ const double _composerMaxHeight = 440;
 // enough to absorb sub-pixel rounding from animated layout settles.
 const double _autoFollowDistanceThreshold = 32;
 const double _autoFollowAnimatedDistanceThreshold = 8;
+// 2026-05-24 引入「暂停判定」滞回阈值：用户加载更多历史消息后，被
+// prepend 的旧消息会在随后多帧里继续异步解析 markdown / 代码高亮，
+// `maxScrollExtent` 会在数十像素范围内反复抖动。若仍沿用 32 px 的
+// `_autoFollowDistanceThreshold` 同时判定「靠近底部」与「已离开底部」，
+// `distanceToBottom` 的微小波动会让 `_shouldAutoFollowMessages` 高频翻
+// 转，进而让 composer 上的「跳到最新」按钮形态、消息列表的边距贴底
+// 决策反复刷新 — 用户在屏幕上看到的就是「消息盒子持续上下抽搐 / 鬼
+// 畜」。把暂停阈值放宽到 96 px 形成滞回：只有真的离开底部 96 px 以
+// 上才算「主动暂停跟随」，恢复时仍走 32 px 紧贴底部，避免抖动 ↔ 暂停
+// 形成闭环。
+const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // First-open jank mitigation: when a session is freshly opened we only
 // materialise the most recent N display messages instead of the previous 30.

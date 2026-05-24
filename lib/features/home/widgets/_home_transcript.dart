@@ -438,6 +438,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             (position.pixels - lastJumpedTo!).abs() > 1) {
           return;
         }
+        // 弹簧让步：若上一轮 jumpTo 后 maxExtent 萎缩导致 pixels 越界，
+        // BouncingScrollPhysics 弹簧正在回拉。此时不抢 jumpTo，让弹簧
+        // 自然沉降到 maxExtent 附近后再继续。弹簧方向与贴底目标一致。
+        if (position.pixels > position.maxScrollExtent + 0.5) {
+          scheduleNext(remaining - 1);
+          return;
+        }
         final target = position.maxScrollExtent;
         if (target <= 0) {
           scheduleNext(remaining - 1);
@@ -450,9 +457,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           if (stableFrames >= 2) return;
         } else {
           stableFrames = 0;
-          // 用 specific position 而不是 controller.jumpTo 避免命中
-          // 第二个 attached position (cross-fade 期间) 触发 Scrollbar
-          // single-position 校验。
+          if (controller.positions.length > 1) {
+            scheduleNext(remaining - 1);
+            return;
+          }
           position.jumpTo(target);
           lastJumpedTo = target;
         }
@@ -1060,6 +1068,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (rawDelta.abs() < 8.0) return false;
     final goal = (currentOffset + rawDelta * dampening).clamp(0.0, maxExtent);
     if ((goal - currentOffset).abs() < 8.0) return false;
+    if (scrollController.positions.length > 1) return false;
     if (duration == Duration.zero) {
       scrollController.jumpTo(goal);
       return true;
@@ -1159,6 +1168,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             if (stableFrames >= 2) return;
           } else {
             stableFrames = 0;
+            if (scrollController.positions.length > 1) {
+              settlePrependedHeight(remainingFrames - 1);
+              return;
+            }
+            // 弹簧让步：若上一帧 jumpTo 后 maxExtent 萎缩导致像素越界，
+            // BouncingScrollPhysics 弹簧正在回拉，此时不抢 jumpTo，
+            // 让弹簧自然沉降后再做下一帧调整，避免 settle 循环与弹簧共振。
+            if (position.pixels > position.maxScrollExtent + 0.5) {
+              lastAdjustedOffset = position.pixels;
+              settlePrependedHeight(remainingFrames - 1);
+              return;
+            }
             final targetOffset = (position.pixels + delta).clamp(
               position.minScrollExtent,
               newMaxExtent,

@@ -119,8 +119,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final ScrollController _messageScrollController = ScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
-  final GlobalKey<_ComposerPanelState> _composerPanelKey =
-      GlobalKey<_ComposerPanelState>();
+  _ComposerPanelState? _composerPanelState; // 直接引用，替代 GlobalKey.currentState
   final AiWorkspaceInstructionService _workspaceInstructionService =
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
@@ -161,7 +160,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _userDragActive = false;
   int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
-  double? _lastMessageScrollPixels;
   DateTime? _lastPointerSignalScrollAt;
   // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
   // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
@@ -1681,46 +1679,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleMessageScroll() {
     final position = _activeMessageScrollPosition();
     if (position == null) return;
-    final pixels = position.pixels;
-    final previousPixels = _lastMessageScrollPixels;
-    _lastMessageScrollPixels = pixels;
     if (_programmaticAutoFollowScrollInProgress ||
         _composerScrollCompensationInProgress) {
       return;
     }
-    // 2026-05-24 (修复): isScrollingNotifier 为 true 但 _userDragActive 为
-    // false 时，说明当前滚动由物理模拟驱动（弹簧回弹、fling 减速）而非用户
-    // 拖拽手势。ScrollController listener 无法区分「物理回弹」和「用户上滑」，
-    // 在弹道阶段做 delta 检测会将弹簧从 overshoot 回位误判为用户操作→暂停
-    // 自动跟随→重启宽限期→jumpTo 再次触发→再次 overshoot→形成闭环振荡，
-    // 表现为使劲滑到底时消息盒子持续快速弹跳/抽搐/鬼畜。
-    // _handleMessageScrollNotification 通过 dragDetails + UserScrollNotification
-    // 方向元数据可正确分类弹道阶段的用户 fling，不需要本 listener 越俎代庖。
+    // 2026-05-26 (重构): 彻底移除 listener 中的 delta 判定逻辑。
+    // ScrollController listener 无法可靠区分「用户上滑」和「弹簧回弹/布局沉降」，
+    // 基于 delta 的启发式检测已经历多轮修补仍无法根除误判。根本原因是 listener
+    // 缺少 ScrollNotification 携带的 dragDetails / UserScrollNotification.direction
+    // 等精确元数据。此后 listener 不再越俎代庖做暂停/恢复决策，该职责完全交给
+    // _handleMessageScrollNotification，它拥有完整的用户意图分类信息。
+    //
+    // listener 仅保留两个职责：
+    //   1. 跟踪 _lastMessageScrollPixels / _lastMessageScrollMaxExtent（调试/分析用）
+    //   2. 同步 _syncAutoFollowPausedState（UI 状态一致性）
+    //
+    // 物理模拟期间（isScrollingNotifier && !_userDragActive）完全跳过，避免
+    // 弹簧回弹/fling 减速产生的像素变化触发不必要的 UI 刷新。
     if (position.isScrollingNotifier.value && !_userDragActive) {
-      return;
-    }
-    final delta = previousPixels == null ? 0.0 : pixels - previousPixels;
-    final distanceToBottom = position.maxScrollExtent - pixels;
-    if (delta < -0.5 && distanceToBottom > 0) {
-      _markUserScrollInProgress();
-      // 2026-05-26 — 每次检测到向上滚动时也重启宽限计时器，
-      // 确保极慢速触控板滚动（单 tick 间隔可达 500+ ms）不会
-      // 在两 tick 间让 _userScrollInProgress 过期，杜绝自动跟随
-      // 趁机 jumpTo 造成的"往复拽回→抽搐/鬼畜"。
-      _scheduleUserScrollEndGrace();
-      _shouldAutoFollowMessages = false;
-      _clearPendingAutoFollowState();
-      _syncAutoFollowPausedState();
       return;
     }
     if (!_autoFollowEnabled) {
       return;
     }
-    // ScrollController listeners can fire before ScrollNotification has had
-    // a chance to classify the delta as user input. Do not resume auto-follow
-    // from this fallback path; terminal ScrollEnd / idle notifications own
-    // that transition so a slow upward wheel tick cannot re-arm follow for
-    // one frame and then get corrected back, which is the visible tug/jitter.
     _syncAutoFollowPausedState();
   }
 
@@ -1784,14 +1765,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
-    final isNearBottom = distanceToBottom <= _autoFollowDistanceThreshold;
+    final isNearBottom = distanceToBottom >= -1.0 &&
+        distanceToBottom <= _autoFollowDistanceThreshold;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
       return false;
     }
-    final userScrolledAwayFromBottom = !isNearBottom && userScrollActivity;
+    // 2026-05-24 「暂停」阈值采用滞回：只有距离底部 > 96 px 才算「真
+    // 的离开底部」。加载更多历史后，markdown / 高亮异步完成会让
+    // `maxScrollExtent` 在数十像素间反复变动；没有滞回的话，`distanceToBottom`
+    // 会在 32 阈值上下反复穿越，造成「靠近底部/离开底部」高频反转、
+    // 「跳到最新」按钮、自动跟随状态闪烁，从UI上看就是「消息盒子在抽搐」。
+    // 「明显上滑」（`userScrolledUpwardFromBottom` / `pointerSignalScrolledUpwardFromBottom`）
+    // 仍会在任何距离下触发暂停，保留「轻微上抨也能暂停」的用户意图。
+    final reallyAwayFromBottom = distanceToBottom > _autoFollowPauseHysteresis;
+    final userScrolledAwayFromBottom =
+        reallyAwayFromBottom && userScrollActivity;
     // 2026-05-02: Honor the user's mental model — "any deliberate upward
     // scroll while a new message could arrive should pause auto-follow,
     // even if I'm only a few pixels above the floor". Without this, a
@@ -1804,6 +1795,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // distance-to-bottom so a true bottom-pin scroll-end isn't treated
     // as a pause request.
     final userScrolledUpwardFromBottom =
+        _userDragActive &&
         notification is UserScrollNotification &&
         notification.direction == ScrollDirection.reverse &&
         distanceToBottom > 0;
@@ -1845,7 +1837,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     //      UserScrollNotification), proving the user finished the gesture.
     // Programmatic scrolls are excluded because the early-return at the
     // top of this method skips them entirely.
-    if (isNearBottom && _autoFollowEnabled && userScrollEnded) {
+    if (isNearBottom && _autoFollowEnabled && userScrollEnded && _userScrollInProgress) {
       _shouldAutoFollowMessages = true;
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;
@@ -2033,7 +2025,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     // Escape dismisses the @ mention overlay if it is showing.
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      final composerState = _composerPanelKey.currentState;
+      final composerState = _composerPanelState;
       if (composerState != null && composerState._atMentionOverlay != null) {
         composerState._userDismissAtMentionOverlay();
         return KeyEventResult.handled;
@@ -2047,7 +2039,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // selection highlight and Enter commit the current selection.  This
     // mirrors Codex / GitHub Copilot Chat behaviour and makes skill lookup
     // an efficient keyboard-only workflow.
-    final composerState = _composerPanelKey.currentState;
+    final composerState = _composerPanelState;
     if (composerState != null && composerState._skillPickerOverlay != null) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         composerState._moveSkillPickerSelection(1);
@@ -2186,14 +2178,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final hasComposerDraft =
             _composerController.text.trim().isNotEmpty ||
             _pendingAttachments.isNotEmpty ||
-            (_composerPanelKey.currentState?.hasPendingProjectFileReferences ??
+            (_composerPanelState?.hasPendingProjectFileReferences ??
                 false);
         if (_canStopCurrentSessionResponse(sessionController) &&
             !hasComposerDraft) {
           await _stopResponding();
           return;
         }
-        _composerPanelKey.currentState?._injectReferencesIntoText();
+        _composerPanelState?._injectReferencesIntoText();
         await _sendMessage();
         return;
       case OpenHandShortcutAction.toggleComposer:
@@ -4052,7 +4044,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (existingSessionId != null &&
         _displaySendPhaseForSession(sessionController, existingSessionId) !=
             AiSendPhase.idle) {
-      final composerState = _composerPanelKey.currentState;
+      final composerState = _composerPanelState;
       final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
       final skillReminder = composerState?.consumePendingSkillReminder();
       final additionalSystemReminders = <String>[
@@ -4215,7 +4207,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // `aiHookSystemRemindersMetadataKey` channel) so the stored user message
     // content shown in the transcript bubble remains exactly what the user
     // typed, without leaking the `<skill-manifest>` XML block.
-    final composerState = _composerPanelKey.currentState;
+    final composerState = _composerPanelState;
     final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
     final skillReminder = composerState?.consumePendingSkillReminder();
     final additionalSystemReminders = <String>[
@@ -4950,6 +4942,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _pendingScrollToBottomSettlePasses = 0;
         return;
       }
+      // 跨会话 AnimatedSwitcher cross-fade 期间，新旧两个 _SessionTranscript
+      // 子树可能同时持有 _messageScrollController 的 ScrollPosition，导致
+      // controller.positions.length > 1。此时 jumpTo/animateTo 会触发
+      // Scrollbar 的 _debugCheckHasValidScrollPosition 断言。跳过本次滚动，
+      // 等 transition 完成后旧 position 自然 detach，后续帧会重新 follow。
+      if (_messageScrollController.positions.length > 1) {
+        _pendingScrollToBottomSettlePasses = 0;
+        return;
+      }
       // 2026-05-24 (修复): 不与正在进行的物理模拟（弹簧回弹/fling 减速）抢
       // scroll position。jumpTo/animateTo 在物理模拟阶段执行会与
       // BouncingScrollPhysics 的弹簧产生对抗，导致 overshoot→回弹→再 jumpTo
@@ -5152,7 +5153,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
     // scrollOffset，让上方消息无论用户是否在底部，都被 Q 弹自然地"压下来 /
     // 顶上去"，与 AnimatedSize 节奏（260ms easeInOutCubicEmphasized）严丝合缝。
-    final composerCtx = _composerPanelKey.currentContext;
+    final composerCtx = _composerPanelState?.context;
     final renderObject = composerCtx?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) {
       return (compensated: false, grew: false);
@@ -5195,6 +5196,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_shouldDeferAutoFollowScheduling()) {
       return;
     }
+    debugPrint(
+      '[DEBUG:LAYOUT] _handleTranscriptLayoutChanged → 触发 auto-follow, '
+      '_userScrollInProgress=$_userScrollInProgress, '
+      '_shouldAutoFollowMessages=$_shouldAutoFollowMessages',
+    );
     _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
   }
 
@@ -6629,6 +6635,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       );
                     },
                     layoutBuilder: (currentChild, previousChildren) {
+                      if (previousChildren.isNotEmpty) {
+                        debugPrint(
+                          '[DEBUG:OuterAS] 外层 AnimatedSwitcher 转场中: '
+                          'previousCount=${previousChildren.length}, '
+                          'currentKey=${currentChild?.key}, '
+                          'previousKeys=${previousChildren.map((c) => c.key)}',
+                        );
+                      }
                       return Stack(
                         alignment: Alignment.topCenter,
                         children: [
@@ -6946,7 +6960,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ? _toggleFileExplorer
             : null,
         projectRoot: _programmingExpertProjectRoot(currentSession),
-        composerPanelKey: _composerPanelKey,
+        onComposerStateCreated: (state) {
+          _composerPanelState = state;
+        },
+        onComposerStateDisposed: (state) {
+          if (identical(_composerPanelState, state)) {
+            _composerPanelState = null;
+          }
+        },
         skippedInstructionIds: _skippedInstructionIds,
         onToggleInstructionSkip: _toggleInstructionSkip,
       ),

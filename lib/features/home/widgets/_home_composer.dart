@@ -42,6 +42,8 @@ class _ComposerPanel extends StatefulWidget {
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
     this.projectRoot,
+    this.onStateCreated,
+    this.onStateDisposed,
   });
 
   final AiSession? currentSession;
@@ -87,6 +89,8 @@ class _ComposerPanel extends StatefulWidget {
   final void Function(int from, int to) onMoveQueuedMessage;
   final void Function(int index, String newText) onEditQueuedMessage;
   final String? projectRoot;
+  final ValueChanged<_ComposerPanelState>? onStateCreated;
+  final ValueChanged<_ComposerPanelState>? onStateDisposed;
 
   @override
   State<_ComposerPanel> createState() => _ComposerPanelState();
@@ -136,6 +140,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   @override
   void initState() {
     super.initState();
+    widget.onStateCreated?.call(this);
     widget.controller.addListener(_handleTextChangedForAtMention);
     widget.controller.addListener(_handleTextChangedForSlashSkill);
   }
@@ -153,6 +158,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   @override
   void dispose() {
+    widget.onStateDisposed?.call(this);
     widget.controller.removeListener(_handleTextChangedForAtMention);
     widget.controller.removeListener(_handleTextChangedForSlashSkill);
     _dismissAtMentionOverlay();
