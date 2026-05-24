@@ -4321,6 +4321,87 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-markdown input[type='checkbox'] { margin-right: 0.4rem; }
 
+/* oh-html-body: 原生 HTML 渲染容器（format=html 时由 HtmlBody 组件使用）。
+   与 oh-markdown 保持相近的排版节奏，同时兼容原生 HTML 元素层级。 */
+.oh-html-body {
+  line-height: 1.65;
+}
+.oh-html-body > * + * { margin-top: 0.5rem; }
+.oh-html-body h1, .oh-html-body h2, .oh-html-body h3,
+.oh-html-body h4, .oh-html-body h5, .oh-html-body h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1rem;
+}
+.oh-html-body h1 { font-size: 1.4em; }
+.oh-html-body h2 { font-size: 1.25em; }
+.oh-html-body h3 { font-size: 1.12em; }
+.oh-html-body p { margin: 0; }
+.oh-html-body p + p { margin-top: 0.5rem; }
+.oh-html-body ul, .oh-html-body ol {
+  padding-left: 1.5rem;
+}
+.oh-html-body ul { list-style: disc; }
+.oh-html-body ol { list-style: decimal; }
+.oh-html-body li + li { margin-top: 0.18rem; }
+.oh-html-body hr {
+  border: none;
+  border-top: 1px solid var(--m3-outline);
+  margin: 1rem 0;
+  opacity: 0.45;
+}
+.oh-html-body a {
+  color: var(--m3-primary);
+  text-decoration: underline;
+}
+.oh-html-body a:hover { opacity: 0.8; }
+.oh-html-body pre {
+  background: var(--m3-surface-container);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+}
+.oh-html-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  background: rgba(127,127,127,0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.oh-html-body pre code {
+  background: transparent;
+  padding: 0;
+}
+.oh-html-body table {
+  border-collapse: collapse;
+  width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+.oh-html-body th {
+  border: 1px solid var(--m3-outline);
+  padding: 6px 10px;
+  background: var(--m3-surface-container);
+  text-align: left;
+}
+.oh-html-body td {
+  border: 1px solid var(--m3-outline);
+  padding: 6px 10px;
+}
+.oh-html-body blockquote {
+  border-left: 3px solid var(--m3-primary);
+  padding: 4px 12px;
+  margin: 0.5rem 0;
+  color: var(--m3-on-surface-variant);
+}
+.oh-html-body img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+}
+
 /* highlight.js GitHub-light 子集 (足够覆盖主流语言, 不再额外引 css 包) */
 .hljs { color: var(--m3-on-surface); background: transparent; }
 .hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }

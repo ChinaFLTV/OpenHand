@@ -75,6 +75,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
       _reasoningExpandedOverride = null;
+      _showRawContent = false;
       _invalidateCache();
     }
   }
@@ -516,7 +517,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                     .watch<SettingsController>()
                                     .aiMessageContentFormat,
                                 htmlFallback: context
-                                    .read<SettingsController>()
+                                    .watch<SettingsController>()
                                     .aiHtmlRenderFallback,
                                 textColor: textColor,
                                 backgroundColor: backgroundColor,
@@ -544,7 +545,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   .watch<SettingsController>()
                                   .aiMessageContentFormat,
                               htmlFallback: context
-                                  .read<SettingsController>()
+                                  .watch<SettingsController>()
                                   .aiHtmlRenderFallback,
                               textColor: textColor,
                               backgroundColor: backgroundColor,

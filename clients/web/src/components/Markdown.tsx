@@ -455,19 +455,20 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     [],
   );
 
-  if (raw || tooBig) {
+  if (raw) {
     return (
       <pre
         class="whitespace-pre-wrap break-words text-sm"
         style={{ margin: 0, fontFamily }}
       >
         {content}
-        {tooBig ? `\n\n[content truncated for performance — ${content.length} bytes]` : ''}
       </pre>
     );
   }
 
   // 阶段㊵: 消息内容格式分派 (与 APP 端 _AssistantMessageBodyDispatcher 对齐)。
+  // plain_text / html 分派置于 tooBig 守卫之前：两者渲染廉价（pre / DOMPurify），
+  // 不需要也不应该被 tooBig 截断加「truncated for performance」提示。
   if (format === 'plain_text') {
     return (
       <pre
@@ -493,6 +494,19 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
       );
     }
     // fall through to markdown rendering
+  }
+
+  // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。
+  if (tooBig) {
+    return (
+      <pre
+        class="whitespace-pre-wrap break-words text-sm"
+        style={{ margin: 0, fontFamily }}
+      >
+        {content}
+        {`\n\n[content truncated for performance — ${content.length} bytes]`}
+      </pre>
+    );
   }
 
   // 阶段㉔: deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。

@@ -95,6 +95,8 @@ type MessageIconName =
   | 'copy'
   | 'edit'
   | 'audit'
+  | 'code'
+  | 'codeOff'
   | 'trash'
   | 'cascade'
   | 'chevronDown'
@@ -177,6 +179,10 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M5 12h14" /></svg>;
     case 'mutate':
       return <svg {...common}><path d="M7 7h10v10H7z" /><path d="M4 12h16M12 4v16" /></svg>;
+    case 'code':
+      return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /></svg>;
+    case 'codeOff':
+      return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /><path d="m4 4 16 16" /></svg>;
   }
 }
 
@@ -1186,7 +1192,7 @@ function MessageCardImpl({
           ) : null}
           {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' ? (
             <ActionBtn
-              icon={showRawContent ? 'edit' : 'copy'}
+              icon={showRawContent ? 'codeOff' : 'code'}
               label={showRawContent
                 ? t('message.showRendered', '显示渲染')
                 : t('message.showRaw', '显示原始')}
