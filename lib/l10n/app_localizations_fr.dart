@@ -1593,7 +1593,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Lorsqu’elle est activée, les anciens résultats d’outils consommés sont effacés pendant la conversation normale pour économiser du contexte. Lorsqu’elle est désactivée (recommandé), la micro-compression ne s’exécute qu’avant la compression active/passive — cela améliore le taux de succès du cache de prompt inter-tours et réduit les coûts API.';
 
   @override
-  String get aiMessageContentFormatLabel => 'Format du contenu des messages';
+  String get aiMessageContentSectionLabel => 'Contenu du message';
+
+  @override
+  String get aiMessageContentFormatLabel => 'Format de contenu';
 
   @override
   String get aiMessageContentFormatBody =>

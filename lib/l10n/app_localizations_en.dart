@@ -1568,7 +1568,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
 
   @override
-  String get aiMessageContentFormatLabel => 'Message Content Format';
+  String get aiMessageContentSectionLabel => 'Message Content';
+
+  @override
+  String get aiMessageContentFormatLabel => 'Content Format';
 
   @override
   String get aiMessageContentFormatBody =>

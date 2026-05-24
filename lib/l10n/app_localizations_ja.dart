@@ -1520,7 +1520,10 @@ class AppLocalizationsJa extends AppLocalizations {
       '有効にすると、通常の会話中に消費済みの古いツール結果がクリアされコンテキストを節約します。無効（推奨）にすると、能動的/受動的圧縮の前にのみ微圧縮が実行され、ターンをまたいだプロンプトキャッシュのヒット率が向上しAPIコストが削減されます。';
 
   @override
-  String get aiMessageContentFormatLabel => 'メッセージ内容のフォーマット';
+  String get aiMessageContentSectionLabel => 'メッセージ内容';
+
+  @override
+  String get aiMessageContentFormatLabel => '内容フォーマット';
 
   @override
   String get aiMessageContentFormatBody =>

@@ -6647,14 +6647,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       );
                     },
                     layoutBuilder: (currentChild, previousChildren) {
-                      if (previousChildren.isNotEmpty) {
-                        debugPrint(
-                          '[DEBUG:OuterAS] 外层 AnimatedSwitcher 转场中: '
-                          'previousCount=${previousChildren.length}, '
-                          'currentKey=${currentChild?.key}, '
-                          'previousKeys=${previousChildren.map((c) => c.key)}',
-                        );
-                      }
                       return Stack(
                         alignment: Alignment.topCenter,
                         children: [

@@ -1504,7 +1504,10 @@ class AppLocalizationsZh extends AppLocalizations {
       '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
 
   @override
-  String get aiMessageContentFormatLabel => '消息内容格式';
+  String get aiMessageContentSectionLabel => '消息内容';
+
+  @override
+  String get aiMessageContentFormatLabel => '内容格式';
 
   @override
   String get aiMessageContentFormatBody =>
@@ -9328,7 +9331,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
 
   @override
-  String get aiMessageContentFormatLabel => '消息内容格式';
+  String get aiMessageContentSectionLabel => '消息内容';
+
+  @override
+  String get aiMessageContentFormatLabel => '内容格式';
 
   @override
   String get aiMessageContentFormatBody =>
@@ -17151,7 +17157,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '開啟後，正常對話中會清除已被消費的舊工具結果以節省上下文。關閉後（推薦），僅在主動/被動壓縮前執行微壓縮——可提高跨輪提示詞緩存命中率，降低API費用。';
 
   @override
-  String get aiMessageContentFormatLabel => '訊息內容格式';
+  String get aiMessageContentSectionLabel => '訊息內容';
+
+  @override
+  String get aiMessageContentFormatLabel => '內容格式';
 
   @override
   String get aiMessageContentFormatBody =>

@@ -2936,10 +2936,16 @@ abstract class AppLocalizations {
   /// **'开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。'**
   String get aiMicroCompressionEnabledBody;
 
+  /// No description provided for @aiMessageContentSectionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息内容'**
+  String get aiMessageContentSectionLabel;
+
   /// No description provided for @aiMessageContentFormatLabel.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'消息内容格式'**
+  /// **'内容格式'**
   String get aiMessageContentFormatLabel;
 
   /// No description provided for @aiMessageContentFormatBody.

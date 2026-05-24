@@ -138,13 +138,13 @@ class _ThemePresetSwatch extends StatelessWidget {
 class _ResponsiveSettingRow extends StatelessWidget {
   const _ResponsiveSettingRow({
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.control,
     this.controlMaxWidth = 320,
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget control;
   final double controlMaxWidth;
 
@@ -160,13 +160,15 @@ class _ResponsiveSettingRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 14),
               control,
             ],
@@ -181,13 +183,15 @@ class _ResponsiveSettingRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1204,3 +1208,41 @@ class _SettingsSavePulse extends StatelessWidget {
 /// + onKeyEvent 样板。
 ///
 /// 真身已抽到 `lib/shared/ui/key_tweakable_slider.dart`，这里仅保留注释作历史索引。
+
+/// 带弹性进退场动效的设置行显示/隐藏容器。
+///
+/// 用 [AnimatedSize]（高度弹性伸缩，easeOutBack 曲线）+ [AnimatedSwitcher]
+/// （淡入淡出）组合，实现 Q 弹自然的条目显示/隐藏动效。
+/// 自动遵守 [MediaQuery.disableAnimationsOf] 无动画设置。
+class _AnimatedSettingReveal extends StatelessWidget {
+  const _AnimatedSettingReveal({required this.visible, required this.child});
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return visible ? child : const SizedBox.shrink();
+    }
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 420),
+        reverseDuration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          reverseDuration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: visible
+              ? KeyedSubtree(key: const ValueKey(true), child: child)
+              : const SizedBox.shrink(key: ValueKey(false)),
+        ),
+      ),
+    );
+  }
+}
+
