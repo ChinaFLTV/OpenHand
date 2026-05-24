@@ -3515,6 +3515,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       toolResultCompressionMaxPathHits:
           settingsController.aiToolResultCompressionMaxPathHits,
       microCompressionEnabled: settingsController.aiMicroCompressionEnabled,
+      messageContentFormat: settingsController.aiMessageContentFormat,
+      htmlRenderFallback: settingsController.aiHtmlRenderFallback,
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
@@ -3773,6 +3775,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       toolResultCompressionMaxPathHits:
           settingsController.aiToolResultCompressionMaxPathHits,
       microCompressionEnabled: settingsController.aiMicroCompressionEnabled,
+      messageContentFormat: settingsController.aiMessageContentFormat,
+      htmlRenderFallback: settingsController.aiHtmlRenderFallback,
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,

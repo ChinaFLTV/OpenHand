@@ -11,6 +11,7 @@ import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
+import '../../model/ai_message_content_format.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
@@ -23,6 +24,7 @@ import '../hook/ai_claude_hook_service.dart';
 import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_tool_runtime_service.dart';
+import 'ai_output_format_prompts.dart';
 import 'ai_prompt_template_repository.dart';
 
 class AiPromptBuildResult {
@@ -569,6 +571,25 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
+        ),
+      // 2026-05-24 — 输出格式提醒：Markdown 为默认不注入；
+      // 纯文本 / HTML 需要明确告知模型当轮输出需遵守的约束。
+      // 贴在 history 之前，仍位于 prefix 区。
+      if (runtimeContext.messageContentFormat ==
+              AiMessageContentFormat.plainText &&
+          AiOutputFormatPrompts.plainText.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# Output Format Reminder\n\n${AiOutputFormatPrompts.plainText}',
+        ),
+      if (runtimeContext.messageContentFormat ==
+              AiMessageContentFormat.html &&
+          AiOutputFormatPrompts.html.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# Output Format Reminder\n\n${AiOutputFormatPrompts.html}',
         ),
       ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ cache-miss 区起点。

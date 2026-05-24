@@ -50,6 +50,7 @@ export 'service/media/ai_image_generation_service.dart';
 export 'service/media/ai_image_summary_extractor.dart';
 export 'service/media/media_cache_service.dart';
 export 'service/model_registry/ai_model_scanner.dart';
+export 'service/prompt/ai_output_format_prompts.dart';
 export 'service/prompt/ai_prompt_builder.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';
 export 'service/prompt/machine_expert_prompts.dart';

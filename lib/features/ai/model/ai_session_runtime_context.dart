@@ -6,6 +6,7 @@ import '../../skills/index.dart';
 import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
+import 'ai_message_content_format.dart';
 import 'ai_sandbox_settings.dart';
 
 class AiRepositorySnapshot {
@@ -94,6 +95,8 @@ class AiSessionRuntimeContext {
     this.toolResultCompressionThresholdChars = 1024,
     this.toolResultCompressionEnabled = true,
     this.microCompressionEnabled = false,
+    this.messageContentFormat = defaultAiMessageContentFormat,
+    this.htmlRenderFallback = defaultAiHtmlRenderFallback,
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
@@ -209,6 +212,15 @@ class AiSessionRuntimeContext {
   /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
   /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
   final bool microCompressionEnabled;
+
+  /// 2026-05-24 — 助手消息渲染格式（Markdown / 纯文本 / HTML）。
+  /// `AiPromptBuilder` 会在非 Markdown 模式下于 [3d] 后追加
+  /// `output_format` reminder，告知模型当轮输出需遵守的约束。
+  final AiMessageContentFormat messageContentFormat;
+
+  /// 2026-05-24 — HTML 渲染失败时的回退策略，仅在
+  /// [messageContentFormat] 为 `AiMessageContentFormat.html` 时生效。
+  final AiHtmlRenderFallback htmlRenderFallback;
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int toolResultCompressionHeadTailWindowChars;
@@ -438,6 +450,8 @@ class AiSessionRuntimeContext {
       'tool_result_compression_threshold_chars':
           toolResultCompressionThresholdChars,
       'tool_result_compression_enabled': toolResultCompressionEnabled,
+      'message_content_format': messageContentFormat.storageKey,
+      'html_render_fallback': htmlRenderFallback.storageKey,
       'tool_result_compression_head_tail_window_chars':
           toolResultCompressionHeadTailWindowChars,
       'tool_result_compression_max_path_hits': toolResultCompressionMaxPathHits,

@@ -174,6 +174,9 @@ Future<void> _bootstrap() async {
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
+  // 2026-05-24 — 预加载输出格式控制 Prompt 片段（fire-and-forget），
+  // 实际渲染时 AiPromptBuilder 同步读取已缓存内容；未就绪时回退到内置兜底。
+  unawaited(AiOutputFormatPrompts.ensureLoaded());
   // 2026-05-03: kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
