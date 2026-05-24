@@ -244,6 +244,7 @@ export const dict_zh: Record<string, string> = {
   'modelPicker.count': '匹配 ',
   'modelPicker.recent': '最近使用',
   'modelPicker.available': '可用模型',
+  'modelPicker.active': '当前默认',
   'modelPicker.empty': '主控制台未配置模型',
   'modelPicker.noMatch': '无匹配模型',
   'files.title': '工作区文件',

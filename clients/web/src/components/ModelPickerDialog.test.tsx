@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/preact';
+import { cleanup, render, screen } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiMetaModel } from '../api/meta';
 import { ModelPickerDialog } from './ModelPickerDialog';
@@ -44,5 +44,6 @@ describe('ModelPickerDialog', () => {
       .map((button) => button.dataset.modelKey);
 
     expect(modelKeys.slice(0, 2)).toEqual(['openai:gpt-4o', 'openai:gpt-4.1']);
+    expect(screen.getByText(/^(当前默认|Current default)$/)).not.toBeNull();
   });
 });

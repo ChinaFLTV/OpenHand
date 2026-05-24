@@ -456,8 +456,23 @@ function Section({
               ) : null}
             </span>
             <span class="flex-1 min-w-0">
-              <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
-                {m.model_id || m.label || m.key}
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
+                  {m.model_id || m.label || m.key}
+                </span>
+                {active ? (
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-m3-sm flex-none"
+                    style={{
+                      color: 'var(--m3-on-primary-container)',
+                      background: 'color-mix(in srgb, var(--m3-primary) 16%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--m3-primary) 36%, transparent)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t('modelPicker.active', '当前默认')}
+                  </span>
+                ) : null}
               </span>
               {showProviderSubtitle ? (
                 <span
