@@ -653,6 +653,17 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     const element = ref.current;
     if (!element) return;
 
+    if (!enabled) {
+      animationRef.current?.cancel();
+      animationRef.current = null;
+      if (overflowBeforeAnimationRef.current != null) {
+        element.style.overflow = overflowBeforeAnimationRef.current;
+        overflowBeforeAnimationRef.current = null;
+      }
+      lastHeightRef.current = null;
+      return;
+    }
+
     const activeAnimation = animationRef.current;
     const currentVisualHeight = activeAnimation
       ? element.getBoundingClientRect().height
@@ -667,7 +678,7 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     const nextHeight = element.getBoundingClientRect().height;
     const previousHeight = lastHeightRef.current;
     lastHeightRef.current = nextHeight;
-    if (!enabled || previousHeight == null || typeof element.animate !== 'function') return;
+    if (previousHeight == null || typeof element.animate !== 'function') return;
 
     const fromHeight = currentVisualHeight ?? previousHeight;
     const delta = nextHeight - fromHeight;
@@ -948,9 +959,8 @@ function MessageCardImpl({
   const recentlyUpdatedContent = useRecentMessageActivity(
     content,
     !isUserBubble &&
-      ((isAssistantResponseMessage(message) && content.length > AUTO_COLLAPSE_CHAR_LIMIT) ||
-        (message.kind === 'reasoning' && isReasoningLong(content))),
-    8000,
+      (isAssistantResponseMessage(message) || message.kind === 'reasoning'),
+    12000,
   );
   const streamingContent = streaming || asBool(metadata['streaming']) || recentlyUpdatedContent;
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
@@ -962,15 +972,15 @@ function MessageCardImpl({
   // 360ms max-height (4000px ↔ 240px) 过渡每隔几秒跑一遍 → 视觉上正文
   // 区每隔几秒"消失再立刻显示"（卡片外框稳定，因 collapsed 只裁 body），
   // 同时撑高的工具卡在视窗中表现为"折叠 → 展开 → 折叠"。
-  // 这里把 turnActive 的 false 沿做 3s 去抖：只有持续 3s false 才认为回合
-  // 真正结束，吞掉中间所有 idle 抖动。true 沿立即生效。
+  // 这里把 turnActive 的 false 沿做 12s 去抖：只有持续 12s false 才认为回合
+  // 真正结束，覆盖慢速节流 / drain 间隔里的 idle 抖动。true 沿立即生效。
   const [stableTurnActive, setStableTurnActive] = useState(turnActive);
   useEffect(() => {
     if (turnActive) {
       setStableTurnActive(true);
       return;
     }
-    const handle = window.setTimeout(() => setStableTurnActive(false), 3000);
+    const handle = window.setTimeout(() => setStableTurnActive(false), 12000);
     return () => window.clearTimeout(handle);
   }, [turnActive]);
   const keepExpandedDuringTurn = stableTurnActive && message.role === 'assistant';

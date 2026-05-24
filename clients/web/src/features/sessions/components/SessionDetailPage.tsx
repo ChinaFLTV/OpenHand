@@ -3280,7 +3280,7 @@ export function SessionDetailPage() {
       setStableResponseRunning(true);
       return;
     }
-    const handle = window.setTimeout(() => setStableResponseRunning(false), 3200);
+    const handle = window.setTimeout(() => setStableResponseRunning(false), 12000);
     return () => window.clearTimeout(handle);
   }, [responseRunning]);
   const latestStreamingTextMessageId = useMemo(() => {
