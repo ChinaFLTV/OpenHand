@@ -946,7 +946,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     final messageContentFormatControl = ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 240),
+      constraints: const BoxConstraints(maxWidth: 320),
       child: DropdownButtonFormField<AiMessageContentFormat>(
         key: const ValueKey<String>('settingsAiMessageContentFormatDropdown'),
         initialValue: settingsController.aiMessageContentFormat,
@@ -2194,7 +2194,7 @@ class _SettingsViewState extends State<SettingsView> {
               _ResponsiveSettingRow(
                 title: l10n.aiMessageContentFormatLabel,
                 control: messageContentFormatControl,
-                controlMaxWidth: 240,
+                controlMaxWidth: 320,
               ),
               _AnimatedSettingReveal(
                 visible: settingsController.aiMessageContentFormat ==
@@ -2205,7 +2205,7 @@ class _SettingsViewState extends State<SettingsView> {
                     title: l10n.aiHtmlRenderFallbackLabel,
                     subtitle: l10n.aiHtmlRenderFallbackBody,
                     control: htmlRenderFallbackControl,
-                    controlMaxWidth: 360,
+                    controlMaxWidth: 320,
                   ),
                 ),
               ),
