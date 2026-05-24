@@ -493,6 +493,7 @@ const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 260;
 // 折叠预览容器 max-height，像素值。≈ 6 行 × 22px = 132px，多给 10px 呼吸量，
 // 对应 APP 端 _MarkdownPreviewBody maxHeight: 142。
 const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
+const RESPONSE_PREVIEW_MAX_HEIGHT_PX = 240;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
@@ -934,9 +935,9 @@ function MessageCardImpl({
   const collapsed = canCollapse && !expanded;
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
-  const visibleContent = collapsed
-    ? strippedContent.slice(0, AUTO_COLLAPSE_CHAR_LIMIT) + '…'
-    : strippedContent;
+  // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
+  // 避免「全多」↔「袪断+…」间的文字跳变在手动折叠/展开时生硬。
+  const visibleContent = strippedContent;
 
   // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
@@ -1144,8 +1145,12 @@ function MessageCardImpl({
       <MessageToolMeta message={message} />
       {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
-        collapsed={isCollapsibleByBadge && badgeCollapsed}
-        previewMaxHeight={REASONING_PREVIEW_MAX_HEIGHT_PX}
+        collapsed={(isCollapsibleByBadge && badgeCollapsed) || collapsed}
+        previewMaxHeight={
+          isCollapsibleByBadge && badgeCollapsed
+            ? REASONING_PREVIEW_MAX_HEIGHT_PX
+            : RESPONSE_PREVIEW_MAX_HEIGHT_PX
+        }
       >
         {message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
@@ -1321,23 +1326,26 @@ function ReasoningCollapsibleBody({
   previewMaxHeight: number;
   children: ComponentChildren;
 }) {
+  // 始终设置 max-height（展开态 = 充分大的上限），以便 CSS transition 生效。
+  // mask-image 不能跨浏览器稳定 transition，由 [data-collapsed] 状态直接切换即可：
+  //  - 折叠中：max-height 动画下降，mask 同时生效，视觉上便是“窗帘拉下”；
+  //  - 展开中：max-height 上升同时饱和黑色 mask，不产生闪牌。
   return (
     <div
       class="oh-reasoning-collapsible-body"
       data-collapsed={collapsed ? 'true' : 'false'}
       aria-expanded={collapsed ? 'false' : 'true'}
-      style={collapsed
-        ? {
-            maxHeight: `${previewMaxHeight}px`,
-            overflow: 'hidden',
-            // 底部渐隐：mask-image 让 65%-100% 的像素在垂直方向上
-            // 由 100% 不透明渐变到 0%，保留文字原色，不额外叠气泡色。
-            WebkitMaskImage:
-              'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)',
-            maskImage:
-              'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)',
-          }
-        : undefined}
+      style={{
+        // 4000px 足以覆盖绝大多数长文本；超过部分不会被裁剪、不影响实际高度。
+        maxHeight: collapsed ? `${previewMaxHeight}px` : '4000px',
+        overflow: 'hidden',
+        WebkitMaskImage: collapsed
+          ? 'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)'
+          : 'linear-gradient(to bottom, #000 0, #000 100%, transparent 100%)',
+        maskImage: collapsed
+          ? 'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)'
+          : 'linear-gradient(to bottom, #000 0, #000 100%, transparent 100%)',
+      }}
     >
       {children}
     </div>

@@ -378,22 +378,33 @@ describe('MessageCard actions', () => {
   it('keeps long assistant text expanded while streaming and collapses after completion', () => {
     const tail = 'UNIQUE_TAIL_AFTER_COLLAPSE';
     const longText = `${'A'.repeat(1280)}${tail}`;
-    const { rerender } = render(
+    const { rerender, container } = render(
       <MessageCard message={makeAssistantMessage('assistant-long', longText)} streaming />,
     );
 
     expect(screen.queryByRole('button', { name: /^(展开全部|Expand all)/ })).toBeNull();
     expect(screen.getByText(longText)).not.toBeNull();
+    const bodyStreaming = container.querySelector<HTMLElement>(
+      '.oh-reasoning-collapsible-body',
+    )!;
+    expect(bodyStreaming.getAttribute('data-collapsed')).toBe('false');
 
     rerender(<MessageCard message={makeAssistantMessage('assistant-long', longText)} />);
 
     const expand = screen.getByRole('button', { name: /^(展开全部|Expand all)/ });
     expect(expand).not.toBeNull();
-    expect(document.body.textContent ?? '').not.toContain(tail);
+    // 折叠后不再裁剪文本——完整内容仍在 DOM 中，只是被 max-height 视觉裁裁。
+    const bodyDone = container.querySelector<HTMLElement>(
+      '.oh-reasoning-collapsible-body',
+    )!;
+    expect(bodyDone.getAttribute('data-collapsed')).toBe('true');
+    expect(bodyDone.style.maxHeight).toMatch(/^\d+px$/);
+    expect(document.body.textContent ?? '').toContain(tail);
 
     fireEvent.click(expand);
 
     expect(screen.getByRole('button', { name: /^(折叠|Collapse)/ })).not.toBeNull();
+    expect(bodyDone.getAttribute('data-collapsed')).toBe('false');
     expect(document.body.textContent ?? '').toContain(tail);
   });
 
@@ -460,11 +471,11 @@ describe('MessageCard actions', () => {
     expect(body.getAttribute('data-collapsed')).toBe('true');
     expect(body.style.maxHeight).toMatch(/^\d+px$/);
 
-    // 点击展开：data-collapsed='false'，内联样式清空。
+    // 点击展开：data-collapsed='false'，max-height 升到充分大的上限以便 CSS transition 运作。
     fireEvent.click(badge);
     expect(badge.getAttribute('aria-expanded')).toBe('true');
     expect(body.getAttribute('data-collapsed')).toBe('false');
-    expect(body.style.maxHeight).toBe('');
+    expect(body.style.maxHeight).toMatch(/^\d{3,}px$/);
 
     // 再次点击恢复折叠。
     fireEvent.click(badge);

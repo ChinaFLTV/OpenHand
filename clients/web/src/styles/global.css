@@ -1897,6 +1897,15 @@ html, body, #root {
   display: block;
   /* 给 mask-image 留一个微妙的透出缓冲，避免最后一行紧贴底部。 */
   padding-bottom: 2px;
+  /* 折叠 / 展开过渡：max-height 平滑变化，避免回合结束后或手动收起时生硬跳变。
+     mask-image 与 max-height 状态保持同步，由 inline style 直接切换（CSS 对
+     mask 的 transition 跨浏览器支持不稳定，不强行动画）。 */
+  transition: max-height 360ms cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-reasoning-collapsible-body {
+    transition: none;
+  }
 }
 .oh-reasoning-collapsible-body[data-collapsed='true'] {
   /* mask-image 已在 inline style 处给出，这里只负责固定 box-sizing，
