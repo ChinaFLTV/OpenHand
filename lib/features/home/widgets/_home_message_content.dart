@@ -2430,10 +2430,194 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
+/// 用嵌入式 WebView 渲染 HTML 消息气泡，与 `_HtmlPreviewDialog` 的浏览器预览
+/// 保持一致——`flutter_widget_from_html_core` 不支持 linear-gradient/box-shadow/
+/// transform/filter/`-webkit-background-clip:text` 等高级 CSS，会让多彩 HTML
+/// 输出严重畸形。该控件用 `loadHtmlString` 渲染，并通过 JS 通道把
+/// `document.documentElement.scrollHeight` 上报回 Dart，动态调整外层高度。
+class _HtmlBubbleWebView extends StatefulWidget {
+  const _HtmlBubbleWebView({
+    required this.data,
+    required this.textColor,
+    required this.backgroundColor,
+    this.baseTextStyle,
+  });
+
+  final String data;
+  final Color textColor;
+  final Color backgroundColor;
+  final TextStyle? baseTextStyle;
+
+  @override
+  State<_HtmlBubbleWebView> createState() => _HtmlBubbleWebViewState();
+}
+
+class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
+  WebViewController? _controller;
+  double? _height;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data ||
+        oldWidget.textColor != widget.textColor ||
+        oldWidget.backgroundColor != widget.backgroundColor) {
+      _reload();
+    }
+  }
+
+  Future<void> _initialize() async {
+    try {
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..addJavaScriptChannel(
+          'OpenHandHeight',
+          onMessageReceived: _onHeightMessage,
+        )
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageFinished: (_) => _installResizeObserver(),
+            onWebResourceError: (error) {
+              silentLog(
+                'home_message_content',
+                'html bubble webview error',
+                error,
+              );
+              if (mounted) {
+                setState(() => _hasError = true);
+              }
+            },
+          ),
+        );
+      if (!Platform.isMacOS) {
+        await controller.setBackgroundColor(Colors.transparent);
+      }
+      if (!mounted) return;
+      await controller.loadHtmlString(_buildDocument());
+      if (!mounted) return;
+      setState(() => _controller = controller);
+    } catch (error, stack) {
+      silentLog(
+        'home_message_content',
+        'html bubble webview init failed',
+        error,
+        stack,
+      );
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  Future<void> _reload() async {
+    final controller = _controller;
+    if (controller == null) {
+      await _initialize();
+      return;
+    }
+    setState(() => _height = null);
+    try {
+      await controller.loadHtmlString(_buildDocument());
+    } catch (error, stack) {
+      silentLog('home_message_content', 'html bubble reload failed', error, stack);
+    }
+  }
+
+  void _onHeightMessage(JavaScriptMessage message) {
+    final value = double.tryParse(message.message);
+    if (value == null || !value.isFinite) return;
+    final next = value.clamp(24.0, 8000.0);
+    if (!mounted) return;
+    if (_height != null && (next - _height!).abs() < 1.0) return;
+    setState(() => _height = next);
+  }
+
+  Future<void> _installResizeObserver() async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.runJavaScript(
+        "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);OpenHandHeight.postMessage(String(h));}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_content',
+        'html bubble resize observer install failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  String _buildDocument() {
+    String hex(Color c) {
+      final r = (c.r * 255).round() & 0xff;
+      final g = (c.g * 255).round() & 0xff;
+      final b = (c.b * 255).round() & 0xff;
+      return '#${r.toRadixString(16).padLeft(2, '0')}'
+          '${g.toRadixString(16).padLeft(2, '0')}'
+          '${b.toRadixString(16).padLeft(2, '0')}';
+    }
+
+    final base = widget.baseTextStyle;
+    final fontSize = (base?.fontSize ?? 14).toStringAsFixed(2);
+    final lineHeight = (base?.height ?? 1.55).toStringAsFixed(2);
+    final fontFamily = base?.fontFamily;
+    final family = (fontFamily == null || fontFamily.isEmpty)
+        ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
+        : '"$fontFamily", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    final textHex = hex(widget.textColor);
+    final bgHex = hex(widget.backgroundColor);
+
+    return '<!DOCTYPE html>'
+        '<html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<style>'
+        'html,body{margin:0;padding:0;background:$bgHex;color:$textHex;'
+        'font-family:$family;font-size:${fontSize}px;line-height:$lineHeight;'
+        '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
+        '-webkit-font-smoothing:antialiased;}'
+        'body{padding:2px 2px 4px 2px;overflow-x:auto;}'
+        'img,video,canvas,svg{max-width:100%;height:auto;}'
+        'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
+        'pre{overflow-x:auto;}'
+        'table{border-collapse:collapse;}'
+        'a{color:inherit;}'
+        '</style></head>'
+        '<body>${widget.data}</body></html>';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return _HtmlMessageBody(
+        data: widget.data,
+        textColor: widget.textColor,
+        baseTextStyle: widget.baseTextStyle,
+      );
+    }
+    final controller = _controller;
+    final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
+    final height = _height ?? fallbackHeight;
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: controller == null
+          ? const SizedBox.shrink()
+          : WebViewWidget(controller: controller),
+    );
+  }
+}
+
 /// 助手消息正文按"消息内容格式"设置分派：
 /// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
 /// - 纯文本：`_PlainTextMessageBody`
-/// - HTML：内容像 HTML → `_HtmlMessageBody`；否则按回退链跳到 Markdown 或纯文本
+/// - HTML：内容像 HTML → `_HtmlBubbleWebView`（WebView 高保真渲染）；否则按回退链跳到 Markdown 或纯文本
 class _AssistantMessageBodyDispatcher extends StatelessWidget {
   const _AssistantMessageBodyDispatcher({
     required this.data,
@@ -2505,9 +2689,10 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     if (_looksLikeHtml(data)) {
       return SizedBox(
         width: double.infinity,
-        child: _HtmlMessageBody(
+        child: _HtmlBubbleWebView(
           data: data,
           textColor: textColor,
+          backgroundColor: backgroundColor,
           baseTextStyle: markdownStyleSheet.p,
         ),
       );
