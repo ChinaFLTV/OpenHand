@@ -1593,6 +1593,39 @@ class AppLocalizationsFr extends AppLocalizations {
       'Lorsqu’elle est activée, les anciens résultats d’outils consommés sont effacés pendant la conversation normale pour économiser du contexte. Lorsqu’elle est désactivée (recommandé), la micro-compression ne s’exécute qu’avant la compression active/passive — cela améliore le taux de succès du cache de prompt inter-tours et réduit les coûts API.';
 
   @override
+  String get aiMessageContentFormatLabel => 'Format du contenu des messages';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      'Contrôle le rendu des messages de l’assistant IA. Markdown est la valeur par défaut ; Texte brut est le plus rapide ; HTML utilise un moteur tiers (coût en tokens un peu plus élevé) et retombe selon la règle ci-dessous en cas d’échec.';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => 'Texte brut';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'Le mode HTML injecte des contraintes supplémentaires dans chaque prompt ; le coût en tokens est légèrement plus élevé.';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'Repli de rendu HTML';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      'Stratégie utilisée en cas d’échec du parsing ou du rendu HTML. Markdown ré-analyse en Markdown ; Texte brut affiche le texte tel quel.';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => 'Texte brut';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Fenêtre début/fin de compression';
 

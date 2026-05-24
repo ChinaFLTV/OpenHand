@@ -945,6 +945,65 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
+    final messageContentFormatControl = SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<AiMessageContentFormat>(
+        key: const ValueKey<String>('settingsAiMessageContentFormatDropdown'),
+        initialValue: settingsController.aiMessageContentFormat,
+        items: <DropdownMenuItem<AiMessageContentFormat>>[
+          DropdownMenuItem<AiMessageContentFormat>(
+            value: AiMessageContentFormat.markdown,
+            child: Text(l10n.aiMessageContentFormatMarkdown),
+          ),
+          DropdownMenuItem<AiMessageContentFormat>(
+            value: AiMessageContentFormat.plainText,
+            child: Text(l10n.aiMessageContentFormatPlainText),
+          ),
+          DropdownMenuItem<AiMessageContentFormat>(
+            value: AiMessageContentFormat.html,
+            child: Text(l10n.aiMessageContentFormatHtml),
+          ),
+        ],
+        onChanged: (value) async {
+          if (value == null) return;
+          await settingsController.updateAiMessageContentFormat(value);
+          if (!context.mounted) return;
+          if (value == AiMessageContentFormat.html) {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            if (messenger != null) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.aiMessageContentFormatHtmlTokenWarning),
+                  ),
+                );
+            }
+          }
+        },
+      ),
+    );
+    final htmlRenderFallbackControl = SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<AiHtmlRenderFallback>(
+        key: const ValueKey<String>('settingsAiHtmlRenderFallbackDropdown'),
+        initialValue: settingsController.aiHtmlRenderFallback,
+        items: <DropdownMenuItem<AiHtmlRenderFallback>>[
+          DropdownMenuItem<AiHtmlRenderFallback>(
+            value: AiHtmlRenderFallback.markdown,
+            child: Text(l10n.aiHtmlRenderFallbackMarkdown),
+          ),
+          DropdownMenuItem<AiHtmlRenderFallback>(
+            value: AiHtmlRenderFallback.plainText,
+            child: Text(l10n.aiHtmlRenderFallbackPlainText),
+          ),
+        ],
+        onChanged: (value) async {
+          if (value == null) return;
+          await settingsController.updateAiHtmlRenderFallback(value);
+        },
+      ),
+    );
     final toolResultCompressionHeadTailWindowControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2048,6 +2107,23 @@ class _SettingsViewState extends State<SettingsView> {
                 control: microCompressionEnabledControl,
                 controlMaxWidth: 360,
               ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiMessageContentFormatLabel,
+                subtitle: l10n.aiMessageContentFormatBody,
+                control: messageContentFormatControl,
+                controlMaxWidth: 360,
+              ),
+              if (settingsController.aiMessageContentFormat ==
+                  AiMessageContentFormat.html) ...[
+                const SizedBox(height: 18),
+                _ResponsiveSettingRow(
+                  title: l10n.aiHtmlRenderFallbackLabel,
+                  subtitle: l10n.aiHtmlRenderFallbackBody,
+                  control: htmlRenderFallbackControl,
+                  controlMaxWidth: 360,
+                ),
+              ],
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: l10n.aiToolResultCompressionHeadTailWindowLabel,

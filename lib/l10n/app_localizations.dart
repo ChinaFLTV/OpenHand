@@ -2936,6 +2936,66 @@ abstract class AppLocalizations {
   /// **'开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。'**
   String get aiMicroCompressionEnabledBody;
 
+  /// No description provided for @aiMessageContentFormatLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息内容格式'**
+  String get aiMessageContentFormatLabel;
+
+  /// No description provided for @aiMessageContentFormatBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制 AI 助手消息的展示方式。Markdown 为默认；纯文本性能最优；HTML 由第三方库渲染，token 消耗略高，渲染失败时按下方回退策略降级。'**
+  String get aiMessageContentFormatBody;
+
+  /// No description provided for @aiMessageContentFormatMarkdown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Markdown'**
+  String get aiMessageContentFormatMarkdown;
+
+  /// No description provided for @aiMessageContentFormatPlainText.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'纯文本'**
+  String get aiMessageContentFormatPlainText;
+
+  /// No description provided for @aiMessageContentFormatHtml.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HTML'**
+  String get aiMessageContentFormatHtml;
+
+  /// No description provided for @aiMessageContentFormatHtmlTokenWarning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HTML 模式会向每轮 Prompt 注入额外约束，token 消耗略高。'**
+  String get aiMessageContentFormatHtmlTokenWarning;
+
+  /// No description provided for @aiHtmlRenderFallbackLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HTML 渲染失败回退'**
+  String get aiHtmlRenderFallbackLabel;
+
+  /// No description provided for @aiHtmlRenderFallbackBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当 HTML 解析或渲染异常时，按此策略降级；Markdown 会尝试以 Markdown 解析，PlainText 则直接以纯文本展示。'**
+  String get aiHtmlRenderFallbackBody;
+
+  /// No description provided for @aiHtmlRenderFallbackMarkdown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Markdown'**
+  String get aiHtmlRenderFallbackMarkdown;
+
+  /// No description provided for @aiHtmlRenderFallbackPlainText.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'纯文本'**
+  String get aiHtmlRenderFallbackPlainText;
+
   /// No description provided for @aiToolResultCompressionHeadTailWindowLabel.
   ///
   /// In zh_Hans, this message translates to:

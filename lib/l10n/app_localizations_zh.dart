@@ -1504,6 +1504,39 @@ class AppLocalizationsZh extends AppLocalizations {
       '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
 
   @override
+  String get aiMessageContentFormatLabel => '消息内容格式';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      '控制 AI 助手消息的展示方式。Markdown 为默认；纯文本性能最优；HTML 由第三方库渲染，token 消耗略高，渲染失败时按下方回退策略降级。';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => '纯文本';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'HTML 模式会向每轮 Prompt 注入额外约束，token 消耗略高。';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML 渲染失败回退';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      '当 HTML 解析或渲染异常时，按此策略降级；Markdown 会尝试以 Markdown 解析，PlainText 则直接以纯文本展示。';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => '纯文本';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
 
   @override
@@ -9295,6 +9328,39 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
 
   @override
+  String get aiMessageContentFormatLabel => '消息内容格式';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      '控制 AI 助手消息的展示方式。Markdown 为默认；纯文本性能最优；HTML 由第三方库渲染，token 消耗略高，渲染失败时按下方回退策略降级。';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => '纯文本';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'HTML 模式会向每轮 Prompt 注入额外约束，token 消耗略高。';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML 渲染失败回退';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      '当 HTML 解析或渲染异常时，按此策略降级；Markdown 会尝试以 Markdown 解析，PlainText 则直接以纯文本展示。';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => '纯文本';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
 
   @override
@@ -17083,6 +17149,39 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get aiMicroCompressionEnabledBody =>
       '開啟後，正常對話中會清除已被消費的舊工具結果以節省上下文。關閉後（推薦），僅在主動/被動壓縮前執行微壓縮——可提高跨輪提示詞緩存命中率，降低API費用。';
+
+  @override
+  String get aiMessageContentFormatLabel => '訊息內容格式';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      '控制 AI 助手訊息的展示方式。Markdown 為預設；純文字性能最佳；HTML 由第三方庫渲染，token 消耗略高，渲染失敗時依下方回退策略降級。';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => '純文字';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'HTML 模式會向每輪 Prompt 注入額外約束，token 消耗略高。';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML 渲染失敗回退';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      '當 HTML 解析或渲染異常時，依此策略降級；Markdown 會嘗試以 Markdown 解析，PlainText 則直接以純文字展示。';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => '純文字';
 
   @override
   String get aiToolResultCompressionHeadTailWindowLabel => '壓縮摘要首尾片段視窗';

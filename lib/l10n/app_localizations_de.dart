@@ -1588,6 +1588,39 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wenn aktiviert, werden alte konsumierte Werkzeugergebnisse während normaler Gespräche gelöscht, um Kontext zu sparen. Wenn deaktiviert (empfohlen), wird die Mikro-Kompression nur vor aktiver/passiver Kompression ausgeführt — dies verbessert die promptübergreifende Cache-Trefferquote und senkt API-Kosten.';
 
   @override
+  String get aiMessageContentFormatLabel => 'Nachrichten-Inhaltsformat';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      'Steuert, wie KI-Assistentennachrichten dargestellt werden. Markdown ist die Vorgabe; Klartext ist am schnellsten; HTML wird per Drittanbieter-Bibliothek gerendert (höhere Tokenkosten) und fällt bei Renderfehlern gemäß der Regel unten zurück.';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => 'Klartext';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'Der HTML-Modus injiziert zusätzliche Formatvorgaben in jeden Prompt; die Tokenkosten sind etwas höher.';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML-Render-Fallback';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      'Strategie bei HTML-Parser- oder Renderfehlern. Markdown analysiert erneut als Markdown; Klartext zeigt den Rohtext direkt.';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => 'Klartext';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Kompressions-Kopf-/Endfenster';
 

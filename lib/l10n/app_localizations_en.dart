@@ -1568,6 +1568,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
 
   @override
+  String get aiMessageContentFormatLabel => 'Message Content Format';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      'Controls how AI assistant messages are rendered. Markdown is the default; PlainText is fastest; HTML uses a third-party renderer with higher token cost and falls back per the rule below on render failure.';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => 'PlainText';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'HTML mode injects extra format constraints into every prompt; token cost is slightly higher.';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML Render Fallback';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      'Strategy used when HTML parsing or rendering fails. Markdown re-parses as Markdown; PlainText shows the raw text directly.';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => 'PlainText';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Compression Head/Tail Window';
 

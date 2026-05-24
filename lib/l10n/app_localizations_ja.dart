@@ -1520,6 +1520,39 @@ class AppLocalizationsJa extends AppLocalizations {
       '有効にすると、通常の会話中に消費済みの古いツール結果がクリアされコンテキストを節約します。無効（推奨）にすると、能動的/受動的圧縮の前にのみ微圧縮が実行され、ターンをまたいだプロンプトキャッシュのヒット率が向上しAPIコストが削減されます。';
 
   @override
+  String get aiMessageContentFormatLabel => 'メッセージ内容のフォーマット';
+
+  @override
+  String get aiMessageContentFormatBody =>
+      'AI アシスタントメッセージの表示方法を制御します。Markdown が既定、PlainText が最も高速、HTML はサードパーティライブラリによるレンダリングで token がやや多め、レンダリング失敗時は以下のフォールバックでダウングレードします。';
+
+  @override
+  String get aiMessageContentFormatMarkdown => 'Markdown';
+
+  @override
+  String get aiMessageContentFormatPlainText => 'プレーンテキスト';
+
+  @override
+  String get aiMessageContentFormatHtml => 'HTML';
+
+  @override
+  String get aiMessageContentFormatHtmlTokenWarning =>
+      'HTML モードは毎ターンのプロンプトに追加の制約を注入します。token コストがやや高めです。';
+
+  @override
+  String get aiHtmlRenderFallbackLabel => 'HTML レンダリング失敗フォールバック';
+
+  @override
+  String get aiHtmlRenderFallbackBody =>
+      'HTML の解析またはレンダリングが失敗したときのダウングレード戦略。Markdown は Markdown として再解析、PlainText は生テキストをそのまま表示します。';
+
+  @override
+  String get aiHtmlRenderFallbackMarkdown => 'Markdown';
+
+  @override
+  String get aiHtmlRenderFallbackPlainText => 'プレーンテキスト';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '圧縮の先頭/末尾ウィンドウ';
 
   @override
