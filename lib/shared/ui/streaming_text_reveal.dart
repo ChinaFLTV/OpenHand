@@ -45,6 +45,12 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
   /// 高度补间保持短促干脆，不与 reveal 动画争抢注意力。
   static const Duration _kHeightDuration = Duration(milliseconds: 220);
 
+  /// 超长消息避免复制整棵 Markdown / 代码块 widget 树做垫底层。
+  /// 高度补间仍保留，diff reveal 退化为直接更新，优先守住帧预算。
+  static const int _kRevealMaxLength = 32 * 1024;
+
+  bool get _revealEnabled => widget.textLength <= _kRevealMaxLength;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +76,11 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
   @override
   void didUpdateWidget(covariant StreamingTextReveal oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_revealEnabled) {
+      _prevRenderLength = widget.textLength;
+      _outgoingChild = null;
+      return;
+    }
     if (widget.streaming) {
       if (widget.textLength > oldWidget.textLength) {
         // 新字符到达：以旧 widget 长度作为稳定基线，从该边界向下扫波前。
@@ -105,11 +116,12 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     if (disable) {
       return widget.child;
     }
+    final revealEnabled = _revealEnabled;
     return AnimatedSize(
       duration: _kHeightDuration,
       curve: Curves.easeOutCubic,
       alignment: Alignment.topLeft,
-      child: widget.streaming || _outgoingChild != null
+      child: revealEnabled && (widget.streaming || _outgoingChild != null)
           ? AnimatedBuilder(
               animation: _ctrl,
               builder: (context, child) {

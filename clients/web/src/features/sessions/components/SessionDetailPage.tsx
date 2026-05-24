@@ -1069,6 +1069,7 @@ export function SessionDetailPage() {
   const programmaticScrollUntilRef = useRef<number>(0);
   const followFrameRef = useRef<number | null>(null);
   const followSettleFrameRef = useRef<number | null>(null);
+  const resizeFollowFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailContentLengthRef = useRef<number>(0);
   const lastLocalSendAtRef = useRef<number>(0);
@@ -1168,6 +1169,10 @@ export function SessionDetailPage() {
     if (followSettleFrameRef.current != null) {
       window.cancelAnimationFrame(followSettleFrameRef.current);
       followSettleFrameRef.current = null;
+    }
+    if (resizeFollowFrameRef.current != null) {
+      window.cancelAnimationFrame(resizeFollowFrameRef.current);
+      resizeFollowFrameRef.current = null;
     }
   }, []);
 
@@ -1525,12 +1530,20 @@ export function SessionDetailPage() {
     if (!target || !scroller || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
       if (!shouldFollowPinnedMessages()) return;
-      scheduleFollowToBottom('auto');
+      if (resizeFollowFrameRef.current != null) return;
+      resizeFollowFrameRef.current = requestAnimationFrame(() => {
+        resizeFollowFrameRef.current = null;
+        if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
+      });
     });
     observer.observe(target);
     observer.observe(scroller);
     return () => {
       observer.disconnect();
+      if (resizeFollowFrameRef.current != null) {
+        cancelAnimationFrame(resizeFollowFrameRef.current);
+        resizeFollowFrameRef.current = null;
+      }
     };
   }, [autoFollow, autoFollowPaused]);
 

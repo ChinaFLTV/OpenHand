@@ -485,10 +485,26 @@ const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 260;
 const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
+const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
+const STREAMING_DIFF_UNDERLAY_MARKDOWN_MAX_CHARS = 4096;
+const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 
 // 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
 // CSS 入场动画重播，从而引发消息列表"闪烁→消失→重现"的鬼畜抖动。
 const appearedMessageIds = new Set<string>();
+let messageAppearBatchStartedAt = 0;
+let messageAppearBatchOrdinal = 0;
+
+function reserveMessageAppearStaggerIndex(): number {
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (now - messageAppearBatchStartedAt > MESSAGE_APPEAR_BATCH_WINDOW_MS) {
+    messageAppearBatchStartedAt = now;
+    messageAppearBatchOrdinal = 0;
+  }
+  const index = Math.min(12, messageAppearBatchOrdinal);
+  messageAppearBatchOrdinal += 1;
+  return index;
+}
 
 // 限制集合大小，防止长时间运行时内存泄漏。
 // 当集合超过 500 条时，清除最早的一半。
@@ -722,7 +738,8 @@ function StreamingMarkdownReveal({
   }, []);
 
   const previous = previousRef.current;
-  const canAnimateDiff = !reduceMotion && streaming && previous.content.length > 0;
+  const revealAllowed = content.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
+  const canAnimateDiff = !reduceMotion && streaming && revealAllowed && previous.content.length > 0;
   let immediateOutgoing: StreamingContentSnapshot | null = null;
   if (canAnimateDiff && previous.content !== content) {
     if (content.length > previous.content.length && content.startsWith(previous.content)) {
@@ -755,7 +772,7 @@ function StreamingMarkdownReveal({
     }
 
     let nextOutgoing: StreamingContentSnapshot | null = null;
-    const shouldAnimate = !reduceMotion && streaming && previousValue.content.length > 0;
+    const shouldAnimate = !reduceMotion && streaming && revealAllowed && previousValue.content.length > 0;
     if (shouldAnimate) {
       if (content.length > previousValue.content.length && content.startsWith(previousValue.content)) {
         nextOutgoing = buildSnapshot('append', previousValue);
@@ -782,13 +799,16 @@ function StreamingMarkdownReveal({
 
   const { containerRef: streamingMaskRef, streamingClass } =
     useStreamingReveal(
-      streaming,
+      streaming && revealAllowed,
       content.length,
       reduceMotion,
       handleRevealRest,
     );
 
   const visibleOutgoing = immediateOutgoing ?? outgoing;
+  const underlayRaw = visibleOutgoing
+    ? visibleOutgoing.raw || visibleOutgoing.content.length > STREAMING_DIFF_UNDERLAY_MARKDOWN_MAX_CHARS
+    : false;
   const currentClass = [
     streamingClass ? 'oh-streaming-reveal' : '',
     visibleOutgoing ? 'oh-streaming-diff-current' : '',
@@ -804,7 +824,7 @@ function StreamingMarkdownReveal({
         >
           <Markdown
             source={visibleOutgoing.content}
-            raw={visibleOutgoing.raw}
+            raw={underlayRaw}
             mono={visibleOutgoing.mono}
           />
         </div>
@@ -898,12 +918,18 @@ function MessageCardImpl({
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
 
   // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
-  const shouldAnimate = !appearedMessageIds.has(message.id);
+  const [shouldAnimate] = useState(() => !appearedMessageIds.has(message.id));
+  const [appearanceStaggerIndex] = useState(() => (
+    shouldAnimate ? reserveMessageAppearStaggerIndex() : 0
+  ));
   useEffect(() => {
     if (shouldAnimate) {
       trackMessageAppeared(message.id);
     }
   }, [message.id, shouldAnimate]);
+  const appearClass = shouldAnimate
+    ? ` oh-appear-up${appearanceStaggerIndex > 0 ? ` oh-appear-stagger-${appearanceStaggerIndex}` : ''}`
+    : '';
 
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
@@ -945,7 +971,7 @@ function MessageCardImpl({
     <>
     <article
       ref={cardRef}
-      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4${shouldAnimate ? ' oh-appear-up' : ''}`}
+      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} rounded-m3-md p-4${appearClass}`}
       style={{
         display: 'block',
         width: 'fit-content',

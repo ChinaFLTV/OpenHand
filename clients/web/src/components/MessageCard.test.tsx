@@ -8,7 +8,9 @@ const copyName = /^(复制|Copy)$/;
 const deleteName = /^(删除|Delete)$/;
 
 vi.mock('./Markdown', () => ({
-  Markdown: ({ source }: { source: string }) => <div>{source}</div>,
+  Markdown: ({ source, raw }: { source: string; raw?: boolean }) => (
+    <div data-raw={raw ? 'true' : 'false'}>{source}</div>
+  ),
 }));
 
 vi.mock('./MessageMedia', () => ({
@@ -248,6 +250,37 @@ describe('MessageCard actions', () => {
         delete (window as unknown as { cancelAnimationFrame?: unknown }).cancelAnimationFrame;
       }
     }
+  });
+
+  it('stagger-classes newly mounted message cards in the same batch', () => {
+    const prefix = `batch-${Date.now()}`;
+    const { container } = render(
+      <div>
+        <MessageCard message={makeAssistantMessage(`${prefix}-1`, '第一条新增')} />
+        <MessageCard message={makeAssistantMessage(`${prefix}-2`, '第二条新增')} />
+        <MessageCard message={makeAssistantMessage(`${prefix}-3`, '第三条新增')} />
+      </div>,
+    );
+
+    const cards = Array.from(container.querySelectorAll('article')) as HTMLElement[];
+    expect(cards).toHaveLength(3);
+    expect(cards.some((card) => card.className.includes('oh-appear-up'))).toBe(true);
+    expect(cards.some((card) => /oh-appear-stagger-\d+/.test(card.className))).toBe(true);
+  });
+
+  it('uses a raw previous-content underlay for long streaming diffs', () => {
+    const base = 'A'.repeat(4100);
+    const { container, rerender } = render(
+      <MessageCard message={makeAssistantMessage('assistant-long-diff', base)} streaming />,
+    );
+
+    rerender(
+      <MessageCard message={makeAssistantMessage('assistant-long-diff', `${base}B`)} streaming />,
+    );
+
+    const underlay = container.querySelector<HTMLElement>('.oh-streaming-diff-underlay');
+    expect(underlay).not.toBeNull();
+    expect(underlay!.querySelector('[data-raw="true"]')).not.toBeNull();
   });
 
   it('skips assistant height measurement for tiny same-line streaming deltas', async () => {
