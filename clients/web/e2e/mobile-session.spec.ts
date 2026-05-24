@@ -51,7 +51,7 @@ test.beforeEach(async ({ page }) => {
           mode: 'chat',
           full_access_permission: false,
           last_model_key: 'mock-model',
-          message_count: 2,
+          message_count: 4,
           total_tokens: 12345,
           tool_message_count: 1,
           compression_point_count: 1,
@@ -82,7 +82,7 @@ test.beforeEach(async ({ page }) => {
           mode: 'chat',
           full_access_permission: false,
           last_model_key: 'mock-model',
-          message_count: 2,
+          message_count: 4,
           total_tokens: 12345,
           tool_message_count: 1,
           compression_point_count: 1,
@@ -100,12 +100,35 @@ test.beforeEach(async ({ page }) => {
           },
           {
             id: 'm2',
+            kind: 'reasoning',
+            role: 'assistant',
+            content: '第一行思考\n第二行计划\n第三行检查布局\n第四行检查滚动\n第五行检查工具卡\n第六行收束',
+            created_at: '2026-05-08T00:00:02.000Z',
+            character_count: 45,
+          },
+          {
+            id: 'm3',
+            kind: 'tool_call',
+            role: 'assistant',
+            content: '检查视口宽度和滚动容器',
+            created_at: '2026-05-08T00:00:03.000Z',
+            character_count: 12,
+            metadata: {
+              tool_name: 'LayoutProbe',
+              tool_execution_status: 'success',
+              tool_execution_stdout: 'viewport=360 scrollWidth=360 ok=true',
+              tool_arguments: '{"viewport":360}',
+            },
+          },
+          {
+            id: 'm4',
             kind: 'assistant',
             role: 'assistant',
-            content: '已加载。这里放一段稍长的回复，用于确保消息卡片、顶部栏和输入区都不会造成横向滚动。',
-            created_at: '2026-05-08T00:00:02.000Z',
-            character_count: 42,
+            content: '已加载。这里放一段稍长的流式回复，用于确保消息卡片、Reasoning、工具卡片、顶部栏和输入区都不会造成横向滚动。',
+            created_at: '2026-05-08T00:00:04.000Z',
+            character_count: 58,
             model_label: 'Mock Vision Model',
+            metadata: { streaming: true },
           },
         ],
         offset: 0,
@@ -136,12 +159,19 @@ test('session detail fits a 360px mobile viewport without horizontal overflow', 
 
   await expect(page.locator('.oh-session-composer')).toBeVisible();
   await expect(page.locator('.oh-composer-permission-control')).toBeVisible();
+  await expect(page.locator('.oh-message-card')).toHaveCount(4);
+  await expect(page.locator('.oh-message-badge-toggle')).toHaveCount(2);
+  await expect(page.locator('.oh-message-badge-toggle').first()).toBeVisible();
 
   const layout = await page.evaluate(() => {
     const composer = document.querySelector('.oh-session-composer')?.getBoundingClientRect();
     const toolbar = document.querySelector('.oh-composer-toolbar')?.getBoundingClientRect();
     const permission = document.querySelector('.oh-composer-permission-control')?.getBoundingClientRect();
     const main = document.querySelector('.oh-session-detail-page')?.getBoundingClientRect();
+    const cards = Array.from(document.querySelectorAll('.oh-message-card'))
+      .map((card) => card.getBoundingClientRect());
+    const cardLeft = Math.min(...cards.map((card) => card.left));
+    const cardRight = Math.max(...cards.map((card) => card.right));
     return {
       viewportWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
@@ -150,6 +180,9 @@ test('session detail fits a 360px mobile viewport without horizontal overflow', 
       composerWidth: composer?.width ?? 0,
       toolbarWidth: toolbar?.width ?? 0,
       permissionWidth: permission?.width ?? 0,
+      cardCount: cards.length,
+      cardLeft,
+      cardRight,
     };
   });
 
@@ -159,4 +192,7 @@ test('session detail fits a 360px mobile viewport without horizontal overflow', 
   expect(layout.composerWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.toolbarWidth).toBeLessThanOrEqual(layout.composerWidth + 1);
   expect(layout.permissionWidth).toBeLessThanOrEqual(40);
+  expect(layout.cardCount).toBe(4);
+  expect(layout.cardLeft).toBeGreaterThanOrEqual(-1);
+  expect(layout.cardRight).toBeLessThanOrEqual(layout.viewportWidth + 1);
 });
