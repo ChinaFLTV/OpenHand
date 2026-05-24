@@ -18,14 +18,18 @@ class AiOutputFormatPrompts {
       'assets/prompts/_shared/output_format_html.md';
   static const String plainTextAssetPath =
       'assets/prompts/_shared/output_format_plaintext.md';
+  static const String gptChatRulesAssetPath =
+      'assets/prompts/_shared/output_format_gpt_chat_rules.md';
 
   static String _html = _fallbackHtml;
   static String _plainText = _fallbackPlainText;
+  static String _gptChatRules = _fallbackGptChatRules;
   static bool _loaded = false;
   static Future<void>? _loading;
 
   static String get html => _html;
   static String get plainText => _plainText;
+  static String get gptChatRules => _gptChatRules;
   static bool get isLoaded => _loaded;
 
   static Future<void> ensureLoaded([AssetBundle? bundle]) {
@@ -40,11 +44,14 @@ class AiOutputFormatPrompts {
       final results = await Future.wait<String>(<Future<String>>[
         bundle.loadString(htmlAssetPath),
         bundle.loadString(plainTextAssetPath),
+        bundle.loadString(gptChatRulesAssetPath),
       ]);
       final loadedHtml = results[0].trim();
       final loadedPlain = results[1].trim();
+      final loadedGpt = results[2].trim();
       if (loadedHtml.isNotEmpty) _html = loadedHtml;
       if (loadedPlain.isNotEmpty) _plainText = loadedPlain;
+      if (loadedGpt.isNotEmpty) _gptChatRules = loadedGpt;
       _loaded = true;
     } catch (error, stack) {
       silentLog('AiOutputFormatPrompts', 'load', error, stack);
@@ -67,3 +74,9 @@ const String _fallbackPlainText =
     '  <rule>段落用空行分隔，代码用四空格缩进</rule>\n'
     '  <rule>保持高信息密度与紧凑行文</rule>\n'
     '</output_format>';
+
+const String _fallbackGptChatRules =
+    '<chat_rules model="gpt">\n'
+    '  <anti-habit>禁止机械性开头总结与"下一步推荐"模板化回复；禁止散乱罗列；禁止无脑垂直长清单；禁止代码话题中不假思索堆代码块</anti-habit>\n'
+    '  <require>积极使用 &lt;table&gt;/&lt;details&gt;/Flexbox 卡片提升信息密度；回复架构必须经过设计</require>\n'
+    '</chat_rules>';

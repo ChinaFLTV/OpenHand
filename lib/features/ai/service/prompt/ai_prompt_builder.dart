@@ -598,6 +598,16 @@ class AiPromptBuilder {
           content:
               '# Output Format Reminder\n\n${AiOutputFormatPrompts.html}',
         ),
+      // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
+      if (runtimeContext.messageContentFormat ==
+              AiMessageContentFormat.html &&
+          _isGptSeriesModel(model.modelId) &&
+          AiOutputFormatPrompts.gptChatRules.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# GPT Chat Rules Reminder\n\n${AiOutputFormatPrompts.gptChatRules}',
+        ),
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)
@@ -4443,6 +4453,19 @@ $content
       'edit' || 'multiedit' || 'write' || 'notebookedit' => true,
       _ => false,
     };
+  }
+
+  /// 检测 model id 是否属于 GPT 系列（OpenAI gpt-* / o-series / chatgpt-*）。
+  /// 用于在 HTML 输出模式下追加 GPT 专属 chat_rules 提醒，纠正其默认散乱长清单陋习。
+  bool _isGptSeriesModel(String modelId) {
+    final id = modelId.trim().toLowerCase();
+    if (id.isEmpty) return false;
+    return id.startsWith('gpt-') ||
+        id.startsWith('gpt') && RegExp(r'^gpt[-_]?[3-9]').hasMatch(id) ||
+        id.startsWith('chatgpt-') ||
+        id.startsWith('o1') ||
+        id.startsWith('o3') ||
+        id.startsWith('o4');
   }
 
   bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
