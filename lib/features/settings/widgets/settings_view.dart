@@ -945,8 +945,8 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final messageContentFormatControl = SizedBox(
-      width: double.infinity,
+    final messageContentFormatControl = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 240),
       child: DropdownButtonFormField<AiMessageContentFormat>(
         key: const ValueKey<String>('settingsAiMessageContentFormatDropdown'),
         initialValue: settingsController.aiMessageContentFormat,
@@ -976,6 +976,10 @@ class _SettingsViewState extends State<SettingsView> {
                 ..showSnackBar(
                   SnackBar(
                     content: Text(l10n.aiMessageContentFormatHtmlTokenWarning),
+                    action: SnackBarAction(
+                      label: l10n.commonClose,
+                      onPressed: messenger.hideCurrentSnackBar,
+                    ),
                   ),
                 );
             }
