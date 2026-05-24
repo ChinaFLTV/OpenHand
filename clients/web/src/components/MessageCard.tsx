@@ -1174,9 +1174,9 @@ function MessageCardImpl({
         {message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
         ) : useStructuredToolBody ? (
-          <ToolExecutionCard message={message} />
+          <ToolExecutionCard message={message} autoFollow={streamingContent || stableTurnActive} />
         ) : useToolBody ? (
-          content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent} /> : null
+          content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : (
           <StreamingMarkdownReveal
             content={visibleContent}
@@ -1371,7 +1371,13 @@ function ReasoningCollapsibleBody({
   );
 }
 
-function ToolExecutionCard({ message }: { message: SessionMessage }) {
+function ToolExecutionCard({
+  message,
+  autoFollow = false,
+}: {
+  message: SessionMessage;
+  autoFollow?: boolean;
+}) {
   const metadata = message.metadata ?? {};
   const stdout = asString(metadata['tool_execution_stdout']);
   const stderr = asString(metadata['tool_execution_stderr']);
@@ -1414,7 +1420,7 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   const constructing =
     (!terminalStatus && argumentsStreaming) ||
     (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
-  const autoFollowToolOutput = !terminalStatus || asBool(metadata['streaming']);
+  const autoFollowToolOutput = autoFollow || !terminalStatus || asBool(metadata['streaming']);
 
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">

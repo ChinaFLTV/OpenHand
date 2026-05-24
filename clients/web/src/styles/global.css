@@ -4236,7 +4236,7 @@ button.oh-composer-pill:not(:disabled):hover {
      不再依赖 CSS static gradient + transition（后者在主流浏览器中无法
      插值 gradient 值，实际不生效）。
    - 动画参数与 Flutter StreamingTextReveal 对齐：旧内容垫底，当前
-     内容从旧/新边界向尾部以 420ms easeOutBack 波前淡入。
+    内容从旧/新边界向尾部以 520ms easeOutBack 波前淡入。
    - .oh-streaming-reveal 保留为语义标记，实际遮罩效果由内联 style 承载。 */
 .oh-streaming-reveal {
   /* mask-image 由 JS 内联 style 驱动 */
