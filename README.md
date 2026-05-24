@@ -312,11 +312,10 @@ flutter run -d macos       # 或 windows / linux
 
 ### 4. 验证门禁
 
-提交前请保证 `flutter analyze` 0 issues、`flutter test` 全绿：
+提交前请保证 `flutter analyze` 0 issues：
 
 ```bash
 flutter analyze 2>&1 | tail -5
-flutter test 2>&1 | tail -5
 ```
 
 ### 5. 生成本地化
@@ -392,7 +391,7 @@ scripts/
 
 1. **提交信息使用简体中文**，动词开头，目标 + 影响。
    - 范例：`修复机器专家弹窗导致全局输入框失焦/无法输入粘贴的问题`
-2. 提交前必跑：`flutter analyze` + `flutter test`，保持 0 issues / 全绿。
+2. 提交前必跑：`flutter analyze`，保持 0 issues。
 3. 涉及外部进程一律走 [lib/app/support/safe_subprocess.dart](lib/app/support/safe_subprocess.dart)，禁止裸 `Process.run(...).timeout(...)`。
 4. 静默忽略错误请使用 [silentLog](lib/app/support/silent_log.dart) 而非 `catch (_) {}`。
 5. UI 文案先写入 `lib/l10n/app_zh.arb`，再运行 `flutter gen-l10n` 同步其他语种占位。

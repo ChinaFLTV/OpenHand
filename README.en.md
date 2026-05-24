@@ -326,11 +326,10 @@ flutter run -d macos       # or windows / linux
 
 ### 4. Quality gates
 
-Keep `flutter analyze` at 0 issues and `flutter test` fully green before pushing:
+Keep `flutter analyze` at 0 issues before pushing:
 
 ```bash
 flutter analyze 2>&1 | tail -5
-flutter test 2>&1 | tail -5
 ```
 
 ### 5. Localization
@@ -406,7 +405,7 @@ Issues and PRs welcome. Please follow these conventions:
 
 1. **Commit messages must be in Simplified Chinese**, verb-led, stating the goal + impact.
    - Example: `修复机器专家弹窗导致全局输入框失焦/无法输入粘贴的问题`
-2. Run `flutter analyze` + `flutter test` before pushing — keep both clean.
+2. Run `flutter analyze` before pushing and keep it clean.
 3. All external processes must go through [lib/app/support/safe_subprocess.dart](lib/app/support/safe_subprocess.dart). Never use bare `Process.run(...).timeout(...)`.
 4. Use [silentLog](lib/app/support/silent_log.dart) instead of `catch (_) {}` for silent error swallowing.
 5. Add UI strings to `lib/l10n/app_zh.arb` first, then run `flutter gen-l10n` to scaffold other locales.
