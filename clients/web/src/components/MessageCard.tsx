@@ -23,6 +23,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
 import { useStreamingReveal } from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 
@@ -715,12 +716,16 @@ function StreamingMarkdownReveal({
   reduceMotion,
   raw,
   mono,
+  format,
+  htmlFallback,
 }: {
   content: string;
   streaming: boolean;
   reduceMotion: boolean;
   raw: boolean;
   mono: boolean;
+  format?: 'markdown' | 'plain_text' | 'html';
+  htmlFallback?: 'markdown' | 'plain_text';
 }) {
   const previousRef = useRef({ content, raw, mono });
   const serialRef = useRef(0);
@@ -827,11 +832,13 @@ function StreamingMarkdownReveal({
             source={visibleOutgoing.content}
             raw={underlayRaw}
             mono={visibleOutgoing.mono}
+            format={format}
+            htmlFallback={htmlFallback}
           />
         </div>
       ) : null}
       <div ref={streamingMaskRef} class={currentClass}>
-        <Markdown source={content} raw={raw} mono={mono} />
+        <Markdown source={content} raw={raw} mono={mono} format={format} htmlFallback={htmlFallback} />
       </div>
     </div>
   );
@@ -874,6 +881,8 @@ function MessageCardImpl({
   onActiveChange,
 }: MessageCardProps) {
   const reduceMotion = useReducedMotion();
+  const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
+  const [showRawContent, setShowRawContent] = useState(false);
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
   const useStructuredToolBody =
@@ -1115,8 +1124,10 @@ function MessageCardImpl({
             content={visibleContent}
             streaming={streamingContent && !isUserBubble}
             reduceMotion={reduceMotion}
-            raw={style.mono === true}
+            raw={showRawContent || style.mono === true}
             mono={style.mono === true}
+            format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : contentFormat}
+            htmlFallback={contentHtmlFallback}
           />
         )}
         {!isUserBubble &&
@@ -1172,6 +1183,15 @@ function MessageCardImpl({
           ) : null}
           {onAudit ? (
             <ActionBtn icon="audit" label={t('common.audit')} onClick={() => onAudit(message)} />
+          ) : null}
+          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' ? (
+            <ActionBtn
+              icon={showRawContent ? 'edit' : 'copy'}
+              label={showRawContent
+                ? t('message.showRendered', '显示渲染')
+                : t('message.showRaw', '显示原始')}
+              onClick={() => setShowRawContent((v) => !v)}
+            />
           ) : null}
           {onDelete ? (
             <ActionBtn

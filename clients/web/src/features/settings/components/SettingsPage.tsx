@@ -19,6 +19,11 @@ import {
 } from '../api/preferences';
 import { t, tNumber } from '../../../i18n';
 import { setRemoteReducedMotion } from '../../../hooks/useReducedMotion';
+import {
+  useMessageContentFormat,
+  setMessageContentFormat,
+  setHtmlRenderFallback,
+} from '../../../hooks/useMessageContentFormat';
 import { syncRemoteDialogMotionSettings } from '../../../hooks/useDialogMotionSettings';
 import { showSnackbar } from '../../../components/Snackbar';
 
@@ -99,6 +104,17 @@ function motionCurveLabel(value: string | undefined): string {
   return MOTION_CURVE_LABEL[value] ?? value;
 }
 
+function messageFormatLabel(value: 'markdown' | 'plain_text' | 'html'): string {
+  if (value === 'plain_text') return t('settings.messageContentFormat.plainText', '纯文本');
+  if (value === 'html') return t('settings.messageContentFormat.html', 'HTML');
+  return t('settings.messageContentFormat.markdown', 'Markdown');
+}
+
+function htmlFallbackLabel(value: 'markdown' | 'plain_text'): string {
+  if (value === 'plain_text') return t('settings.messageContentFormat.plainText', '纯文本');
+  return t('settings.messageContentFormat.markdown', 'Markdown');
+}
+
 export function SettingsPage() {
   const [prefs, setPrefs] = useState<RemotePreferences | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,6 +122,7 @@ export function SettingsPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [savedSignal, setSavedSignal] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { format: messageContentFormat, htmlFallback: htmlRenderFallback } = useMessageContentFormat();
 
   const [thresholdInput, setThresholdInput] = useState('');
   const applyPreferences = (next: RemotePreferences) => {
@@ -293,6 +310,59 @@ export function SettingsPage() {
                     </div>
                   </SettingRow>
                 </Appear>
+
+                <Appear variant="up">
+                  <SettingRow
+                    title={t('settings.messageContentFormat.title', '消息内容格式')}
+                    description={t('settings.messageContentFormat.desc', '助手消息按所选格式渲染。HTML 模式会调用第三方安全清洗后展示原始 HTML，token 与渲染成本更高，请按需开启。')}
+                    meta={<SavingPill active={false} value={messageFormatLabel(messageContentFormat)} />}
+                  >
+                    <div class="oh-settings-control-row">
+                      <MenuSelect
+                        value={messageContentFormat}
+                        onChange={(next) => {
+                          setMessageContentFormat(next as 'markdown' | 'plain_text' | 'html');
+                          if (next === 'html') {
+                            showSnackbar(t(
+                              'settings.messageContentFormat.htmlWarning',
+                              'HTML 模式 token 消耗较高，请按需启用。',
+                            ));
+                          }
+                        }}
+                        options={[
+                          { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
+                          { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
+                          { value: 'html', label: t('settings.messageContentFormat.html', 'HTML') },
+                        ]}
+                        minWidth={190}
+                        ariaLabel={t('settings.messageContentFormat.title', '消息内容格式')}
+                      />
+                    </div>
+                  </SettingRow>
+                </Appear>
+
+                {messageContentFormat === 'html' ? (
+                  <Appear variant="up">
+                    <SettingRow
+                      title={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
+                      description={t('settings.htmlRenderFallback.desc', '当消息正文不包含 HTML 标签时，回退采用此渲染方式。')}
+                      meta={<SavingPill active={false} value={htmlFallbackLabel(htmlRenderFallback)} />}
+                    >
+                      <div class="oh-settings-control-row">
+                        <MenuSelect
+                          value={htmlRenderFallback}
+                          onChange={(next) => setHtmlRenderFallback(next as 'markdown' | 'plain_text')}
+                          options={[
+                            { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
+                            { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
+                          ]}
+                          minWidth={190}
+                          ariaLabel={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
+                        />
+                      </div>
+                    </SettingRow>
+                  </Appear>
+                ) : null}
 
                 <Appear variant="up">
                   <SettingRow

@@ -149,9 +149,71 @@ export interface MarkdownProps {
   raw?: boolean;
   /// 强制 mono 字体 (工具调用入参 / stdout 等).
   mono?: boolean;
+  /// 内容格式 (与 APP 端 AiMessageContentFormat 对齐)：
+  /// - 'markdown' (默认) → 原有 react-markdown 渲染路径
+  /// - 'plain_text'      → 直接 pre 渲染原文 (跳过 markdown / 高亮)
+  /// - 'html'            → 内容像 HTML 时 DOMPurify sanitize 后 innerHTML 渲染；
+  ///                       不像 HTML 时按 htmlFallback 回退到 markdown 或 plain_text。
+  format?: 'markdown' | 'plain_text' | 'html';
+  /// HTML 模式下，内容不像 HTML 时的回退渲染。
+  htmlFallback?: 'markdown' | 'plain_text';
 }
 
-export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
+const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|tr|td|th|a|img|br|hr|pre|code|strong|em|b|i|u|section|article|header|footer|nav|main|button|form|input|label|style|script|iframe|video|audio|svg)\b/i;
+
+function looksLikeHtml(value: string): boolean {
+  if (!value) return false;
+  return HTML_LIKELY_TAG_RE.test(value);
+}
+
+// DOMPurify 懒载入：仅在首次遇到 html 内容时拉。
+type DomPurifyLike = { sanitize: (s: string, opts?: Record<string, unknown>) => string };
+let domPurifyCache: DomPurifyLike | null = null;
+let domPurifyLoading: Promise<DomPurifyLike> | null = null;
+function loadDomPurify(): Promise<DomPurifyLike> {
+  if (domPurifyCache != null) return Promise.resolve(domPurifyCache);
+  if (domPurifyLoading != null) return domPurifyLoading;
+  domPurifyLoading = import('dompurify').then((mod) => {
+    const purify = (mod as { default?: DomPurifyLike }).default ?? (mod as unknown as DomPurifyLike);
+    domPurifyCache = purify;
+    domPurifyLoading = null;
+    return purify;
+  }).catch((err) => {
+    domPurifyLoading = null;
+    throw err;
+  });
+  return domPurifyLoading;
+}
+
+function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
+  const [purify, setPurify] = useState<DomPurifyLike | null>(() => domPurifyCache);
+  useEffect(() => {
+    if (purify != null) return;
+    let cancelled = false;
+    loadDomPurify().then((p) => {
+      if (!cancelled) setPurify(() => p);
+    }).catch(() => {/* 失败时降级为纯文本 */});
+    return () => { cancelled = true; };
+  }, [purify]);
+  const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
+  if (purify == null) {
+    return (
+      <pre class="whitespace-pre-wrap break-words text-sm" style={{ margin: 0, fontFamily }}>
+        {source}
+      </pre>
+    );
+  }
+  const safeHtml = purify.sanitize(source, { USE_PROFILES: { html: true } });
+  return (
+    <div
+      class="oh-html-body text-sm"
+      style={{ fontFamily }}
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
+    />
+  );
+}
+
+export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown' }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
@@ -403,6 +465,34 @@ export function Markdown({ source, raw = false, mono = false }: MarkdownProps) {
         {tooBig ? `\n\n[content truncated for performance — ${content.length} bytes]` : ''}
       </pre>
     );
+  }
+
+  // 阶段㊵: 消息内容格式分派 (与 APP 端 _AssistantMessageBodyDispatcher 对齐)。
+  if (format === 'plain_text') {
+    return (
+      <pre
+        class="whitespace-pre-wrap break-words text-sm"
+        style={{ margin: 0, fontFamily }}
+      >
+        {content}
+      </pre>
+    );
+  }
+  if (format === 'html') {
+    if (looksLikeHtml(content)) {
+      return <HtmlBody source={content} mono={mono} />;
+    }
+    if (htmlFallback === 'plain_text') {
+      return (
+        <pre
+          class="whitespace-pre-wrap break-words text-sm"
+          style={{ margin: 0, fontFamily }}
+        >
+          {content}
+        </pre>
+      );
+    }
+    // fall through to markdown rendering
   }
 
   // 阶段㉔: deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。
