@@ -498,17 +498,24 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             StreamingTextReveal(
                               textLength: effectiveContent.length,
                               streaming: true,
-                              child: _CollapsibleMessageMarkdownBody(
+                              child: _AssistantMessageBodyDispatcher(
                                 data: effectiveContent.isEmpty
                                     ? ' '
                                     : effectiveContent,
-                                selectable: true,
-                                builders: markdownBuilders,
-                                styleSheet: markdownStyleSheet.styleSheet,
+                                format: context
+                                    .watch<SettingsController>()
+                                    .aiMessageContentFormat,
+                                htmlFallback: context
+                                    .read<SettingsController>()
+                                    .aiHtmlRenderFallback,
+                                textColor: textColor,
+                                backgroundColor: backgroundColor,
+                                markdownBuilders: markdownBuilders,
+                                markdownStyleSheet:
+                                    markdownStyleSheet.styleSheet,
                                 inlineSyntaxes: inlineSyntaxes,
-                                pathRoots: filePathRoots,
-                                parseKey: filePathParseKey,
-                                fadeColor: backgroundColor,
+                                filePathRoots: filePathRoots,
+                                filePathParseKey: filePathParseKey,
                                 collapseCharThreshold: isToolResult
                                     ? _toolResultMarkdownCollapseCharThreshold
                                     : _messageMarkdownCollapseCharThreshold,
@@ -519,17 +526,24 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                             )
                           else
-                            _CollapsibleMessageMarkdownBody(
+                            _AssistantMessageBodyDispatcher(
                               data: effectiveContent.isEmpty
                                   ? ' '
                                   : effectiveContent,
-                              selectable: true,
-                              builders: markdownBuilders,
-                              styleSheet: markdownStyleSheet.styleSheet,
+                              format: context
+                                  .watch<SettingsController>()
+                                  .aiMessageContentFormat,
+                              htmlFallback: context
+                                  .read<SettingsController>()
+                                  .aiHtmlRenderFallback,
+                              textColor: textColor,
+                              backgroundColor: backgroundColor,
+                              markdownBuilders: markdownBuilders,
+                              markdownStyleSheet:
+                                  markdownStyleSheet.styleSheet,
                               inlineSyntaxes: inlineSyntaxes,
-                              pathRoots: filePathRoots,
-                              parseKey: filePathParseKey,
-                              fadeColor: backgroundColor,
+                              filePathRoots: filePathRoots,
+                              filePathParseKey: filePathParseKey,
                               collapseCharThreshold: isToolResult
                                   ? _toolResultMarkdownCollapseCharThreshold
                                   : _messageMarkdownCollapseCharThreshold,

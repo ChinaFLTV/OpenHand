@@ -1837,3 +1837,139 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     );
   }
 }
+
+/// 简单的 HTML 嗅探：判断字符串是否大概率为 HTML 文档。
+/// 用于消息内容格式 = HTML 时的"内容不像 HTML 就走回退"路径。
+final RegExp _htmlLikelyTagPattern = RegExp(
+  r'<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|tr|td|th|a|img|br|hr|pre|code|strong|em|b|i|u|section|article|header|footer|nav|main|button|form|input|label|style|script|iframe|video|audio|svg)\b',
+  caseSensitive: false,
+);
+
+bool _looksLikeHtml(String value) {
+  if (value.isEmpty) return false;
+  return _htmlLikelyTagPattern.hasMatch(value);
+}
+
+/// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
+/// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
+class _HtmlMessageBody extends StatelessWidget {
+  const _HtmlMessageBody({
+    required this.data,
+    required this.textColor,
+    this.baseTextStyle,
+  });
+
+  final String data;
+  final Color textColor;
+  final TextStyle? baseTextStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final base =
+        baseTextStyle?.copyWith(color: textColor) ??
+        TextStyle(color: textColor);
+    return SelectionArea(
+      child: HtmlWidget(
+        data.isEmpty ? ' ' : data,
+        textStyle: base,
+        renderMode: RenderMode.column,
+        onErrorBuilder: (context, element, error) => SelectableText(
+          data,
+          style: base,
+        ),
+        onLoadingBuilder: (context, element, progress) => const SizedBox(
+          height: 12,
+          width: 12,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+/// 助手消息正文按"消息内容格式"设置分派：
+/// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
+/// - 纯文本：`_PlainTextMessageBody`
+/// - HTML：内容像 HTML → `_HtmlMessageBody`；否则按回退链跳到 Markdown 或纯文本
+class _AssistantMessageBodyDispatcher extends StatelessWidget {
+  const _AssistantMessageBodyDispatcher({
+    required this.data,
+    required this.format,
+    required this.htmlFallback,
+    required this.textColor,
+    required this.backgroundColor,
+    required this.markdownBuilders,
+    required this.markdownStyleSheet,
+    required this.inlineSyntaxes,
+    required this.filePathRoots,
+    required this.filePathParseKey,
+    required this.collapseCharThreshold,
+    required this.collapseLineThreshold,
+    required this.previewMaxHeight,
+  });
+
+  final String data;
+  final AiMessageContentFormat format;
+  final AiHtmlRenderFallback htmlFallback;
+  final Color textColor;
+  final Color backgroundColor;
+  final Map<String, MarkdownElementBuilder> markdownBuilders;
+  final MarkdownStyleSheet markdownStyleSheet;
+  final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> filePathRoots;
+  final String filePathParseKey;
+  final int collapseCharThreshold;
+  final int collapseLineThreshold;
+  final double previewMaxHeight;
+
+  Widget _buildMarkdown() {
+    return _CollapsibleMessageMarkdownBody(
+      data: data.isEmpty ? ' ' : data,
+      selectable: true,
+      builders: markdownBuilders,
+      styleSheet: markdownStyleSheet,
+      inlineSyntaxes: inlineSyntaxes,
+      pathRoots: filePathRoots,
+      parseKey: filePathParseKey,
+      fadeColor: backgroundColor,
+      collapseCharThreshold: collapseCharThreshold,
+      collapseLineThreshold: collapseLineThreshold,
+      previewMaxHeight: previewMaxHeight,
+    );
+  }
+
+  Widget _buildPlainText() {
+    return _PlainTextMessageBody(
+      data: data.isEmpty ? ' ' : data,
+      textColor: textColor,
+      backgroundColor: backgroundColor,
+      style: markdownStyleSheet.p,
+    );
+  }
+
+  Widget _buildHtmlOrFallback() {
+    if (_looksLikeHtml(data)) {
+      return _HtmlMessageBody(
+        data: data,
+        textColor: textColor,
+        baseTextStyle: markdownStyleSheet.p,
+      );
+    }
+    return htmlFallback == AiHtmlRenderFallback.plainText
+        ? _buildPlainText()
+        : _buildMarkdown();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (format) {
+      case AiMessageContentFormat.plainText:
+        return _buildPlainText();
+      case AiMessageContentFormat.html:
+        return _buildHtmlOrFallback();
+      case AiMessageContentFormat.markdown:
+        return _buildMarkdown();
+    }
+  }
+}
+
