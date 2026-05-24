@@ -313,59 +313,6 @@ export function SettingsPage() {
 
                 <Appear variant="up">
                   <SettingRow
-                    title={t('settings.messageContentFormat.title', '消息内容格式')}
-                    description={t('settings.messageContentFormat.desc', '助手消息按所选格式渲染。HTML 模式会调用第三方安全清洗后展示原始 HTML，token 与渲染成本更高，请按需开启。')}
-                    meta={<SavingPill active={false} value={messageFormatLabel(messageContentFormat)} />}
-                  >
-                    <div class="oh-settings-control-row">
-                      <MenuSelect
-                        value={messageContentFormat}
-                        onChange={(next) => {
-                          setMessageContentFormat(next as 'markdown' | 'plain_text' | 'html');
-                          if (next === 'html') {
-                            showSnackbar(t(
-                              'settings.messageContentFormat.htmlWarning',
-                              'HTML 模式 token 消耗较高，请按需启用。',
-                            ));
-                          }
-                        }}
-                        options={[
-                          { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
-                          { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
-                          { value: 'html', label: t('settings.messageContentFormat.html', 'HTML') },
-                        ]}
-                        minWidth={190}
-                        ariaLabel={t('settings.messageContentFormat.title', '消息内容格式')}
-                      />
-                    </div>
-                  </SettingRow>
-                </Appear>
-
-                {messageContentFormat === 'html' ? (
-                  <Appear variant="up">
-                    <SettingRow
-                      title={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
-                      description={t('settings.htmlRenderFallback.desc', '当消息正文不包含 HTML 标签时，回退采用此渲染方式。')}
-                      meta={<SavingPill active={false} value={htmlFallbackLabel(htmlRenderFallback)} />}
-                    >
-                      <div class="oh-settings-control-row">
-                        <MenuSelect
-                          value={htmlRenderFallback}
-                          onChange={(next) => setHtmlRenderFallback(next as 'markdown' | 'plain_text')}
-                          options={[
-                            { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
-                            { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
-                          ]}
-                          minWidth={190}
-                          ariaLabel={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
-                        />
-                      </div>
-                    </SettingRow>
-                  </Appear>
-                ) : null}
-
-                <Appear variant="up">
-                  <SettingRow
                     title={t('settings.compress.title', '消息压缩阈值 (字符)')}
                     description={t('settings.compress.desc', '单条历史消息超过该阈值后，会在送入模型前压缩。最小 2,000，最大 1,000,000。')}
                     meta={<SavingPill active={savingKey === 'ai_message_compression_threshold_chars'} value={tNumber(prefs.ai_message_compression_threshold_chars)} />}
@@ -453,6 +400,60 @@ export function SettingsPage() {
                   </SettingRow>
                 </Appear>
               </>
+            ) : null}
+
+            {/* 本地偏好（不依赖服务端 prefs，始终展示） */}
+            <Appear variant="up">
+              <SettingRow
+                title={t('settings.messageContentFormat.title', '消息内容格式')}
+                description={t('settings.messageContentFormat.desc', '助手消息按所选格式渲染。HTML 模式会调用第三方安全清洗后展示原始 HTML，token 与渲染成本更高，请按需开启。')}
+                meta={<SavingPill active={false} value={messageFormatLabel(messageContentFormat)} />}
+              >
+                <div class="oh-settings-control-row">
+                  <MenuSelect
+                    value={messageContentFormat}
+                    onChange={(next) => {
+                      setMessageContentFormat(next as 'markdown' | 'plain_text' | 'html');
+                      if (next === 'html') {
+                        showSnackbar(t(
+                          'settings.messageContentFormat.htmlWarning',
+                          'HTML 模式 token 消耗较高，请按需启用。',
+                        ));
+                      }
+                    }}
+                    options={[
+                      { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
+                      { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
+                      { value: 'html', label: t('settings.messageContentFormat.html', 'HTML') },
+                    ]}
+                    minWidth={190}
+                    ariaLabel={t('settings.messageContentFormat.title', '消息内容格式')}
+                  />
+                </div>
+              </SettingRow>
+            </Appear>
+
+            {messageContentFormat === 'html' ? (
+              <Appear variant="up">
+                <SettingRow
+                  title={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
+                  description={t('settings.htmlRenderFallback.desc', '当消息正文不包含 HTML 标签时，回退采用此渲染方式。')}
+                  meta={<SavingPill active={false} value={htmlFallbackLabel(htmlRenderFallback)} />}
+                >
+                  <div class="oh-settings-control-row">
+                    <MenuSelect
+                      value={htmlRenderFallback}
+                      onChange={(next) => setHtmlRenderFallback(next as 'markdown' | 'plain_text')}
+                      options={[
+                        { value: 'markdown', label: t('settings.messageContentFormat.markdown', 'Markdown') },
+                        { value: 'plain_text', label: t('settings.messageContentFormat.plainText', '纯文本') },
+                      ]}
+                      minWidth={190}
+                      ariaLabel={t('settings.htmlRenderFallback.title', 'HTML 回退渲染')}
+                    />
+                  </div>
+                </SettingRow>
+              </Appear>
             ) : null}
           </section>
         </div>
