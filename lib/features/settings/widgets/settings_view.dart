@@ -969,20 +969,10 @@ class _SettingsViewState extends State<SettingsView> {
           await settingsController.updateAiMessageContentFormat(value);
           if (!context.mounted) return;
           if (value == AiMessageContentFormat.html) {
-            final messenger = ScaffoldMessenger.maybeOf(context);
-            if (messenger != null) {
-              messenger
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.aiMessageContentFormatHtmlTokenWarning),
-                    action: SnackBarAction(
-                      label: l10n.commonClose,
-                      onPressed: messenger.hideCurrentSnackBar,
-                    ),
-                  ),
-                );
-            }
+            _showSnackBar(
+              context,
+              l10n.aiMessageContentFormatHtmlTokenWarning,
+            );
           }
         },
       ),
@@ -2196,22 +2186,29 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
-          title: l10n.aiMessageContentFormatLabel,
+          title: l10n.aiMessageContentSectionLabel,
           description: l10n.aiMessageContentFormatBody,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              messageContentFormatControl,
-              if (settingsController.aiMessageContentFormat ==
-                  AiMessageContentFormat.html) ...[
-                const SizedBox(height: 18),
-                _ResponsiveSettingRow(
-                  title: l10n.aiHtmlRenderFallbackLabel,
-                  subtitle: l10n.aiHtmlRenderFallbackBody,
-                  control: htmlRenderFallbackControl,
-                  controlMaxWidth: 360,
+              _ResponsiveSettingRow(
+                title: l10n.aiMessageContentFormatLabel,
+                control: messageContentFormatControl,
+                controlMaxWidth: 240,
+              ),
+              _AnimatedSettingReveal(
+                visible: settingsController.aiMessageContentFormat ==
+                    AiMessageContentFormat.html,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: _ResponsiveSettingRow(
+                    title: l10n.aiHtmlRenderFallbackLabel,
+                    subtitle: l10n.aiHtmlRenderFallbackBody,
+                    control: htmlRenderFallbackControl,
+                    controlMaxWidth: 360,
+                  ),
                 ),
-              ],
+              ),
             ],
           ),
         ),

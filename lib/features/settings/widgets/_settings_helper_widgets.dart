@@ -1230,7 +1230,6 @@ class _AnimatedSettingReveal extends StatelessWidget {
         duration: const Duration(milliseconds: 420),
         reverseDuration: const Duration(milliseconds: 240),
         curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInCubic,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
