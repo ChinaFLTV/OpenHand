@@ -69,6 +69,7 @@ function clearMask(el: HTMLElement) {
 export function useStreamingReveal(
   streaming: boolean,
   contentLength: number,
+  contentKey: string,
   reduceMotion: boolean,
   onRest?: () => void,
 ): {
@@ -141,8 +142,14 @@ export function useStreamingReveal(
       clearMask(el);
       lastLengthRef.current = contentLength;
       onRestRef.current?.();
+      return;
     }
-  }, [streaming, contentLength, reduceMotion]);
+
+    if (contentLength === lastLengthRef.current) {
+      clearMask(el);
+      onRestRef.current?.();
+    }
+  }, [streaming, contentLength, contentKey, reduceMotion]);
 
   // 组件卸载时取消 rAF
   useEffect(() => {

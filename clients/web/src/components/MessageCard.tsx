@@ -801,6 +801,7 @@ function StreamingMarkdownReveal({
     useStreamingReveal(
       streaming && revealAllowed,
       content.length,
+      content,
       reduceMotion,
       handleRevealRest,
     );

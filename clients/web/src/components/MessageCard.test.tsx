@@ -252,6 +252,56 @@ describe('MessageCard actions', () => {
     }
   });
 
+  it('clears stale streaming mask when content is replaced at the same length', () => {
+    const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+    const cancelDescriptor = Object.getOwnPropertyDescriptor(window, 'cancelAnimationFrame');
+    const frames: FrameRequestCallback[] = [];
+    const cancelAnimationFrame = vi.fn();
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      }),
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      configurable: true,
+      value: cancelAnimationFrame,
+    });
+
+    try {
+      const { container, rerender } = render(
+        <MessageCard message={makeAssistantMessage('assistant-replace', 'abc')} streaming />,
+      );
+
+      rerender(
+        <MessageCard message={makeAssistantMessage('assistant-replace', 'abcdef')} streaming />,
+      );
+      const current = container.querySelector<HTMLElement>('.oh-streaming-diff-current');
+      frames[0]?.(16);
+      expect(current!.style.maskImage).toContain('linear-gradient');
+
+      rerender(
+        <MessageCard message={makeAssistantMessage('assistant-replace', 'ABCDEF')} streaming />,
+      );
+
+      expect(cancelAnimationFrame).toHaveBeenCalled();
+      expect(current!.style.maskImage).toBe('');
+      expect(current!.style.webkitMaskImage).toBe('');
+    } finally {
+      if (rafDescriptor) {
+        Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+      } else {
+        delete (window as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame;
+      }
+      if (cancelDescriptor) {
+        Object.defineProperty(window, 'cancelAnimationFrame', cancelDescriptor);
+      } else {
+        delete (window as unknown as { cancelAnimationFrame?: unknown }).cancelAnimationFrame;
+      }
+    }
+  });
+
   it('stagger-classes newly mounted message cards in the same batch', () => {
     const prefix = `batch-${Date.now()}`;
     const { container } = render(
