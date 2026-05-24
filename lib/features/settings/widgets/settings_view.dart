@@ -2109,23 +2109,6 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: l10n.aiMessageContentFormatLabel,
-                subtitle: l10n.aiMessageContentFormatBody,
-                control: messageContentFormatControl,
-                controlMaxWidth: 360,
-              ),
-              if (settingsController.aiMessageContentFormat ==
-                  AiMessageContentFormat.html) ...[
-                const SizedBox(height: 18),
-                _ResponsiveSettingRow(
-                  title: l10n.aiHtmlRenderFallbackLabel,
-                  subtitle: l10n.aiHtmlRenderFallbackBody,
-                  control: htmlRenderFallbackControl,
-                  controlMaxWidth: 360,
-                ),
-              ],
-              const SizedBox(height: 18),
-              _ResponsiveSettingRow(
                 title: l10n.aiToolResultCompressionHeadTailWindowLabel,
                 subtitle: l10n.aiToolResultCompressionHeadTailWindowBody,
                 control: toolResultCompressionHeadTailWindowControl,
@@ -2204,6 +2187,27 @@ class _SettingsViewState extends State<SettingsView> {
                 control: imageSizeLimitControl,
                 controlMaxWidth: 360,
               ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SettingsSubsectionCard(
+          title: l10n.aiMessageContentFormatLabel,
+          description: l10n.aiMessageContentFormatBody,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              messageContentFormatControl,
+              if (settingsController.aiMessageContentFormat ==
+                  AiMessageContentFormat.html) ...[
+                const SizedBox(height: 18),
+                _ResponsiveSettingRow(
+                  title: l10n.aiHtmlRenderFallbackLabel,
+                  subtitle: l10n.aiHtmlRenderFallbackBody,
+                  control: htmlRenderFallbackControl,
+                  controlMaxWidth: 360,
+                ),
+              ],
             ],
           ),
         ),
