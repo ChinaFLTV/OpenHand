@@ -3721,6 +3721,13 @@ class AiSessionController extends ChangeNotifier {
           runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
             workingSession.templateId,
           );
+      // 2026-05-22 — 多媒体生成模式（图片/视频/音频）旁路所有流式节流：
+      // 这些请求走专用 media endpoint，输出是文件/URL 而非真正的文本流，
+      // 把它们丢进 charThrottle/cardThrottle 会导致进度/结果以人造节奏
+      // 慢慢出现，与"特殊非文本输出"的语义不符。
+      final isMediaCreation = creationRequest.isActive;
+      final effChars0 = isMediaCreation ? 0 : effChars;
+      final effCards0 = isMediaCreation ? 0 : effCards;
       // 节流时长：>0 表示限定时长后剩余响应直接按真实节奏追加；
       // 0 表示持续节流（默认）。
       final throttleDurationSec = runtimeContext.streamThrottleDurationSeconds;
@@ -3728,22 +3735,22 @@ class AiSessionController extends ChangeNotifier {
           ? Duration(seconds: throttleDurationSec)
           : null;
       final sharedCharBudget = _StreamCharThrottleBudget(
-        maxCharsPerSecond: effChars,
+        maxCharsPerSecond: effChars0,
       );
       charThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: effChars,
+        maxCharsPerSecond: effChars0,
         onTick: renderAssistantBuffered,
         throttleDuration: throttleDuration,
         sharedBudget: sharedCharBudget,
       );
       reasoningCharThrottle = _StreamCharThrottle(
-        maxCharsPerSecond: effChars,
+        maxCharsPerSecond: effChars0,
         onTick: renderReasoningBuffered,
         throttleDuration: throttleDuration,
         sharedBudget: sharedCharBudget,
       );
       cardThrottle = _StreamCardThrottle(
-        maxCardsPerSecond: effCards,
+        maxCardsPerSecond: effCards0,
         onCardEmitted: () {
           schedulePreview('cardThrottle');
           // 卡片释放/积压变化时重用 signal 让 UI 即时刷新积压数。
@@ -3757,7 +3764,7 @@ class AiSessionController extends ChangeNotifier {
       _activeAiThroughputSamplers[workingSession.id] = aiThroughputSampler;
       // 2026-05-19 — 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
       // 之后即便用户在弹窗里关闭节流，胶囊也会以灰色保留入口。
-      if (effChars > 0 || effCards > 0) {
+      if (effChars0 > 0 || effCards0 > 0) {
         _sessionsInitiallyThrottled.add(workingSession.id);
       }
       // 把已持久化的「启用」开关推给当前活跃 throttle，使「关闭」覆盖
