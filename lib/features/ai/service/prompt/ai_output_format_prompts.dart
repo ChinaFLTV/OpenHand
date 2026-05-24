@@ -54,10 +54,11 @@ class AiOutputFormatPrompts {
 
 const String _fallbackHtml =
     '<output_format mode="html">\n'
-    '  <rule>标题从 ## 起；保持紧凑结构化；信息密度高</rule>\n'
-    '  <rule>仅允许内联 style 属性，禁止 &lt;style&gt;/class/伪类</rule>\n'
-    '  <rule>仅输出片段（div / span / details / table 等），禁止整页骨架</rule>\n'
-    '  <rule>图形限于：流程图、架构图、状态机、对比矩阵、数据图表</rule>\n'
+    '  <directive>本轮回复必须是一段自包含 HTML 片段。禁止任何 Markdown 语法。</directive>\n'
+    '  <forbid-markdown>禁止 #、**、*、`、```、-、+、1.、&gt; 等所有 Markdown 标记</forbid-markdown>\n'
+    '  <required-tags>标题用 &lt;h2&gt;/&lt;h3&gt;；段落 &lt;p&gt;；列表 &lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;；代码 &lt;pre&gt;&lt;code&gt;；表格 &lt;table&gt;；折叠 &lt;details&gt;</required-tags>\n'
+    '  <style-rules>仅允许内联 style；禁止 &lt;style&gt;/class/外链 CSS</style-rules>\n'
+    '  <boundary>禁止 &lt;!DOCTYPE&gt;/&lt;html&gt;/&lt;head&gt;/&lt;body&gt; 整页骨架；禁止 &lt;script&gt;/&lt;iframe&gt;</boundary>\n'
     '</output_format>';
 
 const String _fallbackPlainText =

@@ -574,7 +574,14 @@ class AiPromptBuilder {
         ),
       // 2026-05-24 — 输出格式提醒：Markdown 为默认不注入；
       // 纯文本 / HTML 需要明确告知模型当轮输出需遵守的约束。
-      // 贴在 history 之前，仍位于 prefix 区。
+      // 放在 prompt 最尾部（hook system-reminder 之后）以获得最高 attention，
+      // 避免被前置 18K+ token 上下文淹没导致模型回退到 Markdown 默认输出。
+      ...historyTurns,
+      // 用户消息本体（不含 hook system reminder）→ cache-miss 区起点。
+      ...latestUserNonSystemTurns,
+      // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
+      // 保留在 prompt 最尾部。
+      ...latestUserSystemTurns,
       if (runtimeContext.messageContentFormat ==
               AiMessageContentFormat.plainText &&
           AiOutputFormatPrompts.plainText.isNotEmpty)
@@ -591,12 +598,6 @@ class AiPromptBuilder {
           content:
               '# Output Format Reminder\n\n${AiOutputFormatPrompts.html}',
         ),
-      ...historyTurns,
-      // 用户消息本体（不含 hook system reminder）→ cache-miss 区起点。
-      ...latestUserNonSystemTurns,
-      // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
-      // 保留在 prompt 最尾部。
-      ...latestUserSystemTurns,
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)

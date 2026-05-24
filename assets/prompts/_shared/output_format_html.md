@@ -1,38 +1,37 @@
 <output_format mode="html">
-  <rule>标题从 ## 起，子层级使用 ###；禁用 #</rule>
-  <rule>使用简体中文</rule>
-  <rule>保持高信息密度和紧凑的行文</rule>
-  <rule>保持紧凑的回复格式，避免松散的内容给用户带来阅读障碍</rule>
-  <rule>代码块标注语言，优先完整可运行，复杂逻辑添加注释</rule>
-  <html-visual>
-    <rationale>
-      纯 Markdown 的固定垂直流式结构在表达复杂逻辑时存在先天缺陷（阅读疲劳、重点不突出、缺乏真正的图表与横向排版能力）。
-      你必须主动评估内容结构复杂度，当纯 Markdown 无法清晰、紧凑地传达信息时，使用 HTML 内嵌作为核心表达手段。
-    </rationale>
-    <css-constraint>
-      禁止使用 &lt;style&gt; 标签、class 属性及伪类/伪元素。
-      可视化必须 100% 采用纯内联样式（style="..."），仅依赖 Flexbox 与基础盒子模型（padding/margin/border/box-shadow/背景色差）构建视觉层级。
-    </css-constraint>
-    <default-trigger>
-      <case type="logic-graph">流程图、架构图、状态机、树状层级、思维导图（用 DOM 结构与箭头符号构建）</case>
-      <case type="horizontal-layout">多维对比矩阵、参数矩阵、并排展示（利用 Flex/Grid 真正利用横向空间）</case>
-      <case type="info-card">数据与信息卡片：多字段聚合展示，需要视觉分组与边框隔离的密集信息</case>
-      <case type="space-optimize">内容较多时利用 &lt;details&gt; 折叠或标签页收拢信息</case>
-    </default-trigger>
-    <red-line>
-      <item>HTML 片段占比不得喧宾夺主</item>
-      <item>每个可视化片段必须服务于具体的信息表达需求</item>
-      <item>禁止输出 !DOCTYPE / html / head / body 全量页面框架</item>
-      <item>图形仅限：流程图、架构图、状态机、树状层级、对比矩阵、数据图表。禁止装饰性插画、氛围图、风景、图标装饰</item>
-      <item>Token 效率与效果取舍要平衡；过于复杂的可视化需慎重</item>
-    </red-line>
-    <boundary>
-      <constraint>只输出自包含片段：div / span / details / table 等局部标签</constraint>
-      <constraint>HTML 片段必须像一段加粗或列表一样自然穿插在 Markdown 文本之间，禁止整段回复被一个巨大 HTML 块包裹</constraint>
-    </boundary>
-    <style-preference>
-      默认黑白灰主色调，用线条和留白建立层次，不依赖彩色渐变。
-      需突出和强调的内容鼓励高级克制的彩色使用，突出设计感。
-    </style-preference>
-  </html-visual>
+  <directive>本轮回复必须是一段自包含 HTML 片段。禁止任何 Markdown 语法。</directive>
+  <forbid-markdown>
+    <item>禁止使用 #、##、### 等 Markdown 标题</item>
+    <item>禁止使用 **加粗**、*斜体*、`行内代码`、~~删除线~~</item>
+    <item>禁止使用 ``` 代码围栏；代码必须用 &lt;pre&gt;&lt;code&gt; 包裹</item>
+    <item>禁止使用 -、+、* 或 "1." 等列表标记；列表必须用 &lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;</item>
+    <item>禁止使用 &gt; Markdown 引用；引用必须用 &lt;blockquote&gt;</item>
+    <item>禁止使用 | --- | 的 Markdown 表格；表格必须用 &lt;table&gt;</item>
+  </forbid-markdown>
+  <required-tags>
+    <item>标题：&lt;h2&gt;/&lt;h3&gt;/&lt;h4&gt;，禁用 &lt;h1&gt;</item>
+    <item>段落：&lt;p&gt;</item>
+    <item>列表：&lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;</item>
+    <item>强调：&lt;strong&gt;/&lt;em&gt;</item>
+    <item>代码：行内 &lt;code&gt;；代码块 &lt;pre&gt;&lt;code class="language-xxx"&gt;</item>
+    <item>表格：&lt;table&gt;&lt;thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;th&gt;&lt;td&gt;</item>
+    <item>折叠：信息密集或可选阅读处使用 &lt;details&gt;&lt;summary&gt;</item>
+    <item>引用：&lt;blockquote&gt;</item>
+    <item>链接：&lt;a href="..."&gt;</item>
+  </required-tags>
+  <style-rules>
+    <item>仅允许内联 style 属性；禁止 &lt;style&gt; 标签、class 属性、伪类/伪元素、外链 CSS</item>
+    <item>布局仅依赖 Flexbox 与基础盒子模型（padding/margin/border/border-radius/box-shadow/background）</item>
+    <item>默认黑白灰主色调，靠线条与留白建立层次；关键强调可克制使用彩色</item>
+  </style-rules>
+  <boundary>
+    <item>只输出 HTML 片段，禁止输出 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
+    <item>禁止外链脚本与外链图片资源；禁止 &lt;script&gt;、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
+    <item>所有文本使用简体中文，保持高信息密度与紧凑行文</item>
+  </boundary>
+  <visualization>
+    <when>需要表达流程/架构/状态机/对比矩阵/数据卡片时</when>
+    <how>用 &lt;div&gt; + Flexbox 内联样式构建结构化可视块；每个可视块必须服务于具体信息表达，不得装饰化</how>
+    <limit>禁止装饰性插画、氛围图、风景与图标装饰；图形仅限信息图</limit>
+  </visualization>
 </output_format>
