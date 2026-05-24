@@ -56,6 +56,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
   final GlobalKey _metaCapsuleKey = GlobalKey();
+  // 2026-05-25: HTML 消息正文以 WebView 渲染时，内部按钮/超链接/输入框
+  // 等交互元素的点击落点会被外层 Listener 的"选中切换"吃掉（HitTestBehavior
+  // .translucent 让 Listener 总能收到指针）。让 `_HtmlBubbleWebView` 在
+  // initState/dispose 时把自己的 GlobalKey 注册到这里，pointerUp 命中
+  // 即跳过选中切换，让事件留给 WebView 内部处理。
+  final Set<GlobalKey> _htmlInteractiveRegionKeys = <GlobalKey>{};
+
+  void registerHtmlInteractiveRegion(GlobalKey key) {
+    _htmlInteractiveRegionKeys.add(key);
+  }
+
+  void unregisterHtmlInteractiveRegion(GlobalKey key) {
+    _htmlInteractiveRegionKeys.remove(key);
+  }
 
   // Cached expensive objects to avoid re-allocation on every build.
   List<md.InlineSyntax>? _cachedInlineSyntaxes;
@@ -101,6 +115,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final topLeft = box.localToGlobal(Offset.zero);
     final rect = topLeft & box.size;
     return rect.contains(globalPosition);
+  }
+
+  bool _isPointerInsideHtmlInteractiveRegion(Offset globalPosition) {
+    if (_htmlInteractiveRegionKeys.isEmpty) return false;
+    for (final key in _htmlInteractiveRegionKeys) {
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final topLeft = box.localToGlobal(Offset.zero);
+      final rect = topLeft & box.size;
+      if (rect.contains(globalPosition)) return true;
+    }
+    return false;
   }
 
   @override
@@ -746,6 +772,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (_isPointerInsideMetaCapsule(event.position)) {
           return;
         }
+        // HTML 消息中 WebView 内部按钮/链接/表单的点击不能被气泡
+        // 选中切换吞掉，否则点了没反应、还多了一条功能按钮条。
+        if (_isPointerInsideHtmlInteractiveRegion(event.position) ||
+            _isPointerInsideHtmlInteractiveRegion(downPos)) {
+          return;
+        }
         final movement = (event.position - downPos).distance;
         final elapsed = DateTime.now().difference(downAt);
         if (movement <= 8 && elapsed.inMilliseconds <= 350) {
@@ -760,16 +792,41 @@ class _MessageBubbleState extends State<_MessageBubble> {
       child: TapRegion(
         enabled: widget.isSelected,
         onTapOutside: (_) => widget.onDeselect(),
-        child: Align(
-          alignment: alignment,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: messageContent,
+        child: _BubbleHtmlInteractiveScope(
+          state: this,
+          child: Align(
+            alignment: alignment,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: messageContent,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// 把 [_MessageBubbleState] 沿着 widget 树暴露给 HTML 子组件，
+/// 后者据此注册/注销内部 WebView 的 GlobalKey，便于外层 pointer 监听
+/// 在命中 HTML 区域时跳过"选中卡片"切换。
+class _BubbleHtmlInteractiveScope extends InheritedWidget {
+  const _BubbleHtmlInteractiveScope({
+    required this.state,
+    required super.child,
+  });
+
+  final _MessageBubbleState state;
+
+  static _MessageBubbleState? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_BubbleHtmlInteractiveScope>()
+        ?.state;
+  }
+
+  @override
+  bool updateShouldNotify(_BubbleHtmlInteractiveScope oldWidget) =>
+      oldWidget.state != state;
 }
 
 class _MessageActionButton extends StatelessWidget {

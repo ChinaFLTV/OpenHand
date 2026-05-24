@@ -2456,6 +2456,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   WebViewController? _controller;
   double? _height;
   bool _hasError = false;
+  // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
+  // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
+  final GlobalKey _webViewRegionKey = GlobalKey();
+  _MessageBubbleState? _bubbleStateForRegion;
 
   @override
   void initState() {
@@ -2471,6 +2475,24 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         oldWidget.backgroundColor != widget.backgroundColor) {
       _reload();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextBubble = _BubbleHtmlInteractiveScope.maybeOf(context);
+    if (!identical(nextBubble, _bubbleStateForRegion)) {
+      _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
+      _bubbleStateForRegion = nextBubble;
+      _bubbleStateForRegion?.registerHtmlInteractiveRegion(_webViewRegionKey);
+    }
+  }
+
+  @override
+  void dispose() {
+    _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
+    _bubbleStateForRegion = null;
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -2609,7 +2631,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       height: height,
       child: controller == null
           ? const SizedBox.shrink()
-          : WebViewWidget(controller: controller),
+          : KeyedSubtree(
+              key: _webViewRegionKey,
+              child: WebViewWidget(controller: controller),
+            ),
     );
   }
 }
