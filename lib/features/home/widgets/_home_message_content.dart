@@ -2645,7 +2645,30 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ? const SizedBox.shrink()
           : KeyedSubtree(
               key: _webViewRegionKey,
-              child: WebViewWidget(controller: controller),
+              // 2026-05-25: 显式声明 WebView 在 gesture arena 中"竞标"
+              // tap / vertical+horizontal drag / long press / pan，
+              // 否则祖先（SelectionArea / 外层 Listener / ListView 滚动）
+              // 会抢走指针，导致 HTML 内部按钮/链接/表单点击没反应。
+              child: WebViewWidget(
+                controller: controller,
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<TapGestureRecognizer>(
+                    () => TapGestureRecognizer(),
+                  ),
+                  Factory<LongPressGestureRecognizer>(
+                    () => LongPressGestureRecognizer(),
+                  ),
+                  Factory<VerticalDragGestureRecognizer>(
+                    () => VerticalDragGestureRecognizer(),
+                  ),
+                  Factory<HorizontalDragGestureRecognizer>(
+                    () => HorizontalDragGestureRecognizer(),
+                  ),
+                  Factory<PanGestureRecognizer>(
+                    () => PanGestureRecognizer(),
+                  ),
+                },
+              ),
             ),
     );
   }
