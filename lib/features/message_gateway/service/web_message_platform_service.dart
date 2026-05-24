@@ -4305,6 +4305,8 @@ class WebMessagePlatformService {
       userMemoryFilePath: _settingsController.userMemoryFilePath,
       compressionThresholdChars:
           _settingsController.aiMessageCompressionThresholdChars,
+      messageContentFormat: _settingsController.aiMessageContentFormat,
+      htmlRenderFallback: _settingsController.aiHtmlRenderFallback,
       fallbackTitleMaxCharacters:
           _settingsController.aiFallbackTitleMaxCharacters,
       generatedTitleMaxCharacters:

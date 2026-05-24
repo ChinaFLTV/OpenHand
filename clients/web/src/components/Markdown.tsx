@@ -166,6 +166,65 @@ function looksLikeHtml(value: string): boolean {
   return HTML_LIKELY_TAG_RE.test(value);
 }
 
+export { looksLikeHtml };
+
+/// 将一段 HTML 源码以 Blob URL 形式在新标签页打开。与 APP 端
+/// `_HtmlPreviewDialog` 的 "在浏览器中打开" 功能对齐：APP 在 OS 默认浏览器
+/// 中打开临时文件，Web 端直接借宿主浏览器 new tab 即可。
+/// - 自动补 `<!DOCTYPE html>` / charset，避免片段在裸打开时编码异常。
+/// - Blob URL 有效期挂在 tab 上，关闭标签自动 revoke；保险起见 60s 后主动
+///   revoke 一次，避免短时间内大量预览造成 URL 泄漏。
+export function openHtmlInNewTab(html: string): void {
+  if (typeof window === 'undefined') return;
+  const trimmed = (html ?? '').trim();
+  if (!trimmed) return;
+  const needsDocWrap = !/^<!doctype/i.test(trimmed) && !/^<html[\s>]/i.test(trimmed);
+  const body = needsDocWrap
+    ? `<!DOCTYPE html>\n<html><head><meta charset="utf-8"></head><body>${trimmed}</body></html>`
+    : trimmed;
+  let url = '';
+  try {
+    const blob = new Blob([body], { type: 'text/html;charset=utf-8' });
+    url = URL.createObjectURL(blob);
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      showSnackbar('浏览器已拦截新标签页，请允许弹窗后重试', { tone: 'error' });
+      URL.revokeObjectURL(url);
+      return;
+    }
+    showSnackbar('已在新标签页打开预览', { tone: 'success' });
+    setTimeout(() => {
+      try { URL.revokeObjectURL(url); } catch { /* noop */ }
+    }, 60_000);
+  } catch (_e) {
+    if (url) {
+      try { URL.revokeObjectURL(url); } catch { /* noop */ }
+    }
+    showSnackbar('打开浏览器预览失败', { tone: 'error' });
+  }
+}
+
+/// 流式期间 `looksLikeHtml` 会随内容长大反复在 true/false 之间翻转
+/// (例：先到了 "我来回答你..." → markdown 路径，又拼到 "<div>" → HtmlBody 路径，
+///  下一帧 markdownContent 又被剥离/换行，再次回弹)。两条渲染路径产物不同
+/// (markdown <p> vs HtmlBody <div dangerouslySetInnerHTML>)，整棵子树
+/// unmount/mount 一次 → 消息卡片视觉上 "突然显示突然隐藏" 抖一下。
+/// 这里改用 sticky hook：一旦某条消息内容判定为 HTML，本组件生命周期内
+/// 保持 HTML 渲染，避免流式增量再翻转。新消息 (source 长度回到 0) 重置。
+function useStickyLooksLikeHtml(value: string): boolean {
+  const stickyRef = useRef(false);
+  if (!value) {
+    stickyRef.current = false;
+    return false;
+  }
+  if (stickyRef.current) return true;
+  if (looksLikeHtml(value)) {
+    stickyRef.current = true;
+    return true;
+  }
+  return false;
+}
+
 // DOMPurify 懒载入：仅在首次遇到 html 内容时拉。
 type DomPurifyLike = { sanitize: (s: string, opts?: Record<string, unknown>) => string };
 let domPurifyCache: DomPurifyLike | null = null;
@@ -196,14 +255,24 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
+  // 与 APP 端 _sanitizeStreamingHtml 对齐 — flutter_widget_from_html_core 的
+  // HtmlFlex 是 RenderObject，对 flex-wrap CSS 无感，源头剥离 display:flex
+  // 可让窄气泡内 div 退化为块级流式布局。Web 端 DOMPurify 不会爆掉 flex，
+  // 但同样的容器层会因子节点 inline-size > 容器宽度而产生横向滚动 / 抖动；
+  // 与 APP 行为对齐统一 strip。
+  const sanitizedSource = useMemo(() => {
+    if (!source) return source;
+    if (!/flex/i.test(source)) return source;
+    return source.replace(/display\s*:\s*(?:inline-)?flex\s*;?/gi, '');
+  }, [source]);
   if (purify == null) {
     return (
       <pre class="whitespace-pre-wrap break-words text-sm" style={{ margin: 0, fontFamily }}>
-        {source}
+        {sanitizedSource}
       </pre>
     );
   }
-  const safeHtml = purify.sanitize(source, { USE_PROFILES: { html: true } });
+  const safeHtml = purify.sanitize(sanitizedSource, { USE_PROFILES: { html: true } });
   return (
     <div
       class="oh-html-body text-sm"
@@ -217,6 +286,8 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
+  // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
+  const stickyLooksHtml = useStickyLooksLikeHtml(content);
 
   // 阶段㉔: 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
@@ -351,11 +422,20 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
             return '';
           };
           const plainText = extractText(children);
+          const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
           return (
             <div class="oh-code-block">
               <div class="oh-code-block-header">
                 {lang && <span class="oh-code-block-lang">{lang}</span>}
                 <span style={{ flex: 1 }} />
+                {isHtmlLang ? (
+                  <button
+                    type="button"
+                    class="oh-code-block-copy"
+                    style={{ marginRight: 8 }}
+                    onClick={() => openHtmlInNewTab(plainText)}
+                  >浏览器打开</button>
+                ) : null}
                 <button
                   type="button"
                   class="oh-code-block-copy"
@@ -480,7 +560,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     );
   }
   if (format === 'html') {
-    if (looksLikeHtml(content)) {
+    if (stickyLooksHtml) {
       return <HtmlBody source={content} mono={mono} />;
     }
     if (htmlFallback === 'plain_text') {

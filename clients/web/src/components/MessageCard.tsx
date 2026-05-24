@@ -12,7 +12,7 @@
 import type { SessionMessage } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
-import { Markdown } from './Markdown';
+import { Markdown, looksLikeHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholder } from './MediaGeneratingPlaceholder';
 import { MediaPreviewDialog, MessageMedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
@@ -103,7 +103,8 @@ type MessageIconName =
   | 'chevronUp'
   | 'write'
   | 'delete'
-  | 'mutate';
+  | 'mutate'
+  | 'globe';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = {
@@ -183,6 +184,8 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /></svg>;
     case 'codeOff':
       return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /><path d="m4 4 16 16" /></svg>;
+    case 'globe':
+      return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>;
   }
 }
 
@@ -750,7 +753,13 @@ function StreamingMarkdownReveal({
 
   const previous = previousRef.current;
   const revealAllowed = content.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
-  const canAnimateDiff = !reduceMotion && streaming && revealAllowed && previous.content.length > 0;
+  // HTML / plain_text 模式禁用 diff underlay：
+  // 1. HTML 模式：上下层都会触发 DOMPurify 解析 + dangerouslySetInnerHTML 渲染，
+  //    两份相似 DOM 叠加产生肉眼可见的"重影"；
+  // 2. plain_text 模式：纯文本拼接已经无延迟，underlay 多余；
+  // 仅 markdown 流式走 diff underlay 平滑过渡。
+  const supportsDiffAnimation = format !== 'html' && format !== 'plain_text';
+  const canAnimateDiff = !reduceMotion && streaming && revealAllowed && previous.content.length > 0 && supportsDiffAnimation;
   let immediateOutgoing: StreamingContentSnapshot | null = null;
   if (canAnimateDiff && previous.content !== content) {
     if (content.length > previous.content.length && content.startsWith(previous.content)) {
@@ -783,7 +792,7 @@ function StreamingMarkdownReveal({
     }
 
     let nextOutgoing: StreamingContentSnapshot | null = null;
-    const shouldAnimate = !reduceMotion && streaming && revealAllowed && previousValue.content.length > 0;
+    const shouldAnimate = !reduceMotion && streaming && revealAllowed && previousValue.content.length > 0 && supportsDiffAnimation;
     if (shouldAnimate) {
       if (content.length > previousValue.content.length && content.startsWith(previousValue.content)) {
         nextOutgoing = buildSnapshot('append', previousValue);
@@ -793,7 +802,7 @@ function StreamingMarkdownReveal({
     }
     previousRef.current = { content, raw, mono };
     setOutgoing(nextOutgoing);
-  }, [buildSnapshot, content, mono, raw, reduceMotion, streaming]);
+  }, [buildSnapshot, content, mono, raw, reduceMotion, streaming, supportsDiffAnimation, revealAllowed]);
 
   useEffect(() => {
     if (outgoing?.mode !== 'remove') return;
@@ -1197,6 +1206,13 @@ function MessageCardImpl({
                 ? t('message.showRendered', '显示渲染')
                 : t('message.showRaw', '显示原始')}
               onClick={() => setShowRawContent((v) => !v)}
+            />
+          ) : null}
+          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && contentFormat === 'html' && looksLikeHtml(content) ? (
+            <ActionBtn
+              icon="globe"
+              label={t('message.openInBrowser', '浏览器打开')}
+              onClick={() => openHtmlInNewTab(content)}
             />
           ) : null}
           {onDelete ? (
