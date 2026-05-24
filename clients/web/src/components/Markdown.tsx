@@ -255,24 +255,16 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
-  // 与 APP 端 _sanitizeStreamingHtml 对齐 — flutter_widget_from_html_core 的
-  // HtmlFlex 是 RenderObject，对 flex-wrap CSS 无感，源头剥离 display:flex
-  // 可让窄气泡内 div 退化为块级流式布局。Web 端 DOMPurify 不会爆掉 flex，
-  // 但同样的容器层会因子节点 inline-size > 容器宽度而产生横向滚动 / 抖动；
-  // 与 APP 行为对齐统一 strip。
-  const sanitizedSource = useMemo(() => {
-    if (!source) return source;
-    if (!/flex/i.test(source)) return source;
-    return source.replace(/display\s*:\s*(?:inline-)?flex\s*;?/gi, '');
-  }, [source]);
+  // HTML 模式必须尽量忠实呈现模型给出的界面结构。布局类声明（flex/grid）
+  // 交给浏览器原生排版，外层只负责安全净化和溢出约束。
   if (purify == null) {
     return (
       <pre class="whitespace-pre-wrap break-words text-sm" style={{ margin: 0, fontFamily }}>
-        {sanitizedSource}
+        {source}
       </pre>
     );
   }
-  const safeHtml = purify.sanitize(sanitizedSource, { USE_PROFILES: { html: true } });
+  const safeHtml = purify.sanitize(source, { USE_PROFILES: { html: true } });
   return (
     <div
       class="oh-html-body text-sm"

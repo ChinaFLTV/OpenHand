@@ -1075,15 +1075,25 @@ function MessageCardImpl({
 
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
+  const messageLooksHtml = looksLikeHtml(content);
   const isWideSystemCard =
     useToolBody ||
     message.kind === 'reasoning' ||
     message.kind === 'system' ||
     message.role === 'system' ||
     message.role === 'tool';
+  const isHtmlAssistantCard =
+    !isUserBubble &&
+    !useToolBody &&
+    !useStructuredToolBody &&
+    message.kind !== 'reasoning' &&
+    message.kind !== 'file_mutation_summary' &&
+    messageLooksHtml;
   const bubbleMaxWidth = isWideSystemCard
     ? 'min(92%, 820px)'
-    : isUserBubble
+    : isHtmlAssistantCard
+      ? 'min(92%, 860px)'
+      : isUserBubble
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
@@ -1121,7 +1131,7 @@ function MessageCardImpl({
       class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
       style={{
         display: 'block',
-        width: 'fit-content',
+        width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
         maxWidth: bubbleMaxWidth,
         marginLeft: isUserBubble ? 'auto' : '0',
         marginRight: isUserBubble ? '0' : 'auto',
@@ -1334,7 +1344,7 @@ function MessageCardImpl({
               onClick={() => setShowRawContent((v) => !v)}
             />
           ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && looksLikeHtml(content) ? (
+          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && messageLooksHtml ? (
             <ActionBtn
               icon="globe"
               label={t('message.openInBrowser', '浏览器打开')}

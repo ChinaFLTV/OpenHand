@@ -562,8 +562,9 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                   //   (2) 判断是否出现溢出，从而决定是否显示底部渐隐遮罩。
                   // ScrollConfiguration 隐藏滚动条（视觉简洁）。
                   child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context)
-                        .copyWith(scrollbars: false),
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
                     child: SingleChildScrollView(
                       controller: _scrollController,
                       // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
@@ -1706,7 +1707,8 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     final theme = Theme.of(context);
     final data = widget.data.isEmpty ? ' ' : widget.data;
     final shouldCollapse = _shouldCollapse(data);
-    final effectiveStyle = widget.style?.copyWith(color: widget.textColor) ??
+    final effectiveStyle =
+        widget.style?.copyWith(color: widget.textColor) ??
         TextStyle(color: widget.textColor, height: 1.55);
 
     if (!shouldCollapse) {
@@ -1787,8 +1789,9 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                         Positioned.fill(
                           child: ClipRect(
                             child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(context)
-                                  .copyWith(scrollbars: false),
+                              behavior: ScrollConfiguration.of(
+                                context,
+                              ).copyWith(scrollbars: false),
                               child: SingleChildScrollView(
                                 controller: _scrollController,
                                 physics: const BouncingScrollPhysics(),
@@ -1817,10 +1820,12 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      widget.backgroundColor
-                                          .withValues(alpha: 0),
-                                      widget.backgroundColor
-                                          .withValues(alpha: 1),
+                                      widget.backgroundColor.withValues(
+                                        alpha: 0,
+                                      ),
+                                      widget.backgroundColor.withValues(
+                                        alpha: 1,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1854,23 +1859,282 @@ bool _looksLikeHtml(String value) {
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
 /// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
 ///
-/// 流式期间，模型边写边输出的 `<div style="display:flex">` 子节点自然宽度持续
-/// 溢出气泡容器（HtmlFlex overflowed by N pixels on the right）。
-/// flutter_widget_from_html_core 0.16.x 的 `HtmlFlex` 硬编码 horizontal 且不识别
-/// `flex-wrap:wrap`，customStylesBuilder 注入对它无效。修复策略：
-///   1. 渲染前正则去除所有 `display:flex` / `display:inline-flex` 内联样式，让 div
-///      退化为块级流式布局（流式 HTML 在窄气泡里本就更适合块级垂直堆叠）
-///   2. 外层 ClipRect 兜底避免视觉撕裂
-///   3. 主题感知的代码/引用/表格/标题默认样式注入，深色模适配
-final RegExp _stripDisplayFlexPattern = RegExp(
-  r'display\s*:\s*(?:inline-)?flex\s*;?',
-  caseSensitive: false,
-);
+/// flutter_widget_from_html_core 0.16.x 对 `flex-wrap` / CSS grid 支持有限。
+/// 这里不再剥离 `display:flex`，而是在自定义 factory 里为常见卡片行布局补
+/// Wrap/Grid 兜底，保证消息卡片尽量接近浏览器预览，同时避免窄气泡溢出。
+String _prepareStreamingHtml(String value) => value;
 
-String _sanitizeStreamingHtml(String value) {
-  if (value.isEmpty) return value;
-  if (!value.toLowerCase().contains('flex')) return value;
-  return value.replaceAll(_stripDisplayFlexPattern, '');
+class _OpenHandHtmlWidgetFactory extends WidgetFactory {
+  static const String _cssDisplayGrid = 'grid';
+  static const String _cssDisplayInlineGrid = 'inline-grid';
+  static const String _cssFlexWrap = 'flex-wrap';
+  static const String _cssFlexWrapWrap = 'wrap';
+  static const String _cssGap = 'gap';
+  static const String _cssGridTemplateColumns = 'grid-template-columns';
+
+  static final RegExp _repeatColumnPattern = RegExp(
+    r'repeat\(\s*(\d+)\s*,',
+    caseSensitive: false,
+  );
+  static final RegExp _autoFitMinmaxPattern = RegExp(
+    r'repeat\(\s*auto-(?:fit|fill)\s*,\s*minmax\(\s*([0-9.]+)px',
+    caseSensitive: false,
+  );
+  static final RegExp _cssNumberPattern = RegExp(r'([0-9.]+)');
+  static final RegExp _flexSizingPattern = RegExp(
+    r'(?:^|;)\s*(?:flex|flex-basis)\s*:',
+    caseSensitive: false,
+  );
+  static final RegExp _widthPercentPattern = RegExp(
+    r'(?:^|;)\s*width\s*:\s*(?:calc\()?\s*([0-9.]+)%',
+    caseSensitive: false,
+  );
+
+  @override
+  Widget? buildFlex(
+    BuildTree tree,
+    List<Widget> children, {
+    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center,
+    required Axis direction,
+    MainAxisAlignment mainAxisAlignment = MainAxisAlignment.start,
+    double spacing = 0.0,
+    TextBaseline textBaseline = TextBaseline.alphabetic,
+    TextDirection textDirection = TextDirection.ltr,
+  }) {
+    final flexWrap = _styleValue(tree, _cssFlexWrap);
+    if (direction == Axis.horizontal &&
+        flexWrap == _cssFlexWrapWrap &&
+        children.isNotEmpty) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final maxWidth = _finiteHtmlWidth(context, constraints);
+          final wrappedChildren = _maybeConstrainFlexChildren(
+            tree,
+            children,
+            maxWidth,
+            spacing,
+          );
+          return CssSizingHint(
+            maxWidth: maxWidth,
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              alignment: _toWrapAlignment(mainAxisAlignment),
+              crossAxisAlignment: _toWrapCrossAlignment(crossAxisAlignment),
+              textDirection: textDirection,
+              children: wrappedChildren,
+            ),
+          );
+        },
+      );
+    }
+    return super.buildFlex(
+      tree,
+      children,
+      crossAxisAlignment: crossAxisAlignment,
+      direction: direction,
+      mainAxisAlignment: mainAxisAlignment,
+      spacing: spacing,
+      textBaseline: textBaseline,
+      textDirection: textDirection,
+    );
+  }
+
+  @override
+  void parseStyleDisplay(BuildTree tree, String? value) {
+    final normalized = value?.trim().toLowerCase();
+    if (normalized == _cssDisplayGrid || normalized == _cssDisplayInlineGrid) {
+      tree.register(_gridBuildOp());
+      return;
+    }
+    super.parseStyleDisplay(tree, value);
+  }
+
+  BuildOp _gridBuildOp() {
+    return BuildOp(
+      alwaysRenderBlock: true,
+      debugLabel: _cssDisplayGrid,
+      onRenderedChildren: (tree, children) {
+        final childPlaceholders = children.toList(growable: false);
+        if (childPlaceholders.isEmpty) return null;
+        return WidgetPlaceholder(
+          debugLabel: _cssDisplayGrid,
+          builder: (context, _) {
+            final unwrapped = childPlaceholders
+                .map((child) => WidgetPlaceholder.unwrap(context, child))
+                .where((child) => child != widget0)
+                .toList(growable: false);
+            if (unwrapped.isEmpty) return widget0;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = _finiteHtmlWidth(context, constraints);
+                final gap = _parseCssPx(_styleValue(tree, _cssGap)) ?? 0.0;
+                final columnCount = _gridColumnCount(
+                  tree,
+                  maxWidth,
+                  unwrapped.length,
+                  gap,
+                );
+                final childWidth = columnCount <= 1
+                    ? maxWidth
+                    : math.max(
+                        0.0,
+                        (maxWidth - gap * (columnCount - 1)) / columnCount,
+                      );
+                return CssSizingHint(
+                  maxWidth: maxWidth,
+                  child: Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final child in unwrapped)
+                        SizedBox(width: childWidth, child: child),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static List<Widget> _maybeConstrainFlexChildren(
+    BuildTree tree,
+    List<Widget> children,
+    double maxWidth,
+    double gap,
+  ) {
+    if (children.length < 2) return children;
+    final elementChildren = tree.element.children;
+    if (elementChildren.length != children.length ||
+        !elementChildren.every(_elementUsesFlexibleWidth)) {
+      return children;
+    }
+    final childWidth = math.max(
+      0.0,
+      (maxWidth - gap * (children.length - 1)) / children.length,
+    );
+    return [
+      for (final child in children) SizedBox(width: childWidth, child: child),
+    ];
+  }
+
+  static bool _elementUsesFlexibleWidth(dynamic element) {
+    final style = (element.attributes['style'] as String? ?? '').toLowerCase();
+    if (_flexSizingPattern.hasMatch(style)) return true;
+    final widthMatch = _widthPercentPattern.firstMatch(style);
+    if (widthMatch == null) return false;
+    final percent = double.tryParse(widthMatch.group(1) ?? '');
+    return percent != null && percent > 0 && percent < 99;
+  }
+
+  static int _gridColumnCount(
+    BuildTree tree,
+    double maxWidth,
+    int childCount,
+    double gap,
+  ) {
+    final template = _styleValue(tree, _cssGridTemplateColumns);
+    final autoFit = _autoFitMinmaxPattern.firstMatch(template);
+    if (autoFit != null) {
+      final minWidth = double.tryParse(autoFit.group(1) ?? '') ?? maxWidth;
+      final columns = ((maxWidth + gap) / (minWidth + gap)).floor();
+      return columns.clamp(1, childCount).toInt();
+    }
+    final repeat = _repeatColumnPattern.firstMatch(template);
+    if (repeat != null) {
+      return (int.tryParse(repeat.group(1) ?? '') ?? childCount)
+          .clamp(1, childCount)
+          .toInt();
+    }
+    final explicitTracks = _splitCssTrackList(template);
+    if (explicitTracks.length > 1) {
+      return explicitTracks.length.clamp(1, childCount).toInt();
+    }
+    return math.min(childCount, 3).clamp(1, childCount).toInt();
+  }
+
+  static List<String> _splitCssTrackList(String value) {
+    if (value.isEmpty) return const <String>[];
+    final tracks = <String>[];
+    final buffer = StringBuffer();
+    var depth = 0;
+    for (var i = 0; i < value.length; i++) {
+      final char = value[i];
+      if (char == '(') depth += 1;
+      if (char == ')') depth = math.max(0, depth - 1);
+      if (depth == 0 && char.trim().isEmpty) {
+        if (buffer.isNotEmpty) {
+          tracks.add(buffer.toString());
+          buffer.clear();
+        }
+        continue;
+      }
+      buffer.write(char);
+    }
+    if (buffer.isNotEmpty) tracks.add(buffer.toString());
+    return tracks;
+  }
+
+  static String _styleValue(BuildTree tree, String property) {
+    for (final style in tree.element.styles) {
+      if (style.property.toLowerCase() == property) {
+        final value = style.value ?? style.term;
+        return value == null ? '' : value.toString().trim().toLowerCase();
+      }
+    }
+    return '';
+  }
+
+  static double? _parseCssPx(String value) {
+    final match = _cssNumberPattern.firstMatch(value);
+    if (match == null) return null;
+    return double.tryParse(match.group(1) ?? '');
+  }
+
+  static double _finiteHtmlWidth(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final maxWidth = constraints.maxWidth;
+    if (maxWidth.isFinite && maxWidth > 0) return maxWidth;
+    return MediaQuery.sizeOf(context).width;
+  }
+
+  static WrapAlignment _toWrapAlignment(MainAxisAlignment alignment) {
+    switch (alignment) {
+      case MainAxisAlignment.start:
+        return WrapAlignment.start;
+      case MainAxisAlignment.end:
+        return WrapAlignment.end;
+      case MainAxisAlignment.center:
+        return WrapAlignment.center;
+      case MainAxisAlignment.spaceBetween:
+        return WrapAlignment.spaceBetween;
+      case MainAxisAlignment.spaceAround:
+        return WrapAlignment.spaceAround;
+      case MainAxisAlignment.spaceEvenly:
+        return WrapAlignment.spaceEvenly;
+    }
+  }
+
+  static WrapCrossAlignment _toWrapCrossAlignment(
+    CrossAxisAlignment alignment,
+  ) {
+    switch (alignment) {
+      case CrossAxisAlignment.start:
+        return WrapCrossAlignment.start;
+      case CrossAxisAlignment.end:
+        return WrapCrossAlignment.end;
+      case CrossAxisAlignment.center:
+        return WrapCrossAlignment.center;
+      case CrossAxisAlignment.stretch:
+      case CrossAxisAlignment.baseline:
+        return WrapCrossAlignment.start;
+    }
+  }
 }
 
 class _HtmlMessageBody extends StatelessWidget {
@@ -1912,15 +2176,15 @@ class _HtmlMessageBody extends StatelessWidget {
     final codeBgHex = hex(codeBg);
     final mutedHex = hex(mutedText);
 
-    final sanitized = _sanitizeStreamingHtml(data);
+    final prepared = _prepareStreamingHtml(data);
     return ClipRect(
       child: SelectionArea(
         child: HtmlWidget(
-          sanitized.isEmpty ? ' ' : sanitized,
+          prepared.isEmpty ? ' ' : prepared,
           textStyle: base,
-          renderMode: RenderMode.column,
+          factoryBuilder: _OpenHandHtmlWidgetFactory.new,
           customStylesBuilder: (element) {
-            // 主题感知的默认样式（display:flex 已在数据层剥离，此处无需处理）
+            // 主题感知的默认样式。
             switch (element.localName) {
               case 'code':
                 return <String, String>{
@@ -2009,10 +2273,8 @@ class _HtmlMessageBody extends StatelessWidget {
             }
             return null;
           },
-          onErrorBuilder: (context, element, error) => SelectableText(
-            data,
-            style: base,
-          ),
+          onErrorBuilder: (context, element, error) =>
+              SelectableText(data, style: base),
           onLoadingBuilder: (context, element, progress) => const SizedBox(
             height: 12,
             width: 12,
@@ -2086,10 +2348,13 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   Widget _buildHtmlOrFallback() {
     if (_looksLikeHtml(data)) {
-      return _HtmlMessageBody(
-        data: data,
-        textColor: textColor,
-        baseTextStyle: markdownStyleSheet.p,
+      return SizedBox(
+        width: double.infinity,
+        child: _HtmlMessageBody(
+          data: data,
+          textColor: textColor,
+          baseTextStyle: markdownStyleSheet.p,
+        ),
       );
     }
     return htmlFallback == AiHtmlRenderFallback.plainText
@@ -2109,4 +2374,3 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     }
   }
 }
-

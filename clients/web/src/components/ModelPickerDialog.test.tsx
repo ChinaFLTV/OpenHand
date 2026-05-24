@@ -45,6 +45,8 @@ describe('ModelPickerDialog', () => {
 
     expect(modelKeys.slice(0, 2)).toEqual(['openai:gpt-4o', 'openai:gpt-4.1']);
     expect(screen.getByText(/^(当前默认|Current default)$/)).not.toBeNull();
-    expect(screen.getByText(/^(当前提供商|Current provider)$/)).not.toBeNull();
+    const activeProvider = screen.getByText(/^(当前提供商|Current provider)$/);
+    expect(activeProvider).not.toBeNull();
+    expect(activeProvider.closest('p')?.className).toContain('pb-1.5');
   });
 });

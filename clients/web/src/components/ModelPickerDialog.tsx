@@ -403,7 +403,7 @@ function Section({
   return (
     <div>
       <p
-        class="text-xs px-4 pt-2 pb-0.5"
+        class="text-xs px-4 pt-2.5 pb-1.5"
         style={{
           color: 'var(--m3-on-surface-variant)',
           fontWeight: 600,

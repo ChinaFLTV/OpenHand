@@ -4336,6 +4336,32 @@ button.oh-composer-pill:not(:disabled):hover {
    与 oh-markdown 保持相近的排版节奏，同时兼容原生 HTML 元素层级。 */
 .oh-html-body {
   line-height: 1.65;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.oh-html-body *,
+.oh-html-body *::before,
+.oh-html-body *::after {
+  box-sizing: border-box;
+}
+.oh-html-body [style*='display:flex'],
+.oh-html-body [style*='display: flex'],
+.oh-html-body [style*='display:grid'],
+.oh-html-body [style*='display: grid'],
+.oh-html-body [style*='display:inline-flex'],
+.oh-html-body [style*='display: inline-flex'],
+.oh-html-body [style*='display:inline-grid'],
+.oh-html-body [style*='display: inline-grid'] {
+  max-width: 100%;
+}
+.oh-html-body [style*='display:flex'] > *,
+.oh-html-body [style*='display: flex'] > *,
+.oh-html-body [style*='display:inline-flex'] > *,
+.oh-html-body [style*='display: inline-flex'] > * {
+  min-width: 0;
 }
 .oh-html-body > * + * { margin-top: 0.5rem; }
 .oh-html-body h1, .oh-html-body h2, .oh-html-body h3,

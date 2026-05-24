@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup } from '@testing-library/preact';
+import { cleanup, render, waitFor } from '@testing-library/preact';
 import {
   isLocalMediaReference,
+  Markdown,
   openHtmlInNewTab,
   stripLocalMediaReferences,
 } from './Markdown';
@@ -25,5 +26,30 @@ describe('Markdown', () => {
 
   it('exports openHtmlInNewTab helper for HTML preview buttons', () => {
     expect(typeof openHtmlInNewTab).toBe('function');
+  });
+
+  it('preserves native flex and grid declarations in HTML mode', async () => {
+    const source = [
+      '<div data-testid="flex-row" style="display:flex;flex-wrap:wrap;gap:12px">',
+      '<section>定位</section><section>优势</section><section>短板</section>',
+      '</div>',
+      '<div data-testid="grid-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">',
+      '<section>剧情</section><section>人物</section><section>制作</section>',
+      '</div>',
+    ].join('');
+
+    const { container } = render(<Markdown source={source} format="html" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="flex-row"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="grid-row"]')).not.toBeNull();
+    });
+
+    const flexRow = container.querySelector<HTMLElement>('[data-testid="flex-row"]')!;
+    const gridRow = container.querySelector<HTMLElement>('[data-testid="grid-row"]')!;
+    expect(flexRow.style.display).toBe('flex');
+    expect(flexRow.style.flexWrap).toBe('wrap');
+    expect(gridRow.style.display).toBe('grid');
+    expect(gridRow.style.gridTemplateColumns).toContain('repeat(3,1fr)');
   });
 });
