@@ -1852,6 +1852,13 @@ bool _looksLikeHtml(String value) {
 
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
 /// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
+///
+/// 流式期间，模型边写边输出的 `<div style="display:flex">` 子节点常自然宽度溢出
+/// 容器（HtmlFlex overflowed by N pixels on the right）。修复策略：
+///   1. 外层 ClipRect 兜底避免视觉撕裂
+///   2. customStylesBuilder 为所有 display:flex 元素强制注入 flex-wrap:wrap +
+///      min-width:0 + max-width:100%，让多列内容换行而非溢出
+///   3. 主题感知的代码/引用/表格/标题默认样式注入，深色模适配
 class _HtmlMessageBody extends StatelessWidget {
   const _HtmlMessageBody({
     required this.data,
@@ -1865,22 +1872,149 @@ class _HtmlMessageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final base =
         baseTextStyle?.copyWith(color: textColor) ??
         TextStyle(color: textColor);
-    return SelectionArea(
-      child: HtmlWidget(
-        data.isEmpty ? ' ' : data,
-        textStyle: base,
-        renderMode: RenderMode.column,
-        onErrorBuilder: (context, element, error) => SelectableText(
-          data,
-          style: base,
-        ),
-        onLoadingBuilder: (context, element, progress) => const SizedBox(
-          height: 12,
-          width: 12,
-          child: CircularProgressIndicator(strokeWidth: 2),
+    final accent = theme.colorScheme.primary;
+    final borderColor = theme.colorScheme.outlineVariant;
+    final codeBg = isDark
+        ? theme.colorScheme.surfaceContainerHigh
+        : theme.colorScheme.surfaceContainerLow;
+    final mutedText = theme.colorScheme.onSurfaceVariant;
+
+    String hex(Color c) {
+      final r = (c.r * 255).round() & 0xff;
+      final g = (c.g * 255).round() & 0xff;
+      final b = (c.b * 255).round() & 0xff;
+      return '#${r.toRadixString(16).padLeft(2, '0')}'
+          '${g.toRadixString(16).padLeft(2, '0')}'
+          '${b.toRadixString(16).padLeft(2, '0')}';
+    }
+
+    final accentHex = hex(accent);
+    final borderHex = hex(borderColor);
+    final codeBgHex = hex(codeBg);
+    final mutedHex = hex(mutedText);
+
+    return ClipRect(
+      child: SelectionArea(
+        child: HtmlWidget(
+          data.isEmpty ? ' ' : data,
+          textStyle: base,
+          renderMode: RenderMode.column,
+          customStylesBuilder: (element) {
+            // 1) 修复流式 HTML 中 display:flex 子节点宽度溢出：强制换行 + 自适应
+            final inlineStyle = element.attributes['style']?.toLowerCase() ?? '';
+            if (inlineStyle.contains('display:flex') ||
+                inlineStyle.contains('display: flex') ||
+                inlineStyle.contains('display:inline-flex') ||
+                inlineStyle.contains('display: inline-flex')) {
+              return <String, String>{
+                'flex-wrap': 'wrap',
+                'min-width': '0',
+                'max-width': '100%',
+              };
+            }
+            // 2) 主题感知的默认样式
+            switch (element.localName) {
+              case 'code':
+                return <String, String>{
+                  'background-color': codeBgHex,
+                  'padding': '2px 6px',
+                  'border-radius': '4px',
+                  'font-family': 'monospace',
+                };
+              case 'pre':
+                return <String, String>{
+                  'background-color': codeBgHex,
+                  'padding': '12px 14px',
+                  'border-radius': '8px',
+                  'border': '1px solid $borderHex',
+                  'overflow-x': 'auto',
+                };
+              case 'blockquote':
+                return <String, String>{
+                  'border-left': '3px solid $accentHex',
+                  'padding': '4px 12px',
+                  'margin': '8px 0',
+                  'color': mutedHex,
+                  'background-color': codeBgHex,
+                  'border-radius': '0 6px 6px 0',
+                };
+              case 'table':
+                return <String, String>{
+                  'border-collapse': 'collapse',
+                  'border': '1px solid $borderHex',
+                  'margin': '8px 0',
+                };
+              case 'th':
+                return <String, String>{
+                  'border': '1px solid $borderHex',
+                  'padding': '6px 10px',
+                  'background-color': codeBgHex,
+                  'font-weight': '600',
+                };
+              case 'td':
+                return <String, String>{
+                  'border': '1px solid $borderHex',
+                  'padding': '6px 10px',
+                };
+              case 'h2':
+                return <String, String>{
+                  'margin-top': '18px',
+                  'margin-bottom': '8px',
+                  'font-weight': '700',
+                };
+              case 'h3':
+                return <String, String>{
+                  'margin-top': '14px',
+                  'margin-bottom': '6px',
+                  'font-weight': '600',
+                };
+              case 'h4':
+                return <String, String>{
+                  'margin-top': '12px',
+                  'margin-bottom': '4px',
+                  'font-weight': '600',
+                };
+              case 'details':
+                return <String, String>{
+                  'border': '1px solid $borderHex',
+                  'border-radius': '8px',
+                  'padding': '8px 12px',
+                  'margin': '8px 0',
+                  'background-color': codeBgHex,
+                };
+              case 'summary':
+                return <String, String>{
+                  'cursor': 'pointer',
+                  'font-weight': '600',
+                };
+              case 'a':
+                return <String, String>{
+                  'color': accentHex,
+                  'text-decoration': 'underline',
+                };
+              case 'hr':
+                return <String, String>{
+                  'border': 'none',
+                  'border-top': '1px solid $borderHex',
+                  'margin': '14px 0',
+                };
+            }
+            return null;
+          },
+          onErrorBuilder: (context, element, error) => SelectableText(
+            data,
+            style: base,
+          ),
+          onLoadingBuilder: (context, element, progress) => const SizedBox(
+            height: 12,
+            width: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       ),
     );
