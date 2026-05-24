@@ -685,6 +685,137 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
   return ref;
 }
 
+interface StreamingContentSnapshot {
+  key: string;
+  content: string;
+  raw: boolean;
+  mono: boolean;
+  mode: 'append' | 'remove';
+}
+
+function StreamingMarkdownReveal({
+  content,
+  streaming,
+  reduceMotion,
+  raw,
+  mono,
+}: {
+  content: string;
+  streaming: boolean;
+  reduceMotion: boolean;
+  raw: boolean;
+  mono: boolean;
+}) {
+  const previousRef = useRef({ content, raw, mono });
+  const serialRef = useRef(0);
+  const [outgoing, setOutgoing] = useState<StreamingContentSnapshot | null>(null);
+
+  const buildSnapshot = useCallback((mode: 'append' | 'remove', previous: { content: string; raw: boolean; mono: boolean }) => {
+    serialRef.current += 1;
+    return {
+      key: `${serialRef.current}:${mode}`,
+      content: previous.content,
+      raw: previous.raw,
+      mono: previous.mono,
+      mode,
+    } satisfies StreamingContentSnapshot;
+  }, []);
+
+  const previous = previousRef.current;
+  const canAnimateDiff = !reduceMotion && streaming && previous.content.length > 0;
+  let immediateOutgoing: StreamingContentSnapshot | null = null;
+  if (canAnimateDiff && previous.content !== content) {
+    if (content.length > previous.content.length && content.startsWith(previous.content)) {
+      immediateOutgoing = {
+        key: `${serialRef.current + 1}:append`,
+        content: previous.content,
+        raw: previous.raw,
+        mono: previous.mono,
+        mode: 'append',
+      };
+    } else if (content.length < previous.content.length && previous.content.startsWith(content)) {
+      immediateOutgoing = {
+        key: `${serialRef.current + 1}:remove`,
+        content: previous.content,
+        raw: previous.raw,
+        mono: previous.mono,
+        mode: 'remove',
+      };
+    }
+  }
+
+  useLayoutEffect(() => {
+    const previousValue = previousRef.current;
+    if (
+      previousValue.content === content &&
+      previousValue.raw === raw &&
+      previousValue.mono === mono
+    ) {
+      return;
+    }
+
+    let nextOutgoing: StreamingContentSnapshot | null = null;
+    const shouldAnimate = !reduceMotion && streaming && previousValue.content.length > 0;
+    if (shouldAnimate) {
+      if (content.length > previousValue.content.length && content.startsWith(previousValue.content)) {
+        nextOutgoing = buildSnapshot('append', previousValue);
+      } else if (content.length < previousValue.content.length && previousValue.content.startsWith(content)) {
+        nextOutgoing = buildSnapshot('remove', previousValue);
+      }
+    }
+    previousRef.current = { content, raw, mono };
+    setOutgoing(nextOutgoing);
+  }, [buildSnapshot, content, mono, raw, reduceMotion, streaming]);
+
+  useEffect(() => {
+    if (outgoing?.mode !== 'remove') return;
+    const key = outgoing.key;
+    const timer = window.setTimeout(() => {
+      setOutgoing((current) => (current?.key === key ? null : current));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [outgoing]);
+
+  const handleRevealRest = useCallback(() => {
+    setOutgoing((current) => (current?.mode === 'append' ? null : current));
+  }, []);
+
+  const { containerRef: streamingMaskRef, streamingClass } =
+    useStreamingReveal(
+      streaming,
+      content.length,
+      reduceMotion,
+      handleRevealRest,
+    );
+
+  const visibleOutgoing = immediateOutgoing ?? outgoing;
+  const currentClass = [
+    streamingClass ? 'oh-streaming-reveal' : '',
+    visibleOutgoing ? 'oh-streaming-diff-current' : '',
+  ].filter(Boolean).join(' ') || undefined;
+
+  return (
+    <div class={`oh-streaming-diff-shell${visibleOutgoing ? ' has-underlay' : ''}`}>
+      {visibleOutgoing ? (
+        <div
+          key={visibleOutgoing.key}
+          class={`oh-streaming-diff-underlay is-${visibleOutgoing.mode}`}
+          aria-hidden="true"
+        >
+          <Markdown
+            source={visibleOutgoing.content}
+            raw={visibleOutgoing.raw}
+            mono={visibleOutgoing.mono}
+          />
+        </div>
+      ) : null}
+      <div ref={streamingMaskRef} class={currentClass}>
+        <Markdown source={content} raw={raw} mono={mono} />
+      </div>
+    </div>
+  );
+}
+
 export interface MessageCardProps {
   message: SessionMessage;
   /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
@@ -801,13 +932,6 @@ function MessageCardImpl({
     sizeMotionSignal,
     !reduceMotion,
   );
-
-  const { containerRef: streamingMaskRef, streamingClass } =
-    useStreamingReveal(
-      streamingContent && !isUserBubble,
-      visibleContent.length,
-      reduceMotion,
-    );
 
   const handleBadgeToggle = useCallback((e: Event) => {
     e.stopPropagation();
@@ -960,16 +1084,13 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} /> : null
         ) : (
-          <div
-            ref={streamingMaskRef}
-            class={streamingClass ? 'oh-streaming-reveal' : undefined}
-          >
-            <Markdown
-              source={visibleContent}
-              raw={style.mono === true}
-              mono={style.mono === true}
-            />
-          </div>
+          <StreamingMarkdownReveal
+            content={visibleContent}
+            streaming={streamingContent && !isUserBubble}
+            reduceMotion={reduceMotion}
+            raw={style.mono === true}
+            mono={style.mono === true}
+          />
         )}
         {!isUserBubble &&
           !useStructuredToolBody &&

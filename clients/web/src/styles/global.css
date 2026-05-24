@@ -4226,11 +4226,37 @@ button.oh-composer-pill:not(:disabled):hover {
    - mask-image 由 JS（useStreamingReveal hook）以 rAF 驱动动态生成，
      不再依赖 CSS static gradient + transition（后者在主流浏览器中无法
      插值 gradient 值，实际不生效）。
-   - 动画参数与 Flutter StreamingTextReveal 对齐：320ms easeOutCubic，
-     stop 拉伸回缩 32%→18%，alpha 0.50→1.0。
+   - 动画参数与 Flutter StreamingTextReveal 对齐：旧内容垫底，当前
+     内容从旧/新边界向尾部以 420ms easeOutBack 波前淡入。
    - .oh-streaming-reveal 保留为语义标记，实际遮罩效果由内联 style 承载。 */
 .oh-streaming-reveal {
   /* mask-image 由 JS 内联 style 驱动 */
+}
+.oh-streaming-diff-shell {
+  position: relative;
+  isolation: isolate;
+}
+.oh-streaming-diff-shell.has-underlay {
+  overflow: visible;
+}
+.oh-streaming-diff-underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+}
+.oh-streaming-diff-underlay.is-remove {
+  animation: oh-streaming-diff-fade-out 180ms var(--oh-motion-emphasized) both;
+}
+.oh-streaming-diff-current {
+  position: relative;
+  z-index: 1;
+}
+@keyframes oh-streaming-diff-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* OS 级 + 应用级双重「降低动效」开关：任一开启即整树关闭动画。

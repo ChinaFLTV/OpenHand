@@ -201,6 +201,55 @@ describe('MessageCard actions', () => {
     }
   });
 
+  it('keeps previous assistant text underneath while streamed diff fades in', () => {
+    const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+    const cancelDescriptor = Object.getOwnPropertyDescriptor(window, 'cancelAnimationFrame');
+    const frames: FrameRequestCallback[] = [];
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      }),
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      configurable: true,
+      value: vi.fn(),
+    });
+
+    try {
+      const { container, rerender } = render(
+        <MessageCard message={makeAssistantMessage('assistant-stream', '第一段')} streaming />,
+      );
+
+      rerender(
+        <MessageCard message={makeAssistantMessage('assistant-stream', '第一段继续增长')} streaming />,
+      );
+
+      const underlay = container.querySelector<HTMLElement>('.oh-streaming-diff-underlay');
+      const current = container.querySelector<HTMLElement>('.oh-streaming-diff-current');
+      expect(underlay).not.toBeNull();
+      expect(current).not.toBeNull();
+      expect(underlay!.getAttribute('aria-hidden')).toBe('true');
+      expect(underlay!.textContent).toContain('第一段');
+      expect(current!.textContent).toContain('第一段继续增长');
+      expect(window.requestAnimationFrame).toHaveBeenCalled();
+      frames[0]?.(16);
+      expect(current!.style.maskImage).toContain('linear-gradient');
+    } finally {
+      if (rafDescriptor) {
+        Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+      } else {
+        delete (window as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame;
+      }
+      if (cancelDescriptor) {
+        Object.defineProperty(window, 'cancelAnimationFrame', cancelDescriptor);
+      } else {
+        delete (window as unknown as { cancelAnimationFrame?: unknown }).cancelAnimationFrame;
+      }
+    }
+  });
+
   it('skips assistant height measurement for tiny same-line streaming deltas', async () => {
     const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
     const animate = vi.fn(function animateMock(
