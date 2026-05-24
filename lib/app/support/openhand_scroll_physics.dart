@@ -50,3 +50,72 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
   double frictionFactor(double overscrollFraction) =>
       0.32 * math.pow(1 - overscrollFraction, 2);
 }
+
+/// 稳定 maxScrollExtent 收缩的 ScrollPosition。
+///
+/// 问题背景（消息列表抽搐 bug）：用户超用力下滑过冲到 overscroll 区后，
+/// BouncingScrollPhysics 缓慢把 pixels 回拉到 maxScrollExtent；同时
+/// cacheExtent 边界扫过靠上的 bubble，触发 dispose + rebuild，重新解析
+/// markdown 得到与原值略小的几何（几像素差），SliverList 调用
+/// applyContentDimensions 收缩 maxScrollExtent。每 ~50 ms 缩 7~8 px，
+/// 弹簧看到的 overscroll 距离 d2b 持续变小并触发反向修正，形成视觉抽搐。
+///
+/// 修复思路：当 pixels 处于 overscroll 区（pixels > 旧 maxScrollExtent）
+/// 且新 maxScrollExtent 缩小时，把 pixels 同步缩同样的量。等价于：
+/// 把 SliverList 的内容缩水透明地反映到滚动偏移上，保持 overscroll
+/// 距离恒定。视觉效果是：已显示的 bubble 在屏幕上的位置完全不变，
+/// 弹簧也不会看到「目标突然变近」的扰动。
+class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
+  _StableMaxExtentScrollPosition({
+    required super.physics,
+    required super.context,
+    super.initialPixels,
+    super.keepScrollOffset,
+    super.oldPosition,
+    super.debugLabel,
+  });
+
+  @override
+  bool applyContentDimensions(
+    double minScrollExtent,
+    double maxScrollExtent,
+  ) {
+    if (hasPixels &&
+        hasContentDimensions &&
+        pixels > this.maxScrollExtent &&
+        maxScrollExtent < this.maxScrollExtent) {
+      final double shrink = this.maxScrollExtent - maxScrollExtent;
+      // 同步把 pixels 也减相同量，保持 d2b（pixels - maxScrollExtent）不变，
+      // 让 BouncingScrollPhysics 看不到「目标缩近」从而不会反复回拉。
+      correctPixels(pixels - shrink);
+    }
+    return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
+  }
+}
+
+/// 与 [OpenHandBouncingScrollPhysics] 搭配的 ScrollController，
+/// 通过自定义 [_StableMaxExtentScrollPosition] 防止 overscroll 期间
+/// `maxScrollExtent` 收缩引发的视觉抽搐。
+class OpenHandStableScrollController extends ScrollController {
+  OpenHandStableScrollController({
+    super.initialScrollOffset,
+    super.keepScrollOffset,
+    super.debugLabel,
+  });
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) {
+    return _StableMaxExtentScrollPosition(
+      physics: physics,
+      context: context,
+      initialPixels: initialScrollOffset,
+      keepScrollOffset: keepScrollOffset,
+      oldPosition: oldPosition,
+      debugLabel: debugLabel,
+    );
+  }
+}

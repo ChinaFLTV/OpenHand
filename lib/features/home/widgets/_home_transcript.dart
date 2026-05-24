@@ -467,15 +467,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             scheduleNext(remaining - 1);
             return;
           }
-          if (_kVibrationDiagnostics) {
-            debugPrint(
-              '[VIB.settleJumpBottom] frame=$remaining '
-              'from=${position.pixels.toStringAsFixed(2)} '
-              'target=${target.toStringAsFixed(2)} '
-              'mx=${position.maxScrollExtent.toStringAsFixed(2)} '
-              'dir=${position.userScrollDirection}',
-            );
-          }
           position.jumpTo(target);
           lastJumpedTo = target;
         }
@@ -1205,16 +1196,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               position.minScrollExtent,
               newMaxExtent,
             );
-            if (_kVibrationDiagnostics) {
-              debugPrint(
-                '[VIB.settlePrepend] frame=$remainingFrames '
-                'delta=${delta.toStringAsFixed(2)} '
-                'from=${position.pixels.toStringAsFixed(2)} '
-                'to=${targetOffset.toStringAsFixed(2)} '
-                'newMx=${newMaxExtent.toStringAsFixed(2)} '
-                'dir=${position.userScrollDirection}',
-              );
-            }
             position.jumpTo(targetOffset);
             lastAdjustedOffset = targetOffset;
           }

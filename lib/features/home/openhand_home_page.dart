@@ -116,7 +116,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static _OpenHandHomePageState? _activeHomeState;
 
   final TextEditingController _composerController = TextEditingController();
-  final ScrollController _messageScrollController = ScrollController();
+  final ScrollController _messageScrollController =
+      OpenHandStableScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
   _ComposerPanelState? _composerPanelState; // 直接引用，替代 GlobalKey.currentState
@@ -1676,42 +1677,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  // ignore: unused_field
-  double _diagLastPixels = double.nan;
-  // ignore: unused_field
-  double _diagLastMaxExtent = double.nan;
-  // ignore: unused_field
-  int _diagFrameCounter = 0;
-
   void _handleMessageScroll() {
     final position = _activeMessageScrollPosition();
     if (position == null) return;
-    if (_kVibrationDiagnostics) {
-      _diagFrameCounter += 1;
-      final px = position.pixels;
-      final mx = position.maxScrollExtent;
-      final lastPx = _diagLastPixels;
-      final lastMx = _diagLastMaxExtent;
-      final dpx = lastPx.isNaN ? 0.0 : (px - lastPx);
-      final dmx = lastMx.isNaN ? 0.0 : (mx - lastMx);
-      if (dpx.abs() > 0.01 || dmx.abs() > 0.01) {
-        debugPrint(
-          '[VIB.listen] f=$_diagFrameCounter px=${px.toStringAsFixed(2)} '
-          'mx=${mx.toStringAsFixed(2)} '
-          'd2b=${(mx - px).toStringAsFixed(2)} '
-          'dpx=${dpx.toStringAsFixed(2)} dmx=${dmx.toStringAsFixed(2)} '
-          'scrolling=${position.isScrollingNotifier.value} '
-          'drag=$_userDragActive userInProg=$_userScrollInProgress '
-          'shouldFollow=$_shouldAutoFollowMessages '
-          'pendForce=$_pendingForcedScrollToBottom '
-          'queuedForce=$_queuedForcedScrollToBottom '
-          'progScroll=$_programmaticAutoFollowScrollInProgress '
-          'compComp=$_composerScrollCompensationInProgress',
-        );
-      }
-      _diagLastPixels = px;
-      _diagLastMaxExtent = mx;
-    }
     if (_programmaticAutoFollowScrollInProgress ||
         _composerScrollCompensationInProgress) {
       return;
@@ -5036,15 +5004,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (distance >= 1 &&
           shouldAnimate &&
           distance > _autoFollowAnimatedDistanceThreshold) {
-        if (_kVibrationDiagnostics) {
-          debugPrint(
-            '[VIB.sched.animateTo] target=${targetOffset.toStringAsFixed(2)} '
-            'from=${activePosition.pixels.toStringAsFixed(2)} '
-            'dist=${distance.toStringAsFixed(2)} '
-            'force=$shouldForce drag=$_userDragActive '
-            'userInProg=$_userScrollInProgress',
-          );
-        }
         _programmaticAutoFollowScrollInProgress = true;
         // Animate on the specific active `ScrollPosition` rather than the
         // controller so a transient second attached position (e.g. during a
@@ -5068,15 +5027,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (distance >= 1) {
-        if (_kVibrationDiagnostics) {
-          debugPrint(
-            '[VIB.sched.jumpTo] target=${targetOffset.toStringAsFixed(2)} '
-            'from=${activePosition.pixels.toStringAsFixed(2)} '
-            'dist=${distance.toStringAsFixed(2)} '
-            'force=$shouldForce drag=$_userDragActive '
-            'userInProg=$_userScrollInProgress',
-          );
-        }
         _programmaticAutoFollowScrollInProgress = true;
         activePosition.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5234,15 +5184,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // _maybeAutoFollowSession / ballistic settle 兜底；越界量在动画下一帧
     // 自动回拉，体感上是 Q 弹自然的回弹而非硬截断。
     _composerScrollCompensationInProgress = true;
-    if (_kVibrationDiagnostics) {
-      debugPrint(
-        '[VIB.correctBy] delta=${delta.toStringAsFixed(2)} '
-        'newH=${newHeight.toStringAsFixed(2)} prevH=${prev.toStringAsFixed(2)} '
-        'px=${position.pixels.toStringAsFixed(2)} '
-        'mx=${position.maxScrollExtent.toStringAsFixed(2)} '
-        'shouldFollow=$_shouldAutoFollowMessages drag=$_userDragActive',
-      );
-    }
     position.correctBy(delta);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -5255,12 +5196,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleTranscriptLayoutChanged() {
     if (_shouldDeferAutoFollowScheduling()) {
       return;
-    }
-    if (_kVibrationDiagnostics) {
-      debugPrint(
-        '[VIB.layoutChanged] userInProg=$_userScrollInProgress '
-        'shouldFollow=$_shouldAutoFollowMessages drag=$_userDragActive',
-      );
     }
     _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
   }

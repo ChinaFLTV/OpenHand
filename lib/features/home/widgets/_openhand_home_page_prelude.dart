@@ -49,12 +49,6 @@ const double _autoFollowAnimatedDistanceThreshold = 8;
 // 上才算「主动暂停跟随」，恢复时仍走 32 px 紧贴底部，避免抖动 ↔ 暂停
 // 形成闭环。
 const double _autoFollowPauseHysteresis = 96;
-// 临时排查日志开关：定位「使劲下滑到底部 + 已 load more」时整个消息列
-// 表上下抽搐的根因。打开后会在 transcript 的关键写入点（_handleMessageScroll
-// listener、_scheduleScrollToBottom jumpTo/animateTo、_revealOlderMessages
-// settle jumpTo）打印 pixels / maxExtent / 标志位。问题确认修复后必须
-// 改回 false 并移除关联打印。
-const bool _kVibrationDiagnostics = true;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // First-open jank mitigation: when a session is freshly opened we only
 // materialise the most recent N display messages instead of the previous 30.
