@@ -431,6 +431,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           scheduleNext(remaining - 1);
           return;
         }
+        // 用户手势硬阻断：只要 position 报告非 idle 的用户滚动方向，
+        // 立即放弃 settle 循环。否则即便 pixels 还未漂离 target，
+        // 手指刚按下 / 抬起瞬间的 jumpTo 也会把弹簧打回原位形成抽搐。
+        if (position.userScrollDirection != ScrollDirection.idle) {
+          return;
+        }
         // 如果上一次 jumpTo 之后 pixels 不再等于 target（容忍 1 px 浮点
         // 误差），说明在两帧之间发生了「非本循环」的滚动 —— 通常是
         // 用户手势或别处的 scrollTo / animateTo，立刻让位中止循环。
@@ -1155,6 +1161,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               ? scrollController.positions.last
               : null;
           if (position == null) return;
+          // 用户手势硬阻断：settle 期间如果检测到用户正在拖拽 / 滚动，
+          // 立即放弃后续 jumpTo，避免与 BouncingScrollPhysics 弹簧共振
+          // 造成贴底抽搐。
+          if (position.userScrollDirection != ScrollDirection.idle) {
+            return;
+          }
           if (lastAdjustedOffset != null &&
               (position.pixels - lastAdjustedOffset!).abs() > 1) {
             return;
