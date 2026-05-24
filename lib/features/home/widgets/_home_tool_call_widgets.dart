@@ -633,6 +633,10 @@ class _ExpandableToolSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasPreview = preview.trim().isNotEmpty;
+    final motionDuration = cardMotionDurationFor(
+      context,
+      expanding: expanded,
+    );
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
       borderRadius: const BorderRadius.all(Radius.circular(16)),
@@ -643,8 +647,8 @@ class _ExpandableToolSection extends StatelessWidget {
         // and content cross-fade ride a single height curve — feels
         // like the card itself is breathing.
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
+          duration: motionDuration,
+          curve: kCardMotionCurve,
           alignment: Alignment.topLeft,
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -655,10 +659,8 @@ class _ExpandableToolSection extends StatelessWidget {
                   children: [
                     AnimatedRotation(
                       turns: expanded ? 0.25 : 0.0,
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
+                      duration: motionDuration,
+                      curve: kCardMotionCurve,
                       child: const Icon(
                         Icons.keyboard_arrow_right_rounded,
                         size: 18,
@@ -681,10 +683,8 @@ class _ExpandableToolSection extends StatelessWidget {
                 // the empty-preview / not-expanded fallback so transitions
                 // never see a null child.
                 AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOutCubic,
+                  duration: motionDuration,
+                  switchInCurve: kCardMotionCurve,
                   switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(
                     alignment: Alignment.topLeft,
@@ -700,7 +700,7 @@ class _ExpandableToolSection extends StatelessWidget {
                           ).animate(
                             CurvedAnimation(
                               parent: animation,
-                              curve: Curves.easeOutCubic,
+                              curve: kCardMotionCurve,
                             ),
                           ),
                       child: child,
