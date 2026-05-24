@@ -2143,6 +2143,12 @@ export function SessionDetailPage() {
     () => allowedModels.find((model) => model.key === composerModelKey),
     [allowedModels, composerModelKey],
   );
+  const selectedModelName = selectedModel?.model_id || selectedModel?.label || '';
+  const selectedModelProvider = selectedModel
+    ? selectedModel.protocol
+      ? `${selectedModel.provider} · ${selectedModel.protocol}`
+      : selectedModel.provider
+    : '';
   const modelAllowedModes = useMemo(() => {
     const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
     return filtered.length > 0 ? filtered : ['normal'];
@@ -3556,13 +3562,18 @@ export function SessionDetailPage() {
               onClick={() => setShowComposerModelPicker(true)}
               disabled={composerSending || allowedModels.length === 0}
               class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0"
-              title={t('composer.model', '模型')}
+              title={selectedModelName && selectedModelProvider
+                ? `${selectedModelName} · ${selectedModelProvider}`
+                : t('composer.model', '模型')}
             >
               <span class="oh-composer-control-icon">
                 <ComposerIcon name="model" />
               </span>
               <span class="truncate">
-                {selectedModel?.model_id || selectedModel?.label || t('composer.modelEmpty', '主控制台未配置模型')}
+                {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
+                {selectedModelProvider ? (
+                  <span class="oh-composer-model-provider"> · {selectedModelProvider}</span>
+                ) : null}
               </span>
             </button>
 

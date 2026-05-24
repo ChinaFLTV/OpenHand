@@ -2128,6 +2128,10 @@ html, body, #root {
 .oh-composer-model-control {
   max-width: 260px;
 }
+.oh-composer-model-provider {
+  color: var(--m3-on-surface-variant);
+  font-weight: 650;
+}
 .oh-composer-mode-control {
   padding-right: 8px;
 }
