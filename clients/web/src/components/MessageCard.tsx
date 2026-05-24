@@ -984,9 +984,15 @@ function MessageCardImpl({
     />
   ) : null;
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
+  // 流式期间禁用高度动画：WAAPI 在 260-420ms 内对高度做 overshoot 关键帧并
+  // 同时 `overflow: clip`。流式每 ~48 字符 / 换行就重算 signal 触发新一轮动画，
+  // 期间新到达的内容超出当前动画高度会被 clip 截断，直到动画 settle 才露出，
+  // 视觉上就是「卡片每隔几秒突然消失再立刻显示」并伴随因 overshoot 反弹的
+  // 高度抖动→剧烈上下滚动。流式状态下让卡片自然撑高，停流后再启用 WAAPI
+  // 用于折叠/展开/操作栏出现等"步进式"高度变化的丝滑过渡。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
-    !reduceMotion,
+    !reduceMotion && !streamingContent,
   );
 
   const handleBadgeToggle = useCallback((e: Event) => {
