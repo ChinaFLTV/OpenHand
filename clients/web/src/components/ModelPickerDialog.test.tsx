@@ -48,5 +48,6 @@ describe('ModelPickerDialog', () => {
     const activeProvider = screen.getByText(/^(当前提供商|Current provider)$/);
     expect(activeProvider).not.toBeNull();
     expect(activeProvider.closest('p')?.className).toContain('pb-1.5');
+    expect(activeProvider.closest('p')?.nextElementSibling?.className).toContain('pt-1');
   });
 });

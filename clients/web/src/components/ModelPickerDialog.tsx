@@ -425,89 +425,91 @@ function Section({
           </span>
         ) : null}
       </p>
-      {items.map((m) => {
-        const active = m.key === selectedKey;
-        const highlighted = m.key === highlightKey && !active;
-        return (
-          <button
-            key={m.key}
-            type="button"
-            data-model-key={m.key}
-            onClick={() => onPick(m.key)}
-            onMouseEnter={() => onHover(m.key)}
-            class="w-full text-left px-4 py-2 flex items-center gap-3 oh-tap-press"
-            style={{
-              background: active
-                ? 'var(--m3-primary-container)'
-                : highlighted
-                  ? 'color-mix(in srgb, var(--m3-primary) 6%, transparent)'
-                  : 'transparent',
-              color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface)',
-              fontWeight: active ? 600 : 400,
-            }}
-          >
-            <span
-              aria-hidden
+      <div class="pt-1">
+        {items.map((m) => {
+          const active = m.key === selectedKey;
+          const highlighted = m.key === highlightKey && !active;
+          return (
+            <button
+              key={m.key}
+              type="button"
+              data-model-key={m.key}
+              onClick={() => onPick(m.key)}
+              onMouseEnter={() => onHover(m.key)}
+              class="w-full text-left px-4 py-2 flex items-center gap-3 oh-tap-press"
               style={{
-                width: '20px',
-                height: '20px',
-                borderRadius: '50%',
-                border: `2px solid ${active ? 'var(--m3-primary)' : 'var(--m3-outline)'}`,
-                background: active ? 'var(--m3-primary)' : 'transparent',
-                flex: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                background: active
+                  ? 'var(--m3-primary-container)'
+                  : highlighted
+                    ? 'color-mix(in srgb, var(--m3-primary) 6%, transparent)'
+                    : 'transparent',
+                color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface)',
+                fontWeight: active ? 600 : 400,
               }}
             >
-              {active ? (
-                <span
-                  style={{
-                    color: 'var(--m3-on-primary)',
-                    fontSize: '12px',
-                    lineHeight: 1,
-                  }}
-                >
-                  <ModelPickerIcon name="check" size={12} />
-                </span>
-              ) : null}
-            </span>
-            <span class="flex-1 min-w-0">
-              <span class="flex items-center gap-2 min-w-0">
-                <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
-                  {m.model_id || m.label || m.key}
-                </span>
+              <span
+                aria-hidden
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  border: `2px solid ${active ? 'var(--m3-primary)' : 'var(--m3-outline)'}`,
+                  background: active ? 'var(--m3-primary)' : 'transparent',
+                  flex: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
                 {active ? (
                   <span
-                    class="text-[10px] px-1.5 py-0.5 rounded-m3-sm flex-none"
                     style={{
-                      color: 'var(--m3-on-primary-container)',
-                      background: 'color-mix(in srgb, var(--m3-primary) 16%, transparent)',
-                      border: '1px solid color-mix(in srgb, var(--m3-primary) 36%, transparent)',
-                      fontWeight: 700,
+                      color: 'var(--m3-on-primary)',
+                      fontSize: '12px',
+                      lineHeight: 1,
                     }}
                   >
-                    {t('modelPicker.active', '当前默认')}
+                    <ModelPickerIcon name="check" size={12} />
                   </span>
                 ) : null}
               </span>
-              {showProviderSubtitle ? (
-                <span
-                  class="block text-[11px] truncate"
-                  style={{
-                    color: active
-                      ? 'color-mix(in srgb, var(--m3-on-primary-container) 78%, transparent)'
-                      : 'var(--m3-on-surface-variant)',
-                    marginTop: 1,
-                  }}
-                >
-                  {m.protocol ? `${m.provider}  (${m.protocol})` : m.provider}
+              <span class="flex-1 min-w-0">
+                <span class="flex items-center gap-2 min-w-0">
+                  <span class="block text-sm truncate" style={{ fontWeight: active ? 600 : 500 }}>
+                    {m.model_id || m.label || m.key}
+                  </span>
+                  {active ? (
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded-m3-sm flex-none"
+                      style={{
+                        color: 'var(--m3-on-primary-container)',
+                        background: 'color-mix(in srgb, var(--m3-primary) 16%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--m3-primary) 36%, transparent)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {t('modelPicker.active', '当前默认')}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-            </span>
-          </button>
-        );
-      })}
+                {showProviderSubtitle ? (
+                  <span
+                    class="block text-[11px] truncate"
+                    style={{
+                      color: active
+                        ? 'color-mix(in srgb, var(--m3-on-primary-container) 78%, transparent)'
+                        : 'var(--m3-on-surface-variant)',
+                      marginTop: 1,
+                    }}
+                  >
+                    {m.protocol ? `${m.provider}  (${m.protocol})` : m.provider}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
