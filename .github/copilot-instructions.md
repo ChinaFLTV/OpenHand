@@ -25,6 +25,7 @@
 - 一个坑点一条，不合并无关问题
 - 同根因已存在则更新，禁止追加重复
 - 只追加，禁止删除或改写已有条目
+- 写入完成后立即执行 `git add -f .memory/experience.md && git commit -m "docs: update experience"`
 
 ## 示例
 
