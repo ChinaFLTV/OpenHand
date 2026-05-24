@@ -180,6 +180,33 @@ function messageMetadataStreaming(message: SessionMessage): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function metadataTextLength(value: unknown): number {
+  if (typeof value === 'string') return value.length;
+  if (value == null) return 0;
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return String(value).length;
+  }
+}
+
+export function messageFollowSignature(message: SessionMessage): string {
+  const metadata = message.metadata ?? {};
+  return [
+    message.id,
+    message.role,
+    message.kind,
+    message.content?.length ?? 0,
+    message.character_count ?? 0,
+    metadataTextLength(metadata['tool_arguments']),
+    metadataTextLength(metadata['tool_execution_stdout']),
+    metadataTextLength(metadata['tool_execution_stderr']),
+    metadataTextLength(metadata['tool_execution_result'] ?? metadata['result_text']),
+    metadataTextLength(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
+    metadataTextLength(metadata['streaming']),
+  ].join('|');
+}
+
 function shouldKeepLongerStreamingMessage(
   existing: SessionMessage | undefined,
   incoming: SessionMessage,
@@ -1075,7 +1102,7 @@ export function SessionDetailPage() {
   const followSettleFrameRef = useRef<number | null>(null);
   const resizeFollowFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
-  const lastTailContentLengthRef = useRef<number>(0);
+  const lastTailSignatureRef = useRef<string>('');
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
@@ -1656,22 +1683,22 @@ export function SessionDetailPage() {
   useLayoutEffect(() => {
     if (messages.length === 0) {
       lastTailIdRef.current = null;
-      lastTailContentLengthRef.current = 0;
+      lastTailSignatureRef.current = '';
       return;
     }
     const tail = messages[messages.length - 1];
-    const tailContentLength = tail.content?.length ?? tail.character_count ?? 0;
+    const tailSignature = messageFollowSignature(tail);
     if (lastTailIdRef.current === null) {
       lastTailIdRef.current = tail.id;
-      lastTailContentLengthRef.current = tailContentLength;
+      lastTailSignatureRef.current = tailSignature;
       if (autoFollow) scheduleFollowToBottom('auto');
       return;
     }
     const tailChanged = tail.id !== lastTailIdRef.current;
-    const tailContentChanged = tailContentLength !== lastTailContentLengthRef.current;
+    const tailContentChanged = tailSignature !== lastTailSignatureRef.current;
     if (!tailChanged && !tailContentChanged) return;
     lastTailIdRef.current = tail.id;
-    lastTailContentLengthRef.current = tailContentLength;
+    lastTailSignatureRef.current = tailSignature;
     if (shouldFollowPinnedMessages()) {
       // 流式追加（tailContentChanged）一律走 'auto' 即时钉底；只有切换会话或新建消息这种
       // 一次性大跳跃才偶尔用 smooth，避免每个 token 都触发 smooth 缓动堆叠。
@@ -1856,7 +1883,7 @@ export function SessionDetailPage() {
     editingDraftMessageRef.current = null;
     setEditingDraftMessage(null);
     lastTailIdRef.current = null;
-    lastTailContentLengthRef.current = 0;
+    lastTailSignatureRef.current = '';
     Promise.all([
       getSession(requestSessionId, { signal: ctrl.signal }),
       listMessages(requestSessionId, { limit: INITIAL_PAGE_SIZE, tail: true, signal: ctrl.signal }),
@@ -1999,7 +2026,7 @@ export function SessionDetailPage() {
     setSseLive(false);
     // W4 SSE 指纹短路：服务端 80ms 一次推全窗口 snapshot，但很多 tick 期间
     // 内容其实没变化（idle 心跳 / 与本地相同的回放）。先用一个轻量指纹
-    // (count + 末条 id + 末条 content.length + send_phase + last_error 长度)
+    // (窗口内消息内容/metadata 签名 + send_phase + last_error 长度)
     // 比对，相等直接 return，省掉 applyServerMessageWindow + mergeSessionSummary
     // 两个 O(N) 的合并。
     let lastSnapshotFingerprint = '';
@@ -2011,9 +2038,9 @@ export function SessionDetailPage() {
       },
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
-        const tail = snap.messages.length > 0 ? snap.messages[snap.messages.length - 1] : null;
+        const messagesSignature = snap.messages.map(messageFollowSignature).join(';');
         const fingerprint =
-          `${snap.messages.length}|${tail?.id ?? ''}|${tail?.content?.length ?? 0}|` +
+          `${snap.messages.length}|${messagesSignature}|` +
           `${snap.send_phase}|${snap.last_error?.length ?? 0}|` +
           `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}`;
         if (fingerprint === lastSnapshotFingerprint) return;
@@ -2322,6 +2349,13 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (allowedModels.length === 0) return;
+    const activeModelKey = meta?.active_model_key ?? '';
+    const activeModelAllowed = activeModelKey
+      ? allowedModels.some((model) => model.key === activeModelKey)
+      : false;
+    const fallbackModelKey = activeModelAllowed
+      ? activeModelKey
+      : allowedModels[0]!.key;
     const sessionModelKey = detail?.session.last_model_key ?? '';
     const sessionModelAllowed = sessionModelKey
       ? allowedModels.some((model) => model.key === sessionModelKey)
@@ -2330,13 +2364,13 @@ export function SessionDetailPage() {
       const currentAllowed = current
         ? allowedModels.some((model) => model.key === current)
         : false;
-      if (sessionModelAllowed && (!currentAllowed || current === allowedModels[0]?.key)) {
+      if (sessionModelAllowed && (!currentAllowed || current === fallbackModelKey)) {
         return sessionModelKey;
       }
-      if (!currentAllowed) return allowedModels[0]!.key;
+      if (!currentAllowed) return fallbackModelKey;
       return current;
     });
-  }, [allowedModels, detail?.session.id, detail?.session.last_model_key]);
+  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key]);
 
   useEffect(() => {
     if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
@@ -3234,15 +3268,24 @@ export function SessionDetailPage() {
   };
 
   const responseRunning = isRunningPhase(sendPhase);
+  const [stableResponseRunning, setStableResponseRunning] = useState(responseRunning);
+  useEffect(() => {
+    if (responseRunning) {
+      setStableResponseRunning(true);
+      return;
+    }
+    const handle = window.setTimeout(() => setStableResponseRunning(false), 3200);
+    return () => window.clearTimeout(handle);
+  }, [responseRunning]);
   const latestStreamingTextMessageId = useMemo(() => {
     for (let index = sortedMessages.length - 1; index >= 0; index -= 1) {
       const message = sortedMessages[index];
       if (!message || !isAssistantTextLikeMessage(message)) continue;
-      if (messageMetadataStreaming(message) || responseRunning) return message.id;
+      if (messageMetadataStreaming(message) || stableResponseRunning) return message.id;
       break;
     }
     return null;
-  }, [sortedMessages, responseRunning]);
+  }, [sortedMessages, stableResponseRunning]);
 
   if (!sessionId) {
     return (
@@ -3431,7 +3474,7 @@ export function SessionDetailPage() {
                         message={m}
                         active={activeMessageId === m.id}
                         streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)}
-                        turnActive={responseRunning}
+                        turnActive={stableResponseRunning}
                         sessionId={sessionId}
                         onActiveChange={handleMessageActiveChange}
                         onCopy={handleCopyMessage}

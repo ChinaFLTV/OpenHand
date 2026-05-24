@@ -17,6 +17,7 @@ class StreamingTextReveal extends StatefulWidget {
     required this.textLength,
     required this.streaming,
     required this.child,
+    this.animateSize = true,
   });
 
   /// 当前已渲染文本长度。新增即触发尾部 fade。
@@ -26,6 +27,11 @@ class StreamingTextReveal extends StatefulWidget {
   final bool streaming;
 
   final Widget child;
+
+  /// Whether this widget should animate its own height. Message/tool cards
+  /// already wrapped in an outer AnimatedSize pass false to avoid competing
+  /// height tweens while keeping the text reveal animation intact.
+  final bool animateSize;
 
   @override
   State<StreamingTextReveal> createState() => _StreamingTextRevealState();
@@ -79,8 +85,10 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     }
 
     if (widget.textLength > oldWidget.textLength) {
+      final startMs = _ticker.isActive ? _nowMs : 0;
+      if (!_ticker.isActive) _nowMs = 0;
       _segments.add(
-        _FadeSegment(boundary: widget.textLength, startedAtMs: _nowMs),
+        _FadeSegment(boundary: widget.textLength, startedAtMs: startMs),
       );
       while (_segments.length > _kMaxSegments) {
         // 丢弃最早段，把它视作稳定前缀。
@@ -139,6 +147,8 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     if (!disable && revealEnabled && hasActiveFade) {
       body = _buildMask(total);
     }
+
+    if (!widget.animateSize) return body;
 
     return AnimatedSize(
       duration: _heightDuration,

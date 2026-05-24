@@ -12,12 +12,14 @@ import { useMemo, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { useStickyBottom } from '../hooks/useStickyBottom';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
 
 interface ToolResultBodyProps {
   content: string;
+  autoFollow?: boolean;
 }
 
 type ToolBodyIconName = 'copy' | 'check' | 'chevronDown' | 'chevronUp';
@@ -59,13 +61,14 @@ function classifyLines(text: string): RenderedLine[] {
   }));
 }
 
-export function ToolResultBody({ content }: ToolResultBodyProps) {
+export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const overflow = content.length > AUTO_COLLAPSE_CHARS;
   const shown = !overflow || expanded ? content : content.slice(0, AUTO_COLLAPSE_CHARS) + '…';
   const lines = useMemo(() => classifyLines(shown), [shown]);
+  const preRef = useStickyBottom<HTMLPreElement>(shown, autoFollow);
 
   const handleCopy = async () => {
     const ok = await copyTextToClipboard(content);
@@ -81,6 +84,7 @@ export function ToolResultBody({ content }: ToolResultBodyProps) {
   return (
     <div class="relative">
       <pre
+        ref={preRef}
         class="oh-tool-result-pre text-xs leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',

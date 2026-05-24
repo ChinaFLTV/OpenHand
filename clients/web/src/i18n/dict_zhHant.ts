@@ -242,6 +242,7 @@ export const dict_zhHant: Record<string, string> = {
   'modelPicker.search': '搜尋模型…',
   'modelPicker.count': '匹配 ',
   'modelPicker.recent': '最近使用',
+  'modelPicker.available': '可用模型',
   'modelPicker.empty': '主控台尚未設定模型',
   'modelPicker.noMatch': '無匹配模型',
   'files.title': '工作區檔案',

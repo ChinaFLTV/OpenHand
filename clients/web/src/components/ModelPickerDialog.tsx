@@ -329,6 +329,18 @@ export function ModelPickerDialog({
                   showProviderSubtitle
                 />
               ) : null}
+              {grouped.length > 0 ? (
+                <p
+                  class="text-xs px-4 pt-3 pb-0.5"
+                  style={{
+                    color: 'var(--m3-on-surface-variant)',
+                    fontWeight: 700,
+                    letterSpacing: 0,
+                  }}
+                >
+                  {t('modelPicker.available', '可用模型')}
+                </p>
+              ) : null}
               {grouped.map((group) => (
                 <Section
                   key={group.key}

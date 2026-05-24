@@ -1935,6 +1935,7 @@ class WebMessagePlatformService {
       'message_types': _config.allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
+        'active_model_key': _activeModelKey(),
       // 暴露给 Web 端「指令胶囊条」展示用的可用用户指令清单。
       // 仅返回 allowedInstructionIds 过滤后的 enabled 条目，与 App 端
       // _ComposerInstructionsStrip 的 enabledEntries 完全对齐。
@@ -4395,6 +4396,18 @@ class WebMessagePlatformService {
     if (webGatewayIsDenyAllSelection(_config.allowedTemplateIds)) return false;
     return _config.allowedTemplateIds.isEmpty ||
         _config.allowedTemplateIds.contains(templateId);
+  }
+
+  String? _activeModelKey() {
+    if (webGatewayIsDenyAllSelection(_config.allowedModelKeys)) return null;
+    final selected = _settingsController.selectedAiModel;
+    if (selected == null) return null;
+    final key = _modelKey(selected.id, selected.modelId);
+    if (_config.allowedModelKeys.isNotEmpty &&
+        !_config.allowedModelKeys.contains(key)) {
+      return null;
+    }
+    return key;
   }
 
   List<_AllowedWebModel> _allowedModels() {

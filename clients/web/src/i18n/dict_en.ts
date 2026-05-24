@@ -244,6 +244,7 @@ export const dict_en: Record<string, string> = {
   'modelPicker.search': 'Search models…',
   'modelPicker.count': 'Matches ',
   'modelPicker.recent': 'Recent',
+  'modelPicker.available': 'Available models',
   'modelPicker.empty': 'No model configured on the console',
   'modelPicker.noMatch': 'No matching model',
   'files.title': 'Workspace files',

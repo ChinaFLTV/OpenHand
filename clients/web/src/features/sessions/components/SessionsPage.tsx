@@ -703,6 +703,7 @@ export function SessionsPage() {
         <TemplateConfigDialog
           template={configTemplate}
           models={auth.meta?.models ?? []}
+          defaultModelKey={auth.meta?.active_model_key ?? ''}
           allowedModes={allowedModes}
           planEnabled={planEnabled}
           busy={creating}

@@ -113,6 +113,7 @@ export interface ApiMetaResponse {
   templates?: ApiMetaTemplate[];
   conversation_modes?: string[];
   message_types?: string[];
+  active_model_key?: string | null;
   models?: ApiMetaModel[];
   instructions?: ApiMetaInstruction[];
   config?: Record<string, unknown>;

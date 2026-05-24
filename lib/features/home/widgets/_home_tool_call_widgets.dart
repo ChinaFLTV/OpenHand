@@ -3664,6 +3664,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 ? StreamingTextReveal(
                     textLength: aiReasoning.length,
                     streaming: true,
+                  animateSize: false,
                     child: _SelfLearningMarkdown(
                       data: aiReasoning,
                       muted: true,
@@ -3689,6 +3690,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 ? StreamingTextReveal(
                     textLength: aiResponse.length,
                     streaming: true,
+                  animateSize: false,
                     child: _SelfLearningMarkdown(
                       data: aiResponse,
                       muted: false,

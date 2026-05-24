@@ -26,6 +26,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
 import { useStreamingReveal } from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
+import { useStickyBottom } from '../hooks/useStickyBottom';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -1175,7 +1176,7 @@ function MessageCardImpl({
         ) : useStructuredToolBody ? (
           <ToolExecutionCard message={message} />
         ) : useToolBody ? (
-          content.length > 0 ? <ToolResultBody content={content} /> : null
+          content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent} /> : null
         ) : (
           <StreamingMarkdownReveal
             content={visibleContent}
@@ -1413,6 +1414,7 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
   const constructing =
     (!terminalStatus && argumentsStreaming) ||
     (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
+  const autoFollowToolOutput = !terminalStatus || asBool(metadata['streaming']);
 
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">
@@ -1434,23 +1436,23 @@ function ToolExecutionCard({ message }: { message: SessionMessage }) {
         {workingDirectory ? <MetaChip label={workingDirectory} mono /> : null}
         {constructing ? <ConstructingBadge /> : null}
       </div>
-      <ToolArgumentsBlock metadata={metadata} />
+      <ToolArgumentsBlock metadata={metadata} autoFollow={argumentsStreaming || autoFollowToolOutput} />
       {command ? (
-        <ToolSection title={t('detail.tool.command', '执行命令')} content={command} defaultExpanded />
+        <ToolSection title={t('detail.tool.command', '执行命令')} content={command} defaultExpanded autoFollow={autoFollowToolOutput} />
       ) : null}
       {stdout ? (
-        <ToolSection title={t('detail.tool.stdout', '标准输出')} content={stdout} />
+        <ToolSection title={t('detail.tool.stdout', '标准输出')} content={stdout} autoFollow={autoFollowToolOutput} />
       ) : null}
       {stderr ? (
-        <ToolSection title={t('detail.tool.stderr', '标准错误 stderr')} content={stderr} danger defaultExpanded />
+        <ToolSection title={t('detail.tool.stderr', '标准错误 stderr')} content={stderr} danger defaultExpanded autoFollow={autoFollowToolOutput} />
       ) : null}
       {sandboxReason ? (
-        <ToolSection title={t('detail.tool.sandbox.reason', '沙盒状态')} content={sandboxReason} danger={sandboxBlocked} defaultExpanded />
+        <ToolSection title={t('detail.tool.sandbox.reason', '沙盒状态')} content={sandboxReason} danger={sandboxBlocked} defaultExpanded autoFollow={autoFollowToolOutput} />
       ) : null}
       {result ? (
-        <ToolSection title={t('detail.tool.result', '工具结果')} content={result} defaultExpanded={!stdout && !stderr} />
+        <ToolSection title={t('detail.tool.result', '工具结果')} content={result} defaultExpanded={!stdout && !stderr} autoFollow={autoFollowToolOutput} />
       ) : null}
-      {!hasStructuredOutput && fallback.trim().length > 0 ? <ToolResultBody content={fallback} /> : null}
+      {!hasStructuredOutput && fallback.trim().length > 0 ? <ToolResultBody content={fallback} autoFollow={autoFollowToolOutput} /> : null}
     </div>
   );
 }
@@ -1543,14 +1545,17 @@ function ToolSection({
   content,
   danger,
   defaultExpanded = false,
+  autoFollow = false,
 }: {
   title: string;
   content: string;
   danger?: boolean;
   defaultExpanded?: boolean;
+  autoFollow?: boolean;
 }) {
   const long = content.length > 640 || content.split('\n').length > 10;
   const [expanded, setExpanded] = useState(defaultExpanded || !long);
+  const preRef = useStickyBottom<HTMLPreElement>(content, autoFollow);
   return (
     <section class="oh-tool-section">
       <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -1570,6 +1575,7 @@ function ToolSection({
         ) : null}
       </div>
       <pre
+        ref={preRef}
         class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',
@@ -1681,7 +1687,13 @@ function asBool(value: unknown): boolean {
 /// - 字符串 → 尝试 JSON.parse 后 pretty-print；解析失败按原文展示。
 /// - 默认折叠到 4 行；点击「展开/折叠」切换。
 /// - 与工具结果（ToolResultBody）共享视觉语言：mono 字体、surface 背景、outline 边框。
-function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | undefined }) {
+function ToolArgumentsBlock({
+  metadata,
+  autoFollow = false,
+}: {
+  metadata: Record<string, unknown> | undefined;
+  autoFollow?: boolean;
+}) {
   const raw = metadata?.['tool_arguments'];
   if (raw == null) return null;
   let pretty: string;
@@ -1703,6 +1715,7 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
   const [expanded, setExpanded] = useState(false);
   const lineCount = pretty.split('\n').length;
   const overflow = lineCount > 4 || pretty.length > 200;
+  const preRef = useStickyBottom<HTMLPreElement>(pretty, autoFollow);
   return (
     <div class="mb-2">
       <div
@@ -1732,6 +1745,7 @@ function ToolArgumentsBlock({ metadata }: { metadata: Record<string, unknown> | 
         ) : null}
       </div>
       <pre
+        ref={preRef}
         class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
         style={{
           background: 'var(--m3-surface)',

@@ -13,7 +13,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 
-const DURATION_MS = 420;
+const DURATION_MS = 520;
+const MAX_SEGMENTS = 24;
+
+interface FadeSegment {
+  boundary: number;
+  startedAt: number;
+}
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -25,28 +31,38 @@ function easeOutBack(t: number): number {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-function buildMask(progress: number, oldFraction: number): string {
-  const springT = easeOutBack(progress);
-  const alphaT = clamp01(springT);
-  const oldStop = clamp01(oldFraction);
-  const waveFront = Math.max(
-    oldStop,
-    clamp01(oldStop + (1 - oldStop) * springT),
-  );
-  const tailAlpha = 0.28 + 0.72 * alphaT;
-  const waveAlpha = 0.58 + 0.42 * alphaT;
-  const sOld = (oldStop * 100).toFixed(1);
-  const sWave = (waveFront * 100).toFixed(1);
-  const aWave = waveAlpha.toFixed(3);
-  const aTail = tailAlpha.toFixed(3);
-  return (
-    `linear-gradient(` +
-    `to bottom, ` +
-    `rgba(0,0,0,1) 0%, ` +
-    `rgba(0,0,0,1) ${sOld}%, ` +
-    `rgba(0,0,0,${aWave}) ${sWave}%, ` +
-    `rgba(0,0,0,${aTail}) 100%)`
-  );
+function segmentAlpha(now: number, segment: FadeSegment): number {
+  const progress = clamp01((now - segment.startedAt) / DURATION_MS);
+  return clamp01(easeOutBack(progress));
+}
+
+function buildMask(
+  total: number,
+  stableLength: number,
+  segments: readonly FadeSegment[],
+  now: number,
+): string {
+  const stops: string[] = ['rgba(0,0,0,1) 0%'];
+  let previousFraction = clamp01(stableLength / Math.max(1, total));
+  let previousAlpha = 1;
+  if (previousFraction > 0) {
+    stops.push(`rgba(0,0,0,1) ${(previousFraction * 100).toFixed(1)}%`);
+  }
+  for (const segment of segments) {
+    const fraction = clamp01(segment.boundary / Math.max(1, total));
+    const alpha = segmentAlpha(now, segment);
+    if (fraction <= previousFraction + 0.0001) {
+      previousAlpha = alpha;
+      continue;
+    }
+    stops.push(`rgba(0,0,0,${alpha.toFixed(3)}) ${(fraction * 100).toFixed(1)}%`);
+    previousFraction = fraction;
+    previousAlpha = alpha;
+  }
+  if (previousFraction < 0.9999) {
+    stops.push(`rgba(0,0,0,${previousAlpha.toFixed(3)}) 100%`);
+  }
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
 }
 
 function applyMask(el: HTMLElement, mask: string) {
@@ -78,9 +94,10 @@ export function useStreamingReveal(
 } {
   const elRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
-  const startRef = useRef(0);
   const lastLengthRef = useRef(contentLength);
-  const oldFractionRef = useRef(0);
+  const lastContentKeyRef = useRef(contentKey);
+  const stableLengthRef = useRef(contentLength);
+  const segmentsRef = useRef<FadeSegment[]>([]);
   const onRestRef = useRef(onRest);
 
   useEffect(() => {
@@ -95,59 +112,71 @@ export function useStreamingReveal(
     const el = elRef.current;
     if (!el) return;
 
-    if (reduceMotion) {
+    const stopAnimation = (notify = true) => {
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      segmentsRef.current = [];
       clearMask(el);
+      if (notify) onRestRef.current?.();
+    };
+
+    const tick = () => {
+      const now = performance.now();
+      const segments = segmentsRef.current;
+      while (segments.length > 0 && now - segments[0]!.startedAt >= DURATION_MS) {
+        stableLengthRef.current = segments[0]!.boundary;
+        segments.shift();
+      }
+      if (segments.length === 0) {
+        rafRef.current = null;
+        clearMask(el);
+        onRestRef.current?.();
+        return;
+      }
+      applyMask(el, buildMask(lastLengthRef.current, stableLengthRef.current, segments, now));
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    if (reduceMotion) {
+      stopAnimation();
       lastLengthRef.current = contentLength;
-      onRestRef.current?.();
+      stableLengthRef.current = contentLength;
+      lastContentKeyRef.current = contentKey;
       return;
     }
 
-    // 取消上一轮未完成的动画（如果有）
-    if (rafRef.current != null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-
     if (!streaming) {
-      clearMask(el);
+      stopAnimation();
       lastLengthRef.current = contentLength;
-      onRestRef.current?.();
+      stableLengthRef.current = contentLength;
+      lastContentKeyRef.current = contentKey;
       return;
     }
 
     if (contentLength > lastLengthRef.current) {
       const previousLength = lastLengthRef.current;
-      oldFractionRef.current = previousLength > 0 && contentLength > 0
-        ? previousLength / contentLength
-        : 0;
       lastLengthRef.current = contentLength;
-      startRef.current = performance.now();
-
-      const tick = () => {
-        const elapsed = performance.now() - startRef.current;
-        const p = Math.min(1, elapsed / DURATION_MS);
-        applyMask(el, buildMask(p, oldFractionRef.current));
-        if (p < 1) {
-          rafRef.current = requestAnimationFrame(tick);
-        } else {
-          rafRef.current = null;
-          onRestRef.current?.();
-        }
-      };
-      rafRef.current = requestAnimationFrame(tick);
+      lastContentKeyRef.current = contentKey;
+      if (segmentsRef.current.length === 0) {
+        stableLengthRef.current = previousLength;
+      }
+      segmentsRef.current.push({ boundary: contentLength, startedAt: performance.now() });
+      while (segmentsRef.current.length > MAX_SEGMENTS) {
+        stableLengthRef.current = segmentsRef.current[0]!.boundary;
+        segmentsRef.current.shift();
+      }
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
-    if (contentLength < lastLengthRef.current) {
-      clearMask(el);
+    if (contentLength < lastLengthRef.current || contentKey !== lastContentKeyRef.current) {
+      stopAnimation();
       lastLengthRef.current = contentLength;
-      onRestRef.current?.();
+      stableLengthRef.current = contentLength;
+      lastContentKeyRef.current = contentKey;
       return;
-    }
-
-    if (contentLength === lastLengthRef.current) {
-      clearMask(el);
-      onRestRef.current?.();
     }
   }, [streaming, contentLength, contentKey, reduceMotion]);
 
@@ -165,5 +194,5 @@ export function useStreamingReveal(
 
 /// 稳定态 mask（停流后无障碍模式使用）。
 export function getStableMask(): string {
-  return buildMask(1, 0);
+  return 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%)';
 }

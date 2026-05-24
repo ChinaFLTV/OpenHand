@@ -509,6 +509,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             StreamingTextReveal(
                               textLength: effectiveContent.length,
                               streaming: true,
+                              animateSize: false,
                               child: _AssistantMessageBodyDispatcher(
                                 data: effectiveContent.isEmpty
                                     ? ' '

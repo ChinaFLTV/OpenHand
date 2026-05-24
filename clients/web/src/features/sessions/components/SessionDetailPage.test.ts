@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SessionMessage } from '../../../api/sessions';
 import {
   composerCollapsedSummaryParts,
+  messageFollowSignature,
   mergeServerWindow,
   mergeServerWindowResult,
   shouldApplySessionAsyncResult,
@@ -224,6 +225,21 @@ describe('composerCollapsedSummaryParts', () => {
       editing: false,
       responseRunning: false,
     }, labels)).toEqual([]);
+  });
+});
+
+describe('messageFollowSignature', () => {
+  it('changes when streaming tool output grows in metadata only', () => {
+    const before = message('tool-1', 'tool', '', {
+      tool_execution_stdout: 'line 1',
+      tool_execution_status: 'running',
+    });
+    const after = message('tool-1', 'tool', '', {
+      tool_execution_stdout: 'line 1\nline 2',
+      tool_execution_status: 'running',
+    });
+
+    expect(messageFollowSignature(after)).not.toBe(messageFollowSignature(before));
   });
 });
 

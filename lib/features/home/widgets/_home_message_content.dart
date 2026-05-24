@@ -250,6 +250,7 @@ class _StreamingReasoningBody extends StatelessWidget {
             child: StreamingTextReveal(
               textLength: effectiveContent.length,
               streaming: true,
+              animateSize: false,
               child: _SafeMarkdownBody(
                 data: effectiveContent,
                 selectable: selectable,

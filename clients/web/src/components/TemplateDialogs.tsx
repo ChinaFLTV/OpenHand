@@ -198,6 +198,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
 export interface TemplateConfigDialogProps {
   template: ApiMetaTemplate;
   models: ApiMetaModel[];
+  defaultModelKey?: string;
   allowedModes: string[];
   planEnabled: boolean;
   busy: boolean;
@@ -207,10 +208,10 @@ export interface TemplateConfigDialogProps {
 }
 
 export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
-  const { template, models, planEnabled, busy, error, onSubmit, onClose } = props;
+  const { template, models, defaultModelKey, planEnabled, busy, error, onSubmit, onClose } = props;
   const [title, setTitle] = useState<string>('');
   const [mode, setMode] = useState<'chat' | 'plan'>('chat');
-  const [modelKey, setModelKey] = useState<string>(models[0]?.key ?? '');
+  const [modelKey, setModelKey] = useState<string>(() => resolveDefaultModelKey(models, defaultModelKey));
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const selectedModel = models.find((model) => model.key === modelKey);
@@ -219,6 +220,13 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setModelKey((current) => {
+      if (current && models.some((model) => model.key === current)) return current;
+      return resolveDefaultModelKey(models, defaultModelKey);
+    });
+  }, [models, defaultModelKey]);
 
   const submit = (ev?: Event) => {
     if (ev) ev.preventDefault();
@@ -339,4 +347,10 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
       ) : null}
     </DialogShell>
   );
+}
+
+function resolveDefaultModelKey(models: ApiMetaModel[], defaultModelKey?: string): string {
+  const key = (defaultModelKey ?? '').trim();
+  if (key && models.some((model) => model.key === key)) return key;
+  return models[0]?.key ?? '';
 }
