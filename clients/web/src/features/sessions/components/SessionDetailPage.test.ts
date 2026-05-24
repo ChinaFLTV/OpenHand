@@ -3,9 +3,11 @@ import type { SessionMessage } from '../../../api/sessions';
 import {
   composerCollapsedSummaryParts,
   messageFollowSignature,
+  messagesInDisplayOrder,
   mergeServerWindow,
   mergeServerWindowResult,
   shouldApplySessionAsyncResult,
+  shouldApplyPollingMessageWindow,
 } from './SessionDetailPage';
 
 function message(
@@ -243,6 +245,26 @@ describe('messageFollowSignature', () => {
   });
 });
 
+describe('messagesInDisplayOrder', () => {
+  it('keeps the newest assistant text as the display tail when a tool message arrives out of order', () => {
+    const tool = {
+      ...message('tool-1', 'tool', 'tool output'),
+      kind: 'tool',
+      created_at: '2026-05-24T20:16:20.000Z',
+    } satisfies SessionMessage;
+    const assistant = {
+      ...message('assistant-1', 'assistant', 'final answer'),
+      kind: 'assistant',
+      created_at: '2026-05-24T20:16:42.000Z',
+    } satisfies SessionMessage;
+
+    const ordered = messagesInDisplayOrder([assistant, tool]);
+
+    expect(ordered.map((item) => item.id)).toEqual(['tool-1', 'assistant-1']);
+    expect(ordered.at(-1)?.id).toBe('assistant-1');
+  });
+});
+
 describe('shouldApplySessionAsyncResult', () => {
   it('allows applying a result only to the session that started the request', () => {
     expect(shouldApplySessionAsyncResult('session-a', 'session-a')).toBe(true);
@@ -257,5 +279,17 @@ describe('shouldApplySessionAsyncResult', () => {
 
   it('blocks results after the owning component has unmounted', () => {
     expect(shouldApplySessionAsyncResult('session-a', 'session-a', false)).toBe(false);
+  });
+});
+
+describe('shouldApplyPollingMessageWindow', () => {
+  it('skips running phase-guard windows while SSE is live', () => {
+    expect(shouldApplyPollingMessageWindow(true, 'responding')).toBe(false);
+    expect(shouldApplyPollingMessageWindow(true, 'toolCalling')).toBe(false);
+  });
+
+  it('allows the idle fallback frame and all non-SSE polling windows', () => {
+    expect(shouldApplyPollingMessageWindow(true, 'idle')).toBe(true);
+    expect(shouldApplyPollingMessageWindow(false, 'responding')).toBe(true);
   });
 });

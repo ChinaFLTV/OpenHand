@@ -4,10 +4,10 @@ const lastLogAtByKey = new Map<string, number>();
 export function streamDebugEnabled(): boolean {
   try {
     const raw = localStorage.getItem(STREAM_DEBUG_STORAGE_KEY);
-    if (raw == null) return true;
-    return raw !== '0' && raw.toLowerCase() !== 'false' && raw.toLowerCase() !== 'off';
+    if (raw == null) return false;
+    return raw === '1' || raw.toLowerCase() === 'true' || raw.toLowerCase() === 'on';
   } catch {
-    return true;
+    return false;
   }
 }
 

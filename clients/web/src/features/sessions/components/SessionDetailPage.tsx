@@ -149,6 +149,13 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
+export function shouldApplyPollingMessageWindow(
+  sseLive: boolean,
+  pollSendPhase: string | null | undefined,
+): boolean {
+  return !sseLive || !isRunningPhase(pollSendPhase);
+}
+
 export function shouldApplySessionAsyncResult(
   currentSessionId: string,
   requestSessionId: string,
@@ -792,6 +799,12 @@ function messagesAreChronological(items: SessionMessage[]): boolean {
     if (compareMessageCreatedAt(items[i - 1]!, items[i]!) > 0) return false;
   }
   return true;
+}
+
+export function messagesInDisplayOrder(items: SessionMessage[]): SessionMessage[] {
+  return messagesAreChronological(items)
+    ? items
+    : [...items].sort(compareMessageCreatedAt);
 }
 
 function mergeSessionSummary(
@@ -1682,12 +1695,13 @@ export function SessionDetailPage() {
   // 用 useLayoutEffect 在浏览器 paint 前同步钉到底部，避免插入新内容后浏览器 scroll-anchor
   // 先把视口锁在旧位置、随后我们再回拉造成的「上移 → 降落」鬼畜抖动。
   useLayoutEffect(() => {
-    if (messages.length === 0) {
+    const displayMessages = messagesInDisplayOrder(messages);
+    if (displayMessages.length === 0) {
       lastTailIdRef.current = null;
       lastTailSignatureRef.current = '';
       return;
     }
-    const tail = messages[messages.length - 1];
+    const tail = displayMessages[displayMessages.length - 1];
     const tailSignature = messageFollowSignature(tail);
     if (lastTailIdRef.current === null) {
       lastTailIdRef.current = tail.id;
@@ -2449,17 +2463,19 @@ export function SessionDetailPage() {
         });
         if (cancelled || ctrl.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
-        // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-        applyServerMessageWindow(
-          m.items,
-          offset,
-          { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
-        );
-        setTotalKnown(m.total);
-        setSendPhase(m.send_phase);
-        setLastError(m.last_error);
-        setPendingWriteApproval(m.pending_write_approval ?? null);
-        if (m.session) mergeSessionSummaryFromPolling(m.session);
+        if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
+          // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
+          applyServerMessageWindow(
+            m.items,
+            offset,
+            { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
+          );
+          setTotalKnown(m.total);
+          setSendPhase(m.send_phase);
+          setLastError(m.last_error);
+          setPendingWriteApproval(m.pending_write_approval ?? null);
+          if (m.session) mergeSessionSummaryFromPolling(m.session);
+        }
       } catch (e: unknown) {
         if (cancelled || ctrl?.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
         if (handleAuthError(e)) return;
@@ -3298,9 +3314,7 @@ export function SessionDetailPage() {
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，这里做一次按 created_at 排序兜底。
   const sortedMessages = useMemo(() => {
-    return messagesAreChronological(messages)
-      ? messages
-      : [...messages].sort(compareMessageCreatedAt);
+    return messagesInDisplayOrder(messages);
   }, [messages]);
 
   const resumeToLatest = () => {
