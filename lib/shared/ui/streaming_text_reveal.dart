@@ -1,25 +1,19 @@
-// 2026-05-23 — 流式消息文本「Q 弹进场」遮罩（2026-06 强化版）。
+// 2026-05-24 — 流式消息文本「精灵登场」逐字浮现遮罩（Gemini 风格强化版）。
 //
-// 设计目标：让 streaming 状态下追加进来的字符不再"硬拼接到末尾"，而是从
-// 卡片底部边缘以弹性拉伸-回缩渐变 + 高度增长的方式优雅浮现，与全局动画
-// 语言（短时长 + easeOutCubic）保持一致。
+// 让 streaming 状态下追加的新字符从旧/新文本边界处以锐利波前扫过 +
+// easeOutBack Q 弹 overshoot 的方式淡入浮现，对标 Gemini 网页端的
+// 增量文本精灵登场动画。
 //
-// 实现路线：
-// 1. 外层 `AnimatedSize`（220ms easeOutCubic）负责高度增长，避免新行
-//    一次性弹出；
-// 2. 内层 `ShaderMask(blendMode: dstIn)` 给整个 markdown body 加一道
-//    底部 → 顶部的"完全不透明 → 半透明"垂直 alpha 渐变。新字符到达
-//    时底部淡入带拉长（stop2/stop3 下移 → 渐变区 ≈ 32%），随后在
-//    320ms 内平滑收窄至稳定带（渐变区 ≈ 18%），配合 alpha 从 0.50 升
-//    至 1.0。肉眼呈"字符从下方淡入 + 弹性回弹"的 Q 弹效果，不改变文
-//    本颜色。
-// 3. `MediaQuery.disableAnimationsOf` 为 true 时直接 passthrough，
-//    保证可访问性 / 性能模式下零动画。
+// 渐变停靠点：[0, oldFraction, waveFront, 1.0]
+//  * oldFraction 以上：始终完全不透明（旧文本不受影响）
+//  * oldFraction → waveFront：从 opaque 过渡到 waveAlpha，波前扫过
+//    新字符逐批"亮相"
+//  * waveFront → 1.0：从 waveAlpha 过渡到 tailAlpha，最新字符从
+//    "幽灵态"温和浮现
+// easeOutBack 的轻微 overshoot 让波前冲过底部再弹回，肉眼呈 Q 弹落位。
 //
-// 设计取舍：刻意不做"按字符切分 + 逐个 AnimatedOpacity"——markdown 已
-// 经把字符拆进若干 RichText/Widget，逐字符再切会爆 AnimationController
-// 数量并且破坏排版。底部 mask + 动态 stop 拉伸回缩是行业最佳实践
-//（ChatGPT / Claude / Gemini 都用类似手法），无需触及 markdown 解析器。
+// 外层 `AnimatedSize`（220ms easeOutCubic）负责高度增长；内层 reveal
+// 动画 420ms。`MediaQuery.disableAnimationsOf` 为 true 时 passthrough。
 
 import 'package:flutter/material.dart';
 
@@ -47,9 +41,15 @@ class StreamingTextReveal extends StatefulWidget {
 class _StreamingTextRevealState extends State<StreamingTextReveal>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  int _lastLength = 0;
 
-  static const Duration _kRevealDuration = Duration(milliseconds: 320);
+  /// 上一次动画触发时 widget 的 textLength，用于计算旧文本占比。
+  int _prevRenderLength = 0;
+
+  /// 精灵登场动画时长：比标准 320ms 略长，让 easeOutBack 的 Q 弹
+  /// overshoot 有足够时间展现，用户能感知到"弹"的美感。
+  static const Duration _kRevealDuration = Duration(milliseconds: 420);
+
+  /// 高度补间保持短促干脆，不与 reveal 动画争抢注意力。
   static const Duration _kHeightDuration = Duration(milliseconds: 220);
 
   @override
@@ -60,26 +60,27 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
       duration: _kRevealDuration,
       value: 1.0,
     );
-    _lastLength = widget.textLength;
+    _prevRenderLength = widget.textLength;
   }
 
   @override
   void didUpdateWidget(covariant StreamingTextReveal oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.streaming) {
-      if (widget.textLength != _lastLength) {
-        _lastLength = widget.textLength;
-        // 只有增量（新增字符）才触发；纯重排或截断不触发。
-        if (widget.textLength > oldWidget.textLength) {
-          _ctrl.forward(from: 0.0);
-        }
+      if (widget.textLength > oldWidget.textLength) {
+        // 新字符到达：以旧 widget 长度作为稳定基线，从该边界向下扫波前。
+        _prevRenderLength = oldWidget.textLength;
+        _ctrl.forward(from: 0.0);
+      } else if (widget.textLength < oldWidget.textLength) {
+        // 截断（极罕见）：直接重置基线。
+        _prevRenderLength = widget.textLength;
       }
     } else if (oldWidget.streaming) {
       // streaming 结束：让 mask 平滑回到完全不透明。
       _ctrl.forward(from: _ctrl.value);
-      _lastLength = widget.textLength;
+      _prevRenderLength = widget.textLength;
     } else {
-      _lastLength = widget.textLength;
+      _prevRenderLength = widget.textLength;
     }
   }
 
@@ -103,28 +104,53 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
           ? AnimatedBuilder(
               animation: _ctrl,
               builder: (context, child) {
-                final t = Curves.easeOutCubic.transform(_ctrl.value);
-                // 动画已稳定 → 跳过 ShaderMask（全白 dstIn = 空操作），
-                // 避免产生无意义的 GPU 合成层。
-                if (t >= 1.0) return child!;
-                // 动态 stop 拉伸回缩：新字符触发时淡入带拉长（≈32% 梯度
-                // 覆盖），随后平滑收窄至稳定态（≈18%），配合 alpha 从
-                // 0.50 升至 1.0，产生"字符从底部淡入 + 弹性回弹"的 Q 弹
-                // 视觉反馈。
-                final tailAlpha = 0.50 + 0.50 * t;
-                final tailHeadAlpha = 0.78 + 0.22 * t;
-                final stop2 = 0.68 + 0.14 * t; // trigger→stable
-                final stop3 = 0.84 + 0.10 * t; // trigger→stable
+                final rawT = _ctrl.value;
+                // 动画已稳定 → 跳过 ShaderMask，避免无意义 GPU 合成层。
+                if (rawT >= 1.0) return child!;
+
+                // Q 弹 spring 曲线：easeOutBack 在 1.0 处有轻微 overshoot
+                // 再回弹，视觉上"字符从边界弹出来 → 落位"，精灵登场感。
+                final t = Curves.easeOutBack.transform(rawT);
+
+                // 旧文本在整体中的高度占比（按字符数近似，对流式追加场景
+                // 足够精准——新字符永远追加在末尾）。
+                final curLen = widget.textLength;
+                final oldFraction = _prevRenderLength > 0 && curLen > 0
+                    ? (_prevRenderLength / curLen).clamp(0.0, 1.0)
+                    : 0.0;
+
+                // 波前位置：从旧文本边界扫向底部。
+                // equaeOutBack 的 overshoot 让波前冲过底部再弹回，
+                // 肉眼呈"字符从边界弹出来 → 落位"的精灵登场感。
+                final newZone = 1.0 - oldFraction;
+                final waveFront = (oldFraction + newZone * t).clamp(0.0, 1.0);
+
+                // 尾部（最新字符）alpha 从 0.28 弹升至 1.0。
+                final tailAlpha = 0.28 + 0.72 * t;
+
+                // 波前处 alpha：略低于 1.0 的软过渡，避免一条硬切线。
+                final waveAlpha = 0.58 + 0.42 * t;
+
+                // 梯度停靠点：[0, oldFraction, waveFront, 1.0]
+                //  * oldFraction 以上：始终完全不透明（旧文本不受影响）
+                //  * oldFraction → waveFront：从 opaque 线性过渡到 waveAlpha
+                //  * waveFront → 1.0：从 waveAlpha 线性过渡到 tailAlpha
+                // 波前扫过后渐变收窄，新字符逐批"亮相"。
                 return ShaderMask(
                   blendMode: BlendMode.dstIn,
                   shaderCallback: (bounds) => LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: [0.0, stop2, stop3, 1.0],
+                    stops: [
+                      0.0,
+                      oldFraction,
+                      waveFront,
+                      1.0,
+                    ],
                     colors: [
                       Colors.white,
                       Colors.white,
-                      Colors.white.withValues(alpha: tailHeadAlpha),
+                      Colors.white.withValues(alpha: waveAlpha),
                       Colors.white.withValues(alpha: tailAlpha),
                     ],
                   ).createShader(bounds),

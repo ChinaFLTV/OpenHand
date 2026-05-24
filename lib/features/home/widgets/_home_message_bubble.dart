@@ -2525,14 +2525,30 @@ $mediaTag
       );
     }
     if (!mounted) return;
+    DialogAnimationSettings settings;
+    try {
+      settings = context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      settings = DialogAnimationSettings.defaults;
+    }
     final returnedTime = await navigator.push<double>(
-      MaterialPageRoute<double>(
+      PageRouteBuilder<double>(
         fullscreenDialog: true,
-        builder: (_) => _FullscreenVideoPage(
+        transitionDuration: settings.duration,
+        reverseTransitionDuration: settings.duration * 0.85,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            _FullscreenVideoPage(
           source: widget.source,
           title: widget.title,
           initialTime: _currentTime,
         ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return buildAnimationStyleTransition(
+            animation: animation,
+            settings: settings,
+            child: child,
+          );
+        },
       ),
     );
     if (!mounted) return;
