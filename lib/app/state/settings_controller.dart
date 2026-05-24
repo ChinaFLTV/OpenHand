@@ -9,6 +9,7 @@ import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
+import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
@@ -105,6 +106,8 @@ class SettingsController extends ChangeNotifier {
        _aiToolResultCompressionEnabled =
            snapshot.aiToolResultCompressionEnabled,
        _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled,
+       _aiMessageContentFormat = snapshot.aiMessageContentFormat,
+       _aiHtmlRenderFallback = snapshot.aiHtmlRenderFallback,
        _aiToolResultCompressionHeadTailWindowChars =
            snapshot.aiToolResultCompressionHeadTailWindowChars,
        _aiToolResultCompressionMaxPathHits =
@@ -255,6 +258,8 @@ class SettingsController extends ChangeNotifier {
   int _aiToolResultCompressionThresholdChars;
   bool _aiToolResultCompressionEnabled;
   bool _aiMicroCompressionEnabled;
+  AiMessageContentFormat _aiMessageContentFormat;
+  AiHtmlRenderFallback _aiHtmlRenderFallback;
   int _aiToolResultCompressionHeadTailWindowChars;
   int _aiToolResultCompressionMaxPathHits;
   bool _aiInputCacheEnabled;
@@ -410,6 +415,8 @@ class SettingsController extends ChangeNotifier {
       _aiToolResultCompressionThresholdChars;
   bool get aiToolResultCompressionEnabled => _aiToolResultCompressionEnabled;
   bool get aiMicroCompressionEnabled => _aiMicroCompressionEnabled;
+  AiMessageContentFormat get aiMessageContentFormat => _aiMessageContentFormat;
+  AiHtmlRenderFallback get aiHtmlRenderFallback => _aiHtmlRenderFallback;
   int get aiToolResultCompressionHeadTailWindowChars =>
       _aiToolResultCompressionHeadTailWindowChars;
   int get aiToolResultCompressionMaxPathHits =>
@@ -948,6 +955,30 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiMicroCompressionEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMessageContentFormat(
+    AiMessageContentFormat value,
+  ) async {
+    return _commitMutation(() {
+      if (_aiMessageContentFormat == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMessageContentFormat = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiHtmlRenderFallback(
+    AiHtmlRenderFallback value,
+  ) async {
+    return _commitMutation(() {
+      if (_aiHtmlRenderFallback == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiHtmlRenderFallback = value;
       return _MutationDisposition.apply;
     });
   }
@@ -2572,6 +2603,8 @@ class SettingsController extends ChangeNotifier {
           _aiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: _aiToolResultCompressionEnabled,
       aiMicroCompressionEnabled: _aiMicroCompressionEnabled,
+      aiMessageContentFormat: _aiMessageContentFormat,
+      aiHtmlRenderFallback: _aiHtmlRenderFallback,
       aiToolResultCompressionHeadTailWindowChars:
           _aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
@@ -2691,6 +2724,8 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiToolResultCompressionThresholdChars;
     _aiToolResultCompressionEnabled = snapshot.aiToolResultCompressionEnabled;
     _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled;
+    _aiMessageContentFormat = snapshot.aiMessageContentFormat;
+    _aiHtmlRenderFallback = snapshot.aiHtmlRenderFallback;
     _aiToolResultCompressionHeadTailWindowChars =
         snapshot.aiToolResultCompressionHeadTailWindowChars;
     _aiToolResultCompressionMaxPathHits =

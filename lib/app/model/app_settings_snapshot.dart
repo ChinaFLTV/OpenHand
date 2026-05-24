@@ -12,6 +12,7 @@ import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
+import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
@@ -58,6 +59,8 @@ class AppSettingsSnapshot {
           defaultAiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: true,
       aiMicroCompressionEnabled: false,
+      aiMessageContentFormat: defaultAiMessageContentFormat,
+      aiHtmlRenderFallback: defaultAiHtmlRenderFallback,
       aiToolResultCompressionHeadTailWindowChars:
           defaultAiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits:
@@ -203,6 +206,8 @@ class AppSettingsSnapshot {
     required this.aiToolResultCompressionThresholdChars,
     required this.aiToolResultCompressionEnabled,
     this.aiMicroCompressionEnabled = false,
+    this.aiMessageContentFormat = defaultAiMessageContentFormat,
+    this.aiHtmlRenderFallback = defaultAiHtmlRenderFallback,
     required this.aiToolResultCompressionHeadTailWindowChars,
     required this.aiToolResultCompressionMaxPathHits,
     required this.aiInputCacheEnabled,
@@ -698,6 +703,14 @@ class AppSettingsSnapshot {
   /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
   final bool aiMicroCompressionEnabled;
 
+  /// 2026-05-24 — 助手消息内容渲染格式（Markdown / 纯文本 / HTML）。
+  /// 非 Markdown 模式会在 Prompt 末尾注入对应 `output_format` 片段。
+  final AiMessageContentFormat aiMessageContentFormat;
+
+  /// 2026-05-24 — HTML 渲染失败时的回退策略，仅在
+  /// [aiMessageContentFormat] 为 HTML 时生效。
+  final AiHtmlRenderFallback aiHtmlRenderFallback;
+
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int aiToolResultCompressionHeadTailWindowChars;
 
@@ -927,6 +940,8 @@ class AppSettingsSnapshot {
     int? aiToolResultCompressionThresholdChars,
     bool? aiToolResultCompressionEnabled,
     bool? aiMicroCompressionEnabled,
+    AiMessageContentFormat? aiMessageContentFormat,
+    AiHtmlRenderFallback? aiHtmlRenderFallback,
     int? aiToolResultCompressionHeadTailWindowChars,
     int? aiToolResultCompressionMaxPathHits,
     bool? aiInputCacheEnabled,
@@ -1051,6 +1066,10 @@ class AppSettingsSnapshot {
           aiToolResultCompressionEnabled ?? this.aiToolResultCompressionEnabled,
       aiMicroCompressionEnabled:
           aiMicroCompressionEnabled ?? this.aiMicroCompressionEnabled,
+      aiMessageContentFormat:
+          aiMessageContentFormat ?? this.aiMessageContentFormat,
+      aiHtmlRenderFallback:
+          aiHtmlRenderFallback ?? this.aiHtmlRenderFallback,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars ??
           this.aiToolResultCompressionHeadTailWindowChars,

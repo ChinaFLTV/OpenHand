@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
+import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
@@ -182,6 +183,8 @@ class SettingsStore {
       'ai_tool_result_compression_enabled':
           snapshot.aiToolResultCompressionEnabled,
       'ai_micro_compression_enabled': snapshot.aiMicroCompressionEnabled,
+      'ai_message_content_format': snapshot.aiMessageContentFormat.storageKey,
+      'ai_html_render_fallback': snapshot.aiHtmlRenderFallback.storageKey,
       'ai_tool_result_compression_head_tail_window_chars':
           snapshot.aiToolResultCompressionHeadTailWindowChars,
       'ai_tool_result_compression_max_path_hits':
@@ -446,6 +449,12 @@ class SettingsStore {
         json['ai_micro_compression_enabled'] is bool
         ? json['ai_micro_compression_enabled'] as bool
         : false;
+    final aiMessageContentFormat = AiMessageContentFormat.fromStorageKey(
+      json['ai_message_content_format'],
+    );
+    final aiHtmlRenderFallback = AiHtmlRenderFallback.fromStorageKey(
+      json['ai_html_render_fallback'],
+    );
     final aiToolResultCompressionHeadTailWindowChars =
         json['ai_tool_result_compression_head_tail_window_chars'] is int &&
             (json['ai_tool_result_compression_head_tail_window_chars']
@@ -1250,6 +1259,8 @@ class SettingsStore {
           aiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: aiToolResultCompressionEnabled,
       aiMicroCompressionEnabled: aiMicroCompressionEnabled,
+      aiMessageContentFormat: aiMessageContentFormat,
+      aiHtmlRenderFallback: aiHtmlRenderFallback,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: aiToolResultCompressionMaxPathHits,
