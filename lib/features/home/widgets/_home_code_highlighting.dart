@@ -307,7 +307,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                       : Icons.content_copy_rounded,
                   backgroundColor: palette.actionColor,
                   foregroundColor: palette.actionTextColor,
-                  onTap: _copyCodeBlock,
+                  onTap: () {
+                    _BubbleHtmlInteractiveScope.maybeOf(context)
+                        ?.markInteractiveTap();
+                    _copyCodeBlock();
+                  },
                 ),
                 const SizedBox(width: 8),
                 _buildHeaderPill(
@@ -317,7 +321,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                       : Icons.download_rounded,
                   backgroundColor: palette.actionColor,
                   foregroundColor: palette.actionTextColor,
-                  onTap: () => _downloadCodeBlock(effectiveLanguage),
+                  onTap: () {
+                    _BubbleHtmlInteractiveScope.maybeOf(context)
+                        ?.markInteractiveTap();
+                    _downloadCodeBlock(effectiveLanguage);
+                  },
                 ),
                 if (isHtmlLanguage) ...[
                   const SizedBox(width: 8),
@@ -326,7 +334,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     icon: Icons.play_arrow_rounded,
                     backgroundColor: palette.actionColor,
                     foregroundColor: palette.actionTextColor,
-                    onTap: _runHtmlPreview,
+                    onTap: () {
+                      _BubbleHtmlInteractiveScope.maybeOf(context)
+                          ?.markInteractiveTap();
+                      _runHtmlPreview();
+                    },
                   ),
                 ],
               ],

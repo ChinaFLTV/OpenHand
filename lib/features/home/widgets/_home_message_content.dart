@@ -387,6 +387,8 @@ class _CollapsibleMessageMarkdownBodyState
           child: InkWell(
             borderRadius: _borderRadius18,
             onTap: () {
+              _BubbleHtmlInteractiveScope.maybeOf(context)
+                  ?.markInteractiveTap();
               setState(() {
                 _collapsed = !_collapsed;
                 _userToggled = true;
@@ -1470,10 +1472,15 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       child: Semantics(
         button: true,
         label: semanticsLabel,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: child,
+        child: Builder(
+          builder: (ctx) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              _BubbleHtmlInteractiveScope.maybeOf(ctx)?.markInteractiveTap();
+              onTap();
+            },
+            child: child,
+          ),
         ),
       ),
     );
@@ -1531,6 +1538,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final resolvedPath = resolveMarkdownMessageLinkPath(href, widget.pathRoots);
     if (resolvedPath != null) {
       recognizer.onTap = () {
+        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
         unawaited(_openResolvedMessagePath(context, resolvedPath));
       };
       return recognizer;
@@ -1538,6 +1546,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final externalUri = parseSupportedMessageLinkUri(href);
     if (externalUri != null) {
       recognizer.onTap = () {
+        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
         unawaited(_openMessageLinkUri(context, externalUri));
       };
     }
@@ -1558,6 +1567,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     }
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
+        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
         unawaited(_openResolvedMessagePath(context, resolvedPath));
       };
     _recognizers.add(recognizer);
@@ -1732,6 +1742,8 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
           child: InkWell(
             borderRadius: _borderRadius18,
             onTap: () {
+              _BubbleHtmlInteractiveScope.maybeOf(context)
+                  ?.markInteractiveTap();
               final nextCollapsed = !_collapsed;
               setState(() {
                 _collapsed = nextCollapsed;

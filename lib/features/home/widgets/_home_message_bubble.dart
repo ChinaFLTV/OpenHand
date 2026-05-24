@@ -56,6 +56,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
   final GlobalKey _metaCapsuleKey = GlobalKey();
+
+  // 2026-05-22: 外层 Listener.onPointerUp 在 Flutter gesture arena
+  // 解析子节点 onTap 之前就会触发，无法事先得知本次点击是否会被
+  // Markdown 链接 / 图片附件 / 代码块工具栏等子交互组件处理。改为
+  // 延迟 80ms 调度选中切换：子交互回调命中时调用 markInteractiveTap()
+  // 取消调度，避免点完链接还顺带把功能按钮条切出来。空白处点击
+  // 仍然几乎瞬时（80ms 几乎不可察）。
+  Timer? _pendingSelectionToggleTimer;
   // 2026-05-25: HTML 消息正文以 WebView 渲染时，内部按钮/超链接/输入框
   // 等交互元素的点击落点会被外层 Listener 的"选中切换"吃掉（HitTestBehavior
   // .translucent 让 Listener 总能收到指针）。让 `_HtmlBubbleWebView` 在
@@ -127,6 +135,37 @@ class _MessageBubbleState extends State<_MessageBubble> {
       if (rect.contains(globalPosition)) return true;
     }
     return false;
+  }
+
+  /// 子交互回调（Markdown 链接、图片附件、代码块工具栏按钮等）在
+  /// 触发自身动作之前调用此方法，告知气泡"本次点击已被消费"，从而
+  /// 取消即将到来的延迟选中切换，避免点击交互后顺带切出/收起功能按钮。
+  void markInteractiveTap() {
+    _pendingSelectionToggleTimer?.cancel();
+    _pendingSelectionToggleTimer = null;
+  }
+
+  void _scheduleSelectionToggle() {
+    _pendingSelectionToggleTimer?.cancel();
+    _pendingSelectionToggleTimer = Timer(
+      const Duration(milliseconds: 80),
+      () {
+        _pendingSelectionToggleTimer = null;
+        if (!mounted) return;
+        if (widget.isSelected) {
+          widget.onDeselect();
+        } else {
+          widget.onSelect();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _pendingSelectionToggleTimer?.cancel();
+    _pendingSelectionToggleTimer = null;
+    super.dispose();
   }
 
   @override
@@ -781,12 +820,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         final movement = (event.position - downPos).distance;
         final elapsed = DateTime.now().difference(downAt);
         if (movement <= 8 && elapsed.inMilliseconds <= 350) {
-          // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示
-          if (widget.isSelected) {
-            widget.onDeselect();
-          } else {
-            widget.onSelect();
-          }
+          // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示。
+          // 延迟 80ms，给气泡内的子交互回调（链接 / 图片 / 工具栏按钮）
+          // 一个调用 markInteractiveTap() 取消切换的窗口期。
+          _scheduleSelectionToggle();
         }
       },
       child: TapRegion(
@@ -889,7 +926,11 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
             (attachment) => MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: () => onAttachmentTap?.call(attachment),
+                onTap: () {
+                  _BubbleHtmlInteractiveScope.maybeOf(context)
+                      ?.markInteractiveTap();
+                  onAttachmentTap?.call(attachment);
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
