@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:uuid/uuid.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 

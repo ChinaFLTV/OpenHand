@@ -2465,19 +2465,13 @@ class _HtmlBubbleWebView extends StatefulWidget {
 }
 
 class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
-  WebViewController? _controller;
+  iaw.InAppWebViewController? _controller;
   double? _height;
   bool _hasError = false;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialize();
-  }
 
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
@@ -2507,85 +2501,27 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     super.dispose();
   }
 
-  Future<void> _initialize() async {
+  Future<void> _reload() async {
+    final controller = _controller;
+    if (controller == null) return;
+    setState(() => _height = null);
     try {
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..addJavaScriptChannel(
-          'OpenHandHeight',
-          onMessageReceived: _onHeightMessage,
-        )
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (_) => _installResizeObserver(),
-            onWebResourceError: (error) {
-              silentLog(
-                'home_message_content',
-                'html bubble webview error',
-                error,
-              );
-              if (mounted) {
-                setState(() => _hasError = true);
-              }
-            },
-          ),
-        );
-      if (!Platform.isMacOS) {
-        await controller.setBackgroundColor(Colors.transparent);
-      }
-      if (!mounted) return;
-      await controller.loadHtmlString(_buildDocument());
-      if (!mounted) return;
-      setState(() => _controller = controller);
+      await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
       silentLog(
         'home_message_content',
-        'html bubble webview init failed',
+        'html bubble reload failed',
         error,
         stack,
       );
-      if (mounted) setState(() => _hasError = true);
     }
   }
 
-  Future<void> _reload() async {
-    final controller = _controller;
-    if (controller == null) {
-      await _initialize();
-      return;
-    }
-    setState(() => _height = null);
-    try {
-      await controller.loadHtmlString(_buildDocument());
-    } catch (error, stack) {
-      silentLog('home_message_content', 'html bubble reload failed', error, stack);
-    }
-  }
-
-  void _onHeightMessage(JavaScriptMessage message) {
-    final value = double.tryParse(message.message);
-    if (value == null || !value.isFinite) return;
-    final next = value.clamp(24.0, 8000.0);
+  void _onContentSizeChanged(Size newSize) {
+    final next = newSize.height.clamp(24.0, 8000.0);
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
     setState(() => _height = next);
-  }
-
-  Future<void> _installResizeObserver() async {
-    final controller = _controller;
-    if (controller == null) return;
-    try {
-      await controller.runJavaScript(
-        "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);OpenHandHeight.postMessage(String(h));}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
-      );
-    } catch (error, stack) {
-      silentLog(
-        'home_message_content',
-        'html bubble resize observer install failed',
-        error,
-        stack,
-      );
-    }
   }
 
   String _buildDocument() {
@@ -2635,35 +2571,40 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         baseTextStyle: widget.baseTextStyle,
       );
     }
-    final controller = _controller;
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
     final height = _height ?? fallbackHeight;
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: controller == null
-          ? const SizedBox.shrink()
-          : KeyedSubtree(
-              key: _webViewRegionKey,
-              // 2026-05-25: WebView 用 EagerGestureRecognizer 立即赢下
-              // gesture arena —— 不再让祖先 SelectionArea / Listener /
-              // ListView 滚动等抢走指针，HTML 内部按钮 / 链接 / 表单可点。
-              // 同时外层包 MouseRegion(cursor: defer) 屏蔽 Flutter 鼠标
-              // 跟踪器对该区域的光标决策，避免与 WKWebView 自己的 NSCursor
-              // 在悬停链接时反复切换出现"箭头-手指"闪烁。
-              child: MouseRegion(
-                opaque: false,
-                child: WebViewWidget(
-                  controller: controller,
-                  gestureRecognizers:
-                      <Factory<OneSequenceGestureRecognizer>>{
-                        Factory<EagerGestureRecognizer>(
-                          () => EagerGestureRecognizer(),
-                        ),
-                      },
-                ),
-              ),
-            ),
+      child: KeyedSubtree(
+        key: _webViewRegionKey,
+        // 2026-05-25: 改用 flutter_inappwebview —— macOS WKWebView 通过
+        // webview_flutter 的 AppKitView 路径长期收不到鼠标点击；
+        // flutter_inappwebview 走自己的平台通道封装，macOS 下 <details>
+        // / <button> / <a> 等可正常交互。onContentSizeChanged 直接给出
+        // 内容真实高度，省掉原先 ResizeObserver + JS 通道回传。
+        child: iaw.InAppWebView(
+          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+          initialSettings: iaw.InAppWebViewSettings(
+            transparentBackground: !Platform.isMacOS,
+            disableVerticalScroll: true,
+          ),
+          onWebViewCreated: (controller) {
+            _controller = controller;
+          },
+          onContentSizeChanged: (controller, oldSize, newSize) {
+            _onContentSizeChanged(Size(newSize.width, newSize.height));
+          },
+          onReceivedError: (controller, request, error) {
+            silentLog(
+              'home_message_content',
+              'html bubble webview error',
+              error,
+            );
+            if (mounted) setState(() => _hasError = true);
+          },
+        ),
+      ),
     );
   }
 }
