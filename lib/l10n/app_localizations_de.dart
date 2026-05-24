@@ -1624,6 +1624,22 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiHtmlRenderFallbackPlainText => 'Klartext';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'HTML-Inhaltsfülle';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      'Steuert die visuelle Intensität, die im HTML-Modus an das Modell weitergegeben wird. Ausgewogen ist Standard (zurückhaltend in Graustufen); Reich gibt Farben und Karten frei; Lebhaft treibt Verläufe, Glasmorphismus und Hero-Blöcke auf die Spitze – höchste Token-Kosten.';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => 'Ausgewogen';
+
+  @override
+  String get aiHtmlContentRichnessRich => 'Reich';
+
+  @override
+  String get aiHtmlContentRichnessVivid => 'Lebhaft';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Kompressions-Kopf-/Endfenster';
 

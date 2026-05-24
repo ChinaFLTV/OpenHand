@@ -998,6 +998,31 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
+    final htmlContentRichnessControl = SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<AiHtmlContentRichness>(
+        key: const ValueKey<String>('settingsAiHtmlContentRichnessDropdown'),
+        initialValue: settingsController.aiHtmlContentRichness,
+        items: <DropdownMenuItem<AiHtmlContentRichness>>[
+          DropdownMenuItem<AiHtmlContentRichness>(
+            value: AiHtmlContentRichness.balanced,
+            child: Text(l10n.aiHtmlContentRichnessBalanced),
+          ),
+          DropdownMenuItem<AiHtmlContentRichness>(
+            value: AiHtmlContentRichness.rich,
+            child: Text(l10n.aiHtmlContentRichnessRich),
+          ),
+          DropdownMenuItem<AiHtmlContentRichness>(
+            value: AiHtmlContentRichness.vivid,
+            child: Text(l10n.aiHtmlContentRichnessVivid),
+          ),
+        ],
+        onChanged: (value) async {
+          if (value == null) return;
+          await settingsController.updateAiHtmlContentRichness(value);
+        },
+      ),
+    );
     final toolResultCompressionHeadTailWindowControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2199,14 +2224,28 @@ class _SettingsViewState extends State<SettingsView> {
               _AnimatedSettingReveal(
                 visible: settingsController.aiMessageContentFormat ==
                     AiMessageContentFormat.html,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: _ResponsiveSettingRow(
-                    title: l10n.aiHtmlRenderFallbackLabel,
-                    subtitle: l10n.aiHtmlRenderFallbackBody,
-                    control: htmlRenderFallbackControl,
-                    controlMaxWidth: 320,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: _ResponsiveSettingRow(
+                        title: l10n.aiHtmlContentRichnessLabel,
+                        subtitle: l10n.aiHtmlContentRichnessBody,
+                        control: htmlContentRichnessControl,
+                        controlMaxWidth: 320,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: _ResponsiveSettingRow(
+                        title: l10n.aiHtmlRenderFallbackLabel,
+                        subtitle: l10n.aiHtmlRenderFallbackBody,
+                        control: htmlRenderFallbackControl,
+                        controlMaxWidth: 320,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -1556,6 +1556,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiHtmlRenderFallbackPlainText => 'プレーンテキスト';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'HTML コンテンツ豊富度';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      'HTML モードでモデルに注入する視覚スタイルの強度を制御します。バランスがデフォルト（抑制されたモノクロ）；リッチは色とカードを解放；ビビッドはグラデーション、ガラスモーフィズム、ヒーローブロックを最大化し、トークンコストが最も高くなります。';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => 'バランス';
+
+  @override
+  String get aiHtmlContentRichnessRich => 'リッチ';
+
+  @override
+  String get aiHtmlContentRichnessVivid => 'ビビッド';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '圧縮の先頭/末尾ウィンドウ';
 
   @override

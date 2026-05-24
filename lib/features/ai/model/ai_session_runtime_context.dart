@@ -97,6 +97,7 @@ class AiSessionRuntimeContext {
     this.microCompressionEnabled = false,
     this.messageContentFormat = defaultAiMessageContentFormat,
     this.htmlRenderFallback = defaultAiHtmlRenderFallback,
+    this.htmlContentRichness = defaultAiHtmlContentRichness,
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
@@ -221,6 +222,10 @@ class AiSessionRuntimeContext {
   /// 2026-05-24 — HTML 渲染失败时的回退策略，仅在
   /// [messageContentFormat] 为 `AiMessageContentFormat.html` 时生效。
   final AiHtmlRenderFallback htmlRenderFallback;
+
+  /// 2026-05-25 — HTML 内容丰富度。仅在 [messageContentFormat] 为 HTML 时生效；
+  /// `AiPromptBuilder` 根据该值选择不同强度的 `output_format` reminder。
+  final AiHtmlContentRichness htmlContentRichness;
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int toolResultCompressionHeadTailWindowChars;
@@ -452,6 +457,7 @@ class AiSessionRuntimeContext {
       'tool_result_compression_enabled': toolResultCompressionEnabled,
       'message_content_format': messageContentFormat.storageKey,
       'html_render_fallback': htmlRenderFallback.storageKey,
+      'html_content_richness': htmlContentRichness.storageKey,
       'tool_result_compression_head_tail_window_chars':
           toolResultCompressionHeadTailWindowChars,
       'tool_result_compression_max_path_hits': toolResultCompressionMaxPathHits,

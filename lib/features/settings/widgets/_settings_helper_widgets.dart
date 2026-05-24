@@ -84,6 +84,33 @@ class _SettingsSubsectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final motionDisabled = MediaQuery.disableAnimationsOf(context);
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          description,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (motionDisabled)
+          child
+        else
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 420),
+              reverseDuration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutBack,
+              alignment: Alignment.topCenter,
+              child: child,
+            ),
+          ),
+      ],
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
@@ -94,21 +121,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              description,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
+        child: body,
       ),
     );
   }
@@ -1228,14 +1241,36 @@ class _AnimatedSettingReveal extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 420),
-        reverseDuration: const Duration(milliseconds: 240),
+        reverseDuration: const Duration(milliseconds: 260),
         curve: Curves.easeOutBack,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          reverseDuration: const Duration(milliseconds: 180),
-          transitionBuilder: (child, animation) =>
-              FadeTransition(opacity: animation, child: child),
+          duration: const Duration(milliseconds: 320),
+          reverseDuration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final slide = Tween<Offset>(
+              begin: const Offset(0, -0.06),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+            );
+            final scale = Tween<double>(begin: 0.97, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            );
+            return SlideTransition(
+              position: slide,
+              child: FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: scale,
+                  alignment: Alignment.topCenter,
+                  child: child,
+                ),
+              ),
+            );
+          },
           child: visible
               ? KeyedSubtree(key: const ValueKey(true), child: child)
               : const SizedBox.shrink(key: ValueKey(false)),

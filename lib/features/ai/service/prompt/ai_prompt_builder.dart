@@ -592,11 +592,12 @@ class AiPromptBuilder {
         ),
       if (runtimeContext.messageContentFormat ==
               AiMessageContentFormat.html &&
-          AiOutputFormatPrompts.html.isNotEmpty)
+          AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)
+              .isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# Output Format Reminder\n\n${AiOutputFormatPrompts.html}',
+              '# Output Format Reminder\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
         ),
       // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
       if (runtimeContext.messageContentFormat ==

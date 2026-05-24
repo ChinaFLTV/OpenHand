@@ -4308,6 +4308,7 @@ class WebMessagePlatformService {
           _settingsController.aiMessageCompressionThresholdChars,
       messageContentFormat: _settingsController.aiMessageContentFormat,
       htmlRenderFallback: _settingsController.aiHtmlRenderFallback,
+      htmlContentRichness: _settingsController.aiHtmlContentRichness,
       fallbackTitleMaxCharacters:
           _settingsController.aiFallbackTitleMaxCharacters,
       generatedTitleMaxCharacters:

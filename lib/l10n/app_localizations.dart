@@ -3002,6 +3002,36 @@ abstract class AppLocalizations {
   /// **'纯文本'**
   String get aiHtmlRenderFallbackPlainText;
 
+  /// No description provided for @aiHtmlContentRichnessLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HTML 内容丰富度'**
+  String get aiHtmlContentRichnessLabel;
+
+  /// No description provided for @aiHtmlContentRichnessBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制 HTML 模式下注入给模型的视觉风格强度。适中为默认（克制黑白灰）；丰富放开色彩与卡片；多彩推到极致渐变、玻璃拟态与封面块，token 成本最高。'**
+  String get aiHtmlContentRichnessBody;
+
+  /// No description provided for @aiHtmlContentRichnessBalanced.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'适中'**
+  String get aiHtmlContentRichnessBalanced;
+
+  /// No description provided for @aiHtmlContentRichnessRich.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'丰富'**
+  String get aiHtmlContentRichnessRich;
+
+  /// No description provided for @aiHtmlContentRichnessVivid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多彩'**
+  String get aiHtmlContentRichnessVivid;
+
   /// No description provided for @aiToolResultCompressionHeadTailWindowLabel.
   ///
   /// In zh_Hans, this message translates to:

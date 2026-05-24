@@ -61,6 +61,7 @@ class AppSettingsSnapshot {
       aiMicroCompressionEnabled: false,
       aiMessageContentFormat: defaultAiMessageContentFormat,
       aiHtmlRenderFallback: defaultAiHtmlRenderFallback,
+      aiHtmlContentRichness: defaultAiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
           defaultAiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits:
@@ -208,6 +209,7 @@ class AppSettingsSnapshot {
     this.aiMicroCompressionEnabled = false,
     this.aiMessageContentFormat = defaultAiMessageContentFormat,
     this.aiHtmlRenderFallback = defaultAiHtmlRenderFallback,
+    this.aiHtmlContentRichness = defaultAiHtmlContentRichness,
     required this.aiToolResultCompressionHeadTailWindowChars,
     required this.aiToolResultCompressionMaxPathHits,
     required this.aiInputCacheEnabled,
@@ -711,6 +713,10 @@ class AppSettingsSnapshot {
   /// [aiMessageContentFormat] 为 HTML 时生效。
   final AiHtmlRenderFallback aiHtmlRenderFallback;
 
+  /// 2026-05-25 — HTML 内容丰富度。仅在 [aiMessageContentFormat] 为 HTML 时
+  /// 生效；prompt builder 会根据该值选择不同强度的 `output_format` reminder。
+  final AiHtmlContentRichness aiHtmlContentRichness;
+
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int aiToolResultCompressionHeadTailWindowChars;
 
@@ -942,6 +948,7 @@ class AppSettingsSnapshot {
     bool? aiMicroCompressionEnabled,
     AiMessageContentFormat? aiMessageContentFormat,
     AiHtmlRenderFallback? aiHtmlRenderFallback,
+    AiHtmlContentRichness? aiHtmlContentRichness,
     int? aiToolResultCompressionHeadTailWindowChars,
     int? aiToolResultCompressionMaxPathHits,
     bool? aiInputCacheEnabled,
@@ -1070,6 +1077,8 @@ class AppSettingsSnapshot {
           aiMessageContentFormat ?? this.aiMessageContentFormat,
       aiHtmlRenderFallback:
           aiHtmlRenderFallback ?? this.aiHtmlRenderFallback,
+      aiHtmlContentRichness:
+          aiHtmlContentRichness ?? this.aiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars ??
           this.aiToolResultCompressionHeadTailWindowChars,

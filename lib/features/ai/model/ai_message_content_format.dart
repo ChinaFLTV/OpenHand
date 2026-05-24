@@ -79,3 +79,45 @@ const AiMessageContentFormat defaultAiMessageContentFormat =
     AiMessageContentFormat.markdown;
 const AiHtmlRenderFallback defaultAiHtmlRenderFallback =
     AiHtmlRenderFallback.markdown;
+
+/// HTML 内容丰富度。仅在 [AiMessageContentFormat.html] 下生效，控制
+/// 注入给模型的 `output_format` reminder 强度：
+///
+/// - balanced：克制、黑白灰主色调、结构化优先，token 成本最低。
+/// - rich：放开色彩、卡片、徽章、图表，鼓励信息可视化。
+/// - vivid：最高浓度——大胆渐变、霓虹/玻璃拟态、强对比配色与视觉冲击。
+enum AiHtmlContentRichness {
+  balanced,
+  rich,
+  vivid;
+
+  String get storageKey {
+    switch (this) {
+      case AiHtmlContentRichness.balanced:
+        return 'balanced';
+      case AiHtmlContentRichness.rich:
+        return 'rich';
+      case AiHtmlContentRichness.vivid:
+        return 'vivid';
+    }
+  }
+
+  static AiHtmlContentRichness fromStorageKey(
+    Object? value, {
+    AiHtmlContentRichness fallback = AiHtmlContentRichness.balanced,
+  }) {
+    if (value is! String) return fallback;
+    switch (value) {
+      case 'balanced':
+        return AiHtmlContentRichness.balanced;
+      case 'rich':
+        return AiHtmlContentRichness.rich;
+      case 'vivid':
+        return AiHtmlContentRichness.vivid;
+    }
+    return fallback;
+  }
+}
+
+const AiHtmlContentRichness defaultAiHtmlContentRichness =
+    AiHtmlContentRichness.balanced;

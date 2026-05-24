@@ -1604,6 +1604,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiHtmlRenderFallbackPlainText => 'PlainText';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'HTML Content Richness';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      'Controls the visual intensity injected into the model under HTML mode. Balanced is the default (restrained grayscale); Rich unlocks color and cards; Vivid pushes gradients, glassmorphism, and hero blocks to the max — highest token cost.';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => 'Balanced';
+
+  @override
+  String get aiHtmlContentRichnessRich => 'Rich';
+
+  @override
+  String get aiHtmlContentRichnessVivid => 'Vivid';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Compression Head/Tail Window';
 

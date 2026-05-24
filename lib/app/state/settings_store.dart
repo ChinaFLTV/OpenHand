@@ -185,6 +185,7 @@ class SettingsStore {
       'ai_micro_compression_enabled': snapshot.aiMicroCompressionEnabled,
       'ai_message_content_format': snapshot.aiMessageContentFormat.storageKey,
       'ai_html_render_fallback': snapshot.aiHtmlRenderFallback.storageKey,
+      'ai_html_content_richness': snapshot.aiHtmlContentRichness.storageKey,
       'ai_tool_result_compression_head_tail_window_chars':
           snapshot.aiToolResultCompressionHeadTailWindowChars,
       'ai_tool_result_compression_max_path_hits':
@@ -454,6 +455,9 @@ class SettingsStore {
     );
     final aiHtmlRenderFallback = AiHtmlRenderFallback.fromStorageKey(
       json['ai_html_render_fallback'],
+    );
+    final aiHtmlContentRichness = AiHtmlContentRichness.fromStorageKey(
+      json['ai_html_content_richness'],
     );
     final aiToolResultCompressionHeadTailWindowChars =
         json['ai_tool_result_compression_head_tail_window_chars'] is int &&
@@ -1261,6 +1265,7 @@ class SettingsStore {
       aiMicroCompressionEnabled: aiMicroCompressionEnabled,
       aiMessageContentFormat: aiMessageContentFormat,
       aiHtmlRenderFallback: aiHtmlRenderFallback,
+      aiHtmlContentRichness: aiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: aiToolResultCompressionMaxPathHits,

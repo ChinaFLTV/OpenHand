@@ -1540,6 +1540,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiHtmlRenderFallbackPlainText => '纯文本';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'HTML 内容丰富度';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      '控制 HTML 模式下注入给模型的视觉风格强度。适中为默认（克制黑白灰）；丰富放开色彩与卡片；多彩推到极致渐变、玻璃拟态与封面块，token 成本最高。';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => '适中';
+
+  @override
+  String get aiHtmlContentRichnessRich => '丰富';
+
+  @override
+  String get aiHtmlContentRichnessVivid => '多彩';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
 
   @override
@@ -9367,6 +9383,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiHtmlRenderFallbackPlainText => '纯文本';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'HTML 内容丰富度';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      '控制 HTML 模式下注入给模型的视觉风格强度。适中为默认（克制黑白灰）；丰富放开色彩与卡片；多彩推到极致渐变、玻璃拟态与封面块，token 成本最高。';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => '适中';
+
+  @override
+  String get aiHtmlContentRichnessRich => '丰富';
+
+  @override
+  String get aiHtmlContentRichnessVivid => '多彩';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
 
   @override
@@ -17191,6 +17223,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiHtmlRenderFallbackPlainText => '純文字';
+
+  @override
+  String get aiHtmlContentRichnessLabel => 'HTML 內容豐富度';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      '控制 HTML 模式下注入給模型的視覺風格強度。適中為預設（克制黑白灰）；豐富放開色彩與卡片；多彩推到極致漸層、玻璃擬態與封面塊，token 成本最高。';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => '適中';
+
+  @override
+  String get aiHtmlContentRichnessRich => '豐富';
+
+  @override
+  String get aiHtmlContentRichnessVivid => '多彩';
 
   @override
   String get aiToolResultCompressionHeadTailWindowLabel => '壓縮摘要首尾片段視窗';

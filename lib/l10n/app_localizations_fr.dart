@@ -1629,6 +1629,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiHtmlRenderFallbackPlainText => 'Texte brut';
 
   @override
+  String get aiHtmlContentRichnessLabel => 'Richesse du contenu HTML';
+
+  @override
+  String get aiHtmlContentRichnessBody =>
+      'Contrôle l\'intensité visuelle injectée dans le modèle en mode HTML. Équilibré est le défaut (niveaux de gris sobres) ; Riche libère couleurs et cartes ; Vif pousse dégradés, glassmorphisme et blocs héro à l\'extrême — coût en tokens le plus élevé.';
+
+  @override
+  String get aiHtmlContentRichnessBalanced => 'Équilibré';
+
+  @override
+  String get aiHtmlContentRichnessRich => 'Riche';
+
+  @override
+  String get aiHtmlContentRichnessVivid => 'Vif';
+
+  @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
       'Fenêtre début/fin de compression';
 

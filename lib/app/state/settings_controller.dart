@@ -108,6 +108,7 @@ class SettingsController extends ChangeNotifier {
        _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled,
        _aiMessageContentFormat = snapshot.aiMessageContentFormat,
        _aiHtmlRenderFallback = snapshot.aiHtmlRenderFallback,
+       _aiHtmlContentRichness = snapshot.aiHtmlContentRichness,
        _aiToolResultCompressionHeadTailWindowChars =
            snapshot.aiToolResultCompressionHeadTailWindowChars,
        _aiToolResultCompressionMaxPathHits =
@@ -260,6 +261,7 @@ class SettingsController extends ChangeNotifier {
   bool _aiMicroCompressionEnabled;
   AiMessageContentFormat _aiMessageContentFormat;
   AiHtmlRenderFallback _aiHtmlRenderFallback;
+  AiHtmlContentRichness _aiHtmlContentRichness;
   int _aiToolResultCompressionHeadTailWindowChars;
   int _aiToolResultCompressionMaxPathHits;
   bool _aiInputCacheEnabled;
@@ -417,6 +419,7 @@ class SettingsController extends ChangeNotifier {
   bool get aiMicroCompressionEnabled => _aiMicroCompressionEnabled;
   AiMessageContentFormat get aiMessageContentFormat => _aiMessageContentFormat;
   AiHtmlRenderFallback get aiHtmlRenderFallback => _aiHtmlRenderFallback;
+  AiHtmlContentRichness get aiHtmlContentRichness => _aiHtmlContentRichness;
   int get aiToolResultCompressionHeadTailWindowChars =>
       _aiToolResultCompressionHeadTailWindowChars;
   int get aiToolResultCompressionMaxPathHits =>
@@ -979,6 +982,18 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiHtmlRenderFallback = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiHtmlContentRichness(
+    AiHtmlContentRichness value,
+  ) async {
+    return _commitMutation(() {
+      if (_aiHtmlContentRichness == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiHtmlContentRichness = value;
       return _MutationDisposition.apply;
     });
   }
@@ -2605,6 +2620,7 @@ class SettingsController extends ChangeNotifier {
       aiMicroCompressionEnabled: _aiMicroCompressionEnabled,
       aiMessageContentFormat: _aiMessageContentFormat,
       aiHtmlRenderFallback: _aiHtmlRenderFallback,
+      aiHtmlContentRichness: _aiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
           _aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
@@ -2726,6 +2742,7 @@ class SettingsController extends ChangeNotifier {
     _aiMicroCompressionEnabled = snapshot.aiMicroCompressionEnabled;
     _aiMessageContentFormat = snapshot.aiMessageContentFormat;
     _aiHtmlRenderFallback = snapshot.aiHtmlRenderFallback;
+    _aiHtmlContentRichness = snapshot.aiHtmlContentRichness;
     _aiToolResultCompressionHeadTailWindowChars =
         snapshot.aiToolResultCompressionHeadTailWindowChars;
     _aiToolResultCompressionMaxPathHits =
