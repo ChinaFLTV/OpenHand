@@ -796,12 +796,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
       onPointerDown: (event) {
         _pointerDownPosition = event.position;
         _pointerDownAt = DateTime.now();
+        // ignore: avoid_print
+        print(
+          '[bubble.pointer.debug] DOWN pos=${event.position} '
+          'insideHtml=${_isPointerInsideHtmlInteractiveRegion(event.position)} '
+          'regions=${_htmlInteractiveRegionKeys.length}',
+        );
       },
       onPointerUp: (event) {
         final downPos = _pointerDownPosition;
         final downAt = _pointerDownAt;
         _pointerDownPosition = null;
         _pointerDownAt = null;
+        // ignore: avoid_print
+        print(
+          '[bubble.pointer.debug] UP pos=${event.position} '
+          'insideHtml=${_isPointerInsideHtmlInteractiveRegion(event.position)}',
+        );
         if (downPos == null || downAt == null) {
           return;
         }

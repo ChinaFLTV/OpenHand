@@ -2596,6 +2596,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           },
           onWebViewCreated: (controller) {
             _controller = controller;
+            // ignore: avoid_print
+            print('[bubble.webview.debug] onWebViewCreated');
             controller.addJavaScriptHandler(
               handlerName: 'OpenHandHeight',
               callback: (args) {
@@ -2608,12 +2610,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
                 _onContentSizeChanged(Size(0, value));
               },
             );
+            controller.addJavaScriptHandler(
+              handlerName: 'OpenHandDebug',
+              callback: (args) {
+                // ignore: avoid_print
+                print('[bubble.webview.debug] js->dart $args');
+                return null;
+              },
+            );
           },
           onLoadStop: (controller, url) async {
+            // ignore: avoid_print
+            print('[bubble.webview.debug] onLoadStop url=$url');
             try {
               await controller.evaluateJavascript(
                 source:
-                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
+                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);"
+                    "function dbg(tag,extra){try{window.flutter_inappwebview.callHandler('OpenHandDebug',tag,extra||'');}catch(_){}}"
+                    "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(ev){document.addEventListener(ev,function(e){dbg(ev,(e.target&&e.target.tagName)||'?');},true);});"
+                    "dbg('inject_ok',String(document.body?document.body.children.length:-1));"
+                    "})();",
               );
             } catch (error, stack) {
               silentLog(
