@@ -2591,9 +2591,33 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ),
           onWebViewCreated: (controller) {
             _controller = controller;
+            controller.addJavaScriptHandler(
+              handlerName: 'OpenHandHeight',
+              callback: (args) {
+                if (args.isEmpty) return;
+                final raw = args.first;
+                final value = raw is num
+                    ? raw.toDouble()
+                    : double.tryParse(raw.toString());
+                if (value == null || !value.isFinite) return;
+                _onContentSizeChanged(Size(0, value));
+              },
+            );
           },
-          onContentSizeChanged: (controller, oldSize, newSize) {
-            _onContentSizeChanged(Size(newSize.width, newSize.height));
+          onLoadStop: (controller, url) async {
+            try {
+              await controller.evaluateJavascript(
+                source:
+                    "(function(){function send(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{new ResizeObserver(send).observe(document.documentElement);if(document.body)new ResizeObserver(send).observe(document.body);}catch(_){}window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
+              );
+            } catch (error, stack) {
+              silentLog(
+                'home_message_content',
+                'html bubble height observer install failed',
+                error,
+                stack,
+              );
+            }
           },
           onReceivedError: (controller, request, error) {
             silentLog(
