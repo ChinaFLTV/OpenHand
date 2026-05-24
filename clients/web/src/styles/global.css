@@ -4347,20 +4347,20 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body *::after {
   box-sizing: border-box;
 }
-.oh-html-body [style*='display:flex'],
-.oh-html-body [style*='display: flex'],
-.oh-html-body [style*='display:grid'],
-.oh-html-body [style*='display: grid'],
-.oh-html-body [style*='display:inline-flex'],
-.oh-html-body [style*='display: inline-flex'],
-.oh-html-body [style*='display:inline-grid'],
-.oh-html-body [style*='display: inline-grid'] {
+.oh-html-body [style*='display:flex' i],
+.oh-html-body [style*='display: flex' i],
+.oh-html-body [style*='display:grid' i],
+.oh-html-body [style*='display: grid' i],
+.oh-html-body [style*='display:inline-flex' i],
+.oh-html-body [style*='display: inline-flex' i],
+.oh-html-body [style*='display:inline-grid' i],
+.oh-html-body [style*='display: inline-grid' i] {
   max-width: 100%;
 }
-.oh-html-body [style*='display:flex'] > *,
-.oh-html-body [style*='display: flex'] > *,
-.oh-html-body [style*='display:inline-flex'] > *,
-.oh-html-body [style*='display: inline-flex'] > * {
+.oh-html-body [style*='display:flex' i] > *,
+.oh-html-body [style*='display: flex' i] > *,
+.oh-html-body [style*='display:inline-flex' i] > *,
+.oh-html-body [style*='display: inline-flex' i] > * {
   min-width: 0;
 }
 .oh-html-body > * + * { margin-top: 0.5rem; }

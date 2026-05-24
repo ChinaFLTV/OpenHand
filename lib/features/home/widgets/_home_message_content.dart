@@ -1870,6 +1870,8 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
   static const String _cssFlexWrap = 'flex-wrap';
   static const String _cssFlexWrapWrap = 'wrap';
   static const String _cssGap = 'gap';
+  static const String _cssColumnGap = 'column-gap';
+  static const String _cssRowGap = 'row-gap';
   static const String _cssGridTemplateColumns = 'grid-template-columns';
 
   static final RegExp _repeatColumnPattern = RegExp(
@@ -1880,13 +1882,32 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     r'repeat\(\s*auto-(?:fit|fill)\s*,\s*minmax\(\s*([0-9.]+)px',
     caseSensitive: false,
   );
-  static final RegExp _cssNumberPattern = RegExp(r'([0-9.]+)');
+  static final RegExp _cssLengthPattern = RegExp(
+    r'([0-9.]+)\s*(px|rem|em|%)?',
+    caseSensitive: false,
+  );
   static final RegExp _flexSizingPattern = RegExp(
     r'(?:^|;)\s*(?:flex|flex-basis)\s*:',
     caseSensitive: false,
   );
+  static final RegExp _flexValuePattern = RegExp(
+    r'(?:^|;)\s*flex\s*:\s*([^;]+)',
+    caseSensitive: false,
+  );
+  static final RegExp _flexBasisPattern = RegExp(
+    r'(?:^|;)\s*flex-basis\s*:\s*([^;]+)',
+    caseSensitive: false,
+  );
+  static final RegExp _minWidthPattern = RegExp(
+    r'(?:^|;)\s*min-width\s*:\s*([^;]+)',
+    caseSensitive: false,
+  );
   static final RegExp _widthPercentPattern = RegExp(
     r'(?:^|;)\s*width\s*:\s*(?:calc\()?\s*([0-9.]+)%',
+    caseSensitive: false,
+  );
+  static final RegExp _widthPattern = RegExp(
+    r'(?:^|;)\s*width\s*:\s*([^;]+)',
     caseSensitive: false,
   );
 
@@ -1908,17 +1929,18 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
       return LayoutBuilder(
         builder: (context, constraints) {
           final maxWidth = _finiteHtmlWidth(context, constraints);
+          final gap = _gapFor(tree, spacing);
           final wrappedChildren = _maybeConstrainFlexChildren(
             tree,
             children,
             maxWidth,
-            spacing,
+            gap.column,
           );
           return CssSizingHint(
             maxWidth: maxWidth,
             child: Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
+              spacing: gap.column,
+              runSpacing: gap.row,
               alignment: _toWrapAlignment(mainAxisAlignment),
               crossAxisAlignment: _toWrapCrossAlignment(crossAxisAlignment),
               textDirection: textDirection,
@@ -1968,24 +1990,25 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
             return LayoutBuilder(
               builder: (context, constraints) {
                 final maxWidth = _finiteHtmlWidth(context, constraints);
-                final gap = _parseCssPx(_styleValue(tree, _cssGap)) ?? 0.0;
+                final gap = _gapFor(tree, 0.0);
                 final columnCount = _gridColumnCount(
                   tree,
                   maxWidth,
                   unwrapped.length,
-                  gap,
+                  gap.column,
                 );
                 final childWidth = columnCount <= 1
                     ? maxWidth
                     : math.max(
                         0.0,
-                        (maxWidth - gap * (columnCount - 1)) / columnCount,
+                        (maxWidth - gap.column * (columnCount - 1)) /
+                            columnCount,
                       );
                 return CssSizingHint(
                   maxWidth: maxWidth,
                   child: Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
+                    spacing: gap.column,
+                    runSpacing: gap.row,
                     children: [
                       for (final child in unwrapped)
                         SizedBox(width: childWidth, child: child),
@@ -2012,9 +2035,19 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
         !elementChildren.every(_elementUsesFlexibleWidth)) {
       return children;
     }
+    final basis = elementChildren
+        .map((element) => _elementPreferredWidth(element, maxWidth))
+        .whereType<double>()
+        .fold<double>(0.0, math.max);
+    final effectiveColumns = basis > 0
+        ? ((maxWidth + gap) / (basis + gap))
+              .floor()
+              .clamp(1, children.length)
+              .toInt()
+        : children.length;
     final childWidth = math.max(
       0.0,
-      (maxWidth - gap * (children.length - 1)) / children.length,
+      (maxWidth - gap * (effectiveColumns - 1)) / effectiveColumns,
     );
     return [
       for (final child in children) SizedBox(width: childWidth, child: child),
@@ -2022,12 +2055,42 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
   }
 
   static bool _elementUsesFlexibleWidth(dynamic element) {
-    final style = (element.attributes['style'] as String? ?? '').toLowerCase();
+    final style = _inlineStyle(element).toLowerCase();
     if (_flexSizingPattern.hasMatch(style)) return true;
     final widthMatch = _widthPercentPattern.firstMatch(style);
     if (widthMatch == null) return false;
     final percent = double.tryParse(widthMatch.group(1) ?? '');
     return percent != null && percent > 0 && percent < 99;
+  }
+
+  static double? _elementPreferredWidth(dynamic element, double maxWidth) {
+    final style = _inlineStyle(element).toLowerCase();
+    for (final pattern in <RegExp>[
+      _minWidthPattern,
+      _flexBasisPattern,
+      _widthPattern,
+    ]) {
+      final value = pattern.firstMatch(style)?.group(1);
+      final parsed = _parseCssLength(value, maxWidth: maxWidth);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    final flexValue = _flexValuePattern.firstMatch(style)?.group(1);
+    if (flexValue != null) {
+      final matches = _cssLengthPattern.allMatches(flexValue).toList();
+      for (final match in matches.reversed) {
+        final parsed = _parseCssLengthMatch(match, maxWidth: maxWidth);
+        if (parsed != null && parsed > 1) return parsed;
+      }
+    }
+    return null;
+  }
+
+  static String _inlineStyle(dynamic element) {
+    final attributes = element.attributes;
+    if (attributes is Map) {
+      return attributes['style'] as String? ?? '';
+    }
+    return '';
   }
 
   static int _gridColumnCount(
@@ -2088,10 +2151,47 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     return '';
   }
 
-  static double? _parseCssPx(String value) {
-    final match = _cssNumberPattern.firstMatch(value);
+  static _HtmlGap _gapFor(BuildTree tree, double fallback) {
+    final shorthand = _parseCssGap(_styleValue(tree, _cssGap), fallback);
+    final row = _parseCssLength(_styleValue(tree, _cssRowGap)) ?? shorthand.row;
+    final column =
+        _parseCssLength(_styleValue(tree, _cssColumnGap)) ?? shorthand.column;
+    return _HtmlGap(row, column);
+  }
+
+  static _HtmlGap _parseCssGap(String value, double fallback) {
+    final matches = _cssLengthPattern.allMatches(value).toList();
+    if (matches.isEmpty) return _HtmlGap(fallback, fallback);
+    final row = _parseCssLengthMatch(matches.first) ?? fallback;
+    final column = matches.length > 1
+        ? _parseCssLengthMatch(matches[1]) ?? row
+        : row;
+    return _HtmlGap(row, column);
+  }
+
+  static double? _parseCssLength(String? value, {double? maxWidth}) {
+    if (value == null || value.trim().isEmpty) return null;
+    final match = _cssLengthPattern.firstMatch(value);
     if (match == null) return null;
-    return double.tryParse(match.group(1) ?? '');
+    return _parseCssLengthMatch(match, maxWidth: maxWidth);
+  }
+
+  static double? _parseCssLengthMatch(RegExpMatch match, {double? maxWidth}) {
+    final raw = double.tryParse(match.group(1) ?? '');
+    if (raw == null) return null;
+    final unit = match.group(2)?.toLowerCase();
+    switch (unit) {
+      case '%':
+        return maxWidth == null ? null : maxWidth * raw / 100;
+      case 'rem':
+      case 'em':
+        return raw * 16;
+      case 'px':
+      case null:
+      case '':
+        return raw;
+    }
+    return raw;
   }
 
   static double _finiteHtmlWidth(
@@ -2135,6 +2235,13 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
         return WrapCrossAlignment.start;
     }
   }
+}
+
+class _HtmlGap {
+  const _HtmlGap(this.row, this.column);
+
+  final double row;
+  final double column;
 }
 
 class _HtmlMessageBody extends StatelessWidget {

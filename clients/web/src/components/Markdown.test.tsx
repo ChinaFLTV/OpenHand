@@ -30,10 +30,10 @@ describe('Markdown', () => {
 
   it('preserves native flex and grid declarations in HTML mode', async () => {
     const source = [
-      '<div data-testid="flex-row" style="display:flex;flex-wrap:wrap;gap:12px">',
+      '<div data-testid="flex-row" style="display:flex;flex-wrap:wrap;gap:8px 12px;column-gap:16px">',
       '<section>定位</section><section>优势</section><section>短板</section>',
       '</div>',
-      '<div data-testid="grid-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">',
+      '<div data-testid="grid-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));row-gap:8px;column-gap:12px">',
       '<section>剧情</section><section>人物</section><section>制作</section>',
       '</div>',
     ].join('');
@@ -49,7 +49,10 @@ describe('Markdown', () => {
     const gridRow = container.querySelector<HTMLElement>('[data-testid="grid-row"]')!;
     expect(flexRow.style.display).toBe('flex');
     expect(flexRow.style.flexWrap).toBe('wrap');
+    expect(flexRow.style.columnGap).toBe('16px');
     expect(gridRow.style.display).toBe('grid');
-    expect(gridRow.style.gridTemplateColumns).toContain('repeat(3,1fr)');
+    expect(gridRow.style.gridTemplateColumns).toContain('repeat(auto-fit,minmax(160px,1fr))');
+    expect(gridRow.style.rowGap).toBe('8px');
+    expect(gridRow.style.columnGap).toBe('12px');
   });
 });
