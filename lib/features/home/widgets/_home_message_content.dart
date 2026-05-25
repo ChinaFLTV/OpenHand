@@ -2543,6 +2543,25 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   function isContentBoxTag(tag) {
     return /^(img|video|canvas|svg|iframe|table|pre|hr|button|input|textarea|select|summary)$/i.test(tag);
   }
+  function insideClosedDetailsContent(node, container) {
+    var original = node.nodeType === 1 ? node : node.parentElement;
+    var element = original;
+    while (element && element !== container.parentElement) {
+      if (tagOf(element) === 'details' && !element.open) {
+        var summary = null;
+        for (var i = 0; i < element.children.length; i++) {
+          if (tagOf(element.children[i]) === 'summary') {
+            summary = element.children[i];
+            break;
+          }
+        }
+        if (!summary || !summary.contains(original)) return true;
+      }
+      if (element === container) break;
+      element = element.parentElement;
+    }
+    return false;
+  }
   function isViewportFiller(node, styles, rect) {
     if (!node || !styles || !rect) return false;
     var tag = tagOf(node);
@@ -2557,6 +2576,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     return !!node.children && node.children.length > 0 && rect.height >= viewport - 1;
   }
   function visibleInContainer(node, container) {
+    if (insideClosedDetailsContent(node, container)) return false;
     var element = node.nodeType === 1 ? node : node.parentElement;
     while (element && element !== container.parentElement) {
       var tag = tagOf(element);
@@ -2626,6 +2646,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       var node = nodes[i];
       var tag = tagOf(node);
       if (isIgnoredTag(tag) || !isContentBoxTag(tag)) continue;
+      if (!visibleInContainer(node, container)) continue;
       var rect = node.getBoundingClientRect();
       if (!rect || (rect.width === 0 && rect.height === 0)) continue;
       var nodeStyles = window.getComputedStyle(node);
