@@ -2456,18 +2456,16 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
-/// 旧版嵌入式 WebView HTML 气泡渲染器。
+/// 嵌入式 WebView HTML 气泡渲染器。
 ///
-/// 线程内 HTML 主路径现在使用 [_HtmlMessageBody]，以获得原生 Flutter
-/// 文本选择、稳定鼠标命中与同步布局高度。此实现仅作为兼容保留，避免
-/// 将平台视图事件代理重新引入普通消息流。
-// ignore: unused_element
+/// 线程内 HTML 需要保留浏览器级 CSS/布局保真；macOS 平台视图鼠标事件
+/// 不稳定，因此点击与拖选由外层气泡 Listener 转发到此 state 合成 DOM
+/// 事件/Selection Range，同时用高度缓存减少会话切换时的二次跳动。
 class _HtmlBubbleWebView extends StatefulWidget {
   const _HtmlBubbleWebView({
     required this.data,
     required this.textColor,
     required this.backgroundColor,
-    // ignore: unused_element_parameter
     this.baseTextStyle,
   });
 
@@ -2498,7 +2496,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       '<style id="openhand-html-bubble-reset">'
       'html,body{min-height:0!important;height:auto!important;'
       'overflow-x:auto;overflow-y:hidden!important;}'
-      'body{box-sizing:border-box;}'
+      'html,body,body *{-webkit-user-select:text;user-select:text;}'
+      'body{box-sizing:border-box;cursor:text;}'
+      'a,button,summary,[role="button"]{cursor:pointer;}'
+      'input,textarea,select{cursor:text;}'
       '</style>';
 
   static const String _heightObserverScript = r'''
@@ -2520,7 +2521,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         style.id = 'openhand-html-bubble-runtime-reset';
         (document.head || document.documentElement).appendChild(style);
       }
-      style.textContent = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}body{box-sizing:border-box!important;}';
+      style.textContent = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}html,body,body *{-webkit-user-select:text;user-select:text;}body{box-sizing:border-box!important;cursor:text;}a,button,summary,[role="button"]{cursor:pointer;}input,textarea,select{cursor:text;}';
       if (document.documentElement) {
         document.documentElement.style.setProperty('min-height', '0', 'important');
         document.documentElement.style.setProperty('height', 'auto', 'important');
@@ -2749,17 +2750,99 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   setTimeout(schedule, 80);
   setTimeout(schedule, 240);
   setTimeout(schedule, 720);
-  setTimeout(schedule, 1400);
+})();
+''';
+
+  static const String _selectionBridgeScript = r'''
+(function(){
+  if (window.__openhandSelectionBridgeInstalled) return;
+  window.__openhandSelectionBridgeInstalled = true;
+  var anchor = null;
+  function textPointFromPoint(x, y) {
+    try {
+      if (document.caretRangeFromPoint) {
+        var range = document.caretRangeFromPoint(x, y);
+        if (range) return { node: range.startContainer, offset: range.startOffset };
+      }
+      if (document.caretPositionFromPoint) {
+        var position = document.caretPositionFromPoint(x, y);
+        if (position) return { node: position.offsetNode, offset: position.offset };
+      }
+      var element = document.elementFromPoint(x, y);
+      if (!element) return null;
+      if (element.nodeType === 3) return { node: element, offset: 0 };
+      var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(node) {
+          return node.nodeValue && node.nodeValue.trim()
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      });
+      var text = walker.nextNode();
+      return text ? { node: text, offset: 0 } : null;
+    } catch (_) {
+      return null;
+    }
+  }
+  function comparePoints(a, b) {
+    if (!a || !b) return 0;
+    if (a.node === b.node) return a.offset - b.offset;
+    var position = a.node.compareDocumentPosition(b.node);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  }
+  function applySelection(from, to) {
+    try {
+      if (!from || !to) return '';
+      var start = from;
+      var end = to;
+      if (comparePoints(start, end) > 0) {
+        start = to;
+        end = from;
+      }
+      var range = document.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return selection.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+  window.__openhandSelectionBridge = function(kind, x, y) {
+    var point = textPointFromPoint(x, y);
+    if (!point) return '';
+    if (kind === 'start') {
+      anchor = point;
+      return applySelection(anchor, point);
+    }
+    if (!anchor) anchor = point;
+    return applySelection(anchor, point);
+  };
 })();
 ''';
 
   iaw.InAppWebViewController? _controller;
   double? _height;
   bool _hasError = false;
+  bool _selectionUpdateInFlight = false;
+  bool _selectionBridgeStarted = false;
+  Offset? _selectionAnchorGlobalPosition;
+  Offset? _pendingSelectionUpdate;
+  static final Map<int, double> _heightCache = <int, double>{};
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
+
+  int get _heightCacheKey => Object.hash(
+    widget.data,
+    widget.baseTextStyle?.fontSize,
+    widget.baseTextStyle?.height,
+  );
 
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
@@ -2796,7 +2879,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final controller = _controller;
     if (controller == null) return;
     setState(() {
-      _height = null;
+      _height = _heightCache[_heightCacheKey];
       _hasError = false;
     });
     try {
@@ -2815,6 +2898,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(24.0, 8000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
+    _heightCache[_heightCacheKey] = next;
+    if (_heightCache.length > 96) {
+      _heightCache.remove(_heightCache.keys.first);
+    }
     setState(() => _height = next);
   }
 
@@ -2843,6 +2930,75 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       silentLog(
         'home_message_content',
         'html bubble simulate tap failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> beginSelectionAtGlobal(Offset globalPosition) async {
+    _selectionAnchorGlobalPosition = globalPosition;
+    _selectionBridgeStarted = false;
+    _pendingSelectionUpdate = null;
+  }
+
+  void updateSelectionAtGlobal(Offset globalPosition) {
+    if (_selectionUpdateInFlight) {
+      _pendingSelectionUpdate = globalPosition;
+      return;
+    }
+    _selectionUpdateInFlight = true;
+    unawaited(
+      _runSelectionUpdate(globalPosition).whenComplete(() {
+        _selectionUpdateInFlight = false;
+        final pending = _pendingSelectionUpdate;
+        _pendingSelectionUpdate = null;
+        if (pending != null && mounted) {
+          updateSelectionAtGlobal(pending);
+        }
+      }),
+    );
+  }
+
+  Future<void> finishSelectionAtGlobal(Offset globalPosition) async {
+    _pendingSelectionUpdate = null;
+    await _ensureSelectionAnchorStarted();
+    await _runSelectionBridge('end', globalPosition);
+    _selectionAnchorGlobalPosition = null;
+    _selectionBridgeStarted = false;
+  }
+
+  Future<void> _runSelectionUpdate(Offset globalPosition) async {
+    await _ensureSelectionAnchorStarted();
+    await _runSelectionBridge('update', globalPosition);
+  }
+
+  Future<void> _ensureSelectionAnchorStarted() async {
+    if (_selectionBridgeStarted) return;
+    final anchor = _selectionAnchorGlobalPosition;
+    if (anchor == null) return;
+    _selectionBridgeStarted = true;
+    await _runSelectionBridge('start', anchor);
+  }
+
+  Future<void> _runSelectionBridge(String kind, Offset globalPosition) async {
+    final controller = _controller;
+    if (controller == null) return;
+    final context = _webViewRegionKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final local = renderObject.globalToLocal(globalPosition);
+    final x = local.dx.toStringAsFixed(2);
+    final y = local.dy.toStringAsFixed(2);
+    try {
+      await controller.evaluateJavascript(
+        source:
+            "(function(){try{if(window.__openhandSelectionBridge){window.__openhandSelectionBridge('$kind',$x,$y);}}catch(_){}})();",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_content',
+        'html bubble selection bridge failed',
         error,
         stack,
       );
@@ -2881,7 +3037,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         'html,body{margin:0;padding:0;background:$bgHex;color:$textHex;'
         'font-family:$family;font-size:${fontSize}px;line-height:$lineHeight;'
         '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
-        '-webkit-font-smoothing:antialiased;}'
+        '-webkit-font-smoothing:antialiased;'
+        '-webkit-user-select:text;user-select:text;cursor:text;}'
         'body{overflow-x:auto;}'
         // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
         // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
@@ -2891,6 +3048,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         '#oh-root{display:flow-root;width:100%;min-height:1px;'
         'height:auto;box-sizing:border-box;padding:2px;'
         'overflow:visible;}'
+        '#oh-root,#oh-root *{-webkit-user-select:text;user-select:text;}'
+        'a,button,summary,[role="button"]{cursor:pointer;}'
+        'input,textarea,select{cursor:text;}'
         'img,video,canvas,svg{max-width:100%;height:auto;}'
         'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
         'pre{overflow-x:auto;}'
@@ -2930,7 +3090,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
-    final height = _height ?? fallbackHeight;
+    final height = _height ?? _heightCache[_heightCacheKey] ?? fallbackHeight;
     // 2026-05-25: HTML 内容展开/收起时高度双向变化 (oh-root 提供真实几何)
     // 外层用 AnimatedSize 包起来，时长/曲线接入 transcript 卡片 motion token，
     // 避免和消息气泡外层动画节奏打架。
@@ -2976,6 +3136,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
                 await controller.evaluateJavascript(
                   source: _heightObserverScript,
                 );
+                await controller.evaluateJavascript(
+                  source: _selectionBridgeScript,
+                );
               } catch (error, stack) {
                 silentLog(
                   'home_message_content',
@@ -3005,7 +3168,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 /// 助手消息正文按"消息内容格式"设置分派：
 /// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
 /// - 纯文本：`_PlainTextMessageBody`
-/// - HTML：内容像 HTML → `_HtmlMessageBody`（可选中文本的 Flutter HTML 渲染）；否则按回退链跳到 Markdown 或纯文本
+/// - HTML：内容像 HTML → `_HtmlBubbleWebView`（WebView 高保真渲染 + 手动文本选择桥）；否则按回退链跳到 Markdown 或纯文本
 class _AssistantMessageBodyDispatcher extends StatelessWidget {
   const _AssistantMessageBodyDispatcher({
     required this.data,
@@ -3077,9 +3240,10 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     if (_looksLikeHtml(data)) {
       return SizedBox(
         width: double.infinity,
-        child: _HtmlMessageBody(
+        child: _HtmlBubbleWebView(
           data: data,
           textColor: textColor,
+          backgroundColor: backgroundColor,
           baseTextStyle: markdownStyleSheet.p,
         ),
       );

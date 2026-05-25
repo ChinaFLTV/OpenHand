@@ -65,10 +65,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 仍然几乎瞬时（80ms 几乎不可察）。
   Timer? _pendingSelectionToggleTimer;
   // 旧版 HTML WebView 渲染器的兼容兜底：当前线程内 HTML 主路径已改为
-  // 可选中文本的 Flutter HTML 渲染；若将来仍有平台视图子树注册到这里，
-  // 命中区域时继续跳过气泡选中切换并把 tap 转交给对应 state。
+  // WebView 高保真渲染；命中区域时跳过气泡选中切换，并把 tap / drag
+  // 转交给对应 state 合成 DOM 点击或文本选择。
   final Map<GlobalKey, _HtmlBubbleWebViewState> _htmlInteractiveRegionStates =
       <GlobalKey, _HtmlBubbleWebViewState>{};
+  _HtmlBubbleWebViewState? _htmlPointerDownState;
+  bool _htmlSelectionDragActive = false;
 
   void registerHtmlInteractiveRegion(
     GlobalKey key,
@@ -153,18 +155,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   void _scheduleSelectionToggle() {
     _pendingSelectionToggleTimer?.cancel();
-    _pendingSelectionToggleTimer = Timer(
-      const Duration(milliseconds: 80),
-      () {
-        _pendingSelectionToggleTimer = null;
-        if (!mounted) return;
-        if (widget.isSelected) {
-          widget.onDeselect();
-        } else {
-          widget.onSelect();
-        }
-      },
-    );
+    _pendingSelectionToggleTimer = Timer(const Duration(milliseconds: 80), () {
+      _pendingSelectionToggleTimer = null;
+      if (!mounted) return;
+      if (widget.isSelected) {
+        widget.onDeselect();
+      } else {
+        widget.onSelect();
+      }
+    });
   }
 
   @override
@@ -569,9 +568,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ],
                           if (_showRawContent)
                             SelectableText(
-                              effectiveContent.isEmpty
-                                  ? ' '
-                                  : effectiveContent,
+                              effectiveContent.isEmpty ? ' ' : effectiveContent,
                               style: markdownStyleSheet.styleSheet.p?.copyWith(
                                 color: textColor,
                               ),
@@ -623,8 +620,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               textColor: textColor,
                               backgroundColor: backgroundColor,
                               markdownBuilders: markdownBuilders,
-                              markdownStyleSheet:
-                                  markdownStyleSheet.styleSheet,
+                              markdownStyleSheet: markdownStyleSheet.styleSheet,
                               inlineSyntaxes: inlineSyntaxes,
                               filePathRoots: filePathRoots,
                               filePathParseKey: filePathParseKey,
@@ -802,12 +798,37 @@ class _MessageBubbleState extends State<_MessageBubble> {
       onPointerDown: (event) {
         _pointerDownPosition = event.position;
         _pointerDownAt = DateTime.now();
+        _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
+        _htmlSelectionDragActive = false;
+      },
+      onPointerMove: (event) {
+        final htmlState = _htmlPointerDownState;
+        final downPos = _pointerDownPosition;
+        if (htmlState == null || downPos == null) return;
+        if (_htmlInteractiveStateAt(event.position) == null) return;
+        final movement = (event.position - downPos).distance;
+        if (movement <= 4) return;
+        if (!_htmlSelectionDragActive) {
+          _htmlSelectionDragActive = true;
+          htmlState.beginSelectionAtGlobal(downPos);
+        }
+        htmlState.updateSelectionAtGlobal(event.position);
+      },
+      onPointerCancel: (event) {
+        _pointerDownPosition = null;
+        _pointerDownAt = null;
+        _htmlPointerDownState = null;
+        _htmlSelectionDragActive = false;
       },
       onPointerUp: (event) {
         final downPos = _pointerDownPosition;
         final downAt = _pointerDownAt;
+        final htmlStateFromDown = _htmlPointerDownState;
+        final htmlSelectionActive = _htmlSelectionDragActive;
         _pointerDownPosition = null;
         _pointerDownAt = null;
+        _htmlPointerDownState = null;
+        _htmlSelectionDragActive = false;
         if (downPos == null || downAt == null) {
           return;
         }
@@ -823,13 +844,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
         // WKWebView 平台视图，所以这里在 tap-like 抬起时主动把坐标
         // 喂给对应 WebView 的 simulateTapAtGlobal()，用 JS 合成点击。
         final htmlStateUp = _htmlInteractiveStateAt(event.position);
-        final htmlStateDown = _htmlInteractiveStateAt(downPos);
+        final htmlStateDown =
+            htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
         if (htmlStateUp != null || htmlStateDown != null) {
+          if (htmlSelectionActive) {
+            (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
+              event.position,
+            );
+            return;
+          }
           final movement = (event.position - downPos).distance;
           final elapsed = DateTime.now().difference(downAt);
           if (movement <= 8 && elapsed.inMilliseconds <= 600) {
-            (htmlStateUp ?? htmlStateDown)
-                ?.simulateTapAtGlobal(event.position);
+            (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(event.position);
           }
           return;
         }
@@ -943,8 +970,9 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: () {
-                  _BubbleHtmlInteractiveScope.maybeOf(context)
-                      ?.markInteractiveTap();
+                  _BubbleHtmlInteractiveScope.maybeOf(
+                    context,
+                  )?.markInteractiveTap();
                   onAttachmentTap?.call(attachment);
                 },
                 child: Container(
@@ -2732,10 +2760,10 @@ $mediaTag
         reverseTransitionDuration: settings.duration * 0.85,
         pageBuilder: (context, animation, secondaryAnimation) =>
             _FullscreenVideoPage(
-          source: widget.source,
-          title: widget.title,
-          initialTime: _currentTime,
-        ),
+              source: widget.source,
+              title: widget.title,
+              initialTime: _currentTime,
+            ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return buildAnimationStyleTransition(
             animation: animation,
@@ -3545,8 +3573,8 @@ class _VideoThumbnailCaptureHost extends StatefulWidget {
       _VideoThumbnailCaptureHostState();
 }
 
-class _VideoThumbnailCaptureHostState
-    extends State<_VideoThumbnailCaptureHost> with WidgetsBindingObserver {
+class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
+    with WidgetsBindingObserver {
   WebViewController? _controller;
   String? _tempHtmlPath;
   bool _slotHeld = false;

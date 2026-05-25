@@ -76,10 +76,7 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
   });
 
   @override
-  bool applyContentDimensions(
-    double minScrollExtent,
-    double maxScrollExtent,
-  ) {
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
     if (hasPixels &&
         hasContentDimensions &&
         pixels > this.maxScrollExtent &&

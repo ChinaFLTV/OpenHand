@@ -400,9 +400,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 并 jumpTo，命中真正稳定的底部之后立即终止。期间任何一次距离 ≤ 0.5 px
     // 即视为已稳定，提前退出循环避免无意义重排。
     if (widget.jumpToBottomOnInit) {
-      _settleJumpToBottom(
-        maxFrames: _transcriptInitialBottomSettleFrameCount,
-      );
+      _settleJumpToBottom(maxFrames: _transcriptInitialBottomSettleFrameCount);
     }
   }
 
@@ -635,8 +633,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// `setState` 会被推迟到 post-frame，避免触发 build-during-frame 断言。
   bool flushIncrementalDrip() {
     if (!mounted) return false;
-    final wasDripping =
-        _dripTimer != null || _materializedTailLimit != null;
+    final wasDripping = _dripTimer != null || _materializedTailLimit != null;
     if (!wasDripping) return false;
     _stopIncrementalDrip();
     final phase = SchedulerBinding.instance.schedulerPhase;
@@ -647,10 +644,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     void apply() {
       if (!mounted) return;
       setState(() {
-        _replaceRenderEntries(
-          _visibleMessagesForWindow(),
-          animate: false,
-        );
+        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
       });
     }
 
@@ -742,9 +736,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // 之后还要逐 400ms 漫长展开。此处直接放弃 drip 改为同步全量物化，
       // 让后续 lifecycle-resume 钩子拿到真实的 maxScrollExtent。
       final lifecycle = WidgetsBinding.instance.lifecycleState;
-      final lifecycleSuspended = lifecycle != null &&
-          lifecycle != AppLifecycleState.resumed;
-      final shouldDrip = !lifecycleSuspended &&
+      final lifecycleSuspended =
+          lifecycle != null && lifecycle != AppLifecycleState.resumed;
+      final shouldDrip =
+          !lifecycleSuspended &&
           (newAdditions >= _dripActivationThreshold ||
               (dripInProgress && newAdditions > 0));
       if (lifecycleSuspended && dripInProgress) {

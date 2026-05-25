@@ -1651,8 +1651,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final activeSessionId = _activeTranscriptSessionId;
       var flushedDrip = false;
       if (activeSessionId != null && activeSessionId.isNotEmpty) {
-        flushedDrip =
-            _TranscriptScrollDispatcher.instance.flushDripFor(activeSessionId);
+        flushedDrip = _TranscriptScrollDispatcher.instance.flushDripFor(
+          activeSessionId,
+        );
       }
       final shouldForce =
           _pendingForcedScrollToBottom || _queuedForcedScrollToBottom;
@@ -1775,7 +1776,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
-    final isNearBottom = distanceToBottom >= -1.0 &&
+    final isNearBottom =
+        distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
@@ -1847,7 +1849,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     //      UserScrollNotification), proving the user finished the gesture.
     // Programmatic scrolls are excluded because the early-return at the
     // top of this method skips them entirely.
-    if (isNearBottom && _autoFollowEnabled && userScrollEnded && _userScrollInProgress) {
+    if (isNearBottom &&
+        _autoFollowEnabled &&
+        userScrollEnded &&
+        _userScrollInProgress) {
       _shouldAutoFollowMessages = true;
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;
@@ -2188,8 +2193,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final hasComposerDraft =
             _composerController.text.trim().isNotEmpty ||
             _pendingAttachments.isNotEmpty ||
-            (_composerPanelState?.hasPendingProjectFileReferences ??
-                false);
+            (_composerPanelState?.hasPendingProjectFileReferences ?? false);
         if (_canStopCurrentSessionResponse(sessionController) &&
             !hasComposerDraft) {
           await _stopResponding();
