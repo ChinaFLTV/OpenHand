@@ -2595,10 +2595,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       var styles = window.getComputedStyle(element);
       var rect = element.getBoundingClientRect();
       if (!isHiddenStyle(styles) && styles.position !== 'fixed' && !isViewportFiller(element, styles, rect)) {
-        inset = Math.max(
-          inset,
-          Math.min(12, px(styles.paddingBottom) + px(styles.borderBottomWidth) + px(styles.marginBottom))
-        );
+        var paddingAndBorder = Math.min(28, px(styles.paddingBottom) + px(styles.borderBottomWidth));
+        var margin = Math.min(20, px(styles.marginBottom));
+        inset = Math.min(56, inset + paddingAndBorder + margin);
       }
       if (element === container) break;
       element = element.parentElement;

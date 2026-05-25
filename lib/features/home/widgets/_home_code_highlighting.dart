@@ -308,8 +308,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   backgroundColor: palette.actionColor,
                   foregroundColor: palette.actionTextColor,
                   onTap: () {
-                    _BubbleHtmlInteractiveScope.maybeOf(context)
-                        ?.markInteractiveTap();
+                    _BubbleHtmlInteractiveScope.maybeOf(
+                      context,
+                    )?.markInteractiveTap();
                     _copyCodeBlock();
                   },
                 ),
@@ -322,8 +323,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   backgroundColor: palette.actionColor,
                   foregroundColor: palette.actionTextColor,
                   onTap: () {
-                    _BubbleHtmlInteractiveScope.maybeOf(context)
-                        ?.markInteractiveTap();
+                    _BubbleHtmlInteractiveScope.maybeOf(
+                      context,
+                    )?.markInteractiveTap();
                     _downloadCodeBlock(effectiveLanguage);
                   },
                 ),
@@ -335,8 +337,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     backgroundColor: palette.actionColor,
                     foregroundColor: palette.actionTextColor,
                     onTap: () {
-                      _BubbleHtmlInteractiveScope.maybeOf(context)
-                          ?.markInteractiveTap();
+                      _BubbleHtmlInteractiveScope.maybeOf(
+                        context,
+                      )?.markInteractiveTap();
                       _runHtmlPreview();
                     },
                   ),
@@ -1218,12 +1221,19 @@ class _HtmlPreviewDialog extends StatefulWidget {
 class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   bool _isCleaning = false;
   double _zoom = 1.0;
+  _HtmlPreviewMetrics? _contentMetrics;
   final GlobalKey<_HtmlWebViewPreviewState> _previewKey =
       GlobalKey<_HtmlWebViewPreviewState>();
 
   static const double _zoomMin = 0.4;
   static const double _zoomMax = 3.0;
   static const double _zoomStep = 0.1;
+  static const double _minDialogWidth = 560.0;
+  static const double _maxDialogWidth = 1200.0;
+  static const double _minDialogHeight = 420.0;
+  static const double _maxDialogHeight = 900.0;
+  static const double _contentWidthChrome = 56.0;
+  static const double _contentHeightChrome = 92.0;
 
   void _applyZoom(double next) {
     final clamped = next.clamp(_zoomMin, _zoomMax);
@@ -1240,6 +1250,16 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     setState(() => _zoom = clamped);
   }
 
+  void _onContentMetricsChanged(_HtmlPreviewMetrics metrics) {
+    final previous = _contentMetrics;
+    if (previous != null &&
+        (previous.width - metrics.width).abs() < 8 &&
+        (previous.height - metrics.height).abs() < 8) {
+      return;
+    }
+    setState(() => _contentMetrics = metrics);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
@@ -1251,12 +1271,40 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     final zoomOutText = isZh ? '缩小' : 'Zoom Out';
     final zoomResetText = isZh ? '重置缩放' : 'Reset Zoom';
     final zoomPercentText = '${(_zoom * 100).round()}%';
+    final viewport = MediaQuery.sizeOf(context);
+    final maxWidth = math.min(viewport.width * 0.9, _maxDialogWidth);
+    final minWidth = math.min(maxWidth, _minDialogWidth);
+    final maxHeight = math.min(viewport.height * 0.85, _maxDialogHeight);
+    final minHeight = math.min(maxHeight, _minDialogHeight);
+    final metrics = _contentMetrics;
+    final dialogWidth = metrics == null
+        ? maxWidth
+        : (metrics.width + _contentWidthChrome)
+              .clamp(minWidth, maxWidth)
+              .toDouble();
+    final dialogHeight = metrics == null
+        ? maxHeight
+        : (metrics.height + _contentHeightChrome)
+              .clamp(minHeight, maxHeight)
+              .toDouble();
+    final animationSettings = context
+        .watch<SettingsController>()
+        .dialogAnimationSettings;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final sizeDuration = reduceMotion
+        ? Duration.zero
+        : animationSettings.duration;
+    final sizeCurve = reduceMotion
+        ? Curves.linear
+        : animationSettings.curve.curve;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
-        width: math.min(MediaQuery.sizeOf(context).width * 0.85, 1200.0),
-        height: math.min(MediaQuery.sizeOf(context).height * 0.85, 900.0),
+      child: AnimatedContainer(
+        duration: sizeDuration,
+        curve: sizeCurve,
+        width: dialogWidth,
+        height: dialogHeight,
         decoration: BoxDecoration(
           color: widget.theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
@@ -1367,6 +1415,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                   key: _previewKey,
                   htmlContent: widget.htmlContent,
                   onZoomChanged: _onZoomChangedFromWebView,
+                  onMetricsChanged: _onContentMetricsChanged,
                 ),
               ),
             ),
@@ -1466,15 +1515,24 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   }
 }
 
+class _HtmlPreviewMetrics {
+  const _HtmlPreviewMetrics({required this.width, required this.height});
+
+  final double width;
+  final double height;
+}
+
 class _HtmlWebViewPreview extends StatefulWidget {
   const _HtmlWebViewPreview({
     super.key,
     required this.htmlContent,
     this.onZoomChanged,
+    this.onMetricsChanged,
   });
 
   final String htmlContent;
   final ValueChanged<double>? onZoomChanged;
+  final ValueChanged<_HtmlPreviewMetrics>? onMetricsChanged;
 
   @override
   State<_HtmlWebViewPreview> createState() => _HtmlWebViewPreviewState();
@@ -1498,7 +1556,12 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         'window.__openhandSetZoom && window.__openhandSetZoom(${zoom.toStringAsFixed(3)});',
       );
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'html preview setZoom failed', error, stack);
+      silentLog(
+        'home_code_highlighting',
+        'html preview setZoom failed',
+        error,
+        stack,
+      );
     }
   }
 
@@ -1509,8 +1572,31 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
     widget.onZoomChanged?.call(value);
   }
 
-  Future<void> _installZoomBridge() async {
-    final controller = _webViewController;
+  void _onMetricsMessage(JavaScriptMessage message) {
+    try {
+      final decoded = jsonDecode(message.message);
+      if (decoded is! Map<String, dynamic>) return;
+      final width = (decoded['width'] as num?)?.toDouble();
+      final height = (decoded['height'] as num?)?.toDouble();
+      if (width == null || height == null) return;
+      if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
+        return;
+      }
+      widget.onMetricsChanged?.call(
+        _HtmlPreviewMetrics(width: width, height: height),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'html preview metrics parse failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _installZoomBridge([WebViewController? target]) async {
+    final controller = target ?? _webViewController;
     if (controller == null) return;
     try {
       await controller.runJavaScript(_zoomBridgeScript);
@@ -1520,7 +1606,27 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         );
       }
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'install zoom bridge failed', error, stack);
+      silentLog(
+        'home_code_highlighting',
+        'install zoom bridge failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _installMetricsBridge([WebViewController? target]) async {
+    final controller = target ?? _webViewController;
+    if (controller == null) return;
+    try {
+      await controller.runJavaScript(_metricsBridgeScript);
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'install preview metrics bridge failed',
+        error,
+        stack,
+      );
     }
   }
 
@@ -1547,6 +1653,103 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       'window.addEventListener("touchstart",function(e){if(e.touches.length===2){touchInitialDist=dist(e.touches);touchInitialZoom=z;}});'
       'window.addEventListener("touchmove",function(e){if(e.touches.length===2&&touchInitialDist>0){var d=dist(e.touches);apply(touchInitialZoom*(d/touchInitialDist));e.preventDefault();}},{passive:false});'
       '})();';
+
+  static const String _metricsBridgeScript = r'''
+(function(){
+  if (window.__openhandPreviewMetricsInstalled) {
+    if (window.__openhandPreviewMetricsSchedule) window.__openhandPreviewMetricsSchedule();
+    return;
+  }
+  window.__openhandPreviewMetricsInstalled = true;
+  function tagOf(node){return String((node && node.tagName) || '').toLowerCase();}
+  function hidden(styles){return !styles || styles.display==='none' || styles.visibility==='hidden' || styles.visibility==='collapse';}
+  function contentBoxTag(tag){return /^(img|video|canvas|svg|iframe|table|pre|hr|button|input|textarea|select|summary)$/i.test(tag);}
+  function visible(node){
+    var el = node.nodeType === 1 ? node : node.parentElement;
+    while (el && el !== document.documentElement) {
+      var styles = window.getComputedStyle(el);
+      if (hidden(styles) || styles.position === 'fixed') return false;
+      el = el.parentElement;
+    }
+    return true;
+  }
+  function includeRect(bounds, rect){
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    bounds.left = Math.min(bounds.left, rect.left);
+    bounds.right = Math.max(bounds.right, rect.right);
+    bounds.bottom = Math.max(bounds.bottom, rect.bottom);
+  }
+  function measure(){
+    try {
+      var root = document.body || document.documentElement;
+      if (!root) return;
+      var bounds = {left: Infinity, right: 0, bottom: 0};
+      try {
+        var walker = document.createTreeWalker(root, 4);
+        var textCount = 0;
+        while (walker.nextNode() && textCount < 2400) {
+          var text = walker.currentNode;
+          if (!text.nodeValue || !text.nodeValue.trim() || !visible(text)) continue;
+          var range = document.createRange();
+          range.selectNodeContents(text);
+          var rects = range.getClientRects();
+          for (var i = 0; i < rects.length; i++) includeRect(bounds, rects[i]);
+          range.detach && range.detach();
+          textCount++;
+        }
+      } catch (_) {}
+      var nodes = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      var limit = Math.min(nodes.length, 1800);
+      for (var n = 0; n < limit; n++) {
+        var node = nodes[n];
+        var tag = tagOf(node);
+        if (!contentBoxTag(tag) || !visible(node)) continue;
+        includeRect(bounds, node.getBoundingClientRect());
+      }
+      var body = document.body;
+      var doc = document.documentElement;
+      var fallbackWidth = Math.max(
+        body ? body.scrollWidth || 0 : 0,
+        doc ? doc.scrollWidth || 0 : 0,
+        window.innerWidth || 0
+      );
+      var fallbackHeight = Math.max(
+        body ? body.scrollHeight || 0 : 0,
+        doc ? doc.scrollHeight || 0 : 0,
+        window.innerHeight || 0
+      );
+      var width = bounds.left === Infinity ? fallbackWidth : bounds.right - bounds.left;
+      var height = bounds.bottom > 0 ? bounds.bottom : fallbackHeight;
+      OpenHandPreviewMetrics.postMessage(JSON.stringify({
+        width: Math.ceil(Math.max(1, width)),
+        height: Math.ceil(Math.max(1, height))
+      }));
+    } catch (_) {}
+  }
+  var pending = false;
+  function schedule(){
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(function(){pending = false; measure();});
+  }
+  window.__openhandPreviewMetricsSchedule = schedule;
+  measure();
+  try {
+    var ro = new ResizeObserver(schedule);
+    if (document.body) ro.observe(document.body);
+    if (document.documentElement) ro.observe(document.documentElement);
+  } catch (_) {}
+  try {
+    var mo = new MutationObserver(schedule);
+    if (document.body) mo.observe(document.body,{subtree:true,childList:true,attributes:true,characterData:true});
+  } catch (_) {}
+  window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
+  setTimeout(schedule, 80);
+  setTimeout(schedule, 240);
+  setTimeout(schedule, 720);
+})();
+''';
 
   @override
   void initState() {
@@ -1589,6 +1792,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         'OpenHandZoom',
         onMessageReceived: _onZoomMessage,
       );
+      await controller.addJavaScriptChannel(
+        'OpenHandPreviewMetrics',
+        onMessageReceived: _onMetricsMessage,
+      );
 
       // Set navigation delegate for progress and error handling.
       await controller.setNavigationDelegate(
@@ -1613,7 +1820,8 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                 _isLoading = false;
               });
             }
-            _installZoomBridge();
+            _installZoomBridge(controller);
+            _installMetricsBridge(controller);
           },
           onWebResourceError: (error) {
             if (mounted) {
@@ -1661,6 +1869,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         'OpenHandZoom',
         onMessageReceived: _onZoomMessage,
       );
+      await controller.addJavaScriptChannel(
+        'OpenHandPreviewMetrics',
+        onMessageReceived: _onMetricsMessage,
+      );
       await controller.setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
@@ -1676,7 +1888,8 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                 _isLoading = false;
               });
             }
-            _installZoomBridge();
+            _installZoomBridge(controller);
+            _installMetricsBridge(controller);
           },
           onWebResourceError: (error) {
             if (mounted) {
