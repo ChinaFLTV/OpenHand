@@ -2510,10 +2510,23 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     var parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : 0;
   }
+  function tagOf(node) {
+    return String((node && node.tagName) || '').toLowerCase();
+  }
+  function isHiddenStyle(styles) {
+    return !styles || styles.display === 'none' ||
+      styles.visibility === 'hidden' || styles.visibility === 'collapse';
+  }
+  function isIgnoredTag(tag) {
+    return /^(script|style|noscript|template|meta|link|title|head)$/i.test(tag);
+  }
+  function isContentBoxTag(tag) {
+    return /^(img|video|canvas|svg|iframe|table|pre|hr|button|input|textarea|select|summary)$/i.test(tag);
+  }
   function isViewportFiller(node, styles, rect) {
     if (!node || !styles || !rect) return false;
-    var tag = (node.tagName || '').toLowerCase();
-    if (/^(img|video|canvas|svg|iframe|table|pre)$/.test(tag)) return false;
+    var tag = tagOf(node);
+    if (isContentBoxTag(tag)) return false;
     var viewport = window.innerHeight || 0;
     if (viewport < 32 || rect.height < viewport - 1) return false;
     var inlineStyle = '';
@@ -2523,33 +2536,90 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (/(^|;)\s*(?:min-height|height)\s*:[^;]*\d(?:\.\d+)?vh\b/.test(inlineStyle)) return true;
     return !!node.children && node.children.length > 0 && rect.height >= viewport - 1;
   }
+  function visibleInContainer(node, container) {
+    var element = node.nodeType === 1 ? node : node.parentElement;
+    while (element && element !== container.parentElement) {
+      var tag = tagOf(element);
+      if (isIgnoredTag(tag)) return false;
+      var styles = window.getComputedStyle(element);
+      if (isHiddenStyle(styles) || styles.position === 'fixed') return false;
+      if (element === container) return true;
+      element = element.parentElement;
+    }
+    return true;
+  }
+  function trailingInsetFor(node, container) {
+    var element = node && node.nodeType === 1 ? node : node && node.parentElement;
+    var inset = 0;
+    while (element && element !== container.parentElement) {
+      var styles = window.getComputedStyle(element);
+      var rect = element.getBoundingClientRect();
+      if (!isHiddenStyle(styles) && styles.position !== 'fixed' && !isViewportFiller(element, styles, rect)) {
+        inset = Math.max(
+          inset,
+          Math.min(12, px(styles.paddingBottom) + px(styles.borderBottomWidth) + px(styles.marginBottom))
+        );
+      }
+      if (element === container) break;
+      element = element.parentElement;
+    }
+    return inset;
+  }
   function visibleHeightFor(container, includeMargins) {
     if (!container) return 0;
     var baseRect = container.getBoundingClientRect();
     var styles = window.getComputedStyle(container);
+    var top = baseRect.top - (includeMargins ? px(styles.marginTop) : 0);
     var bottom = baseRect.top + px(styles.paddingTop) + px(styles.borderTopWidth);
-    var foundContent = false;
+    var bottomNode = null;
+
+    function includeRect(node, rect, nodeStyles, includeMargin) {
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+      var next = rect.bottom + (includeMargin && nodeStyles ? px(nodeStyles.marginBottom) : 0);
+      if (next > bottom) {
+        bottom = next;
+        bottomNode = node;
+      }
+    }
+
+    try {
+      var textWalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      var textCount = 0;
+      while (textWalker.nextNode() && textCount < 2400) {
+        var textNode = textWalker.currentNode;
+        if (!textNode.nodeValue || !textNode.nodeValue.trim()) continue;
+        if (!visibleInContainer(textNode, container)) continue;
+        var range = document.createRange();
+        range.selectNodeContents(textNode);
+        var rects = range.getClientRects();
+        for (var r = 0; r < rects.length; r++) {
+          includeRect(textNode, rects[r], null, false);
+        }
+        range.detach && range.detach();
+        textCount++;
+      }
+    } catch (_) {}
+
     var nodes = container.querySelectorAll ? container.querySelectorAll('*') : [];
     var limit = Math.min(nodes.length, 1800);
     for (var i = 0; i < limit; i++) {
       var node = nodes[i];
+      var tag = tagOf(node);
+      if (isIgnoredTag(tag) || !isContentBoxTag(tag)) continue;
       var rect = node.getBoundingClientRect();
       if (!rect || (rect.width === 0 && rect.height === 0)) continue;
       var nodeStyles = window.getComputedStyle(node);
-      if (nodeStyles.display === 'none' || nodeStyles.visibility === 'collapse') continue;
+      if (isHiddenStyle(nodeStyles)) continue;
       if (nodeStyles.position === 'fixed') continue;
       if (isViewportFiller(node, nodeStyles, rect)) continue;
-      bottom = Math.max(bottom, rect.bottom + px(nodeStyles.marginBottom));
-      foundContent = true;
+      includeRect(node, rect, nodeStyles, true);
     }
-    if (!foundContent && !isViewportFiller(container, styles, baseRect)) {
-      bottom = Math.max(bottom, baseRect.bottom + px(styles.marginBottom));
+
+    if (!bottomNode && !isViewportFiller(container, styles, baseRect)) {
+      bottom = Math.max(bottom, baseRect.bottom + (includeMargins ? px(styles.marginBottom) : 0));
+      bottomNode = container;
     }
-    var measured = Math.max(0, bottom - baseRect.top);
-    measured += px(styles.paddingBottom) + px(styles.borderBottomWidth);
-    if (includeMargins) {
-      measured += px(styles.marginTop) + px(styles.marginBottom);
-    }
+    var measured = Math.max(0, bottom - top + trailingInsetFor(bottomNode, container));
     return Math.ceil(measured);
   }
   function measure() {
