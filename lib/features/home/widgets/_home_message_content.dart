@@ -2562,25 +2562,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     return false;
   }
-  function insideOpenDetailsBody(node, container) {
-    var original = node.nodeType === 1 ? node : node.parentElement;
-    var element = original;
-    while (element && element !== container.parentElement) {
-      if (tagOf(element) === 'details' && element.open) {
-        var summary = null;
-        for (var i = 0; i < element.children.length; i++) {
-          if (tagOf(element.children[i]) === 'summary') {
-            summary = element.children[i];
-            break;
-          }
-        }
-        return !summary || !summary.contains(original);
-      }
-      if (element === container) break;
-      element = element.parentElement;
-    }
-    return false;
-  }
   function isViewportFiller(node, styles, rect) {
     if (!node || !styles || !rect) return false;
     var tag = tagOf(node);
@@ -2626,10 +2607,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       if (element === container) break;
       element = element.parentElement;
     }
-    if (insideOpenDetailsBody(node, container)) {
-      inset = Math.max(inset, 40);
-    }
     return Math.max(inset, visualInset);
+  }
+  function flowEndInsetFor(container, contentBottom) {
+    try {
+      var marker = document.getElementById('openhand-html-bubble-flow-end');
+      if (!marker) {
+        marker = document.createElement('span');
+        marker.id = 'openhand-html-bubble-flow-end';
+        marker.setAttribute('aria-hidden', 'true');
+      }
+      marker.style.cssText = 'display:block;clear:both;width:0;height:0;margin:0;padding:0;border:0;overflow:hidden;pointer-events:none;';
+      if (marker.parentElement !== container) container.appendChild(marker);
+      var rect = marker.getBoundingClientRect();
+      var styles = window.getComputedStyle(container);
+      var inset = rect.bottom - contentBottom + px(styles.paddingBottom) + px(styles.borderBottomWidth);
+      if (!Number.isFinite(inset) || inset <= 0 || inset > 96) return 0;
+      return inset;
+    } catch (_) {
+      return 0;
+    }
   }
   function visibleHeightFor(container, includeMargins) {
     if (!container) return 0;
@@ -2685,7 +2682,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (!bottomNode) {
       bottomNode = container;
     }
-    var trailingInset = trailingInsetFor(bottomNode, container, bottom);
+    var trailingInset = Math.max(
+      trailingInsetFor(bottomNode, container, bottom),
+      flowEndInsetFor(container, bottom)
+    );
     var measured = Math.max(0, bottom - top + trailingInset);
     return Math.ceil(measured);
   }
