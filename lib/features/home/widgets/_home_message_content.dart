@@ -2588,9 +2588,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     return true;
   }
-  function trailingInsetFor(node, container) {
+  function trailingInsetFor(node, container, contentBottom) {
     var element = node && node.nodeType === 1 ? node : node && node.parentElement;
     var inset = 0;
+    var visualInset = 0;
     while (element && element !== container.parentElement) {
       var styles = window.getComputedStyle(element);
       var rect = element.getBoundingClientRect();
@@ -2598,11 +2599,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         var paddingAndBorder = Math.min(28, px(styles.paddingBottom) + px(styles.borderBottomWidth));
         var margin = Math.min(20, px(styles.marginBottom));
         inset = Math.min(56, inset + paddingAndBorder + margin);
+        visualInset = Math.max(
+          visualInset,
+          Math.min(56, Math.max(0, rect.bottom + px(styles.marginBottom) - contentBottom))
+        );
       }
       if (element === container) break;
       element = element.parentElement;
     }
-    return inset;
+    return Math.max(inset, visualInset);
   }
   function visibleHeightFor(container, includeMargins) {
     if (!container) return 0;
@@ -2658,7 +2663,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (!bottomNode) {
       bottomNode = container;
     }
-    var trailingInset = trailingInsetFor(bottomNode, container);
+    var trailingInset = trailingInsetFor(bottomNode, container, bottom);
     var measured = Math.max(0, bottom - top + trailingInset);
     return Math.ceil(measured);
   }
