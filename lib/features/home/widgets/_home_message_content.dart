@@ -387,8 +387,9 @@ class _CollapsibleMessageMarkdownBodyState
           child: InkWell(
             borderRadius: _borderRadius18,
             onTap: () {
-              _BubbleHtmlInteractiveScope.maybeOf(context)
-                  ?.markInteractiveTap();
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
               setState(() {
                 _collapsed = !_collapsed;
                 _userToggled = true;
@@ -1742,8 +1743,9 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
           child: InkWell(
             borderRadius: _borderRadius18,
             onTap: () {
-              _BubbleHtmlInteractiveScope.maybeOf(context)
-                  ?.markInteractiveTap();
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
               final nextCollapsed = !_collapsed;
               setState(() {
                 _collapsed = nextCollapsed;
@@ -1870,8 +1872,20 @@ bool _looksLikeHtml(String value) {
 
 // 自闭合标签，不参与开/闭配平。
 const Set<String> _htmlVoidTags = <String>{
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link',
-  'meta', 'param', 'source', 'track', 'wbr',
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 };
 
 final RegExp _htmlTagScanPattern = RegExp(
@@ -2446,7 +2460,7 @@ class _HtmlMessageBody extends StatelessWidget {
 /// 保持一致——`flutter_widget_from_html_core` 不支持 linear-gradient/box-shadow/
 /// transform/filter/`-webkit-background-clip:text` 等高级 CSS，会让多彩 HTML
 /// 输出严重畸形。该控件用 `loadHtmlString` 渲染，并通过 JS 通道把
-/// `document.documentElement.scrollHeight` 上报回 Dart，动态调整外层高度。
+/// 视觉内容高度上报回 Dart，动态调整外层高度。
 class _HtmlBubbleWebView extends StatefulWidget {
   const _HtmlBubbleWebView({
     required this.data,
@@ -2465,6 +2479,120 @@ class _HtmlBubbleWebView extends StatefulWidget {
 }
 
 class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
+  static final RegExp _documentShellPattern = RegExp(
+    r'<\s*(?:!doctype|html|head|body)\b',
+    caseSensitive: false,
+  );
+
+  static const double _heightBottomCushion = 10.0;
+
+  static const String _heightObserverScript = r'''
+(function(){
+  if (window.__openhandHeightObserverInstalled) {
+    if (window.__openhandScheduleHeight) window.__openhandScheduleHeight();
+    return;
+  }
+  window.__openhandHeightObserverInstalled = true;
+  function px(value) {
+    var parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function visibleHeightFor(container, includeMargins) {
+    if (!container) return 0;
+    var baseRect = container.getBoundingClientRect();
+    var styles = window.getComputedStyle(container);
+    var top = baseRect.top;
+    var bottom = baseRect.bottom;
+    var nodes = container.querySelectorAll ? container.querySelectorAll('*') : [];
+    var limit = Math.min(nodes.length, 1800);
+    for (var i = 0; i < limit; i++) {
+      var node = nodes[i];
+      var rect = node.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) continue;
+      var nodeStyles = window.getComputedStyle(node);
+      if (nodeStyles.display === 'none' || nodeStyles.visibility === 'collapse') continue;
+      top = Math.min(top, rect.top - px(nodeStyles.marginTop));
+      bottom = Math.max(bottom, rect.bottom + px(nodeStyles.marginBottom));
+    }
+    var measured = Math.max(
+      0,
+      container.scrollHeight || 0,
+      container.offsetHeight || 0,
+      bottom - baseRect.top
+    );
+    if (includeMargins) {
+      measured += px(styles.marginTop) + px(styles.marginBottom);
+    }
+    return Math.ceil(measured);
+  }
+  function measure() {
+    try {
+      var root = document.getElementById('oh-root');
+      var body = document.body;
+      var doc = document.documentElement;
+      var height = 0;
+      if (root) {
+        height = Math.max(height, visibleHeightFor(root, false));
+        if (body) {
+          var bodyRect = body.getBoundingClientRect();
+          var rootRect = root.getBoundingClientRect();
+          var bodyStyles = window.getComputedStyle(body);
+          height = Math.max(
+            height,
+            rootRect.bottom - bodyRect.top + px(bodyStyles.paddingBottom)
+          );
+        }
+      } else {
+        height = Math.max(height, visibleHeightFor(body, true));
+        if (doc && height <= 0) {
+          height = Math.max(doc.scrollHeight || 0, doc.offsetHeight || 0);
+        }
+      }
+      height = Math.ceil(height);
+      if (height > 0) {
+        window.flutter_inappwebview.callHandler('OpenHandHeight', height);
+      }
+    } catch (_) {}
+  }
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(function(){
+      pending = false;
+      measure();
+    });
+  }
+  window.__openhandScheduleHeight = schedule;
+  measure();
+  try {
+    var resizeObserver = new ResizeObserver(schedule);
+    if (document.getElementById('oh-root')) resizeObserver.observe(document.getElementById('oh-root'));
+    if (document.body) resizeObserver.observe(document.body);
+    if (document.documentElement) resizeObserver.observe(document.documentElement);
+  } catch (_) {}
+  try {
+    var mutationObserver = new MutationObserver(schedule);
+    if (document.body) {
+      mutationObserver.observe(document.body, {
+        subtree: true,
+        attributes: true,
+        childList: true,
+        characterData: true
+      });
+    }
+  } catch (_) {}
+  document.addEventListener('toggle', schedule, true);
+  document.addEventListener('transitionend', schedule, true);
+  document.addEventListener('animationend', schedule, true);
+  window.addEventListener('load', schedule);
+  setTimeout(schedule, 80);
+  setTimeout(schedule, 240);
+  setTimeout(schedule, 720);
+  setTimeout(schedule, 1400);
+})();
+''';
+
   iaw.InAppWebViewController? _controller;
   double? _height;
   bool _hasError = false;
@@ -2507,7 +2635,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
-    setState(() => _height = null);
+    setState(() {
+      _height = null;
+      _hasError = false;
+    });
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
@@ -2521,7 +2652,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
-    final next = newSize.height.clamp(24.0, 8000.0);
+    final next = (newSize.height + _heightBottomCushion)
+        .clamp(24.0, 8000.0)
+        .toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
     setState(() => _height = next);
@@ -2577,6 +2710,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         : '"$fontFamily", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     final textHex = hex(widget.textColor);
     final bgHex = hex(widget.backgroundColor);
+    final source = widget.data.trimLeft();
+
+    if (_documentShellPattern.hasMatch(source)) {
+      return widget.data;
+    }
 
     return '<!DOCTYPE html>'
         '<html><head><meta charset="utf-8">'
@@ -2586,12 +2724,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         'font-family:$family;font-size:${fontSize}px;line-height:$lineHeight;'
         '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
         '-webkit-font-smoothing:antialiased;}'
-        'body{padding:2px 2px 4px 2px;overflow-x:auto;}'
+        'body{overflow-x:auto;}'
         // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
         // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
         // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
-        // 不能变小）。oh-root 以 fit-content 取真实内容高。
-        '#oh-root{display:block;width:100%;height:fit-content;}'
+        // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，并把
+        // 底部呼吸空间纳入自身几何，避免最后一行贴边被平台视图裁掉。
+        '#oh-root{display:flow-root;width:100%;min-height:1px;'
+        'height:auto;box-sizing:border-box;padding:2px 2px 14px 2px;'
+        'overflow:visible;}'
         'img,video,canvas,svg{max-width:100%;height:auto;}'
         'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
         'pre{overflow-x:auto;}'
@@ -2612,73 +2753,72 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
     final height = _height ?? fallbackHeight;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     // 2026-05-25: HTML 内容展开/收起时高度双向变化 (oh-root 提供真实几何)
-    // 外层用 AnimatedSize 包起来，Q 弹 easeOutBack 曲线（reduceMotion 时退化为
-    // 1ms easeOutCubic，与全局动画设置保持一致）。
+    // 外层用 AnimatedSize 包起来，时长/曲线接入 transcript 卡片 motion token，
+    // 避免和消息气泡外层动画节奏打架。
     return AnimatedSize(
-      duration: reduceMotion
-          ? const Duration(milliseconds: 1)
-          : const Duration(milliseconds: 320),
-      curve: reduceMotion ? Curves.easeOutCubic : Curves.easeOutBack,
+      duration: cardMotionDurationFor(context, expanding: true),
+      curve: kCardMotionCurve,
       alignment: Alignment.topCenter,
       child: SizedBox(
         width: double.infinity,
         height: height,
         child: KeyedSubtree(
-        key: _webViewRegionKey,
-        // 2026-05-25: HTML 气泡用 flutter_inappwebview 渲染。
-        // macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
-        // 平台视图（Listener 能看到 DOWN/UP，但 DOM 收不到 click），所以
-        // 内部交互通过 `_MessageBubble` 的外层 Listener 调用
-        // `simulateTapAtGlobal` 用 JS 在对应坐标合成点击事件。
-        // 高度自适应仍用 JS 注入 ResizeObserver + callHandler 回传 scrollHeight。
-        child: iaw.InAppWebView(
-          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-          initialSettings: iaw.InAppWebViewSettings(
-            transparentBackground: !Platform.isMacOS,
-            disableVerticalScroll: true,
-          ),
-          onWebViewCreated: (controller) {
-            _controller = controller;
-            controller.addJavaScriptHandler(
-              handlerName: 'OpenHandHeight',
-              callback: (args) {
-                if (args.isEmpty) return;
-                final raw = args.first;
-                final value = raw is num
-                    ? raw.toDouble()
-                    : double.tryParse(raw.toString());
-                if (value == null || !value.isFinite) return;
-                _onContentSizeChanged(Size(0, value));
-              },
-            );
-          },
-          onLoadStop: (controller, url) async {
-            try {
-              await controller.evaluateJavascript(
-                source:
-                    "(function(){var root=document.getElementById('oh-root')||document.body;function send(){try{var r=root.getBoundingClientRect();var h=Math.ceil(r.height);if(h>0)window.flutter_inappwebview.callHandler('OpenHandHeight',h);}catch(_){}}send();try{var ro=new ResizeObserver(send);ro.observe(root);if(root!==document.body&&document.body)ro.observe(document.body);}catch(_){}try{var mo=new MutationObserver(send);mo.observe(document.body,{subtree:true,attributes:true,childList:true,characterData:true});}catch(_){}document.addEventListener('toggle',send,true);document.addEventListener('transitionend',send,true);document.addEventListener('animationend',send,true);window.addEventListener('load',send);setTimeout(send,80);setTimeout(send,240);setTimeout(send,720);})();",
+          key: _webViewRegionKey,
+          // 2026-05-25: HTML 气泡用 flutter_inappwebview 渲染。
+          // macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
+          // 平台视图（Listener 能看到 DOWN/UP，但 DOM 收不到 click），所以
+          // 内部交互通过 `_MessageBubble` 的外层 Listener 调用
+          // `simulateTapAtGlobal` 用 JS 在对应坐标合成点击事件。
+          // 高度自适应用 JS 注入 ResizeObserver + MutationObserver，回传
+          // 内容视觉底部，避免完整 HTML 文档或 margin/transform 导致漏测。
+          child: iaw.InAppWebView(
+            initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+            initialSettings: iaw.InAppWebViewSettings(
+              transparentBackground: !Platform.isMacOS,
+              disableVerticalScroll: true,
+            ),
+            onWebViewCreated: (controller) {
+              _controller = controller;
+              controller.addJavaScriptHandler(
+                handlerName: 'OpenHandHeight',
+                callback: (args) {
+                  if (args.isEmpty) return;
+                  final raw = args.first;
+                  final value = raw is num
+                      ? raw.toDouble()
+                      : double.tryParse(raw.toString());
+                  if (value == null || !value.isFinite) return;
+                  _onContentSizeChanged(Size(0, value));
+                },
               );
-            } catch (error, stack) {
+            },
+            onLoadStop: (controller, url) async {
+              try {
+                await controller.evaluateJavascript(
+                  source: _heightObserverScript,
+                );
+              } catch (error, stack) {
+                silentLog(
+                  'home_message_content',
+                  'html bubble height observer install failed',
+                  error,
+                  stack,
+                );
+              }
+            },
+            onReceivedError: (controller, request, error) {
               silentLog(
                 'home_message_content',
-                'html bubble height observer install failed',
+                'html bubble webview error',
                 error,
-                stack,
               );
-            }
-          },
-          onReceivedError: (controller, request, error) {
-            silentLog(
-              'home_message_content',
-              'html bubble webview error',
-              error,
-            );
-            if (mounted) setState(() => _hasError = true);
-          },
+              if (mounted) {
+                setState(() => _hasError = true);
+              }
+            },
+          ),
         ),
-      ),
       ),
     );
   }
