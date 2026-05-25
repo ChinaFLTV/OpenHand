@@ -2456,6 +2456,31 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
+class _HtmlSelectionBridgeClipboard {
+  static String? _selectedText;
+
+  static bool get hasSelection =>
+      _selectedText != null && _selectedText!.trim().isNotEmpty;
+
+  static void clear() {
+    _selectedText = null;
+  }
+
+  static void update(String? text) {
+    final normalized = text?.replaceAll('\u00a0', ' ').trim();
+    if (normalized == null || normalized.isEmpty) {
+      return;
+    }
+    _selectedText = normalized;
+  }
+
+  static Future<void> copySelection() async {
+    final text = _selectedText;
+    if (text == null || text.trim().isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+  }
+}
+
 /// 嵌入式 WebView HTML 气泡渲染器。
 ///
 /// 线程内 HTML 需要保留浏览器级 CSS/布局保真；macOS 平台视图鼠标事件
@@ -2937,6 +2962,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   Future<void> beginSelectionAtGlobal(Offset globalPosition) async {
+    _HtmlSelectionBridgeClipboard.clear();
     _selectionAnchorGlobalPosition = globalPosition;
     _selectionBridgeStarted = false;
     _pendingSelectionUpdate = null;
@@ -2991,10 +3017,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final x = local.dx.toStringAsFixed(2);
     final y = local.dy.toStringAsFixed(2);
     try {
-      await controller.evaluateJavascript(
+      final result = await controller.evaluateJavascript(
         source:
-            "(function(){try{if(window.__openhandSelectionBridge){window.__openhandSelectionBridge('$kind',$x,$y);}}catch(_){}})();",
+            "(function(){try{if(window.__openhandSelectionBridge){return window.__openhandSelectionBridge('$kind',$x,$y)||'';}return '';}catch(_){return '';}})();",
       );
+      _HtmlSelectionBridgeClipboard.update(result?.toString());
     } catch (error, stack) {
       silentLog(
         'home_message_content',

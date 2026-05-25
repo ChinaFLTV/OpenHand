@@ -1809,13 +1809,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final userScrolledUpwardFromBottom =
         _userDragActive &&
         notification is UserScrollNotification &&
-        notification.direction == ScrollDirection.reverse &&
-        distanceToBottom > 0;
+        notification.direction == ScrollDirection.reverse;
     final pointerSignalScrolledUpwardFromBottom =
         implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
-        (notification.scrollDelta ?? 0) < -0.5 &&
-        distanceToBottom > 0;
+        (notification.scrollDelta ?? 0) < -0.5;
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom) {
@@ -1962,6 +1960,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // because we only act on shortcuts that explicitly target the composer
     // (sendMessage / toggleComposer) when an editable widget has focus.
     final isEditableFocused = _isEditableTextFocused(focusContext);
+    if (!isEditableFocused && _isPlainCopyShortcut(event)) {
+      if (_HtmlSelectionBridgeClipboard.hasSelection) {
+        unawaited(_HtmlSelectionBridgeClipboard.copySelection());
+        return true;
+      }
+    }
     final settingsController = context.read<SettingsController>();
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
       ...HardwareKeyboard.instance.logicalKeysPressed,
@@ -2125,6 +2129,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return true;
     }
     return false;
+  }
+
+  bool _isPlainCopyShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyC) {
+      return false;
+    }
+    final hw = HardwareKeyboard.instance;
+    final hasModifier = Platform.isMacOS
+        ? hw.isMetaPressed
+        : hw.isControlPressed;
+    return hasModifier && !hw.isShiftPressed && !hw.isAltPressed;
   }
 
   OpenHandShortcutAction? _matchShortcutAction(
