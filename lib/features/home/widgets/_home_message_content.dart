@@ -2483,8 +2483,21 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
   );
+  static final RegExp _headClosePattern = RegExp(
+    r'</head\s*\>',
+    caseSensitive: false,
+  );
+  static final RegExp _headOpenPattern = RegExp(
+    r'<head\b[^>]*>',
+    caseSensitive: false,
+  );
 
-  static const double _heightBottomCushion = 10.0;
+  static const String _embeddedDocumentResetStyle =
+      '<style id="openhand-html-bubble-reset">'
+      'html,body{min-height:0!important;height:auto!important;'
+      'overflow-x:auto;overflow-y:hidden!important;}'
+      'body{box-sizing:border-box;}'
+      '</style>';
 
   static const String _heightObserverScript = r'''
 (function(){
@@ -2497,12 +2510,25 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     var parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : 0;
   }
+  function isViewportFiller(node, styles, rect) {
+    if (!node || !styles || !rect) return false;
+    var tag = (node.tagName || '').toLowerCase();
+    if (/^(img|video|canvas|svg|iframe|table|pre)$/.test(tag)) return false;
+    var viewport = window.innerHeight || 0;
+    if (viewport < 32 || rect.height < viewport - 1) return false;
+    var inlineStyle = '';
+    try { inlineStyle = String(node.getAttribute('style') || '').toLowerCase(); } catch (_) {}
+    var minHeight = px(styles.minHeight);
+    if (Math.abs(minHeight - viewport) < 2) return true;
+    if (/(^|;)\s*(?:min-height|height)\s*:[^;]*\d(?:\.\d+)?vh\b/.test(inlineStyle)) return true;
+    return !!node.children && node.children.length > 0 && rect.height >= viewport - 1;
+  }
   function visibleHeightFor(container, includeMargins) {
     if (!container) return 0;
     var baseRect = container.getBoundingClientRect();
     var styles = window.getComputedStyle(container);
-    var top = baseRect.top;
-    var bottom = baseRect.bottom;
+    var bottom = baseRect.top + px(styles.paddingTop) + px(styles.borderTopWidth);
+    var foundContent = false;
     var nodes = container.querySelectorAll ? container.querySelectorAll('*') : [];
     var limit = Math.min(nodes.length, 1800);
     for (var i = 0; i < limit; i++) {
@@ -2511,15 +2537,16 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       if (!rect || (rect.width === 0 && rect.height === 0)) continue;
       var nodeStyles = window.getComputedStyle(node);
       if (nodeStyles.display === 'none' || nodeStyles.visibility === 'collapse') continue;
-      top = Math.min(top, rect.top - px(nodeStyles.marginTop));
+      if (nodeStyles.position === 'fixed') continue;
+      if (isViewportFiller(node, nodeStyles, rect)) continue;
       bottom = Math.max(bottom, rect.bottom + px(nodeStyles.marginBottom));
+      foundContent = true;
     }
-    var measured = Math.max(
-      0,
-      container.scrollHeight || 0,
-      container.offsetHeight || 0,
-      bottom - baseRect.top
-    );
+    if (!foundContent && !isViewportFiller(container, styles, baseRect)) {
+      bottom = Math.max(bottom, baseRect.bottom + px(styles.marginBottom));
+    }
+    var measured = Math.max(0, bottom - baseRect.top);
+    measured += px(styles.paddingBottom) + px(styles.borderBottomWidth);
     if (includeMargins) {
       measured += px(styles.marginTop) + px(styles.marginBottom);
     }
@@ -2533,22 +2560,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       var height = 0;
       if (root) {
         height = Math.max(height, visibleHeightFor(root, false));
-        if (body) {
-          var bodyRect = body.getBoundingClientRect();
-          var rootRect = root.getBoundingClientRect();
-          var bodyStyles = window.getComputedStyle(body);
-          height = Math.max(
-            height,
-            rootRect.bottom - bodyRect.top + px(bodyStyles.paddingBottom)
-          );
-        }
       } else {
         height = Math.max(height, visibleHeightFor(body, true));
-        if (doc && height <= 0) {
-          height = Math.max(doc.scrollHeight || 0, doc.offsetHeight || 0);
-        }
       }
-      height = Math.ceil(height);
+      if (doc && height <= 0) {
+        height = Math.max(doc.scrollHeight || 0, doc.offsetHeight || 0);
+      }
+      var dpr = window.devicePixelRatio || 1;
+      height = Math.ceil(height * dpr) / dpr;
       if (height > 0) {
         window.flutter_inappwebview.callHandler('OpenHandHeight', height);
       }
@@ -2652,9 +2671,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
-    final next = (newSize.height + _heightBottomCushion)
-        .clamp(24.0, 8000.0)
-        .toDouble();
+    final next = newSize.height.clamp(24.0, 8000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
     setState(() => _height = next);
@@ -2713,7 +2730,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final source = widget.data.trimLeft();
 
     if (_documentShellPattern.hasMatch(source)) {
-      return widget.data;
+      return _injectEmbeddedDocumentReset(widget.data);
     }
 
     return '<!DOCTYPE html>'
@@ -2728,10 +2745,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
         // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
         // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
-        // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，并把
-        // 底部呼吸空间纳入自身几何，避免最后一行贴边被平台视图裁掉。
+        // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，真实
+        // 高度由 JS 动态扫描可见内容底边给出，不再追加固定留白。
         '#oh-root{display:flow-root;width:100%;min-height:1px;'
-        'height:auto;box-sizing:border-box;padding:2px 2px 14px 2px;'
+        'height:auto;box-sizing:border-box;padding:2px;'
         'overflow:visible;}'
         'img,video,canvas,svg{max-width:100%;height:auto;}'
         'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
@@ -2740,6 +2757,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         'a{color:inherit;}'
         '</style></head>'
         '<body><div id="oh-root">${widget.data}</div></body></html>';
+  }
+
+  String _injectEmbeddedDocumentReset(String html) {
+    final headClose = _headClosePattern.firstMatch(html);
+    if (headClose != null) {
+      return html.replaceRange(
+        headClose.start,
+        headClose.start,
+        _embeddedDocumentResetStyle,
+      );
+    }
+    final headOpen = _headOpenPattern.firstMatch(html);
+    if (headOpen != null) {
+      return html.replaceRange(
+        headOpen.end,
+        headOpen.end,
+        _embeddedDocumentResetStyle,
+      );
+    }
+    return '$_embeddedDocumentResetStyle$html';
   }
 
   @override
