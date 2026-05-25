@@ -64,13 +64,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 取消调度，避免点完链接还顺带把功能按钮条切出来。空白处点击
   // 仍然几乎瞬时（80ms 几乎不可察）。
   Timer? _pendingSelectionToggleTimer;
-  // 2026-05-25: HTML 消息正文以 WebView 渲染时，内部按钮/超链接/输入框
-  // 等交互元素的点击落点会被外层 Listener 的"选中切换"吃掉（HitTestBehavior
-  // .translucent 让 Listener 总能收到指针）；同时 macOS Flutter embedder
-  // 不会把鼠标 NSEvent 转发给嵌入的 WKWebView 平台视图（已通过临时日志
-  // 验证：Listener 看得到 DOWN/UP，但 WebView DOM 完全收不到 click）。
-  // 让 `_HtmlBubbleWebView` 把自身 state 一并注册过来；命中区域时既跳过
-  // 选中切换，又主动调用 simulateTapAtGlobal 用 JS 在对应坐标合成点击。
+  // 旧版 HTML WebView 渲染器的兼容兜底：当前线程内 HTML 主路径已改为
+  // 可选中文本的 Flutter HTML 渲染；若将来仍有平台视图子树注册到这里，
+  // 命中区域时继续跳过气泡选中切换并把 tap 转交给对应 state。
   final Map<GlobalKey, _HtmlBubbleWebViewState> _htmlInteractiveRegionStates =
       <GlobalKey, _HtmlBubbleWebViewState>{};
 

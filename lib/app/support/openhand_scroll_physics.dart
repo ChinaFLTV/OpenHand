@@ -61,10 +61,10 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
 /// 弹簧看到的 overscroll 距离 d2b 持续变小并触发反向修正，形成视觉抽搐。
 ///
 /// 修复思路：当 pixels 处于 overscroll 区（pixels > 旧 maxScrollExtent）
-/// 且新 maxScrollExtent 缩小时，把 pixels 同步缩同样的量。等价于：
-/// 把 SliverList 的内容缩水透明地反映到滚动偏移上，保持 overscroll
+/// 且新 maxScrollExtent 变化时，把 pixels 同步加上同样的 delta。等价于：
+/// 把 SliverList 的内容增高/缩水透明地反映到滚动偏移上，保持 overscroll
 /// 距离恒定。视觉效果是：已显示的 bubble 在屏幕上的位置完全不变，
-/// 弹簧也不会看到「目标突然变近」的扰动。
+/// 弹簧也不会看到「目标突然变近/变远」的扰动。
 class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
   _StableMaxExtentScrollPosition({
     required super.physics,
@@ -83,11 +83,11 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
     if (hasPixels &&
         hasContentDimensions &&
         pixels > this.maxScrollExtent &&
-        maxScrollExtent < this.maxScrollExtent) {
-      final double shrink = this.maxScrollExtent - maxScrollExtent;
-      // 同步把 pixels 也减相同量，保持 d2b（pixels - maxScrollExtent）不变，
-      // 让 BouncingScrollPhysics 看不到「目标缩近」从而不会反复回拉。
-      correctPixels(pixels - shrink);
+        maxScrollExtent != this.maxScrollExtent) {
+      final double delta = maxScrollExtent - this.maxScrollExtent;
+      // 同步把 pixels 也加相同 delta，保持 d2b（pixels - maxScrollExtent）
+      // 不变，让 BouncingScrollPhysics 看不到「目标突然移动」。
+      correctPixels(pixels + delta);
     }
     return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
   }

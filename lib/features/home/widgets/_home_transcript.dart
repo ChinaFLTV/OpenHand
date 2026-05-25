@@ -396,11 +396,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
     // 第 N 个 bubble 解析完成、高度从纯文本占位扩张到富文本时，贴底
     // 状态会被打破而无法恢复（因为父级 settle 通常 8 帧内已耗尽）。
-    // 改为「16 帧 (~266 ms) 滚动停留循环」：每一帧都重新 read maxScrollExtent
+    // 改为「多帧滚动停留循环」：每一帧都重新 read maxScrollExtent
     // 并 jumpTo，命中真正稳定的底部之后立即终止。期间任何一次距离 ≤ 0.5 px
     // 即视为已稳定，提前退出循环避免无意义重排。
     if (widget.jumpToBottomOnInit) {
-      _settleJumpToBottom(maxFrames: 16);
+      _settleJumpToBottom(
+        maxFrames: _transcriptInitialBottomSettleFrameCount,
+      );
     }
   }
 
@@ -526,7 +528,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // 显式驱动一次 settle 循环把视口拉到底部，避免与「session 切换默认
       // 应贴底」语义冲突。
       if (widget.jumpToBottomOnInit) {
-        _settleJumpToBottom(maxFrames: 16);
+        _settleJumpToBottom(
+          maxFrames: _transcriptInitialBottomSettleFrameCount,
+        );
       }
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {

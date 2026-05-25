@@ -69,6 +69,7 @@ const int _transcriptWindowIncrement = 25;
 // 阶段㉒ — 20 → 12：让任何超过一屏的会话都启用 windowing，避免小会话
 // 也因 displayMessages.length ≥ 20 才触发缓存策略。
 const int _transcriptWindowingThreshold = 12;
+const int _transcriptInitialBottomSettleFrameCount = 40;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Number of post-layout frames to wait before revealing the freshly switched
 // transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock

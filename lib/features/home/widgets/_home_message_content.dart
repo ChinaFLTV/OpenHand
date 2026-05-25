@@ -2456,16 +2456,18 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
-/// 用嵌入式 WebView 渲染 HTML 消息气泡，与 `_HtmlPreviewDialog` 的浏览器预览
-/// 保持一致——`flutter_widget_from_html_core` 不支持 linear-gradient/box-shadow/
-/// transform/filter/`-webkit-background-clip:text` 等高级 CSS，会让多彩 HTML
-/// 输出严重畸形。该控件用 `loadHtmlString` 渲染，并通过 JS 通道把
-/// 视觉内容高度上报回 Dart，动态调整外层高度。
+/// 旧版嵌入式 WebView HTML 气泡渲染器。
+///
+/// 线程内 HTML 主路径现在使用 [_HtmlMessageBody]，以获得原生 Flutter
+/// 文本选择、稳定鼠标命中与同步布局高度。此实现仅作为兼容保留，避免
+/// 将平台视图事件代理重新引入普通消息流。
+// ignore: unused_element
 class _HtmlBubbleWebView extends StatefulWidget {
   const _HtmlBubbleWebView({
     required this.data,
     required this.textColor,
     required this.backgroundColor,
+    // ignore: unused_element_parameter
     this.baseTextStyle,
   });
 
@@ -3003,7 +3005,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 /// 助手消息正文按"消息内容格式"设置分派：
 /// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
 /// - 纯文本：`_PlainTextMessageBody`
-/// - HTML：内容像 HTML → `_HtmlBubbleWebView`（WebView 高保真渲染）；否则按回退链跳到 Markdown 或纯文本
+/// - HTML：内容像 HTML → `_HtmlMessageBody`（可选中文本的 Flutter HTML 渲染）；否则按回退链跳到 Markdown 或纯文本
 class _AssistantMessageBodyDispatcher extends StatelessWidget {
   const _AssistantMessageBodyDispatcher({
     required this.data,
@@ -3075,10 +3077,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     if (_looksLikeHtml(data)) {
       return SizedBox(
         width: double.infinity,
-        child: _HtmlBubbleWebView(
+        child: _HtmlMessageBody(
           data: data,
           textColor: textColor,
-          backgroundColor: backgroundColor,
           baseTextStyle: markdownStyleSheet.p,
         ),
       );

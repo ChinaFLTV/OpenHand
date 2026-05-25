@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:highlight/highlight.dart' as highlight;
@@ -23,7 +24,6 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:uuid/uuid.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
@@ -1649,10 +1649,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // settle passes，让 markdown 异步解析 / 代码高亮后续帧为高度
       // 增长还能追上。
       final activeSessionId = _activeTranscriptSessionId;
+      var flushedDrip = false;
       if (activeSessionId != null && activeSessionId.isNotEmpty) {
-        _TranscriptScrollDispatcher.instance.flushDripFor(activeSessionId);
+        flushedDrip =
+            _TranscriptScrollDispatcher.instance.flushDripFor(activeSessionId);
       }
-      _scheduleScrollToBottom(force: _pendingForcedScrollToBottom);
+      final shouldForce =
+          _pendingForcedScrollToBottom || _queuedForcedScrollToBottom;
+      if (shouldForce || flushedDrip) {
+        _scheduleScrollToBottom(force: shouldForce);
+      }
     });
   }
 
