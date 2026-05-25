@@ -2638,7 +2638,24 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (!bottomNode) {
       bottomNode = container;
     }
-    var measured = Math.max(0, bottom - top + trailingInsetFor(bottomNode, container));
+    var trailingInset = trailingInsetFor(bottomNode, container);
+    var measured = Math.max(0, bottom - top + trailingInset);
+    try {
+      window.__openhandLastHeightDebug = {
+        containerTag: tagOf(container),
+        includeMargins: includeMargins,
+        measured: Math.ceil(measured),
+        top: Math.round(top * 10) / 10,
+        bottom: Math.round(bottom * 10) / 10,
+        trailingInset: Math.round(trailingInset * 10) / 10,
+        bottomNodeType: bottomNode && bottomNode.nodeType,
+        bottomTag: bottomNode && bottomNode.nodeType === 1 ? tagOf(bottomNode) : '',
+        bottomText: bottomNode && bottomNode.nodeType === 3
+          ? String(bottomNode.nodeValue || '').trim().slice(0, 80)
+          : '',
+        containerRectHeight: Math.round(baseRect.height * 10) / 10
+      };
+    } catch (_) {}
     return Math.ceil(measured);
   }
   function measure() {
@@ -2659,7 +2676,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       var dpr = window.devicePixelRatio || 1;
       height = Math.ceil(height * dpr) / dpr;
       if (height > 0) {
-        window.flutter_inappwebview.callHandler('OpenHandHeight', height);
+        var debug = window.__openhandLastHeightDebug || {};
+        try {
+          debug.height = height;
+          debug.viewport = window.innerHeight || 0;
+          debug.bodyScrollHeight = body ? body.scrollHeight || 0 : 0;
+          debug.docScrollHeight = doc ? doc.scrollHeight || 0 : 0;
+          debug.bodyRectHeight = body ? Math.round(body.getBoundingClientRect().height * 10) / 10 : 0;
+          debug.docRectHeight = doc ? Math.round(doc.getBoundingClientRect().height * 10) / 10 : 0;
+          debug.hasRoot = !!root;
+        } catch (_) {}
+        window.flutter_inappwebview.callHandler('OpenHandHeight', {
+          height: height,
+          debug: debug
+        });
       }
     } catch (_) {}
   }
@@ -2761,11 +2791,24 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
   }
 
-  void _onContentSizeChanged(Size newSize) {
+  bool _onContentSizeChanged(Size newSize) {
     final next = newSize.height.clamp(24.0, 8000.0).toDouble();
-    if (!mounted) return;
-    if (_height != null && (next - _height!).abs() < 1.0) return;
+    if (!mounted) return false;
+    if (_height != null && (next - _height!).abs() < 1.0) return false;
     setState(() => _height = next);
+    return true;
+  }
+
+  void _debugLogHeightChange(double height, Object? debugPayload) {
+    assert(() {
+      try {
+        final payload = debugPayload ?? <String, Object?>{'height': height};
+        debugPrint('[html-bubble-height] ${jsonEncode(payload)}');
+      } catch (_) {
+        debugPrint('[html-bubble-height] height=$height debug=$debugPayload');
+      }
+      return true;
+    }());
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
@@ -2913,11 +2956,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
                 callback: (args) {
                   if (args.isEmpty) return;
                   final raw = args.first;
-                  final value = raw is num
-                      ? raw.toDouble()
-                      : double.tryParse(raw.toString());
+                  final heightRaw = raw is Map ? raw['height'] : raw;
+                  final debugPayload = raw is Map ? raw['debug'] : null;
+                  final value = heightRaw is num
+                      ? heightRaw.toDouble()
+                      : double.tryParse(heightRaw.toString());
                   if (value == null || !value.isFinite) return;
-                  _onContentSizeChanged(Size(0, value));
+                  if (_onContentSizeChanged(Size(0, value))) {
+                    _debugLogHeightChange(value, debugPayload);
+                  }
                 },
               );
             },
