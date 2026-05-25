@@ -2562,6 +2562,25 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     return false;
   }
+  function insideOpenDetailsBody(node, container) {
+    var original = node.nodeType === 1 ? node : node.parentElement;
+    var element = original;
+    while (element && element !== container.parentElement) {
+      if (tagOf(element) === 'details' && element.open) {
+        var summary = null;
+        for (var i = 0; i < element.children.length; i++) {
+          if (tagOf(element.children[i]) === 'summary') {
+            summary = element.children[i];
+            break;
+          }
+        }
+        return !summary || !summary.contains(original);
+      }
+      if (element === container) break;
+      element = element.parentElement;
+    }
+    return false;
+  }
   function isViewportFiller(node, styles, rect) {
     if (!node || !styles || !rect) return false;
     var tag = tagOf(node);
@@ -2606,6 +2625,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       }
       if (element === container) break;
       element = element.parentElement;
+    }
+    if (insideOpenDetailsBody(node, container)) {
+      inset = Math.max(inset, 24);
     }
     return Math.max(inset, visualInset);
   }
