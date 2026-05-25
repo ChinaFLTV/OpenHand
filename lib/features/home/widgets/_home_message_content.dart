@@ -2627,7 +2627,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       element = element.parentElement;
     }
     if (insideOpenDetailsBody(node, container)) {
-      inset = Math.max(inset, 24);
+      inset = Math.max(inset, 40);
     }
     return Math.max(inset, visualInset);
   }
