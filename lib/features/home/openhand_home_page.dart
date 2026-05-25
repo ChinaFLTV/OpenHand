@@ -1807,9 +1807,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // distance-to-bottom so a true bottom-pin scroll-end isn't treated
     // as a pause request.
     final userScrolledUpwardFromBottom =
-        _userDragActive &&
         notification is UserScrollNotification &&
-        notification.direction == ScrollDirection.reverse;
+        notification.direction == ScrollDirection.reverse &&
+        userScrollActivity &&
+        !_programmaticAutoFollowScrollInProgress;
     final pointerSignalScrolledUpwardFromBottom =
         implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
