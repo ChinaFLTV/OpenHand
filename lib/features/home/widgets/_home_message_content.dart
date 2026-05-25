@@ -2510,6 +2510,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     var parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : 0;
   }
+  function installRuntimeReset() {
+    try {
+      var style = document.getElementById('openhand-html-bubble-runtime-reset');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'openhand-html-bubble-runtime-reset';
+        (document.head || document.documentElement).appendChild(style);
+      }
+      style.textContent = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}body{box-sizing:border-box!important;}';
+      if (document.documentElement) {
+        document.documentElement.style.setProperty('min-height', '0', 'important');
+        document.documentElement.style.setProperty('height', 'auto', 'important');
+      }
+      if (document.body) {
+        document.body.style.setProperty('min-height', '0', 'important');
+        document.body.style.setProperty('height', 'auto', 'important');
+        document.body.style.setProperty('overflow-y', 'hidden', 'important');
+      }
+    } catch (_) {}
+  }
   function tagOf(node) {
     return String((node && node.tagName) || '').toLowerCase();
   }
@@ -2583,7 +2603,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
 
     try {
-      var textWalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      var textWalker = document.createTreeWalker(container, 4);
       var textCount = 0;
       while (textWalker.nextNode() && textCount < 2400) {
         var textNode = textWalker.currentNode;
@@ -2615,8 +2635,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       includeRect(node, rect, nodeStyles, true);
     }
 
-    if (!bottomNode && !isViewportFiller(container, styles, baseRect)) {
-      bottom = Math.max(bottom, baseRect.bottom + (includeMargins ? px(styles.marginBottom) : 0));
+    if (!bottomNode) {
       bottomNode = container;
     }
     var measured = Math.max(0, bottom - top + trailingInsetFor(bottomNode, container));
@@ -2624,6 +2643,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
   function measure() {
     try {
+      installRuntimeReset();
       var root = document.getElementById('oh-root');
       var body = document.body;
       var doc = document.documentElement;
@@ -2653,6 +2673,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     });
   }
   window.__openhandScheduleHeight = schedule;
+  installRuntimeReset();
   measure();
   try {
     var resizeObserver = new ResizeObserver(schedule);
