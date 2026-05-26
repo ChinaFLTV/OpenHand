@@ -2535,7 +2535,7 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   Widget _buildBar(Color base, Color highlight, double progress, {double? width}) {
     return Container(
       width: width ?? double.infinity,
-      height: 14,
+      height: 12,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         gradient: LinearGradient(
@@ -2549,7 +2549,7 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
 
   Widget _buildContent(Color base, Color highlight, double progress) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3252,7 +3252,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final cachedHeight = _heightCache[_heightCacheKey];
     final showShimmer = _height == null && cachedHeight == null;
-    const shimmerHeight = 88.0;
+    const shimmerHeight = 96.0;
 
     Widget content;
     if (showShimmer) {

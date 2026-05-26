@@ -75,13 +75,17 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
     super.debugLabel,
   });
 
+  /// 连续拒绝瞬态近零 extent 更新的次数，防止无限拒绝。
+  int _transientRejectCount = 0;
+
   @override
   bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
     if (hasPixels &&
         hasContentDimensions &&
         maxScrollExtent != this.maxScrollExtent) {
       final double delta = maxScrollExtent - this.maxScrollExtent;
-      if (pixels > this.maxScrollExtent) {
+      final double oldMax = this.maxScrollExtent;
+      if (pixels > oldMax) {
         // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
         // "目标突然移动" 而产生抽搐。
         correctPixels(pixels + delta);
@@ -89,13 +93,25 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
         // maxScrollExtent 收缩到当前 pixels 之下（例如 HTML 气泡高度
         // 测量值变小）：按比例缩放 pixels，维持用户的相对阅读位置，
         // 避免被 Flutter 框架 clamp 到底部造成"突然滑回最新消息"。
-        final double oldMax = this.maxScrollExtent;
+        //
+        // 瞬态近零 extent（如 576→8）是布局中间态产物，不是真实内容
+        // 收缩。放行会导致 pixels 被 clamp 到 ~0，扩展回 576 后用户
+        // 位置已丢失，被迫重新滚到底 → 再次 overscroll → 循环振荡。
+        // 连续拒绝超过 3 帧则放行，防止真实清空内容时死循环。
+        if (maxScrollExtent < 50.0 && oldMax > 100.0) {
+          _transientRejectCount++;
+          if (_transientRejectCount <= 3) {
+            return false;
+          }
+        }
+        _transientRejectCount = 0;
         if (oldMax > 0) {
           final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
           final double newPixels = (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
-          debugPrint('[SCROLL-PHYSICS] maxExt shrunk $oldMax→$maxScrollExtent, px $pixels→$newPixels (ratio=${ratio.toStringAsFixed(3)})');
           correctPixels(newPixels);
         }
+      } else {
+        _transientRejectCount = 0;
       }
     }
     return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
