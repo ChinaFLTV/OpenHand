@@ -2488,6 +2488,7 @@ class _HtmlSelectionBridgeClipboard {
 /// 事件/Selection Range，同时用高度缓存减少会话切换时的二次跳动。
 class _HtmlBubbleWebView extends StatefulWidget {
   const _HtmlBubbleWebView({
+    super.key,
     required this.data,
     required this.textColor,
     required this.backgroundColor,
@@ -2866,6 +2867,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static final Map<int, double> _heightCache = <int, double>{};
   bool _animateHeight = false;
   int _measurementCount = 0;
+  Timer? _heightDebounceTimer;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -2903,6 +2905,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   @override
   void dispose() {
+    _heightDebounceTimer?.cancel();
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
     _bubbleStateForRegion = null;
     super.dispose();
@@ -2917,6 +2920,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _animateHeight = false;
     });
     _measurementCount = 0;
+    _heightDebounceTimer?.cancel();
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
@@ -2932,16 +2936,34 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   void _onContentSizeChanged(Size newSize) {
     final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
-    if (_height != null && (next - _height!).abs() < 1.0) return;
     _measurementCount++;
     // 首次测量值是 CSS reset 生效前的完整文档高度（如 16222），
     // 直接跳过——既不设 _height 也不缓存。build() 会继续使用
     // _heightCache 中的旧高度或 fallbackHeight，视觉上无跳动。
-    // 第二次测量才是 reset 后的真实内容高度。
     if (_measurementCount == 1) {
       debugPrint('[HTML-H] skipping first measurement $next');
       return;
     }
+    if (_height != null) {
+      if ((next - _height!).abs() < 1.0) return;
+      // 小幅波动（< 20%）很可能是窗口焦点切换等测量假象（如 onWindowFocus
+      // / onWindowBlur 触发的 2631↔2943 振荡），通过 100ms 防抖吸收。
+      // 大幅变化（内容真实增长）不受防抖影响，直接应用。
+      final changeRatio = (next - _height!).abs() / _height!;
+      if (changeRatio < 0.20) {
+        _heightDebounceTimer?.cancel();
+        _heightDebounceTimer = Timer(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          if ((next - _height!).abs() < 1.0) return;
+          _applyHeight(next);
+        });
+        return;
+      }
+    }
+    _applyHeight(next);
+  }
+
+  void _applyHeight(double next) {
     _heightCache[_heightCacheKey] = next;
     if (_heightCache.length > 96) {
       _heightCache.remove(_heightCache.keys.first);
@@ -3293,6 +3315,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: _HtmlBubbleWebView(
+          key: ValueKey(Object.hash(data, textColor)),
           data: data,
           textColor: textColor,
           backgroundColor: backgroundColor,
