@@ -2931,11 +2931,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
-    _heightCache[_heightCacheKey] = next;
-    if (_heightCache.length > 96) {
-      _heightCache.remove(_heightCache.keys.first);
-    }
     final wasFirstHeight = _height == null;
+    // 首次测量值是 CSS reset 生效前的完整文档高度（如 16222），
+    // 不可缓存。第二次及之后的测量值才是 reset 后的真实内容高度。
+    if (!wasFirstHeight) {
+      _heightCache[_heightCacheKey] = next;
+      if (_heightCache.length > 96) {
+        _heightCache.remove(_heightCache.keys.first);
+      }
+    }
     final oldHeight = _height;
     debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (first=$wasFirstHeight, anim=$_animateHeight)');
     setState(() => _height = next);
