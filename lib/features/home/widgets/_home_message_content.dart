@@ -2951,7 +2951,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
-  bool _animateHeight = false;
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
@@ -3003,7 +3002,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     setState(() {
       _height = null;
       _hasError = false;
-      _animateHeight = false;
     });
     _measurementCount = 0;
     _heightDebounceTimer?.cancel();
@@ -3054,15 +3052,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (_heightCache.length > 96) {
       _heightCache.remove(_heightCache.keys.first);
     }
-    final oldHeight = _height;
-    final wasFirstValidHeight = _height == null;
-    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (meas#=$_measurementCount, anim=$_animateHeight)');
     setState(() => _height = next);
-    if (wasFirstValidHeight) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) setState(() => _animateHeight = true);
-      });
-    }
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
@@ -3255,14 +3245,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final showShimmer = _height == null && cachedHeight == null;
     const shimmerHeight = 96.0;
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
-    // shimmer 期间用固定高度让卡片有可观的初始尺寸；高度到达后切换到真实值。
-    final displayHeight = showShimmer
-        ? shimmerHeight
-        : (_height ?? cachedHeight ?? fallbackHeight);
+    final displayHeight = _height ?? cachedHeight ?? fallbackHeight;
 
-    // WebView 必须始终创建——它加载 HTML 并通过 JS 回调报告内容高度。
-    // 否则 showShimmer 期间没有 WebView，高度回调永远不会触发，骨架屏
-    // 永远无法过渡到真实内容。
+    // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
+    // 使用 Column 线性排列（骨架屏在上、WebView 在下），任何布局模式下都
+    // 不会重叠，避免 Flutter widget 阻断 macOS 平台视图的触摸事件转发。
     final webViewChild = KeyedSubtree(
       key: _webViewRegionKey,
       child: iaw.InAppWebView(
@@ -3317,43 +3304,27 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     );
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final animDuration = reduceMotion
-        ? Duration.zero
-        : kCardMotionDurationExpand;
-    final curve = reduceMotion ? Curves.linear : kCardMotionCurve;
 
     return AnimatedSize(
-      duration: animDuration,
-      curve: curve,
+      duration: reduceMotion ? Duration.zero : kCardMotionDurationExpand,
+      curve: reduceMotion ? Curves.linear : kCardMotionCurve,
       alignment: Alignment.topCenter,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: displayHeight, end: displayHeight),
-        duration: _animateHeight
-            ? cardMotionDurationFor(context, expanding: true)
-            : Duration.zero,
-        curve: kCardMotionCurve,
-        builder: (context, value, child) {
-          // IndexedStack 保证 WebView 始终在树中加载，同时骨架屏与 WebView
-          // 不同时渲染——避免 Flutter Container 叠加在 macOS 平台视图上层
-          // 阻断触摸事件导致文本选区失效。
-          return SizedBox(
-            width: double.infinity,
-            height: value,
-            child: IndexedStack(
-              index: showShimmer ? 0 : 1,
-              alignment: Alignment.topCenter,
-              children: [
-                const SizedBox(
-                  width: double.infinity,
-                  height: shimmerHeight,
-                  child: _HtmlBubbleShimmer(),
-                ),
-                child!,
-              ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showShimmer)
+            const SizedBox(
+              width: double.infinity,
+              height: shimmerHeight,
+              child: _HtmlBubbleShimmer(),
             ),
-          );
-        },
-        child: webViewChild,
+          SizedBox(
+            width: double.infinity,
+            height: showShimmer ? 1.0 : displayHeight,
+            child: webViewChild,
+          ),
+        ],
       ),
     );
   }
