@@ -2951,6 +2951,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
   bool _animateHeight = false;
+  bool _shimmerFadingOut = false;
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
@@ -3003,6 +3004,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _height = null;
       _hasError = false;
       _animateHeight = false;
+      _shimmerFadingOut = false;
     });
     _measurementCount = 0;
     _heightDebounceTimer?.cancel();
@@ -3056,7 +3058,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final oldHeight = _height;
     final wasFirstValidHeight = _height == null;
     debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (meas#=$_measurementCount, anim=$_animateHeight)');
-    setState(() => _height = next);
+    setState(() {
+      _height = next;
+      if (wasFirstValidHeight) {
+        _shimmerFadingOut = true;
+      }
+    });
     if (wasFirstValidHeight) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) setState(() => _animateHeight = true);
@@ -3253,22 +3260,80 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final cachedHeight = _heightCache[_heightCacheKey];
     final showShimmer = _height == null && cachedHeight == null;
     const shimmerHeight = 96.0;
+    final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
+    // shimmer 期间用固定高度让卡片有可观的初始尺寸；高度到达后切换到真实值。
+    final displayHeight = showShimmer
+        ? shimmerHeight
+        : (_height ?? cachedHeight ?? fallbackHeight);
 
-    Widget content;
-    if (showShimmer) {
-      content = const SizedBox(
-        width: double.infinity,
-        height: shimmerHeight,
-        child: _HtmlBubbleShimmer(),
-      );
-    } else {
-      final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
-      final height = _height ?? cachedHeight ?? fallbackHeight;
-      // 用 TweenAnimationBuilder 替代 AnimatedSize，避免 RenderAnimatedSize
-      // 在 performLayout 期间通过 _animation.forward() → listener →
-      // markNeedsLayout 路径 re-dirty 自身导致断言崩溃。
-      content = TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: height, end: height),
+    // WebView 必须始终创建——它加载 HTML 并通过 JS 回调报告内容高度。
+    // 否则 showShimmer 期间没有 WebView，高度回调永远不会触发，骨架屏
+    // 永远无法过渡到真实内容。
+    final webViewChild = KeyedSubtree(
+      key: _webViewRegionKey,
+      child: iaw.InAppWebView(
+        initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+        initialSettings: iaw.InAppWebViewSettings(
+          transparentBackground: !Platform.isMacOS,
+          disableVerticalScroll: true,
+        ),
+        onWebViewCreated: (controller) {
+          _controller = controller;
+          controller.addJavaScriptHandler(
+            handlerName: 'OpenHandHeight',
+            callback: (args) {
+              if (args.isEmpty) return;
+              final raw = args.first;
+              final value = raw is num
+                  ? raw.toDouble()
+                  : double.tryParse(raw.toString());
+              if (value == null || !value.isFinite) return;
+              _onContentSizeChanged(Size(0, value));
+            },
+          );
+        },
+        onLoadStop: (controller, url) async {
+          try {
+            await controller.evaluateJavascript(
+              source: _heightObserverScript,
+            );
+            await controller.evaluateJavascript(
+              source: _selectionBridgeScript,
+            );
+          } catch (error, stack) {
+            silentLog(
+              'home_message_content',
+              'html bubble height observer install failed',
+              error,
+              stack,
+            );
+          }
+        },
+        onReceivedError: (controller, request, error) {
+          silentLog(
+            'home_message_content',
+            'html bubble webview error',
+            error,
+          );
+          if (mounted) {
+            setState(() => _hasError = true);
+          }
+        },
+      ),
+    );
+
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final animDuration = reduceMotion
+        ? Duration.zero
+        : kCardMotionDurationExpand;
+    final curve = reduceMotion ? Curves.linear : kCardMotionCurve;
+
+    return AnimatedSize(
+      duration: animDuration,
+      curve: curve,
+      alignment: Alignment.topCenter,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: displayHeight, end: displayHeight),
         duration: _animateHeight
             ? cardMotionDurationFor(context, expanding: true)
             : Duration.zero,
@@ -3277,98 +3342,33 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           return SizedBox(
             width: double.infinity,
             height: value,
-            child: child,
-          );
-        },
-        child: KeyedSubtree(
-          key: _webViewRegionKey,
-          child: iaw.InAppWebView(
-            initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-            initialSettings: iaw.InAppWebViewSettings(
-              transparentBackground: !Platform.isMacOS,
-              disableVerticalScroll: true,
+            child: Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                child!,
+                if (showShimmer || _shimmerFadingOut)
+                  IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: showShimmer ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      onEnd: () {
+                        if (!showShimmer && mounted) {
+                          setState(() => _shimmerFadingOut = false);
+                        }
+                      },
+                      child: const SizedBox(
+                        width: double.infinity,
+                        height: shimmerHeight,
+                        child: _HtmlBubbleShimmer(),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            onWebViewCreated: (controller) {
-              _controller = controller;
-              controller.addJavaScriptHandler(
-                handlerName: 'OpenHandHeight',
-                callback: (args) {
-                  if (args.isEmpty) return;
-                  final raw = args.first;
-                  final value = raw is num
-                      ? raw.toDouble()
-                      : double.tryParse(raw.toString());
-                  if (value == null || !value.isFinite) return;
-                  _onContentSizeChanged(Size(0, value));
-                },
-              );
-            },
-            onLoadStop: (controller, url) async {
-              try {
-                await controller.evaluateJavascript(
-                  source: _heightObserverScript,
-                );
-                await controller.evaluateJavascript(
-                  source: _selectionBridgeScript,
-                );
-              } catch (error, stack) {
-                silentLog(
-                  'home_message_content',
-                  'html bubble height observer install failed',
-                  error,
-                  stack,
-                );
-              }
-            },
-            onReceivedError: (controller, request, error) {
-              silentLog(
-                'home_message_content',
-                'html bubble webview error',
-                error,
-              );
-              if (mounted) {
-                setState(() => _hasError = true);
-              }
-            },
-          ),
-        ),
-      );
-    }
-
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final duration = reduceMotion
-        ? Duration.zero
-        : kCardMotionDurationExpand;
-    final curve = reduceMotion ? Curves.linear : kCardMotionCurve;
-
-    return AnimatedSize(
-      duration: duration,
-      curve: curve,
-      alignment: Alignment.topCenter,
-      child: AnimatedSwitcher(
-        duration: duration,
-        switchInCurve: reduceMotion ? Curves.linear : kCardMotionCurve,
-        switchOutCurve: reduceMotion ? Curves.linear : Curves.easeOutCubic,
-        layoutBuilder: (currentChild, previousChildren) {
-          return Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              ...previousChildren,
-              if (currentChild != null) currentChild,
-            ],
           );
         },
-        child: showShimmer
-            ? const SizedBox(
-                key: ValueKey('html-shimmer'),
-                width: double.infinity,
-                height: shimmerHeight,
-                child: _HtmlBubbleShimmer(),
-              )
-            : KeyedSubtree(
-                key: const ValueKey('html-content'),
-                child: content,
-              ),
+        child: webViewChild,
       ),
     );
   }
