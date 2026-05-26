@@ -2864,10 +2864,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
-  // 首次挂载时禁止 AnimatedSize 动画，避免与 settle 循环产生
-  // "高度变化 → layout 重排 → maxScrollExtent 变化 → jumpTo" 的
-  // 正反馈振荡。第一次高度赋值完成后下一帧再开启动画。
   bool _animateHeight = false;
+  // 延迟 setState：避免在 AnimatedSize.performLayout 期间
+  // 通过 JS → platform channel → setState 路径让
+  // RenderAnimatedSize re-dirty 自己导致断言崩溃。
+  double? _pendingHeight;
+  bool _heightUpdateQueued = false;
+  bool _wasFirstHeight = false;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -2914,8 +2917,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final controller = _controller;
     if (controller == null) return;
     setState(() {
-      _height = _heightCache[_heightCacheKey];
+      _height = null;
       _hasError = false;
+      _wasFirstHeight = false;
+      _animateHeight = false;
     });
     try {
       await controller.loadData(data: _buildDocument());
@@ -2930,26 +2935,35 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
-    final next = newSize.height.clamp(24.0, 8000.0).toDouble();
+    final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
+    if (_pendingHeight != null && (next - _pendingHeight!).abs() < 1.0) return;
     _heightCache[_heightCacheKey] = next;
     if (_heightCache.length > 96) {
       _heightCache.remove(_heightCache.keys.first);
     }
-    final wasFirstHeight = _height == null;
-    final oldHeight = _height;
-    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (first=$wasFirstHeight, anim=$_animateHeight)');
-    setState(() => _height = next);
-    if (wasFirstHeight) {
-      // 延迟 800ms 再开启动画：覆盖 JS 侧 immediate + 100ms + 300ms
-      // 三次延迟测量 + AnimatedSize 280ms 动画的完整时间窗。
-      // 在此期间所有高度变化都是瞬时生效（Duration.zero），
-      // settle 循环可以立即跟踪到真实 maxScrollExtent。
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) setState(() => _animateHeight = true);
-      });
-    }
+    if (_height == null) _wasFirstHeight = true;
+    _pendingHeight = next;
+    if (_heightUpdateQueued) return;
+    _heightUpdateQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _heightUpdateQueued = false;
+      if (!mounted) return;
+      final apply = _pendingHeight;
+      if (apply == null) return;
+      _pendingHeight = null;
+      final wasFirst = _wasFirstHeight;
+      _wasFirstHeight = false;
+      final oldHeight = _height;
+      debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${apply.toStringAsFixed(1)} (first=$wasFirst, anim=$_animateHeight)');
+      setState(() => _height = apply);
+      if (wasFirst) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) setState(() => _animateHeight = true);
+        });
+      }
+    });
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
