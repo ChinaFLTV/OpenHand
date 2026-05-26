@@ -2548,7 +2548,8 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   }
 
   Widget _buildContent(Color base, Color highlight, double progress) {
-    return Padding(
+    return Container(
+      color: base,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
