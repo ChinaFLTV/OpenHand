@@ -79,12 +79,22 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
   bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
     if (hasPixels &&
         hasContentDimensions &&
-        pixels > this.maxScrollExtent &&
         maxScrollExtent != this.maxScrollExtent) {
       final double delta = maxScrollExtent - this.maxScrollExtent;
-      // 同步把 pixels 也加相同 delta，保持 d2b（pixels - maxScrollExtent）
-      // 不变，让 BouncingScrollPhysics 看不到「目标突然移动」。
-      correctPixels(pixels + delta);
+      if (pixels > this.maxScrollExtent) {
+        // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
+        // "目标突然移动" 而产生抽搐。
+        correctPixels(pixels + delta);
+      } else if (delta < -0.5 && pixels > maxScrollExtent) {
+        // maxScrollExtent 收缩到当前 pixels 之下（例如 HTML 气泡高度
+        // 测量值变小）：按比例缩放 pixels，维持用户的相对阅读位置，
+        // 避免被 Flutter 框架 clamp 到底部造成"突然滑回最新消息"。
+        final double oldMax = this.maxScrollExtent;
+        if (oldMax > 0) {
+          final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
+          correctPixels((ratio * maxScrollExtent).clamp(0.0, maxScrollExtent));
+        }
+      }
     }
     return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
   }

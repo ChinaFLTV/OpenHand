@@ -186,6 +186,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _pendingScrollToBottomSettlePasses = 0;
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
+  // 跟踪最近一次 maxScrollExtent，用于检测「底部向上收缩」导致的伪贴底。
+  double? _lastMessageScrollMaxExtent;
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
@@ -1776,6 +1778,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
+    final currentMaxExtent = notification.metrics.maxScrollExtent;
+    final maxExtentShrunkSignificantly =
+        _lastMessageScrollMaxExtent != null &&
+        currentMaxExtent < _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
+    _lastMessageScrollMaxExtent = currentMaxExtent;
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
@@ -1848,10 +1855,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     //      UserScrollNotification), proving the user finished the gesture.
     // Programmatic scrolls are excluded because the early-return at the
     // top of this method skips them entirely.
+    //
+    // 2026-05-26 修复：当 maxScrollExtent 大幅收缩（HTML 气泡高度测量
+    // 值变小、图片解码后实际尺寸小于占位等），pixels 即使不变也会在数值上
+    // "靠近底部"——但这是底部向用户靠近，而非用户向底部滚动。此时不应恢复
+    // 自动跟随，否则视口会被强行拽回新底部，与用户上滑意图直接冲突。
     if (isNearBottom &&
         _autoFollowEnabled &&
         userScrollEnded &&
-        _userScrollInProgress) {
+        _userScrollInProgress &&
+        !maxExtentShrunkSignificantly) {
       _shouldAutoFollowMessages = true;
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;

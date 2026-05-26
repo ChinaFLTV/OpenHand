@@ -411,12 +411,46 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// 阶段㉓b：循环对「用户主动滚动」让位 —— 若上一次循环 jumpTo 后下一帧
   /// 读到 pixels 已被外力（用户拖拽）改变，立即中止后续 jumpTo，避免与
   /// 用户操作互相打架。
+  ///
+  /// 2026-05-26：主线循环结束后追加一次 350ms 延迟 settle，捕获 HTML
+  /// WebView 延迟高度测量（JS setTimeout 100ms/300ms）引发的 maxScrollExtent
+  /// 变化，避免 settle 提前收工后视口被 HTML 气泡的 AnimatedSize 撑开而
+  /// 悬在"假底部"上方。
   void _settleJumpToBottom({required int maxFrames}) {
     if (maxFrames <= 0) return;
     var stableFrames = 0;
     double? lastJumpedTo;
+    var mainLoopFinished = false;
+
+    void _scheduleLateSettle() {
+      if (mainLoopFinished) return;
+      mainLoopFinished = true;
+      // 350ms 后补一刀 settle，足以覆盖 HTML WebView JS 侧 100ms/300ms
+      // 延迟高度测量回调 → _onContentSizeChanged → AnimatedSize 动画
+      // （最长 280ms）→ ListView layout 重排的整条链路。
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        final controller = widget.controller;
+        if (!controller.hasClients) return;
+        final position = controller.positions.isNotEmpty
+            ? controller.positions.last
+            : null;
+        if (position == null) return;
+        if (position.userScrollDirection != ScrollDirection.idle) return;
+        final target = position.maxScrollExtent;
+        if (target <= 0) return;
+        final distance = (target - position.pixels).abs();
+        if (distance >= 0.5 && distance < 1200) {
+          position.jumpTo(target);
+        }
+      });
+    }
+
     void scheduleNext(int remaining) {
-      if (remaining <= 0) return;
+      if (remaining <= 0) {
+        _scheduleLateSettle();
+        return;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final controller = widget.controller;
@@ -431,22 +465,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           scheduleNext(remaining - 1);
           return;
         }
-        // 用户手势硬阻断：只要 position 报告非 idle 的用户滚动方向，
-        // 立即放弃 settle 循环。否则即便 pixels 还未漂离 target，
-        // 手指刚按下 / 抬起瞬间的 jumpTo 也会把弹簧打回原位形成抽搐。
         if (position.userScrollDirection != ScrollDirection.idle) {
+          _scheduleLateSettle();
           return;
         }
-        // 如果上一次 jumpTo 之后 pixels 不再等于 target（容忍 1 px 浮点
-        // 误差），说明在两帧之间发生了「非本循环」的滚动 —— 通常是
-        // 用户手势或别处的 scrollTo / animateTo，立刻让位中止循环。
         if (lastJumpedTo != null &&
             (position.pixels - lastJumpedTo!).abs() > 1) {
+          _scheduleLateSettle();
           return;
         }
-        // 弹簧让步：若上一轮 jumpTo 后 maxExtent 萎缩导致 pixels 越界，
-        // BouncingScrollPhysics 弹簧正在回拉。此时不抢 jumpTo，让弹簧
-        // 自然沉降到 maxExtent 附近后再继续。弹簧方向与贴底目标一致。
         if (position.pixels > position.maxScrollExtent + 0.5) {
           scheduleNext(remaining - 1);
           return;
@@ -459,8 +486,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final distance = (target - position.pixels).abs();
         if (distance < 0.5) {
           stableFrames += 1;
-          // 连续 2 帧已经贴底，认为稳定，提前退出循环。
-          if (stableFrames >= 2) return;
+          if (stableFrames >= 2) {
+            _scheduleLateSettle();
+            return;
+          }
         } else {
           stableFrames = 0;
           if (controller.positions.length > 1) {

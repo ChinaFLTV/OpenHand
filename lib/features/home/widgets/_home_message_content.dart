@@ -2772,9 +2772,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   document.addEventListener('transitionend', schedule, true);
   document.addEventListener('animationend', schedule, true);
   window.addEventListener('load', schedule);
-  setTimeout(schedule, 80);
-  setTimeout(schedule, 240);
-  setTimeout(schedule, 720);
+  setTimeout(schedule, 100);
+  setTimeout(schedule, 300);
 })();
 ''';
 
@@ -2858,6 +2857,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
+  // 首次挂载时禁止 AnimatedSize 动画，避免与 settle 循环产生
+  // "高度变化 → layout 重排 → maxScrollExtent 变化 → jumpTo" 的
+  // 正反馈振荡。第一次高度赋值完成后下一帧再开启动画。
+  bool _animateHeight = false;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -2906,6 +2909,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     setState(() {
       _height = _heightCache[_heightCacheKey];
       _hasError = false;
+      _animateHeight = false;
     });
     try {
       await controller.loadData(data: _buildDocument());
@@ -2927,7 +2931,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (_heightCache.length > 96) {
       _heightCache.remove(_heightCache.keys.first);
     }
+    final wasFirstHeight = _height == null;
     setState(() => _height = next);
+    // 首次高度落定后延迟一帧再开启动画，确保初次赋值不触发
+    // AnimatedSize 的 Q 弹曲线，避免与 transcript 的 settle 循环共振。
+    if (wasFirstHeight) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _animateHeight = true);
+      });
+    }
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
@@ -3122,7 +3134,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 外层用 AnimatedSize 包起来，时长/曲线接入 transcript 卡片 motion token，
     // 避免和消息气泡外层动画节奏打架。
     return AnimatedSize(
-      duration: cardMotionDurationFor(context, expanding: true),
+      duration: _animateHeight
+          ? cardMotionDurationFor(context, expanding: true)
+          : Duration.zero,
       curve: kCardMotionCurve,
       alignment: Alignment.topCenter,
       child: SizedBox(
