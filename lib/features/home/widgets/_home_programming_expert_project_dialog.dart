@@ -1322,39 +1322,21 @@ _ProgrammingExpertRecentPathCache _collectProgrammingExpertRecentPaths(
   final lspSeenByLanguage = <String, Set<String>>{};
   final lspPathsByLanguage = <String, List<String>>{};
 
-  var peCount = 0;
-  var peWithMapConfig = 0;
-  var peWithProjectRoot = 0;
 
   for (final session in sessions) {
     if (session.templateId != 'programming_expert') {
       continue;
     }
-    peCount += 1;
     final config = session.metadata['programming_expert_config'];
     if (config is! Map) {
-      if (kDebugMode) {
-        debugPrint(
-          '[pe.recents] skip session=${session.id} reason=no-config '
-          'metadataKeys=${session.metadata.keys.toList()}',
-        );
-      }
       continue;
     }
-    peWithMapConfig += 1;
 
     final rawProjectRoot = config['project_root'];
     final projectRoot = OpenHandPaths.normalizeOptionalPath(
       '${rawProjectRoot ?? ''}',
     );
-    if (projectRoot.isEmpty && kDebugMode) {
-      debugPrint(
-        '[pe.recents] skip session=${session.id} reason=empty-project-root '
-        'raw=$rawProjectRoot',
-      );
-    }
     if (projectRoot.isNotEmpty) {
-      peWithProjectRoot += 1;
       if (seenProjectRoots.add(projectRoot)) {
         projectRoots.add(projectRoot);
       }
@@ -1401,15 +1383,6 @@ _ProgrammingExpertRecentPathCache _collectProgrammingExpertRecentPaths(
     }
   }
 
-  if (kDebugMode) {
-    debugPrint(
-      '[pe.recents] summary totalSessions=${sessions.length} '
-      'peSessions=$peCount peWithMapConfig=$peWithMapConfig '
-      'peWithProjectRoot=$peWithProjectRoot '
-      'finalProjectRoots=${projectRoots.length} '
-      'paths=${projectRoots.take(10).toList()}',
-    );
-  }
   return _ProgrammingExpertRecentPathCache(
     projectRoots: projectRoots.take(10).toList(growable: false),
     configsByProjectRoot: Map<String, _ProgrammingExpertConfig>.unmodifiable(

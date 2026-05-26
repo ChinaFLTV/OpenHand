@@ -424,7 +424,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     void _scheduleLateSettle() {
       if (mainLoopFinished) return;
       mainLoopFinished = true;
-      debugPrint('[SETTLE] main loop ended, scheduling late settles @600ms + @1000ms');
       // 两段延迟 settle：600ms 覆盖 JS 100ms+300ms 测量 → AnimatedSize 280ms
       // 动画的完整链路；1000ms 作为二次兜底，捕获更晚的异步排版（图片加载等）。
       for (final delayMs in [600, 1000]) {
@@ -440,10 +439,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           final target = position.maxScrollExtent;
           if (target <= 0) return;
           final distance = (target - position.pixels).abs();
-          debugPrint('[SETTLE] late settle @${delayMs}ms: maxExt=${target.toStringAsFixed(1)} px=${position.pixels.toStringAsFixed(1)} dist=${distance.toStringAsFixed(1)}');
           if (distance >= 0.5 && distance < 1200) {
             position.jumpTo(target);
-            debugPrint('[SETTLE] late settle @${delayMs}ms JUMP to $target');
           }
         });
       }
@@ -490,7 +487,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (distance < 0.5) {
           stableFrames += 1;
           if (stableFrames >= 2) {
-            debugPrint('[SETTLE] stable @maxExt=${target.toStringAsFixed(1)} after $stableFrames frames');
             _scheduleLateSettle();
             return;
           }
@@ -500,7 +496,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             scheduleNext(remaining - 1);
             return;
           }
-          debugPrint('[SETTLE] jumpTo maxExt=${target.toStringAsFixed(1)} dist=${distance.toStringAsFixed(1)} remaining=$remaining');
           position.jumpTo(target);
         }
         scheduleNext(remaining - 1);

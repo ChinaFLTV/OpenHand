@@ -6,6 +6,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -60,6 +61,7 @@ Future<void> main() async {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 2026-05-18 — 在 binding 初始化之后立刻启动 FPS 监视器，节流自动
   // 模式与 UI 卡顿降级会读它的 recentFps 数值。
   OpenHandFpsMonitor.instance.start();

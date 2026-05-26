@@ -1785,9 +1785,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
-    if ((currentMaxExtent - (_lastMessageScrollMaxExtent ?? currentMaxExtent)).abs() > 2) {
-      debugPrint('[SCROLL-NOTIFY] maxExt $_lastMessageScrollMaxExtent → $currentMaxExtent (Δ${(currentMaxExtent - (_lastMessageScrollMaxExtent ?? currentMaxExtent)).toStringAsFixed(1)}) d2b=${distanceToBottom.toStringAsFixed(1)} user=$userScrollActivity near=$isNearBottom shrink=$maxExtentShrunkSignificantly type=${notification.runtimeType}');
-    }
     _lastMessageScrollMaxExtent = currentMaxExtent;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
@@ -2622,11 +2619,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (templateId == 'programming_expert') {
       final sessionController = context.read<AiSessionController>();
-      if (kDebugMode) {
-        debugPrint(
-          '[pe.recents] dialog-open#A sessions=${sessionController.sessions.length}',
-        );
-      }
       final recentPathCache = _collectProgrammingExpertRecentPaths(
         sessionController.sessions,
       );
@@ -2665,7 +2657,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (created && mounted) {
         final currentSession = sessionController.currentSession;
         if (currentSession != null) {
-          final ok = await sessionController.updateSessionMetadata(
+          await sessionController.updateSessionMetadata(
             currentSession.id,
             <String, Object?>{
               'programming_expert_config': <String, Object?>{
@@ -2676,12 +2668,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
             },
           );
-          if (kDebugMode) {
-            debugPrint(
-              '[pe.recents] metadata-saved#A session=${currentSession.id} ok=$ok '
-              'projectRoot=${peConfig.projectRoot}',
-            );
-          }
         }
       }
       return created;
@@ -4175,11 +4161,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // the correct working directory and project context.
       _ProgrammingExpertConfig? peConfig;
       if (templateId == 'programming_expert') {
-        if (kDebugMode) {
-          debugPrint(
-            '[pe.recents] dialog-open#B sessions=${sessionController.sessions.length}',
-          );
-        }
         final recentPathCache = _collectProgrammingExpertRecentPaths(
           sessionController.sessions,
         );
@@ -4227,7 +4208,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (peConfig != null) {
         final currentSession = sessionController.currentSession;
         if (currentSession != null) {
-          final ok = await sessionController.updateSessionMetadata(
+          await sessionController.updateSessionMetadata(
             currentSession.id,
             <String, Object?>{
               'programming_expert_config': <String, Object?>{
@@ -4238,12 +4219,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
             },
           );
-          if (kDebugMode) {
-            debugPrint(
-              '[pe.recents] metadata-saved#B session=${currentSession.id} ok=$ok '
-              'projectRoot=${peConfig.projectRoot}',
-            );
-          }
         }
         if (!mounted) {
           return;
