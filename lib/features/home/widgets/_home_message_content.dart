@@ -2865,12 +2865,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
   bool _animateHeight = false;
-  // 延迟 setState：避免在 AnimatedSize.performLayout 期间
-  // 通过 JS → platform channel → setState 路径让
-  // RenderAnimatedSize re-dirty 自己导致断言崩溃。
-  double? _pendingHeight;
-  bool _heightUpdateQueued = false;
-  bool _wasFirstHeight = false;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -2919,7 +2913,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     setState(() {
       _height = null;
       _hasError = false;
-      _wasFirstHeight = false;
       _animateHeight = false;
     });
     try {
@@ -2938,32 +2931,19 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
-    if (_pendingHeight != null && (next - _pendingHeight!).abs() < 1.0) return;
     _heightCache[_heightCacheKey] = next;
     if (_heightCache.length > 96) {
       _heightCache.remove(_heightCache.keys.first);
     }
-    if (_height == null) _wasFirstHeight = true;
-    _pendingHeight = next;
-    if (_heightUpdateQueued) return;
-    _heightUpdateQueued = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _heightUpdateQueued = false;
-      if (!mounted) return;
-      final apply = _pendingHeight;
-      if (apply == null) return;
-      _pendingHeight = null;
-      final wasFirst = _wasFirstHeight;
-      _wasFirstHeight = false;
-      final oldHeight = _height;
-      debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${apply.toStringAsFixed(1)} (first=$wasFirst, anim=$_animateHeight)');
-      setState(() => _height = apply);
-      if (wasFirst) {
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted) setState(() => _animateHeight = true);
-        });
-      }
-    });
+    final wasFirstHeight = _height == null;
+    final oldHeight = _height;
+    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (first=$wasFirstHeight, anim=$_animateHeight)');
+    setState(() => _height = next);
+    if (wasFirstHeight) {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) setState(() => _animateHeight = true);
+      });
+    }
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
@@ -3154,76 +3134,72 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
     final height = _height ?? _heightCache[_heightCacheKey] ?? fallbackHeight;
-    // 2026-05-25: HTML 内容展开/收起时高度双向变化 (oh-root 提供真实几何)
-    // 外层用 AnimatedSize 包起来，时长/曲线接入 transcript 卡片 motion token，
-    // 避免和消息气泡外层动画节奏打架。
-    return AnimatedSize(
+    // 用 TweenAnimationBuilder 替代 AnimatedSize，避免 RenderAnimatedSize
+    // 在 performLayout 期间通过 _animation.forward() → listener →
+    // markNeedsLayout 路径 re-dirty 自身导致断言崩溃。
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: height, end: height),
       duration: _animateHeight
           ? cardMotionDurationFor(context, expanding: true)
           : Duration.zero,
       curve: kCardMotionCurve,
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: double.infinity,
-        height: height,
-        child: KeyedSubtree(
-          key: _webViewRegionKey,
-          // 2026-05-25: HTML 气泡用 flutter_inappwebview 渲染。
-          // macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView
-          // 平台视图（Listener 能看到 DOWN/UP，但 DOM 收不到 click），所以
-          // 内部交互通过 `_MessageBubble` 的外层 Listener 调用
-          // `simulateTapAtGlobal` 用 JS 在对应坐标合成点击事件。
-          // 高度自适应用 JS 注入 ResizeObserver + MutationObserver，回传
-          // 内容视觉底部，避免完整 HTML 文档或 margin/transform 导致漏测。
-          child: iaw.InAppWebView(
-            initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-            initialSettings: iaw.InAppWebViewSettings(
-              transparentBackground: !Platform.isMacOS,
-              disableVerticalScroll: true,
-            ),
-            onWebViewCreated: (controller) {
-              _controller = controller;
-              controller.addJavaScriptHandler(
-                handlerName: 'OpenHandHeight',
-                callback: (args) {
-                  if (args.isEmpty) return;
-                  final raw = args.first;
-                  final value = raw is num
-                      ? raw.toDouble()
-                      : double.tryParse(raw.toString());
-                  if (value == null || !value.isFinite) return;
-                  _onContentSizeChanged(Size(0, value));
-                },
+      builder: (context, value, child) {
+        return SizedBox(
+          width: double.infinity,
+          height: value,
+          child: child,
+        );
+      },
+      child: KeyedSubtree(
+        key: _webViewRegionKey,
+        child: iaw.InAppWebView(
+          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+          initialSettings: iaw.InAppWebViewSettings(
+            transparentBackground: !Platform.isMacOS,
+            disableVerticalScroll: true,
+          ),
+          onWebViewCreated: (controller) {
+            _controller = controller;
+            controller.addJavaScriptHandler(
+              handlerName: 'OpenHandHeight',
+              callback: (args) {
+                if (args.isEmpty) return;
+                final raw = args.first;
+                final value = raw is num
+                    ? raw.toDouble()
+                    : double.tryParse(raw.toString());
+                if (value == null || !value.isFinite) return;
+                _onContentSizeChanged(Size(0, value));
+              },
+            );
+          },
+          onLoadStop: (controller, url) async {
+            try {
+              await controller.evaluateJavascript(
+                source: _heightObserverScript,
               );
-            },
-            onLoadStop: (controller, url) async {
-              try {
-                await controller.evaluateJavascript(
-                  source: _heightObserverScript,
-                );
-                await controller.evaluateJavascript(
-                  source: _selectionBridgeScript,
-                );
-              } catch (error, stack) {
-                silentLog(
-                  'home_message_content',
-                  'html bubble height observer install failed',
-                  error,
-                  stack,
-                );
-              }
-            },
-            onReceivedError: (controller, request, error) {
+              await controller.evaluateJavascript(
+                source: _selectionBridgeScript,
+              );
+            } catch (error, stack) {
               silentLog(
                 'home_message_content',
-                'html bubble webview error',
+                'html bubble height observer install failed',
                 error,
+                stack,
               );
-              if (mounted) {
-                setState(() => _hasError = true);
-              }
-            },
-          ),
+            }
+          },
+          onReceivedError: (controller, request, error) {
+            silentLog(
+              'home_message_content',
+              'html bubble webview error',
+              error,
+            );
+            if (mounted) {
+              setState(() => _hasError = true);
+            }
+          },
         ),
       ),
     );
