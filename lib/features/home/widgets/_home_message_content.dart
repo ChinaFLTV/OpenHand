@@ -2909,7 +2909,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     setState(() {
       _height = _heightCache[_heightCacheKey];
       _hasError = false;
-      _animateHeight = false;
     });
     try {
       await controller.loadData(data: _buildDocument());
@@ -2932,11 +2931,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     final wasFirstHeight = _height == null;
+    final oldHeight = _height;
+    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (first=$wasFirstHeight, anim=$_animateHeight)');
     setState(() => _height = next);
-    // 首次高度落定后延迟一帧再开启动画，确保初次赋值不触发
-    // AnimatedSize 的 Q 弹曲线，避免与 transcript 的 settle 循环共振。
     if (wasFirstHeight) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 延迟 800ms 再开启动画：覆盖 JS 侧 immediate + 100ms + 300ms
+      // 三次延迟测量 + AnimatedSize 280ms 动画的完整时间窗。
+      // 在此期间所有高度变化都是瞬时生效（Duration.zero），
+      // settle 循环可以立即跟踪到真实 maxScrollExtent。
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) setState(() => _animateHeight = true);
       });
     }

@@ -92,7 +92,9 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
         final double oldMax = this.maxScrollExtent;
         if (oldMax > 0) {
           final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
-          correctPixels((ratio * maxScrollExtent).clamp(0.0, maxScrollExtent));
+          final double newPixels = (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
+          debugPrint('[SCROLL-PHYSICS] maxExt shrunk $oldMax→$maxScrollExtent, px $pixels→$newPixels (ratio=${ratio.toStringAsFixed(3)})');
+          correctPixels(newPixels);
         }
       }
     }

@@ -1782,10 +1782,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final maxExtentShrunkSignificantly =
         _lastMessageScrollMaxExtent != null &&
         currentMaxExtent < _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
-    _lastMessageScrollMaxExtent = currentMaxExtent;
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
+    if ((currentMaxExtent - (_lastMessageScrollMaxExtent ?? currentMaxExtent)).abs() > 2) {
+      debugPrint('[SCROLL-NOTIFY] maxExt $_lastMessageScrollMaxExtent → $currentMaxExtent (Δ${(currentMaxExtent - (_lastMessageScrollMaxExtent ?? currentMaxExtent)).toStringAsFixed(1)}) d2b=${distanceToBottom.toStringAsFixed(1)} user=$userScrollActivity near=$isNearBottom shrink=$maxExtentShrunkSignificantly type=${notification.runtimeType}');
+    }
+    _lastMessageScrollMaxExtent = currentMaxExtent;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
@@ -5254,7 +5257,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || _shouldDeferAutoFollowScheduling()) {
         return;
       }
-      _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
+      // 仅当视口已在底部附近时才跟随 layout 变化轻轻贴底，
+      // 不消费 _pendingForcedScrollToBottom —— 该 flag 留给
+      // 用户主动滚回底部或点击"跳到最新"时的一次性强制定位。
+      // 否则 HTML 气泡的每一次异步高度测量回调都会触发一次
+      // jumpTo，造成滚动条瞬移与消息卡片弹跳。
+      if (!_autoFollowEnabled || !_shouldAutoFollowMessages) return;
+      final position = _activeMessageScrollPosition();
+      if (position == null) return;
+      final d2b = position.maxScrollExtent - position.pixels;
+      if (d2b > _autoFollowDistanceThreshold) return;
+      _scheduleScrollToBottom(
+        force: false,
+        animated: false,
+        allowSettlePasses: false,
+      );
     });
   }
 

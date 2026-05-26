@@ -419,31 +419,34 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _settleJumpToBottom({required int maxFrames}) {
     if (maxFrames <= 0) return;
     var stableFrames = 0;
-    double? lastJumpedTo;
     var mainLoopFinished = false;
 
     void _scheduleLateSettle() {
       if (mainLoopFinished) return;
       mainLoopFinished = true;
-      // 350ms 后补一刀 settle，足以覆盖 HTML WebView JS 侧 100ms/300ms
-      // 延迟高度测量回调 → _onContentSizeChanged → AnimatedSize 动画
-      // （最长 280ms）→ ListView layout 重排的整条链路。
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (!mounted) return;
-        final controller = widget.controller;
-        if (!controller.hasClients) return;
-        final position = controller.positions.isNotEmpty
-            ? controller.positions.last
-            : null;
-        if (position == null) return;
-        if (position.userScrollDirection != ScrollDirection.idle) return;
-        final target = position.maxScrollExtent;
-        if (target <= 0) return;
-        final distance = (target - position.pixels).abs();
-        if (distance >= 0.5 && distance < 1200) {
-          position.jumpTo(target);
-        }
-      });
+      debugPrint('[SETTLE] main loop ended, scheduling late settles @600ms + @1000ms');
+      // 两段延迟 settle：600ms 覆盖 JS 100ms+300ms 测量 → AnimatedSize 280ms
+      // 动画的完整链路；1000ms 作为二次兜底，捕获更晚的异步排版（图片加载等）。
+      for (final delayMs in [600, 1000]) {
+        Future.delayed(Duration(milliseconds: delayMs), () {
+          if (!mounted) return;
+          final controller = widget.controller;
+          if (!controller.hasClients) return;
+          final position = controller.positions.isNotEmpty
+              ? controller.positions.last
+              : null;
+          if (position == null) return;
+          if (position.userScrollDirection != ScrollDirection.idle) return;
+          final target = position.maxScrollExtent;
+          if (target <= 0) return;
+          final distance = (target - position.pixels).abs();
+          debugPrint('[SETTLE] late settle @${delayMs}ms: maxExt=${target.toStringAsFixed(1)} px=${position.pixels.toStringAsFixed(1)} dist=${distance.toStringAsFixed(1)}');
+          if (distance >= 0.5 && distance < 1200) {
+            position.jumpTo(target);
+            debugPrint('[SETTLE] late settle @${delayMs}ms JUMP to $target');
+          }
+        });
+      }
     }
 
     void scheduleNext(int remaining) {
@@ -469,11 +472,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _scheduleLateSettle();
           return;
         }
-        if (lastJumpedTo != null &&
-            (position.pixels - lastJumpedTo!).abs() > 1) {
-          _scheduleLateSettle();
-          return;
-        }
+        // 不再因 pixels 偏离上次 jumpTo 目标而中止循环。
+        // maxScrollExtent 收缩时 _StableMaxExtentScrollPosition 会按比例
+        // 修正 pixels，修正后的 pixels 必然偏离 lastJumpedTo；若因此退出
+        // 循环，后续 HTML 高度变化就无法被跟踪贴底。
+        // 用户手势已由 userScrollDirection 检查覆盖，无需此二次校验。
         if (position.pixels > position.maxScrollExtent + 0.5) {
           scheduleNext(remaining - 1);
           return;
@@ -487,6 +490,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (distance < 0.5) {
           stableFrames += 1;
           if (stableFrames >= 2) {
+            debugPrint('[SETTLE] stable @maxExt=${target.toStringAsFixed(1)} after $stableFrames frames');
             _scheduleLateSettle();
             return;
           }
@@ -496,8 +500,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             scheduleNext(remaining - 1);
             return;
           }
+          debugPrint('[SETTLE] jumpTo maxExt=${target.toStringAsFixed(1)} dist=${distance.toStringAsFixed(1)} remaining=$remaining');
           position.jumpTo(target);
-          lastJumpedTo = target;
         }
         scheduleNext(remaining - 1);
       });
