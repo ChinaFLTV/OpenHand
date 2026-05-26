@@ -2534,6 +2534,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     return;
   }
   window.__openhandHeightObserverInstalled = true;
+  var __lastReportedHeight = 0;
   function px(value) {
     var parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -2546,15 +2547,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         style.id = 'openhand-html-bubble-runtime-reset';
         (document.head || document.documentElement).appendChild(style);
       }
-      style.textContent = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}html,body,body *{-webkit-user-select:text;user-select:text;}body{box-sizing:border-box!important;cursor:text;}a,button,summary,[role="button"]{cursor:pointer;}input,textarea,select{cursor:text;}';
+      var _resetCss = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}html,body,body *{-webkit-user-select:text;user-select:text;}body{box-sizing:border-box!important;cursor:text;}a,button,summary,[role="button"]{cursor:pointer;}input,textarea,select{cursor:text;}';
+	      if (style.textContent !== _resetCss) {
+	        style.textContent = _resetCss;
+	      }
       if (document.documentElement) {
-        document.documentElement.style.setProperty('min-height', '0', 'important');
-        document.documentElement.style.setProperty('height', 'auto', 'important');
+        var de = document.documentElement.style;
+        if (de.getPropertyValue('min-height') !== '0') de.setProperty('min-height', '0', 'important');
+        if (de.getPropertyValue('height') !== 'auto') de.setProperty('height', 'auto', 'important');
       }
       if (document.body) {
-        document.body.style.setProperty('min-height', '0', 'important');
-        document.body.style.setProperty('height', 'auto', 'important');
-        document.body.style.setProperty('overflow-y', 'hidden', 'important');
+        var bs = document.body.style;
+        if (bs.getPropertyValue('min-height') !== '0') bs.setProperty('min-height', '0', 'important');
+        if (bs.getPropertyValue('height') !== 'auto') bs.setProperty('height', 'auto', 'important');
+        if (bs.getPropertyValue('overflow-y') !== 'hidden') bs.setProperty('overflow-y', 'hidden', 'important');
       }
     } catch (_) {}
   }
@@ -2734,7 +2740,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       }
       var dpr = window.devicePixelRatio || 1;
       height = Math.ceil(height * dpr) / dpr;
-      if (height > 0) {
+      if (height > 0 && Math.abs(height - __lastReportedHeight) > 0.5) {
+        __lastReportedHeight = height;
         window.flutter_inappwebview.callHandler('OpenHandHeight', height);
       }
     } catch (_) {}
