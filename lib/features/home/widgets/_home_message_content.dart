@@ -2865,6 +2865,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
   bool _animateHeight = false;
+  int _measurementCount = 0;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -2915,6 +2916,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _hasError = false;
       _animateHeight = false;
     });
+    _measurementCount = 0;
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
@@ -2931,19 +2933,24 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
     if (_height != null && (next - _height!).abs() < 1.0) return;
-    final wasFirstHeight = _height == null;
+    _measurementCount++;
     // 首次测量值是 CSS reset 生效前的完整文档高度（如 16222），
-    // 不可缓存。第二次及之后的测量值才是 reset 后的真实内容高度。
-    if (!wasFirstHeight) {
-      _heightCache[_heightCacheKey] = next;
-      if (_heightCache.length > 96) {
-        _heightCache.remove(_heightCache.keys.first);
-      }
+    // 直接跳过——既不设 _height 也不缓存。build() 会继续使用
+    // _heightCache 中的旧高度或 fallbackHeight，视觉上无跳动。
+    // 第二次测量才是 reset 后的真实内容高度。
+    if (_measurementCount == 1) {
+      debugPrint('[HTML-H] skipping first measurement $next');
+      return;
+    }
+    _heightCache[_heightCacheKey] = next;
+    if (_heightCache.length > 96) {
+      _heightCache.remove(_heightCache.keys.first);
     }
     final oldHeight = _height;
-    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (first=$wasFirstHeight, anim=$_animateHeight)');
+    final wasFirstValidHeight = _height == null;
+    debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (meas#=$_measurementCount, anim=$_animateHeight)');
     setState(() => _height = next);
-    if (wasFirstHeight) {
+    if (wasFirstValidHeight) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) setState(() => _animateHeight = true);
       });
