@@ -2952,7 +2952,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
   bool _animateHeight = false;
-  bool _shimmerFadingOut = false;
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
@@ -3005,7 +3004,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _height = null;
       _hasError = false;
       _animateHeight = false;
-      _shimmerFadingOut = false;
     });
     _measurementCount = 0;
     _heightDebounceTimer?.cancel();
@@ -3025,11 +3023,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(24.0, 50000.0).toDouble();
     if (!mounted) return;
     _measurementCount++;
-    // 首次测量值是 CSS reset 生效前的完整文档高度（如 16222），
-    // 直接跳过——既不设 _height 也不缓存。build() 会继续使用
-    // _heightCache 中的旧高度或 fallbackHeight，视觉上无跳动。
-    if (_measurementCount == 1) {
-      debugPrint('[HTML-H] skipping first measurement $next');
+    // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致
+    // 卡片闪变和缓存错误值。仅跳过此类不合理超大值，正常高度立即应用。
+    // 否则 JS 端已记录 __lastReportedHeight，Flutter 端跳过首个测量后
+    // 再无差值 >0.5px 的回调触发，形成 JS/Flutter 双端死锁。
+    if (_measurementCount == 1 && next > 5000) {
       return;
     }
     if (_height != null) {
@@ -3059,12 +3057,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final oldHeight = _height;
     final wasFirstValidHeight = _height == null;
     debugPrint('[HTML-H] height ${oldHeight?.toStringAsFixed(1) ?? "null"} → ${next.toStringAsFixed(1)} (meas#=$_measurementCount, anim=$_animateHeight)');
-    setState(() {
-      _height = next;
-      if (wasFirstValidHeight) {
-        _shimmerFadingOut = true;
-      }
-    });
+    setState(() => _height = next);
     if (wasFirstValidHeight) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) setState(() => _animateHeight = true);
@@ -3340,31 +3333,22 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             : Duration.zero,
         curve: kCardMotionCurve,
         builder: (context, value, child) {
+          // IndexedStack 保证 WebView 始终在树中加载，同时骨架屏与 WebView
+          // 不同时渲染——避免 Flutter Container 叠加在 macOS 平台视图上层
+          // 阻断触摸事件导致文本选区失效。
           return SizedBox(
             width: double.infinity,
             height: value,
-            child: Stack(
+            child: IndexedStack(
+              index: showShimmer ? 0 : 1,
               alignment: Alignment.topCenter,
               children: [
+                const SizedBox(
+                  width: double.infinity,
+                  height: shimmerHeight,
+                  child: _HtmlBubbleShimmer(),
+                ),
                 child!,
-                if (showShimmer || _shimmerFadingOut)
-                  IgnorePointer(
-                    child: AnimatedOpacity(
-                      opacity: showShimmer ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      onEnd: () {
-                        if (!showShimmer && mounted) {
-                          setState(() => _shimmerFadingOut = false);
-                        }
-                      },
-                      child: const SizedBox(
-                        width: double.infinity,
-                        height: shimmerHeight,
-                        child: _HtmlBubbleShimmer(),
-                      ),
-                    ),
-                  ),
               ],
             ),
           );
