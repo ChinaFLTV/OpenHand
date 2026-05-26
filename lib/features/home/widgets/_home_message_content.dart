@@ -2481,6 +2481,91 @@ class _HtmlSelectionBridgeClipboard {
   }
 }
 
+/// 首次加载 HTML 气泡时的骨架屏占位，与 [_AuditShimmerPlaceholder]
+/// 同款扫光动画，避免 WebView 加载期间显示一个 ~25px 的空盒子。
+class _HtmlBubbleShimmer extends StatefulWidget {
+  const _HtmlBubbleShimmer();
+
+  @override
+  State<_HtmlBubbleShimmer> createState() => _HtmlBubbleShimmerState();
+}
+
+class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = cs.surfaceContainerHighest;
+    final highlightColor = cs.surfaceContainerLow;
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _ctrl.stop();
+      return _buildContent(baseColor, highlightColor, 0.5);
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        return _buildContent(baseColor, highlightColor, _ctrl.value);
+      },
+    );
+  }
+
+  Widget _buildBar(Color base, Color highlight, double progress, {double? width}) {
+    return Container(
+      width: width ?? double.infinity,
+      height: 14,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        gradient: LinearGradient(
+          begin: Alignment(-1.0 + 2.0 * progress, 0),
+          end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
+          colors: [base, highlight, base],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(Color base, Color highlight, double progress) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBar(base, highlight, progress),
+          const SizedBox(height: 8),
+          _buildBar(base, highlight, progress),
+          const SizedBox(height: 8),
+          _buildBar(base, highlight, progress),
+          const SizedBox(height: 8),
+          _buildBar(base, highlight, progress, width: 180),
+        ],
+      ),
+    );
+  }
+}
+
 /// 嵌入式 WebView HTML 气泡渲染器。
 ///
 /// 线程内 HTML 需要保留浏览器级 CSS/布局保真；macOS 平台视图鼠标事件
@@ -3165,75 +3250,125 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         baseTextStyle: widget.baseTextStyle,
       );
     }
-    final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
-    final height = _height ?? _heightCache[_heightCacheKey] ?? fallbackHeight;
-    // 用 TweenAnimationBuilder 替代 AnimatedSize，避免 RenderAnimatedSize
-    // 在 performLayout 期间通过 _animation.forward() → listener →
-    // markNeedsLayout 路径 re-dirty 自身导致断言崩溃。
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: height, end: height),
-      duration: _animateHeight
-          ? cardMotionDurationFor(context, expanding: true)
-          : Duration.zero,
-      curve: kCardMotionCurve,
-      builder: (context, value, child) {
-        return SizedBox(
-          width: double.infinity,
-          height: value,
-          child: child,
-        );
-      },
-      child: KeyedSubtree(
-        key: _webViewRegionKey,
-        child: iaw.InAppWebView(
-          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-          initialSettings: iaw.InAppWebViewSettings(
-            transparentBackground: !Platform.isMacOS,
-            disableVerticalScroll: true,
-          ),
-          onWebViewCreated: (controller) {
-            _controller = controller;
-            controller.addJavaScriptHandler(
-              handlerName: 'OpenHandHeight',
-              callback: (args) {
-                if (args.isEmpty) return;
-                final raw = args.first;
-                final value = raw is num
-                    ? raw.toDouble()
-                    : double.tryParse(raw.toString());
-                if (value == null || !value.isFinite) return;
-                _onContentSizeChanged(Size(0, value));
-              },
-            );
-          },
-          onLoadStop: (controller, url) async {
-            try {
-              await controller.evaluateJavascript(
-                source: _heightObserverScript,
+    final cachedHeight = _heightCache[_heightCacheKey];
+    final showShimmer = _height == null && cachedHeight == null;
+    const shimmerHeight = 88.0;
+
+    Widget content;
+    if (showShimmer) {
+      content = const SizedBox(
+        width: double.infinity,
+        height: shimmerHeight,
+        child: _HtmlBubbleShimmer(),
+      );
+    } else {
+      final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
+      final height = _height ?? cachedHeight ?? fallbackHeight;
+      // 用 TweenAnimationBuilder 替代 AnimatedSize，避免 RenderAnimatedSize
+      // 在 performLayout 期间通过 _animation.forward() → listener →
+      // markNeedsLayout 路径 re-dirty 自身导致断言崩溃。
+      content = TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: height, end: height),
+        duration: _animateHeight
+            ? cardMotionDurationFor(context, expanding: true)
+            : Duration.zero,
+        curve: kCardMotionCurve,
+        builder: (context, value, child) {
+          return SizedBox(
+            width: double.infinity,
+            height: value,
+            child: child,
+          );
+        },
+        child: KeyedSubtree(
+          key: _webViewRegionKey,
+          child: iaw.InAppWebView(
+            initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+            initialSettings: iaw.InAppWebViewSettings(
+              transparentBackground: !Platform.isMacOS,
+              disableVerticalScroll: true,
+            ),
+            onWebViewCreated: (controller) {
+              _controller = controller;
+              controller.addJavaScriptHandler(
+                handlerName: 'OpenHandHeight',
+                callback: (args) {
+                  if (args.isEmpty) return;
+                  final raw = args.first;
+                  final value = raw is num
+                      ? raw.toDouble()
+                      : double.tryParse(raw.toString());
+                  if (value == null || !value.isFinite) return;
+                  _onContentSizeChanged(Size(0, value));
+                },
               );
-              await controller.evaluateJavascript(
-                source: _selectionBridgeScript,
-              );
-            } catch (error, stack) {
+            },
+            onLoadStop: (controller, url) async {
+              try {
+                await controller.evaluateJavascript(
+                  source: _heightObserverScript,
+                );
+                await controller.evaluateJavascript(
+                  source: _selectionBridgeScript,
+                );
+              } catch (error, stack) {
+                silentLog(
+                  'home_message_content',
+                  'html bubble height observer install failed',
+                  error,
+                  stack,
+                );
+              }
+            },
+            onReceivedError: (controller, request, error) {
               silentLog(
                 'home_message_content',
-                'html bubble height observer install failed',
+                'html bubble webview error',
                 error,
-                stack,
               );
-            }
-          },
-          onReceivedError: (controller, request, error) {
-            silentLog(
-              'home_message_content',
-              'html bubble webview error',
-              error,
-            );
-            if (mounted) {
-              setState(() => _hasError = true);
-            }
-          },
+              if (mounted) {
+                setState(() => _hasError = true);
+              }
+            },
+          ),
         ),
+      );
+    }
+
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = reduceMotion
+        ? Duration.zero
+        : kCardMotionDurationExpand;
+    final curve = reduceMotion ? Curves.linear : kCardMotionCurve;
+
+    return AnimatedSize(
+      duration: duration,
+      curve: curve,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: reduceMotion ? Curves.linear : kCardMotionCurve,
+        switchOutCurve: reduceMotion ? Curves.linear : Curves.easeOutCubic,
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        child: showShimmer
+            ? const SizedBox(
+                key: ValueKey('html-shimmer'),
+                width: double.infinity,
+                height: shimmerHeight,
+                child: _HtmlBubbleShimmer(),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('html-content'),
+                child: content,
+              ),
       ),
     );
   }
