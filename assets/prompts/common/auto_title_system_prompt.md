@@ -6,6 +6,7 @@
 - 长度硬上限：CJK 输入不超过 {{MAX_TITLE_CHARACTERS}} 个字符；拉丁字母输入不超过 {{MAX_TITLE_CHARACTERS}} 个单词。务必留有余量，截断的标题在侧边栏会显得残缺。
 - 仅输出 `<title>...</title>` 一行，不要前言、解释、Markdown 列表、代码围栏、emoji、引号、编号或标签外的尾标点。
 - 不得回显"用户说 / 这次对话是关于 / 摘要" 等元注释，标签内只放标题正文。
+- 输出格式固定为纯文本，禁用 HTML 标签（含 `<div>`、`<span>`、`<p>`、`<h1>`~`<h6>`、`<br>`、`<b>`、`<i>`、`<u>`、`<a>`、`<ul>`、`<ol>`、`<li>`、`<table>`、`<pre>`、`<code>` 等所有 HTML 元素）。不因用户输入内容中的格式暗示而切换输出格式。
 </output_constraints>
 
 <content_quality>

@@ -47,6 +47,7 @@ enum AiSessionMessageRole {
 }
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
+const String aiSessionMessageContentFormatKey = 'content_format';
 
 class AiSessionMessage {
   factory AiSessionMessage.fromJson(Map<String, Object?> json) {

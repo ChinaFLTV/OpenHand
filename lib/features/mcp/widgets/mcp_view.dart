@@ -31,7 +31,6 @@ import 'mcp_stdio_dialogs.dart';
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
-const int _mcpToolPreviewExpandedLimit = 48;
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -3889,11 +3888,11 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tools = widget.toolCatalog.tools;
-    final previewLimit = _expanded
-        ? _mcpToolPreviewExpandedLimit
-        : _mcpToolPreviewCollapsedLimit;
-    final previewTools = tools.take(previewLimit).toList(growable: false);
-    final hiddenToolCount = tools.length - previewTools.length;
+    final showAll = _expanded || tools.length <= _mcpToolPreviewCollapsedLimit;
+    final previewTools = showAll
+        ? tools
+        : tools.take(_mcpToolPreviewCollapsedLimit).toList(growable: false);
+    final hiddenToolCount = showAll ? 0 : tools.length - previewTools.length;
     final canExpand = tools.length > _mcpToolPreviewCollapsedLimit;
 
     return Column(

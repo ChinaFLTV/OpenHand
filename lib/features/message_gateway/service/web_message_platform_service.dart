@@ -2829,12 +2829,10 @@ class WebMessagePlatformService {
         timeout: const Duration(seconds: 30),
       );
       final rawTitle = completion.reply.trim();
-      // 提取 <title> 标签内容
-      final tagMatch = RegExp(
-        r'<title[^>]*>([\s\S]*?)<\/title>',
-        caseSensitive: false,
-      ).firstMatch(rawTitle);
-      var title = (tagMatch?.group(1) ?? rawTitle)
+      // Strip all HTML tags so models that disregard the plain-text-only
+      // instruction and still emit HTML wrappers produce a clean title.
+      var title = rawTitle
+          .replaceAll(RegExp(r'<[^>]*>'), '')
           .replaceAll(RegExp(r'[\n]+'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();

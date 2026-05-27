@@ -131,6 +131,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _lastCacheDarkCodeSurface = null;
   }
 
+  AiMessageContentFormat _resolveMessageContentFormat(
+    BuildContext context,
+    AiSessionMessage message,
+  ) {
+    final storedKey = message.metadata[aiSessionMessageContentFormatKey];
+    if (storedKey is String && storedKey.isNotEmpty) {
+      return AiMessageContentFormat.fromStorageKey(storedKey);
+    }
+    return context.read<SettingsController>().aiMessageContentFormat;
+  }
+
   /// 判断全局坐标是否落在左上方折叠胶囊的范围内。
   /// 命中时点击仅用于切换胶囊本身的折叠态，不再驱动卡片选中。
   bool _isPointerInsideMetaCapsule(Offset globalPosition) {
@@ -229,6 +240,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final attachments = AiMessageAttachment.listFromMetadata(
       message.metadata[aiSessionMessageAttachmentsMetadataKey],
     );
+    // Resolve content format per message — messages store their own format
+    // in metadata when created; fall back to global setting for legacy data.
+    final resolvedMessageContentFormat = _resolveMessageContentFormat(context, message);
     final reasoningExpanded =
         _reasoningExpandedOverride ?? _shouldDefaultExpandReasoning(message);
 
@@ -583,9 +597,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 data: effectiveContent.isEmpty
                                     ? ' '
                                     : effectiveContent,
-                                format: context
-                                    .watch<SettingsController>()
-                                    .aiMessageContentFormat,
+                                format: resolvedMessageContentFormat,
                                 htmlFallback: context
                                     .watch<SettingsController>()
                                     .aiHtmlRenderFallback,
@@ -611,9 +623,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               data: effectiveContent.isEmpty
                                   ? ' '
                                   : effectiveContent,
-                              format: context
-                                  .watch<SettingsController>()
-                                  .aiMessageContentFormat,
+                              format: resolvedMessageContentFormat,
                               htmlFallback: context
                                   .watch<SettingsController>()
                                   .aiHtmlRenderFallback,
