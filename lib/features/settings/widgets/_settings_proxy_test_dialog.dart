@@ -1240,10 +1240,18 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
     return MouseRegion(
       cursor: SystemMouseCursors.text,
       onEnter: (_) {
-        if (!_hover) setState(() => _hover = true);
+        if (_hover) return;
+        _hover = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       onExit: (_) {
-        if (_hover) setState(() => _hover = false);
+        if (!_hover) return;
+        _hover = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

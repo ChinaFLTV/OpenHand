@@ -746,10 +746,18 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return MouseRegion(
       onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
+        if (_hovered) return;
+        _hovered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       onExit: (_) {
-        if (_hovered) setState(() => _hovered = false);
+        if (!_hovered) return;
+        _hovered = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       child: MicroPressFeedback(
         child: Material(

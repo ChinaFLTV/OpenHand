@@ -13722,14 +13722,20 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                       onEnter: hasDiagnostics
                           ? (_) {
                               if (_hoveredGutterLine != lineNumber) {
-                                setState(() => _hoveredGutterLine = lineNumber);
+                                _hoveredGutterLine = lineNumber;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) setState(() {});
+                                });
                               }
                             }
                           : null,
                       onExit: hasDiagnostics
                           ? (_) {
                               if (_hoveredGutterLine == lineNumber) {
-                                setState(() => _hoveredGutterLine = null);
+                                _hoveredGutterLine = null;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) setState(() {});
+                                });
                               }
                             }
                           : null,

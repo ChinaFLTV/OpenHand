@@ -2969,6 +2969,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
   int? _hoveredIndex;
   Offset? _hoverLocal;
+  bool _hoverScheduled = false;
   int _rangeSeconds = 5 * 60;
   int _bucketSeconds = 1;
   double _zoom = 1.0;
@@ -3522,18 +3523,28 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                       final i = indexAt(event.localPosition);
                       if (i != _hoveredIndex ||
                           event.localPosition != _hoverLocal) {
-                        setState(() {
-                          _hoveredIndex = i;
-                          _hoverLocal = event.localPosition;
-                        });
+                        _hoveredIndex = i;
+                        _hoverLocal = event.localPosition;
+                        if (!_hoverScheduled) {
+                          _hoverScheduled = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _hoverScheduled = false;
+                            if (mounted) setState(() {});
+                          });
+                        }
                       }
                     },
                     onExit: (_) {
                       if (_hoveredIndex != null) {
-                        setState(() {
-                          _hoveredIndex = null;
-                          _hoverLocal = null;
-                        });
+                        _hoveredIndex = null;
+                        _hoverLocal = null;
+                        if (!_hoverScheduled) {
+                          _hoverScheduled = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _hoverScheduled = false;
+                            if (mounted) setState(() {});
+                          });
+                        }
                       }
                     },
                     child: GestureDetector(

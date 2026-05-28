@@ -423,10 +423,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   void _clearAutoHover() {
     _hoverDebounce?.cancel();
     if (_hoverLine != null || _hoverMarkdown != null || _hoverLoading) {
-      setState(() {
-        _hoverLine = null;
-        _hoverMarkdown = null;
-        _hoverLoading = false;
+      _hoverLine = null;
+      _hoverMarkdown = null;
+      _hoverLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
       });
     }
   }

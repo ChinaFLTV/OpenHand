@@ -41,10 +41,18 @@ class _HoverLiftState extends State<HoverLift> {
     final lift = (_hovered && !reduceMotion) ? -widget.liftDistance : 0.0;
     return MouseRegion(
       onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
+        if (_hovered) return;
+        _hovered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       onExit: (_) {
-        if (_hovered) setState(() => _hovered = false);
+        if (!_hovered) return;
+        _hovered = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
       },
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: lift),

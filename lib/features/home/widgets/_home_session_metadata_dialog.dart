@@ -1967,6 +1967,7 @@ class _CacheHitTrendChart extends StatefulWidget {
 class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
   bool _overlayOn = false;
   int? _focusedIndex;
+  bool _focusScheduled = false;
 
   static const double _chartHeight = 56;
 
@@ -2100,7 +2101,14 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                   final raw = (local.dx / stepX).round();
                   final clamped = raw.clamp(0, n - 1);
                   if (_focusedIndex != clamped) {
-                    setState(() => _focusedIndex = clamped);
+                    _focusedIndex = clamped;
+                    if (!_focusScheduled) {
+                      _focusScheduled = true;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _focusScheduled = false;
+                        if (mounted) setState(() {});
+                      });
+                    }
                   }
                 }
 
@@ -2170,7 +2178,10 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                   onHover: (event) => updateFocus(event.localPosition),
                   onExit: (_) {
                     if (_focusedIndex != null) {
-                      setState(() => _focusedIndex = null);
+                      _focusedIndex = null;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() {});
+                      });
                     }
                   },
                   child: GestureDetector(
@@ -2179,7 +2190,10 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                     onPanUpdate: (d) => updateFocus(d.localPosition),
                     onPanEnd: (_) {
                       if (_focusedIndex != null) {
-                        setState(() => _focusedIndex = null);
+                        _focusedIndex = null;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() {});
+                        });
                       }
                     },
                     child: Stack(
