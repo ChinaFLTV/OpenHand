@@ -692,19 +692,7 @@ class _ExpandableToolSection extends StatelessWidget {
                   ),
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.04),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: kCardMotionCurve,
-                            ),
-                          ),
-                      child: child,
-                    ),
+                    child: child,
                   ),
                   child: expanded
                       ? Padding(
