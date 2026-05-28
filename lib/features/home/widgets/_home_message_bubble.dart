@@ -152,9 +152,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return rect.contains(globalPosition);
   }
 
-  // ignore: unused_element
-  bool get _hasHtmlInteractiveRegions =>
-      _htmlInteractiveRegionStates.isNotEmpty;
 
   /// 子交互回调（Markdown 链接、图片附件、代码块工具栏按钮等）在
   /// 触发自身动作之前调用此方法，告知气泡"本次点击已被消费"，从而

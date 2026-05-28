@@ -21,21 +21,6 @@ class _QueuedMessage {
   final Map<String, Object?>? skillMetadata;
 }
 
-// ignore: unused_element
-class _EditorPaneFrame extends StatelessWidget {
-  // ignore: unused_element_parameter
-  const _EditorPaneFrame({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    // Hot reload can leave an outgoing AnimatedSwitcher child alive for a
-    // frame even after the wrapper was removed from the active tree. Keep this
-    // shim so stale elements rebuild safely without altering the current UI.
-    return child;
-  }
-}
 
 extension on AppSection {
   /// Returns the drawer index for this section, or -1 if this section

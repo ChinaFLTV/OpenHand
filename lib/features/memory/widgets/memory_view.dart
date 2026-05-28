@@ -20,14 +20,10 @@ enum _MemoryCardAction { edit, delete }
 
 const int _memoryTagPreviewLimit = 8;
 
-enum _MemoryDisplayItemKind { profile, autoLearned, regular }
+enum _MemoryDisplayItemKind { autoLearned, regular }
 
 class _MemoryDisplayItem {
   const _MemoryDisplayItem._({required this.kind, this.entry});
-
-  // ignore: unused_element
-  const _MemoryDisplayItem.profile(UserMemoryEntry entry)
-    : this._(kind: _MemoryDisplayItemKind.profile, entry: entry);
 
   const _MemoryDisplayItem.autoLearned(UserMemoryEntry entry)
     : this._(kind: _MemoryDisplayItemKind.autoLearned, entry: entry);
@@ -253,27 +249,6 @@ class MemoryView extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         switch (item.kind) {
-          case _MemoryDisplayItemKind.profile:
-            final entry = item.entry!;
-            return SettingsAwareAppearOnce(
-              key: ValueKey<String>('memory-profile-appear-${entry.id}'),
-              child: RepaintBoundary(
-                child: _MemoryEntryCard(
-                  key: ValueKey<String>('memory-profile-${entry.id}'),
-                  entry: entry,
-                  isProfile: true,
-                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
-                  onActionSelected: (action) {
-                    switch (action) {
-                      case _MemoryCardAction.edit:
-                        _showMemoryDialog(context, initialEntry: entry);
-                      case _MemoryCardAction.delete:
-                        _confirmDeleteMemory(context, entry);
-                    }
-                  },
-                ),
-              ),
-            );
           case _MemoryDisplayItemKind.autoLearned:
             final entry = item.entry!;
             return SettingsAwareAppearOnce(
@@ -891,13 +866,11 @@ class _MemoryEntryCard extends StatelessWidget {
     required this.entry,
     required this.onTap,
     required this.onActionSelected,
-    this.isProfile = false,
   });
 
   final UserMemoryEntry entry;
   final VoidCallback onTap;
   final ValueChanged<_MemoryCardAction> onActionSelected;
-  final bool isProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -920,9 +893,6 @@ class _MemoryEntryCard extends StatelessWidget {
     return HoverLift(
       child: Card(
         clipBehavior: Clip.antiAlias,
-        color: isProfile
-            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
-            : null,
         child: InkWell(
           onTap: onTap,
           child: Padding(
@@ -930,16 +900,6 @@ class _MemoryEntryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isProfile) ...[
-                  Text(
-                    'User Profile · 用户画像',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -952,9 +912,7 @@ class _MemoryEntryCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: Icon(
-                        isProfile
-                            ? Icons.account_circle_outlined
-                            : Icons.psychology_alt_outlined,
+                        Icons.psychology_alt_outlined,
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
@@ -1045,12 +1003,10 @@ class _MemoryEntryCard extends StatelessWidget {
                       ),
                     Chip(
                       avatar: Icon(
-                        isProfile
-                            ? Icons.account_circle_outlined
-                            : Icons.person_outline_rounded,
+                        Icons.person_outline_rounded,
                         size: 18,
                       ),
-                      label: Text(isProfile ? '用户画像' : l10n.memoryTypeUser),
+                      label: Text(l10n.memoryTypeUser),
                     ),
                     for (final tag in visibleTags)
                       Chip(
