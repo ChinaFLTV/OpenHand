@@ -2220,8 +2220,7 @@ Future<String> saveInlineMediaToMarkdown(
     return '[📎 $displayLabel]($filePath)';
   } catch (e) {
     assert(() {
-      // ignore: avoid_print
-      print('[saveInlineMediaToMarkdown] Failed to persist media: $e');
+      debugPrint('[saveInlineMediaToMarkdown] Failed to persist media: $e');
       return true;
     }());
     return '';

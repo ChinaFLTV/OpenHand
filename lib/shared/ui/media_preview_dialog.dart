@@ -438,8 +438,7 @@ $tag{width:100%;max-height:100%;outline:none;border-radius:10px;background:#000}
       if (!mounted) return;
       setState(() => _controller = controller);
     } catch (error, stack) {
-      // ignore: avoid_print
-      print('media_preview bootstrap fail: $error\n$stack');
+      debugPrint('media_preview bootstrap fail: $error\n$stack');
       if (!mounted) return;
       setState(() => _error = '$error');
     }

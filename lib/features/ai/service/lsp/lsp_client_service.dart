@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
@@ -1795,8 +1796,7 @@ class _AiLspSession {
     // they are silently swallowed otherwise.
     _process!.stderr.drain<void>().catchError((Object error, StackTrace _) {
       assert(() {
-        // ignore: avoid_print
-        print('lsp[${backend.language}]: stderr drain failed: $error');
+        debugPrint('lsp[${backend.language}]: stderr drain failed: $error');
         return true;
       }());
     });
@@ -2308,8 +2308,7 @@ class _AiLspSession {
         // Malformed LSP messages should not crash the reader loop. Surface
         // the error in debug builds so protocol-level bugs are visible.
         assert(() {
-          // ignore: avoid_print
-          print('lsp[${backend.language}]: failed to process message: $error');
+          debugPrint('lsp[${backend.language}]: failed to process message: $error');
           return true;
         }());
       }
