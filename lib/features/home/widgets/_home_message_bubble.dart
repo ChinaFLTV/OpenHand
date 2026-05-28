@@ -760,9 +760,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             !isSelfLearning &&
                             !isCompressionPoint &&
                             !isStatus &&
-                            context
-                                    .read<SettingsController>()
-                                    .aiMessageContentFormat ==
+                            resolvedMessageContentFormat ==
                                 AiMessageContentFormat.html &&
                             _looksLikeHtml(effectiveContent))
                           _MessageActionButton(

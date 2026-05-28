@@ -150,9 +150,7 @@ class _WorkspaceView extends StatelessWidget {
           children: [
             Expanded(
               child: _WorkspacePrimarySwitcher(
-                key: ValueKey<String>(
-                  'primary-switcher-${currentSession?.id ?? 'none'}',
-                ),
+                key: const ValueKey<String>('workspace-primary-switcher'),
                 child: currentSession == null
                     ? const _WorkspaceEmptyState(
                         key: ValueKey<String>('no-session'),
@@ -536,11 +534,11 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
     } catch (_) {
       settings = const DialogAnimationSettings();
     }
-    final curveData = settings.curve;
+    final baseDuration = _effectiveSwitchDuration(settings);
     return AnimatedSwitcher(
-      duration: _effectiveSwitchDuration(settings),
-      switchInCurve: curveData.curve,
-      switchOutCurve: curveData.reverseCurve,
+      duration: Duration(
+        milliseconds: math.max(baseDuration.inMilliseconds, 280),
+      ),
       layoutBuilder: (currentChild, previousChildren) {
         final safePreviousChildren = previousChildren.where((previousChild) {
           return _transitionAllowsOutgoingOverlap(previousChild);
@@ -556,16 +554,9 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
       transitionBuilder: (animatedChild, animation) {
         return _WorkspacePrimarySwitchTransition(
           allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
-          child: _PaintOffsetTransition(
+          child: _buildWorkspaceContentTransition(
+            child: animatedChild,
             animation: animation,
-            maxYOffset: 0,
-            maxXOffset: 6,
-            child: _buildPanelTransition(
-              child: animatedChild,
-              animation: animation,
-              entranceStyle: settings.entranceStyle,
-              exitStyle: settings.exitStyle,
-            ),
           ),
         );
       },
