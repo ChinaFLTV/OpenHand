@@ -151,6 +151,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool _isSaving = false;
   bool _isProcessing = false;
   bool _showOriginalPreview = false;
+  bool _previewCompareScheduled = false;
   bool _hasBakedChanges = false;
   String? _errorMessage;
   String? _statusMessage;
@@ -1096,13 +1097,40 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                 width: 104,
                 child: Listener(
                   onPointerDown: compareEnabled
-                      ? (_) => setState(() => _showOriginalPreview = true)
+                      ? (_) {
+                          _showOriginalPreview = true;
+                          if (!_previewCompareScheduled) {
+                            _previewCompareScheduled = true;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _previewCompareScheduled = false;
+                              if (mounted) setState(() {});
+                            });
+                          }
+                        }
                       : null,
                   onPointerUp: compareEnabled
-                      ? (_) => setState(() => _showOriginalPreview = false)
+                      ? (_) {
+                          _showOriginalPreview = false;
+                          if (!_previewCompareScheduled) {
+                            _previewCompareScheduled = true;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _previewCompareScheduled = false;
+                              if (mounted) setState(() {});
+                            });
+                          }
+                        }
                       : null,
                   onPointerCancel: compareEnabled
-                      ? (_) => setState(() => _showOriginalPreview = false)
+                      ? (_) {
+                          _showOriginalPreview = false;
+                          if (!_previewCompareScheduled) {
+                            _previewCompareScheduled = true;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _previewCompareScheduled = false;
+                              if (mounted) setState(() {});
+                            });
+                          }
+                        }
                       : null,
                   child: OutlinedButton.icon(
                     onPressed: compareEnabled ? () {} : null,

@@ -2970,6 +2970,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   int? _hoveredIndex;
   Offset? _hoverLocal;
   bool _hoverScheduled = false;
+  bool _windowScheduled = false;
+  double _pendingZoom = 1.0;
   int _rangeSeconds = 5 * 60;
   int _bucketSeconds = 1;
   double _zoom = 1.0;
@@ -3495,26 +3497,37 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   },
                   onPointerPanZoomUpdate: (event) {
                     if (_displaySamples.isEmpty) return;
-                    final next = (_zoomBase * event.scale)
+                    _pendingZoom = (_zoomBase * event.scale)
                         .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
                         .toDouble();
-                    if ((next - _zoom).abs() > 0.01) {
-                      _updateWindow(zoom: next, animate: false);
+                    if (!_windowScheduled) {
+                      _windowScheduled = true;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _windowScheduled = false;
+                        if (mounted) {
+                          _updateWindow(zoom: _pendingZoom, animate: false);
+                        }
+                      });
                     }
                   },
                   onPointerPanZoomEnd: (_) {
                     _zoomBase = _zoom;
                   },
-                  // 鼠标滚轮 + Ctrl 也可放缩（桌面常用兜底）。
                   onPointerSignal: (signal) {
                     if (signal is PointerScrollEvent &&
                         HardwareKeyboard.instance.isControlPressed) {
                       final delta = -signal.scrollDelta.dy / 200.0;
-                      final next = (_zoom * (1.0 + delta))
+                      _pendingZoom = (_zoom * (1.0 + delta))
                           .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
                           .toDouble();
-                      if ((next - _zoom).abs() > 0.01) {
-                        _updateWindow(zoom: next, animate: false);
+                      if (!_windowScheduled) {
+                        _windowScheduled = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _windowScheduled = false;
+                          if (mounted) {
+                            _updateWindow(zoom: _pendingZoom, animate: false);
+                          }
+                        });
                       }
                     }
                   },

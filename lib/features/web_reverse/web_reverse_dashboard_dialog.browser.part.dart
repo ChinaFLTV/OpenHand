@@ -112,6 +112,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 框选导出模式：进入后吞掉所有指针事件，完成时把当前 viewport 矩形按
   // 浏览器侧 CSS 像素裁切成 PNG。
   bool _cropMode = false;
+  bool _cropScheduled = false;
+  bool _zoomScheduled = false;
   Offset? _cropStart;
   Offset? _cropCurrent;
   // macOS trackpad 两指平移会派发 PointerPanZoom 事件而不是 PointerScroll，
@@ -411,12 +413,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   void _handlePointerDown(PointerDownEvent e, Size renderSize) {
     _surfaceFocus.requestFocus();
     if (_cropMode) {
-      // 第一次按下确定框选起点；之后 PointerMove 实时更新；松手 finalize。
-      // 框选模式下不下发任何 mouse 事件到 CDP。
-      setState(() {
-        _cropStart = e.localPosition;
-        _cropCurrent = e.localPosition;
-      });
+      _cropStart = e.localPosition;
+      _cropCurrent = e.localPosition;
+      if (!_cropScheduled) {
+        _cropScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _cropScheduled = false;
+          if (mounted) setState(() {});
+        });
+      }
       return;
     }
     // 右键改为弹出 Flutter 渲染的上下文菜单（screencast 模式下浏览器原生
@@ -443,7 +448,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   void _handlePointerMove(PointerMoveEvent e, Size renderSize) {
     if (_cropMode) {
       if (_cropStart == null) return;
-      setState(() => _cropCurrent = e.localPosition);
+      _cropCurrent = e.localPosition;
+      if (!_cropScheduled) {
+        _cropScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _cropScheduled = false;
+          if (mounted) setState(() {});
+        });
+      }
       return;
     }
     final p = _toViewport(e.localPosition, renderSize);
@@ -475,11 +487,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (start != null && cur != null && (start - cur).distance > 4) {
         unawaited(_finalizeCrop(start, cur, renderSize));
       } else {
-        setState(() {
-          _cropMode = false;
-          _cropStart = null;
-          _cropCurrent = null;
-        });
+        _cropMode = false;
+        _cropStart = null;
+        _cropCurrent = null;
+        if (!_cropScheduled) {
+          _cropScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _cropScheduled = false;
+            if (mounted) setState(() {});
+          });
+        }
       }
       return;
     }
@@ -545,7 +562,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       final next = (_zoom * scaleRatio).clamp(0.25, 3.0);
       _lastPanZoomScale = e.scale;
       if ((next - _zoom).abs() > 0.005) {
-        setState(() => _zoom = next);
+        _zoom = next;
+        if (!_zoomScheduled) {
+          _zoomScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _zoomScheduled = false;
+            if (mounted) setState(() {});
+          });
+        }
         unawaited(widget.controller.setZoomFactor(next));
       }
       return;
