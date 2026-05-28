@@ -514,8 +514,20 @@ class _CostPopupRowState extends State<_CostPopupRow> {
         ? accent.withValues(alpha: 0.10)
         : Colors.transparent;
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        if (_hovered) return;
+        _hovered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      onExit: (_) {
+        if (!_hovered) return;
+        _hovered = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
@@ -628,8 +640,20 @@ class _CacheHitBarState extends State<_CacheHitBar> {
     final writeColor = Colors.amber.shade600;
     final missColor = colorScheme.surfaceContainerHighest;
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        if (_hovered) return;
+        _hovered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      onExit: (_) {
+        if (!_hovered) return;
+        _hovered = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
@@ -712,8 +736,20 @@ class _PopupRowState extends State<_PopupRow> {
         ? accent.withValues(alpha: 0.10)
         : Colors.transparent;
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        if (_hovered) return;
+        _hovered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      onExit: (_) {
+        if (!_hovered) return;
+        _hovered = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,

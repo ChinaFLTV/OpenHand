@@ -779,15 +779,20 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
   }
 
   void _showFullContentDialog(BuildContext context) {
-    showAnimatedDialog(
-      context: context,
-      builder: (_) => _ToolContentFullDialog(
-        label: widget.label,
-        content: widget.content,
-        isError: widget.isError,
-        fullContentFile: widget.fullContentFile,
-      ),
-    );
+    // Defer dialog insertion to avoid triggering MouseTracker re-entrancy
+    // when the button is pressed during pointer event processing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showAnimatedDialog(
+        context: context,
+        builder: (_) => _ToolContentFullDialog(
+          label: widget.label,
+          content: widget.content,
+          isError: widget.isError,
+          fullContentFile: widget.fullContentFile,
+        ),
+      );
+    });
   }
 
   @override

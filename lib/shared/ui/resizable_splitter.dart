@@ -55,8 +55,20 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
             SizedBox(width: leftW, child: widget.left),
             MouseRegion(
               cursor: SystemMouseCursors.resizeColumn,
-              onEnter: (_) => setState(() => _hovering = true),
-              onExit: (_) => setState(() => _hovering = false),
+              onEnter: (_) {
+                if (_hovering) return;
+                _hovering = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() {});
+                });
+              },
+              onExit: (_) {
+                if (!_hovering) return;
+                _hovering = false;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() {});
+                });
+              },
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onHorizontalDragStart: (_) =>

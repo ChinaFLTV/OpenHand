@@ -611,8 +611,20 @@ class _CronTileState extends State<_CronTile> {
         ? cs.primary.withValues(alpha: 0.45)
         : cs.outlineVariant.withValues(alpha: 0.0);
     return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
+      onEnter: (_) {
+        if (_hover) return;
+        _hover = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      onExit: (_) {
+        if (!_hover) return;
+        _hover = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,

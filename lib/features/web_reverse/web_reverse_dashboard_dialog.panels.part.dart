@@ -5980,6 +5980,7 @@ class _TraceLanesInline extends StatefulWidget {
 class _TraceLanesInlineState extends State<_TraceLanesInline> {
   Offset? _hoverPos;
   _TraceLaneEvent? _hoverEvent;
+  bool _hoverScheduled = false;
 
   static const double _kLaneH = 18;
   static const double _kAxisH = 18;
@@ -6042,10 +6043,16 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                 final width = constraints.maxWidth;
                 return MouseRegion(
                   onHover: (e) => _updateHover(e.localPosition, width),
-                  onExit: (_) => setState(() {
+                  onExit: (_) {
                     _hoverPos = null;
                     _hoverEvent = null;
-                  }),
+                    if (_hoverScheduled) return;
+                    _hoverScheduled = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _hoverScheduled = false;
+                      if (mounted) setState(() {});
+                    });
+                  },
                   child: Stack(
                     children: [
                       Positioned.fill(
@@ -6113,9 +6120,13 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
         break;
       }
     }
-    setState(() {
-      _hoverPos = pos;
-      _hoverEvent = hit;
+    _hoverPos = pos;
+    _hoverEvent = hit;
+    if (_hoverScheduled) return;
+    _hoverScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hoverScheduled = false;
+      if (mounted) setState(() {});
     });
   }
 }

@@ -552,8 +552,20 @@ class _SnippetTileState extends State<_SnippetTile> {
         : '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
+      onEnter: (_) {
+        if (_hover) return;
+        _hover = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      onExit: (_) {
+        if (!_hover) return;
+        _hover = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
