@@ -21,19 +21,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCoverageDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _CoverageDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CoverageDialog(controller: controller),
   );
 }
 
 class _CoverageDialog extends StatefulWidget {
-  const _CoverageDialog({required this.controller, required this.isZh});
+  const _CoverageDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_CoverageDialog> createState() => _CoverageDialogState();
 }

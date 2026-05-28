@@ -19,13 +19,11 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseAccountSnapshotsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => _AccountSnapshotsDialog(
       controller: controller,
-      isZh: isZh,
     ),
   );
 }
@@ -33,11 +31,8 @@ Future<void> showWebReverseAccountSnapshotsDialog(
 class _AccountSnapshotsDialog extends StatefulWidget {
   const _AccountSnapshotsDialog({
     required this.controller,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_AccountSnapshotsDialog> createState() =>
       _AccountSnapshotsDialogState();

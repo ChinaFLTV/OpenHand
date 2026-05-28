@@ -73,12 +73,11 @@ const String _kList = r'''
 Future<void> showWebReverseWsInjectDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) =>
-        _WsInjectDialog(controller: controller, isZh: isZh),
+        _WsInjectDialog(controller: controller),
   );
 }
 
@@ -113,10 +112,8 @@ class _WsRow {
 }
 
 class _WsInjectDialog extends StatefulWidget {
-  const _WsInjectDialog({required this.controller, required this.isZh});
+  const _WsInjectDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_WsInjectDialog> createState() => _WsInjectDialogState();
 }

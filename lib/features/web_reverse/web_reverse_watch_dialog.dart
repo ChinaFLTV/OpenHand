@@ -24,11 +24,10 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseWatchDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _WatchDialog(controller: controller, isZh: isZh),
+    builder: (_) => _WatchDialog(controller: controller),
   );
 }
 
@@ -51,10 +50,8 @@ class _WatchSample {
 }
 
 class _WatchDialog extends StatefulWidget {
-  const _WatchDialog({required this.controller, required this.isZh});
+  const _WatchDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_WatchDialog> createState() => _WatchDialogState();
 }

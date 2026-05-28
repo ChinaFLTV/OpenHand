@@ -4,14 +4,11 @@ class _ConsoleBody extends StatefulWidget {
   const _ConsoleBody({
     required this.controller,
     required this.filter,
-    required this.isZh,
     required this.reduceMotion,
   });
 
   final WebReverseSessionController controller;
   final String filter;
-  // ignore: unused_field
-  final bool isZh;
   final bool reduceMotion;
 
   @override

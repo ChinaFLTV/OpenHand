@@ -15,11 +15,8 @@ part of 'web_reverse_dashboard_dialog.dart';
 class _RealtimeBody extends StatefulWidget {
   const _RealtimeBody({
     required this.controller,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
 
   @override
   State<_RealtimeBody> createState() => _RealtimeBodyState();

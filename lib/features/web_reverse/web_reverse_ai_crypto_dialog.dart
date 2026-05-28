@@ -41,19 +41,16 @@ class _JsHit {
 Future<void> showWebReverseAiCryptoDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _AiCryptoDialog(controller: controller, isZh: isZh),
+    builder: (_) => _AiCryptoDialog(controller: controller),
   );
 }
 
 class _AiCryptoDialog extends StatefulWidget {
-  const _AiCryptoDialog({required this.controller, required this.isZh});
+  const _AiCryptoDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_AiCryptoDialog> createState() => _AiCryptoDialogState();
 }

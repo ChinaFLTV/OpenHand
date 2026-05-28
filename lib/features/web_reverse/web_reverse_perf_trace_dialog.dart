@@ -21,19 +21,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReversePerfTraceDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _PerfTraceDialog(controller: controller, isZh: isZh),
+    builder: (_) => _PerfTraceDialog(controller: controller),
   );
 }
 
 class _PerfTraceDialog extends StatefulWidget {
-  const _PerfTraceDialog({required this.controller, required this.isZh});
+  const _PerfTraceDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_PerfTraceDialog> createState() => _PerfTraceDialogState();
 }

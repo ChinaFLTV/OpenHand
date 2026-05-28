@@ -31,19 +31,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseSignatureDiffDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _SignatureDiffDialog(controller: controller, isZh: isZh),
+    builder: (_) => _SignatureDiffDialog(controller: controller),
   );
 }
 
 class _SignatureDiffDialog extends StatefulWidget {
-  const _SignatureDiffDialog({required this.controller, required this.isZh});
+  const _SignatureDiffDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_SignatureDiffDialog> createState() => _SignatureDiffDialogState();
 }

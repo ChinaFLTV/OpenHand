@@ -17,19 +17,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseDeviceEmulationDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _DeviceEmuDialog(controller: controller, isZh: isZh),
+    builder: (_) => _DeviceEmuDialog(controller: controller),
   );
 }
 
 class _DeviceEmuDialog extends StatefulWidget {
-  const _DeviceEmuDialog({required this.controller, required this.isZh});
+  const _DeviceEmuDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_DeviceEmuDialog> createState() => _DeviceEmuDialogState();
 }

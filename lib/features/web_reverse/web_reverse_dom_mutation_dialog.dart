@@ -113,19 +113,16 @@ const String _kInstallScript = r'''
 Future<void> showWebReverseDomMutationDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _DomMutationDialog(controller: controller, isZh: isZh),
+    builder: (_) => _DomMutationDialog(controller: controller),
   );
 }
 
 class _DomMutationDialog extends StatefulWidget {
-  const _DomMutationDialog({required this.controller, required this.isZh});
+  const _DomMutationDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_DomMutationDialog> createState() => _DomMutationDialogState();
 }

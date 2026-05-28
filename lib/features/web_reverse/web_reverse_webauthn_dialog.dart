@@ -45,19 +45,16 @@ class _VirtualAuth {
 Future<void> showWebReverseWebAuthnDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _WebAuthnDialog(controller: controller, isZh: isZh),
+    builder: (_) => _WebAuthnDialog(controller: controller),
   );
 }
 
 class _WebAuthnDialog extends StatefulWidget {
-  const _WebAuthnDialog({required this.controller, required this.isZh});
+  const _WebAuthnDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_WebAuthnDialog> createState() => _WebAuthnDialogState();
 }

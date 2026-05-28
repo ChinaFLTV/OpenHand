@@ -993,7 +993,6 @@ class _WebReverseDashboardDialogState
       _Tab.console => _ConsoleBody(
         controller: ctrl,
         filter: _networkFilter,
-        isZh: isZh,
         reduceMotion: reduceMotion,
       ),
       _Tab.sources => _SourcesPanel(
@@ -1004,17 +1003,14 @@ class _WebReverseDashboardDialogState
       ),
       _Tab.snippets => _SnippetsBody(
         controller: ctrl,
-        isZh: isZh,
         onPersist: persistSnippets,
       ),
       _Tab.elements => _ElementsBody(
         controller: ctrl,
-        isZh: isZh,
         reduceMotion: reduceMotion,
       ),
       _Tab.hooks => _HooksBody(
         controller: ctrl,
-        isZh: isZh,
         onPersist: persistHooks,
       ),
       _Tab.crons => _CronsBody(
@@ -1034,8 +1030,8 @@ class _WebReverseDashboardDialogState
           });
         },
       ),
-      _Tab.realtime => _RealtimeBody(controller: ctrl, isZh: isZh),
-      _Tab.crypto => _CryptoPadBody(isZh: isZh, reduceMotion: reduceMotion),
+      _Tab.realtime => _RealtimeBody(controller: ctrl),
+      _Tab.crypto => _CryptoPadBody(reduceMotion: reduceMotion),
       _Tab.performance => _PerformancePanel(
         controller: ctrl,
         isZh: isZh,

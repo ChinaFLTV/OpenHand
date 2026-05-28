@@ -12,11 +12,9 @@ part of 'web_reverse_dashboard_dialog.dart';
 class _ElementsBody extends StatefulWidget {
   const _ElementsBody({
     required this.controller,
-    required this.isZh,
     required this.reduceMotion,
   });
   final WebReverseSessionController controller;
-  final bool isZh; // ignore: unused_field
   final bool reduceMotion;
 
   @override

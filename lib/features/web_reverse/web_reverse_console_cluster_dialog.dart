@@ -20,12 +20,11 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseConsoleClusterDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) =>
-        _ConsoleClusterDialog(controller: controller, isZh: isZh),
+        _ConsoleClusterDialog(controller: controller),
   );
 }
 
@@ -48,11 +47,8 @@ class _Cluster {
 class _ConsoleClusterDialog extends StatefulWidget {
   const _ConsoleClusterDialog({
     required this.controller,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_ConsoleClusterDialog> createState() =>
       _ConsoleClusterDialogState();

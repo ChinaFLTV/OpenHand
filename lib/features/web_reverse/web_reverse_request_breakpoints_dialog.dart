@@ -16,13 +16,11 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseRequestBreakpointsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => _RequestBreakpointsDialog(
       controller: controller,
-      isZh: isZh,
     ),
   );
 }
@@ -30,11 +28,8 @@ Future<void> showWebReverseRequestBreakpointsDialog(
 class _RequestBreakpointsDialog extends StatefulWidget {
   const _RequestBreakpointsDialog({
     required this.controller,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_RequestBreakpointsDialog> createState() =>
       _RequestBreakpointsDialogState();
@@ -116,7 +111,6 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                           : _BreakpointEditor(
                               key: ValueKey(_selected!.id),
                               breakpoint: _selected!,
-                              isZh: widget.isZh,
                               onChange: _update,
                               onDelete: () => _delete(_selected!),
                             ),
@@ -403,13 +397,10 @@ class _BreakpointEditor extends StatefulWidget {
   const _BreakpointEditor({
     super.key,
     required this.breakpoint,
-    required this.isZh,
     required this.onChange,
     required this.onDelete,
   });
   final WebReverseRequestBreakpoint breakpoint;
-  // ignore: unused_field
-  final bool isZh;
   final ValueChanged<WebReverseRequestBreakpoint> onChange;
   final VoidCallback onDelete;
   @override

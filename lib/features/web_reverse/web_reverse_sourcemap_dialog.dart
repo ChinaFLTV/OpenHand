@@ -22,19 +22,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseSourceMapDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _SmDialog(controller: controller, isZh: isZh),
+    builder: (_) => _SmDialog(controller: controller),
   );
 }
 
 class _SmDialog extends StatefulWidget {
-  const _SmDialog({required this.controller, required this.isZh});
+  const _SmDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_SmDialog> createState() => _SmDialogState();
 }

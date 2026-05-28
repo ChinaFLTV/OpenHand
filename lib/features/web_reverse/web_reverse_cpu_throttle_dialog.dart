@@ -19,19 +19,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCpuThrottleDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _CpuThrottleDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CpuThrottleDialog(controller: controller),
   );
 }
 
 class _CpuThrottleDialog extends StatefulWidget {
-  const _CpuThrottleDialog({required this.controller, required this.isZh});
+  const _CpuThrottleDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_CpuThrottleDialog> createState() => _CpuThrottleDialogState();
 }

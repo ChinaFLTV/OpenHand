@@ -36,19 +36,16 @@ final List<_CdpHistoryEntry> _cdpConsoleHistory = <_CdpHistoryEntry>[];
 Future<void> showWebReverseCdpConsoleDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _CdpConsoleDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CdpConsoleDialog(controller: controller),
   );
 }
 
 class _CdpConsoleDialog extends StatefulWidget {
-  const _CdpConsoleDialog({required this.controller, required this.isZh});
+  const _CdpConsoleDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_CdpConsoleDialog> createState() => _CdpConsoleDialogState();
 }

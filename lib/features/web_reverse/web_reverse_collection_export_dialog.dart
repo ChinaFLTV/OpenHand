@@ -22,13 +22,11 @@ enum _CollectionFormat { postman, insomnia, bruno, curl, har }
 Future<void> showWebReverseCollectionExportDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => _CollectionExportDialog(
       controller: controller,
-      isZh: isZh,
     ),
   );
 }
@@ -36,11 +34,8 @@ Future<void> showWebReverseCollectionExportDialog(
 class _CollectionExportDialog extends StatefulWidget {
   const _CollectionExportDialog({
     required this.controller,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_CollectionExportDialog> createState() =>
       _CollectionExportDialogState();

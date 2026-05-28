@@ -19,19 +19,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCssCoverageDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _CssCovDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CssCovDialog(controller: controller),
   );
 }
 
 class _CssCovDialog extends StatefulWidget {
-  const _CssCovDialog({required this.controller, required this.isZh});
+  const _CssCovDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_CssCovDialog> createState() => _CssCovDialogState();
 }

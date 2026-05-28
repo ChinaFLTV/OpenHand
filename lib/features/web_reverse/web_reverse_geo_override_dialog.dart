@@ -49,19 +49,16 @@ const List<_GeoPreset> _presets = <_GeoPreset>[
 Future<void> showWebReverseGeoOverrideDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _GeoOverrideDialog(controller: controller, isZh: isZh),
+    builder: (_) => _GeoOverrideDialog(controller: controller),
   );
 }
 
 class _GeoOverrideDialog extends StatefulWidget {
-  const _GeoOverrideDialog({required this.controller, required this.isZh});
+  const _GeoOverrideDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_GeoOverrideDialog> createState() => _GeoOverrideDialogState();
 }

@@ -19,19 +19,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseFrameTreeDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _FrameTreeDialog(controller: controller, isZh: isZh),
+    builder: (_) => _FrameTreeDialog(controller: controller),
   );
 }
 
 class _FrameTreeDialog extends StatefulWidget {
-  const _FrameTreeDialog({required this.controller, required this.isZh});
+  const _FrameTreeDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_FrameTreeDialog> createState() => _FrameTreeDialogState();
 }

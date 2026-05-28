@@ -14,8 +14,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _CryptoPadBody extends StatefulWidget {
-  const _CryptoPadBody({required this.isZh, required this.reduceMotion});
-  final bool isZh; // ignore: unused_field
+  const _CryptoPadBody({required this.reduceMotion});
   final bool reduceMotion;
 
   @override

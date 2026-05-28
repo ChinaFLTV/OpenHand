@@ -13,11 +13,9 @@ part of 'web_reverse_dashboard_dialog.dart';
 class _SnippetsBody extends StatefulWidget {
   const _SnippetsBody({
     required this.controller,
-    required this.isZh,
     required this.onPersist,
   });
   final WebReverseSessionController controller;
-  final bool isZh; // ignore: unused_field
   final VoidCallback onPersist;
 
   @override

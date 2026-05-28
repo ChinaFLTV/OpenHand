@@ -20,19 +20,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseHeapSnapshotDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _HeapDialog(controller: controller, isZh: isZh),
+    builder: (_) => _HeapDialog(controller: controller),
   );
 }
 
 class _HeapDialog extends StatefulWidget {
-  const _HeapDialog({required this.controller, required this.isZh});
+  const _HeapDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_HeapDialog> createState() => _HeapDialogState();
 }

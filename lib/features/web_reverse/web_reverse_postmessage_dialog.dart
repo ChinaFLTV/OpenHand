@@ -118,19 +118,16 @@ class _PmRecord {
 Future<void> showWebReversePostMessageDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _PmDialog(controller: controller, isZh: isZh),
+    builder: (_) => _PmDialog(controller: controller),
   );
 }
 
 class _PmDialog extends StatefulWidget {
-  const _PmDialog({required this.controller, required this.isZh});
+  const _PmDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_PmDialog> createState() => _PmDialogState();
 }

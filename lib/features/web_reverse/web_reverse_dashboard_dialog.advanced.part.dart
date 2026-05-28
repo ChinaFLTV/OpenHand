@@ -166,8 +166,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseSignatureDiffDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -181,8 +180,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseRequestBreakpointsDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -196,8 +194,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseAccountSnapshotsDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -211,8 +208,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCoverageDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -226,8 +222,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCollectionExportDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -241,8 +236,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseWsInjectDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -257,7 +251,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -271,8 +265,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseWatchDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -286,8 +279,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseDomMutationDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -301,8 +293,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseGeoOverrideDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -316,8 +307,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseWebAuthnDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -331,8 +321,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseJwtRefreshDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -346,8 +335,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseAiCryptoDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -361,8 +349,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReversePostMessageDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -377,7 +364,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -392,7 +379,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -407,7 +394,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -422,7 +409,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -437,7 +424,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -452,7 +439,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -466,8 +453,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReversePerfTraceDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -481,8 +467,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseHeapSnapshotDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -496,8 +481,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseReplDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -511,8 +495,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseFrameTreeDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -526,8 +509,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCssCoverageDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -542,7 +524,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -557,7 +539,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -572,7 +554,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -587,7 +569,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -601,8 +583,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseReplayDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -617,7 +598,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -631,8 +612,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseDeviceEmulationDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -646,8 +626,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCpuThrottleDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -661,8 +640,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseDomSearchDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -676,8 +654,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseSourceMapDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -692,7 +669,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -707,7 +684,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -722,7 +699,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -736,8 +713,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCdpConsoleDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
       _AdvancedEntry(
@@ -751,8 +727,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseConsoleClusterDialog(
             context,
             controller: controller,
-            isZh: isZh,
-          );
+                      );
         },
       ),
     ];
@@ -2015,8 +1990,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     error: cs.error,
                     onSurface: cs.onSurface,
                     surfaceContainer: cs.surfaceContainerHigh,
-                    isZh: isZh,
-                  )
+                                      )
                 : ListView.builder(
                     itemCount: entries.length,
                     itemBuilder: (_, i) {
@@ -3090,7 +3064,6 @@ class _IceTopologyGraph extends StatelessWidget {
     required this.error,
     required this.onSurface,
     required this.surfaceContainer,
-    required this.isZh,
   });
 
   final int pcId;
@@ -3101,7 +3074,6 @@ class _IceTopologyGraph extends StatelessWidget {
   final Color error;
   final Color onSurface;
   final Color surfaceContainer;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -3130,8 +3102,7 @@ class _IceTopologyGraph extends StatelessWidget {
                 error: error,
                 onSurface: onSurface,
                 surfaceContainer: surfaceContainer,
-                isZh: isZh,
-              ),
+                              ),
             ),
           ),
         ),
@@ -3233,7 +3204,6 @@ class _IceTopologyPainter extends CustomPainter {
     required this.error,
     required this.onSurface,
     required this.surfaceContainer,
-    required this.isZh,
   });
 
   final int pcId;
@@ -3244,7 +3214,6 @@ class _IceTopologyPainter extends CustomPainter {
   final Color error;
   final Color onSurface;
   final Color surfaceContainer;
-  final bool isZh;
 
   @override
   void paint(Canvas canvas, Size size) {

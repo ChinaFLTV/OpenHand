@@ -18,19 +18,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseDomSearchDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _DomSearchDialog(controller: controller, isZh: isZh),
+    builder: (_) => _DomSearchDialog(controller: controller),
   );
 }
 
 class _DomSearchDialog extends StatefulWidget {
-  const _DomSearchDialog({required this.controller, required this.isZh});
+  const _DomSearchDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_DomSearchDialog> createState() => _DomSearchDialogState();
 }

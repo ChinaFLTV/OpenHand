@@ -19,19 +19,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseReplayDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _ReplayDialog(controller: controller, isZh: isZh),
+    builder: (_) => _ReplayDialog(controller: controller),
   );
 }
 
 class _ReplayDialog extends StatefulWidget {
-  const _ReplayDialog({required this.controller, required this.isZh});
+  const _ReplayDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_ReplayDialog> createState() => _ReplayDialogState();
 }

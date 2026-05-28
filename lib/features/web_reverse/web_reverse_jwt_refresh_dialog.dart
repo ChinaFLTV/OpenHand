@@ -50,19 +50,16 @@ class _RefreshLog {
 Future<void> showWebReverseJwtRefreshDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _JwtRefreshDialog(controller: controller, isZh: isZh),
+    builder: (_) => _JwtRefreshDialog(controller: controller),
   );
 }
 
 class _JwtRefreshDialog extends StatefulWidget {
-  const _JwtRefreshDialog({required this.controller, required this.isZh});
+  const _JwtRefreshDialog({required this.controller});
   final WebReverseSessionController controller;
-  // ignore: unused_field
-  final bool isZh;
   @override
   State<_JwtRefreshDialog> createState() => _JwtRefreshDialogState();
 }
