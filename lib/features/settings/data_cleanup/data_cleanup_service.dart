@@ -555,8 +555,9 @@ DataCleanupSizeReport _isolateMeasureAttachments(String sessionsRoot) {
         totalFiles += stats.files;
       }
     }
-  } catch (_) {
+  } catch (error, stack) {
     // 子目录不可读：保留已经累计的部分，避免一棵坏分支吞掉全部统计。
+    silentLog('data_cleanup', 'walk attachments', error, stack);
   }
   return DataCleanupSizeReport(bytes: totalBytes, itemCount: totalFiles);
 }
@@ -576,8 +577,9 @@ DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
         // 旧版 `session-*.json`。
         try {
           totalBytes += entity.lengthSync();
-        } catch (_) {
+        } catch (error, stack) {
           // 文件被并发删除等：忽略。
+          silentLog('data_cleanup', 'len session json', error, stack);
         }
         continue;
       }
@@ -600,14 +602,15 @@ DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
           }
           try {
             totalBytes += inner.lengthSync();
-          } catch (_) {
-            // ignore
+          } catch (error, stack) {
+            silentLog('data_cleanup', 'len inner session file', error, stack);
           }
         }
       }
     }
-  } catch (_) {
+  } catch (error, stack) {
     // 兜底：保留累计。
+    silentLog('data_cleanup', 'walk sessions excl attachments', error, stack);
   }
   return DataCleanupSizeReport(bytes: totalBytes);
 }
@@ -628,7 +631,8 @@ DataCleanupSizeReport _isolateMeasureFile(String path) {
   }
   try {
     return DataCleanupSizeReport(bytes: file.lengthSync(), itemCount: 1);
-  } catch (_) {
+  } catch (error, stack) {
+    silentLog('data_cleanup', 'measure file len', error, stack);
     return DataCleanupSizeReport.unknown;
   }
 }
@@ -643,8 +647,9 @@ void _isolateDeleteFile(String path) {
   }
   try {
     file.deleteSync();
-  } catch (_) {
-    // ignore — caller will fall back to controller refresh.
+  } catch (error, stack) {
+    // 上层会通过 controller refresh 兜底，单文件删除失败不致命。
+    silentLog('data_cleanup', 'delete file', error, stack);
   }
 }
 
@@ -671,8 +676,9 @@ void _isolateDeleteAttachments(String sessionsRoot) {
         _safeDeleteDirectoryAndRecreate(perSession);
       }
     }
-  } catch (_) {
+  } catch (error, stack) {
     // 兜底：保持已删除部分，剩余目录可下次再清。
+    silentLog('data_cleanup', 'delete attachments roots', error, stack);
   }
 }
 
@@ -692,12 +698,14 @@ void _isolateDeleteDirectoryContents(String dir) {
         } else {
           entity.deleteSync();
         }
-      } catch (_) {
+      } catch (error, stack) {
         // 单个文件删除失败：忽略，继续下一个。
+        silentLog('data_cleanup', 'delete dir entry', error, stack);
       }
     }
-  } catch (_) {
+  } catch (error, stack) {
     // 列表失败：忽略。
+    silentLog('data_cleanup', 'list dir contents', error, stack);
   }
 }
 
@@ -744,13 +752,15 @@ bool _isSafeDeleteTarget(String path) {
 void _safeDeleteDirectoryAndRecreate(Directory dir) {
   try {
     dir.deleteSync(recursive: true);
-  } catch (_) {
+  } catch (error, stack) {
     // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
+    silentLog('data_cleanup', 'delete dir', error, stack);
   }
   try {
     dir.createSync(recursive: true);
-  } catch (_) {
+  } catch (error, stack) {
     // recreate 失败也不抛——下游写入时会自行重试。
+    silentLog('data_cleanup', 'recreate dir', error, stack);
   }
 }
 
@@ -771,12 +781,14 @@ _DirStats _walkDirectoryStats(Directory dir) {
       try {
         bytes += entity.lengthSync();
         files++;
-      } catch (_) {
+      } catch (error, stack) {
         // 文件并发被删 / 权限不足：跳过。
+        silentLog('data_cleanup', 'len walk entity', error, stack);
       }
     }
-  } catch (_) {
+  } catch (error, stack) {
     // 列表失败：返回已经累计的部分。
+    silentLog('data_cleanup', 'walk dir list', error, stack);
   }
   return _DirStats(bytes: bytes, files: files);
 }

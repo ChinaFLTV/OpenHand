@@ -80,8 +80,9 @@ Future<void> killAllTrackedChildren({
   for (final p in snapshot) {
     try {
       p.kill();
-    } catch (_) {
+    } catch (error, stack) {
       // 已退出会抛，忽略即可。
+      silentLog('safe_subprocess', 'sigterm tracked child', error, stack);
     }
   }
   // 给整个批次一次性 grace，而不是每个进程 400ms 串行等。
@@ -89,7 +90,9 @@ Future<void> killAllTrackedChildren({
   for (final p in snapshot) {
     try {
       p.kill(ProcessSignal.sigkill);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'sigkill on graceful exit', error, stack);
+    }
   }
 }
 
@@ -121,7 +124,9 @@ Future<int> killAllDirectChildren() async {
                 // 不等待——直接补 SIGKILL
                 Process.killPid(childPid, ProcessSignal.sigkill);
                 killed++;
-              } catch (_) {}
+              } catch (error, stack) {
+                silentLog('safe_subprocess', 'kill direct child pid', error, stack);
+              }
             }
           }
         }
@@ -131,7 +136,9 @@ Future<int> killAllDirectChildren() async {
       try {
         final r2 = await Process.run('pkill', ['-P', '$myPid']);
         if (r2.exitCode == 0) killed = killed + 1; // pkill 本身不报数，保守计 1
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('safe_subprocess', 'pkill -P fallback', error, stack);
+      }
     } else if (Platform.isWindows) {
       final result = await Process.run('wmic', [
         'process', 'where', '(ParentProcessId=$myPid)', 'get', 'ProcessId',
@@ -145,12 +152,16 @@ Future<int> killAllDirectChildren() async {
               Process.killPid(childPid, ProcessSignal.sigterm);
               Process.killPid(childPid, ProcessSignal.sigkill);
               killed++;
-            } catch (_) {}
+            } catch (error, stack) {
+              silentLog('safe_subprocess', 'kill windows child pid', error, stack);
+            }
           }
         }
       }
     }
-  } catch (_) {}
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'enumerate direct children', error, stack);
+  }
   return killed;
 }
 
@@ -343,10 +354,13 @@ Future<bool> runDetachedSystemOpen(
           Timer(const Duration(milliseconds: 300), () {
             try {
               Process.killPid(pid, ProcessSignal.sigkill);
-            } catch (_) {}
+            } catch (error, stack) {
+              silentLog('safe_subprocess', 'sigkill detached watchdog', error, stack);
+            }
           });
-        } catch (_) {
+        } catch (error, stack) {
           // 已退出 → killPid 返回 false / 抛错，正常路径，无需处理。
+          silentLog('safe_subprocess', 'sigterm detached watchdog', error, stack);
         }
       });
     }

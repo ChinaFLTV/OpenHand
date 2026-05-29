@@ -71,84 +71,72 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。配色采用低饱和
   // 调色板，深浅模式下都可读。每段附带 cacheHint，提示该段对缓存命中
   // 的稳定性影响。
+  //
+  // 2026-05-23 — Session State 重排到尾部，与 prompt builder 一致；
+  // 这样 [0..5] + history 形成稳定可缓存的长前缀。
+  static const List<_PromptStructureSpec> _specs = <_PromptStructureSpec>[
+    _PromptStructureSpec('sys',       Color(0xFF6F4FB4), 1.2),
+    _PromptStructureSpec('dev',       Color(0xFF4955A6), 1.0),
+    _PromptStructureSpec('tools',     Color(0xFF2D6FA4), 1.5),
+    _PromptStructureSpec('memory',    Color(0xFF4F8C50), 1.0),
+    _PromptStructureSpec('user_inst', Color(0xFF84A03A), 0.8),
+    _PromptStructureSpec('summary',   Color(0xFFB07B2C), 0.6),
+    _PromptStructureSpec('history',   Color(0xFFB85549), 2.4),
+    _PromptStructureSpec('state',     Color(0xFF3E847B), 0.6),
+    _PromptStructureSpec('latest',    Color(0xFFA04079), 0.6),
+  ];
+
   List<_PromptStructureSegment> _segments(AppLocalizations l10n) {
-    return [
-      _PromptStructureSegment(
-        id: 'sys',
-        label: l10n.cacheBarSectionSysLabel,
-        summary: l10n.cacheBarSectionSysSummary,
-        cacheHint: l10n.cacheBarSectionSysCacheHint,
-        color: const Color(0xFF6F4FB4),
-        weight: 1.2,
-      ),
-      _PromptStructureSegment(
-        id: 'dev',
-        label: l10n.cacheBarSectionDevLabel,
-        summary: l10n.cacheBarSectionDevSummary,
-        cacheHint: l10n.cacheBarSectionDevCacheHint,
-        color: const Color(0xFF4955A6),
-        weight: 1.0,
-      ),
-      _PromptStructureSegment(
-        id: 'tools',
-        label: l10n.cacheBarSectionToolsLabel,
-        summary: l10n.cacheBarSectionToolsSummary,
-        cacheHint: l10n.cacheBarSectionToolsCacheHint,
-        color: const Color(0xFF2D6FA4),
-        weight: 1.5,
-      ),
-      _PromptStructureSegment(
-        id: 'memory',
-        label: l10n.cacheBarSectionMemoryLabel,
-        summary: l10n.cacheBarSectionMemorySummary,
-        cacheHint: l10n.cacheBarSectionMemoryCacheHint,
-        color: const Color(0xFF4F8C50),
-        weight: 1.0,
-      ),
-      _PromptStructureSegment(
-        id: 'user_inst',
-        label: l10n.cacheBarSectionUserInstLabel,
-        summary: l10n.cacheBarSectionUserInstSummary,
-        cacheHint: l10n.cacheBarSectionUserInstCacheHint,
-        color: const Color(0xFF84A03A),
-        weight: 0.8,
-      ),
-      _PromptStructureSegment(
-        id: 'summary',
-        label: l10n.cacheBarSectionSummaryLabel,
-        summary: l10n.cacheBarSectionSummarySummary,
-        cacheHint: l10n.cacheBarSectionSummaryCacheHint,
-        color: const Color(0xFFB07B2C),
-        weight: 0.6,
-      ),
-      _PromptStructureSegment(
-        id: 'history',
-        label: l10n.cacheBarSectionHistoryLabel,
-        summary: l10n.cacheBarSectionHistorySummary,
-        cacheHint: l10n.cacheBarSectionHistoryCacheHint,
-        color: const Color(0xFFB85549),
-        weight: 2.4,
-      ),
-      // 2026-05-23 — Session State 重排到尾部，与 prompt builder 一致；
-      // 这样 [0..5] + history 形成稳定可缓存的长前缀。
-      _PromptStructureSegment(
-        id: 'state',
-        label: l10n.cacheBarSectionStateLabel,
-        summary: l10n.cacheBarSectionStateSummary,
-        cacheHint: l10n.cacheBarSectionStateCacheHint,
-        color: const Color(0xFF3E847B),
-        weight: 0.6,
-      ),
-      _PromptStructureSegment(
-        id: 'latest',
-        label: l10n.cacheBarSectionLatestLabel,
-        summary: l10n.cacheBarSectionLatestSummary,
-        cacheHint: l10n.cacheBarSectionLatestCacheHint,
-        color: const Color(0xFFA04079),
-        weight: 0.6,
-      ),
-    ];
+    return _specs
+        .map((spec) => _PromptStructureSegment(
+              id: spec.id,
+              label: _labelFor(spec.id, l10n),
+              summary: _summaryFor(spec.id, l10n),
+              cacheHint: _cacheHintFor(spec.id, l10n),
+              color: spec.color,
+              weight: spec.weight,
+            ))
+        .toList(growable: false);
   }
+
+  String _labelFor(String id, AppLocalizations l10n) => switch (id) {
+        'sys' => l10n.cacheBarSectionSysLabel,
+        'dev' => l10n.cacheBarSectionDevLabel,
+        'tools' => l10n.cacheBarSectionToolsLabel,
+        'memory' => l10n.cacheBarSectionMemoryLabel,
+        'user_inst' => l10n.cacheBarSectionUserInstLabel,
+        'summary' => l10n.cacheBarSectionSummaryLabel,
+        'history' => l10n.cacheBarSectionHistoryLabel,
+        'state' => l10n.cacheBarSectionStateLabel,
+        'latest' => l10n.cacheBarSectionLatestLabel,
+        _ => id,
+      };
+
+  String _summaryFor(String id, AppLocalizations l10n) => switch (id) {
+        'sys' => l10n.cacheBarSectionSysSummary,
+        'dev' => l10n.cacheBarSectionDevSummary,
+        'tools' => l10n.cacheBarSectionToolsSummary,
+        'memory' => l10n.cacheBarSectionMemorySummary,
+        'user_inst' => l10n.cacheBarSectionUserInstSummary,
+        'summary' => l10n.cacheBarSectionSummarySummary,
+        'history' => l10n.cacheBarSectionHistorySummary,
+        'state' => l10n.cacheBarSectionStateSummary,
+        'latest' => l10n.cacheBarSectionLatestSummary,
+        _ => '',
+      };
+
+  String _cacheHintFor(String id, AppLocalizations l10n) => switch (id) {
+        'sys' => l10n.cacheBarSectionSysCacheHint,
+        'dev' => l10n.cacheBarSectionDevCacheHint,
+        'tools' => l10n.cacheBarSectionToolsCacheHint,
+        'memory' => l10n.cacheBarSectionMemoryCacheHint,
+        'user_inst' => l10n.cacheBarSectionUserInstCacheHint,
+        'summary' => l10n.cacheBarSectionSummaryCacheHint,
+        'history' => l10n.cacheBarSectionHistoryCacheHint,
+        'state' => l10n.cacheBarSectionStateCacheHint,
+        'latest' => l10n.cacheBarSectionLatestCacheHint,
+        _ => '',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -325,6 +313,17 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
     clone[idx] = next.clamp(lower, upper);
     setState(() => _draft = clone);
   }
+}
+
+/// 静态段定义：id + 颜色 + 视觉权重。与 [AppLocalizations] 中具体文案的
+/// 映射在 [_PromptCacheBreakpointBarState] 内通过 switch 完成，避免在常量
+/// 列表中混入 BuildContext / 本地化依赖。
+class _PromptStructureSpec {
+  const _PromptStructureSpec(this.id, this.color, this.weight);
+
+  final String id;
+  final Color color;
+  final double weight;
 }
 
 class _PromptStructureSegment {

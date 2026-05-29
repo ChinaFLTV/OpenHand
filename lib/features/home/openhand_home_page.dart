@@ -4055,12 +4055,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.currentSession,
     );
     if (selectedModel == null) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
-        context,
-        messenger,
-        OpenHandSnackBar.error(context, l10n.aiModelSelectionRequired),
-      );
+      OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
       return;
     }
     if (pendingAttachments.isNotEmpty &&
@@ -4490,12 +4485,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
-        final messenger = ScaffoldMessenger.of(context);
-        OpenHandSnackBar.show(
-          context,
-          messenger,
-          OpenHandSnackBar.info(context, l10n.threadCompressionNotice),
-        );
+        OpenHandSnackBar.showInfo(context, l10n.threadCompressionNotice);
       }
       _scheduleScrollToBottom(force: true, animated: true);
     } catch (error, stackTrace) {
@@ -4650,27 +4640,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context.read<AiSessionController>().currentSession,
     );
     if (selectedModel == null) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
-        context,
-        messenger,
-        OpenHandSnackBar.error(context, l10n.aiModelSelectionRequired),
-      );
+      OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
       return;
     }
     if (!_selectedModelSupportsAttachments(selectedModel)) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
+      OpenHandSnackBar.showInfo(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '当前模型不支持附件。',
-              en: 'The selected model does not support attachments.',
-            ),
-          ),
+        _localizedText(
+          context,
+          zh: '当前模型不支持附件。',
+          en: 'The selected model does not support attachments.',
         ),
       );
       return;
@@ -4678,18 +4657,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final remainingSlots =
         aiMessageAttachmentLimit - _pendingAttachments.length;
     if (remainingSlots <= 0) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
+      OpenHandSnackBar.showInfo(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '单条消息最多携带 20 个附件。',
-              en: 'A single message supports at most 20 attachments.',
-            ),
-          ),
+        _localizedText(
+          context,
+          zh: '单条消息最多携带 20 个附件。',
+          en: 'A single message supports at most 20 attachments.',
         ),
       );
       return;
