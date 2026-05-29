@@ -267,26 +267,23 @@ class AiPromptBuilder {
           session: session,
           latestUserMessage: latestUserMessage,
         );
+    // 2026-05-30 — metadata 中删除「纯遥测」字段：
+    //   * session_title / session_updated_at：UI 元数据，模型无消费但会每轮变。
+    //   * session_total_token_count / session_prompt_token_count /
+    //     session_completion_token_count / session_message_counts：纯统计每轮
+    //     抖动，模型不需要也用不到。
+    //   * current_prompt_history_message_count /
+    //     current_prompt_latest_user_message_id /
+    //     current_prompt_memory_entry_count：每轮变的轮次自描述，模型直接看
+    //     history / [4] 块即可。
+    //   * post_compact_rehydration：仅在真实压缩点存在时才进，由
+    //     _buildPostCompactRehydrationSnapshot 在源头保证（无压缩点返回空 map）。
     final metadata = <String, Object?>{
-      'session_title': session.title,
       'session_created_at': session.createdAt.toUtc().toIso8601String(),
-      'session_updated_at': session.updatedAt.toUtc().toIso8601String(),
       'session_id': session.id,
       'session_template_id': session.templateId,
       'session_template_name': session.templateName,
       'session_template_version': session.templateInternalVersion,
-      'session_total_token_count': session.statistics.totalTokens,
-      'session_prompt_token_count': session.statistics.totalPromptTokens,
-      'session_completion_token_count':
-          session.statistics.totalCompletionTokens,
-      'session_message_counts': <String, Object?>{
-        'user': session.statistics.userMessageCount,
-        'assistant': session.statistics.assistantMessageCount,
-        'tool': session.statistics.toolMessageCount,
-        'mcp': session.statistics.mcpMessageCount,
-        'skill': session.statistics.skillMessageCount,
-        'compression_point': session.statistics.compressionPointCount,
-      },
       'current_model_id': model.modelId,
       'current_model_label': model.displayName,
       'session_mode': session.mode.storageValue,
@@ -327,10 +324,8 @@ class AiPromptBuilder {
           .map((item) => item.toJson())
           .toList(growable: false),
       'repository_snapshot': repositorySnapshot?.toJson(),
-      'current_prompt_history_message_count': historyTurns.length,
-      'current_prompt_memory_entry_count': memoryEntries.length,
-      'current_prompt_latest_user_message_id': latestUserMessage?.id,
-      'post_compact_rehydration': postCompactRehydration,
+      if (postCompactRehydration.isNotEmpty)
+        'post_compact_rehydration': postCompactRehydration,
       'environment': runtimeContext.toJson(),
     };
     final webReverseRuntime = _buildWebReverseRuntimeSnapshot(
@@ -780,6 +775,10 @@ class AiPromptBuilder {
     required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
   }) {
+    // 2026-05-30 — 未发生压缩时返回空 map：这是「恢复上下文清单」，没压缩点就
+    // 没必要把工具数 / MCP / agent_types 等会话级近静态数据塞进 [3d]，每轮多
+    // 上千 token 体积只会增加 prefix-cache 抖动风险。
+    if (latestCompressionPoint == null) return const <String, Object?>{};
     final skillToolCount = availableToolNames
         .where((name) => name.startsWith('skill__'))
         .length;
@@ -847,9 +846,9 @@ class AiPromptBuilder {
       if (taskAgentTypes.isNotEmpty) 'agent_listing',
     ];
     return <String, Object?>{
-      'active': latestCompressionPoint != null,
-      'checkpoint_message_id': latestCompressionPoint?.id,
-      'checkpoint_created_at': latestCompressionPoint?.createdAt
+      'active': true,
+      'checkpoint_message_id': latestCompressionPoint.id,
+      'checkpoint_created_at': latestCompressionPoint.createdAt
           .toUtc()
           .toIso8601String(),
       'session_memory_sidecar_present': sidecarMarkdownPath != null,
@@ -1118,14 +1117,20 @@ class AiPromptBuilder {
   }) {
     final dynamicState = <String, Object?>{};
 
-    dynamicState['session'] = <String, Object?>{
-      'title': session.title,
-      'mode': session.mode.storageValue,
-    };
-    // 2026-05-25 — 不在 [3d] 注入当前日期（见上方注释）。
-    // git 信息已迁入 [3s] Static（会话开启快照），[3d] 不再包含 git 字段。
+    // 2026-05-30 — 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
+    // - session.title：纯 UI 元数据，模型不消费；首轮后自动改名会单次击穿前缀缓存。
+    //   ⇒ 不进 [3d]。
+    // - session.mode：默认 chat 不写入；仅切到 plan 时显式标记，避免常态污染。
+    // - 当前日期 / git 信息：见 [3s] / 工具调用兜底，[3d] 不再注入。
+    if (session.mode != AiSessionMode.chat) {
+      dynamicState['mode'] = session.mode.storageValue;
+    }
 
-    if (postCompactRehydration.isNotEmpty) {
+    // 2026-05-30 — 仅在真实存在压缩点（active=true）时注入 rehydration 块。
+    // 否则该块会把会话级近静态数据（工具数 / MCP 列表 / agent_types 等）每轮带进
+    // [3d]，徒增体积而无实际"恢复上下文"语义。
+    final rehydrationActive = postCompactRehydration['active'] == true;
+    if (rehydrationActive) {
       dynamicState['rehydration'] = postCompactRehydration;
     }
 
