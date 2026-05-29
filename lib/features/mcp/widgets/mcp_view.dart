@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5099,6 +5100,13 @@ class _ToolSchemaPanel extends StatelessWidget {
   }
 }
 
+/// 内容超过该阈值时，将格式化工作转移到后台 isolate 执行，避免阻塞 UI。
+const int _kAsyncFormatThreshold = 50 * 1024; // 50 KB
+/// 展示内容的最大长度，超出部分截断并标注。
+const int _kMaxDisplaySize = 500 * 1024; // 500 KB
+/// 超出该大小的原始响应直接放弃格式化，仅展示截断后的原始文本。
+const int _kSkipFormatThreshold = 5 * 1024 * 1024; // 5 MB
+
 /// 从 MCP tool call 结果中提取实际响应文本，剥离 MCP 协议信封
 /// (`content` / `type` / `text` 包装层)。
 String _extractMcpContentForDisplay(McpToolCallResult result) {
@@ -5164,20 +5172,97 @@ String _formatMcpDisplayContent(String text) {
   return trimmed;
 }
 
-class _McpFormattedResultPanel extends StatelessWidget {
+class _McpFormattedResultPanel extends StatefulWidget {
   const _McpFormattedResultPanel({required this.result});
 
   final McpToolCallResult result;
 
   @override
+  State<_McpFormattedResultPanel> createState() =>
+      _McpFormattedResultPanelState();
+}
+
+class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
+  String? _displayText;
+  String? _formatBadge;
+  String? _truncationNote;
+  bool _isFormatting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _processResult();
+  }
+
+  @override
+  void didUpdateWidget(covariant _McpFormattedResultPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.result != widget.result) {
+      _processResult();
+    }
+  }
+
+  Future<void> _processResult() async {
+    final rawText = _extractMcpContentForDisplay(widget.result);
+
+    // 超大响应直接跳过格式化，截断展示原始文本
+    if (rawText.length > _kSkipFormatThreshold) {
+      _applyDisplay(rawText.substring(0, _kMaxDisplaySize), null,
+          _kTruncationNote(rawText.length));
+      return;
+    }
+
+    // 小内容同步格式化，即时展示
+    if (rawText.length <= _kAsyncFormatThreshold) {
+      final formatted = _formatMcpDisplayContent(rawText);
+      final (display, truncated) = _capDisplay(formatted);
+      _applyDisplay(
+        display,
+        _detectFormatBadge(rawText, formatted),
+        truncated ? _kTruncationNote(formatted.length) : null,
+      );
+      return;
+    }
+
+    // 大内容切到 isolate 格式化，避免卡 UI
+    if (!mounted) return;
+    setState(() => _isFormatting = true);
+
+    final formatted = await Isolate.run(() => _formatMcpDisplayContent(rawText));
+    if (!mounted) return;
+
+    final (display, truncated) = _capDisplay(formatted);
+    _applyDisplay(
+      display,
+      _detectFormatBadge(rawText, formatted),
+      truncated ? _kTruncationNote(formatted.length) : null,
+    );
+  }
+
+  void _applyDisplay(String text, String? badge, String? truncation) {
+    if (!mounted) return;
+    setState(() {
+      _displayText = text;
+      _formatBadge = badge;
+      _truncationNote = truncation;
+      _isFormatting = false;
+    });
+  }
+
+  static (String, bool) _capDisplay(String text) {
+    if (text.length <= _kMaxDisplaySize) return (text, false);
+    return (text.substring(0, _kMaxDisplaySize), true);
+  }
+
+  static String _kTruncationNote(int fullLength) {
+    final kb = (fullLength / 1024).toStringAsFixed(1);
+    return '（内容已截断，原始大小约 $kb KB）';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final rawText = _extractMcpContentForDisplay(result);
-    final formatted = _formatMcpDisplayContent(rawText);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    // 如果格式化后的内容与原始 JSON-encode 不同，说明检测到了特定格式
-    final isJsonFormatted = _isJsonFormatted(rawText, formatted);
 
     return Container(
       width: double.infinity,
@@ -5190,57 +5275,90 @@ class _McpFormattedResultPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isJsonFormatted)
+          if (_formatBadge != null || _truncationNote != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'JSON',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
+                  if (_formatBadge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer
+                            .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _formatBadge!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ),
-                  ),
+                  if (_truncationNote != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.tertiaryContainer
+                            .withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _truncationNote!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onTertiaryContainer,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SelectableText(
-              formatted,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontFamily: 'monospace',
-                height: 1.45,
+          if (_isFormatting)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+              ),
+            )
+          else if (_displayText != null)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(
+                _displayText!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                  height: 1.45,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-bool _isJsonFormatted(String raw, String formatted) {
-  if (raw == formatted) return false;
-  try {
-    jsonDecode(formatted);
-    return true;
-  } catch (_) {
-    return false;
-  }
+/// 快速检测格式化后的格式类型，只检查首字符避免完整 JSON 解析。
+String? _detectFormatBadge(String raw, String formatted) {
+  if (raw == formatted) return null;
+  final first = formatted.trim().substring(0, 1);
+  if (first == '{' || first == '[') return 'JSON';
+  if (first == '<') return 'XML';
+  return null;
 }
 
 class _ToolConsolePanel extends StatelessWidget {
