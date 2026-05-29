@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:xml/xml.dart';
+import 'package:yaml/yaml.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
@@ -1402,7 +1404,7 @@ class _McpPageHeader extends StatelessWidget {
   }
 }
 
-class _McpServerCard extends StatelessWidget {
+class _McpServerCard extends StatefulWidget {
   const _McpServerCard({
     super.key,
     required this.server,
@@ -1425,6 +1427,43 @@ class _McpServerCard extends StatelessWidget {
   final VoidCallback onRefreshTools;
   final VoidCallback onReconnect;
   final ValueChanged<_McpCardAction> onActionSelected;
+
+  @override
+  State<_McpServerCard> createState() => _McpServerCardState();
+}
+
+class _McpServerCardState extends State<_McpServerCard> {
+  McpServer get server => widget.server;
+  McpServerHealth get healthStatus => widget.healthStatus;
+  McpToolCatalog get toolCatalog => widget.toolCatalog;
+  VoidCallback get onTap => widget.onTap;
+  ValueChanged<bool> get onToggleEnabled => widget.onToggleEnabled;
+  VoidCallback get onCheckHealth => widget.onCheckHealth;
+  VoidCallback get onRefreshTools => widget.onRefreshTools;
+  VoidCallback get onReconnect => widget.onReconnect;
+  ValueChanged<_McpCardAction> get onActionSelected => widget.onActionSelected;
+
+  final _toolSearchController = TextEditingController();
+  final _toolSearchFocusNode = FocusNode();
+  bool _showToolSearch = false;
+  String _toolSearchKeyword = '';
+
+  @override
+  void dispose() {
+    _toolSearchController.dispose();
+    _toolSearchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggleToolSearch() {
+    setState(() {
+      _showToolSearch = !_showToolSearch;
+      if (!_showToolSearch) {
+        _toolSearchController.clear();
+        _toolSearchKeyword = '';
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1590,6 +1629,31 @@ class _McpServerCard extends StatelessWidget {
                                 // STDIO 专属按钮：运行/停止、日志、详情
                                 if (server.type == McpServerType.stdio)
                                   _StdioProcessButtons(server: server),
+                                Tooltip(
+                                  message: _showToolSearch
+                                      ? _localizedText(
+                                          context,
+                                          zh: '关闭搜索',
+                                          en: 'Close search',
+                                        )
+                                      : _localizedText(
+                                          context,
+                                          zh: '搜索 Tool',
+                                          en: 'Search tools',
+                                        ),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton.filledTonal(
+                                      onPressed: _toggleToolSearch,
+                                      icon: Icon(
+                                        _showToolSearch
+                                            ? Icons.search_off_rounded
+                                            : Icons.search_rounded,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                                 SizedBox(
                                   width: 44,
                                   height: 44,
@@ -1861,9 +1925,57 @@ class _McpServerCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (_showToolSearch) ...[
+                    const SizedBox(height: 14),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: TextField(
+                        controller: _toolSearchController,
+                        focusNode: _toolSearchFocusNode,
+                        autofocus: true,
+                        onChanged: (value) {
+                          setState(() {
+                            _toolSearchKeyword = value.trim().toLowerCase();
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: _localizedText(
+                            context,
+                            zh: '输入关键字过滤 Tool…',
+                            en: 'Type to filter tools…',
+                          ),
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _toolSearchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded),
+                                  onPressed: () {
+                                    _toolSearchController.clear();
+                                    setState(() {
+                                      _toolSearchKeyword = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   if (toolCatalog.tools.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _McpToolPreview(server: server, toolCatalog: toolCatalog),
+                    _McpToolPreview(
+                      server: server,
+                      toolCatalog: toolCatalog,
+                      searchKeyword: _toolSearchKeyword,
+                    ),
                   ] else if (!toolCatalog.isLoading &&
                       !toolCatalog.hasError) ...[
                     const SizedBox(height: 14),
@@ -3872,10 +3984,15 @@ class _McpHealthStatusDot extends StatelessWidget {
 }
 
 class _McpToolPreview extends StatefulWidget {
-  const _McpToolPreview({required this.server, required this.toolCatalog});
+  const _McpToolPreview({
+    required this.server,
+    required this.toolCatalog,
+    this.searchKeyword = '',
+  });
 
   final McpServer server;
   final McpToolCatalog toolCatalog;
+  final String searchKeyword;
 
   @override
   State<_McpToolPreview> createState() => _McpToolPreviewState();
@@ -3887,13 +4004,25 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tools = widget.toolCatalog.tools;
-    final showAll = _expanded || tools.length <= _mcpToolPreviewCollapsedLimit;
+    final keyword = widget.searchKeyword;
+    final allTools = widget.toolCatalog.tools;
+    final filteredTools = keyword.isEmpty
+        ? allTools
+        : allTools
+            .where(
+              (t) => t.name.toLowerCase().contains(keyword),
+            )
+            .toList(growable: false);
+    final showAll =
+        _expanded || filteredTools.length <= _mcpToolPreviewCollapsedLimit;
     final previewTools = showAll
-        ? tools
-        : tools.take(_mcpToolPreviewCollapsedLimit).toList(growable: false);
-    final hiddenToolCount = showAll ? 0 : tools.length - previewTools.length;
-    final canExpand = tools.length > _mcpToolPreviewCollapsedLimit;
+        ? filteredTools
+        : filteredTools
+            .take(_mcpToolPreviewCollapsedLimit)
+            .toList(growable: false);
+    final hiddenToolCount =
+        showAll ? 0 : filteredTools.length - previewTools.length;
+    final canExpand = filteredTools.length > _mcpToolPreviewCollapsedLimit;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3902,7 +4031,17 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           children: [
             Expanded(
               child: Text(
-                _localizedText(context, zh: '可用 Tools', en: 'Available Tools'),
+                keyword.isEmpty
+                    ? _localizedText(
+                        context,
+                        zh: '可用 Tools',
+                        en: 'Available Tools',
+                      )
+                    : _localizedText(
+                        context,
+                        zh: '匹配 "${widget.searchKeyword}" 的 Tool',
+                        en: 'Tools matching "${widget.searchKeyword}"',
+                      ),
                 style: theme.textTheme.titleMedium,
               ),
             ),
@@ -3926,54 +4065,67 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           ],
         ),
         const SizedBox(height: 10),
-        // Wrap chip count animates smoothly when the user expands /
-        // collapses the preview, instead of snapping to the new height.
-        AnimatedSize(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topLeft,
-          child: Align(
+        if (filteredTools.isEmpty)
+          Align(
             alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final tool in previewTools)
-                  ActionChip(
-                    avatar: Icon(
-                      tool.hasMetadataWarning
-                          ? Icons.warning_amber_rounded
-                          : Icons.build_circle_outlined,
-                      size: 18,
+            child: Text(
+              _localizedText(
+                context,
+                zh: '没有匹配的 Tool',
+                en: 'No matching tools',
+              ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else
+          AnimatedSize(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final tool in previewTools)
+                    ActionChip(
+                      avatar: Icon(
+                        tool.hasMetadataWarning
+                            ? Icons.warning_amber_rounded
+                            : Icons.build_circle_outlined,
+                        size: 18,
+                      ),
+                      label: Text(tool.name),
+                      onPressed: () {
+                        _showToolDetailsDialog(
+                          context,
+                          mcpController: context.read<McpController>(),
+                          server: widget.server,
+                          toolCatalog: widget.toolCatalog,
+                          tool: tool,
+                        );
+                      },
                     ),
-                    label: Text(tool.name),
-                    onPressed: () {
-                      _showToolDetailsDialog(
-                        context,
-                        mcpController: context.read<McpController>(),
-                        server: widget.server,
-                        toolCatalog: widget.toolCatalog,
-                        tool: tool,
-                      );
-                    },
-                  ),
-                if (hiddenToolCount > 0)
-                  Chip(
-                    avatar: const Icon(Icons.more_horiz_rounded),
-                    label: Text(
-                      _localizedText(
-                        context,
-                        zh: '还有 $hiddenToolCount 个',
-                        en: '+$hiddenToolCount more',
+                  if (hiddenToolCount > 0)
+                    Chip(
+                      avatar: const Icon(Icons.more_horiz_rounded),
+                      label: Text(
+                        _localizedText(
+                          context,
+                          zh: '还有 $hiddenToolCount 个',
+                          en: '+$hiddenToolCount more',
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -4679,10 +4831,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          if (_result!.rawResult != null)
-                            _ToolSchemaPanel(schema: _result!.rawResult)
-                          else
-                            _ToolConsolePanel(content: _result!.outputText),
+                          _McpFormattedResultPanel(result: _result!),
                         ] else if (_isRunning)
                           _ToolConsolePanel(
                             content: _localizedText(
@@ -4947,6 +5096,150 @@ class _ToolSchemaPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 从 MCP tool call 结果中提取实际响应文本，剥离 MCP 协议信封
+/// (`content` / `type` / `text` 包装层)。
+String _extractMcpContentForDisplay(McpToolCallResult result) {
+  final raw = result.rawResult;
+  if (raw is! Map<String, Object?>) {
+    return result.outputText;
+  }
+  final content = raw['content'];
+  if (content is! List || content.isEmpty) {
+    return result.outputText;
+  }
+  final texts = <String>[];
+  for (final item in content) {
+    if (item is Map<String, Object?>) {
+      final type = item['type'];
+      if (type == 'text') {
+        final text = item['text'];
+        if (text is String && text.isNotEmpty) {
+          texts.add(text);
+        }
+      } else if (type == 'image') {
+        texts.add('[image: ${item['mimeType'] ?? 'unknown'}]');
+      } else if (type == 'resource' || type == 'resource_link') {
+        texts.add('[resource: ${item['uri'] ?? 'unknown'}]');
+      }
+    }
+  }
+  if (texts.isEmpty) {
+    return result.outputText;
+  }
+  return texts.join('\n');
+}
+
+/// 智能检测文本格式并美化输出：JSON → XML → YAML → 原始文本。
+String _formatMcpDisplayContent(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return trimmed;
+
+  // 1) JSON
+  try {
+    final decoded = jsonDecode(trimmed);
+    return const JsonEncoder.withIndent('  ').convert(decoded);
+  } catch (_) {}
+
+  // 2) XML
+  if (trimmed.startsWith('<')) {
+    try {
+      final doc = XmlDocument.parse(trimmed);
+      return doc.toXmlString(pretty: true, indent: '  ');
+    } catch (_) {}
+  }
+
+  // 3) YAML
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    try {
+      final loaded = loadYaml(trimmed);
+      if (loaded is Map || loaded is List) {
+        return const JsonEncoder.withIndent('  ').convert(loaded);
+      }
+    } catch (_) {}
+  }
+
+  return trimmed;
+}
+
+class _McpFormattedResultPanel extends StatelessWidget {
+  const _McpFormattedResultPanel({required this.result});
+
+  final McpToolCallResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawText = _extractMcpContentForDisplay(result);
+    final formatted = _formatMcpDisplayContent(rawText);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // 如果格式化后的内容与原始 JSON-encode 不同，说明检测到了特定格式
+    final isJsonFormatted = _isJsonFormatted(rawText, formatted);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF18181B),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isJsonFormatted)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'JSON',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SelectableText(
+              formatted,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontFamily: 'monospace',
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+bool _isJsonFormatted(String raw, String formatted) {
+  if (raw == formatted) return false;
+  try {
+    jsonDecode(formatted);
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 
