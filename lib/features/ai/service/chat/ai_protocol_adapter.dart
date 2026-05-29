@@ -718,14 +718,19 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    // 2026-05-23 — 按稳定性拆分 system 消息：
-    // - pre-user system（[0]-[5]、[3s]、restored contexts）→ 加 cache_control
-    // - post-user system（[3d] Dynamic Session State、[5.5] Focus、reminders）→ 不加缓存
-    // 避免每轮变动的 [3d] JSON 让 system 缓存块失效（cache_write 每轮触发）。
-    // 分界线 = 最后一条非 system 消息的索引。
-    var lastNonSystemIndex = -1;
+    // 2026-05-30 — 按"是否位于 history 之前"拆分 system 消息：
+    // - stable prefix system（出现在第一条非 system 消息之前）：[0]-[5]、
+    //   [3s]、restored contexts 等会话内字节稳定的块 → 加 cache_control。
+    // - volatile tail system（出现在第一条非 system 消息之后）：[3d] /
+    //   [5.5] / System / Plan Mode / Output Format / hook system-reminder
+    //   等每轮可能变化的块 → 不加缓存，避免 cache_write 每轮触发并击穿
+    //   整段 system 缓存。
+    var firstNonSystemIndex = -1;
     for (var i = 0; i < messages.length; i++) {
-      if (messages[i].role != AiChatRole.system) lastNonSystemIndex = i;
+      if (messages[i].role != AiChatRole.system) {
+        firstNonSystemIndex = i;
+        break;
+      }
     }
     final preUserSystemContent = <String>[];
     final postUserSystemContent = <String>[];
@@ -733,7 +738,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       if (messages[i].role != AiChatRole.system) continue;
       final content = messages[i].content.trim();
       if (content.isEmpty) continue;
-      if (i < lastNonSystemIndex) {
+      if (firstNonSystemIndex < 0 || i < firstNonSystemIndex) {
         preUserSystemContent.add(content);
       } else {
         postUserSystemContent.add(content);

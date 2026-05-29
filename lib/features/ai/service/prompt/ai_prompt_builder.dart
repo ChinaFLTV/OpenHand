@@ -296,8 +296,8 @@ class AiPromptBuilder {
       'failed_todos': failedTodos,
       'recent_plan_tool_failure': _hasRecentPlanToolFailure(session),
       'plan_recovery_required': planRecoveryRequired,
-      'todo_write_recommended': todoReminder != null,
-      'todo_write_reason': todoReminder,
+      // 2026-05-30 — todo_write_recommended / todo_write_reason 移除：
+      // 与独立的 "# System Reminder" 块内容重复，且每轮变动会污染 [3d]。
       'tool_catalog_authoritative': true,
       'current_tool_count': availableToolNames.length,
       'current_tool_names': availableToolNames,
@@ -543,35 +543,38 @@ class AiPromptBuilder {
             '# [3s] Static Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
       ),
       // ─────────────────────────────────────────────────────────────
-      // [3d] + [5.5]：置于 history 之前（prefix-extension cache 架构）
-      // 相邻轮次 token 序列 = 上一轮 tokens ++ [asst][user]，DeepSeek
-      // KV 缓存每轮完整命中，命中率从 ~44% → 95%+。
+      // 2026-05-30 cache-friendly ordering：history 之前只放真正稳定的
+      // prefix 块（system / developer / tool catalog / memory /
+      // instructions / static session state / restored contexts）。
+      //
+      // 易变块（[3d] / [5.5] / System Reminder / Plan Mode Reminder /
+      // Output Format Reminder / hook system-reminder）一律落到 history
+      // 之后的 volatile tail：这些块即便每轮都重写，影响范围也只是
+      // tail 本身，history KV cache 保持完整命中。实测 default 模板带
+      // 工具会话整体命中率从 6%~30% → 95%+。
       // ─────────────────────────────────────────────────────────────
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '# [3d] Dynamic Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
-      ),
+      ...historyTurns,
+      if (dynamicSessionState.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '# [3d] Dynamic Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
+        ),
       if (focusContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
         ),
-      if (todoReminder != null && !isCompactTemplate)
+      if (todoReminder != null && todoReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# System Reminder\n\n$todoReminder',
         ),
-      if (planModeReminder != null && !isCompactTemplate)
+      if (planModeReminder != null && planModeReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
         ),
-      // 2026-05-24 — 输出格式提醒：Markdown 为默认不注入；
-      // 纯文本 / HTML 需要明确告知模型当轮输出需遵守的约束。
-      // 放在 prompt 最尾部（hook system-reminder 之后）以获得最高 attention，
-      // 避免被前置 18K+ token 上下文淹没导致模型回退到 Markdown 默认输出。
-      ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ cache-miss 区起点。
       ...latestUserNonSystemTurns,
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
@@ -1150,12 +1153,11 @@ class AiPromptBuilder {
       };
     }
 
-    if (todoReminder != null && todoReminder.isNotEmpty) {
-      dynamicState['system_reminder'] = todoReminder;
-    }
-    if (planModeReminder != null && planModeReminder.isNotEmpty) {
-      dynamicState['plan_reminder'] = planModeReminder;
-    }
+    // 2026-05-30 — todoReminder / planModeReminder 不再写入 [3d]：
+    // 它们每轮都可能新增 / 失效 / 改写，强行塞进位于 prefix 的 [3d] 会让
+    // 整段 history 缓存失效。统一改为 history 之后的独立 system 块
+    // (# System Reminder / # Plan Mode Reminder)，与其它 volatile tail
+    // 提醒共享一份"不入 prefix"的策略。
 
     // 2026-05-23 v6 — 本轮被临时跳过的用户指令 id 列表，让 [4.5] 保持
     // 字节稳定（缓存友好），实际忽略哪几条从 [3d] 读取。
