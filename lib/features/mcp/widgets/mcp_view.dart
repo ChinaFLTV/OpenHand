@@ -1926,50 +1926,76 @@ class _McpServerCardState extends State<_McpServerCard> {
                       ),
                     ),
                   ],
-                  if (_showToolSearch) ...[
-                    const SizedBox(height: 14),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: TextField(
-                        controller: _toolSearchController,
-                        focusNode: _toolSearchFocusNode,
-                        autofocus: true,
-                        onChanged: (value) {
-                          setState(() {
-                            _toolSearchKeyword = value.trim().toLowerCase();
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: _localizedText(
-                            context,
-                            zh: '输入关键字过滤 Tool…',
-                            en: 'Type to filter tools…',
-                          ),
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _toolSearchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded),
-                                  onPressed: () {
-                                    _toolSearchController.clear();
-                                    setState(() {
-                                      _toolSearchKeyword = '';
-                                    });
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    switchInCurve: Curves.easeOutBack,
+                    switchOutCurve: Curves.easeInBack,
+                    transitionBuilder: (child, animation) {
+                      return SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1.0,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: child,
                         ),
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                    child: _showToolSearch
+                        ? Padding(
+                            key: const ValueKey('mcp_tool_search_on'),
+                            padding: const EdgeInsets.only(top: 14),
+                            child: TextField(
+                              controller: _toolSearchController,
+                              focusNode: _toolSearchFocusNode,
+                              autofocus: true,
+                              onChanged: (value) {
+                                setState(() {
+                                  _toolSearchKeyword =
+                                      value.trim().toLowerCase();
+                                });
+                              },
+                              decoration: InputDecoration(
+                                hintText: _localizedText(
+                                  context,
+                                  zh: '输入关键字过滤 Tool…',
+                                  en: 'Type to filter tools…',
+                                ),
+                                prefixIcon:
+                                    const Icon(Icons.search_rounded),
+                                suffixIcon:
+                                    _toolSearchController.text.isNotEmpty
+                                        ? GestureDetector(
+                                            onTap: () {
+                                              _toolSearchController
+                                                  .clear();
+                                              setState(() {
+                                                _toolSearchKeyword = '';
+                                              });
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: Icon(
+                                                Icons.clear_rounded,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('mcp_tool_search_off'),
+                          ),
+                  ),
                   if (toolCatalog.tools.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _McpToolPreview(
