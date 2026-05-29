@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -218,7 +219,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
               color: info.isRunning
                   ? const Color(0xFF16A34A)
                   : info.isTransitioning
-                  ? const Color(0xFFF59E0B)
+                  ? OpenHandStatusColors.warning
                   : theme.colorScheme.outlineVariant,
             ),
             // 终端输出区域
@@ -1147,7 +1148,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                             '${hasUpdate ? (isZh ? " (可更新)" : " (update available)") : ""}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: hasUpdate
-                                  ? const Color(0xFFF59E0B)
+                                  ? OpenHandStatusColors.warning
                                   : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),

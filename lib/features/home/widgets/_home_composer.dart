@@ -1728,12 +1728,12 @@ class _ComposerFullAccessModeButtonState
     final foregroundColor = !widget.enabled
         ? colorScheme.onSurface.withValues(alpha: 0.38)
         : widget.fullAccess
-        ? const Color(0xFFF59E0B)
+        ? OpenHandStatusColors.warning
         : colorScheme.onSurfaceVariant;
     final borderColor = !widget.enabled
         ? colorScheme.outlineVariant.withValues(alpha: 0.48)
         : widget.fullAccess
-        ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+        ? OpenHandStatusColors.warning.withValues(alpha: 0.5)
         : colorScheme.outlineVariant;
 
     return OutlinedButton(

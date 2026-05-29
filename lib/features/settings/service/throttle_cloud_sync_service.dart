@@ -142,6 +142,11 @@ class ThrottleCloudSyncService {
   /// 与 macOS / iOS native 端 CloudSyncBridge 共用的 method channel。
   static const MethodChannel _icloudChannel = MethodChannel('openhand/cloud_sync');
 
+  /// 所有云端 HTTP 请求的统一超时阈值。15s 兼顾跨国 Gist / S3 链路上
+  /// 偶发的 TCP RTT 抖动，又能在用户网络明显异常时尽快回到 UI 兜底
+  /// 提示，避免长时间无反馈。
+  static const Duration _httpRequestTimeout = Duration(seconds: 15);
+
   /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
   /// NSUbiquitousKeyValueStore；`oauth` 仍未实现，直接 fail-fast。
   ///
@@ -203,7 +208,7 @@ class ThrottleCloudSyncService {
             },
             body: utf8.encode(body),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
           'HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
@@ -264,7 +269,7 @@ class ThrottleCloudSyncService {
               'X-OpenHand-Client': 'throttle-sync/1',
             },
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
           'HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
@@ -479,7 +484,7 @@ class ThrottleCloudSyncService {
               headers: headers,
               body: utf8.encode(body),
             )
-            .timeout(const Duration(seconds: 15));
+            .timeout(_httpRequestTimeout);
       } else {
         resp = await client
             .patch(
@@ -487,7 +492,7 @@ class ThrottleCloudSyncService {
               headers: headers,
               body: utf8.encode(body),
             )
-            .timeout(const Duration(seconds: 15));
+            .timeout(_httpRequestTimeout);
       }
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
@@ -543,7 +548,7 @@ class ThrottleCloudSyncService {
               'User-Agent': 'OpenHand-throttle-sync/1',
             },
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
           'Gist HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',

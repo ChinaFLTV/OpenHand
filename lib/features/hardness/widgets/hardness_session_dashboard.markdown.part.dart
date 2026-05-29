@@ -297,7 +297,9 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
       vsync: this,
       duration: const Duration(milliseconds: 280),
     )..value = 1.0;
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn);
+    // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
+    // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
   }
 
   @override
@@ -461,7 +463,7 @@ class _LogLine extends StatelessWidget {
           return colorScheme.error;
         case 'WARN':
         case 'WARNING':
-          return const Color(0xFFF59E0B);
+          return OpenHandStatusColors.warning;
         case 'INFO':
           return colorScheme.primary;
         case 'DEBUG':

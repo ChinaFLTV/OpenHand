@@ -27,6 +27,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/fps/openhand_fps_monitor.dart';
@@ -3795,7 +3796,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.skillOperationFailed,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -4143,7 +4144,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '打开保存对话框失败。' : 'Failed to open save dialog.',
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4170,7 +4171,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '导出失败。' : 'Export failed.',
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4178,7 +4179,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       isZh ? '已导出节流配置。' : 'Throttle config exported.',
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4201,7 +4202,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '打开文件对话框失败。' : 'Failed to open file dialog.',
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4225,7 +4226,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '导入失败：${error.toString()}' : 'Import failed: $error',
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4242,7 +4243,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '配置无变化。' : 'No changes detected.',
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
       return;
     }
@@ -4261,7 +4262,7 @@ class _SettingsViewState extends State<SettingsView> {
         changed
             ? (isZh ? '节流配置已导入并应用。' : 'Throttle config imported.')
             : (isZh ? '配置无变化。' : 'No changes detected.'),
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
       silentLog(
@@ -4274,7 +4275,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         isZh ? '应用失败：${error.toString()}' : 'Apply failed: $error',
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -4335,7 +4336,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiCompressionThresholdInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4356,7 +4357,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiCompressionThresholdSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4370,7 +4371,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiToolResultCompressionThresholdInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4391,7 +4392,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiToolResultCompressionThresholdSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4422,7 +4423,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiToolResultCompressionHeadTailWindowSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4436,7 +4437,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiToolResultCompressionMaxPathHitsInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4457,7 +4458,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiToolResultCompressionMaxPathHitsSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4639,7 +4640,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiWriteToolSummaryMaxCharsInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4660,7 +4661,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiWriteToolSummaryMaxCharsSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4735,7 +4736,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiMaxRecentErrorsInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4754,7 +4755,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiMaxRecentErrorsSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4770,7 +4771,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.mcpLazyLoadingThresholdInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4789,7 +4790,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.mcpLazyLoadingThresholdSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4805,7 +4806,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.mcpAutoProbeConcurrencyInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4824,7 +4825,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.mcpAutoProbeConcurrencySaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4840,7 +4841,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiMaxPlanHistoryEntriesInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4859,7 +4860,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiMaxPlanHistoryEntriesSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4875,7 +4876,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiMaxTruncationContinuationsInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4894,7 +4895,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiMaxTruncationContinuationsSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4910,7 +4911,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiEstimatedCharactersPerTokenInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4929,7 +4930,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiEstimatedCharactersPerTokenSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -4956,7 +4957,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiImageSizeLimitInvalid,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -4981,7 +4982,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiImageSizeLimitSaved,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -5181,7 +5182,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.memoryOperationFailed,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -5205,7 +5206,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.mcpOperationFailed,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -5251,7 +5252,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.mcpStdioMirrorModeReconnectDone,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -5285,7 +5286,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.mcpStdioCacheResetDone,
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
       silentLog('settings.mcp', 'resetStdioPackageCache', error, stack);
@@ -5293,7 +5294,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.mcpStdioCacheResetFailed,
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -5331,7 +5332,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiModelSaveSuccess,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -5352,7 +5353,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiModelTestSuccess(model.providerLabel),
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
     } on AiChatException catch (error) {
       if (!mounted) {
@@ -5434,7 +5435,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.aiModelDeleteSuccess,
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -5443,7 +5444,7 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       l10n.settingsPersistenceSaveFailedBody,
-      kind: _SettingsSnackKind.error,
+      kind: OpenHandSnackKind.error,
     );
   }
 
@@ -5709,39 +5710,11 @@ class _SettingsViewState extends State<SettingsView> {
   void _showSnackBar(
     BuildContext context,
     String message, {
-    _SettingsSnackKind kind = _SettingsSnackKind.info,
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      switch (kind) {
-        case _SettingsSnackKind.success:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.success(context, message),
-          );
-        case _SettingsSnackKind.error:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.error(context, message),
-          );
-        case _SettingsSnackKind.info:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.info(context, message),
-          );
-      }
-    });
+    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
 }
-
-enum _SettingsSnackKind { info, success, error }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {
   if (items.isEmpty) {

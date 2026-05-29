@@ -354,7 +354,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                 child: IgnorePointer(
                   child: HighlightPulse(
                     signal: _errorPulse,
-                    color: const Color(0xFFEF4444),
+                    color: OpenHandStatusColors.error,
                   ),
                 ),
               ),

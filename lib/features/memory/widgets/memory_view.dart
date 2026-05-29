@@ -202,15 +202,15 @@ class MemoryView extends StatelessWidget {
       );
     }
 
-    UserMemoryEntry? profile;
+    // 2026-04-25: 用户画像条目已迁移至 全局设置 → AI 设置 → 会话设置 中独立
+    // 维护，记忆面板不再展示，仅在分流时跳过首个 userProfile 条目。
     final autoLearned = <UserMemoryEntry>[];
     final regular = <UserMemoryEntry>[];
+    var profileSkipped = false;
     for (final entry in entries) {
-      if (entry.type == UserMemoryEntry.userProfileType && profile == null) {
-        // 2026-04-25: 用户画像已迁移至 全局设置 → AI 设置 → 会话设置 中独立
-        // 维护，记忆面板不再展示该条目（避免重复入口与误删风险）。仍然保留
-        // 解析逻辑以便保持向后兼容并准确分流剩余条目。
-        profile = entry;
+      if (!profileSkipped &&
+          entry.type == UserMemoryEntry.userProfileType) {
+        profileSkipped = true;
         continue;
       }
       if (entry.isAutoLearned) {
@@ -219,10 +219,6 @@ class MemoryView extends StatelessWidget {
       }
       regular.add(entry);
     }
-    // `profile` 仅用于上面分流，避免再被纳入 autoLearned/regular 列表；
-    // 实际渲染由全局设置 → AI 设置 → 会话设置中的 "用户画像" 入口接管。
-    // ignore: unused_local_variable
-    final _ = profile;
 
     final items = <_MemoryDisplayItem>[];
     for (final entry in autoLearned) {
@@ -305,7 +301,7 @@ class MemoryView extends StatelessWidget {
       _showSnackBar(
         context,
         l10n.memoryOperationFailed,
-        kind: _SnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -328,7 +324,7 @@ class MemoryView extends StatelessWidget {
     _showSnackBar(
       context,
       initialEntry == null ? l10n.memoryEntryCreated : l10n.memoryEntryUpdated,
-      kind: _SnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -391,49 +387,21 @@ class MemoryView extends StatelessWidget {
       _showSnackBar(
         context,
         l10n.memoryOperationFailed,
-        kind: _SnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
-    _showSnackBar(context, l10n.memoryEntryDeleted, kind: _SnackKind.success);
+    _showSnackBar(context, l10n.memoryEntryDeleted, kind: OpenHandSnackKind.success);
   }
 
   void _showSnackBar(
     BuildContext context,
     String message, {
-    _SnackKind kind = _SnackKind.info,
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      switch (kind) {
-        case _SnackKind.success:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.success(context, message),
-          );
-        case _SnackKind.error:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.error(context, message),
-          );
-        case _SnackKind.info:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.info(context, message),
-          );
-      }
-    });
+    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
 }
-
-enum _SnackKind { info, success, error }
 
 class _MemoryEditorDialog extends StatefulWidget {
   const _MemoryEditorDialog({this.initialEntry});

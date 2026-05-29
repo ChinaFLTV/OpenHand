@@ -40,6 +40,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../app/theme/openhand_palette.dart';
+import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/database_service.dart';
 import '../../shared/ui/animated_appearance.dart';

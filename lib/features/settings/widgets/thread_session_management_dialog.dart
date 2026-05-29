@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -1042,7 +1043,7 @@ class _ThreadSessionManagementDialogState
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _outcomeSuccessSignal,
-                  color: const Color(0xFF22C55E),
+                  color: OpenHandStatusColors.success,
                 ),
               ),
             ),
@@ -1053,7 +1054,7 @@ class _ThreadSessionManagementDialogState
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _outcomeErrorSignal,
-                  color: const Color(0xFFEF4444),
+                  color: OpenHandStatusColors.error,
                 ),
               ),
             ),

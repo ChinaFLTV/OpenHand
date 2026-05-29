@@ -82,11 +82,14 @@ Future<void> _bootstrap() async {
         sig.watch().listen((_) async {
           try {
             await killAllTrackedChildren();
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('main', 'kill tracked children on signal', error, stack);
+          }
           exit(0);
         });
-      } catch (_) {
+      } catch (error, stack) {
         // 某些 sandbox / test 环境不允许装信号 handler，忽略。
+        silentLog('main', 'install signal handler', error, stack);
       }
     }
   }
@@ -444,7 +447,8 @@ Future<AppInfo> _loadAppInfo() async {
   try {
     final packageInfo = await PackageInfo.fromPlatform();
     return AppInfo.fromPackageInfo(packageInfo);
-  } catch (_) {
+  } catch (error, stack) {
+    silentLog('main', 'load AppInfo', error, stack);
     return AppInfo.fallback();
   }
 }

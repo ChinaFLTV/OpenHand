@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -579,7 +580,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _successPulse,
-                  color: const Color(0xFF22C55E),
+                  color: OpenHandStatusColors.success,
                 ),
               ),
             ),
@@ -590,7 +591,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _errorPulse,
-                  color: const Color(0xFFEF4444),
+                  color: OpenHandStatusColors.error,
                 ),
               ),
             ),

@@ -3,7 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/theme/openhand_status_colors.dart';
 import 'animated_dialog.dart';
+
+/// 三态语义：success / error / info。`flash` 入口按 kind 派发到对应工厂。
+enum OpenHandSnackKind { info, success, error }
 
 /// Lightweight helpers for building consistent, icon-prefixed
 /// [SnackBar]s on top of the global [SnackBarThemeData].
@@ -166,7 +170,7 @@ class OpenHandSnackBar {
       context,
       message,
       icon: Icons.check_circle_rounded,
-      tint: const Color(0xFF22C55E),
+      tint: OpenHandStatusColors.success,
       duration: duration,
       action: action,
       maxLines: maxLines,
@@ -186,7 +190,7 @@ class OpenHandSnackBar {
       context,
       message,
       icon: Icons.error_rounded,
-      tint: const Color(0xFFEF4444),
+      tint: OpenHandStatusColors.error,
       duration: duration,
       action: action,
       maxLines: maxLines,
@@ -308,6 +312,52 @@ class OpenHandSnackBar {
       messenger,
       error(context, message, duration: duration, action: action),
     );
+  }
+
+  /// 按 [kind] 派发到 success/error/info 工厂并立即（或下一帧）展示。
+  /// 当调用方处于 `setState` 同步路径（例如 controller 通知期间）时，
+  /// 传 `postFrame: true` 可以避免 `ScaffoldMessenger.of` 在 build 阶段
+  /// 抛出 assertion。
+  static void flash(
+    BuildContext context,
+    String message, {
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
+    Duration? duration,
+    SnackBarAction? action,
+    bool postFrame = false,
+  }) {
+    void dispatch() {
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      final snackBar = switch (kind) {
+        OpenHandSnackKind.success => success(
+          context,
+          message,
+          duration: duration ?? const Duration(seconds: 2),
+          action: action,
+        ),
+        OpenHandSnackKind.error => error(
+          context,
+          message,
+          duration: duration ?? const Duration(seconds: 4),
+          action: action,
+        ),
+        OpenHandSnackKind.info => info(
+          context,
+          message,
+          duration: duration ?? const Duration(seconds: 3),
+          action: action,
+        ),
+      };
+      show(context, messenger, snackBar);
+    }
+
+    if (postFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => dispatch());
+    } else {
+      dispatch();
+    }
   }
 
   static SnackBar notification(

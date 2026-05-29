@@ -438,7 +438,7 @@ extension on _SettingsViewState {
             zh: '当前后端信息无效，无法开始安装。',
             en: 'The selected backend is invalid, so installation cannot start.',
           ),
-          kind: _SettingsSnackKind.error,
+          kind: OpenHandSnackKind.error,
         );
         return;
       }
@@ -455,7 +455,7 @@ extension on _SettingsViewState {
             zh: '无法开始安装：$validationMessage',
             en: validationMessage,
           ),
-          kind: _SettingsSnackKind.error,
+          kind: OpenHandSnackKind.error,
         );
         return;
       }
@@ -481,7 +481,7 @@ extension on _SettingsViewState {
           zh: '${_editorLspLanguageLabel(context, language)} 的编辑器工具链配置已保存。',
           en: 'Saved the editor toolchain settings for ${_editorLspLanguageLabel(context, language)}.',
         ),
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
       return;
     }
@@ -546,7 +546,7 @@ extension on _SettingsViewState {
             zh: 'LSP 已安装，但写入卸载元数据失败：$error',
             en: 'Installed the LSP, but failed to record cleanup metadata: $error',
           ),
-          kind: _SettingsSnackKind.error,
+          kind: OpenHandSnackKind.error,
         );
         return;
       }
@@ -560,7 +560,7 @@ extension on _SettingsViewState {
           zh: '${installBackend.displayName} 已安装到 ${OpenHandPaths.shortenHomePath(installPlan.installRootPath)}。',
           en: 'Installed ${installBackend.displayName} into ${OpenHandPaths.shortenHomePath(installPlan.installRootPath)}.',
         ),
-        kind: _SettingsSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
       return;
     }
@@ -572,7 +572,7 @@ extension on _SettingsViewState {
         zh: 'LSP 安装未完成，请检查日志输出。',
         en: 'The LSP installation did not finish successfully. Check the log output.',
       ),
-      kind: _SettingsSnackKind.error,
+      kind: OpenHandSnackKind.error,
     );
   }
 
@@ -598,7 +598,7 @@ extension on _SettingsViewState {
         zh: '${_editorLspLanguageLabel(context, language)} 已恢复为自动探测。',
         en: '${_editorLspLanguageLabel(context, language)} has been reset to auto detection.',
       ),
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -621,7 +621,7 @@ extension on _SettingsViewState {
           zh: '当前路径不是 OpenHand 托管安装目录，无法执行自动清理。',
           en: 'The current path is not an OpenHand-managed install root, so automatic cleanup is unavailable.',
         ),
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -678,7 +678,7 @@ extension on _SettingsViewState {
           zh: '卸载失败：$error',
           en: 'Uninstall failed: $error',
         ),
-        kind: _SettingsSnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -709,7 +709,7 @@ extension on _SettingsViewState {
         zh: '${_editorLspLanguageLabel(context, language)} 的托管安装已卸载并清理。',
         en: 'Removed the managed install for ${_editorLspLanguageLabel(context, language)}.',
       ),
-      kind: _SettingsSnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 }

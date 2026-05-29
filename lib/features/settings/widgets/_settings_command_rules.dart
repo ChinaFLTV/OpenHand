@@ -294,7 +294,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _errorPulse,
-                  color: const Color(0xFFEF4444),
+                  color: OpenHandStatusColors.error,
                 ),
               ),
             ),
@@ -455,7 +455,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _errorPulse,
-                  color: const Color(0xFFEF4444),
+                  color: OpenHandStatusColors.error,
                 ),
               ),
             ),

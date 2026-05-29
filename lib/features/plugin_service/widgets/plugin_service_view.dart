@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
@@ -240,7 +241,7 @@ class _PluginCard extends StatelessWidget {
       PluginStatus.error => theme.colorScheme.error,
       PluginStatus.installing ||
       PluginStatus.updating ||
-      PluginStatus.uninstalling => const Color(0xFFF59E0B),
+      PluginStatus.uninstalling => OpenHandStatusColors.warning,
       PluginStatus.notInstalled => theme.colorScheme.onSurfaceVariant,
     };
     final statusLabel = switch (plugin.status) {
@@ -1014,12 +1015,12 @@ class _PluginMetaRow extends StatelessWidget {
               const Icon(
                 Icons.new_releases_outlined,
                 size: 14,
-                color: Color(0xFFF59E0B),
+                color: OpenHandStatusColors.warning,
               ),
               const SizedBox(width: 4),
               Text(
                 '${isZh ? "可更新到" : "Update available"}: ${plugin.latestVersion}',
-                style: metaStyle?.copyWith(color: const Color(0xFFF59E0B)),
+                style: metaStyle?.copyWith(color: OpenHandStatusColors.warning),
               ),
             ],
           ),

@@ -23,7 +23,7 @@ lib/features/home/
   openhand_home_page.dart        # 7294 行主页面（含 20 个 part 引用 widgets/_home_*.dart）
   index.dart
   README.md
-  widgets/                       # 22 子文件：20 个 _home_*.part.dart + machine_expert_dialog + openhand_loading_logo
+  widgets/                       # 21 子文件：20 个 _home_*.part.dart + machine_expert_dialog
     _home_navigation.dart        # part of '../openhand_home_page.dart'
     _home_transcript.dart        # 同上
     _home_composer.dart          # 同上（3.7k 行）
@@ -33,7 +33,6 @@ lib/features/home/
     _home_programming_expert_file_explorer.dart  # 同上（14.4k 行，文件浏览器）
     ... 13 其他 _home_*.dart
     machine_expert_dialog.dart   # 819 行独立 dialog
-    openhand_loading_logo.dart   # 184 行启动 logo
   util/                          # 4 个工具：
     editor_indentation.dart      # 编辑器缩进推断
     slash_command_parser.dart    # /command 解析
@@ -45,7 +44,7 @@ lib/features/home/
 ## 不变量
 - `widgets/_home_*.dart` 通过 `part of '../openhand_home_page.dart';` 与主页面共享 library 作用域；必须保持同 library 引用关系
 - `openhand_home_page.dart` 至关重要：是 home 唯一 library 入口，所有 part 文件不能独立编译
-- machine_expert_dialog 与 openhand_loading_logo 不是 part 文件；是独立 widget
+- machine_expert_dialog 不是 part 文件；是独立 widget
 
 ## 跨 feature 依赖
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home

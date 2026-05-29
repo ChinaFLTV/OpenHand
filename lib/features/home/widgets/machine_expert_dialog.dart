@@ -8,6 +8,7 @@ import '../../../app/model/app_settings_snapshot.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -784,7 +785,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                 child: IgnorePointer(
                   child: HighlightPulse(
                     signal: _errorPulse,
-                    color: const Color(0xFFEF4444),
+                    color: OpenHandStatusColors.error,
                   ),
                 ),
               ),

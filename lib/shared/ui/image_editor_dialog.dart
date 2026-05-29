@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
+import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
@@ -301,7 +302,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     child: IgnorePointer(
                       child: HighlightPulse(
                         signal: _successPulse,
-                        color: const Color(0xFF22C55E),
+                        color: OpenHandStatusColors.success,
                       ),
                     ),
                   ),
@@ -312,7 +313,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     child: IgnorePointer(
                       child: HighlightPulse(
                         signal: _errorPulse,
-                        color: const Color(0xFFEF4444),
+                        color: OpenHandStatusColors.error,
                       ),
                     ),
                   ),

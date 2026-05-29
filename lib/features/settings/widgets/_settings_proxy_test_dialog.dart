@@ -659,8 +659,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                     child: HighlightPulse(
                       signal: _completionPulse,
                       color: _finishedSucceeded
-                          ? const Color(0xFF22C55E)
-                          : const Color(0xFFEF4444),
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.error,
                     ),
                   ),
                 ),
@@ -678,8 +678,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     // 2026-05-04 (UI 调优 v2): 把状态色从主题 primary/error 改为
     // 显式的绿/红/琥珀，避免 primary 在某些主题下表现成粉/紫导
     // 致"看不出成功失败"。
-    const successColor = Color(0xFF22C55E); // green-500
-    const errorColor = Color(0xFFEF4444); // red-500
+    const successColor = OpenHandStatusColors.success; // green-500
+    const errorColor = OpenHandStatusColors.error; // red-500
     const runningColor = Color(0xFFFACC15); // amber-400
     final IconData statusIcon;
     final Color statusColor;

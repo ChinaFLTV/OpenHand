@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -1054,7 +1055,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _logoutSuccessSignal,
-                  color: const Color(0xFF22C55E),
+                  color: OpenHandStatusColors.success,
                 ),
               ),
             ),
@@ -1065,7 +1066,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
               child: IgnorePointer(
                 child: HighlightPulse(
                   signal: _logoutErrorSignal,
-                  color: const Color(0xFFEF4444),
+                  color: OpenHandStatusColors.error,
                 ),
               ),
             ),

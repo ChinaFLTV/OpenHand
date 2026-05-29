@@ -11,6 +11,7 @@ import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'support/openhand_notification_service.dart';
 import 'support/safe_subprocess.dart';
+import 'support/silent_log.dart';
 import 'theme/openhand_theme.dart';
 import 'theme/openhand_theme_preset.dart';
 
@@ -38,7 +39,9 @@ class _OpenHandAppState extends State<OpenHandApp> {
       onExitRequested: () async {
         try {
           await killAllTrackedChildren();
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('openhand_app', 'kill tracked children on exit', error, stack);
+        }
         return AppExitResponse.exit;
       },
     );

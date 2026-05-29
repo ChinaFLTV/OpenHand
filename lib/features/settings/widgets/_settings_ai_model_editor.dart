@@ -1003,7 +1003,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                 child: IgnorePointer(
                   child: HighlightPulse(
                     signal: _errorPulse,
-                    color: const Color(0xFFEF4444),
+                    color: OpenHandStatusColors.error,
                   ),
                 ),
               ),

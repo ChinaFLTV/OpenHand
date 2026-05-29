@@ -13,6 +13,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -124,7 +125,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
       WebGatewayRuntimeState.running => const Color(0xFF16A34A),
       WebGatewayRuntimeState.crashed => theme.colorScheme.error,
       WebGatewayRuntimeState.starting ||
-      WebGatewayRuntimeState.stopping => const Color(0xFFF59E0B),
+      WebGatewayRuntimeState.stopping => OpenHandStatusColors.warning,
       WebGatewayRuntimeState.stopped => theme.colorScheme.onSurfaceVariant,
     };
 

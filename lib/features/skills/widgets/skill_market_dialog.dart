@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
@@ -153,7 +154,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 child: IgnorePointer(
                   child: HighlightPulse(
                     signal: _installSuccessSignal,
-                    color: const Color(0xFF22C55E),
+                    color: OpenHandStatusColors.success,
                   ),
                 ),
               ),
@@ -164,7 +165,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 child: IgnorePointer(
                   child: HighlightPulse(
                     signal: _installErrorSignal,
-                    color: const Color(0xFFEF4444),
+                    color: OpenHandStatusColors.error,
                   ),
                 ),
               ),

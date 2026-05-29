@@ -13,6 +13,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/url_validation.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -3796,7 +3797,7 @@ class _ProbeServerRow extends StatelessWidget {
     final statusColor = switch (health.status) {
       McpServerHealthStatus.healthy => const Color(0xFF16A34A),
       McpServerHealthStatus.unhealthy => colorScheme.error,
-      McpServerHealthStatus.checking => const Color(0xFFF59E0B),
+      McpServerHealthStatus.checking => OpenHandStatusColors.warning,
       McpServerHealthStatus.idle => colorScheme.onSurfaceVariant,
     };
     final statusLabel = switch (health.status) {

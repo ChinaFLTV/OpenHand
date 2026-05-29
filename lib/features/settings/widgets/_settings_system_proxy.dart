@@ -166,38 +166,23 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
       testEndpoint: raw,
     );
     if (!mounted) return;
-    final l10n = AppLocalizations.of(context)!;
+    // 这里反馈文案依赖 Localizations.localeOf 直接取语言码，避免为单一
+    // 提示新增 ARB 键；不需要 AppLocalizations 实例。
+    final isEn = Localizations.localeOf(context).languageCode == 'en';
     final localizedSaved = saved
-        ? (Localizations.localeOf(context).languageCode == 'en'
-              ? 'Test URL saved'
-              : '测试 URL 已保存')
-        : (Localizations.localeOf(context).languageCode == 'en'
-              ? 'Failed to save test URL'
-              : '测试 URL 保存失败');
-    // 同步 controller 里可能被清洗为默认值。
+        ? (isEn ? 'Test URL saved' : '测试 URL 已保存')
+        : (isEn ? 'Failed to save test URL' : '测试 URL 保存失败');
     if (!_testEndpointFocus.hasFocus) {
       _testEndpointCtrl.text = widget.controller.proxySettings.testEndpoint;
     }
-    if (!saved) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
-        context,
-        messenger,
-        OpenHandSnackBar.error(context, localizedSaved),
-      );
-      return;
-    }
-    // 避免未使用变量警告：saved=true 路径依然反馈保存成功。
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.show(
       context,
       messenger,
-      OpenHandSnackBar.success(context, localizedSaved),
+      saved
+          ? OpenHandSnackBar.success(context, localizedSaved)
+          : OpenHandSnackBar.error(context, localizedSaved),
     );
-    // l10n 占位：上面字符串依赖 Localizations.localeOf 而非 l10n 生成的
-    // 键，避免增加 7 个 ARB 。
-    // ignore: unused_local_variable
-    final _ = l10n;
   }
 
   Future<void> _runConnectivityTest() async {

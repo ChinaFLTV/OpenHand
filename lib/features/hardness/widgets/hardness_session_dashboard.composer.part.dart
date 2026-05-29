@@ -90,13 +90,13 @@ class _HeComposer extends StatelessWidget {
 
     // The permission button — active, not disabled.
     final buttonFg = fullAccessPermission
-        ? const Color(0xFFF59E0B)
+        ? OpenHandStatusColors.warning
         : colorScheme.onSurfaceVariant;
     final buttonBg = fullAccessPermission
         ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
         : colorScheme.surfaceContainerHighest;
     final buttonBorderColor = fullAccessPermission
-        ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+        ? OpenHandStatusColors.warning.withValues(alpha: 0.5)
         : colorScheme.outlineVariant;
     final permissionButton = SizedBox(
       height: 52,
