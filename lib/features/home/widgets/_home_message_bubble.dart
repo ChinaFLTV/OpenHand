@@ -619,7 +619,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   ? _toolResultMarkdownCollapseLineThreshold
                                   : _messageMarkdownCollapseLineThreshold,
                               previewMaxHeight: isToolResult ? 176 : 240,
-                              isStreaming: isStreamingAssistant,
                             ),
                           if (isStreamingAssistant) ...[
                             const SizedBox(height: 4),
@@ -2733,10 +2732,10 @@ $mediaTag
         stack,
       );
     }
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     DialogAnimationSettings settings;
     try {
-      settings = this.context.read<SettingsController>().dialogAnimationSettings;
+      settings = context.read<SettingsController>().dialogAnimationSettings;
     } catch (_) {
       settings = DialogAnimationSettings.defaults;
     }
