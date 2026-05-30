@@ -1,4 +1,5 @@
 import 'ai_model_config.dart';
+import 'openrouter_exact_model_catalog.dart';
 
 /// Hardcoded catalog of mainstream AI model specifications.
 ///
@@ -113,100 +114,7 @@ class AiModelCatalog {
   };
 
   static final Map<String, AiModelProfile> _exactModelProfiles =
-      <String, AiModelProfile>{
-        'qwen/qwen3.7-max': _p(
-          name: 'Qwen3.7 Max',
-          desc: '通义千问 3.7 旗舰文本模型，面向 Agent、编码与生产力任务。',
-          supportsAttachments: false,
-          context: 1000000,
-          output: 65536,
-          inputUsdPer1M: 1.25,
-          outputUsdPer1M: 3.75,
-          cacheReadUsdPer1M: 0.25,
-          cacheWriteUsdPer1M: 1.5625,
-        ),
-        'z-ai/glm-5.1': _p(
-          name: 'GLM 5.1',
-          desc: '智谱当前旗舰文本模型，强调长程编码与深度推理。',
-          supportsAttachments: false,
-          context: 202752,
-          inputUsdPer1M: 0.98,
-          outputUsdPer1M: 3.08,
-          cacheReadUsdPer1M: 0.182,
-        ),
-        'moonshotai/kimi-k2.6': _p(
-          name: 'Kimi K2.6',
-          desc: 'Kimi 新一代长上下文多模态模型，偏向编码与多 Agent 编排。',
-          multimodal: true,
-          supportsAttachments: true,
-          modalities: _textImage,
-          context: 262144,
-          output: 262144,
-          inputUsdPer1M: 0.684,
-          outputUsdPer1M: 3.42,
-          cacheReadUsdPer1M: 0.144,
-        ),
-        'minimax/minimax-m2.7': _p(
-          name: 'MiniMax M2.7',
-          desc: 'MiniMax 当前旗舰 Agent / 推理模型。',
-          supportsAttachments: false,
-          context: 204800,
-          output: 131072,
-          inputUsdPer1M: 0.279,
-          outputUsdPer1M: 1.20,
-        ),
-        'stepfun/step-3.7-flash': _p(
-          name: 'Step 3.7 Flash',
-          desc: '阶跃星辰当前高效多模态 MoE 模型，支持图像与视频输入。',
-          multimodal: true,
-          supportsAttachments: true,
-          modalities: _textImageVideo,
-          context: 256000,
-          output: 256000,
-          inputUsdPer1M: 0.20,
-          outputUsdPer1M: 1.15,
-          cacheReadUsdPer1M: 0.04,
-        ),
-        'bytedance-seed/seed-1.6': _p(
-          name: 'Seed 1.6',
-          desc: '字节 Seed 1.6 通用多模态模型，支持自适应深度思考。',
-          multimodal: true,
-          supportsAttachments: true,
-          modalities: _textImageVideo,
-          context: 262144,
-          output: 32768,
-          inputUsdPer1M: 0.25,
-          outputUsdPer1M: 2.00,
-        ),
-        'baidu/ernie-4.5-300b-a47b': _p(
-          name: 'ERNIE 4.5 300B A47B',
-          desc: '百度文心 4.5 旗舰文本模型。',
-          supportsAttachments: false,
-          context: 131072,
-          output: 12000,
-          inputUsdPer1M: 0.28,
-          outputUsdPer1M: 1.10,
-        ),
-        'tencent/hunyuan-a13b-instruct': _p(
-          name: 'Hunyuan A13B Instruct',
-          desc: '腾讯混元高性价比文本推理模型。',
-          supportsAttachments: false,
-          context: 131072,
-          output: 131072,
-          inputUsdPer1M: 0.14,
-          outputUsdPer1M: 0.57,
-        ),
-        'xiaomi/mimo-v2.5-pro': _p(
-          name: 'MiMo V2.5 Pro',
-          desc: '小米旗舰文本 Agent / 推理模型。',
-          supportsAttachments: false,
-          context: 1048576,
-          output: 131072,
-          inputUsdPer1M: 0.435,
-          outputUsdPer1M: 0.87,
-          cacheReadUsdPer1M: 0.0036,
-        ),
-      };
+      openRouterExactModelProfiles;
 
   /// Shorthand [AiModelProfile] builder for catalog entries.
   static AiModelProfile _p({
