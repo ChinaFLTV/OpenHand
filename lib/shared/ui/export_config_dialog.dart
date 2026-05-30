@@ -16,12 +16,14 @@ Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
   required BuildContext context,
   required int totalMessages,
   AiSessionExportConfig initial = AiSessionExportConfig.defaults,
+  bool allowRange = true,
 }) {
   return showAnimatedDialog<AiSessionExportConfig>(
     context: context,
     builder: (dialogContext) => _AiSessionExportConfigDialog(
       totalMessages: totalMessages,
       initial: initial,
+      allowRange: allowRange,
     ),
   );
 }
@@ -45,10 +47,12 @@ class _AiSessionExportConfigDialog extends StatefulWidget {
   const _AiSessionExportConfigDialog({
     required this.totalMessages,
     required this.initial,
+    required this.allowRange,
   });
 
   final int totalMessages;
   final AiSessionExportConfig initial;
+  final bool allowRange;
 
   @override
   State<_AiSessionExportConfigDialog> createState() =>
@@ -76,7 +80,8 @@ class _AiSessionExportConfigDialogState
         : Set<AiSessionMessageKind>.from(widget.initial.kinds!);
     _includeDeleted = widget.initial.includeDeleted;
     _useRange =
-        widget.initial.startIndex != null || widget.initial.endIndex != null;
+        widget.allowRange &&
+        (widget.initial.startIndex != null || widget.initial.endIndex != null);
     _startController = TextEditingController(
       text: widget.initial.startIndex?.toString() ?? '1',
     );
@@ -165,7 +170,7 @@ class _AiSessionExportConfigDialogState
   AiSessionExportConfig? _buildConfig() {
     int? start;
     int? end;
-    if (_useRange) {
+    if (widget.allowRange && _useRange) {
       start = int.tryParse(_startController.text.trim());
       end = int.tryParse(_endController.text.trim());
       if (start == null || end == null || start < 1 || end < start) {
@@ -289,53 +294,55 @@ class _AiSessionExportConfigDialogState
                     })
                     .toList(growable: false),
               ),
-              const SizedBox(height: 8),
-              _SectionHeader(text: _isZh ? '消息区间' : 'Message Range'),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  _isZh
-                      ? '仅导出指定区间 (1-based, 包含两端)'
-                      : 'Export only a range (1-based, inclusive)',
+              if (widget.allowRange) ...[
+                const SizedBox(height: 8),
+                _SectionHeader(text: _isZh ? '消息区间' : 'Message Range'),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    _isZh
+                        ? '仅导出指定区间 (1-based, 包含两端)'
+                        : 'Export only a range (1-based, inclusive)',
+                  ),
+                  value: _useRange,
+                  onChanged: (value) => setState(() => _useRange = value),
                 ),
-                value: _useRange,
-                onChanged: (value) => setState(() => _useRange = value),
-              ),
-              if (_useRange)
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _startController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: _isZh ? '起始' : 'Start',
-                          isDense: true,
-                          border: const OutlineInputBorder(),
+                if (_useRange)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _startController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: _isZh ? '起始' : 'Start',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _endController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: _isZh ? '结束' : 'End',
-                          isDense: true,
-                          border: const OutlineInputBorder(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _endController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: _isZh ? '结束' : 'End',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+              ],
               const SizedBox(height: 8),
               _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
               CheckboxListTile(

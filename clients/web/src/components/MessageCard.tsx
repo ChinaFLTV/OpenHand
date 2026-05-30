@@ -1337,7 +1337,7 @@ function MessageCardImpl({
           !useStructuredToolBody &&
           !useToolBody &&
           message.kind !== 'file_mutation_summary' &&
-          streamingContent ? (
+          activelyStreaming ? (
           <TypewriterCaret />
         ) : null}
       </ReasoningCollapsibleBody>
@@ -1363,7 +1363,7 @@ function MessageCardImpl({
         </div>
       ) : null}
       {!isUserBubble ? media : null}
-      {!isUserBubble && streamingContent && message.content.trim().length < 10 ? (() => {
+      {!isUserBubble && activelyStreaming && message.content.trim().length < 10 ? (() => {
         const creationRequest = metadata['creation_request'] as Record<string, unknown> | undefined;
         const creationMode = (creationRequest?.['mode'] as string) || (metadata['conversation_mode'] as string) || '';
         if (creationMode === 'image' || creationMode === 'video' || creationMode === 'audio' || creationMode === 'deep_research') {

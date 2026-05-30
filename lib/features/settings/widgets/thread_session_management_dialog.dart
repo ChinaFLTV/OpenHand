@@ -507,6 +507,7 @@ class _ThreadSessionManagementDialogState
       // Use a placeholder total — per-session totals vary; we rely on the
       // config's filter flags only.
       totalMessages: 0,
+      allowRange: false,
     );
     if (config == null || !mounted) return;
     final cancelToken = ExportCancelToken();
