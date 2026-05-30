@@ -2,8 +2,7 @@ import 'ai_model_config.dart';
 
 /// Generated from OpenRouter GET /api/v1/models.
 ///
-/// This file provides exact-ID overrides for currently online models so the
-/// catalog can stay aligned with rapidly changing provider/model inventories.
+/// Provides exact-ID profiles for all currently online OpenRouter models.
 final Map<String, AiModelProfile> openRouterExactModelProfiles =
     <String, AiModelProfile>{
       'ai21/jamba-large-1.7': AiModelProfile(
@@ -2625,7 +2624,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5-codex': AiModelProfile(
         displayName: 'GPT-5 Codex',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
@@ -2757,7 +2756,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5.1-codex': AiModelProfile(
         displayName: 'GPT-5.1-Codex',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
@@ -2774,7 +2773,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5.1-codex-max': AiModelProfile(
         displayName: 'GPT-5.1-Codex-Max',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
@@ -2791,7 +2790,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5.1-codex-mini': AiModelProfile(
         displayName: 'GPT-5.1-Codex-Mini',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
@@ -2841,7 +2840,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5.2-codex': AiModelProfile(
         displayName: 'GPT-5.2-Codex',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
@@ -2890,7 +2889,7 @@ final Map<String, AiModelProfile> openRouterExactModelProfiles =
       ),
       'openai/gpt-5.3-codex': AiModelProfile(
         displayName: 'GPT-5.3-Codex',
-        description: 'OpenAI在线模型，支持图像生成，支持推理参数，长上下文。',
+        description: 'OpenAI在线模型，支持图像生成，偏向编码任务，支持推理参数，长上下文。',
         isMultimodal: true,
         supportsAttachments: true,
         supportedModalities: <AiModelModality>{
