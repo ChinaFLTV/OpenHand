@@ -60,7 +60,6 @@ class _AiSessionExportConfigDialogState
   late Set<AiSessionMessageRole> _roles;
   late Set<AiSessionMessageKind> _kinds;
   late bool _includeDeleted;
-  late bool _prettyPrint;
   late bool _useRange;
   late TextEditingController _startController;
   late TextEditingController _endController;
@@ -76,7 +75,6 @@ class _AiSessionExportConfigDialogState
         ? AiSessionMessageKind.values.toSet()
         : Set<AiSessionMessageKind>.from(widget.initial.kinds!);
     _includeDeleted = widget.initial.includeDeleted;
-    _prettyPrint = widget.initial.prettyPrint;
     _useRange =
         widget.initial.startIndex != null || widget.initial.endIndex != null;
     _startController = TextEditingController(
@@ -205,7 +203,6 @@ class _AiSessionExportConfigDialogState
       includeDeleted: _includeDeleted,
       startIndex: start,
       endIndex: end,
-      prettyPrint: _prettyPrint,
     );
   }
 
@@ -349,18 +346,6 @@ class _AiSessionExportConfigDialogState
                     setState(() => _includeDeleted = value ?? false),
                 title: Text(_isZh ? '包含已删除消息' : 'Include deleted messages'),
               ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: _prettyPrint,
-                onChanged: (value) =>
-                    setState(() => _prettyPrint = value ?? false),
-                title: Text(
-                  _isZh
-                      ? 'JSON 格式化输出 (可读性优先, 非严格 JSONL)'
-                      : 'Pretty-print JSON (multi-line per entry)',
-                ),
-              ),
               if (_rangeError != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -410,7 +395,6 @@ class _HardnessSessionExportConfigDialog extends StatefulWidget {
 class _HardnessSessionExportConfigDialogState
     extends State<_HardnessSessionExportConfigDialog> {
   late bool _useRange;
-  late bool _prettyPrint;
   late TextEditingController _startController;
   late TextEditingController _endController;
   String? _rangeError;
@@ -420,7 +404,6 @@ class _HardnessSessionExportConfigDialogState
     super.initState();
     _useRange =
         widget.initial.startIndex != null || widget.initial.endIndex != null;
-    _prettyPrint = widget.initial.prettyPrint;
     _startController = TextEditingController(
       text: widget.initial.startIndex?.toString() ?? '1',
     );
@@ -461,7 +444,6 @@ class _HardnessSessionExportConfigDialogState
     return HardnessSessionExportConfig(
       startIndex: start,
       endIndex: end,
-      prettyPrint: _prettyPrint,
     );
   }
 
@@ -534,18 +516,6 @@ class _HardnessSessionExportConfigDialogState
                 ),
               const SizedBox(height: 12),
               _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: _prettyPrint,
-                onChanged: (value) =>
-                    setState(() => _prettyPrint = value ?? false),
-                title: Text(
-                  _isZh
-                      ? 'JSON 格式化输出 (可读性优先, 非严格 JSONL)'
-                      : 'Pretty-print JSON (multi-line per entry)',
-                ),
-              ),
               if (_rangeError != null) ...[
                 const SizedBox(height: 8),
                 Text(

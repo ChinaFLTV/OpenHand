@@ -63,7 +63,6 @@ class AiSessionExportConfig {
     this.includeDeleted = false,
     this.startIndex,
     this.endIndex,
-    this.prettyPrint = false,
   });
 
   /// When non-null, only messages whose [AiSessionMessageRole] is in this
@@ -85,11 +84,6 @@ class AiSessionExportConfig {
   /// any role/kind filter is run. `null` means "no upper bound".
   final int? endIndex;
 
-  /// When `true`, JSON is pretty-printed (2-space indent). Note: this
-  /// breaks JSONL strictness because each entry will span multiple lines,
-  /// but is convenient for human inspection.
-  final bool prettyPrint;
-
   /// All-defaults configuration (every role, every kind, no range filter,
   /// skip deleted messages, single-line JSON).
   static const AiSessionExportConfig defaults = AiSessionExportConfig();
@@ -100,7 +94,6 @@ class AiSessionExportConfig {
     'include_deleted': includeDeleted,
     'start_index': startIndex,
     'end_index': endIndex,
-    'pretty_print': prettyPrint,
   };
 }
 
@@ -109,7 +102,6 @@ class HardnessSessionExportConfig {
   const HardnessSessionExportConfig({
     this.startIndex,
     this.endIndex,
-    this.prettyPrint = false,
   });
 
   /// 1-based inclusive lower bound on phase logs.
@@ -118,22 +110,16 @@ class HardnessSessionExportConfig {
   /// 1-based inclusive upper bound on phase logs.
   final int? endIndex;
 
-  final bool prettyPrint;
-
   static const HardnessSessionExportConfig defaults =
       HardnessSessionExportConfig();
 
   Map<String, Object?> toJson() => <String, Object?>{
     'start_index': startIndex,
     'end_index': endIndex,
-    'pretty_print': prettyPrint,
   };
 }
 
-String _encodePayload(Map<String, Object?> payload, {required bool pretty}) {
-  if (!pretty) return jsonEncode(payload);
-  return const JsonEncoder.withIndent('  ').convert(payload);
-}
+String _encodePayload(Map<String, Object?> payload) => jsonEncode(payload);
 
 ({List<AiSessionMessage> fullMessages, List<AiSessionMessage> messages})
 _selectAiSessionMessages({
@@ -218,15 +204,11 @@ String encodeAiSessionToJsonlText({
         config: config,
         exportedAt: exportedAt,
       ),
-      pretty: config.prettyPrint,
     ),
   );
   for (final message in selection.messages) {
     buffer.writeln(
-      _encodePayload(
-        <String, Object?>{'type': 'message', ...message.toJson()},
-        pretty: config.prettyPrint,
-      ),
+      _encodePayload(<String, Object?>{'type': 'message', ...message.toJson()}),
     );
   }
   return buffer.toString();
@@ -285,7 +267,7 @@ Future<ExportResult> exportAiSessionToJsonl({
     final total = messages.length + 1; // +1 for the session header line.
 
     Future<void> emit(Map<String, Object?> payload) async {
-      final encoded = _encodePayload(payload, pretty: config.prettyPrint);
+      final encoded = _encodePayload(payload);
       localSink.write(encoded);
       localSink.write('\n');
       bytes += encoded.length + 1;
@@ -414,7 +396,7 @@ Future<ExportResult> exportHardnessSessionToJsonl({
     final total = logs.length + 1;
 
     Future<void> emit(Map<String, Object?> payload) async {
-      final encoded = _encodePayload(payload, pretty: config.prettyPrint);
+      final encoded = _encodePayload(payload);
       localSink.write(encoded);
       localSink.write('\n');
       bytes += encoded.length + 1;
