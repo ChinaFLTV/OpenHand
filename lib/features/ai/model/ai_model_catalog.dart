@@ -894,7 +894,8 @@ class AiModelCatalog {
     if (id.startsWith('qwen3-max')) {
       return _p(
         name: 'Qwen3-Max',
-        desc: 'Flagship model for complex tasks',
+        desc: '通义千问旗舰模型，适合复杂任务与长上下文推理。',
+        supportsAttachments: false,
         context: 262144,
         output: 65536,
         thinking: 81920,
@@ -916,8 +917,9 @@ class AiModelCatalog {
     if (id.startsWith('qwen3.5-plus')) {
       return _p(
         name: 'Qwen3.5-Plus',
-        desc: 'Multimodal: text, image, video input',
+        desc: '通义千问高阶多模态模型，支持图像/视频输入与长上下文。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImageVideo,
         context: 1000000,
         output: 65536,
@@ -927,7 +929,8 @@ class AiModelCatalog {
     if (id.startsWith('qwen-plus')) {
       return _p(
         name: 'Qwen-Plus',
-        desc: 'Balanced text model with thinking',
+        desc: '通义千问均衡文本模型，支持长上下文与思考能力。',
+        supportsAttachments: false,
         context: 1000000,
         output: 32768,
         thinking: 81920,
@@ -967,7 +970,8 @@ class AiModelCatalog {
     if (id.startsWith('qwen-turbo')) {
       return _p(
         name: 'Qwen-Turbo',
-        desc: 'Speed-optimized text model',
+        desc: '通义千问高速文本模型，偏向低时延与高吞吐。',
+        supportsAttachments: false,
         context: 1000000,
         output: 16384,
       );
@@ -1091,11 +1095,26 @@ class AiModelCatalog {
     if (id.contains('4.6v') || id.contains('4-6v')) {
       return _p(
         name: 'GLM-4.6V',
-        desc: 'Vision understanding model',
+        desc: '智谱视觉理解模型，支持图像输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 128000,
         output: 32000,
+      );
+    }
+    if (id.contains('4.5v') || id.contains('4-5v')) {
+      return _p(
+        name: 'GLM-4.5V',
+        desc: '智谱视觉理解模型，支持图像输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 64000,
+        output: 16000,
+        inputUsdPer1M: 0.60,
+        outputUsdPer1M: 1.80,
+        cacheReadUsdPer1M: 0.11,
       );
     }
     if (id.startsWith('glm-4v')) {
@@ -1123,7 +1142,8 @@ class AiModelCatalog {
     if (id.startsWith('glm-5.1') || id.startsWith('glm-5-1')) {
       return _p(
         name: 'GLM-5.1',
-        desc: 'Latest flagship with deep thinking',
+        desc: '智谱当前旗舰模型，强调深度思考与长上下文。',
+        supportsAttachments: false,
         context: 200000,
         output: 128000,
         thinking: 128000,
@@ -1140,7 +1160,8 @@ class AiModelCatalog {
     if (id.startsWith('glm-5')) {
       return _p(
         name: 'GLM-5',
-        desc: 'Flagship model',
+        desc: '智谱旗舰文本模型。',
+        supportsAttachments: false,
         context: 200000,
         output: 128000,
       );
@@ -1172,9 +1193,22 @@ class AiModelCatalog {
     if (id.contains('4.5-air') || id.contains('4-5-air')) {
       return _p(
         name: 'GLM-4.5 Air',
-        desc: 'Cost-effective model',
+        desc: '高性价比文本模型。',
+        supportsAttachments: false,
         context: 128000,
         output: 96000,
+      );
+    }
+    if (id.startsWith('glm-4.5') || id.startsWith('glm-4-5')) {
+      return _p(
+        name: 'GLM-4.5',
+        desc: '智谱高阶文本模型。',
+        supportsAttachments: false,
+        context: 128000,
+        output: 96000,
+        inputUsdPer1M: 0.60,
+        outputUsdPer1M: 2.20,
+        cacheReadUsdPer1M: 0.11,
       );
     }
     if (id.startsWith('glm-4-long')) {
@@ -1213,19 +1247,27 @@ class AiModelCatalog {
     if (id.contains('kimi-k2.6') || id.contains('kimi-k2-6')) {
       return _p(
         name: 'Kimi K2.6',
-        desc: 'Latest flagship reasoning and agent model',
+        desc: 'Kimi 当前旗舰推理与 Agent 模型。',
+        supportsAttachments: false,
         context: 262144,
         output: 98304,
         thinking: 81920,
+        inputUsdPer1M: 0.95,
+        outputUsdPer1M: 4.00,
+        cacheReadUsdPer1M: 0.16,
       );
     }
     if (id.contains('kimi-k2.5') || id.contains('kimi-k2-5')) {
       return _p(
         name: 'Kimi K2.5',
-        desc: 'Flagship reasoning model',
+        desc: 'Kimi 高阶推理模型。',
+        supportsAttachments: false,
         context: 262144,
         output: 98304,
         thinking: 81920,
+        inputUsdPer1M: 0.60,
+        outputUsdPer1M: 3.00,
+        cacheReadUsdPer1M: 0.10,
       );
     }
     if (id.contains('k2-thinking')) {
@@ -1359,12 +1401,15 @@ class AiModelCatalog {
       }
       return _p(
         name: 'Doubao Seed 1.6$suffix',
-        desc: 'Multimodal agent model',
+        desc: '豆包多模态 Agent 模型。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 256000,
         output: 32000,
         thinking: 32000,
+        inputUsdPer1M: id.contains('flash') ? 0.15 : 0.80,
+        outputUsdPer1M: id.contains('flash') ? 1.50 : 2.00,
       );
     }
 
@@ -1413,7 +1458,8 @@ class AiModelCatalog {
     if (id.contains('1-5-pro') || id.contains('1.5-pro')) {
       return _p(
         name: 'Doubao 1.5 Pro',
-        desc: 'Text generation model',
+        desc: '豆包高阶文本模型。',
+        supportsAttachments: false,
         context: 128000,
         output: 16000,
       );
@@ -1459,10 +1505,20 @@ class AiModelCatalog {
     }
 
     // ── Text models ──────────────────────────────────────────────────────
+    if (id.startsWith('step-3')) {
+      return _p(
+        name: 'Step-3',
+        desc: '阶跃星辰文本主力模型。',
+        supportsAttachments: false,
+        context: _parseStepContext(id) ?? 65536,
+        output: 4096,
+      );
+    }
     if (id.startsWith('step-2')) {
       return _p(
         name: 'Step-2',
-        desc: 'Flagship text model',
+        desc: '阶跃星辰上一代旗舰文本模型。',
+        supportsAttachments: false,
         context: _parseStepContext(id),
         output: 4096,
       );
@@ -1685,8 +1741,9 @@ class AiModelCatalog {
     if (id.contains('m2.7') || id.contains('m2-7')) {
       return _p(
         name: 'MiniMax M2.7',
-        desc: 'Flagship agent and reasoning model',
-        context: 204000,
+        desc: 'MiniMax 当前旗舰 Agent / 推理模型。',
+        supportsAttachments: false,
+        context: 204800,
         output: 131000,
         thinking: 131000,
       );
@@ -1703,10 +1760,13 @@ class AiModelCatalog {
     if (id.contains('m1')) {
       return _p(
         name: 'MiniMax M1',
-        desc: 'Hybrid reasoning model',
+        desc: 'MiniMax 混合推理模型，支持超长上下文。',
+        supportsAttachments: false,
         context: 1000000,
         output: 8000,
         thinking: 80000,
+        inputUsdPer1M: 0.40,
+        outputUsdPer1M: 2.20,
       );
     }
     if (id.contains('abab')) {
@@ -1741,8 +1801,9 @@ class AiModelCatalog {
     if (id.contains('flash')) {
       return _p(
         name: 'LongCat Flash',
-        desc: 'Fast long-context chat model',
-        context: 128000,
+        desc: '美团 LongCat 长上下文聊天模型。',
+        supportsAttachments: false,
+        context: 256000,
         output: 32768,
       );
     }
