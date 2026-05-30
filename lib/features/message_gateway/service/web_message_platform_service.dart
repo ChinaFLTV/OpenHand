@@ -1288,7 +1288,7 @@ class WebMessagePlatformService {
       '/api/sessions/<sessionId>/asset',
       (shelf.Request r, String sessionId) => _sessionAssetHandler(r, sessionId),
     );
-    // 导出会话：返回 application/json + Content-Disposition attachment，
+    // 导出会话：返回 application/x-ndjson + Content-Disposition attachment，
     // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
     router.get(
       '/api/sessions/<sessionId>/export',
@@ -2416,8 +2416,8 @@ class WebMessagePlatformService {
     });
   }
 
-  /// 导出整会话为 JSON 附件下载。包含 session summary + 所有未删除消息。
-  /// 直接使用 controller 持有的会话快照，避免导出请求与持久层分页读取互相卡住。
+  /// 导出整会话为 JSONL 附件下载。复用 APP 端同一编码语义，确保下载后缀、
+  /// MIME 与实际载荷格式一致。
   Future<shelf.Response> _exportSession(
     shelf.Request request,
     _WebGatewayAuthSession auth,
@@ -2429,18 +2429,7 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final messages = session.messages
-        .where((message) => !message.isDeleted)
-        .map(_messageJson)
-        .toList(growable: false);
-    final payload = <String, Object?>{
-      'export_version': 1,
-      'exported_at': DateTime.now().toUtc().toIso8601String(),
-      'app_version': _appInfo.version,
-      'session': _sessionSummary(session),
-      'messages': messages,
-    };
-    final bodyText = const JsonEncoder.withIndent('  ').convert(payload);
+    final bodyText = encodeAiSessionToJsonlText(session: session);
     final safeTitle = (session.title.isEmpty ? 'session' : session.title)
         .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
     final filename = normalizeJsonlExportFilename(
@@ -2449,7 +2438,7 @@ class WebMessagePlatformService {
     return shelf.Response.ok(
       bodyText,
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: 'application/x-ndjson; charset=utf-8',
         'content-disposition': _attachmentContentDisposition(filename),
         HttpHeaders.cacheControlHeader: 'no-store',
       },

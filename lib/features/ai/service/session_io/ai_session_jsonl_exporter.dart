@@ -135,6 +135,103 @@ String _encodePayload(Map<String, Object?> payload, {required bool pretty}) {
   return const JsonEncoder.withIndent('  ').convert(payload);
 }
 
+({List<AiSessionMessage> fullMessages, List<AiSessionMessage> messages})
+_selectAiSessionMessages({
+  required AiSession session,
+  required AiSessionExportConfig config,
+}) {
+  // Apply range first (1-based inclusive bounds), then role / kind /
+  // deleted filters. Range is interpreted against the full ordered
+  // message list so users can reason about indices the same way the UI
+  // shows them.
+  final fullMessages = session.messages;
+  final lower = (config.startIndex != null && config.startIndex! >= 1)
+      ? config.startIndex! - 1
+      : 0;
+  final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
+      ? config.endIndex!
+      : fullMessages.length;
+  final upper = upperRaw > fullMessages.length
+      ? fullMessages.length
+      : upperRaw;
+  final ranged = (lower >= upper)
+      ? const <AiSessionMessage>[]
+      : fullMessages.sublist(lower, upper);
+
+  final messages = ranged
+      .where((message) {
+        if (!config.includeDeleted && message.isDeleted) return false;
+        final roleFilter = config.roles;
+        if (roleFilter != null && !roleFilter.contains(message.role)) {
+          return false;
+        }
+        final kindFilter = config.kinds;
+        if (kindFilter != null && !kindFilter.contains(message.kind)) {
+          return false;
+        }
+        return true;
+      })
+      .toList(growable: false);
+  return (fullMessages: fullMessages, messages: messages);
+}
+
+Map<String, Object?> _buildAiSessionHeaderPayload({
+  required AiSession session,
+  required List<AiSessionMessage> fullMessages,
+  required List<AiSessionMessage> messages,
+  required AiSessionExportConfig config,
+  required String exportedAt,
+}) {
+  return <String, Object?>{
+    'type': 'session',
+    'version': 1,
+    'id': session.id,
+    'title': session.title,
+    'template_id': session.templateId,
+    'template_name': session.templateName,
+    'template_icon_name': session.templateIconName,
+    'template_internal_version': session.templateInternalVersion,
+    'created_at': session.createdAt.toUtc().toIso8601String(),
+    'updated_at': session.updatedAt.toUtc().toIso8601String(),
+    'message_count': messages.length,
+    'total_message_count': fullMessages.length,
+    'last_used_model_id': session.lastUsedModelId,
+    'last_used_model_label': session.lastUsedModelLabel,
+    'exported_at': exportedAt,
+    'export_config': config.toJson(),
+  };
+}
+
+String encodeAiSessionToJsonlText({
+  required AiSession session,
+  AiSessionExportConfig config = AiSessionExportConfig.defaults,
+}) {
+  final selection = _selectAiSessionMessages(session: session, config: config);
+  final exportedAt = DateTime.now().toUtc().toIso8601String();
+  final buffer = StringBuffer();
+  buffer.writeln(
+    _encodePayload(
+      _buildAiSessionHeaderPayload(
+        session: session,
+        fullMessages: selection.fullMessages,
+        messages: selection.messages,
+        config: config,
+        exportedAt: exportedAt,
+      ),
+      pretty: config.prettyPrint,
+    ),
+  );
+  for (final message in selection.messages) {
+    buffer.writeln(
+      _encodePayload(
+        <String, Object?>{'type': 'message', ...message.toJson()},
+        pretty: config.prettyPrint,
+      ),
+    );
+  }
+  return buffer.toString();
+}
+
 String normalizeJsonlExportFilename(String input) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return 'session.jsonl';
@@ -182,38 +279,9 @@ Future<ExportResult> exportAiSessionToJsonl({
     final localSink = file.openWrite();
     sink = localSink;
 
-    // Apply range first (1-based inclusive bounds), then role / kind /
-    // deleted filters. Range is interpreted against the full ordered
-    // message list so users can reason about indices the same way the UI
-    // shows them.
-    final fullMessages = session.messages;
-    final lower = (config.startIndex != null && config.startIndex! >= 1)
-        ? config.startIndex! - 1
-        : 0;
-    final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
-        ? config.endIndex!
-        : fullMessages.length;
-    final upper = upperRaw > fullMessages.length
-        ? fullMessages.length
-        : upperRaw;
-    final ranged = (lower >= upper)
-        ? const <AiSessionMessage>[]
-        : fullMessages.sublist(lower, upper);
-
-    final messages = ranged
-        .where((message) {
-          if (!config.includeDeleted && message.isDeleted) return false;
-          final roleFilter = config.roles;
-          if (roleFilter != null && !roleFilter.contains(message.role)) {
-            return false;
-          }
-          final kindFilter = config.kinds;
-          if (kindFilter != null && !kindFilter.contains(message.kind)) {
-            return false;
-          }
-          return true;
-        })
-        .toList(growable: false);
+    final selection = _selectAiSessionMessages(session: session, config: config);
+    final fullMessages = selection.fullMessages;
+    final messages = selection.messages;
     final total = messages.length + 1; // +1 for the session header line.
 
     Future<void> emit(Map<String, Object?> payload) async {
@@ -224,24 +292,13 @@ Future<ExportResult> exportAiSessionToJsonl({
       lines += 1;
     }
 
-    final headerPayload = <String, Object?>{
-      'type': 'session',
-      'version': 1,
-      'id': session.id,
-      'title': session.title,
-      'template_id': session.templateId,
-      'template_name': session.templateName,
-      'template_icon_name': session.templateIconName,
-      'template_internal_version': session.templateInternalVersion,
-      'created_at': session.createdAt.toUtc().toIso8601String(),
-      'updated_at': session.updatedAt.toUtc().toIso8601String(),
-      'message_count': messages.length,
-      'total_message_count': fullMessages.length,
-      'last_used_model_id': session.lastUsedModelId,
-      'last_used_model_label': session.lastUsedModelLabel,
-      'exported_at': DateTime.now().toUtc().toIso8601String(),
-      'export_config': config.toJson(),
-    };
+    final headerPayload = _buildAiSessionHeaderPayload(
+      session: session,
+      fullMessages: fullMessages,
+      messages: messages,
+      config: config,
+      exportedAt: DateTime.now().toUtc().toIso8601String(),
+    );
     await emit(headerPayload);
     onProgress?.call(ExportProgress(processed: lines, total: total));
 

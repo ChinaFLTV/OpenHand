@@ -479,7 +479,7 @@ export async function exportSessionDownload(
   fallbackName: string,
 ): Promise<ExportDownloadResult> {
   const headers: Record<string, string> = {
-    Accept: 'application/json',
+    Accept: 'application/x-ndjson',
     'x-openhand-device-id': ensureDeviceId(),
     ...clientEnvironmentHeaders(),
   };
@@ -519,7 +519,7 @@ export async function exportSessionDownload(
   }
   const blob = await res.blob();
   await saveBlobWithPicker(blob, filename, [
-    { description: 'JSONL', accept: { 'application/json': ['.jsonl'] } },
+    { description: 'JSONL', accept: { 'application/x-ndjson': ['.jsonl'] } },
   ]);
   return { filename };
 }
