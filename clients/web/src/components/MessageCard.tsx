@@ -759,6 +759,40 @@ interface StreamingContentSnapshot {
   mode: 'append' | 'remove';
 }
 
+function StreamingPlainTextReveal({
+  content,
+  streaming,
+  reduceMotion,
+  mono,
+}: {
+  content: string;
+  streaming: boolean;
+  reduceMotion: boolean;
+  mono: boolean;
+}) {
+  const revealAllowed = content.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
+  const { containerRef: streamingMaskRef, streamingClass } = useStreamingReveal(
+    streaming && revealAllowed,
+    content.length,
+    content,
+    reduceMotion,
+  );
+
+  return (
+    <div
+      ref={streamingMaskRef}
+      class={streamingClass ? 'oh-streaming-reveal' : undefined}
+      style={{
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+      }}
+    >
+      {content}
+    </div>
+  );
+}
+
 function StreamingMarkdownReveal({
   content,
   streaming,
@@ -1104,6 +1138,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
+  const usePlainTextStreamingReveal = streamingContent && isAssistantResponseMessage(message);
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 流式期间禁用高度动画：WAAPI 在 260-420ms 内对高度做 overshoot 关键帧并
   // 同时 `overflow: clip`。流式每 ~48 字符 / 换行就重算 signal 触发新一轮动画，
@@ -1271,15 +1306,24 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : (
-          <StreamingMarkdownReveal
-            content={visibleContent}
-            streaming={streamingContent && !isUserBubble}
-            reduceMotion={reduceMotion}
-            raw={showRawContent || style.mono === true}
-            mono={style.mono === true}
-            format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : contentFormat}
-            htmlFallback={contentHtmlFallback}
-          />
+          usePlainTextStreamingReveal ? (
+            <StreamingPlainTextReveal
+              content={visibleContent}
+              streaming
+              reduceMotion={reduceMotion}
+              mono={showRawContent || style.mono === true}
+            />
+          ) : (
+            <StreamingMarkdownReveal
+              content={visibleContent}
+              streaming={streamingContent && !isUserBubble}
+              reduceMotion={reduceMotion}
+              raw={showRawContent || style.mono === true}
+              mono={style.mono === true}
+              format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : contentFormat}
+              htmlFallback={contentHtmlFallback}
+            />
+          )
         )}
         {!isUserBubble &&
           !useStructuredToolBody &&
