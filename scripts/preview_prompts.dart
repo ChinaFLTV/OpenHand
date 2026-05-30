@@ -17,6 +17,8 @@
 //       or XML tags: <atomic_change_discipline> / <uncertainty_honesty>
 //   - else, if CJK ratio (non-whitespace) ≥ 15% → append v4_discipline_zh.md
 //                                                else → append v4_discipline_en.md
+//   - append shared identity/refusal/tone/workflow snippets only when the
+//       target xml tag is absent; machine_expert is intentionally exempt
 //   - skip memory tone policy when system already contains (lower):
 //       "## memory tone policy"
 
@@ -59,6 +61,33 @@ bool _looksLikeChinese(String text) {
     return false;
   }
   return cjk * 100 ~/ total >= 15;
+}
+
+bool _hasXmlSectionTag(String instructions, String tag) {
+  return instructions.toLowerCase().contains('<${tag.toLowerCase()}>');
+}
+
+String _appendSharedSectionsIfAbsent(String instructions, String templateId) {
+  if (templateId == 'machine_expert') {
+    return instructions;
+  }
+  final sections = <({String tag, String assetPath})>[
+    (tag: 'identity', assetPath: 'assets/prompts/_shared/identity.md'),
+    (tag: 'refusal_handling', assetPath: 'assets/prompts/_shared/refusal.md'),
+    (tag: 'tone_and_formatting', assetPath: 'assets/prompts/_shared/tone.md'),
+    if (templateId != 'hermes_talker')
+      (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
+  ];
+  var output = instructions.trimRight();
+  for (final section in sections) {
+    if (_hasXmlSectionTag(output, section.tag)) {
+      continue;
+    }
+    final snippet = _readOrEmpty(section.assetPath);
+    if (snippet.isEmpty) continue;
+    output = '$output\n\n$snippet';
+  }
+  return '$output\n';
 }
 
 bool _hasV4DisciplineMarker(String instructions) {
@@ -137,7 +166,7 @@ void main() {
     final cjkRatio = _cjkRatioPct(system);
 
     final assembled = _appendMemoryTonePolicyIfAbsent(
-      _appendV4DisciplineIfAbsent(system),
+      _appendV4DisciplineIfAbsent(_appendSharedSectionsIfAbsent(system, t.id)),
     );
 
     File(

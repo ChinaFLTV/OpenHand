@@ -204,6 +204,7 @@ class _SessionToolbar extends StatelessWidget {
                 const SizedBox(width: 10),
               ],
               _TokenDial(
+                session: session,
                 statistics: session.statistics,
                 activeProfile: activeProfile,
                 claudeStyle: claudeStyle,

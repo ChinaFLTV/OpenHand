@@ -163,8 +163,12 @@ class AiPromptTemplateRepository {
       '$assetDirectory/compression_summary_instructions.md',
       compressionFallback,
     );
-    final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
+    final systemWithSharedSections = await _appendSharedSectionsIfAbsent(
       systemInstructions,
+      templateId: templateId,
+    );
+    final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
+      systemWithSharedSections,
     );
     return AiPromptTemplateBundle(
       template: template,
@@ -175,6 +179,40 @@ class AiPromptTemplateRepository {
       developerInstructions: developerInstructions,
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
+  }
+
+  Future<String> _appendSharedSectionsIfAbsent(
+    String instructions, {
+    required String templateId,
+  }) async {
+    if (templateId == 'machine_expert') {
+      return instructions;
+    }
+    final sections = <({String tag, String assetPath})>[
+      (tag: 'identity', assetPath: 'assets/prompts/_shared/identity.md'),
+      (
+        tag: 'refusal_handling',
+        assetPath: 'assets/prompts/_shared/refusal.md',
+      ),
+      (
+        tag: 'tone_and_formatting',
+        assetPath: 'assets/prompts/_shared/tone.md',
+      ),
+      if (templateId != 'hermes_talker')
+        (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
+    ];
+    var output = instructions.trimRight();
+    for (final section in sections) {
+      if (_hasXmlSectionTag(output, section.tag)) {
+        continue;
+      }
+      final snippet = await _loadTemplateSection(section.assetPath, '');
+      if (snippet.isEmpty) {
+        continue;
+      }
+      output = '$output\n\n$snippet';
+    }
+    return '$output\n';
   }
 
   /// Appends the shared v4 discipline block (Uncertainty Honesty + Atomic
@@ -222,6 +260,10 @@ class AiPromptTemplateRepository {
       return false;
     }
     return cjk * 100 ~/ total >= 15;
+  }
+
+  bool _hasXmlSectionTag(String instructions, String tag) {
+    return instructions.toLowerCase().contains('<${tag.toLowerCase()}>');
   }
 
   bool _hasV4DisciplineMarker(String instructions) {

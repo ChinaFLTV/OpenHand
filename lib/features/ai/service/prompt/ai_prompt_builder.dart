@@ -643,7 +643,10 @@ class AiPromptBuilder {
       ..['captured_at'] = currentCapturedAt.toIso8601String()
       ..['current_prompt_character_count'] = promptCharacterCount
       ..['stable_prefix_hash'] = stablePrefixHash
+      ..['previous_stable_prefix_hash'] = previousStablePrefixHash
       ..['tool_catalog_hash'] = toolCatalogHash
+      ..['previous_tool_catalog_hash'] =
+          '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
       ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
       ..['cache_breakpoint_positions'] = runtimeContext.aiInputCacheBreakpointPositions
       ..['idle_gap_seconds'] = idleGapSeconds

@@ -760,25 +760,16 @@ class _SessionMetadataDialog extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    // 提前过滤一遍数据,只为决定是否渲染容器(<2 个有效点直接返回)。
-    var validCount = 0;
-    for (final m in session.messages) {
-      final usage = m.usage;
-      if (usage == null) continue;
-      final prompt = usage.promptTokens ?? 0;
-      final read = usage.cacheReadTokens ?? 0;
-      if (prompt <= 0 && read <= 0) continue;
-      final denom = claudeStyle ? (prompt + read) : prompt;
-      if (denom <= 0) continue;
-      validCount += 1;
-      if (validCount >= 2) break;
-    }
-    if (validCount < 2) return const <Widget>[];
+    final trend = SessionCacheHitTrend.fromSession(
+      session,
+      claudeStyle: claudeStyle,
+    );
+    if (!trend.hasEnoughPoints) return const <Widget>[];
 
     return [
       const SizedBox(height: 12),
       _CacheHitTrendChart(
-        session: session,
+        trend: trend,
         primaryClaudeStyle: claudeStyle,
       ),
     ];
@@ -1851,7 +1842,7 @@ class _CacheHitSparklinePainter extends CustomPainter {
     }
 
     void flush() {
-      if (current.length >= 1) {
+      if (current.isNotEmpty) {
         segments.add(List<Offset>.from(current));
       }
       current = <Offset>[];
@@ -1953,11 +1944,11 @@ class _CacheHitSparklinePainter extends CustomPainter {
 /// - 提供「叠加另一条协议公式」开关，将 Claude 与 OpenAI 两种公式同图对比
 class _CacheHitTrendChart extends StatefulWidget {
   const _CacheHitTrendChart({
-    required this.session,
+    required this.trend,
     required this.primaryClaudeStyle,
   });
 
-  final AiSession session;
+  final SessionCacheHitTrend trend;
   final bool primaryClaudeStyle;
 
   @override
@@ -1979,30 +1970,22 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     // 同步收集 primary / alt 两条曲线;长度对齐,缺失点为 null。
-    final primary = <double?>[];
-    final alt = <double?>[];
-    for (final m in widget.session.messages) {
-      final usage = m.usage;
-      if (usage == null) continue;
-      final prompt = usage.promptTokens ?? 0;
-      final read = usage.cacheReadTokens ?? 0;
-      if (prompt <= 0 && read <= 0) continue;
-      final primaryDenom = widget.primaryClaudeStyle
-          ? (prompt + read)
-          : prompt;
-      if (primaryDenom <= 0) {
-        // 主曲线无法绘制就跳过整条 message。
-        continue;
-      }
-      primary.add((read / primaryDenom).clamp(0.0, 1.0).toDouble());
-      final altDenom = widget.primaryClaudeStyle ? prompt : (prompt + read);
-      alt.add(
-        altDenom <= 0 ? null : (read / altDenom).clamp(0.0, 1.0).toDouble(),
-      );
-    }
+    final primary = widget.trend.points
+        .map((point) => point.hitRatio)
+        .toList(growable: false);
+    final alt = widget.trend.points
+        .map((point) {
+          final prompt = point.promptTokens;
+          final read = point.cacheReadTokens;
+          final altDenom = widget.primaryClaudeStyle ? prompt : (prompt + read);
+          return altDenom <= 0
+              ? null
+              : (read / altDenom).clamp(0.0, 1.0).toDouble();
+        })
+        .toList(growable: false);
     if (primary.length < 2) return const SizedBox.shrink();
 
-    final primaryNonNull = primary.whereType<double>().toList(growable: false);
+    final primaryNonNull = primary.toList(growable: false);
     final last = primaryNonNull.last;
     final avg = primaryNonNull.reduce((a, b) => a + b) / primaryNonNull.length;
     final maxRatio = primaryNonNull.reduce((a, b) => a > b ? a : b);
@@ -2088,6 +2071,23 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
             ],
           ),
           const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CacheHitDiagnosisChip(
+                color: colorScheme.secondary,
+                label:
+                    'TTL×${widget.trend.points.where((p) => p.ttlSuspected).length}',
+              ),
+              _CacheHitDiagnosisChip(
+                color: colorScheme.error,
+                label:
+                    'Drift×${widget.trend.points.where((p) => p.prefixDriftSuspected).length}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           SizedBox(
             height: _chartHeight,
             child: LayoutBuilder(
@@ -2099,7 +2099,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                 void updateFocus(Offset local) {
                   if (n <= 1) return;
                   final raw = (local.dx / stepX).round();
-                  final clamped = raw.clamp(0, n - 1);
+                  final clamped = raw.clamp(0, n - 1).toInt();
                   if (_focusedIndex != clamped) {
                     _focusedIndex = clamped;
                     if (!_focusScheduled) {
@@ -2117,23 +2117,27 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                 if (fi != null && fi >= 0 && fi < primary.length) {
                   final pv = primary[fi];
                   final av = _overlayOn && fi < alt.length ? alt[fi] : null;
+                  final point = widget.trend.points[fi];
                   final tooltipX = (fi * stepX).clamp(0.0, width);
 
                   final label = StringBuffer()
                     ..write(l10n.sessMetaCacheHitPoint(fi + 1));
-                  if (pv != null) {
-                    label
-                      ..write('  ')
-                      ..write(primaryLabel)
-                      ..write(': ')
-                      ..write(pct(pv));
-                  }
+                  label
+                    ..write('  ')
+                    ..write(primaryLabel)
+                    ..write(': ')
+                    ..write(pct(pv));
                   if (av != null) {
                     label
                       ..write('  ')
                       ..write(altLabel)
                       ..write(': ')
                       ..write(pct(av));
+                  }
+                  if (point.ttlSuspected) {
+                    label.write('  TTL');
+                  } else if (point.prefixDriftSuspected) {
+                    label.write('  Prefix drift');
                   }
                   tooltipChildren.add(
                     Positioned(
@@ -2241,6 +2245,37 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CacheHitDiagnosisChip extends StatelessWidget {
+  const _CacheHitDiagnosisChip({
+    required this.color,
+    required this.label,
+  });
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }

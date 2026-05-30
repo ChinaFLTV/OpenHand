@@ -2,11 +2,13 @@ part of '../openhand_home_page.dart';
 
 class _TokenDial extends StatefulWidget {
   const _TokenDial({
+    required this.session,
     required this.statistics,
     this.activeProfile,
     this.claudeStyle = true,
   });
 
+  final AiSession session;
   final AiSessionStatistics statistics;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
@@ -28,8 +30,12 @@ class _TokenDial extends StatefulWidget {
   ///   → 分母 = prompt（含 cache_read 的总 prompt token 数）。
   double get cacheHitRatio {
     final read = cacheReadTokens ?? 0;
-    final prompt = (statistics.totalPromptTokens ?? 0) -
-        (statistics.firstPromptTokens ?? 0).clamp(0, statistics.totalPromptTokens ?? 0);
+    final prompt =
+        (statistics.totalPromptTokens ?? 0) -
+        (statistics.firstPromptTokens ?? 0).clamp(
+          0,
+          statistics.totalPromptTokens ?? 0,
+        );
     if (prompt <= 0) return 0.0;
     // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
     final denom = claudeStyle ? (prompt + read) : prompt;
@@ -45,37 +51,44 @@ class _TokenDialState extends State<_TokenDial>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portalController = OverlayPortalController();
   final LayerLink _link = LayerLink();
-  late final AnimationController _fadeController;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _scaleAnimation;
+  late final AnimationController _transitionController;
   Timer? _hideTimer;
+
+  bool get _useTapSheet =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  DialogAnimationSettings _dialogSettings(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.none,
+        exitStyle: DialogAnimationStyle.none,
+        durationMs: 0,
+      );
+    }
+    return context.read<SettingsController>().dialogAnimationSettings;
+  }
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
+    _transitionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
-      reverseDuration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 320),
     );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fadeController,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInCubic,
-      ),
-    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _transitionController.duration = _dialogSettings(context).duration;
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
-    _fadeController.dispose();
+    _transitionController.dispose();
     super.dispose();
   }
 
@@ -84,19 +97,36 @@ class _TokenDialState extends State<_TokenDial>
     if (!_portalController.isShowing) {
       _portalController.show();
     }
-    _fadeController.forward();
+    _transitionController.forward();
   }
 
   void _schedulePopupHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(milliseconds: 60), () async {
       if (!mounted) return;
-      await _fadeController.reverse();
+      await _transitionController.reverse();
       if (!mounted) return;
       if (_portalController.isShowing) {
         _portalController.hide();
       }
     });
+  }
+
+  Future<void> _showTouchPopupSheet() async {
+    await showAnimatedModalSheet<void>(
+      context: context,
+      settings: _dialogSettings(context),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: _TokenDialPopup(
+          session: widget.session,
+          statistics: widget.statistics,
+          activeProfile: widget.activeProfile,
+          claudeStyle: widget.claudeStyle,
+          compact: false,
+        ),
+      ),
+    );
   }
 
   @override
@@ -129,16 +159,14 @@ class _TokenDialState extends State<_TokenDial>
               child: MouseRegion(
                 onEnter: (_) => _showPopup(),
                 onExit: (_) => _schedulePopupHide(),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: ScaleTransition(
-                    scale: _scaleAnimation,
-                    alignment: Alignment.topRight,
-                    child: _TokenDialPopup(
-                      statistics: widget.statistics,
-                      activeProfile: widget.activeProfile,
-                      claudeStyle: widget.claudeStyle,
-                    ),
+                child: buildAnimationStyleTransition(
+                  animation: _transitionController,
+                  settings: _dialogSettings(context),
+                  child: _TokenDialPopup(
+                    session: widget.session,
+                    statistics: widget.statistics,
+                    activeProfile: widget.activeProfile,
+                    claudeStyle: widget.claudeStyle,
                   ),
                 ),
               ),
@@ -146,52 +174,62 @@ class _TokenDialState extends State<_TokenDial>
           );
         },
         child: MouseRegion(
-          onEnter: (_) => _showPopup(),
-          onExit: (_) => _schedulePopupHide(),
-          child: Container(
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: hasCache
-                  ? Colors.green.withValues(alpha: 0.08)
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: _borderRadius999,
-              border: Border.all(
+          onEnter: (_) {
+            if (!_useTapSheet) _showPopup();
+          },
+          onExit: (_) {
+            if (!_useTapSheet) _schedulePopupHide();
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _useTapSheet ? _showTouchPopupSheet : null,
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
                 color: hasCache
-                    ? Colors.green.withValues(alpha: 0.4)
-                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  hasCache
-                      ? Icons.bolt_rounded
-                      : Icons.confirmation_number_rounded,
-                  size: 14,
-                  color: hasCache ? Colors.green.shade600 : colorScheme.primary,
+                    ? Colors.green.withValues(alpha: 0.08)
+                    : colorScheme.surfaceContainerHighest,
+                borderRadius: _borderRadius999,
+                border: Border.all(
+                  color: hasCache
+                      ? Colors.green.withValues(alpha: 0.4)
+                      : colorScheme.outlineVariant.withValues(alpha: 0.55),
                 ),
-                const SizedBox(width: 6),
-                if (hasCache) ...[
-                  _CacheSavingsBadge(percent: widget.cacheHitRatio),
-                  Container(
-                    width: 1,
-                    height: 12,
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    color: colorScheme.outlineVariant,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    hasCache
+                        ? Icons.bolt_rounded
+                        : Icons.confirmation_number_rounded,
+                    size: 14,
+                    color: hasCache
+                        ? Colors.green.shade600
+                        : colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  if (hasCache) ...[
+                    _CacheSavingsBadge(percent: widget.cacheHitRatio),
+                    Container(
+                      width: 1,
+                      height: 12,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      color: colorScheme.outlineVariant,
+                    ),
+                  ],
+                  _RollingNumber(
+                    value: widget.totalTokens,
+                    style: numberStyle ?? const TextStyle(),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    AppLocalizations.of(context)!.tokenDialUnit,
+                    style: labelStyle,
                   ),
                 ],
-                _RollingNumber(
-                  value: widget.totalTokens,
-                  style: numberStyle ?? const TextStyle(),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  AppLocalizations.of(context)!.tokenDialUnit,
-                  style: labelStyle,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -209,14 +247,18 @@ class _TokenDialState extends State<_TokenDial>
 /// - 会话累计 (消息数 / prompt 字符 / 构建次数)
 class _TokenDialPopup extends StatelessWidget {
   const _TokenDialPopup({
+    required this.session,
     required this.statistics,
     this.activeProfile,
     this.claudeStyle = true,
+    this.compact = true,
   });
 
+  final AiSession session;
   final AiSessionStatistics statistics;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -241,21 +283,33 @@ class _TokenDialPopup extends StatelessWidget {
     );
     final promptTokensTotal = statistics.totalPromptTokens ?? 0;
     final firstPrompt = statistics.firstPromptTokens ?? 0;
-    final promptTokens = (promptTokensTotal - firstPrompt).clamp(0, promptTokensTotal);
+    final promptTokens = (promptTokensTotal - firstPrompt).clamp(
+      0,
+      promptTokensTotal,
+    );
     final completionTokens = statistics.totalCompletionTokens ?? 0;
     final cacheRead = statistics.cacheReadTokens ?? 0;
     final cacheWrite = statistics.cacheCreationTokens ?? 0;
     final reasoning = statistics.reasoningTokens ?? 0;
     final total = statistics.totalTokens ?? 0;
     // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
-    final cacheDenominator = claudeStyle ? (promptTokens + cacheRead) : promptTokens;
+    final cacheDenominator = claudeStyle
+        ? (promptTokens + cacheRead)
+        : promptTokens;
     final cacheHitRatio = cacheDenominator <= 0
         ? 0.0
         : cacheRead / cacheDenominator;
+    final trend = SessionCacheHitTrend.fromSession(
+      session,
+      claudeStyle: claudeStyle,
+    );
     return Material(
       color: Colors.transparent,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+        constraints: BoxConstraints(
+          minWidth: compact ? 320 : 360,
+          maxWidth: compact ? 420 : 520,
+        ),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         decoration: BoxDecoration(
           color: colorScheme.surface,
@@ -357,6 +411,13 @@ class _TokenDialPopup extends StatelessWidget {
                     ? promptTokens
                     : (promptTokens - cacheRead).clamp(0, promptTokens),
               ),
+              if (trend.hasEnoughPoints) ...[
+                const SizedBox(height: 10),
+                TokenPopupCacheHitTrendChart(
+                  trend: trend,
+                  height: compact ? 176 : 220,
+                ),
+              ],
             ],
             const SizedBox(height: 10),
             Text(

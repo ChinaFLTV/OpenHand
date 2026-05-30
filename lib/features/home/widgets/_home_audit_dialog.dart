@@ -752,6 +752,52 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       metadata['composed_prompt_turns'],
     ]);
     final promptMetadataFromMsg = _auditFirstMap([metadata['prompt_metadata']]);
+    final cacheIdleGapSeconds = _auditFirstInt([
+      metadata['idle_gap_seconds'],
+      relatedMetadata['idle_gap_seconds'],
+      if (promptMetadataFromMsg != null) promptMetadataFromMsg['idle_gap_seconds'],
+    ]);
+    final cacheTtlSuspected = _auditFirstBool([
+      metadata['ttl_suspected'],
+      relatedMetadata['ttl_suspected'],
+      if (promptMetadataFromMsg != null) promptMetadataFromMsg['ttl_suspected'],
+    ]);
+    final stablePrefixHash = _auditFirstString([
+      metadata['stable_prefix_hash'],
+      relatedMetadata['stable_prefix_hash'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['stable_prefix_hash'],
+    ]);
+    final previousStablePrefixHash = _auditFirstString([
+      metadata['previous_stable_prefix_hash'],
+      relatedMetadata['previous_stable_prefix_hash'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['previous_stable_prefix_hash'],
+    ]);
+    final toolCatalogHash = _auditFirstString([
+      metadata['tool_catalog_hash'],
+      relatedMetadata['tool_catalog_hash'],
+      if (promptMetadataFromMsg != null) promptMetadataFromMsg['tool_catalog_hash'],
+    ]);
+    final previousToolCatalogHash = _auditFirstString([
+      metadata['previous_tool_catalog_hash'],
+      relatedMetadata['previous_tool_catalog_hash'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['previous_tool_catalog_hash'],
+    ]);
+    final prefixDriftSuspected = !cacheTtlSuspected &&
+        cacheIdleGapSeconds != null &&
+        cacheIdleGapSeconds < 3600 &&
+        ((stablePrefixHash != null &&
+                previousStablePrefixHash != null &&
+                stablePrefixHash.isNotEmpty &&
+                previousStablePrefixHash.isNotEmpty &&
+                stablePrefixHash != previousStablePrefixHash) ||
+            (toolCatalogHash != null &&
+                previousToolCatalogHash != null &&
+                toolCatalogHash.isNotEmpty &&
+                previousToolCatalogHash.isNotEmpty &&
+                toolCatalogHash != previousToolCatalogHash));
 
     return _AuditDialogSizeAnimator(
       child: AlertDialog(
@@ -1009,6 +1055,24 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             context,
                           )!.auditTokenBreakdown,
                           json: displayUsage.toJson(),
+                        ),
+                      if (cacheIdleGapSeconds != null ||
+                          cacheTtlSuspected ||
+                          prefixDriftSuspected)
+                        _AuditJsonBlock(
+                          label: isZh ? '缓存诊断' : 'Cache Diagnostics',
+                          initiallyExpanded: true,
+                          json: <String, Object?>{
+                            'idle_gap_seconds': cacheIdleGapSeconds,
+                            'ttl_suspected': cacheTtlSuspected,
+                            'prefix_drift_suspected': prefixDriftSuspected,
+                            'stable_prefix_hash': stablePrefixHash,
+                            'previous_stable_prefix_hash':
+                                previousStablePrefixHash,
+                            'tool_catalog_hash': toolCatalogHash,
+                            'previous_tool_catalog_hash':
+                                previousToolCatalogHash,
+                          },
                         ),
                     ],
                   ),
@@ -1856,6 +1920,16 @@ String? _auditFirstString(Iterable<Object?> candidates) {
     if (text.isNotEmpty && text != 'null') return text;
   }
   return null;
+}
+
+bool _auditFirstBool(Iterable<Object?> candidates) {
+  for (final value in candidates) {
+    if (value is bool) return value;
+    final text = '$value'.trim().toLowerCase();
+    if (text == 'true') return true;
+    if (text == 'false') return false;
+  }
+  return false;
 }
 
 Map<String, Object?>? _auditFirstMap(Iterable<Object?> candidates) {
