@@ -5217,6 +5217,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final d2b = position.maxScrollExtent - position.pixels;
       if (d2b > _autoFollowDistanceThreshold) return;
       _scheduleScrollToBottom(
+        force: false,
+        animated: false,
         allowSettlePasses: false,
       );
     });
