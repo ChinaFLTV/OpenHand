@@ -2463,30 +2463,17 @@ class _CookiesTableState extends State<_CookiesTable> {
 
   Future<void> _clearAll() async {
     if (widget.cookies.isEmpty) return;
-    final ok = await showAnimatedDialog<bool>(
+    final ok = await showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(widget.isZh ? '清空全部 cookie？' : 'Clear all cookies?'),
-        content: Text(
-          widget.isZh
-              ? '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。'
-              : 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(false),
-            label: widget.isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(context).pop(true),
-            label: widget.isZh ? '清空' : 'Clear',
-          ),
-        ],
-      ),
+      title: widget.isZh ? '清空全部 cookie？' : 'Clear all cookies?',
+      message: widget.isZh
+          ? '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。'
+          : 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
+      cancelLabel: widget.isZh ? '取消' : 'Cancel',
+      confirmLabel: widget.isZh ? '清空' : 'Clear',
+      destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     for (final c in List<Map<String, Object?>>.from(widget.cookies)) {
       await widget.controller.deleteCookie(
         name: '${c['name'] ?? ''}',
@@ -2799,30 +2786,18 @@ class _StorageTableState extends State<_StorageTable> {
   Future<void> _clearAll() async {
     final origin = widget.origin;
     if (origin == null || origin.isEmpty || widget.rows.isEmpty) return;
-    final ok = await showAnimatedDialog<bool>(
+    final storageKind = widget.isLocalStorage ? 'localStorage' : 'sessionStorage';
+    final ok = await showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(widget.isZh ? '清空全部条目？' : 'Clear all entries?'),
-        content: Text(
-          widget.isZh
-              ? '将删除 ${widget.rows.length} 条 ${widget.isLocalStorage ? "localStorage" : "sessionStorage"} 条目，无法撤销。'
-              : 'Will delete ${widget.rows.length} entries. This cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(false),
-            label: widget.isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(context).pop(true),
-            label: widget.isZh ? '清空' : 'Clear',
-          ),
-        ],
-      ),
+      title: widget.isZh ? '清空全部条目？' : 'Clear all entries?',
+      message: widget.isZh
+          ? '将删除 ${widget.rows.length} 条 $storageKind 条目，无法撤销。'
+          : 'Will delete ${widget.rows.length} entries. This cannot be undone.',
+      cancelLabel: widget.isZh ? '取消' : 'Cancel',
+      confirmLabel: widget.isZh ? '清空' : 'Clear',
+      destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     for (final r in List<({String key, String value})>.from(widget.rows)) {
       await widget.controller.removeDomStorageItem(
         origin: origin,
@@ -3082,34 +3057,37 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     });
   }
 
+  Future<bool> _confirmDestructiveAction({
+    required String titleZh,
+    required String titleEn,
+    required String messageZh,
+    required String messageEn,
+    required String confirmZh,
+    required String confirmEn,
+  }) {
+    return showOpenHandConfirmDialog(
+      context: context,
+      title: widget.isZh ? titleZh : titleEn,
+      message: widget.isZh ? messageZh : messageEn,
+      cancelLabel: widget.isZh ? '取消' : 'Cancel',
+      confirmLabel: widget.isZh ? confirmZh : confirmEn,
+      destructive: true,
+    );
+  }
+
   /// 删除整个数据库。弹二次确认。
   Future<void> _confirmDeleteDb(String dbName) async {
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除数据库' : 'Delete database'),
-        content: Text(
-          isZh
-              ? '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。'
-              : 'Delete database “$dbName” and all stores? Irreversible.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: isZh ? '删除' : 'Delete',
-          ),
-        ],
-      ),
+    final ok = await _confirmDestructiveAction(
+      titleZh: '删除数据库',
+      titleEn: 'Delete database',
+      messageZh: '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。',
+      messageEn: 'Delete database “$dbName” and all stores? Irreversible.',
+      confirmZh: '删除',
+      confirmEn: 'Delete',
     );
-    if (!mounted || ok != true) return;
+    if (!mounted || !ok) return;
     final success = await widget.controller.deleteIndexedDb(dbName);
     if (!mounted) return;
     if (success) {
@@ -3142,30 +3120,15 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (selected == null) return;
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '清空 Object Store' : 'Clear object store'),
-        content: Text(
-          isZh
-              ? '确定清空 “${selected.db} / ${selected.store}” 的全部记录？'
-              : 'Clear all records in “${selected.db} / ${selected.store}”?',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: isZh ? '清空' : 'Clear',
-          ),
-        ],
-      ),
+    final ok = await _confirmDestructiveAction(
+      titleZh: '清空 Object Store',
+      titleEn: 'Clear object store',
+      messageZh: '确定清空 “${selected.db} / ${selected.store}” 的全部记录？',
+      messageEn: 'Clear all records in “${selected.db} / ${selected.store}”?',
+      confirmZh: '清空',
+      confirmEn: 'Clear',
     );
-    if (!mounted || ok != true) return;
+    if (!mounted || !ok) return;
     final success = await widget.controller.clearIndexedDbStore(
       dbName: selected.db,
       storeName: selected.store,
@@ -3205,30 +3168,16 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     }
     final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除记录' : 'Delete record'),
-        content: Text(
-          isZh
-              ? '确定删除 key = ${_describeRemoteObject(keyRaw)} ？'
-              : 'Delete record with key = ${_describeRemoteObject(keyRaw)}?',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: isZh ? '删除' : 'Delete',
-          ),
-        ],
-      ),
+    final keyDescription = _describeRemoteObject(keyRaw);
+    final ok = await _confirmDestructiveAction(
+      titleZh: '删除记录',
+      titleEn: 'Delete record',
+      messageZh: '确定删除 key = $keyDescription ？',
+      messageEn: 'Delete record with key = $keyDescription?',
+      confirmZh: '删除',
+      confirmEn: 'Delete',
     );
-    if (!mounted || ok != true) return;
+    if (!mounted || !ok) return;
     final success = await widget.controller.deleteIndexedDbEntry(
       dbName: selected.db,
       storeName: selected.store,

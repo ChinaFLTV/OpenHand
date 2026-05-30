@@ -278,26 +278,14 @@ class _ThreadSessionManagementDialogState
 
   Future<void> _confirmDeleteSingle(AiSession session) async {
     final l10n = AppLocalizations.of(context)!;
-    final ok = await showAnimatedDialog<bool>(
+    final ok = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(AppLocalizations.of(dialogContext)!.tsmDeleteThreadTitle),
-        content: Text(session.title),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: l10n.commonCancel,
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: l10n.commonDelete,
-          ),
-        ],
-      ),
+      title: l10n.tsmDeleteThreadTitle,
+      message: session.title,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     await _deleteIds(<String>{session.id});
   }
 
@@ -305,29 +293,14 @@ class _ThreadSessionManagementDialogState
     if (_selectedIds.isEmpty) return;
     final ids = Set<String>.from(_selectedIds);
     final l10n = AppLocalizations.of(context)!;
-    final ok = await showAnimatedDialog<bool>(
+    final ok = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        final dl10n = AppLocalizations.of(dialogContext)!;
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(dl10n.tsmDeleteSelectedTitle),
-          content: Text(dl10n.tsmDeleteSelectedConfirm(ids.length)),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: l10n.tsmDeleteSelectedTitle,
+      message: l10n.tsmDeleteSelectedConfirm(ids.length),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     await _deleteIds(ids);
   }
 

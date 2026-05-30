@@ -60,7 +60,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       text: '${widget.value.cacheTtlSeconds}',
     );
     _cacheMaxBytesController = TextEditingController(
-      text: _bytesToMb(widget.value.cacheMaxBytes),
+      text: _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
     );
     _refreshCacheBytesOnDisk();
     _refreshTelemetry();
@@ -110,45 +110,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
   Future<void> _confirmAndClearTelemetry() async {
     if (_clearingTelemetry) return;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await _confirmClearToolTelemetry(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(
-              dialogContext,
-              zh: '清空 WebSearch 调用日志？',
-              en: 'Clear WebSearch call history?',
-            ),
-          ),
-          content: Text(
-            _localizedText(
-              dialogContext,
-              zh:
-                  '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。'
-                  '本地缓存 (summary) 不受影响。',
-              en:
-                  'Removes the recent call ring buffer (up to 200 entries) and '
-                  'all per-engine success-rate/latency aggregates. Cached '
-                  'summaries are not affected.',
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: _localizedText(dialogContext, zh: '确认清空', en: 'Clear'),
-            ),
-          ],
-        );
-      },
+      toolLabel: 'WebSearch',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     setState(() => _clearingTelemetry = true);
     try {
       await WebSearchTelemetryStore.instance.clearAll();
@@ -283,8 +249,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     }
     if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
         _cacheMaxBytesController.text !=
-            _bytesToMb(widget.value.cacheMaxBytes)) {
-      _cacheMaxBytesController.text = _bytesToMb(widget.value.cacheMaxBytes);
+            _formatCacheMegabytesInput(widget.value.cacheMaxBytes)) {
+      _cacheMaxBytesController.text = _formatCacheMegabytesInput(widget.value.cacheMaxBytes);
     }
   }
 
@@ -298,68 +264,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     super.dispose();
   }
 
-  static String _bytesToMb(int bytes) {
-    if (bytes <= 0) return '0';
-    final mb = bytes / (1024 * 1024);
-    return mb >= 100
-        ? mb.toStringAsFixed(0)
-        : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
-  }
-
-  static String _formatBytesHuman(int? bytes) {
-    if (bytes == null) return '…';
-    if (bytes <= 0) return '0 B';
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-
   Future<void> _confirmAndClearCache() async {
     if (_clearingCache) return;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await _confirmClearLocalCache(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(
-              dialogContext,
-              zh: '清理 WebSearch 本地缓存？',
-              en: 'Clear WebSearch local cache?',
-            ),
-          ),
-          content: Text(
-            _localizedText(
-              dialogContext,
-              zh:
-                  '将立即删除所有已落盘的 summary 文件与映射索引 (index.json)，'
-                  '后续相同关键词需要重新发起网络搜索。',
-              en:
-                  'All persisted summary files and the mapping index '
-                  '(index.json) will be deleted immediately. Future hits with '
-                  'the same query will need a fresh online search.',
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: _localizedText(dialogContext, zh: '取消', en: 'Cancel'),
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: _localizedText(dialogContext, zh: '确认清理', en: 'Clear'),
-            ),
-          ],
-        );
-      },
+      toolLabel: 'WebSearch',
+      titleZhVerb: '清理',
+      titleEnVerb: 'Clear',
+      contentZh: '将立即删除所有已落盘的 summary 文件与映射索引 (index.json)，后续相同关键词需要重新发起网络搜索。',
+      contentEn:
+          'All persisted summary files and the mapping index (index.json) will be deleted immediately. Future hits with the same query will need a fresh online search.',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     setState(() => _clearingCache = true);
     try {
       await WebSearchCacheStore.instance.clearAll();

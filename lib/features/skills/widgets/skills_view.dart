@@ -539,28 +539,15 @@ class _SkillsViewState extends State<SkillsView> {
     LocalSkill skill,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(l10n.skillsDeleteConfirmTitle),
-          content: Text('${l10n.skillsDeleteConfirmBody}\n\n${skill.name}'),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.skillsEditorCancel,
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.skillsDeleteConfirmAction,
-            ),
-          ],
-        );
-      },
+      title: l10n.skillsDeleteConfirmTitle,
+      message: '${l10n.skillsDeleteConfirmBody}\n\n${skill.name}',
+      cancelLabel: l10n.skillsEditorCancel,
+      confirmLabel: l10n.skillsDeleteConfirmAction,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
 

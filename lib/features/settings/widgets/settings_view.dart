@@ -78,6 +78,72 @@ part '_settings_active_tool_calls.dart';
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
 
+String _formatCacheMegabytesInput(int bytes) {
+  if (bytes <= 0) return '0';
+  final mb = bytes / (1024 * 1024);
+  return mb >= 100
+      ? mb.toStringAsFixed(0)
+      : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
+}
+
+String _formatBytesHuman(int? bytes) {
+  if (bytes == null) return '…';
+  if (bytes <= 0) return '0 B';
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+}
+
+Future<bool> _confirmClearLocalCache({
+  required BuildContext context,
+  required String toolLabel,
+  required String titleZhVerb,
+  required String titleEnVerb,
+  required String contentZh,
+  required String contentEn,
+}) {
+  return showOpenHandConfirmDialog(
+    context: context,
+    title: _localizedText(
+      context,
+      zh: '$titleZhVerb $toolLabel 本地缓存？',
+      en: '$titleEnVerb $toolLabel local cache?',
+    ),
+    message: _localizedText(context, zh: contentZh, en: contentEn),
+    cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+    confirmLabel: _localizedText(context, zh: '确认清理', en: 'Clear'),
+    destructive: true,
+  );
+}
+
+Future<bool> _confirmClearToolTelemetry({
+  required BuildContext context,
+  required String toolLabel,
+}) {
+  return showOpenHandConfirmDialog(
+    context: context,
+    title: _localizedText(
+      context,
+      zh: '清空 $toolLabel 调用日志？',
+      en: 'Clear $toolLabel call history?',
+    ),
+    message: _localizedText(
+      context,
+      zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。本地缓存 (summary) 不受影响。',
+      en:
+          'Removes the recent call ring buffer (up to 200 entries) and all per-engine success-rate/latency aggregates. Cached summaries are not affected.',
+    ),
+    cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+    confirmLabel: _localizedText(context, zh: '确认清空', en: 'Clear'),
+    destructive: true,
+  );
+}
+
 enum _SettingsSection {
   header,
   persistenceIssue,
@@ -2216,7 +2282,6 @@ class _SettingsViewState extends State<SettingsView> {
               _ResponsiveSettingRow(
                 title: l10n.aiMessageContentFormatLabel,
                 control: messageContentFormatControl,
-                controlMaxWidth: 320,
               ),
               _AnimatedSettingReveal(
                 visible:
@@ -2231,7 +2296,6 @@ class _SettingsViewState extends State<SettingsView> {
                         title: l10n.aiHtmlContentRichnessLabel,
                         subtitle: l10n.aiHtmlContentRichnessBody,
                         control: htmlContentRichnessControl,
-                        controlMaxWidth: 320,
                       ),
                     ),
                     Padding(
@@ -2240,7 +2304,6 @@ class _SettingsViewState extends State<SettingsView> {
                         title: l10n.aiHtmlRenderFallbackLabel,
                         subtitle: l10n.aiHtmlRenderFallbackBody,
                         control: htmlRenderFallbackControl,
-                        controlMaxWidth: 320,
                       ),
                     ),
                   ],

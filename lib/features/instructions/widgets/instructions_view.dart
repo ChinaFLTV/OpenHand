@@ -232,26 +232,15 @@ class InstructionsView extends StatelessWidget {
     UserInstructionEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(l10n.instructionDeleteConfirmTitle),
-        content: Text('${l10n.instructionDeleteConfirmBody}\n\n${entry.name}'),
-        actions: <Widget>[
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: l10n.commonCancel,
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: l10n.commonDelete,
-          ),
-        ],
-      ),
+      title: l10n.instructionDeleteConfirmTitle,
+      message: '${l10n.instructionDeleteConfirmBody}\n\n${entry.name}',
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await controller.deleteEntry(entry.id);
     }
   }

@@ -334,48 +334,17 @@ class MemoryView extends StatelessWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final isProfile = entry.isUserProfile;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        if (isProfile) {
-          return AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
-            title: Text(l10n.memoryDeleteConfirmTitle),
-            content: const Text(
-              '用户画像将被删除。Self-learning will recreate this on next cycle.',
-            ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                label: l10n.commonCancel,
-              ),
-              OpenHandDialogActionButton.destructive(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                label: 'Delete anyway',
-              ),
-            ],
-          );
-        }
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(l10n.memoryDeleteConfirmTitle),
-          content: Text(l10n.memoryDeleteConfirmBody),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.commonCancel,
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: l10n.memoryDeleteConfirmTitle,
+      message: isProfile
+          ? '用户画像将被删除。Self-learning will recreate this on next cycle.'
+          : l10n.memoryDeleteConfirmBody,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: isProfile ? 'Delete anyway' : l10n.commonDelete,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
 
@@ -970,7 +939,7 @@ class _MemoryEntryCard extends StatelessWidget {
                         ),
                       ),
                     Chip(
-                      avatar: Icon(
+                      avatar: const Icon(
                         Icons.person_outline_rounded,
                         size: 18,
                       ),

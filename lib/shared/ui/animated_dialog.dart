@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'openhand_dialog_action_button.dart';
 
 const DialogAnimationSettings _kNoDialogAnimationSettings =
     DialogAnimationSettings(
@@ -29,6 +30,50 @@ Color resolveAnimatedDialogBarrierColor(
     return override;
   }
   return Theme.of(context).colorScheme.scrim.withValues(alpha: 0.54);
+}
+
+Future<bool> showOpenHandConfirmDialog({
+  required BuildContext context,
+  required String title,
+  required String confirmLabel,
+  String? cancelLabel,
+  String? message,
+  Widget? content,
+  bool destructive = false,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+}) async {
+  assert(
+    message != null || content != null,
+    'Either message or content must be provided.',
+  );
+  final confirmed = await showAnimatedDialog<bool>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
+      title: Text(title),
+      content: content ?? Text(message!),
+      actions: <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          label: cancelLabel ?? MaterialLocalizations.of(context).cancelButtonLabel,
+        ),
+        destructive
+            ? OpenHandDialogActionButton.destructive(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                label: confirmLabel,
+              )
+            : OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                label: confirmLabel,
+              ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }
 
 /// Shows a dialog with configurable entrance and exit animations.
