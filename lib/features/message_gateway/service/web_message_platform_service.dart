@@ -1935,7 +1935,7 @@ class WebMessagePlatformService {
       'message_types': _config.allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
-        'active_model_key': _activeModelKey(),
+      'active_model_key': _activeModelKey(),
       // 暴露给 Web 端「指令胶囊条」展示用的可用用户指令清单。
       // 仅返回 allowedInstructionIds 过滤后的 enabled 条目，与 App 端
       // _ComposerInstructionsStrip 的 enabledEntries 完全对齐。
@@ -2443,7 +2443,9 @@ class WebMessagePlatformService {
     final bodyText = const JsonEncoder.withIndent('  ').convert(payload);
     final safeTitle = (session.title.isEmpty ? 'session' : session.title)
         .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
-    final filename = '${safeTitle}_${session.id}.json';
+    final filename = normalizeJsonlExportFilename(
+      '${safeTitle}_${session.id}.jsonl',
+    );
     return shelf.Response.ok(
       bodyText,
       headers: <String, String>{
@@ -4811,7 +4813,9 @@ class WebMessagePlatformService {
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
-    final fallback = ascii.isEmpty ? 'session.json' : ascii;
+    final fallback = normalizeJsonlExportFilename(
+      ascii.isEmpty ? 'session.jsonl' : ascii,
+    );
     final encoded = Uri.encodeComponent(filename);
     return 'attachment; filename="$fallback"; filename*=UTF-8\'\'$encoded';
   }

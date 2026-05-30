@@ -1782,7 +1782,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentMaxExtent = notification.metrics.maxScrollExtent;
     final maxExtentShrunkSignificantly =
         _lastMessageScrollMaxExtent != null &&
-        currentMaxExtent < _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
+        currentMaxExtent <
+            _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
@@ -6043,8 +6044,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     // Step 3: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
-    final suggested =
-        '${_sanitizeFileBasename(loaded.title)}_${loaded.id}.jsonl';
+    final suggested = normalizeJsonlExportFilename(
+      '${_sanitizeFileBasename(loaded.title)}_${loaded.id}.jsonl',
+    );
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
@@ -6139,8 +6141,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     // Step 2: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
-    final suggested =
-        '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl';
+    final suggested = normalizeJsonlExportFilename(
+      '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl',
+    );
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(

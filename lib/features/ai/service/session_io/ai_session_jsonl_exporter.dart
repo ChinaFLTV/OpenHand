@@ -135,6 +135,26 @@ String _encodePayload(Map<String, Object?> payload, {required bool pretty}) {
   return const JsonEncoder.withIndent('  ').convert(payload);
 }
 
+String normalizeJsonlExportFilename(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return 'session.jsonl';
+
+  final trailingSuffixMatch = RegExp(
+    r'\.jsonl$',
+    caseSensitive: false,
+  ).firstMatch(trimmed);
+  if (trailingSuffixMatch == null) {
+    return '$trimmed.jsonl';
+  }
+
+  final suffix = trailingSuffixMatch.group(0)!;
+  var base = trimmed.substring(0, trimmed.length - suffix.length);
+  while (base.toLowerCase().endsWith('.jsonl')) {
+    base = base.substring(0, base.length - '.jsonl'.length);
+  }
+  return '${base.isEmpty ? 'session' : base}$suffix';
+}
+
 /// Exports an [AiSession] to a JSONL file at [destinationPath].
 ///
 /// The format mirrors the Hugging Face dataset card layout used by `pi-mono`:

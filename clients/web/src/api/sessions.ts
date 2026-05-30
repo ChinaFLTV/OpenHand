@@ -13,6 +13,7 @@ import { ApiError, UnauthorizedError, apiRequest } from './client';
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
+import { normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { saveBlobWithPicker } from '../utils/save_blob';
 
 export interface SessionTodoItem {
@@ -511,12 +512,14 @@ export async function exportSessionDownload(
     throw new ApiError(res.status, text || null);
   }
   // 优先用响应里 Content-Disposition 的 filename；缺失时 fallback 到调用方给的名字。
-  let filename = `${fallbackName}.json`;
+  let filename = normalizeJsonlExportFilename(`${fallbackName}.jsonl`);
   const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
-  if (parsedFilename) filename = parsedFilename;
+  if (parsedFilename) {
+    filename = normalizeJsonlExportFilename(parsedFilename);
+  }
   const blob = await res.blob();
   await saveBlobWithPicker(blob, filename, [
-    { description: 'JSON', accept: { 'application/json': ['.json'] } },
+    { description: 'JSONL', accept: { 'application/json': ['.jsonl'] } },
   ]);
   return { filename };
 }

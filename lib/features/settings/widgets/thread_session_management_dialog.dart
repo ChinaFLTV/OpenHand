@@ -421,9 +421,10 @@ class _ThreadSessionManagementDialogState
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
-        suggestedName:
-            '${safeTitle.isEmpty ? "session" : safeTitle}_'
-            '${full.id}.jsonl',
+        suggestedName: normalizeJsonlExportFilename(
+          '${safeTitle.isEmpty ? "session" : safeTitle}_'
+          '${full.id}.jsonl',
+        ),
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
@@ -547,8 +548,9 @@ class _ThreadSessionManagementDialogState
       final safeTitle = full.title
           .replaceAll(RegExp(r'[^A-Za-z0-9_\u4e00-\u9fa5]+'), '_')
           .trim();
-      final fileName =
-          '${safeTitle.isEmpty ? "session" : safeTitle}_${full.id}.jsonl';
+      final fileName = normalizeJsonlExportFilename(
+        '${safeTitle.isEmpty ? "session" : safeTitle}_${full.id}.jsonl',
+      );
       final destPath = '$folderPath/$fileName';
       try {
         final result = await exportAiSessionToJsonl(
