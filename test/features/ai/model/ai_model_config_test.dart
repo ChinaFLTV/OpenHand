@@ -117,5 +117,39 @@ void main() {
 
       expect(model.resolvedSupportsAttachments, isTrue);
     });
+
+    test(
+      'reasoning-capable models do not automatically require reasoning echo',
+      () {
+        const model = AiModelConfig(
+          id: 'provider-reasoning',
+          baseUrl: 'https://example.com',
+          authScheme: AiAuthScheme.bearer,
+          token: 'token',
+          modelId: 'qwen/qwen3.7-max',
+          protocolType: AiProtocolType.qwen,
+        );
+
+        final profile = model.profileFor(model.modelId);
+        expect(profile.supportedParameters, contains('reasoning'));
+        expect(profile.supportedParameters, contains('include_reasoning'));
+        expect(model.requiresReasoningEcho, isFalse);
+      },
+    );
+
+    test('exact catalog preserves file modality for file-capable models', () {
+      const model = AiModelConfig(
+        id: 'provider-openai',
+        baseUrl: 'https://example.com',
+        authScheme: AiAuthScheme.bearer,
+        token: 'token',
+        modelId: 'openai/gpt-chat-latest',
+        protocolType: AiProtocolType.openai,
+      );
+
+      final profile = model.profileFor(model.modelId);
+      expect(profile.supportedModalities, contains(AiModelModality.file));
+      expect(profile.supportedModalities, contains(AiModelModality.image));
+    });
   });
 }
