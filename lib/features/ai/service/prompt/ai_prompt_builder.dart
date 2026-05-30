@@ -213,8 +213,9 @@ class AiPromptBuilder {
         model,
         _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
         preTurnHistoryCount: preTurnHistoryCount,
-        latestUserMessageIdForInlineAttachments:
-            latestUserInline ? latestUserMessage.id : null,
+        latestUserMessageIdForInlineAttachments: latestUserInline
+            ? latestUserMessage.id
+            : null,
       ),
     );
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
@@ -369,10 +370,12 @@ class AiPromptBuilder {
         }
       }
     }
-    final focusContext = _renderFocusContext(
-      historyMessages: historyMessages,
-      latestUserMessage: latestUserMessage,
-    );
+    final focusContext = latestCompressionPoint == null
+        ? ''
+        : _renderFocusContext(
+            historyMessages: historyMessages,
+            latestUserMessage: latestUserMessage,
+          );
     final restoredFileContext = _renderPostCompactRestoredFileContext(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
@@ -548,12 +551,16 @@ class AiPromptBuilder {
       // instructions / static session state / restored contexts）。
       //
       // 易变块（[3d] / [5.5] / System Reminder / Plan Mode Reminder /
-      // Output Format Reminder / hook system-reminder）一律落到 history
-      // 之后的 volatile tail：这些块即便每轮都重写，影响范围也只是
-      // tail 本身，history KV cache 保持完整命中。实测 default 模板带
-      // 工具会话整体命中率从 6%~30% → 95%+。
+      // Output Format Reminder / hook system-reminder）不能再插入到
+      // history 与 latest user 之间；否则一旦工具轮次把 [5.5] 改写，下一轮
+      // 从 history 之后开始就不再是“纯追加”路径，跨轮 prefix cache 会被截断。
+      // 因此顺序必须固定为：stable prefix → history → latest user → volatile tail。
+      // 这样易变块即便每轮重写，影响范围也只落在当前轮 user 之后，不会吞掉
+      // 历史+当前用户消息的共享前缀。实测工具会话可避免 0~50% 的异常塌方。
       // ─────────────────────────────────────────────────────────────
       ...historyTurns,
+      // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
+      ...latestUserNonSystemTurns,
       if (dynamicSessionState.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
@@ -575,8 +582,6 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
         ),
-      // 用户消息本体（不含 hook system reminder）→ cache-miss 区起点。
-      ...latestUserNonSystemTurns,
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
       ...latestUserSystemTurns,
@@ -588,18 +593,17 @@ class AiPromptBuilder {
           content:
               '# Output Format Reminder\n\n${AiOutputFormatPrompts.plainText}',
         ),
-      if (runtimeContext.messageContentFormat ==
-              AiMessageContentFormat.html &&
-          AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)
-              .isNotEmpty)
+      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
+          AiOutputFormatPrompts.htmlFor(
+            runtimeContext.htmlContentRichness,
+          ).isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
               '# Output Format Reminder\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
         ),
       // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
-      if (runtimeContext.messageContentFormat ==
-              AiMessageContentFormat.html &&
+      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
           _isGptSeriesModel(model.modelId) &&
           AiOutputFormatPrompts.gptChatRules.isNotEmpty)
         AiChatTurn(
@@ -1564,6 +1568,7 @@ class AiPromptBuilder {
       if (compacted != null) return compacted;
       return _renderMessageForCompression(m);
     }
+
     final transcript = messagesToCompress
         .map(
           (message) =>
@@ -1971,7 +1976,8 @@ $identity''';
         messageIndex: index,
         lastConsumerIndex: stableConsumerBoundary,
         microCompactMessageIds: microCompactMessageIds,
-        isLatestUserInline: latestUserMessageIdForInlineAttachments != null &&
+        isLatestUserInline:
+            latestUserMessageIdForInlineAttachments != null &&
             message.id == latestUserMessageIdForInlineAttachments,
       );
       if (mapped.isNotEmpty) {
