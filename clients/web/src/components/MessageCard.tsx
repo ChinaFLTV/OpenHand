@@ -782,13 +782,20 @@ function StreamingPlainTextReveal({
     <div
       ref={streamingMaskRef}
       class={streamingClass ? 'oh-streaming-reveal' : undefined}
-      style={{
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
-      }}
     >
-      {content}
+      <pre
+        class="whitespace-pre-wrap break-words text-sm"
+        style={{
+          margin: 0,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          font: 'inherit',
+          lineHeight: 'inherit',
+          fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+        }}
+      >
+        {content}
+      </pre>
     </div>
   );
 }
@@ -1312,7 +1319,7 @@ function MessageCardImpl({
               content={visibleContent}
               streaming
               reduceMotion={reduceMotion}
-              mono={showRawContent || style.mono === true}
+              mono={style.mono === true}
             />
           ) : (
             <StreamingMarkdownReveal
