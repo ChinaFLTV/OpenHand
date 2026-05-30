@@ -71,12 +71,11 @@ String _appendSharedSectionsIfAbsent(String instructions, String templateId) {
   if (templateId == 'machine_expert') {
     return instructions;
   }
-  final sections = <({String tag, String assetPath})>[
+  const sections = <({String tag, String assetPath})>[
     (tag: 'identity', assetPath: 'assets/prompts/_shared/identity.md'),
     (tag: 'refusal_handling', assetPath: 'assets/prompts/_shared/refusal.md'),
     (tag: 'tone_and_formatting', assetPath: 'assets/prompts/_shared/tone.md'),
-    if (templateId != 'hermes_talker')
-      (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
+    (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
   ];
   var output = instructions.trimRight();
   for (final section in sections) {
@@ -94,6 +93,8 @@ bool _hasV4DisciplineMarker(String instructions) {
   const headingPatterns = <String>[
     'atomic change discipline',
     'uncertainty honesty',
+    '通用纪律',
+    '不确定性诚实',
   ];
   for (final heading in headingPatterns) {
     if (RegExp(
@@ -106,7 +107,8 @@ bool _hasV4DisciplineMarker(String instructions) {
   }
   final lower = instructions.toLowerCase();
   return lower.contains('<atomic_change_discipline>') ||
-      lower.contains('<uncertainty_honesty>');
+      lower.contains('<uncertainty_honesty>') ||
+      lower.contains('<universal_discipline>');
 }
 
 String _appendV4DisciplineIfAbsent(String instructions) {

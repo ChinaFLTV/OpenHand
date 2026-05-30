@@ -421,7 +421,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     var stableFrames = 0;
     var mainLoopFinished = false;
 
-    void _scheduleLateSettle() {
+    void scheduleLateSettle() {
       if (mainLoopFinished) return;
       mainLoopFinished = true;
       // 两段延迟 settle：600ms 覆盖 JS 100ms+300ms 测量 → AnimatedSize 280ms
@@ -448,7 +448,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     void scheduleNext(int remaining) {
       if (remaining <= 0) {
-        _scheduleLateSettle();
+        scheduleLateSettle();
         return;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -466,7 +466,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           return;
         }
         if (position.userScrollDirection != ScrollDirection.idle) {
-          _scheduleLateSettle();
+          scheduleLateSettle();
           return;
         }
         // 不再因 pixels 偏离上次 jumpTo 目标而中止循环。
@@ -487,7 +487,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (distance < 0.5) {
           stableFrames += 1;
           if (stableFrames >= 2) {
-            _scheduleLateSettle();
+            scheduleLateSettle();
             return;
           }
         } else {

@@ -270,6 +270,8 @@ class AiPromptTemplateRepository {
     const headingPatterns = <String>[
       'atomic change discipline',
       'uncertainty honesty',
+      '通用纪律',
+      '不确定性诚实',
     ];
     for (final heading in headingPatterns) {
       if (RegExp(
@@ -283,6 +285,7 @@ class AiPromptTemplateRepository {
     const xmlTags = <String>[
       '<atomic_change_discipline>',
       '<uncertainty_honesty>',
+      '<universal_discipline>',
     ];
     final lower = instructions.toLowerCase();
     for (final tag in xmlTags) {

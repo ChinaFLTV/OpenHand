@@ -73,6 +73,79 @@ void main() {
       expect(bundle.systemInstructions, isNot(contains('<identity>identity</identity>')));
     });
 
+    test('does not append shared sections that already exist in source', () async {
+      final repository = AiPromptTemplateRepository(
+        loader: (path) async {
+          if (path.endsWith('system_instructions.md')) {
+            return [
+              '<identity>base identity</identity>',
+              '<workflow>base workflow</workflow>',
+            ].join('\n\n');
+          }
+          if (path.endsWith('developer_instructions.md')) {
+            return 'developer';
+          }
+          if (path.endsWith('compression_summary_instructions.md')) {
+            return 'compression';
+          }
+          if (path.endsWith('_shared/identity.md')) {
+            return '<identity>shared identity</identity>';
+          }
+          if (path.endsWith('_shared/workflow.md')) {
+            return '<workflow>shared workflow</workflow>';
+          }
+          if (path.endsWith('v4_discipline_en.md')) {
+            return '## Atomic Change Discipline\nrule';
+          }
+          return '';
+        },
+      );
+
+      final bundle = await repository.loadBundle('default');
+      expect(
+        RegExp('<identity>', caseSensitive: false)
+            .allMatches(bundle.systemInstructions)
+            .length,
+        1,
+      );
+      expect(
+        RegExp('<workflow>', caseSensitive: false)
+            .allMatches(bundle.systemInstructions)
+            .length,
+        1,
+      );
+      expect(bundle.systemInstructions, contains('base workflow'));
+    });
+
+    test('does not append v4 discipline when universal discipline tag exists', () async {
+      final repository = AiPromptTemplateRepository(
+        loader: (path) async {
+          if (path.endsWith('system_instructions.md')) {
+            return '<identity>base</identity>\n\n<universal_discipline>built in</universal_discipline>';
+          }
+          if (path.endsWith('developer_instructions.md')) {
+            return 'developer';
+          }
+          if (path.endsWith('compression_summary_instructions.md')) {
+            return 'compression';
+          }
+          if (path.endsWith('v4_discipline_zh.md')) {
+            return '<uncertainty_honesty>discipline</uncertainty_honesty>';
+          }
+          return '';
+        },
+      );
+
+      final bundle = await repository.loadBundle('machine_expert');
+      expect(
+        RegExp('<uncertainty_honesty>', caseSensitive: false)
+            .allMatches(bundle.systemInstructions)
+            .length,
+        0,
+      );
+      expect(bundle.systemInstructions, contains('<universal_discipline>'));
+    });
+
     test('appends v4 discipline when markers are absent', () async {
       final repository = AiPromptTemplateRepository(
         loader: (path) async {

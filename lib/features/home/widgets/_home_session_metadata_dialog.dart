@@ -2010,6 +2010,12 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
         : l10n.sessMetaCacheHitFormulaClaude;
 
     final altColor = colorScheme.tertiary;
+    final ttlLabel = _localizedText(context, zh: 'TTL', en: 'TTL');
+    final driftLabel = _localizedText(
+      context,
+      zh: '前缀漂移',
+      en: 'Prefix drift',
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2078,12 +2084,12 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
               _CacheHitDiagnosisChip(
                 color: colorScheme.secondary,
                 label:
-                    'TTL×${widget.trend.points.where((p) => p.ttlSuspected).length}',
+                    '$ttlLabel × ${widget.trend.points.where((p) => p.ttlSuspected).length}',
               ),
               _CacheHitDiagnosisChip(
                 color: colorScheme.error,
                 label:
-                    'Drift×${widget.trend.points.where((p) => p.prefixDriftSuspected).length}',
+                    '$driftLabel × ${widget.trend.points.where((p) => p.prefixDriftSuspected).length}',
               ),
             ],
           ),
@@ -2135,9 +2141,9 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                       ..write(pct(av));
                   }
                   if (point.ttlSuspected) {
-                    label.write('  TTL');
+                    label.write('  $ttlLabel');
                   } else if (point.prefixDriftSuspected) {
-                    label.write('  Prefix drift');
+                    label.write('  $driftLabel');
                   }
                   tooltipChildren.add(
                     Positioned(
