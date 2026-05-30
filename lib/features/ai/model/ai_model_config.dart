@@ -166,6 +166,7 @@ class AiModelProfile {
     this.maxSummaryLength,
     this.maxOutputLength,
     this.maxThinkingLength,
+    this.requiresReasoningEcho,
     this.capabilities = const <AiModelCapability>{},
     this.supportsAttachments,
     this.inputUsdPer1M,
@@ -184,6 +185,7 @@ class AiModelProfile {
       maxSummaryLength: _readNullablePositiveInt(json['max_summary_length']),
       maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
       maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
+      requiresReasoningEcho: json['requires_reasoning_echo'] as bool?,
       capabilities: _parseCapabilities(json['capabilities']),
       supportsAttachments: json['supports_attachments'] as bool?,
       inputUsdPer1M: _readNullableNonNegativeDouble(json['input_usd_per_1m']),
@@ -215,6 +217,10 @@ class AiModelProfile {
   final int? maxOutputLength;
   final int? maxThinkingLength;
 
+  /// Whether follow-up requests must echo prior reasoning_content. When null,
+  /// the runtime falls back to provider/model-name heuristics.
+  final bool? requiresReasoningEcho;
+
   /// Creative capabilities this model supports. Empty set = use defaults.
   final Set<AiModelCapability> capabilities;
 
@@ -245,6 +251,7 @@ class AiModelProfile {
       maxSummaryLength != null ||
       maxOutputLength != null ||
       maxThinkingLength != null ||
+      requiresReasoningEcho != null ||
       capabilities.isNotEmpty ||
       supportsAttachments != null ||
       inputUsdPer1M != null ||
@@ -268,6 +275,8 @@ class AiModelProfile {
     bool clearMaxOutputLength = false,
     int? maxThinkingLength,
     bool clearMaxThinkingLength = false,
+    bool? requiresReasoningEcho,
+    bool clearRequiresReasoningEcho = false,
     Set<AiModelCapability>? capabilities,
     bool? supportsAttachments,
     bool clearSupportsAttachments = false,
@@ -299,6 +308,9 @@ class AiModelProfile {
       maxThinkingLength: clearMaxThinkingLength
           ? null
           : maxThinkingLength ?? this.maxThinkingLength,
+      requiresReasoningEcho: clearRequiresReasoningEcho
+          ? null
+          : requiresReasoningEcho ?? this.requiresReasoningEcho,
       capabilities: capabilities ?? this.capabilities,
       supportsAttachments: clearSupportsAttachments
           ? null
@@ -331,6 +343,8 @@ class AiModelProfile {
       if (maxSummaryLength != null) 'max_summary_length': maxSummaryLength,
       if (maxOutputLength != null) 'max_output_length': maxOutputLength,
       if (maxThinkingLength != null) 'max_thinking_length': maxThinkingLength,
+      if (requiresReasoningEcho != null)
+        'requires_reasoning_echo': requiresReasoningEcho,
       if (capabilities.isNotEmpty)
         'capabilities': capabilities
             .map((c) => c.storageValue)
@@ -510,6 +524,22 @@ class AiModelConfig {
       return true;
     }
     return true;
+  }
+
+  bool get requiresReasoningEcho {
+    final profile = profileFor(modelId);
+    final explicit = profile.requiresReasoningEcho;
+    if (explicit != null) {
+      return explicit;
+    }
+    final normalizedModelId = modelId.trim().toLowerCase();
+    if (normalizedModelId.isEmpty) {
+      return false;
+    }
+    return normalizedModelId.startsWith('deepseek-reasoner') ||
+        normalizedModelId.startsWith('deepseek-r1') ||
+        normalizedModelId.startsWith('deepseek-v4-pro') ||
+        normalizedModelId == 'deepseek-v4';
   }
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);

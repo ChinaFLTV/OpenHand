@@ -1899,6 +1899,7 @@ $identity''';
     required int preTurnHistoryCount,
     String? latestUserMessageIdForInlineAttachments,
   }) {
+    final shouldEchoReasoning = model.requiresReasoningEcho;
     final turns = <AiChatTurn>[];
     var index = 0;
     String? roundReasoning;
@@ -1928,17 +1929,15 @@ $identity''';
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
-        // A new reasoning block starts a new "thinking round". Buffer it
-        // and attach to every assistant / toolCall turn that follows
-        // until either the next reasoning block or the next user message
-        // closes the round. This is required by thinking-mode gateways
-        // (e.g. `deepseek-v4-pro`) that reject follow-up requests when
-        // the prior chain-of-thought is dropped from any assistant
-        // message in the round (content message AND tool_calls message
-        // both need it because we split a single API response into two
-        // session entries).
+        // A new reasoning block starts a new "thinking round". Only buffer
+        // it for models that truly require reasoning echo on follow-up
+        // requests; otherwise the first post-response turn would suddenly gain
+        // a brand-new `reasoning_content` field, breaking second-turn prefix
+        // cache continuity for optional-thinking chat models.
         final trimmed = message.content.trim();
-        roundReasoning = trimmed.isEmpty ? null : trimmed;
+        roundReasoning = shouldEchoReasoning && trimmed.isNotEmpty
+            ? trimmed
+            : null;
         index += 1;
         continue;
       }
