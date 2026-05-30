@@ -997,7 +997,8 @@ function MessageCardImpl({
       (isAssistantResponseMessage(message) || message.kind === 'reasoning'),
     12000,
   );
-  const streamingContent = streaming || asBool(metadata['streaming']) || recentlyUpdatedContent;
+  const activelyStreaming = streaming || asBool(metadata['streaming']);
+  const streamingContent = activelyStreaming || recentlyUpdatedContent;
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
   // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
   //
@@ -1138,7 +1139,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const usePlainTextStreamingReveal = streamingContent && isAssistantResponseMessage(message);
+  const usePlainTextStreamingReveal = activelyStreaming && isAssistantResponseMessage(message);
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 流式期间禁用高度动画：WAAPI 在 260-420ms 内对高度做 overshoot 关键帧并
   // 同时 `overflow: clip`。流式每 ~48 字符 / 换行就重算 signal 触发新一轮动画，
