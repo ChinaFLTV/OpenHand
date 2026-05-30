@@ -762,7 +762,7 @@ class AiModelConfig {
   /// Resolution order:
   /// 1. Explicit user override on the per-model profile (`supportsAttachments`).
   /// 2. Heuristic: `isMultimodal == true` or the resolved supported modalities
-  ///    include [AiModelModality.image].
+  ///    include [AiModelModality.image] / [AiModelModality.file].
   /// 3. Default `true` — most providers can accept text-style attachments
   ///    (PDF, code, spreadsheets) inlined into the prompt regardless of
   ///    vision capability; image attachments will simply be rejected by the
@@ -772,7 +772,8 @@ class AiModelConfig {
     final explicit = profile.supportsAttachments;
     if (explicit != null) return explicit;
     if (profile.isMultimodal == true) return true;
-    if (profile.supportedModalities.contains(AiModelModality.image)) {
+    if (profile.supportedModalities.contains(AiModelModality.image) ||
+        profile.supportedModalities.contains(AiModelModality.file)) {
       return true;
     }
     return true;

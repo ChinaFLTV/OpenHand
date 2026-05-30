@@ -96,5 +96,26 @@ void main() {
       expect(profile.supportedParameters, isNotEmpty);
       expect(profile.links, isNotNull);
     });
+
+    test('file modality implies attachment support', () {
+      const model = AiModelConfig(
+        id: 'provider-file',
+        baseUrl: 'https://example.com',
+        authScheme: AiAuthScheme.bearer,
+        token: 'token',
+        modelId: 'custom/file-model',
+        protocolType: AiProtocolType.openai,
+        modelProfiles: <String, AiModelProfile>{
+          'custom/file-model': AiModelProfile(
+            supportedModalities: <AiModelModality>{
+              AiModelModality.text,
+              AiModelModality.file,
+            },
+          ),
+        },
+      );
+
+      expect(model.resolvedSupportsAttachments, isTrue);
+    });
   });
 }
