@@ -1682,6 +1682,40 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                title: _buildSectionHeader('OpenRouter Raw Metadata'),
+                subtitle: Text(
+                  'id / canonical_slug / hugging_face_id / created / architecture / supported_parameters / default_parameters / supported_voices / knowledge_cutoff / expiration_date / links',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                children: [
+                  const SizedBox(height: 8),
+                  SelectionArea(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _buildReadonlyOpenRouterMetadata(
+                          widget.modelId,
+                          widget.initialProfile,
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1701,6 +1735,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ),
       ],
     );
+  }
+
+  String _buildReadonlyOpenRouterMetadata(
+    String modelId,
+    AiModelProfile profile,
+  ) {
+    final map = <String, Object?>{
+      'id': modelId,
+      'canonical_slug': profile.canonicalSlug,
+      'hugging_face_id': profile.huggingFaceId,
+      'created': profile.created,
+      'architecture': profile.architecture?.toJson(),
+      'supported_parameters': profile.supportedParameters,
+      'default_parameters': profile.defaultParameters,
+      'supported_voices': profile.supportedVoices,
+      'knowledge_cutoff': profile.knowledgeCutoff,
+      'expiration_date': profile.expirationDate,
+      'links': profile.links?.toJson(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(map);
   }
 
   Widget _buildSectionHeader(String text) {

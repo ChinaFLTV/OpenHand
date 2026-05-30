@@ -3,6 +3,73 @@ import 'dart:convert';
 import '../../../l10n/app_localizations.dart';
 import 'ai_model_catalog.dart';
 
+List<String> _parseStringListLoose(Object? value) {
+  if (value is! List) return const <String>[];
+  return value
+      .map((item) => '$item'.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+class AiModelArchitectureMetadata {
+  const AiModelArchitectureMetadata({
+    this.modality,
+    this.inputModalities = const <String>[],
+    this.outputModalities = const <String>[],
+    this.tokenizer,
+    this.instructType,
+  });
+
+  factory AiModelArchitectureMetadata.fromJson(Map<String, Object?> json) {
+    return AiModelArchitectureMetadata(
+      modality: json['modality'] as String?,
+      inputModalities: _parseStringListLoose(json['input_modalities']),
+      outputModalities: _parseStringListLoose(json['output_modalities']),
+      tokenizer: json['tokenizer'] as String?,
+      instructType: json['instruct_type'] as String?,
+    );
+  }
+
+  final String? modality;
+  final List<String> inputModalities;
+  final List<String> outputModalities;
+  final String? tokenizer;
+  final String? instructType;
+
+  bool get isEmpty =>
+      modality == null &&
+      inputModalities.isEmpty &&
+      outputModalities.isEmpty &&
+      tokenizer == null &&
+      instructType == null;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (modality != null) 'modality': modality,
+      if (inputModalities.isNotEmpty) 'input_modalities': inputModalities,
+      if (outputModalities.isNotEmpty) 'output_modalities': outputModalities,
+      if (tokenizer != null) 'tokenizer': tokenizer,
+      if (instructType != null) 'instruct_type': instructType,
+    };
+  }
+}
+
+class AiModelLinksMetadata {
+  const AiModelLinksMetadata({this.details});
+
+  factory AiModelLinksMetadata.fromJson(Map<String, Object?> json) {
+    return AiModelLinksMetadata(details: json['details'] as String?);
+  }
+
+  final String? details;
+
+  bool get isEmpty => details == null || details!.trim().isEmpty;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{if (details != null) 'details': details};
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,6 +241,16 @@ class AiModelProfile {
     this.outputUsdPer1M,
     this.cacheReadUsdPer1M,
     this.cacheWriteUsdPer1M,
+    this.canonicalSlug,
+    this.huggingFaceId,
+    this.created,
+    this.architecture,
+    this.supportedParameters = const <String>[],
+    this.defaultParameters = const <String, Object?>{},
+    this.supportedVoices = const <String>[],
+    this.knowledgeCutoff,
+    this.expirationDate,
+    this.links,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -197,6 +274,30 @@ class AiModelProfile {
       cacheWriteUsdPer1M: _readNullableNonNegativeDouble(
         json['cache_write_usd_per_1m'],
       ),
+      canonicalSlug: json['canonical_slug'] as String?,
+      huggingFaceId: json['hugging_face_id'] as String?,
+      created: _readNullableInt(json['created']),
+      architecture: json['architecture'] is Map<String, Object?>
+          ? AiModelArchitectureMetadata.fromJson(
+              json['architecture'] as Map<String, Object?>,
+            )
+          : json['architecture'] is Map
+          ? AiModelArchitectureMetadata.fromJson(
+              Map<String, Object?>.from(json['architecture'] as Map),
+            )
+          : null,
+      supportedParameters: _parseStringList(json['supported_parameters']),
+      defaultParameters: _parseObjectMap(json['default_parameters']),
+      supportedVoices: _parseStringList(json['supported_voices']),
+      knowledgeCutoff: json['knowledge_cutoff'] as String?,
+      expirationDate: json['expiration_date'] as String?,
+      links: json['links'] is Map<String, Object?>
+          ? AiModelLinksMetadata.fromJson(json['links'] as Map<String, Object?>)
+          : json['links'] is Map
+          ? AiModelLinksMetadata.fromJson(
+              Map<String, Object?>.from(json['links'] as Map),
+            )
+          : null,
     );
   }
 
@@ -242,6 +343,18 @@ class AiModelProfile {
   /// 缓存创建写入价（一般为输入价的 1.25）。
   final double? cacheWriteUsdPer1M;
 
+  /// OpenRouter raw fields mirrored 1:1 where available.
+  final String? canonicalSlug;
+  final String? huggingFaceId;
+  final int? created;
+  final AiModelArchitectureMetadata? architecture;
+  final List<String> supportedParameters;
+  final Map<String, Object?> defaultParameters;
+  final List<String> supportedVoices;
+  final String? knowledgeCutoff;
+  final String? expirationDate;
+  final AiModelLinksMetadata? links;
+
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
       displayName != null ||
@@ -258,7 +371,17 @@ class AiModelProfile {
       inputUsdPer1M != null ||
       outputUsdPer1M != null ||
       cacheReadUsdPer1M != null ||
-      cacheWriteUsdPer1M != null;
+      cacheWriteUsdPer1M != null ||
+      canonicalSlug != null ||
+      huggingFaceId != null ||
+      created != null ||
+      architecture != null ||
+      supportedParameters.isNotEmpty ||
+      defaultParameters.isNotEmpty ||
+      supportedVoices.isNotEmpty ||
+      knowledgeCutoff != null ||
+      expirationDate != null ||
+      links != null;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -289,6 +412,23 @@ class AiModelProfile {
     bool clearCacheReadUsdPer1M = false,
     double? cacheWriteUsdPer1M,
     bool clearCacheWriteUsdPer1M = false,
+    String? canonicalSlug,
+    bool clearCanonicalSlug = false,
+    String? huggingFaceId,
+    bool clearHuggingFaceId = false,
+    int? created,
+    bool clearCreated = false,
+    AiModelArchitectureMetadata? architecture,
+    bool clearArchitecture = false,
+    List<String>? supportedParameters,
+    Map<String, Object?>? defaultParameters,
+    List<String>? supportedVoices,
+    String? knowledgeCutoff,
+    bool clearKnowledgeCutoff = false,
+    String? expirationDate,
+    bool clearExpirationDate = false,
+    AiModelLinksMetadata? links,
+    bool clearLinks = false,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -328,6 +468,26 @@ class AiModelProfile {
       cacheWriteUsdPer1M: clearCacheWriteUsdPer1M
           ? null
           : cacheWriteUsdPer1M ?? this.cacheWriteUsdPer1M,
+      canonicalSlug: clearCanonicalSlug
+          ? null
+          : canonicalSlug ?? this.canonicalSlug,
+      huggingFaceId: clearHuggingFaceId
+          ? null
+          : huggingFaceId ?? this.huggingFaceId,
+      created: clearCreated ? null : created ?? this.created,
+      architecture: clearArchitecture
+          ? null
+          : architecture ?? this.architecture,
+      supportedParameters: supportedParameters ?? this.supportedParameters,
+      defaultParameters: defaultParameters ?? this.defaultParameters,
+      supportedVoices: supportedVoices ?? this.supportedVoices,
+      knowledgeCutoff: clearKnowledgeCutoff
+          ? null
+          : knowledgeCutoff ?? this.knowledgeCutoff,
+      expirationDate: clearExpirationDate
+          ? null
+          : expirationDate ?? this.expirationDate,
+      links: clearLinks ? null : links ?? this.links,
     );
   }
 
@@ -357,6 +517,18 @@ class AiModelProfile {
       if (cacheReadUsdPer1M != null) 'cache_read_usd_per_1m': cacheReadUsdPer1M,
       if (cacheWriteUsdPer1M != null)
         'cache_write_usd_per_1m': cacheWriteUsdPer1M,
+      if (canonicalSlug != null) 'canonical_slug': canonicalSlug,
+      if (huggingFaceId != null) 'hugging_face_id': huggingFaceId,
+      if (created != null) 'created': created,
+      if (architecture != null && !architecture!.isEmpty)
+        'architecture': architecture!.toJson(),
+      if (supportedParameters.isNotEmpty)
+        'supported_parameters': supportedParameters,
+      if (defaultParameters.isNotEmpty) 'default_parameters': defaultParameters,
+      if (supportedVoices.isNotEmpty) 'supported_voices': supportedVoices,
+      if (knowledgeCutoff != null) 'knowledge_cutoff': knowledgeCutoff,
+      if (expirationDate != null) 'expiration_date': expirationDate,
+      if (links != null && !links!.isEmpty) 'links': links!.toJson(),
     };
   }
 
@@ -378,6 +550,31 @@ class AiModelProfile {
       if (c != null) result.add(c);
     }
     return result;
+  }
+
+  static List<String> _parseStringList(Object? value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map((item) => '$item'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  static Map<String, Object?> _parseObjectMap(Object? value) {
+    if (value is Map<String, Object?>) {
+      return Map<String, Object?>.from(value);
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return const <String, Object?>{};
+  }
+
+  static int? _readNullableInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse('${value ?? ''}'.trim());
+    return parsed;
   }
 
   static int? _readNullablePositiveInt(Object? value) {
@@ -540,6 +737,22 @@ class AiModelConfig {
       outputUsdPer1M: override.outputUsdPer1M,
       cacheReadUsdPer1M: override.cacheReadUsdPer1M,
       cacheWriteUsdPer1M: override.cacheWriteUsdPer1M,
+      canonicalSlug: override.canonicalSlug,
+      huggingFaceId: override.huggingFaceId,
+      created: override.created,
+      architecture: override.architecture,
+      supportedParameters: override.supportedParameters.isNotEmpty
+          ? override.supportedParameters
+          : catalog.supportedParameters,
+      defaultParameters: override.defaultParameters.isNotEmpty
+          ? override.defaultParameters
+          : catalog.defaultParameters,
+      supportedVoices: override.supportedVoices.isNotEmpty
+          ? override.supportedVoices
+          : catalog.supportedVoices,
+      knowledgeCutoff: override.knowledgeCutoff,
+      expirationDate: override.expirationDate,
+      links: override.links,
     );
   }
 
