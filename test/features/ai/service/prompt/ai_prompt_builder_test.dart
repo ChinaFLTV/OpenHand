@@ -386,5 +386,38 @@ void main() {
       );
       expect(assistantTurn.reasoningContent, 'required reasoning echo');
     });
+
+    test('catalog defaults now participate in profile resolution', () {
+      const model = AiModelConfig(
+        id: 'provider-4',
+        baseUrl: 'https://example.com',
+        authScheme: AiAuthScheme.bearer,
+        token: 'token',
+        modelId: 'deepseek-v4-pro',
+        protocolType: AiProtocolType.deepseek,
+      );
+
+      final profile = model.profileFor(model.modelId);
+      expect(profile.requiresReasoningEcho, isTrue);
+      expect(profile.inputUsdPer1M, isNotNull);
+      expect(profile.outputUsdPer1M, isNotNull);
+    });
+
+    test('user override beats catalog default for reasoning echo', () {
+      const model = AiModelConfig(
+        id: 'provider-5',
+        baseUrl: 'https://example.com',
+        authScheme: AiAuthScheme.bearer,
+        token: 'token',
+        modelId: 'deepseek-v4-pro',
+        protocolType: AiProtocolType.deepseek,
+        modelProfiles: <String, AiModelProfile>{
+          'deepseek-v4-pro': AiModelProfile(requiresReasoningEcho: false),
+        },
+      );
+
+      expect(model.requiresReasoningEcho, isFalse);
+      expect(model.profileFor(model.modelId).inputUsdPer1M, isNotNull);
+    });
   });
 }

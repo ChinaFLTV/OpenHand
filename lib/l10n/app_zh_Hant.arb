@@ -1453,6 +1453,8 @@
   "mdlEdYes": "是",
   "mdlEdNo": "否",
   "mdlEdSupportsAttachments": "支持附件",
+  "mdlEdReasoningEcho": "攜帶思考內容回響",
+  "mdlEdReasoningEchoHint": "控制該模型是否把先前輪次的思考/推理內容回灌到後續 Prompt 歷史中。",
   "mdlEdSupportedModalities": "支持的模态",
   "mdlEdText": "文本",
   "mdlEdImage": "图片生成",

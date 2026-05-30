@@ -3236,6 +3236,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mdlEdSupportsAttachments => 'Unterstützt Anhänge';
 
   @override
+  String get mdlEdReasoningEcho => '携带思考内容回响';
+
+  @override
+  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+
+  @override
   String get mdlEdSupportedModalities => 'Unterstützte Modalitäten';
 
   @override

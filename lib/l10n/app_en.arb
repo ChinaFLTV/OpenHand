@@ -1453,6 +1453,8 @@
   "mdlEdYes": "Yes",
   "mdlEdNo": "No",
   "mdlEdSupportsAttachments": "Supports Attachments",
+  "mdlEdReasoningEcho": "Include Reasoning History",
+  "mdlEdReasoningEchoHint": "Controls whether prior thinking/reasoning content is echoed back into future prompt history for this model.",
   "mdlEdSupportedModalities": "Supported Modalities",
   "mdlEdText": "Text",
   "mdlEdImage": "Image",

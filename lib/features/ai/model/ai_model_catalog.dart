@@ -112,22 +112,36 @@ class AiModelCatalog {
     required String name,
     String? desc,
     bool multimodal = false,
+    bool? supportsAttachments,
+    bool? requiresReasoningEcho,
     Set<AiModelModality> modalities = const <AiModelModality>{
       AiModelModality.text,
     },
     int? context,
+    int? summary,
     int? output,
     int? thinking,
+    double? inputUsdPer1M,
+    double? outputUsdPer1M,
+    double? cacheReadUsdPer1M,
+    double? cacheWriteUsdPer1M,
     Set<AiModelCapability> capabilities = const <AiModelCapability>{},
   }) {
     return AiModelProfile(
       displayName: name,
       description: desc,
       isMultimodal: multimodal,
+      supportsAttachments: supportsAttachments,
+      requiresReasoningEcho: requiresReasoningEcho,
       supportedModalities: modalities,
       maxContextLength: context,
+      maxSummaryLength: summary,
       maxOutputLength: output,
       maxThinkingLength: thinking,
+      inputUsdPer1M: inputUsdPer1M,
+      outputUsdPer1M: outputUsdPer1M,
+      cacheReadUsdPer1M: cacheReadUsdPer1M,
+      cacheWriteUsdPer1M: cacheWriteUsdPer1M,
       capabilities: capabilities,
     );
   }
@@ -166,12 +180,16 @@ class AiModelCatalog {
     if (id.startsWith('o4-mini')) {
       return _p(
         name: 'o4-mini',
-        desc: 'Efficient reasoning with vision',
+        desc: '高效推理模型，支持视觉输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 200000,
         output: 100000,
         thinking: 100000,
+        inputUsdPer1M: 1.10,
+        outputUsdPer1M: 4.40,
+        cacheReadUsdPer1M: 0.275,
       );
     }
     if (id.startsWith('o3-mini')) {
@@ -186,12 +204,16 @@ class AiModelCatalog {
     if (id.startsWith('o3')) {
       return _p(
         name: 'o3',
-        desc: 'Advanced reasoning with vision',
+        desc: '高级推理模型，支持视觉输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 200000,
         output: 100000,
         thinking: 100000,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 8.00,
+        cacheReadUsdPer1M: 0.50,
       );
     }
     if (id.startsWith('o1-pro')) {
@@ -288,11 +310,15 @@ class AiModelCatalog {
     if (id.startsWith('gpt-4.1')) {
       return _p(
         name: 'GPT-4.1',
-        desc: 'Flagship with 1M context and vision',
+        desc: '旗舰通用模型，支持 1M 上下文与视觉输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 1000000,
         output: 32768,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 8.00,
+        cacheReadUsdPer1M: 0.50,
       );
     }
 
@@ -373,12 +399,15 @@ class AiModelCatalog {
     if (id.contains('sonnet-4-6') || id.contains('4.6-sonnet')) {
       return _p(
         name: 'Claude Sonnet 4.6',
-        desc: 'High-performance Claude model with extended thinking',
+        desc: '高性能 Claude 模型，支持 1M 上下文、扩展思考与视觉输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 1000000,
         output: 64000,
         thinking: 64000,
+        inputUsdPer1M: 3.00,
+        outputUsdPer1M: 15.00,
       );
     }
     if (id.contains('haiku-4-5') || id.contains('4.5-haiku')) {
@@ -407,12 +436,15 @@ class AiModelCatalog {
     if (id.startsWith('claude-4-sonnet') || id.startsWith('claude-sonnet-4')) {
       return _p(
         name: 'Claude 4 Sonnet',
-        desc: 'High-performance with extended thinking',
+        desc: '高性能通用模型，支持扩展思考与视觉输入。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 200000,
         output: 64000,
         thinking: 128000,
+        inputUsdPer1M: 3.00,
+        outputUsdPer1M: 15.00,
       );
     }
 
@@ -495,12 +527,15 @@ class AiModelCatalog {
     if (id.startsWith('gemini-2.5-pro')) {
       return _p(
         name: 'Gemini 2.5 Pro',
-        desc: 'Most capable Gemini with full multimodal and thinking',
+        desc: 'Gemini 旗舰模型，支持完整多模态、长上下文与思考能力。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _allModalities,
         context: 1048576,
         output: 65536,
         thinking: 65536,
+        inputUsdPer1M: 1.25,
+        outputUsdPer1M: 10.00,
       );
     }
     if (id.startsWith('gemini-2.5-flash-lite')) {
@@ -516,12 +551,15 @@ class AiModelCatalog {
     if (id.startsWith('gemini-2.5-flash')) {
       return _p(
         name: 'Gemini 2.5 Flash',
-        desc: 'Fast multimodal with thinking',
+        desc: '高性价比多模态模型，支持思考能力与 1M 上下文。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _allModalities,
         context: 1048576,
         output: 65536,
         thinking: 65536,
+        inputUsdPer1M: 0.30,
+        outputUsdPer1M: 2.50,
       );
     }
 
@@ -586,10 +624,15 @@ class AiModelCatalog {
     if (id.startsWith('deepseek-v4-flash')) {
       return _p(
         name: 'DeepSeek V4 Flash',
-        desc: 'Fast latest-generation model with optional thinking',
+        desc: '新一代高速模型，支持可选思考模式与超长上下文。',
+        supportsAttachments: false,
+        requiresReasoningEcho: false,
         context: 1000000,
         output: 384000,
         thinking: 384000,
+        inputUsdPer1M: 0.14,
+        outputUsdPer1M: 0.28,
+        cacheReadUsdPer1M: 0.0028,
       );
     }
     if (id.startsWith('deepseek-v4-pro') || id.startsWith('deepseek-v4')) {
@@ -597,10 +640,15 @@ class AiModelCatalog {
         name: id.startsWith('deepseek-v4-pro')
             ? 'DeepSeek V4 Pro'
             : 'DeepSeek V4',
-        desc: 'Latest DeepSeek model with long context and thinking mode',
+        desc: 'DeepSeek 新旗舰模型，支持长上下文与思考模式。',
+        supportsAttachments: false,
+        requiresReasoningEcho: true,
         context: 1000000,
         output: 384000,
         thinking: 384000,
+        inputUsdPer1M: 0.435,
+        outputUsdPer1M: 0.87,
+        cacheReadUsdPer1M: 0.003625,
       );
     }
 
@@ -621,7 +669,9 @@ class AiModelCatalog {
         name: id.startsWith('deepseek-reasoner')
             ? 'DeepSeek Reasoner'
             : 'DeepSeek R1',
-        desc: 'Deep thinking model',
+        desc: '深度推理模型，适合复杂思考任务。',
+        supportsAttachments: false,
+        requiresReasoningEcho: true,
         context: 131072,
         output: 65536,
         thinking: 32768,
@@ -1492,11 +1542,15 @@ class AiModelCatalog {
     if (id.startsWith('grok-3')) {
       return _p(
         name: 'Grok-3',
-        desc: 'Flagship with vision and reasoning',
+        desc: 'Grok 旗舰模型别名，当前通常解析到更新的 Grok 4.3 系列。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
-        context: 131072,
+        context: 1000000,
         output: 16384,
+        inputUsdPer1M: 1.25,
+        outputUsdPer1M: 2.50,
+        cacheReadUsdPer1M: 0.20,
       );
     }
     if (id.contains('vision')) {

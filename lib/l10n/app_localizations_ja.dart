@@ -3074,6 +3074,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mdlEdSupportsAttachments => '添付ファイル対応';
 
   @override
+  String get mdlEdReasoningEcho => '携带思考内容回响';
+
+  @override
+  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+
+  @override
   String get mdlEdSupportedModalities => '対応モダリティ';
 
   @override

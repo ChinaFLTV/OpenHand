@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../l10n/app_localizations.dart';
+import 'ai_model_catalog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
@@ -500,9 +501,46 @@ class AiModelConfig {
   /// Overrides hardcoded heuristics for vision detection, capabilities, etc.
   final Map<String, AiModelProfile> modelProfiles;
 
-  /// Returns the [AiModelProfile] for the given [id], or an empty default.
+  /// Returns the effective [AiModelProfile] for the given [id].
+  ///
+  /// Resolution order:
+  /// 1. User-saved per-model overrides from [modelProfiles]
+  /// 2. Built-in catalog defaults from [AiModelCatalog]
+  /// 3. Empty profile when neither exists
+  ///
+  /// When both (1) and (2) exist, the user profile wins field-by-field while
+  /// leaving catalog defaults in place for any fields the user did not set.
   AiModelProfile profileFor(String id) {
-    return modelProfiles[id.trim()] ?? const AiModelProfile();
+    final trimmedId = id.trim();
+    final override = modelProfiles[trimmedId];
+    final catalog = AiModelCatalog.lookup(trimmedId, protocolType);
+    if (override == null) {
+      return catalog ?? const AiModelProfile();
+    }
+    if (catalog == null) {
+      return override;
+    }
+    return catalog.copyWith(
+      displayName: override.displayName,
+      description: override.description,
+      isMultimodal: override.isMultimodal,
+      supportedModalities: override.supportedModalities.isNotEmpty
+          ? override.supportedModalities
+          : catalog.supportedModalities,
+      maxContextLength: override.maxContextLength,
+      maxSummaryLength: override.maxSummaryLength,
+      maxOutputLength: override.maxOutputLength,
+      maxThinkingLength: override.maxThinkingLength,
+      requiresReasoningEcho: override.requiresReasoningEcho,
+      capabilities: override.capabilities.isNotEmpty
+          ? override.capabilities
+          : catalog.capabilities,
+      supportsAttachments: override.supportsAttachments,
+      inputUsdPer1M: override.inputUsdPer1M,
+      outputUsdPer1M: override.outputUsdPer1M,
+      cacheReadUsdPer1M: override.cacheReadUsdPer1M,
+      cacheWriteUsdPer1M: override.cacheWriteUsdPer1M,
+    );
   }
 
   /// Resolves whether the *current* model accepts user-uploaded attachments.

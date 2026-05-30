@@ -3199,6 +3199,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mdlEdSupportsAttachments => 'Supports Attachments';
 
   @override
+  String get mdlEdReasoningEcho => 'Include Reasoning History';
+
+  @override
+  String get mdlEdReasoningEchoHint =>
+      'Controls whether prior thinking/reasoning content is echoed back into future prompt history for this model.';
+
+  @override
   String get mdlEdSupportedModalities => 'Supported Modalities';
 
   @override

@@ -3031,6 +3031,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdSupportsAttachments => '支持附件';
 
   @override
+  String get mdlEdReasoningEcho => '携带思考内容回响';
+
+  @override
+  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+
+  @override
   String get mdlEdSupportedModalities => '支持的模态';
 
   @override
@@ -10874,6 +10880,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mdlEdSupportsAttachments => '支持附件';
 
   @override
+  String get mdlEdReasoningEcho => '携带思考内容回响';
+
+  @override
+  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+
+  @override
   String get mdlEdSupportedModalities => '支持的模态';
 
   @override
@@ -18714,6 +18726,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mdlEdSupportsAttachments => '支持附件';
+
+  @override
+  String get mdlEdReasoningEcho => '攜帶思考內容回響';
+
+  @override
+  String get mdlEdReasoningEchoHint => '控制該模型是否把先前輪次的思考/推理內容回灌到後續 Prompt 歷史中。';
 
   @override
   String get mdlEdSupportedModalities => '支持的模态';

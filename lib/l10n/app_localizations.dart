@@ -5756,6 +5756,18 @@ abstract class AppLocalizations {
   /// **'支持附件'**
   String get mdlEdSupportsAttachments;
 
+  /// No description provided for @mdlEdReasoningEcho.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'携带思考内容回响'**
+  String get mdlEdReasoningEcho;
+
+  /// No description provided for @mdlEdReasoningEchoHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。'**
+  String get mdlEdReasoningEchoHint;
+
   /// No description provided for @mdlEdSupportedModalities.
   ///
   /// In zh_Hans, this message translates to:

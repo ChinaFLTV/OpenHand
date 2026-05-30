@@ -1130,6 +1130,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _cacheWriteUsdPer1MController;
   bool? _isMultimodal;
   bool? _supportsAttachments;
+  bool? _requiresReasoningEcho;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
 
@@ -1173,6 +1174,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       // User already configured — use their saved values.
       _isMultimodal = p.isMultimodal;
       _supportsAttachments = p.supportsAttachments;
+      _requiresReasoningEcho = p.requiresReasoningEcho;
       _supportedModalities = Set<AiModelModality>.of(p.supportedModalities);
       _capabilities = Set<AiModelCapability>.of(p.capabilities);
     } else {
@@ -1186,6 +1188,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _descriptionController.text = catalog.description ?? '';
         _isMultimodal = catalog.isMultimodal;
         _supportsAttachments = catalog.supportsAttachments;
+        _requiresReasoningEcho = catalog.requiresReasoningEcho;
         _supportedModalities = Set<AiModelModality>.of(
           catalog.supportedModalities,
         );
@@ -1204,6 +1207,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       } else {
         _isMultimodal = null; // auto-detect
         _supportsAttachments = null; // auto-detect
+        _requiresReasoningEcho = null; // fallback to runtime heuristics
         _supportedModalities = _inferModalities();
         _capabilities = _inferCapabilities();
       }
@@ -1290,6 +1294,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       maxSummaryLength: _parsePositiveInt(_maxSummaryLengthController.text),
       maxOutputLength: _parsePositiveInt(_maxOutputLengthController.text),
       maxThinkingLength: _parsePositiveInt(_maxThinkingLengthController.text),
+      requiresReasoningEcho: _requiresReasoningEcho,
       capabilities: _capabilities,
       supportsAttachments: _supportsAttachments,
       inputUsdPer1M: _parseNonNegativeDouble(_inputUsdPer1MController.text),
@@ -1421,6 +1426,43 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     selected: _supportsAttachments == false,
                     onSelected: (_) =>
                         setState(() => _supportsAttachments = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              _buildSectionHeader(
+                AppLocalizations.of(context)!.mdlEdReasoningEcho,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppLocalizations.of(context)!.mdlEdReasoningEchoHint,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: <Widget>[
+                  ChoiceChip(
+                    label: Text(AppLocalizations.of(context)!.mdlEdAutoDetect),
+                    selected: _requiresReasoningEcho == null,
+                    onSelected: (_) =>
+                        setState(() => _requiresReasoningEcho = null),
+                  ),
+                  ChoiceChip(
+                    label: Text(AppLocalizations.of(context)!.mdlEdYes),
+                    selected: _requiresReasoningEcho == true,
+                    onSelected: (_) =>
+                        setState(() => _requiresReasoningEcho = true),
+                  ),
+                  ChoiceChip(
+                    label: Text(AppLocalizations.of(context)!.mdlEdNo),
+                    selected: _requiresReasoningEcho == false,
+                    onSelected: (_) =>
+                        setState(() => _requiresReasoningEcho = false),
                   ),
                 ],
               ),
