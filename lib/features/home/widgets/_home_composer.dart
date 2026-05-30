@@ -2,7 +2,6 @@ part of '../openhand_home_page.dart';
 
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
-    super.key,
     required this.currentSession,
     required this.liveRuntimeToolPreview,
     required this.controller,

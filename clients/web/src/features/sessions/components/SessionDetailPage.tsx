@@ -3348,11 +3348,11 @@ export function SessionDetailPage() {
     for (let index = sortedMessages.length - 1; index >= 0; index -= 1) {
       const message = sortedMessages[index];
       if (!message || !isAssistantTextLikeMessage(message)) continue;
-      if (messageMetadataStreaming(message) || stableResponseRunning) return message.id;
+      if (messageMetadataStreaming(message)) return message.id;
       break;
     }
     return null;
-  }, [sortedMessages, stableResponseRunning]);
+  }, [sortedMessages]);
 
   if (!sessionId) {
     return (
