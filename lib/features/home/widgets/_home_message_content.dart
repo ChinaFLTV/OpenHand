@@ -1650,6 +1650,30 @@ bool _cachedMarkdownImageFileExists(String path) {
 /// 直接展示原始文本，减少进入线程会话时的解析开销与卡顿。
 ///
 /// 仍保留超长消息折叠逻辑，阈值与 markdown 折叠体保持一致。
+class _StreamingAssistantTextBody extends StatelessWidget {
+  const _StreamingAssistantTextBody({
+    required this.data,
+    required this.textColor,
+    required this.backgroundColor,
+    this.style,
+  });
+
+  final String data;
+  final Color textColor;
+  final Color backgroundColor;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PlainTextMessageBody(
+      data: data.isEmpty ? ' ' : data,
+      textColor: textColor,
+      backgroundColor: backgroundColor,
+      style: style,
+    );
+  }
+}
+
 class _PlainTextMessageBody extends StatefulWidget {
   const _PlainTextMessageBody({
     required this.data,
@@ -3349,7 +3373,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     required this.collapseCharThreshold,
     required this.collapseLineThreshold,
     required this.previewMaxHeight,
-    this.isStreaming = false,
   });
 
   final String data;
@@ -3365,7 +3388,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final int collapseCharThreshold;
   final int collapseLineThreshold;
   final double previewMaxHeight;
-  final bool isStreaming;
 
   Widget _buildMarkdown() {
     return _CollapsibleMessageMarkdownBody(
@@ -3393,11 +3415,10 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildHtmlOrFallback() {
-    // 流式过程中，HTML DOM 尚未闭合，交给 flutter_widget_from_html_core 会因
+    // HTML DOM 尚未闭合时，交给 flutter_widget_from_html_core 会因
     // 半成品节点（孤立 <div>、未完成的 style 属性、被截断的 flex/grid 等）
-    // 在 layout 期抛 `RenderBox was not laid out`，整段气泡变空。在流尚未
-    // 结束前先用纯文本/Markdown 兜底，等 stream 完整再切到 HTML 渲染。
-    if (isStreaming || !_isHtmlStructurallyBalanced(data)) {
+    // 在 layout 期抛 `RenderBox was not laid out`，整段气泡变空。
+    if (!_isHtmlStructurallyBalanced(data)) {
       return htmlFallback == AiHtmlRenderFallback.plainText
           ? _buildPlainText()
           : _buildMarkdown();

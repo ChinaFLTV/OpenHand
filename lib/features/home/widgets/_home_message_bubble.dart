@@ -589,30 +589,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               textLength: effectiveContent.length,
                               streaming: true,
                               animateSize: false,
-                              child: _AssistantMessageBodyDispatcher(
-                                isStreaming: true,
-                                data: effectiveContent.isEmpty
-                                    ? ' '
-                                    : effectiveContent,
-                                format: resolvedMessageContentFormat,
-                                htmlFallback: context
-                                    .watch<SettingsController>()
-                                    .aiHtmlRenderFallback,
+                              child: _StreamingAssistantTextBody(
+                                data: effectiveContent,
                                 textColor: textColor,
                                 backgroundColor: backgroundColor,
-                                markdownBuilders: markdownBuilders,
-                                markdownStyleSheet:
-                                    markdownStyleSheet.styleSheet,
-                                inlineSyntaxes: inlineSyntaxes,
-                                filePathRoots: filePathRoots,
-                                filePathParseKey: filePathParseKey,
-                                collapseCharThreshold: isToolResult
-                                    ? _toolResultMarkdownCollapseCharThreshold
-                                    : _messageMarkdownCollapseCharThreshold,
-                                collapseLineThreshold: isToolResult
-                                    ? _toolResultMarkdownCollapseLineThreshold
-                                    : _messageMarkdownCollapseLineThreshold,
-                                previewMaxHeight: isToolResult ? 176 : 240,
+                                style: markdownStyleSheet.styleSheet.p,
                               ),
                             )
                           else
@@ -2737,6 +2718,12 @@ $mediaTag
     // Capture the navigator before the async pause so we don't reference
     // a possibly-stale BuildContext after the await.
     final navigator = Navigator.of(context, rootNavigator: true);
+    DialogAnimationSettings settings;
+    try {
+      settings = context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      settings = DialogAnimationSettings.defaults;
+    }
     // Pause the underlying preview before we hand control to the
     // fullscreen route so the user never hears two audio tracks at once.
     try {
@@ -2752,12 +2739,6 @@ $mediaTag
       );
     }
     if (!mounted) return;
-    DialogAnimationSettings settings;
-    try {
-      settings = context.read<SettingsController>().dialogAnimationSettings;
-    } catch (_) {
-      settings = DialogAnimationSettings.defaults;
-    }
     final returnedTime = await navigator.push<double>(
       PageRouteBuilder<double>(
         fullscreenDialog: true,
