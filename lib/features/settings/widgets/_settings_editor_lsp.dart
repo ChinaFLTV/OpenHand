@@ -626,42 +626,27 @@ extension on _SettingsViewState {
       return;
     }
 
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(
-          _localizedText(
-            dialogContext,
-            zh: '卸载 ${manifest.backendId}',
-            en: 'Uninstall ${manifest.backendId}',
-          ),
-        ),
-        content: Text(
-          _localizedText(
-            dialogContext,
-            zh: '将删除 ${OpenHandPaths.shortenHomePath(normalizedRoot)} 下的托管安装文件。若当前语言正在使用该路径，还会同步清空已保存的 LSP 路径与版本。这个操作不可撤销。',
-            en: 'This deletes the managed install under ${OpenHandPaths.shortenHomePath(normalizedRoot)}. If the current language is using that folder, the saved LSP path and version are cleared as well. This cannot be undone.',
-          ),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: AppLocalizations.of(dialogContext)!.commonCancel,
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: _localizedText(
-              dialogContext,
-              zh: '确认卸载',
-              en: 'Confirm Uninstall',
-            ),
-          ),
-        ],
+      title: _localizedText(
+        context,
+        zh: '卸载 ${manifest.backendId}',
+        en: 'Uninstall ${manifest.backendId}',
       ),
+      message: _localizedText(
+        context,
+        zh: '将删除 ${OpenHandPaths.shortenHomePath(normalizedRoot)} 下的托管安装文件。若当前语言正在使用该路径，还会同步清空已保存的 LSP 路径与版本。这个操作不可撤销。',
+        en: 'This deletes the managed install under ${OpenHandPaths.shortenHomePath(normalizedRoot)}. If the current language is using that folder, the saved LSP path and version are cleared as well. This cannot be undone.',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: _localizedText(
+        context,
+        zh: '确认卸载',
+        en: 'Confirm Uninstall',
+      ),
+      destructive: true,
     );
-    if (!context.mounted || confirmed != true) {
+    if (!context.mounted || !confirmed) {
       return;
     }
 

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_profile_cleaner.dart';
 
@@ -120,32 +119,18 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
 
   // ③ 仍有锁 → 引导用户走更激进的"重置整个 profile"。
   if (!context.mounted) return ProgressiveProfileOutcome.failed;
-  final ok = await showAnimatedDialog<bool>(
+  final ok = await showOpenHandConfirmDialog(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(
-        loc?.webReverseProfileResetTitle ??
-            'Locks still present — reset profile?',
-      ),
-      content: Text(
+    title: loc?.webReverseProfileResetTitle ??
+        'Locks still present — reset profile?',
+    message:
         loc?.webReverseProfileResetBody(userDataDir) ??
-            'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$userDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          label: loc?.commonCancel ?? 'Cancel',
-        ),
-        OpenHandDialogActionButton.destructive(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          label: loc?.webReverseProfileResetConfirm ?? 'Reset now',
-        ),
-      ],
-    ),
+        'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$userDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
+    cancelLabel: loc?.commonCancel ?? 'Cancel',
+    confirmLabel: loc?.webReverseProfileResetConfirm ?? 'Reset now',
+    destructive: true,
   );
-  if (ok != true) {
+  if (!ok) {
     toast(
       text:
           loc?.webReverseProfileKept ??

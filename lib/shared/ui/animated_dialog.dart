@@ -39,6 +39,7 @@ Future<bool> showOpenHandConfirmDialog({
   String? cancelLabel,
   String? message,
   Widget? content,
+  Widget? icon,
   bool destructive = false,
   bool barrierDismissible = true,
   bool dismissOnEscape = true,
@@ -54,6 +55,7 @@ Future<bool> showOpenHandConfirmDialog({
     builder: (dialogContext) => AlertDialog(
       actionsAlignment: MainAxisAlignment.center,
       actionsOverflowAlignment: OverflowBarAlignment.center,
+      icon: icon,
       title: Text(title),
       content: content ?? Text(message!),
       actions: <Widget>[

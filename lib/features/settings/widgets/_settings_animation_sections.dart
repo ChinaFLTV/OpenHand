@@ -25,30 +25,16 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(isZh ? '恢复默认' : 'Restore Defaults'),
           onPressed: () async {
-            final confirmed = await showAnimatedDialog<bool>(
+            final confirmed = await showOpenHandConfirmDialog(
               context: context,
-              builder: (ctx) => AlertDialog(
-                actionsAlignment: MainAxisAlignment.center,
-                actionsOverflowAlignment: OverflowBarAlignment.center,
-                title: Text(isZh ? '恢复默认动画？' : 'Restore default animations?'),
-                content: Text(
-                  isZh
-                      ? '将把弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项六组动画全部重置为默认值，已自定义的设置会被覆盖，此操作不可撤销。'
-                      : 'Dialog, menu, page/module, workspace panel, chip, and list item animations will all be reset to defaults. Customized values will be overwritten and this cannot be undone.',
-                ),
-                actions: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    label: isZh ? '取消' : 'Cancel',
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    label: isZh ? '恢复' : 'Restore',
-                  ),
-                ],
-              ),
+              title: isZh ? '恢复默认动画？' : 'Restore default animations?',
+              message: isZh
+                  ? '将把弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项六组动画全部重置为默认值，已自定义的设置会被覆盖，此操作不可撤销。'
+                  : 'Dialog, menu, page/module, workspace panel, chip, and list item animations will all be reset to defaults. Customized values will be overwritten and this cannot be undone.',
+              cancelLabel: isZh ? '取消' : 'Cancel',
+              confirmLabel: isZh ? '恢复' : 'Restore',
             );
-            if (confirmed != true || !context.mounted) {
+            if (!confirmed || !context.mounted) {
               return;
             }
             final defaults = AppSettingsSnapshot.defaults();

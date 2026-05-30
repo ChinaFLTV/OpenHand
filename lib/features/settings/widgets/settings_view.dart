@@ -3307,33 +3307,16 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     SettingsController settingsController,
   ) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          icon: const Icon(Icons.restart_alt_rounded),
-          title: Text(
-            AppLocalizations.of(context)!.settingsResetBuiltInToolConfigs,
-          ),
-          content: Text(
-            AppLocalizations.of(context)!.settingsThisWillRestoreAllBuiltIn,
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.settingsCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.settingsReset,
-            ),
-          ],
-        );
-      },
+      icon: const Icon(Icons.restart_alt_rounded),
+      title: l10n.settingsResetBuiltInToolConfigs,
+      message: l10n.settingsThisWillRestoreAllBuiltIn,
+      cancelLabel: l10n.settingsCancel,
+      confirmLabel: l10n.settingsReset,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final saved = await settingsController.resetBuiltinToolConfigs();
     if (!context.mounted || saved) return;
     _showPersistenceFailureSnackBar(context);
@@ -3344,33 +3327,17 @@ class _SettingsViewState extends State<SettingsView> {
     SettingsController settingsController,
     AiBuiltinToolConfig config,
   ) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          icon: const Icon(Icons.delete_outline_rounded),
-          title: Text(AppLocalizations.of(context)!.settingsDeleteCustomTool),
-          content: Text(
-            AppLocalizations.of(
-              context,
-            )!.settingsAreYouSureYouWantTo(config.effectiveName),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.settingsCancel,
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.settingsDelete,
-            ),
-          ],
-        );
-      },
+      icon: const Icon(Icons.delete_outline_rounded),
+      title: l10n.settingsDeleteCustomTool,
+      message: l10n.settingsAreYouSureYouWantTo(config.effectiveName),
+      cancelLabel: l10n.settingsCancel,
+      confirmLabel: l10n.settingsDelete,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final saved = await settingsController.removeBuiltinToolConfig(config.kind);
     if (!context.mounted || saved) return;
     _showPersistenceFailureSnackBar(context);
@@ -4307,12 +4274,14 @@ class _SettingsViewState extends State<SettingsView> {
       );
       return;
     }
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) =>
-          _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
+      content: _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
+      title: isZh ? '导入节流配置？' : 'Import throttle config?',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '导入' : 'Import',
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     if (!context.mounted) return;
     try {
       final changed = await controller.importAiStreamThrottleConfig(nextDoc);
@@ -5090,28 +5059,16 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     AiDenyCommandRule rule,
   ) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(AppLocalizations.of(context)!.settingsDeleteDenyRule),
-          content: Text(rule.pattern),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: l10n.settingsDeleteDenyRule,
+      message: rule.pattern,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
     final deleted = await context
@@ -5175,28 +5132,16 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     AiAllowCommandRule rule,
   ) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(AppLocalizations.of(context)!.settingsDeleteAllowRule),
-          content: Text(rule.pattern),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: l10n.settingsDeleteAllowRule,
+      message: rule.pattern,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
     final deleted = await context
@@ -5318,28 +5263,15 @@ class _SettingsViewState extends State<SettingsView> {
 
   Future<void> _resetStdioPackageCache(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(l10n.mcpStdioCacheResetConfirmTitle),
-          content: Text(l10n.mcpStdioCacheResetConfirmBody),
-          actions: <Widget>[
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.mcpStdioCacheResetCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.mcpStdioCacheResetConfirm,
-            ),
-          ],
-        );
-      },
+      title: l10n.mcpStdioCacheResetConfirmTitle,
+      message: l10n.mcpStdioCacheResetConfirmBody,
+      cancelLabel: l10n.mcpStdioCacheResetCancel,
+      confirmLabel: l10n.mcpStdioCacheResetConfirm,
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await resetMcpStdioIsolatedCache();
       if (!context.mounted) return;
@@ -5456,30 +5388,15 @@ class _SettingsViewState extends State<SettingsView> {
     AiModelConfig model,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(l10n.aiModelDeleteConfirmTitle),
-          content: Text(
-            '${l10n.aiModelDeleteConfirmBody}\n\n${model.providerLabel}',
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: l10n.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: l10n.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: l10n.aiModelDeleteConfirmTitle,
+      message: '${l10n.aiModelDeleteConfirmBody}\n\n${model.providerLabel}',
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
     final deleted = await context.read<SettingsController>().deleteAiModel(

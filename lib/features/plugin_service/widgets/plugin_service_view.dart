@@ -9,7 +9,6 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
-import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../mcp/index.dart';
 import '../model/plugin_info.dart';
@@ -515,30 +514,16 @@ class _PluginCard extends StatelessWidget {
         return;
       }
     }
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
-              : 'This will install ${plugin.name}. Dependencies may be downloaded.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: isZh ? '安装' : 'Install',
-          ),
-        ],
-      ),
+      title: isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?',
+      message: isZh
+          ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
+          : 'This will install ${plugin.name}. Dependencies may be downloaded.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '安装' : 'Install',
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     _showOperationDialog(context, isZh ? '安装' : 'Install', plugin.name);
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
@@ -562,30 +547,16 @@ class _PluginCard extends StatelessWidget {
 
   Future<void> _doUpdate(BuildContext context) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
-              : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: isZh ? '更新' : 'Update',
-          ),
-        ],
-      ),
+      title: isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?',
+      message: isZh
+          ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
+          : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '更新' : 'Update',
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     _showOperationDialog(context, isZh ? '更新' : 'Update', plugin.name);
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
@@ -622,30 +593,17 @@ class _PluginCard extends StatelessWidget {
         return;
       }
     }
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?'),
-        content: Text(
-          isZh
-              ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
-              : 'This will remove ${plugin.name}. This cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: isZh ? '卸载' : 'Uninstall',
-          ),
-        ],
-      ),
+      title: isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?',
+      message: isZh
+          ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
+          : 'This will remove ${plugin.name}. This cannot be undone.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '卸载' : 'Uninstall',
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     _showOperationDialog(context, isZh ? '卸载' : 'Uninstall', plugin.name);
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
