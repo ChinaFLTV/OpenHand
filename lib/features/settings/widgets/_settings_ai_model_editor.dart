@@ -1128,6 +1128,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _outputUsdPer1MController;
   late final TextEditingController _cacheReadUsdPer1MController;
   late final TextEditingController _cacheWriteUsdPer1MController;
+  late final TextEditingController _knowledgeCutoffController;
+  late final TextEditingController _expirationDateController;
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
@@ -1169,6 +1171,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _cacheWriteUsdPer1MController = TextEditingController(
       text: p.cacheWriteUsdPer1M?.toString() ?? '',
     );
+    _knowledgeCutoffController = TextEditingController(
+      text: p.knowledgeCutoff ?? '',
+    );
+    _expirationDateController = TextEditingController(
+      text: p.expirationDate ?? '',
+    );
 
     if (hasExisting) {
       // User already configured — use their saved values.
@@ -1204,6 +1212,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           _maxThinkingLengthController.text = catalog.maxThinkingLength
               .toString();
         }
+        _knowledgeCutoffController.text = catalog.knowledgeCutoff ?? '';
+        _expirationDateController.text = catalog.expirationDate ?? '';
       } else {
         _isMultimodal = null; // auto-detect
         _supportsAttachments = null; // auto-detect
@@ -1261,6 +1271,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _outputUsdPer1MController.dispose();
     _cacheReadUsdPer1MController.dispose();
     _cacheWriteUsdPer1MController.dispose();
+    _knowledgeCutoffController.dispose();
+    _expirationDateController.dispose();
     super.dispose();
   }
 
@@ -1305,6 +1317,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       cacheWriteUsdPer1M: _parseNonNegativeDouble(
         _cacheWriteUsdPer1MController.text,
       ),
+      knowledgeCutoff: _knowledgeCutoffController.text.trim().isNotEmpty
+          ? _knowledgeCutoffController.text.trim()
+          : null,
+      expirationDate: _expirationDateController.text.trim().isNotEmpty
+          ? _expirationDateController.text.trim()
+          : null,
     );
     Navigator.of(context).pop(profile);
   }
@@ -1681,6 +1699,24 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              _buildSectionHeader('OpenRouter Metadata Overrides'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _knowledgeCutoffController,
+                decoration: const InputDecoration(
+                  labelText: 'knowledge_cutoff',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _expirationDateController,
+                decoration: const InputDecoration(
+                  labelText: 'expiration_date',
+                  isDense: true,
+                ),
               ),
               const SizedBox(height: 16),
               ExpansionTile(
