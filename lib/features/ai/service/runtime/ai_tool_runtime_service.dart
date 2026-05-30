@@ -274,6 +274,30 @@ class AiToolRuntimeService {
     return true;
   }
 
+  int _toolNameCompare(String left, String right) {
+    return AiResolvedToolCatalog._normalizeToolLookupKey(
+      left,
+    ).compareTo(AiResolvedToolCatalog._normalizeToolLookupKey(right));
+  }
+
+  List<LocalSkill> _sortedSkills(List<LocalSkill> skills) {
+    final sorted = List<LocalSkill>.from(skills);
+    sorted.sort((a, b) => _toolNameCompare(a.name, b.name));
+    return sorted;
+  }
+
+  List<McpServer> _sortedEnabledMcpServers(List<McpServer> servers) {
+    final sorted = servers.where((item) => item.enabled).toList(growable: false)
+      ..sort((a, b) => _toolNameCompare(a.name, b.name));
+    return sorted;
+  }
+
+  List<McpTool> _sortedMcpTools(Iterable<McpTool> tools) {
+    final sorted = tools.toList(growable: false)
+      ..sort((a, b) => _toolNameCompare(a.id, b.id));
+    return sorted;
+  }
+
   /// Apply user builtin-tool configs: filter disabled, apply overrides,
   /// respect sort order and priority.
   List<AiResolvedTool> _resolveConfiguredBuiltinTools(
@@ -388,15 +412,15 @@ class AiToolRuntimeService {
     // 让模型在工具列表中首先看到 Skill、其次 MCP、最后 Builtin。
 
     // ── 第一优先级：Skill 工具 ─────────────────────────────────────
-    for (final skill in runtimeContext.availableSkills) {
+    for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
       final tool = _buildSkillTool(skill, reservedToolNames);
       register(tool);
     }
 
     // ── 第二优先级：MCP 工具 ──────────────────────────────────────
-    final enabledServers = runtimeContext.availableMcpServers
-        .where((item) => item.enabled)
-        .toList(growable: false);
+    final enabledServers = _sortedEnabledMcpServers(
+      runtimeContext.availableMcpServers,
+    );
     for (final server in enabledServers) {
       try {
         final catalog = await _mcpToolService.discoverTools(server);
@@ -414,7 +438,7 @@ class AiToolRuntimeService {
         if (serverInstructions.isNotEmpty) {
           mcpServerInstructionsByName[server.name] = serverInstructions;
         }
-        for (final mcpTool in catalog.tools) {
+        for (final mcpTool in _sortedMcpTools(catalog.tools)) {
           final tool = _buildMcpTool(
             server: server,
             tool: mcpTool,
@@ -471,15 +495,15 @@ class AiToolRuntimeService {
     // 2026-04-08 能力调用优先级：Skill > MCP > Builtin（与 resolveCatalog 保持一致）
 
     // ── 第一优先级：Skill 工具 ─────────────────────────────────────
-    for (final skill in runtimeContext.availableSkills) {
+    for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
       final tool = _buildSkillTool(skill, reservedToolNames);
       register(tool);
     }
 
     // ── 第二优先级：MCP 工具 ──────────────────────────────────────
-    final enabledServers = runtimeContext.availableMcpServers
-        .where((item) => item.enabled)
-        .toList(growable: false);
+    final enabledServers = _sortedEnabledMcpServers(
+      runtimeContext.availableMcpServers,
+    );
     for (final server in enabledServers) {
       final catalog = mcpToolCatalogsByServerName[server.name];
       if (catalog == null || catalog.status == McpToolCatalogStatus.idle) {
@@ -506,7 +530,7 @@ class AiToolRuntimeService {
       if (serverInstructions.isNotEmpty) {
         mcpServerInstructionsByName[server.name] = serverInstructions;
       }
-      for (final mcpTool in catalog.tools) {
+      for (final mcpTool in _sortedMcpTools(catalog.tools)) {
         final tool = _buildMcpTool(
           server: server,
           tool: mcpTool,

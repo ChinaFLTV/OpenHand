@@ -327,7 +327,11 @@ class AiPromptBuilder {
       'repository_snapshot': repositorySnapshot?.toJson(),
       if (postCompactRehydration.isNotEmpty)
         'post_compact_rehydration': postCompactRehydration,
-      'environment': runtimeContext.toJson(),
+      'memory_enabled': runtimeContext.memoryEnabled,
+      'environment': _buildPromptEnvironmentSnapshot(
+        runtimeContext,
+        includeRepositorySnapshot: false,
+      ),
     };
     final webReverseRuntime = _buildWebReverseRuntimeSnapshot(
       session,
@@ -427,9 +431,8 @@ class AiPromptBuilder {
     final messages = <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
-        content: isCompactTemplate
-            ? '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}'
-            : '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}${_renderRuntimeEnvironmentSnapshot(runtimeContext, repositorySnapshot)}',
+        content:
+            '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
@@ -460,18 +463,13 @@ class AiPromptBuilder {
       // Hook system-reminder（从用户消息中提取、每轮不同）仍保留在 prompt 尾部。
       AiChatTurn(
         role: AiChatRole.system,
-        // 注：记忆口吻政策（"自然融入、不外露记忆来源"）已由
-        // AiPromptTemplateRepository 通过 _appendMemoryTonePolicyIfAbsent
-        // 注入到 [0] System Instructions，此处不再重复长篇大论，仅留一句
-        // 双语提醒兜底。
         content: isCompactTemplate
             ? '# [4] User Memory\n\n'
-                  '记忆事实自然融入回答；不要外露其来源 / Integrate memory facts naturally; do not hint at their source.\n\n'
+                  'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
             : '# [4] User Memory (long-term facts)\n\n'
-                  '将下列记忆事实自然融入回答；不要在回答中提到"记忆 / 笔记 / 此前记录"等来源元叙述，把它们当作你早已掌握的常识 / '
-                  'Integrate the memory facts below naturally; never mention "memory / saved notes / prior records" as a source — treat them as knowledge you already possess.\n\n'
+                  'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
@@ -621,8 +619,38 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
+    final stablePrefixHash = _promptFingerprint(
+      messages
+          .takeWhile((item) => item.role == AiChatRole.system)
+          .map((item) => '${item.roleName}\n${item.content}')
+          .join('\n\n'),
+    );
+    final toolCatalogHash = _promptFingerprint(
+      availableToolNames.join('\n'),
+    );
+    final previousCapturedAt = '${session.lastPromptMetadata['captured_at'] ?? ''}'
+        .trim();
+    final previousStablePrefixHash =
+        '${session.lastPromptMetadata['stable_prefix_hash'] ?? ''}'.trim();
+    final currentCapturedAt = DateTime.now().toUtc();
+    final idleGapSeconds = () {
+      if (previousCapturedAt.isEmpty) return null;
+      final previousInstant = DateTime.tryParse(previousCapturedAt);
+      if (previousInstant == null) return null;
+      return currentCapturedAt.difference(previousInstant.toUtc()).inSeconds;
+    }();
     metadata
+      ..['captured_at'] = currentCapturedAt.toIso8601String()
       ..['current_prompt_character_count'] = promptCharacterCount
+      ..['stable_prefix_hash'] = stablePrefixHash
+      ..['tool_catalog_hash'] = toolCatalogHash
+      ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
+      ..['cache_breakpoint_positions'] = runtimeContext.aiInputCacheBreakpointPositions
+      ..['idle_gap_seconds'] = idleGapSeconds
+      ..['ttl_suspected'] = idleGapSeconds != null &&
+          idleGapSeconds >= 3600 &&
+          previousStablePrefixHash.isNotEmpty &&
+          previousStablePrefixHash == stablePrefixHash
       ..addAll(
         _buildContextBudgetMetadata(
           model: model,
@@ -929,120 +957,50 @@ class AiPromptBuilder {
     );
   }
 
-  String _renderRuntimeEnvironmentSnapshot(
-    AiSessionRuntimeContext runtimeContext,
-    AiRepositorySnapshot? repositorySnapshot,
-  ) {
+  Map<String, Object?> _buildPromptEnvironmentSnapshot(
+    AiSessionRuntimeContext runtimeContext, {
+    required bool includeRepositorySnapshot,
+  }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
         : runtimeContext.workingDirectory.trim();
-    final buffer = StringBuffer()
-      ..writeln()
-      ..writeln()
-      ..writeln('# Runtime Environment Snapshot')
-      ..writeln()
-      ..writeln('Working directory: $workingDirectory')
-      ..writeln('Platform: ${runtimeContext.platformName}')
-      ..writeln('Today local date: ${runtimeContext.todayLocalDate}')
-      ..writeln('Time zone: ${runtimeContext.timeZoneName}')
-      ..writeln(
-        'Per-response tool call limit: ${runtimeContext.singleRoundToolCallLimit}',
-      )
-      ..writeln(
-        'Sequential tool round limit: ${runtimeContext.sequentialToolRoundLimit}',
-      )
-      ..writeln(
-        'Write command confirmation for write-like bash commands: ${runtimeContext.writeCommandConfirmationEnabled ? 'Yes - OpenHand handles the approval dialog automatically; do not ask in chat for generic shell permission first.' : 'No'}',
-      );
-    if (runtimeContext.allowCommandRules.isEmpty) {
-      buffer.writeln('Allowed command patterns: none');
-    } else {
-      buffer
-        ..writeln()
-        ..writeln('Allowed command patterns:');
-      for (final rule in runtimeContext.allowCommandRules) {
-        final note = rule.note.trim();
-        final noteSuffix = note.isEmpty ? '' : ' ($note)';
-        buffer.writeln(
-          '- ${rule.matchMode.storageValue}: ${rule.pattern}$noteSuffix',
-        );
-      }
+    final snapshot = <String, Object?>{
+      'working_directory': workingDirectory,
+      'platform_name': runtimeContext.platformName,
+      'time_zone_name': runtimeContext.timeZoneName,
+      'single_round_tool_call_limit': runtimeContext.singleRoundToolCallLimit,
+      'sequential_tool_round_limit': runtimeContext.sequentialToolRoundLimit,
+      'write_command_confirmation_enabled':
+          runtimeContext.writeCommandConfirmationEnabled,
+      'workspace_instruction_paths': runtimeContext.workspaceInstructionDocuments
+          .map((item) => item.path)
+          .toList(growable: false),
+    };
+    if (runtimeContext.allowCommandRules.isNotEmpty) {
+      snapshot['allow_command_rules'] = runtimeContext.allowCommandRules
+          .map((item) => item.toJson())
+          .toList(growable: false);
     }
     final sandbox = runtimeContext.sandboxSettings;
-    buffer
-      ..writeln()
-      ..writeln('Sandbox: ${sandbox.enabled ? 'Enabled' : 'Disabled'}');
-    if (sandbox.enabled) {
-      buffer
-        ..writeln(
-          'Sandboxed built-ins: ${sandbox.sandboxedBuiltinTools.isEmpty ? 'none' : sandbox.sandboxedBuiltinTools.join(', ')}',
-        )
-        ..writeln(
-          'Sandbox fail-if-unavailable: ${sandbox.failIfUnavailable ? 'Yes' : 'No'}',
-        )
-        ..writeln(
-          'Sandbox unsandboxed exclusions allowed: ${sandbox.allowUnsandboxedCommands ? 'Yes' : 'No'}',
-        )
-        ..writeln(
-          'Sandbox auto-allow Bash writes: ${sandbox.autoAllowBashIfSandboxed ? 'Yes' : 'No'}',
-        )
-        ..writeln(
-          'Sandbox file rules: ${sandbox.filesystemRules.map((rule) => '${rule.accessMode.storageValue}:${rule.matchMode.storageValue}:${rule.path}').join('; ')}',
-        )
-        ..writeln(
-          'Sandbox excluded commands: ${sandbox.excludedCommands.isEmpty ? 'none' : sandbox.excludedCommands.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
-        )
-        ..writeln(
-          'Sandbox allowed domains: ${sandbox.allowedDomains.isEmpty ? 'none' : sandbox.allowedDomains.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
-        )
-        ..writeln(
-          'Sandbox denied domains: ${sandbox.deniedDomains.isEmpty ? 'none' : sandbox.deniedDomains.map((rule) => '${rule.matchMode.storageValue}:${rule.pattern}').join('; ')}',
-        )
-        ..writeln(
-          'Sandbox proxy ports: http=${sandbox.httpProxyPort}, socks=${sandbox.socksProxyPort}',
-        )
-        ..writeln(
-          'Sandbox domain rules use an OpenHand local filtering proxy for sandboxed commands; http=0 means an automatic temporary HTTP proxy port, socks=0 means no SOCKS entry point. On macOS, direct network access is blocked while the proxy is active. On Linux, strict mode blocks domain rules that cannot be enforced yet; if degraded execution is allowed, proxy variables are best-effort and metadata will say the domain filter is not enforced.',
-        )
-        ..writeln(
-          'If a command is sandboxed, do not try to bypass it. Treat sandbox denial, timeout, or unavailable-dependency output as authoritative and report the exact blocker.',
-        );
+    snapshot['sandbox'] = <String, Object?>{
+      'enabled': sandbox.enabled,
+      if (sandbox.enabled) ...<String, Object?>{
+        'fail_if_unavailable': sandbox.failIfUnavailable,
+        'allow_unsandboxed_commands': sandbox.allowUnsandboxedCommands,
+        'auto_allow_bash_if_sandboxed': sandbox.autoAllowBashIfSandboxed,
+        'sandboxed_builtin_tools': sandbox.sandboxedBuiltinTools,
+        'filesystem_rule_count': sandbox.filesystemRules.length,
+        'excluded_command_count': sandbox.excludedCommands.length,
+        'allowed_domain_count': sandbox.allowedDomains.length,
+        'denied_domain_count': sandbox.deniedDomains.length,
+        'http_proxy_port': sandbox.httpProxyPort,
+        'socks_proxy_port': sandbox.socksProxyPort,
+      },
+    };
+    if (includeRepositorySnapshot) {
+      snapshot['repository_snapshot'] = runtimeContext.repositorySnapshot?.toJson();
     }
-    if (repositorySnapshot == null) {
-      return buffer.toString().trimRight();
-    }
-    buffer.writeln(
-      'Is directory a git repo: ${repositorySnapshot.isGitRepository ? 'Yes' : 'No'}',
-    );
-    if (!repositorySnapshot.isGitRepository) {
-      return buffer.toString().trimRight();
-    }
-    if (repositorySnapshot.repositoryRootPath.trim().isNotEmpty) {
-      buffer.writeln(
-        'Repository root: ${repositorySnapshot.repositoryRootPath}',
-      );
-    }
-    if (repositorySnapshot.currentBranch.trim().isNotEmpty) {
-      buffer.writeln('Current branch: ${repositorySnapshot.currentBranch}');
-    }
-    if (repositorySnapshot.mainBranch.trim().isNotEmpty) {
-      buffer.writeln('Main branch: ${repositorySnapshot.mainBranch}');
-    }
-    if (repositorySnapshot.statusSnapshot.trim().isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln('Status:')
-        ..writeln(repositorySnapshot.statusSnapshot.trimRight());
-    }
-    if (repositorySnapshot.recentCommits.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln('Recent commits:');
-      for (final commit in repositorySnapshot.recentCommits) {
-        buffer.writeln('- $commit');
-      }
-    }
-    return buffer.toString().trimRight();
+    return snapshot;
   }
 
   Map<String, Object?> _buildCompactStaticSessionState({
@@ -1196,6 +1154,15 @@ class AiPromptBuilder {
         builtinTools.add(tool);
       }
     }
+    skillTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
+      a.name,
+    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
+    mcpTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
+      a.name,
+    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
+    builtinTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
+      a.name,
+    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
     final visibleToolCount =
         skillTools.length + mcpTools.length + builtinTools.length;
     if (visibleToolCount == 0) {
@@ -1451,6 +1418,30 @@ class AiPromptBuilder {
     return '${normalized.substring(0, maxCharacters).trimRight()}...';
   }
 
+  String _normalizeToolNameForPromptCatalog(String value) {
+    final buffer = StringBuffer();
+    for (final code in value.codeUnits) {
+      if ((code >= 0x30 && code <= 0x39) ||
+          (code >= 0x41 && code <= 0x5A) ||
+          (code >= 0x61 && code <= 0x7A)) {
+        buffer.writeCharCode(code | 0x20);
+      }
+    }
+    return buffer.toString();
+  }
+
+  String _promptFingerprint(String content) {
+    if (content.isEmpty) {
+      return '0';
+    }
+    var hash = 0x811c9dc5;
+    for (final codeUnit in content.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+  }
+
   List<String> _toolArgumentNames(
     Map<String, Object?> parameters, {
     required bool requiredOnly,
@@ -1563,7 +1554,7 @@ class AiPromptBuilder {
     final microCompactContentMap = runtimeContext.microCompressionEnabled
         ? const <String, String>{}
         : _computeMicroCompactContentMap(messagesToCompress);
-    String _renderForCompression(AiSessionMessage m) {
+    String renderForCompression(AiSessionMessage m) {
       final compacted = microCompactContentMap[m.id];
       if (compacted != null) return compacted;
       return _renderMessageForCompression(m);
@@ -1572,7 +1563,7 @@ class AiPromptBuilder {
     final transcript = messagesToCompress
         .map(
           (message) =>
-              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${_renderForCompression(message)}',
+              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${renderForCompression(message)}',
         )
         .join('\n');
     final previousCheckpointText = previousCompressionPoint == null

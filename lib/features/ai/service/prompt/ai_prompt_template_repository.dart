@@ -181,19 +181,12 @@ class AiPromptTemplateRepository {
   /// Change Discipline; English variant additionally covers Session Bootstrap
   /// / Diff-Thinking / Verification Loop) loaded from
   /// `assets/prompts/common/v4_discipline_{en,zh}.md` when the target
-  /// instruction text does not already contain a discipline marker. Templates
-  /// that ship their own specialised version (`programming_expert`,
-  /// `machine_expert`) are detected via marker presence and left untouched.
+  /// instruction text does not already contain a structural discipline block.
+  /// Templates that ship their own specialised version (`programming_expert`,
+  /// `machine_expert`) are detected via heading/tag markers and left untouched.
   /// Language is inferred from the instructions' CJK-character ratio.
   Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
-    final hasDisciplineMarker = RegExp(
-      r'^#{1,6}\s+atomic\s+change\s+discipline\b',
-      caseSensitive: false,
-      multiLine: true,
-    ).hasMatch(instructions);
-    if (hasDisciplineMarker ||
-        instructions.contains('原子化变更纪律') ||
-        instructions.contains('不确定性诚实')) {
+    if (_hasV4DisciplineMarker(instructions)) {
       return instructions;
     }
     final useChinese = _looksLikeChinese(instructions);
@@ -229,6 +222,33 @@ class AiPromptTemplateRepository {
       return false;
     }
     return cjk * 100 ~/ total >= 15;
+  }
+
+  bool _hasV4DisciplineMarker(String instructions) {
+    const headingPatterns = <String>[
+      'atomic change discipline',
+      'uncertainty honesty',
+    ];
+    for (final heading in headingPatterns) {
+      if (RegExp(
+        '^#{1,6}\\s+${RegExp.escape(heading)}\\b',
+        caseSensitive: false,
+        multiLine: true,
+      ).hasMatch(instructions)) {
+        return true;
+      }
+    }
+    const xmlTags = <String>[
+      '<atomic_change_discipline>',
+      '<uncertainty_honesty>',
+    ];
+    final lower = instructions.toLowerCase();
+    for (final tag in xmlTags) {
+      if (lower.contains(tag)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<String> _loadTemplateSection(String assetPath, String fallback) async {

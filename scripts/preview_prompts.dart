@@ -11,10 +11,10 @@
 //
 // This script intentionally avoids importing any code from `lib/` so it can
 // run with plain `dart run` (no flutter SDK linking). The marker rules below
-// MUST stay in sync with `lib/features/ai/service/ai_prompt_template_repository.dart`:
-//   - skip v4 discipline append when system already contains:
-//       lower: "# atomic change discipline" / "## atomic change discipline"
-//       raw: "原子化变更纪律" / "不确定性诚实"
+// MUST stay in sync with `lib/features/ai/service/prompt/ai_prompt_template_repository.dart`:
+//   - skip v4 discipline append when system already contains either
+//       Markdown headings: "Atomic Change Discipline" / "Uncertainty Honesty"
+//       or XML tags: <atomic_change_discipline> / <uncertainty_honesty>
 //   - else, if CJK ratio (non-whitespace) ≥ 15% → append v4_discipline_zh.md
 //                                                else → append v4_discipline_en.md
 //   - skip memory tone policy when system already contains (lower):
@@ -61,12 +61,27 @@ bool _looksLikeChinese(String text) {
   return cjk * 100 ~/ total >= 15;
 }
 
-String _appendV4DisciplineIfAbsent(String instructions) {
+bool _hasV4DisciplineMarker(String instructions) {
+  const headingPatterns = <String>[
+    'atomic change discipline',
+    'uncertainty honesty',
+  ];
+  for (final heading in headingPatterns) {
+    if (RegExp(
+      '^#{1,6}\\s+${RegExp.escape(heading)}\\b',
+      caseSensitive: false,
+      multiLine: true,
+    ).hasMatch(instructions)) {
+      return true;
+    }
+  }
   final lower = instructions.toLowerCase();
-  if (lower.contains('# atomic change discipline') ||
-      lower.contains('## atomic change discipline') ||
-      instructions.contains('原子化变更纪律') ||
-      instructions.contains('不确定性诚实')) {
+  return lower.contains('<atomic_change_discipline>') ||
+      lower.contains('<uncertainty_honesty>');
+}
+
+String _appendV4DisciplineIfAbsent(String instructions) {
+  if (_hasV4DisciplineMarker(instructions)) {
     return instructions;
   }
   final assetPath = _looksLikeChinese(instructions)
@@ -115,11 +130,7 @@ void main() {
       continue;
     }
 
-    final v4Marker =
-        system.toLowerCase().contains('# atomic change discipline') ||
-        system.toLowerCase().contains('## atomic change discipline') ||
-        system.contains('原子化变更纪律') ||
-        system.contains('不确定性诚实');
+    final v4Marker = _hasV4DisciplineMarker(system);
     final tonePolicyMarker = system.toLowerCase().contains(
       '## memory tone policy',
     );
