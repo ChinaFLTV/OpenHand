@@ -818,6 +818,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     );
     final hasExitingEntries = _renderEntries.any((entry) => entry.exiting);
     if (removedIds.isEmpty) {
+      if (!hasExitingEntries && !hasAddedIds) {
+        _renderEntries = <_TranscriptRenderEntry>[
+          for (final entry in _renderEntries)
+            entry.exiting
+                ? entry
+                : () {
+                    final nextMessage = visibleMessagesById[entry.id];
+                    if (nextMessage == null ||
+                        identical(nextMessage, entry.message)) {
+                      return entry;
+                    }
+                    return entry.copyWith(message: nextMessage);
+                  }(),
+        ];
+        return;
+      }
       if (!hasExitingEntries) {
         _replaceRenderEntries(visibleMessages);
         return;

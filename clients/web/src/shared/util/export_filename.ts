@@ -12,3 +12,8 @@ export function normalizeJsonlExportFilename(input: string): string {
   }
   return `${base || 'session'}${suffix}`;
 }
+
+export function jsonlExportPickerSuggestedName(input: string): string {
+  const normalized = normalizeJsonlExportFilename(input);
+  return normalized.replace(/\.jsonl$/i, '') || 'session';
+}

@@ -527,6 +527,56 @@ class _InputRepairSection extends StatefulWidget {
 class _InputRepairSectionState extends State<_InputRepairSection> {
   bool _repairing = false;
 
+  Future<void> _showRepairReportDialog(InputRepairReport report) {
+    return showAnimatedThemedDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
+        title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              _formatRepairReport(report),
+              style: Theme.of(dialogContext).textTheme.bodyMedium,
+            ),
+          ),
+        ),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(text: _formatRepairReport(report)),
+              );
+            },
+          ),
+          OpenHandDialogActionButton.primary(
+            label: AppLocalizations.of(dialogContext)!.commonClose,
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatRepairReport(InputRepairReport report) {
+    final buffer = StringBuffer()
+      ..writeln('result=${report.result.name}')
+      ..writeln('tracked_children_before=${report.trackedChildrenBefore}')
+      ..writeln('direct_children_killed=${report.directChildrenKilled}')
+      ..writeln('focus_before=${report.primaryFocusBeforeLabel ?? '-'}')
+      ..writeln('focus_after=${report.primaryFocusAfterLabel ?? '-'}')
+      ..writeln('restored_focus=${report.restoredFocusLabel ?? '-'}');
+    for (final step in report.steps) {
+      buffer.writeln(
+        '${step.stage.name}: ${step.status.name}${step.message == null || step.message!.isEmpty ? '' : ' (${step.message})'}',
+      );
+    }
+    return buffer.toString().trimRight();
+  }
+
   /// 输入修复流水线（强化版），按因果链顺序执行：
   ///
   ///   1) **回收已登记子进程** —— [killAllTrackedChildren] 把
@@ -552,87 +602,32 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   ///      此前保存的节点（如果有），用户无需手动重新点击输入框。
   Future<void> _runRepair(BuildContext context) async {
     if (_repairing) return;
+    final sentinelFocusNode = InputRepairSentinelScope.maybeOf(context);
+    if (sentinelFocusNode == null) return;
     setState(() {
       _repairing = true;
     });
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.maybeOf(context);
-
-    int killedCount = 0;
-    int untrackedKilled = 0;
-    FocusNode? savedFocus;
+    late final InputRepairReport report;
     try {
-      // ── 阶段 1：子进程回收 ──────────────────────────────────────────
-      // (1a) 已登记子进程批量终止。
-      killedCount = debugTrackedChildPids().length;
-      await killAllTrackedChildren();
-      // (1b) 平台级全量子进程扫出 + 终结（补刀未登记遗孤）。
-      untrackedKilled = await killAllDirectChildren();
-
-      // ── 阶段 2：IMK 输入上下文重置 ──────────────────────────────────
-      // (2a) 保存当前焦点节点，随后释放焦点。
-      savedFocus = FocusManager.instance.primaryFocus;
-      FocusManager.instance.primaryFocus?.unfocus();
-
-      // (2b) 断开 TextInputClient —— 触发 IMKInputSession deactivate。
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
-          'TextInput.clearClient',
-        );
-      } catch (error, stack) {
-        silentLog('settings.system', 'clearClient', error, stack);
-      }
-
-      // (2c) IMK candidate window 收起。
-      try {
-        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-      } catch (error, stack) {
-        silentLog('settings.system', 'hideTextInput', error, stack);
-      }
-
-      // (2d) 重置自动填充上下文。
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
-          'TextInput.finishAutofillContext',
-          false,
-        );
-      } catch (error, stack) {
-        silentLog('settings.system', 'finishAutofillContext', error, stack);
-      }
-
-      // (2e) 请求 engine 回读当前输入状态，验证通道可用性
-      // 并促使 platform 层重新同步 IMK 状态机。
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
-          'TextInput.requestExistingInputState',
-        );
-      } catch (_) {}
-
-      // ── 阶段 3：焦点重连（post-frame） ──────────────────────────────
-      // 在下一帧用一个临时 FocusNode 走完 attach → detach 全周期，
-      // 确保 engine 重新创建 TextInput 通道 → platform IMK session activate。
-      // 之后再交还焦点给原始节点（如果有），用户无需手动重选输入框。
-      final restoreTarget = savedFocus;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        try {
-          // 先 hide 清除可能的候选窗残留。
-          SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-        } catch (_) {}
-        // 临时 focus → unfocus 驱动完整的 TextInput 重建握手。
-        final tempNode = FocusNode();
-        tempNode.requestFocus();
-        // 用微延迟让 engine 的 TextInput.attach 有时间落地。
-        Future<void>.delayed(const Duration(milliseconds: 60), () {
-          tempNode.unfocus();
-          tempNode.dispose();
-          // 把焦点交还给之前活跃的输入框。
-          if (restoreTarget != null && restoreTarget.context != null) {
-            restoreTarget.requestFocus();
-          }
-        });
-      });
+      report = await InputRepairService.instance.repair(
+        sentinelFocusNode: sentinelFocusNode,
+        isSafeRestoreTarget: (node) {
+          final label = node.debugLabel?.trim() ?? '';
+          return label.isNotEmpty &&
+              label != 'browser-surface' &&
+              label != 'input-repair-sentinel';
+        },
+      );
     } catch (error, stack) {
       silentLog('settings.system', 'repairTextInput', error, stack);
+      report = const InputRepairReport(
+        result: InputRepairResult.failure,
+        steps: <InputRepairStepReport>[],
+        trackedChildrenBefore: 0,
+        directChildrenKilled: 0,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -642,11 +637,27 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
     }
 
     if (messenger != null && context.mounted) {
-      final total = killedCount + untrackedKilled;
+      final total = report.trackedChildrenBefore + report.directChildrenKilled;
       final detail = total > 0
           ? l10n.inputRepairDoneDetail(total)
           : l10n.inputRepairDone;
-      OpenHandSnackBar.showSuccessOn(context, messenger, detail);
+      switch (report.result) {
+        case InputRepairResult.success:
+          OpenHandSnackBar.showSuccessOn(context, messenger, detail);
+          break;
+        case InputRepairResult.partialSuccess:
+          OpenHandSnackBar.showInfoOn(context, messenger, detail);
+          unawaited(_showRepairReportDialog(report));
+          break;
+        case InputRepairResult.failure:
+          OpenHandSnackBar.showErrorOn(
+            context,
+            messenger,
+            l10n.inputRepairDone,
+          );
+          unawaited(_showRepairReportDialog(report));
+          break;
+      }
     }
   }
 

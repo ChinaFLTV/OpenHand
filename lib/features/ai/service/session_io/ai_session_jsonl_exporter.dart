@@ -99,10 +99,7 @@ class AiSessionExportConfig {
 
 /// User-tunable configuration for a Hardness session export operation.
 class HardnessSessionExportConfig {
-  const HardnessSessionExportConfig({
-    this.startIndex,
-    this.endIndex,
-  });
+  const HardnessSessionExportConfig({this.startIndex, this.endIndex});
 
   /// 1-based inclusive lower bound on phase logs.
   final int? startIndex;
@@ -137,9 +134,7 @@ _selectAiSessionMessages({
   final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
       ? config.endIndex!
       : fullMessages.length;
-  final upper = upperRaw > fullMessages.length
-      ? fullMessages.length
-      : upperRaw;
+  final upper = upperRaw > fullMessages.length ? fullMessages.length : upperRaw;
   final ranged = (lower >= upper)
       ? const <AiSessionMessage>[]
       : fullMessages.sublist(lower, upper);
@@ -234,6 +229,43 @@ String normalizeJsonlExportFilename(String input) {
   return '${base.isEmpty ? 'session' : base}$suffix';
 }
 
+String jsonlExportPickerSuggestedName(String input) {
+  final normalized = normalizeJsonlExportFilename(input);
+  final trailingSuffixMatch = RegExp(
+    r'\.jsonl$',
+    caseSensitive: false,
+  ).firstMatch(normalized);
+  if (trailingSuffixMatch == null) {
+    return normalized;
+  }
+  final base = normalized.substring(
+    0,
+    normalized.length - trailingSuffixMatch.group(0)!.length,
+  );
+  return base.isEmpty ? 'session' : base;
+}
+
+String normalizeJsonlExportPath(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) {
+    return normalizeJsonlExportFilename(input);
+  }
+  final separators = <String>['/', '\\'];
+  var splitIndex = -1;
+  for (final separator in separators) {
+    final candidate = trimmed.lastIndexOf(separator);
+    if (candidate > splitIndex) {
+      splitIndex = candidate;
+    }
+  }
+  if (splitIndex == -1) {
+    return normalizeJsonlExportFilename(trimmed);
+  }
+  final directory = trimmed.substring(0, splitIndex + 1);
+  final basename = trimmed.substring(splitIndex + 1);
+  return '$directory${normalizeJsonlExportFilename(basename)}';
+}
+
 /// Exports an [AiSession] to a JSONL file at [destinationPath].
 ///
 /// The format mirrors the Hugging Face dataset card layout used by `pi-mono`:
@@ -261,7 +293,10 @@ Future<ExportResult> exportAiSessionToJsonl({
     final localSink = file.openWrite();
     sink = localSink;
 
-    final selection = _selectAiSessionMessages(session: session, config: config);
+    final selection = _selectAiSessionMessages(
+      session: session,
+      config: config,
+    );
     final fullMessages = selection.fullMessages;
     final messages = selection.messages;
     final total = messages.length + 1; // +1 for the session header line.

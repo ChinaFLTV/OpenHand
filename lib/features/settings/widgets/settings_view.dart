@@ -22,6 +22,7 @@ import '../../../app/model/editor_shortcut.dart';
 import '../../../app/model/openhand_shortcut.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/state/settings_store.dart';
+import '../../../app/support/input_repair_service.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -937,9 +938,7 @@ class _SettingsViewState extends State<SettingsView> {
     final microCompressionEnabledControl = Align(
       alignment: Alignment.centerLeft,
       child: _SettingsSwitch(
-        key: const ValueKey<String>(
-          'settingsMicroCompressionEnabledSwitch',
-        ),
+        key: const ValueKey<String>('settingsMicroCompressionEnabledSwitch'),
         value: settingsController.aiMicroCompressionEnabled,
         onChanged: (value) async {
           await settingsController.updateAiMicroCompressionEnabled(value);
@@ -970,10 +969,7 @@ class _SettingsViewState extends State<SettingsView> {
           await settingsController.updateAiMessageContentFormat(value);
           if (!context.mounted) return;
           if (value == AiMessageContentFormat.html) {
-            _showSnackBar(
-              context,
-              l10n.aiMessageContentFormatHtmlTokenWarning,
-            );
+            _showSnackBar(context, l10n.aiMessageContentFormatHtmlTokenWarning);
           }
         },
       ),
@@ -2223,7 +2219,8 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 320,
               ),
               _AnimatedSettingReveal(
-                visible: settingsController.aiMessageContentFormat ==
+                visible:
+                    settingsController.aiMessageContentFormat ==
                     AiMessageContentFormat.html,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

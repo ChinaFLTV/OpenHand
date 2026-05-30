@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
+import '../../app/support/input_repair_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -1009,10 +1010,7 @@ class _WebReverseDashboardDialogState
         controller: ctrl,
         reduceMotion: reduceMotion,
       ),
-      _Tab.hooks => _HooksBody(
-        controller: ctrl,
-        onPersist: persistHooks,
-      ),
+      _Tab.hooks => _HooksBody(controller: ctrl, onPersist: persistHooks),
       _Tab.crons => _CronsBody(
         controller: ctrl,
         isZh: isZh,

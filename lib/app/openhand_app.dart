@@ -9,6 +9,7 @@ import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
+import 'support/input_repair_service.dart';
 import 'support/openhand_notification_service.dart';
 import 'support/safe_subprocess.dart';
 import 'support/silent_log.dart';
@@ -26,6 +27,9 @@ class OpenHandApp extends StatefulWidget {
 
 class _OpenHandAppState extends State<OpenHandApp> {
   late final AppLifecycleListener _lifecycleListener;
+  final FocusNode _inputRepairSentinelFocusNode = FocusNode(
+    debugLabel: 'input-repair-sentinel',
+  );
 
   @override
   void initState() {
@@ -40,7 +44,12 @@ class _OpenHandAppState extends State<OpenHandApp> {
         try {
           await killAllTrackedChildren();
         } catch (error, stack) {
-          silentLog('openhand_app', 'kill tracked children on exit', error, stack);
+          silentLog(
+            'openhand_app',
+            'kill tracked children on exit',
+            error,
+            stack,
+          );
         }
         return AppExitResponse.exit;
       },
@@ -50,6 +59,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
   @override
   void dispose() {
     _lifecycleListener.dispose();
+    _inputRepairSentinelFocusNode.dispose();
     super.dispose();
   }
 
@@ -94,15 +104,30 @@ class _OpenHandAppState extends State<OpenHandApp> {
         )?.updateTheme(Theme.of(context));
         final media = MediaQuery.of(context);
         final disable = reduceMotion || media.disableAnimations;
-        if (disable == media.disableAnimations) {
-          return child ?? const SizedBox.shrink();
-        }
-        return MediaQuery(
-          data: media.copyWith(disableAnimations: disable),
-          child: child ?? const SizedBox.shrink(),
+        final builtChild = disable == media.disableAnimations
+            ? (child ?? const SizedBox.shrink())
+            : MediaQuery(
+                data: media.copyWith(disableAnimations: disable),
+                child: child ?? const SizedBox.shrink(),
+              );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            builtChild,
+            Offstage(
+              offstage: true,
+              child: Focus(
+                focusNode: _inputRepairSentinelFocusNode,
+                child: const SizedBox.shrink(),
+              ),
+            ),
+          ],
         );
       },
-      home: widget.home,
+      home: InputRepairSentinelScope(
+        focusNode: _inputRepairSentinelFocusNode,
+        child: widget.home,
+      ),
     );
   }
 }

@@ -138,6 +138,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 走的 Focus.onKeyEvent 重复下发文本字符。
   TextInputConnection? _imeConnection;
   TextEditingValue _lastImeValue = TextEditingValue.empty;
+  InputRepairParticipantToken? _inputRepairParticipantToken;
   // 2026-06-04 — CJK 输入模式开关。默认关闭：所有按键经 HardwareKeyboard
   // → `_handleKey` → CDP 透传，Backspace / 方向键 / 标点都生效，但 macOS
   // 输入法激活时无法在内嵌页面打中文 / 日文 / 韩文。开启后挂 TextInput
@@ -150,6 +151,22 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
     _surfaceFocus.addListener(_onSurfaceFocusChanged);
+    _inputRepairParticipantToken = InputRepairService.instance
+        .registerParticipant(
+          debugLabel: 'web_reverse_browser_surface',
+          onRepair: (_) async {
+            _detachImeConnection();
+            _lastImeValue = TextEditingValue.empty;
+            _surfaceFocus.unfocus();
+            _addressBarFocus.unfocus();
+            _findFocus.unfocus();
+            _findBarOpen = false;
+            _findCtrl.clear();
+            _scrollInertiaTimer?.cancel();
+            _scrollInertiaTimer = null;
+            return const InputRepairParticipantResult.success();
+          },
+        );
     _wasAlive = widget.controller.isBrowserAlive;
     // 首次进入时同步一次地址栏；CDP 已稳定时立即拉。空 URL 或 about:blank
     // 时让地址栏保持空白让 placeholder 顶上去，避免初次打开就看到一行
@@ -203,6 +220,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     _surfaceFocus.removeListener(_onSurfaceFocusChanged);
+    _inputRepairParticipantToken?.dispose();
+    _inputRepairParticipantToken = null;
     _resizeDebouncer?.cancel();
     _urlPoller?.cancel();
     _findDebouncer?.cancel();

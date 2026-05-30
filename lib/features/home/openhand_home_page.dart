@@ -34,6 +34,7 @@ import '../../app/model/editor_code_theme.dart';
 import '../../app/model/editor_shortcut.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/support/input_repair_service.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/openhand_scroll_physics.dart';
 import '../../app/support/safe_subprocess.dart';
@@ -78,6 +79,7 @@ import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';
 import 'util/slash_command_parser.dart';
 import 'util/tool_call_argument_parser.dart';
+import 'widgets/html_selection_bridge_clipboard.dart';
 import 'widgets/machine_expert_dialog.dart';
 part 'widgets/_home_navigation.dart';
 part 'widgets/_home_write_command_dialog.dart';
@@ -219,6 +221,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _sessionActivationGeneration = 0;
   AppLifecycleState? _appLifecycleState;
   void Function()? _disposeAskUserChoicePresenter;
+  InputRepairParticipantToken? _inputRepairParticipantToken;
   int _resumeAutoFollowSuppressionFrames = 0;
   bool _resumeAutoFollowSyncQueued = false;
   final ValueNotifier<double> _navigationWidthNotifier = ValueNotifier<double>(
@@ -567,6 +570,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _disposeAskUserChoicePresenter = AiAskUserChoiceTool.registerPresenter(
       _presentAskUserChoiceDialog,
     );
+    _inputRepairParticipantToken = InputRepairService.instance
+        .registerParticipant(
+          debugLabel: 'home',
+          onRepair: (phase) async {
+            _composerFocusNode.unfocus();
+            _globalShortcutFocusNode.unfocus();
+            HtmlSelectionBridgeClipboard.clear();
+            if (phase == InputRepairParticipantPhase.afterTextInputReset) {
+              _composerPanelState?._userDismissAtMentionOverlay();
+              _composerPanelState?._userDismissSkillPickerOverlay();
+            }
+            return const InputRepairParticipantResult.success();
+          },
+        );
     _loadPersistedHardnessSession();
     _initNativeMenuChannel();
   }
@@ -639,6 +656,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (identical(_activeHomeState, this)) {
       _activeHomeState = null;
     }
+    _inputRepairParticipantToken?.dispose();
+    _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
@@ -1782,7 +1801,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentMaxExtent = notification.metrics.maxScrollExtent;
     final maxExtentShrunkSignificantly =
         _lastMessageScrollMaxExtent != null &&
-        currentMaxExtent < _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
+        currentMaxExtent <
+            _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
@@ -1976,8 +1996,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // (sendMessage / toggleComposer) when an editable widget has focus.
     final isEditableFocused = _isEditableTextFocused(focusContext);
     if (!isEditableFocused && _isPlainCopyShortcut(event)) {
-      if (_HtmlSelectionBridgeClipboard.hasSelection) {
-        unawaited(_HtmlSelectionBridgeClipboard.copySelection());
+      if (HtmlSelectionBridgeClipboard.hasSelection) {
+        unawaited(HtmlSelectionBridgeClipboard.copySelection());
         return true;
       }
     }
@@ -5216,9 +5236,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (position == null) return;
       final d2b = position.maxScrollExtent - position.pixels;
       if (d2b > _autoFollowDistanceThreshold) return;
-      _scheduleScrollToBottom(
-        allowSettlePasses: false,
-      );
+      _scheduleScrollToBottom(allowSettlePasses: false);
     });
   }
 
@@ -6041,7 +6059,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     // Step 3: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
-    final suggested = normalizeJsonlExportFilename(
+    final suggested = jsonlExportPickerSuggestedName(
       '${_sanitizeFileBasename(loaded.title)}_${loaded.id}.jsonl',
     );
     FileSaveLocation? location;
@@ -6093,12 +6111,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
     );
 
+    final destinationPath = normalizeJsonlExportPath(location.path);
     ExportResult result;
     try {
       result =
           await exportAiSessionToJsonl(
             session: loaded,
-            destinationPath: location.path,
+            destinationPath: destinationPath,
             cancelToken: cancelToken,
             config: config,
             onProgress: progressController.updateProgress,
@@ -6121,7 +6140,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.dispose();
 
     if (!mounted) return;
-    _showExportResultSnackBar(messenger, result, location.path);
+    _showExportResultSnackBar(messenger, result, destinationPath);
   }
 
   Future<void> _exportHardnessSession() async {
@@ -6138,7 +6157,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     // Step 2: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
-    final suggested = normalizeJsonlExportFilename(
+    final suggested = jsonlExportPickerSuggestedName(
       '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl',
     );
     FileSaveLocation? location;
@@ -6189,12 +6208,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
     );
 
+    final destinationPath = normalizeJsonlExportPath(location.path);
     ExportResult result;
     try {
       result =
           await exportHardnessSessionToJsonl(
             record: record,
-            destinationPath: location.path,
+            destinationPath: destinationPath,
             cancelToken: cancelToken,
             config: config,
             onProgress: progressController.updateProgress,
@@ -6222,7 +6242,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.dispose();
 
     if (!mounted) return;
-    _showExportResultSnackBar(messenger, result, location.path);
+    _showExportResultSnackBar(messenger, result, destinationPath);
   }
 
   void _showExportResultSnackBar(

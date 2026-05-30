@@ -2480,31 +2480,6 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
-class _HtmlSelectionBridgeClipboard {
-  static String? _selectedText;
-
-  static bool get hasSelection =>
-      _selectedText != null && _selectedText!.trim().isNotEmpty;
-
-  static void clear() {
-    _selectedText = null;
-  }
-
-  static void update(String? text) {
-    final normalized = text?.replaceAll('\u00a0', ' ').trim();
-    if (normalized == null || normalized.isEmpty) {
-      return;
-    }
-    _selectedText = normalized;
-  }
-
-  static Future<void> copySelection() async {
-    final text = _selectedText;
-    if (text == null || text.trim().isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: text));
-  }
-}
-
 /// 首次加载 HTML 气泡时的骨架屏占位，与 [_AuditShimmerPlaceholder]
 /// 同款扫光动画，避免 WebView 加载期间显示一个 ~25px 的空盒子。
 class _HtmlBubbleShimmer extends StatefulWidget {
@@ -2556,7 +2531,12 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     );
   }
 
-  Widget _buildBar(Color base, Color highlight, double progress, {double? width}) {
+  Widget _buildBar(
+    Color base,
+    Color highlight,
+    double progress, {
+    double? width,
+  }) {
     return Container(
       width: width ?? double.infinity,
       height: 12,
@@ -3111,7 +3091,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   Future<void> beginSelectionAtGlobal(Offset globalPosition) async {
-    _HtmlSelectionBridgeClipboard.clear();
+    HtmlSelectionBridgeClipboard.clear();
     _selectionAnchorGlobalPosition = globalPosition;
     _selectionBridgeStarted = false;
     _pendingSelectionUpdate = null;
@@ -3170,7 +3150,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         source:
             "(function(){try{if(window.__openhandSelectionBridge){return window.__openhandSelectionBridge('$kind',$x,$y)||'';}return '';}catch(_){return '';}})();",
       );
-      _HtmlSelectionBridgeClipboard.update(result?.toString());
+      HtmlSelectionBridgeClipboard.update(result?.toString());
     } catch (error, stack) {
       silentLog(
         'home_message_content',
@@ -3299,12 +3279,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         },
         onLoadStop: (controller, url) async {
           try {
-            await controller.evaluateJavascript(
-              source: _heightObserverScript,
-            );
-            await controller.evaluateJavascript(
-              source: _selectionBridgeScript,
-            );
+            await controller.evaluateJavascript(source: _heightObserverScript);
+            await controller.evaluateJavascript(source: _selectionBridgeScript);
           } catch (error, stack) {
             silentLog(
               'home_message_content',
@@ -3315,11 +3291,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           }
         },
         onReceivedError: (controller, request, error) {
-          silentLog(
-            'home_message_content',
-            'html bubble webview error',
-            error,
-          );
+          silentLog('home_message_content', 'html bubble webview error', error);
           if (mounted) {
             setState(() => _hasError = true);
           }

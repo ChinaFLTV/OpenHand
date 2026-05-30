@@ -13,7 +13,7 @@ import { ApiError, UnauthorizedError, apiRequest } from './client';
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
-import { normalizeJsonlExportFilename } from '../shared/util/export_filename';
+import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { saveBlobWithPicker } from '../utils/save_blob';
 
 export interface SessionTodoItem {
@@ -518,8 +518,11 @@ export async function exportSessionDownload(
     filename = normalizeJsonlExportFilename(parsedFilename);
   }
   const blob = await res.blob();
-  await saveBlobWithPicker(blob, filename, [
-    { description: 'JSONL', accept: { 'application/x-ndjson': ['.jsonl'] } },
-  ]);
+  await saveBlobWithPicker(
+    blob,
+    filename,
+    [{ description: 'JSONL', accept: { 'application/x-ndjson': ['.jsonl'] } }],
+    jsonlExportPickerSuggestedName(filename),
+  );
   return { filename };
 }

@@ -42,8 +42,10 @@ export async function saveBlobWithPicker(
   blob: Blob,
   filename: string,
   types?: SaveBlobPickerType[],
+  pickerSuggestedName?: string,
 ): Promise<SaveBlobResult> {
-  const suggestedName = filename.trim() || 'download';
+  const normalizedFilename = filename.trim() || 'download';
+  const suggestedName = pickerSuggestedName?.trim() || normalizedFilename;
   const picker = (window as Window & { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
   if (picker) {
     try {
@@ -51,13 +53,13 @@ export async function saveBlobWithPicker(
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return { filename: suggestedName, picked: true };
+      return { filename: normalizedFilename, picked: true };
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw error;
       }
     }
   }
-  fallbackDownload(blob, suggestedName);
-  return { filename: suggestedName, picked: false };
+  fallbackDownload(blob, normalizedFilename);
+  return { filename: normalizedFilename, picked: false };
 }

@@ -421,7 +421,7 @@ class _ThreadSessionManagementDialogState
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
-        suggestedName: normalizeJsonlExportFilename(
+        suggestedName: jsonlExportPickerSuggestedName(
           '${safeTitle.isEmpty ? "session" : safeTitle}_'
           '${full.id}.jsonl',
         ),
@@ -451,7 +451,7 @@ class _ThreadSessionManagementDialogState
     try {
       result = await exportAiSessionToJsonl(
         session: full,
-        destinationPath: location.path,
+        destinationPath: normalizeJsonlExportPath(location.path),
         cancelToken: cancelToken,
         config: config,
         onProgress: progressController.updateProgress,

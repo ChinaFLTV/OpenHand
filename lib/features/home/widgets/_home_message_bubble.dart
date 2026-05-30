@@ -152,7 +152,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return rect.contains(globalPosition);
   }
 
-
   /// 子交互回调（Markdown 链接、图片附件、代码块工具栏按钮等）在
   /// 触发自身动作之前调用此方法，告知气泡"本次点击已被消费"，从而
   /// 取消即将到来的延迟选中切换，避免点击交互后顺带切出/收起功能按钮。
@@ -216,6 +215,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.tool ||
         message.kind == AiSessionMessageKind.mcp ||
         message.kind == AiSessionMessageKind.skill;
+    final isToolCallStreaming =
+        isToolCall &&
+        (message.metadata['tool_arguments_streaming'] == true ||
+            message.metadata[aiSessionMessageMetadataStreamingKey] == true);
     final isStatus = message.kind == AiSessionMessageKind.status;
     final isSelfLearning = message.kind == AiSessionMessageKind.selfLearning;
     final isRoundFileMutationSummary =
@@ -239,7 +242,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
     );
     // Resolve content format per message — messages store their own format
     // in metadata when created; fall back to global setting for legacy data.
-    final resolvedMessageContentFormat = _resolveMessageContentFormat(context, message);
+    final resolvedMessageContentFormat = _resolveMessageContentFormat(
+      context,
+      message,
+    );
     final reasoningExpanded =
         _reasoningExpandedOverride ?? _shouldDefaultExpandReasoning(message);
 
@@ -356,6 +362,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
+    final disableBubbleSizeAnimation =
+        isStreamingAssistant || isStreamingReasoning || isToolCallStreaming;
     final bubbleBody = Column(
       crossAxisAlignment: isUser
           ? CrossAxisAlignment.end
@@ -415,15 +423,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // 2026-05-17 (Bug 5) — 时长 / 曲线全部走
             // `_home_motion_tokens.dart` 的 motion token，跨卡片节奏
             // 统一；不再在调用点写裸 milliseconds。
-            child: ClipRect(
-              child: AnimatedSize(
-                duration: cardMotionDurationFor(
-                  context,
-                  expanding: reasoningExpanded,
-                ),
-                curve: kCardMotionCurve,
-                alignment: Alignment.topLeft,
-                child: Column(
+            child: Builder(
+              builder: (context) {
+                final bubbleContent = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isCompressionPoint)
@@ -520,11 +522,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     else if (isToolCall)
                       _ToolCallBody(message: message, selectable: true)
                     else if (isSelfLearning)
-                      // Wrap the self-learning card in an AnimatedSize so as the
-                      // dispatcher streams in tokens (and metadata grows), the
-                      // bubble height eases out with a Q-bouncy curve instead
-                      // of jumping. Mirrors the reasoning bubble behaviour.
-                      // 2026-05-17 (Bug 5)：时长 / 曲线统一走 motion token。
                       ClipRect(
                         child: AnimatedSize(
                           duration: cardMotionDurationFor(
@@ -537,9 +534,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                       )
                     else if (isUser)
-                      // 2026-05-26 — 用户侧消息不进行 Markdown 解析渲染，
-                      // 直接展示原始文本，降低进入线程会话的卡顿概率，
-                      // 提升滚动流畅度。多媒体附件、@技能、指令仍正常展示。
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -644,8 +638,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         textColor: textColor,
                       ),
                   ],
-                ),
-              ),
+                );
+                return ClipRect(
+                  child: disableBubbleSizeAnimation
+                      ? bubbleContent
+                      : AnimatedSize(
+                          duration: cardMotionDurationFor(
+                            context,
+                            expanding: reasoningExpanded,
+                          ),
+                          curve: kCardMotionCurve,
+                          alignment: Alignment.topLeft,
+                          child: bubbleContent,
+                        ),
+                );
+              },
             ),
           ),
         ),
@@ -2741,7 +2748,8 @@ $mediaTag
     if (!mounted) return;
     DialogAnimationSettings settings;
     try {
-      settings = settingsController?.dialogAnimationSettings ??
+      settings =
+          settingsController?.dialogAnimationSettings ??
           DialogAnimationSettings.defaults;
     } catch (_) {
       settings = DialogAnimationSettings.defaults;
