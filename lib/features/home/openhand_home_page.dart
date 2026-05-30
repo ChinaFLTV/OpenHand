@@ -1782,8 +1782,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentMaxExtent = notification.metrics.maxScrollExtent;
     final maxExtentShrunkSignificantly =
         _lastMessageScrollMaxExtent != null &&
-        currentMaxExtent <
-            _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
+        currentMaxExtent < _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
     final isNearBottom =
         distanceToBottom >= -1.0 &&
         distanceToBottom <= _autoFollowDistanceThreshold;
