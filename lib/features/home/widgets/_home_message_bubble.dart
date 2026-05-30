@@ -2718,6 +2718,12 @@ $mediaTag
     // Capture the navigator before the async pause so we don't reference
     // a possibly-stale BuildContext after the await.
     final navigator = Navigator.of(context, rootNavigator: true);
+    DialogAnimationSettings settings;
+    try {
+      settings = context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      settings = DialogAnimationSettings.defaults;
+    }
     // Pause the underlying preview before we hand control to the
     // fullscreen route so the user never hears two audio tracks at once.
     try {
@@ -2732,13 +2738,7 @@ $mediaTag
         stack,
       );
     }
-    if (!mounted || !context.mounted) return;
-    DialogAnimationSettings settings;
-    try {
-      settings = context.read<SettingsController>().dialogAnimationSettings;
-    } catch (_) {
-      settings = DialogAnimationSettings.defaults;
-    }
+    if (!mounted) return;
     final returnedTime = await navigator.push<double>(
       PageRouteBuilder<double>(
         fullscreenDialog: true,
