@@ -1144,6 +1144,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _outputUsdPer1MController;
   late final TextEditingController _cacheReadUsdPer1MController;
   late final TextEditingController _cacheWriteUsdPer1MController;
+  late final TextEditingController _canonicalSlugController;
+  late final TextEditingController _huggingFaceIdController;
   late final TextEditingController _knowledgeCutoffController;
   late final TextEditingController _expirationDateController;
   bool? _isMultimodal;
@@ -1217,6 +1219,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           effective.cacheWriteUsdPer1M?.toString() ??
           '',
     );
+    _canonicalSlugController = TextEditingController(
+      text: p.canonicalSlug ?? effective.canonicalSlug ?? '',
+    );
+    _huggingFaceIdController = TextEditingController(
+      text: p.huggingFaceId ?? effective.huggingFaceId ?? '',
+    );
     _knowledgeCutoffController = TextEditingController(
       text: p.knowledgeCutoff ?? effective.knowledgeCutoff ?? '',
     );
@@ -1264,6 +1272,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           _maxThinkingLengthController.text = catalog.maxThinkingLength
               .toString();
         }
+        _canonicalSlugController.text = catalog.canonicalSlug ?? '';
+        _huggingFaceIdController.text = catalog.huggingFaceId ?? '';
         _knowledgeCutoffController.text = catalog.knowledgeCutoff ?? '';
         _expirationDateController.text = catalog.expirationDate ?? '';
       } else {
@@ -1323,6 +1333,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _outputUsdPer1MController.dispose();
     _cacheReadUsdPer1MController.dispose();
     _cacheWriteUsdPer1MController.dispose();
+    _canonicalSlugController.dispose();
+    _huggingFaceIdController.dispose();
     _knowledgeCutoffController.dispose();
     _expirationDateController.dispose();
     super.dispose();
@@ -1369,6 +1381,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       cacheWriteUsdPer1M: _parseNonNegativeDouble(
         _cacheWriteUsdPer1MController.text,
       ),
+      canonicalSlug: _canonicalSlugController.text.trim().isNotEmpty
+          ? _canonicalSlugController.text.trim()
+          : null,
+      huggingFaceId: _huggingFaceIdController.text.trim().isNotEmpty
+          ? _huggingFaceIdController.text.trim()
+          : null,
       knowledgeCutoff: _knowledgeCutoffController.text.trim().isNotEmpty
           ? _knowledgeCutoffController.text.trim()
           : null,
@@ -1755,6 +1773,22 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               const SizedBox(height: 16),
               _buildSectionHeader('OpenRouter Metadata Overrides'),
               const SizedBox(height: 8),
+              TextField(
+                controller: _canonicalSlugController,
+                decoration: const InputDecoration(
+                  labelText: 'canonical_slug',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _huggingFaceIdController,
+                decoration: const InputDecoration(
+                  labelText: 'hugging_face_id',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _knowledgeCutoffController,
                 decoration: const InputDecoration(
