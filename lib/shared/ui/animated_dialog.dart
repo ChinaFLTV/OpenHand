@@ -40,6 +40,7 @@ Future<bool> showOpenHandConfirmDialog({
   String? message,
   Widget? content,
   Widget? icon,
+  double? maxWidth,
   bool destructive = false,
   bool barrierDismissible = true,
   bool dismissOnEscape = true,
@@ -48,6 +49,7 @@ Future<bool> showOpenHandConfirmDialog({
     message != null || content != null,
     'Either message or content must be provided.',
   );
+  final dialogContent = content ?? Text(message!);
   final confirmed = await showAnimatedDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -57,11 +59,18 @@ Future<bool> showOpenHandConfirmDialog({
       actionsOverflowAlignment: OverflowBarAlignment.center,
       icon: icon,
       title: Text(title),
-      content: content ?? Text(message!),
+      content: maxWidth == null
+          ? dialogContent
+          : ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: dialogContent,
+            ),
       actions: <Widget>[
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          label: cancelLabel ?? MaterialLocalizations.of(context).cancelButtonLabel,
+          label:
+              cancelLabel ??
+              MaterialLocalizations.of(context).cancelButtonLabel,
         ),
         destructive
             ? OpenHandDialogActionButton.destructive(
@@ -76,6 +85,86 @@ Future<bool> showOpenHandConfirmDialog({
     ),
   );
   return confirmed == true;
+}
+
+Future<String?> showOpenHandTextInputDialog({
+  required BuildContext context,
+  required String title,
+  String? initialValue,
+  String? hintText,
+  String? confirmLabel,
+  String? cancelLabel,
+  InputDecoration? decoration,
+  Widget? icon,
+  TextInputType? keyboardType,
+  double? maxWidth,
+  bool trimResult = true,
+  bool autofocus = true,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  int minLines = 1,
+  int? maxLines,
+}) async {
+  final textController = TextEditingController(text: initialValue ?? '');
+  final resolvedMaxLines = maxLines ?? (minLines > 1 ? minLines : 1);
+  String normalize(String value) => trimResult ? value.trim() : value;
+
+  try {
+    final submitted = await showAnimatedDialog<String>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      dismissOnEscape: dismissOnEscape,
+      builder: (dialogContext) {
+        final field = TextField(
+          controller: textController,
+          autofocus: autofocus,
+          minLines: minLines,
+          maxLines: resolvedMaxLines,
+          keyboardType:
+              keyboardType ??
+              (resolvedMaxLines == 1
+                  ? TextInputType.text
+                  : TextInputType.multiline),
+          textInputAction: resolvedMaxLines == 1
+              ? TextInputAction.done
+              : TextInputAction.newline,
+          decoration: decoration ?? InputDecoration(hintText: hintText),
+          onSubmitted: resolvedMaxLines == 1
+              ? (value) => Navigator.of(dialogContext).pop(normalize(value))
+              : null,
+        );
+        return AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          actionsOverflowAlignment: OverflowBarAlignment.center,
+          icon: icon,
+          title: Text(title),
+          content: maxWidth == null
+              ? field
+              : SizedBox(width: maxWidth, child: field),
+          actions: <Widget>[
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              label:
+                  cancelLabel ??
+                  MaterialLocalizations.of(context).cancelButtonLabel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(normalize(textController.text)),
+              label:
+                  confirmLabel ?? MaterialLocalizations.of(context).okButtonLabel,
+            ),
+          ],
+        );
+      },
+    );
+    return submitted == null ? null : normalize(submitted);
+  } finally {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      textController.dispose();
+    });
+  }
 }
 
 /// Shows a dialog with configurable entrance and exit animations.

@@ -494,43 +494,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _renameNode(_FileNode node) async {
-    final controller = TextEditingController(text: node.name);
-    final newName = await showAnimatedDialog<String>(
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final newName = await showOpenHandTextInputDialog(
       context: context,
-      builder: (dialogContext) {
-        final isZh = Localizations.localeOf(
-          dialogContext,
-        ).languageCode.startsWith('zh');
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(isZh ? '重命名' : 'Rename'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: isZh ? '输入新名称' : 'Enter new name',
-            ),
-            onSubmitted: (value) {
-              Navigator.of(dialogContext).pop(value.trim());
-            },
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(controller.text.trim());
-              },
-              label: isZh ? '确定' : 'OK',
-            ),
-          ],
-        );
-      },
+      title: isZh ? '重命名' : 'Rename',
+      initialValue: node.name,
+      hintText: isZh ? '输入新名称' : 'Enter new name',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '确定' : 'OK',
     );
-    controller.dispose();
     if (newName == null || newName.isEmpty || newName == node.name) return;
     try {
       final parentDir = p.dirname(node.path);
@@ -549,30 +521,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   Future<void> _deleteNode(_FileNode node) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(isZh ? '删除确认' : 'Confirm Delete'),
-          content: Text(
-            isZh
-                ? '确定要删除 "${node.name}" 吗？此操作不可撤销。'
-                : 'Are you sure you want to delete "${node.name}"? This cannot be undone.',
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: isZh ? '删除' : 'Delete',
-            ),
-          ],
-        );
-      },
+      title: isZh ? '删除确认' : 'Confirm Delete',
+      message: isZh
+          ? '确定要删除 "${node.name}" 吗？此操作不可撤销。'
+          : 'Are you sure you want to delete "${node.name}"? This cannot be undone.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
     if (confirmed != true) return;
     try {
@@ -2857,54 +2814,23 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<String?> _promptRenameSymbol(String initialValue) async {
-    final controller = TextEditingController(text: initialValue);
-    final focusNode = FocusNode();
-    final result = await showAnimatedDialog<String>(
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    return showOpenHandTextInputDialog(
       context: context,
-      builder: (dialogContext) {
-        final colorScheme = Theme.of(dialogContext).colorScheme;
-        final isZh = Localizations.localeOf(
-          dialogContext,
-        ).languageCode.startsWith('zh');
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(isZh ? '重命名符号' : 'Rename Symbol'),
-          content: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: isZh ? '新名称' : 'New name',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: colorScheme.primary),
-              ),
-            ),
-            onSubmitted: (value) {
-              Navigator.of(dialogContext).pop(value.trim());
-            },
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
-              label: isZh ? '应用' : 'Apply',
-            ),
-          ],
-        );
-      },
+      title: isZh ? '重命名符号' : 'Rename Symbol',
+      initialValue: initialValue,
+      hintText: isZh ? '新名称' : 'New name',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '应用' : 'Apply',
+      decoration: InputDecoration(
+        labelText: isZh ? '新名称' : 'New name',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        ),
+      ),
     );
-    controller.dispose();
-    focusNode.dispose();
-    return result?.trim();
   }
 
   Future<void> _renameSymbolAtCursor() async {

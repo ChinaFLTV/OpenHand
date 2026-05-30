@@ -586,29 +586,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final uri = _lastSentUri;
     if (uri == null) return;
     if (!mounted) return;
-    final ctrl = TextEditingController();
-    final newName = await showAnimatedDialog<String>(
+    final newName = await showOpenHandTextInputDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '重命名为' : 'Rename to'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
-            label: isZh ? '确定' : 'OK',
-          ),
-        ],
-      ),
+      title: isZh ? '重命名为' : 'Rename to',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '确定' : 'OK',
+      decoration: const InputDecoration(border: OutlineInputBorder()),
     );
     if (!mounted || newName == null || newName.isEmpty) return;
     final edit = await _lsp.rename(uri, line, col, newName);

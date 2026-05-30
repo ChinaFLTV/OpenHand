@@ -131,17 +131,6 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 
-void _disposeTextEditingControllerAfterCurrentFrame(
-  TextEditingController controller,
-) {
-  // The dialog route may still be in its exit animation when showDialog
-  // completes. Dispose the controller on the next frame so EditableText
-  // can detach cleanly before the controller goes away.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    controller.dispose();
-  });
-}
-
 Widget _buildWorkspaceSidebarTransition({
   required Widget child,
   required Animation<double> animation,

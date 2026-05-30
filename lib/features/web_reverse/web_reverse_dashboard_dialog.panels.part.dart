@@ -3624,31 +3624,14 @@ class _ServiceWorkersTable extends StatelessWidget {
   final Future<void> Function() onChanged;
 
   Future<void> _registerNew(BuildContext context) async {
-    final ctrl = TextEditingController();
-    final ok = await showAnimatedDialog<String>(
+    final ok = await showOpenHandTextInputDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '注册 Service Worker' : 'Register SW'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'scopeURL'),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
-            label: isZh ? '注册' : 'Register',
-          ),
-        ],
-      ),
+      title: isZh ? '注册 Service Worker' : 'Register SW',
+      hintText: 'scopeURL',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '注册' : 'Register',
+      decoration: const InputDecoration(labelText: 'scopeURL'),
     );
-    ctrl.dispose();
     if (ok == null || ok.isEmpty) return;
     await controller.registerServiceWorker(ok);
     await onChanged();

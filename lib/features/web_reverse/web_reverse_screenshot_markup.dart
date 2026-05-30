@@ -354,31 +354,12 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
 
   Future<void> _addText(Offset position) async {
     final loc = AppLocalizations.of(context);
-    final ctrl = TextEditingController();
-    final text = await showAnimatedDialog<String>(
+    final text = await showOpenHandTextInputDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(loc?.webReverseMarkupAddTextTitle ?? 'Add text label'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: loc?.webReverseMarkupLabelHint ?? 'Label',
-          ),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: loc?.commonCancel ?? 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(ctrl.text.trim()),
-            label: loc?.webReverseMarkupAdd ?? 'Add',
-          ),
-        ],
-      ),
+      title: loc?.webReverseMarkupAddTextTitle ?? 'Add text label',
+      hintText: loc?.webReverseMarkupLabelHint ?? 'Label',
+      cancelLabel: loc?.commonCancel ?? 'Cancel',
+      confirmLabel: loc?.webReverseMarkupAdd ?? 'Add',
     );
     if (text == null || text.isEmpty || !mounted) return;
     setState(() {

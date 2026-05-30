@@ -174,14 +174,17 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   Future<void> _onCleanPressed(DataCleanupCategory category) async {
     final l10n = AppLocalizations.of(context)!;
     final navigatorContext = context;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: navigatorContext,
-      builder: (dialogContext) => _DataCleanupConfirmDialog(
-        title: _categoryTitle(dialogContext, category),
-        body: _categoryConfirmBody(dialogContext, category),
-        confirmLabel: _localizedText(dialogContext, zh: '清理', en: 'Clean'),
-        cancelLabel: l10n.commonCancel,
-        isDestructive: true,
+      title: _categoryTitle(navigatorContext, category),
+      message: _categoryConfirmBody(navigatorContext, category),
+      confirmLabel: _localizedText(navigatorContext, zh: '清理', en: 'Clean'),
+      cancelLabel: l10n.commonCancel,
+      destructive: true,
+      maxWidth: 520,
+      icon: Icon(
+        Icons.warning_amber_outlined,
+        color: Theme.of(navigatorContext).colorScheme.error,
       ),
     );
     if (confirmed != true || !mounted) {
@@ -606,78 +609,6 @@ class _DataCleanupRow extends StatelessWidget {
   }
 }
 
-/// 数据清理二次确认弹窗。复用 [showAnimatedDialog] 因此进/出动画与
-/// "全局设置 → 弹窗动画设置"保持一致；按钮使用 [OpenHandDialogActionButton]，
-/// 因此取消与确认尺寸完全相同。
-class _DataCleanupConfirmDialog extends StatelessWidget {
-  const _DataCleanupConfirmDialog({
-    required this.title,
-    required this.body,
-    required this.confirmLabel,
-    required this.cancelLabel,
-    required this.isDestructive,
-  });
-
-  final String title;
-  final String body;
-  final String confirmLabel;
-  final String cancelLabel;
-  final bool isDestructive;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isDestructive
-                        ? Icons.warning_amber_outlined
-                        : Icons.delete_outline,
-                    color: isDestructive
-                        ? colorScheme.error
-                        : colorScheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(title, style: theme.textTheme.headlineSmall),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(body, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: cancelLabel,
-                    onPressed: () => Navigator.of(context).pop(false),
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    label: confirmLabel,
-                    onPressed: () => Navigator.of(context).pop(true),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 IconData _categoryIcon(DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
@@ -1015,27 +946,29 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       );
       return;
     }
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => _DataCleanupConfirmDialog(
-        title: _localizedText(
-          ctx,
-          zh: '从剪贴板导入 ledger',
-          en: 'Import ledger from clipboard',
-        ),
-        body: _localizedText(
-          ctx,
-          zh:
-              '将合并剪贴板中的 ledger bundle 到当前 file_history 目录。'
-              '同 recordId 的条目会跳过。该操作不可撤销。',
-          en:
-              'The ledger bundle in your clipboard will be merged into the '
-              'current file_history. Records with duplicate ids are '
-              'skipped. This cannot be undone.',
-        ),
-        confirmLabel: _localizedText(ctx, zh: '导入', en: 'Import'),
-        cancelLabel: AppLocalizations.of(ctx)!.commonCancel,
-        isDestructive: false,
+      title: _localizedText(
+        context,
+        zh: '从剪贴板导入 ledger',
+        en: 'Import ledger from clipboard',
+      ),
+      message: _localizedText(
+        context,
+        zh:
+            '将合并剪贴板中的 ledger bundle 到当前 file_history 目录。'
+            '同 recordId 的条目会跳过。该操作不可撤销。',
+        en:
+            'The ledger bundle in your clipboard will be merged into the '
+            'current file_history. Records with duplicate ids are '
+            'skipped. This cannot be undone.',
+      ),
+      confirmLabel: _localizedText(context, zh: '导入', en: 'Import'),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      maxWidth: 520,
+      icon: Icon(
+        Icons.download_rounded,
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
     if (confirmed != true || !mounted) return;

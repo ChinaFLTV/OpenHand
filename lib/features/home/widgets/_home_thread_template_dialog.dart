@@ -402,51 +402,24 @@ Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,
 ) async {
-  final controller = TextEditingController(text: currentText);
   final languageCode = Localizations.localeOf(context).languageCode;
   final isZh = languageCode.startsWith('zh');
-  try {
-    return await showAnimatedDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(isZh ? '编辑等待消息' : 'Edit Queued Message'),
-          content: SizedBox(
-            width: 480,
-            child: TextField(
-              controller: controller,
-              autofocus: true,
-              maxLines: 8,
-              minLines: 3,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                hintText: isZh ? '输入消息内容…' : 'Enter message…',
-              ),
-              onSubmitted: (value) {
-                Navigator.of(dialogContext).pop(value);
-              },
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(controller.text);
-              },
-              label: isZh ? '保存' : 'Save',
-            ),
-          ],
-        );
-      },
-    );
-  } finally {
-    _disposeTextEditingControllerAfterCurrentFrame(controller);
-  }
+  return showOpenHandTextInputDialog(
+    context: context,
+    title: isZh ? '编辑等待消息' : 'Edit Queued Message',
+    initialValue: currentText,
+    hintText: isZh ? '输入消息内容…' : 'Enter message…',
+    cancelLabel: isZh ? '取消' : 'Cancel',
+    confirmLabel: isZh ? '保存' : 'Save',
+    maxWidth: 480,
+    minLines: 3,
+    maxLines: 8,
+    trimResult: false,
+    decoration: InputDecoration(
+      border: const OutlineInputBorder(),
+      hintText: isZh ? '输入消息内容…' : 'Enter message…',
+    ),
+  );
 }
 
 String _localizedMetadataField(BuildContext context, String field) {

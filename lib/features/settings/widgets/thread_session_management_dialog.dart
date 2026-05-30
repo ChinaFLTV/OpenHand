@@ -219,47 +219,15 @@ class _ThreadSessionManagementDialogState
 
   Future<void> _renameSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
-    final titleController = TextEditingController(text: session.title);
     final l10n = AppLocalizations.of(context)!;
-    String? submitted;
-    try {
-      submitted = await showAnimatedDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          final dl10n = AppLocalizations.of(dialogContext)!;
-          return AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
-            title: Text(dl10n.tsmRenameThreadTitle),
-            content: TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: InputDecoration(hintText: dl10n.tsmRenameHint),
-              onSubmitted: (value) =>
-                  Navigator.of(dialogContext).pop(value.trim()),
-            ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                label: l10n.commonCancel,
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: () => Navigator.of(
-                  dialogContext,
-                ).pop(titleController.text.trim()),
-                label: l10n.commonSave,
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      // Defer disposal one frame so the dialog's dismissal animation can
-      // still read the controller (matches openhand_home_page pattern).
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        titleController.dispose();
-      });
-    }
+    final submitted = await showOpenHandTextInputDialog(
+      context: context,
+      title: l10n.tsmRenameThreadTitle,
+      initialValue: session.title,
+      hintText: l10n.tsmRenameHint,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonSave,
+    );
     if (!mounted || submitted == null || submitted.isEmpty) return;
     final ok = await controller.renameSession(session.id, submitted);
     if (!mounted || ok) return;
@@ -284,6 +252,7 @@ class _ThreadSessionManagementDialogState
       message: session.title,
       cancelLabel: l10n.commonCancel,
       confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
     if (!ok || !mounted) return;
     await _deleteIds(<String>{session.id});
@@ -299,6 +268,7 @@ class _ThreadSessionManagementDialogState
       message: l10n.tsmDeleteSelectedConfirm(ids.length),
       cancelLabel: l10n.commonCancel,
       confirmLabel: l10n.commonDelete,
+      destructive: true,
     );
     if (!ok || !mounted) return;
     await _deleteIds(ids);

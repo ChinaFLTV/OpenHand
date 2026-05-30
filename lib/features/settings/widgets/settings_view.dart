@@ -144,6 +144,38 @@ Future<bool> _confirmClearToolTelemetry({
   );
 }
 
+Future<void> _exportToolTelemetry<T>({
+  required BuildContext context,
+  required String fileStem,
+  required bool asCsv,
+  required Future<List<T>> Function() loadCalls,
+  required String Function(List<T> calls) encodeJson,
+  required String Function(List<T> calls) encodeCsv,
+}) async {
+  final ext = asCsv ? 'csv' : 'json';
+  final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
+  final location = await getSaveLocation(
+    suggestedName: '$fileStem-calls-$ts.$ext',
+    acceptedTypeGroups: [
+      XTypeGroup(label: ext.toUpperCase(), extensions: [ext]),
+    ],
+  );
+  if (location == null) return;
+  final calls = await loadCalls();
+  final body = asCsv ? encodeCsv(calls) : encodeJson(calls);
+  await File(location.path).writeAsString(body, flush: true);
+  if (!context.mounted) return;
+  OpenHandSnackBar.showSuccess(
+    context,
+    _localizedText(
+      context,
+      zh: '已导出 ${calls.length} 条记录到 ${location.path}',
+      en: 'Exported ${calls.length} entries to ${location.path}',
+    ),
+    duration: const Duration(milliseconds: 1800),
+  );
+}
+
 enum _SettingsSection {
   header,
   persistenceIssue,

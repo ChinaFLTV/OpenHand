@@ -121,29 +121,15 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (_exportingTelemetry) return;
     setState(() => _exportingTelemetry = true);
     try {
-      final ext = asCsv ? 'csv' : 'json';
-      final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final location = await getSaveLocation(
-        suggestedName: 'webfetch-calls-$ts.$ext',
-        acceptedTypeGroups: [
-          XTypeGroup(label: ext.toUpperCase(), extensions: [ext]),
-        ],
-      );
-      if (location == null) return;
-      final calls = await WebFetchTelemetryStore.instance.recentCalls(
-        limit: WebFetchTelemetryStore.maxRecentCalls,
-      );
-      final body = asCsv ? _callsToCsv(calls) : _callsToJson(calls);
-      await File(location.path).writeAsString(body, flush: true);
-      if (!mounted) return;
-      OpenHandSnackBar.showSuccess(
-        context,
-        _localizedText(
-          context,
-          zh: '已导出 ${calls.length} 条记录到 ${location.path}',
-          en: 'Exported ${calls.length} entries to ${location.path}',
+      await _exportToolTelemetry<WebFetchCallLog>(
+        context: context,
+        fileStem: 'webfetch',
+        asCsv: asCsv,
+        loadCalls: () => WebFetchTelemetryStore.instance.recentCalls(
+          limit: WebFetchTelemetryStore.maxRecentCalls,
         ),
-        duration: const Duration(milliseconds: 1800),
+        encodeJson: _callsToJson,
+        encodeCsv: _callsToCsv,
       );
     } catch (e, st) {
       silentLog('settings.webfetch', '_exportTelemetry', e, st);

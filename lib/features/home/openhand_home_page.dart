@@ -5611,50 +5611,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _renameSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
-    final titleController = TextEditingController(text: session.title);
-    String? submitted;
-    try {
-      submitted = await showAnimatedDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
-            title: Text(
-              _localizedText(dialogContext, zh: '重命名线程', en: 'Rename Thread'),
-            ),
-            content: TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: _localizedText(
-                  dialogContext,
-                  zh: '输入线程标题',
-                  en: 'Enter a thread title',
-                ),
-              ),
-              onSubmitted: (value) {
-                Navigator.of(dialogContext).pop(value.trim());
-              },
-            ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                label: AppLocalizations.of(dialogContext)!.commonCancel,
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(titleController.text.trim());
-                },
-                label: AppLocalizations.of(dialogContext)!.commonSave,
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      _disposeTextEditingControllerAfterCurrentFrame(titleController);
-    }
+    final submitted = await showOpenHandTextInputDialog(
+      context: context,
+      title: _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+      initialValue: session.title,
+      hintText: _localizedText(
+        context,
+        zh: '输入线程标题',
+        en: 'Enter a thread title',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonSave,
+    );
     if (!mounted || submitted == null || submitted.isEmpty) {
       return;
     }
@@ -5822,28 +5790,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _deleteSession(AiSession session) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(dialogContext, zh: '删除线程', en: 'Delete Thread'),
-          ),
-          content: Text(session.title),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(dialogContext)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(dialogContext)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: _localizedText(context, zh: '删除线程', en: 'Delete Thread'),
+      message: session.title,
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonDelete,
+      destructive: true,
     );
     if (confirmed != true || !mounted) {
       return;
@@ -5878,54 +5831,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _renameHardnessSession() async {
     final record = _persistedHardnessSession;
     if (record == null) return;
-    final titleController = TextEditingController(text: record.title);
-    String? submitted;
-    try {
-      submitted = await showAnimatedDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
-            title: Text(
-              _localizedText(
-                dialogContext,
-                zh: '重命名 Hardness Engineering 会话',
-                en: 'Rename HE Session',
-              ),
-            ),
-            content: TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: _localizedText(
-                  dialogContext,
-                  zh: '输入会话标题',
-                  en: 'Enter a session title',
-                ),
-              ),
-              onSubmitted: (value) {
-                Navigator.of(dialogContext).pop(value.trim());
-              },
-            ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                label: AppLocalizations.of(dialogContext)!.commonCancel,
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(titleController.text.trim());
-                },
-                label: AppLocalizations.of(dialogContext)!.commonSave,
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      _disposeTextEditingControllerAfterCurrentFrame(titleController);
-    }
+    final submitted = await showOpenHandTextInputDialog(
+      context: context,
+      title: _localizedText(
+        context,
+        zh: '重命名 Hardness Engineering 会话',
+        en: 'Rename HE Session',
+      ),
+      initialValue: record.title,
+      hintText: _localizedText(
+        context,
+        zh: '输入会话标题',
+        en: 'Enter a session title',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonSave,
+    );
     if (!mounted || submitted == null || submitted.isEmpty) {
       return;
     }
