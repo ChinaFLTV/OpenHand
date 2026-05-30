@@ -1679,8 +1679,27 @@ class AiModelCatalog {
     if (id.contains('turbos')) {
       return _p(name: 'Hunyuan TurboS', desc: 'Fast text model');
     }
+    if (id.contains('hy3-preview') || id.contains('hy3')) {
+      return _p(
+        name: 'Hunyuan Hy3 Preview',
+        desc: '腾讯混元面向 Agent 工作流的高效文本模型。',
+        supportsAttachments: false,
+        context: 262144,
+        inputUsdPer1M: 0.063,
+        outputUsdPer1M: 0.21,
+        cacheReadUsdPer1M: 0.021,
+      );
+    }
     if (id.contains('a13b')) {
-      return _p(name: 'Hunyuan A13B', desc: 'Efficient text model');
+      return _p(
+        name: 'Hunyuan A13B',
+        desc: '腾讯混元高性价比文本推理模型。',
+        supportsAttachments: false,
+        context: 131072,
+        output: 131072,
+        inputUsdPer1M: 0.14,
+        outputUsdPer1M: 0.57,
+      );
     }
     if (id.contains('lite')) {
       return _p(
@@ -1846,13 +1865,40 @@ class AiModelCatalog {
         capabilities: _imageGen,
       );
     }
+    if (id.contains('ernie-4.5-vl-424b') || id.contains('ernie-4-5-vl-424b')) {
+      return _p(
+        name: 'ERNIE 4.5 VL 424B A47B',
+        desc: '百度文心 4.5 旗舰视觉模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 131072,
+        output: 16000,
+        inputUsdPer1M: 0.42,
+        outputUsdPer1M: 1.25,
+      );
+    }
+    if (id.contains('ernie-4.5-vl-28b') || id.contains('ernie-4-5-vl-28b')) {
+      return _p(
+        name: 'ERNIE 4.5 VL 28B A3B',
+        desc: '百度文心 4.5 轻量视觉模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 131072,
+        output: 8000,
+        inputUsdPer1M: 0.14,
+        outputUsdPer1M: 0.56,
+      );
+    }
     if (id.contains('ernie-4.5-vl') ||
         id.contains('ernie-4-5-vl') ||
         id.contains('ernie-vl')) {
       return _p(
         name: 'ERNIE 4.5 VL',
-        desc: 'Baidu multimodal vision model',
+        desc: '百度文心多模态视觉模型。',
         multimodal: true,
+        supportsAttachments: true,
         modalities: _textImage,
         context: 131072,
         output: 8192,
@@ -1867,10 +1913,35 @@ class AiModelCatalog {
         thinking: 32768,
       );
     }
+    if (id.contains('ernie-4.5-300b') || id.contains('ernie-4-5-300b')) {
+      return _p(
+        name: 'ERNIE 4.5 300B A47B',
+        desc: '百度文心 4.5 旗舰文本模型。',
+        supportsAttachments: false,
+        context: 131072,
+        output: 12000,
+        inputUsdPer1M: 0.28,
+        outputUsdPer1M: 1.10,
+      );
+    }
+    if (id.contains('ernie-4.5-21b') || id.contains('ernie-4-5-21b')) {
+      final thinking = id.contains('thinking');
+      return _p(
+        name: thinking ? 'ERNIE 4.5 21B A3B Thinking' : 'ERNIE 4.5 21B A3B',
+        desc: thinking ? '百度文心 4.5 轻量推理文本模型。' : '百度文心 4.5 轻量文本模型。',
+        supportsAttachments: false,
+        context: 131072,
+        output: thinking ? 65536 : 8000,
+        thinking: thinking ? 65536 : null,
+        inputUsdPer1M: 0.07,
+        outputUsdPer1M: 0.28,
+      );
+    }
     if (id.contains('ernie-4.5') || id.contains('ernie-4-5')) {
       return _p(
         name: 'ERNIE 4.5',
-        desc: 'Baidu flagship text model',
+        desc: '百度文心旗舰文本模型。',
+        supportsAttachments: false,
         context: 128000,
         output: 32768,
       );
@@ -1979,8 +2050,72 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mimo(String id) {
+    if (id.contains('mimo-v2.5-pro')) {
+      return _p(
+        name: 'MiMo V2.5 Pro',
+        desc: '小米旗舰文本 Agent / 推理模型。',
+        supportsAttachments: false,
+        context: 1048576,
+        output: 131072,
+        inputUsdPer1M: 0.435,
+        outputUsdPer1M: 0.87,
+        cacheReadUsdPer1M: 0.0036,
+      );
+    }
+    if (id.contains('mimo-v2.5')) {
+      return _p(
+        name: 'MiMo V2.5',
+        desc: '小米原生全模态模型，支持图像、音频与视频输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 131072,
+        inputUsdPer1M: 0.14,
+        outputUsdPer1M: 0.28,
+        cacheReadUsdPer1M: 0.0028,
+      );
+    }
+    if (id.contains('mimo-v2-omni')) {
+      return _p(
+        name: 'MiMo V2 Omni',
+        desc: '小米前代全模态模型，支持图像、音频与视频输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 262144,
+        output: 65536,
+        inputUsdPer1M: 0.40,
+        outputUsdPer1M: 2.00,
+        cacheReadUsdPer1M: 0.08,
+      );
+    }
+    if (id.contains('mimo-v2-pro')) {
+      return _p(
+        name: 'MiMo V2 Pro',
+        desc: '小米大参数长上下文文本模型。',
+        supportsAttachments: false,
+        context: 1048576,
+        output: 131072,
+        inputUsdPer1M: 1.00,
+        outputUsdPer1M: 3.00,
+        cacheReadUsdPer1M: 0.20,
+      );
+    }
+    if (id.contains('mimo-v2-flash')) {
+      return _p(
+        name: 'MiMo V2 Flash',
+        desc: '小米高速文本模型。',
+        supportsAttachments: false,
+        context: 262144,
+        output: 65536,
+        inputUsdPer1M: 0.10,
+        outputUsdPer1M: 0.30,
+        cacheReadUsdPer1M: 0.01,
+      );
+    }
     if (id.startsWith('mimo') || id.startsWith('mi-')) {
-      return _p(name: 'MiMo', desc: 'Xiaomi reasoning model');
+      return _p(name: 'MiMo', desc: '小米推理模型');
     }
     return null;
   }
