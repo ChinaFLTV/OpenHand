@@ -240,11 +240,25 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 
   Future<void> _editModelProfile(String modelId) async {
     final existing = _modelProfiles[modelId] ?? const AiModelProfile();
+    final effectiveModel = AiModelConfig(
+      id: widget.initialModel?.id ?? '',
+      name: _nameController.text.trim(),
+      baseUrl: _baseUrlController.text.trim(),
+      authScheme: _authScheme,
+      token: _tokenController.text.trim(),
+      modelId: modelId,
+      protocolType: _protocolType,
+      modelProfiles: <String, AiModelProfile>{
+        ..._modelProfiles,
+        if (existing.hasUserOverrides) modelId: existing,
+      },
+    );
     final result = await showAnimatedDialog<AiModelProfile>(
       context: context,
       builder: (context) => _ModelProfileEditorDialog(
         modelId: modelId,
         initialProfile: existing,
+        effectiveProfile: effectiveModel.profileFor(modelId),
         protocolType: _protocolType,
       ),
     );
@@ -1105,11 +1119,13 @@ class _ModelProfileEditorDialog extends StatefulWidget {
   const _ModelProfileEditorDialog({
     required this.modelId,
     required this.initialProfile,
+    required this.effectiveProfile,
     required this.protocolType,
   });
 
   final String modelId;
   final AiModelProfile initialProfile;
+  final AiModelProfile effectiveProfile;
   final AiProtocolType protocolType;
 
   @override
@@ -1140,42 +1156,72 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   void initState() {
     super.initState();
     final p = widget.initialProfile;
+    final effective = widget.effectiveProfile;
     final hasExisting = p.hasUserOverrides;
 
     // Display name: pre-fill with model ID when creating a fresh profile.
     _displayNameController = TextEditingController(
-      text: p.displayName ?? (hasExisting ? '' : widget.modelId),
+      text:
+          p.displayName ??
+          effective.displayName ??
+          (hasExisting ? '' : widget.modelId),
     );
-    _descriptionController = TextEditingController(text: p.description ?? '');
+    _descriptionController = TextEditingController(
+      text: p.description ?? effective.description ?? '',
+    );
     _maxContextLengthController = TextEditingController(
-      text: p.maxContextLength?.toString() ?? '',
+      text:
+          p.maxContextLength?.toString() ??
+          effective.maxContextLength?.toString() ??
+          '',
     );
     _maxSummaryLengthController = TextEditingController(
-      text: p.maxSummaryLength?.toString() ?? '',
+      text:
+          p.maxSummaryLength?.toString() ??
+          effective.maxSummaryLength?.toString() ??
+          '',
     );
     _maxOutputLengthController = TextEditingController(
-      text: p.maxOutputLength?.toString() ?? '',
+      text:
+          p.maxOutputLength?.toString() ??
+          effective.maxOutputLength?.toString() ??
+          '',
     );
     _maxThinkingLengthController = TextEditingController(
-      text: p.maxThinkingLength?.toString() ?? '',
+      text:
+          p.maxThinkingLength?.toString() ??
+          effective.maxThinkingLength?.toString() ??
+          '',
     );
     _inputUsdPer1MController = TextEditingController(
-      text: p.inputUsdPer1M?.toString() ?? '',
+      text:
+          p.inputUsdPer1M?.toString() ??
+          effective.inputUsdPer1M?.toString() ??
+          '',
     );
     _outputUsdPer1MController = TextEditingController(
-      text: p.outputUsdPer1M?.toString() ?? '',
+      text:
+          p.outputUsdPer1M?.toString() ??
+          effective.outputUsdPer1M?.toString() ??
+          '',
     );
     _cacheReadUsdPer1MController = TextEditingController(
-      text: p.cacheReadUsdPer1M?.toString() ?? '',
+      text:
+          p.cacheReadUsdPer1M?.toString() ??
+          effective.cacheReadUsdPer1M?.toString() ??
+          '',
     );
     _cacheWriteUsdPer1MController = TextEditingController(
-      text: p.cacheWriteUsdPer1M?.toString() ?? '',
+      text:
+          p.cacheWriteUsdPer1M?.toString() ??
+          effective.cacheWriteUsdPer1M?.toString() ??
+          '',
     );
     _knowledgeCutoffController = TextEditingController(
-      text: p.knowledgeCutoff ?? '',
+      text: p.knowledgeCutoff ?? effective.knowledgeCutoff ?? '',
     );
     _expirationDateController = TextEditingController(
-      text: p.expirationDate ?? '',
+      text: p.expirationDate ?? effective.expirationDate ?? '',
     );
 
     if (hasExisting) {
@@ -1183,8 +1229,14 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       _isMultimodal = p.isMultimodal;
       _supportsAttachments = p.supportsAttachments;
       _requiresReasoningEcho = p.requiresReasoningEcho;
-      _supportedModalities = Set<AiModelModality>.of(p.supportedModalities);
-      _capabilities = Set<AiModelCapability>.of(p.capabilities);
+      _supportedModalities = Set<AiModelModality>.of(
+        p.supportedModalities.isNotEmpty
+            ? p.supportedModalities
+            : effective.supportedModalities,
+      );
+      _capabilities = Set<AiModelCapability>.of(
+        p.capabilities.isNotEmpty ? p.capabilities : effective.capabilities,
+      );
     } else {
       // Fresh profile — try catalog first, fall back to heuristic inference.
       final catalog = AiModelCatalog.lookup(
@@ -1742,7 +1794,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: Text(
                         _buildReadonlyOpenRouterMetadata(
                           widget.modelId,
-                          widget.initialProfile,
+                          widget.effectiveProfile,
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           height: 1.45,
