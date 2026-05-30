@@ -247,7 +247,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 65535,
@@ -567,7 +567,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 64000,
@@ -620,7 +620,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 32000,
@@ -672,7 +672,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 32000,
@@ -724,7 +724,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -779,7 +779,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -834,7 +834,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -888,7 +888,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -938,7 +938,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -989,7 +989,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -1039,7 +1039,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -1090,7 +1090,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 64000,
@@ -1142,7 +1142,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 64000,
@@ -1196,7 +1196,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -2813,7 +2813,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -2868,7 +2868,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -2919,7 +2919,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
       AiModelModality.audio,
@@ -3026,7 +3026,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -3083,7 +3083,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -3141,7 +3141,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -3196,7 +3196,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
       AiModelModality.audio,
@@ -3248,7 +3248,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -3305,7 +3305,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
       AiModelModality.video,
     },
@@ -3463,7 +3463,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
     },
     maxContextLength: 1048576,
@@ -3521,7 +3521,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
     },
     maxContextLength: 1048576,
@@ -3579,7 +3579,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.audio,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
       AiModelModality.video,
@@ -3642,7 +3642,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.audio,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1048756,
     maxOutputLength: 65536,
@@ -3697,7 +3697,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
     },
     maxContextLength: 1048576,
@@ -5845,9 +5845,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Codestral 2508",
     description:
         "Mistral's cutting-edge language model for coding released end of July 2025. Codestral specializes in low-latency, high-frequency tasks such as fill-in-the-middle (FIM), code correction and test generation.\n\n[Blog Post](https://mistral.ai/news/codestral-25-08)",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 256000,
     inputUsdPer1M: 0.3,
@@ -5885,9 +5887,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Devstral 2 2512",
     description:
         "Devstral 2 is a state-of-the-art open-source model by Mistral AI specializing in agentic coding. It is a 123B-parameter dense transformer model supporting a 256K context window. Devstral 2 supports exploring...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 262144,
     inputUsdPer1M: 0.4,
@@ -5928,9 +5932,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Devstral Medium",
     description:
         "Devstral Medium is a high-performance code generation and agentic reasoning model developed jointly by Mistral AI and All Hands AI. Positioned as a step up from Devstral Small, it achieves...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     inputUsdPer1M: 0.4,
@@ -5968,9 +5974,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Devstral Small 1.1",
     description:
         "Devstral Small 1.1 is a 24B parameter open-weight language model for software engineering agents, developed by Mistral AI in collaboration with All Hands AI. Finetuned from Mistral Small 3.1 and...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     inputUsdPer1M: 0.1,
@@ -6151,52 +6159,15 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       details: "/api/v1/models/mistralai/ministral-8b-2512/endpoints",
     ),
   ),
-  "mistralai/mistral-7b-instruct-v0.1": AiModelProfile(
-    displayName: "Mistral 7B Instruct v0.1",
-    description:
-        "A 7.3B parameter model that outperforms Llama 2 13B on all benchmarks, with optimizations for speed and context length.",
-    supportedModalities: <AiModelModality>{AiModelModality.text},
-    maxContextLength: 4096,
-    maxOutputLength: 2824,
-    inputUsdPer1M: 0.11,
-    outputUsdPer1M: 0.19,
-    canonicalSlug: "mistralai/mistral-7b-instruct-v0.1",
-    huggingFaceId: "mistralai/Mistral-7B-Instruct-v0.1",
-    created: 1695859200,
-    architecture: AiModelArchitectureMetadata(
-      modality: "text->text",
-      inputModalities: <String>["text"],
-      outputModalities: <String>["text"],
-      tokenizer: "Mistral",
-      instructType: "mistral",
-    ),
-    supportedParameters: <String>[
-      "frequency_penalty",
-      "logit_bias",
-      "max_tokens",
-      "min_p",
-      "presence_penalty",
-      "repetition_penalty",
-      "seed",
-      "stop",
-      "temperature",
-      "top_k",
-      "top_p",
-    ],
-    defaultParameters: {"temperature": 0.3},
-    knowledgeCutoff: "2023-09-30",
-    expirationDate: "2026-05-30",
-    links: AiModelLinksMetadata(
-      details: "/api/v1/models/mistralai/mistral-7b-instruct-v0.1/endpoints",
-    ),
-  ),
   "mistralai/mistral-large": AiModelProfile(
     displayName: "Mistral Large",
     description:
         "This is Mistral AI's flagship model, Mistral Large 2 (version `mistral-large-2407`). It's a proprietary weights-available model and excels at reasoning, code, JSON, chat, and more. Read the launch announcement [here](https://mistral.ai/news/mistral-large-2407/)....",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     inputUsdPer1M: 2,
@@ -6229,13 +6200,23 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       details: "/api/v1/models/mistralai/mistral-large/endpoints",
     ),
   ),
+  "mistralai/mistral-7b-instruct-v0.1": AiModelProfile(
+    displayName: "Mistral 7B Instruct",
+    description: "Mistral online model, text model.",
+    supportedModalities: <AiModelModality>{AiModelModality.text},
+    maxContextLength: 32768,
+    maxOutputLength: 4096,
+    canonicalSlug: "mistralai/mistral-7b-instruct-v0.1",
+  ),
   "mistralai/mistral-large-2407": AiModelProfile(
     displayName: "Mistral Large 2407",
     description:
         "This is Mistral AI's flagship model, Mistral Large 2 (version mistral-large-2407). It's a proprietary weights-available model and excels at reasoning, code, JSON, chat, and more. Read the launch announcement [here](https://mistral.ai/news/mistral-large-2407/)....",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     inputUsdPer1M: 2,
@@ -6273,9 +6254,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Mistral Large 2411",
     description:
         "Mistral Large 2 2411 is an update of [Mistral Large 2](/mistralai/mistral-large) released together with [Pixtral Large 2411](/mistralai/pixtral-large-2411) It provides a significant upgrade on the previous [Mistral Large 24.07](/mistralai/mistral-large-2407), with notable...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     inputUsdPer1M: 2,
@@ -6318,7 +6301,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 262144,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -6365,7 +6348,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -6409,7 +6392,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 262144,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -6459,7 +6442,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -6539,9 +6522,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Saba",
     description:
         "Mistral Saba is a 24B-parameter language model specifically designed for the Middle East and South Asia, delivering accurate and contextually relevant responses while maintaining efficient performance. Trained on curated regional...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 32768,
     inputUsdPer1M: 0.2,
@@ -6767,9 +6752,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "Mixtral 8x22B Instruct",
     description:
         "Mistral's official instruct fine-tuned version of [Mixtral 8x22B](/models/mistralai/mixtral-8x22b). It uses 39B active parameters out of 141B, offering unparalleled cost efficiency for its size. Its strengths include: - strong math, coding,...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 65536,
     inputUsdPer1M: 2,
@@ -6813,7 +6800,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 131072,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -6857,7 +6844,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.audio,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 32000,
     capabilities: <AiModelCapability>{AiModelCapability.audioGeneration},
@@ -8261,7 +8248,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1047576,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -8302,7 +8289,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1047576,
     maxOutputLength: 32768,
@@ -8344,7 +8331,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1047576,
     maxOutputLength: 32768,
@@ -8386,7 +8373,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -8433,7 +8420,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 4096,
@@ -8480,7 +8467,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -8528,7 +8515,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -8576,7 +8563,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -8624,7 +8611,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -8731,7 +8718,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -8780,7 +8767,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -8865,7 +8852,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -8915,7 +8902,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -8969,7 +8956,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -9020,7 +9007,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -9069,7 +9056,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -9115,7 +9102,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -9163,7 +9150,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9354,7 +9341,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9404,7 +9391,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9497,7 +9484,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -9542,7 +9529,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 128000,
     maxOutputLength: 16384,
@@ -9589,7 +9576,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -9639,7 +9626,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1050000,
     maxOutputLength: 128000,
@@ -9689,7 +9676,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 272000,
     maxOutputLength: 128000,
@@ -9740,7 +9727,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9791,7 +9778,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9844,7 +9831,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1050000,
     maxOutputLength: 128000,
@@ -9891,7 +9878,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -9942,7 +9929,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -10094,7 +10081,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 400000,
     maxOutputLength: 128000,
@@ -10360,7 +10347,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10410,7 +10397,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10449,7 +10436,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10491,7 +10478,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10540,9 +10527,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "o3 Mini",
     description:
         "OpenAI o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and coding. This model supports the `reasoning_effort` parameter, which can be set to...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10586,9 +10575,11 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     displayName: "o3 Mini High",
     description:
         "OpenAI o3-mini-high is the same model as [o3-mini](/openai/o3-mini) with reasoning_effort set to high. o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and...",
+    isMultimodal: true,
+    supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10633,7 +10624,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
     },
     maxContextLength: 200000,
@@ -10680,7 +10671,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10720,7 +10711,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -10777,7 +10768,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.image,
       AiModelModality.text,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 100000,
@@ -10825,7 +10816,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.audio,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.video,
     },
     maxContextLength: 2000000,
@@ -14474,7 +14465,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 2000000,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -14526,7 +14517,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 2000000,
     capabilities: <AiModelCapability>{AiModelCapability.imageGeneration},
@@ -15559,7 +15550,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 200000,
     maxOutputLength: 64000,
@@ -15611,7 +15602,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -15662,7 +15653,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportedModalities: <AiModelModality>{
       AiModelModality.text,
       AiModelModality.image,
-      AiModelModality.text,
+      AiModelModality.file,
     },
     maxContextLength: 1000000,
     maxOutputLength: 128000,
@@ -15717,7 +15708,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
       AiModelModality.text,
       AiModelModality.image,
       AiModelModality.video,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.audio,
     },
     maxContextLength: 1048576,
@@ -15774,7 +15765,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
       AiModelModality.audio,
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
       AiModelModality.video,
@@ -15891,7 +15882,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },
@@ -15941,7 +15932,7 @@ openRouterExactModelProfiles = <String, AiModelProfile>{
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
-      AiModelModality.text,
+      AiModelModality.file,
       AiModelModality.image,
       AiModelModality.text,
     },

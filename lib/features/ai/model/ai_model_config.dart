@@ -186,7 +186,8 @@ enum AiModelModality {
   text('text'),
   image('image'),
   video('video'),
-  audio('audio');
+  audio('audio'),
+  file('file');
 
   const AiModelModality(this.storageValue);
   final String storageValue;

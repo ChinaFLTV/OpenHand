@@ -1579,6 +1579,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         AiModelModality.audio => AppLocalizations.of(
                           context,
                         )!.mdlEdAudio,
+                        AiModelModality.file => 'File',
                       };
                       return FilterChip(
                         label: Text(label),
