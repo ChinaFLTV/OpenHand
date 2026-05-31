@@ -1154,33 +1154,30 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
   @override
   Widget build(BuildContext context) {
     final isZh = widget.isZh;
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(isZh ? '编辑后重放' : 'Edit & replay'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _urlCtrl,
-                decoration: InputDecoration(labelText: isZh ? '重放 URL' : 'URL'),
+    return buildOpenHandDialogFormShell(
+      context: context,
+      title: isZh ? '编辑后重放' : 'Edit & replay',
+      maxWidth: 600,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _urlCtrl,
+              decoration: InputDecoration(labelText: isZh ? '重放 URL' : 'URL'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _headersCtrl,
+              maxLines: 8,
+              minLines: 4,
+              decoration: InputDecoration(
+                labelText: isZh
+                    ? 'Request Headers（每行 Key: Value，留空保留原值）'
+                    : 'Request headers (Key: Value per line)',
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _headersCtrl,
-                maxLines: 8,
-                minLines: 4,
-                decoration: InputDecoration(
-                  labelText: isZh
-                      ? 'Request Headers（每行 Key: Value，留空保留原值）'
-                      : 'Request headers (Key: Value per line)',
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [
