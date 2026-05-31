@@ -286,7 +286,7 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
       continue;
     }
     if (candidate.kind == AiSessionMessageKind.assistant &&
-        (candidate.usage != null || candidate.modelId != null)) {
+        candidate.usage != null) {
       return candidate;
     }
     final metadata = candidate.metadata;
