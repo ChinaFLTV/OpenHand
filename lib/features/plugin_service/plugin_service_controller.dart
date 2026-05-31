@@ -70,6 +70,41 @@ class PluginServiceController extends ChangeNotifier {
     }
   }
 
+  /// 检查单个插件的最新状态与可更新版本。
+  Future<PluginInfo?> checkPluginUpdate(String pluginId) async {
+    final plugin = pluginById(pluginId);
+    if (plugin == null) return null;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final refreshed = await switch (pluginId) {
+        'nodejs' => _scanner.scanNodeJs(),
+        'playwright' => _scanner.scanPlaywright(),
+        'python' => _scanner.scanPython(),
+        'pip' => _scanner.scanPip(),
+        _ => Future<PluginInfo?>.value(),
+      };
+      if (refreshed == null) return null;
+      final merged = pluginId == 'nodejs'
+          ? refreshed.copyWith(
+              dependents: pluginById('playwright')?.isInstalled == true
+                  ? const ['playwright']
+                  : const [],
+            )
+          : refreshed;
+      _plugins = [
+        for (final p in _plugins)
+          if (p.id == pluginId) merged.copyWith(enabled: p.enabled) else p,
+      ];
+      notifyListeners();
+      return merged;
+    } catch (e) {
+      _errorMessage = '$e';
+      notifyListeners();
+      return null;
+    }
+  }
+
   /// 切换插件启用/禁用状态。
   void toggleEnabled(String pluginId, {required bool enabled}) {
     _plugins = [

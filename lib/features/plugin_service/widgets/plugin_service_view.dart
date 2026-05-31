@@ -434,6 +434,13 @@ class _PluginCard extends StatelessWidget {
           onPressed: () => _showDetailDialog(context),
           icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
+        // 检查更新
+        if (plugin.isInstalled)
+          IconButton.filledTonal(
+            tooltip: isZh ? '检查更新' : 'Check Updates',
+            onPressed: isBusy ? null : () => _checkUpdate(context),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+          ),
         // MCP 服务（仅 Playwright）
         if (hasMcp && plugin.isInstalled)
           IconButton.filledTonal(
@@ -572,6 +579,37 @@ class _PluginCard extends StatelessWidget {
           success
               ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
               : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkUpdate(BuildContext context) async {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final refreshed = await controller.checkPluginUpdate(plugin.id);
+    if (!context.mounted) return;
+    if (refreshed == null) {
+      _showPluginSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            controller.errorMessage ??
+                (isZh ? '检查更新失败' : 'Failed to check updates'),
+          ),
+        ),
+      );
+      return;
+    }
+    final checkedPlugin = controller.pluginById(plugin.id) ?? refreshed;
+    _showPluginSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          checkedPlugin.hasUpdate && checkedPlugin.latestVersion != null
+              ? (isZh
+                    ? '发现新版本：${checkedPlugin.latestVersion}'
+                    : 'New version available: ${checkedPlugin.latestVersion}')
+              : (isZh ? '未发现新版本' : 'No updates available'),
         ),
       ),
     );

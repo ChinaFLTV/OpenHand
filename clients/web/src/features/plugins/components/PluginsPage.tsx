@@ -15,6 +15,7 @@ import {
   updatePlugin,
   uninstallPlugin,
   rescanPlugins,
+  checkPluginUpdate,
 } from '../../../api/plugins';
 import { t } from '../../../i18n';
 import { showSnackbar } from '../../../components/Snackbar';
@@ -117,6 +118,31 @@ export function PluginsPage() {
       showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckUpdate = async (pluginId: string) => {
+    setOperating(pluginId);
+    try {
+      const result = await checkPluginUpdate(pluginId);
+      setPlugins((current) => current?.map((plugin) =>
+        plugin.id === pluginId ? result.item : plugin,
+      ) ?? current);
+      if (result.item.has_update && result.item.latest_version) {
+        showSnackbar(
+          t('plugins.updateFound', `发现新版本：${result.item.latest_version}`),
+          { tone: 'success' },
+        );
+      } else {
+        showSnackbar(
+          result.message || t('plugins.noUpdate', '未发现新版本'),
+          { tone: 'success' },
+        );
+      }
+    } catch (err) {
+      showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
+    } finally {
+      setOperating(null);
     }
   };
 
@@ -257,6 +283,21 @@ export function PluginsPage() {
                         </div>
                       </div>
                       <div class="flex items-center gap-2 flex-shrink-0">
+                        {plugin.status === 'installed' ? (
+                          <button
+                            type="button"
+                            class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm"
+                            style={{
+                              border: '1px solid var(--m3-outline-variant)',
+                              color: 'var(--m3-primary)',
+                              opacity: isBusy ? 0.6 : 1,
+                            }}
+                            disabled={isBusy}
+                            onClick={() => void handleCheckUpdate(plugin.id)}
+                          >
+                            {t('plugins.checkUpdate', '检查更新')}
+                          </button>
+                        ) : null}
                         {plugin.status === 'notInstalled' ? (
                           <button
                             type="button"

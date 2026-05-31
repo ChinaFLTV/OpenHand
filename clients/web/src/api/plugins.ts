@@ -32,6 +32,12 @@ export interface PluginActionResult {
   new_version: string | null;
 }
 
+export interface PluginCheckUpdateResult {
+  success: boolean;
+  message: string | null;
+  item: PluginSummary;
+}
+
 export function listPlugins(): Promise<{ items: PluginSummary[] }> {
   return apiRequest<{ items: PluginSummary[] }>('/api/plugins');
 }
@@ -60,5 +66,12 @@ export function uninstallPlugin(pluginId: string): Promise<PluginActionResult> {
 export function rescanPlugins(): Promise<{ items: PluginSummary[] }> {
   return apiRequest<{ items: PluginSummary[] }>('/api/plugins/rescan', {
     method: 'POST',
+  });
+}
+
+export function checkPluginUpdate(pluginId: string): Promise<PluginCheckUpdateResult> {
+  return apiRequest<PluginCheckUpdateResult>('/api/plugins/check-update', {
+    method: 'POST',
+    body: JSON.stringify({ plugin_id: pluginId }),
   });
 }

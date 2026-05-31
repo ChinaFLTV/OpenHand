@@ -1382,6 +1382,11 @@ class WebMessagePlatformService {
       '/api/plugins/rescan',
       (shelf.Request r) => _withAuth(r, (_, _) => _pluginRescanHandler()),
     );
+    router.post(
+      '/api/plugins/check-update',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _pluginCheckUpdateHandler(req)),
+    );
     router.get(
       '/api/settings/preferences',
       (shelf.Request r) => _withAuth(r, (_, _) => _getPreferencesHandler()),
@@ -1866,6 +1871,38 @@ class WebMessagePlatformService {
         .map(_pluginPayload)
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _pluginCheckUpdateHandler(
+    shelf.Request request,
+  ) async {
+    final body = await _readJsonBody(request, maxBytes: 1024);
+    final pluginId = body['plugin_id'] as String?;
+    if (pluginId == null || pluginId.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'success': false,
+        'message': 'plugin_id is required',
+      });
+    }
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'success': false,
+        'message': 'Plugin service not available',
+      });
+    }
+    final plugin = await controller.checkPluginUpdate(pluginId);
+    if (plugin == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'success': false,
+        'message': controller.errorMessage ?? 'Plugin not found',
+      });
+    }
+    return _json(HttpStatus.ok, <String, Object?>{
+      'success': true,
+      'message': controller.errorMessage,
+      'item': _pluginPayload(controller.pluginById(pluginId) ?? plugin),
+    });
   }
 
   Map<String, Object?> _metaPayload() {
