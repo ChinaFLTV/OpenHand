@@ -22,7 +22,7 @@ class PluginOperationResult {
 /// 处理依赖关系：
 /// - 安装 Playwright 前自动检查 NodeJS 是否已安装
 /// - 卸载 NodeJS 前检查 Playwright 是否仍在使用
-/// - Python 仅自动管理 pyenv 与 Homebrew 来源
+/// - Python / pip 仅自动管理 pyenv 与 Homebrew 来源
 class PluginLifecycleService {
   PluginLifecycleService();
 
@@ -80,6 +80,20 @@ fi
     );
   }
 
+  Future<_SimpleProcessResult> _runBoundPythonCommand(
+    String executable,
+    List<String> arguments, {
+    void Function(String line)? onProgress,
+    Duration timeout = const Duration(minutes: 5),
+  }) {
+    return _runWithProgress(
+      executable,
+      arguments,
+      onProgress: onProgress,
+      timeout: timeout,
+    );
+  }
+
   Future<bool> _isNvmAvailable() async {
     final home = Platform.environment['HOME'] ?? '';
     final nvmSh = File('$home/.nvm/nvm.sh');
@@ -106,8 +120,11 @@ fi
     final pythonPath = await _resolveActivePythonPath();
     if (pythonPath == null) return null;
     return _PythonRuntimeContext(
-      source: _PythonRuntimeSource.unknown,
+      source: _looksLikeSystemPython(pythonPath)
+          ? _PythonRuntimeSource.system
+          : _PythonRuntimeSource.unknown,
       executablePath: pythonPath,
+      version: await _readPythonVersion(pythonPath),
     );
   }
 
@@ -188,6 +205,17 @@ fi
     );
     if (result.exitCode != 0) return null;
     return _extractPythonVersion('${result.stdout}\n${result.stderr}');
+  }
+
+  Future<String?> _readPipVersion(String executable) async {
+    final result = await runTrackedProcessOrFailed(
+      executable,
+      ['-m', 'pip', '--version'],
+      timeout: const Duration(seconds: 8),
+      tag: 'plugin_lifecycle.pip_version',
+    );
+    if (result.exitCode != 0) return null;
+    return _extractPipVersion('${result.stdout}\n${result.stderr}');
   }
 
   Future<String?> _queryLatestPyenvPatch(String currentVersion) async {
@@ -434,6 +462,64 @@ fi
       success: false,
       message:
           '未找到可自动管理 Python 的包管理器（pyenv / brew）。请先安装 pyenv 或 Homebrew，或手动安装 Python。',
+    );
+  }
+
+  Future<PluginOperationResult> installPip({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在检测 Python 运行时…');
+    final context = await _detectPythonRuntimeContext();
+    if (context == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: '未检测到可用的 Python 运行时，请先安装 Python。',
+      );
+    }
+
+    onProgress?.call('正在引导 pip…');
+    final ensureResult = await _runBoundPythonCommand(
+      context.executablePath,
+      ['-m', 'ensurepip', '--upgrade'],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+    );
+    if (ensureResult.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'pip 引导失败: ${ensureResult.stderr}',
+      );
+    }
+
+    if (context.source == _PythonRuntimeSource.pyenv ||
+        context.source == _PythonRuntimeSource.homebrew) {
+      onProgress?.call('正在升级 pip…');
+      final upgradeResult = await _runBoundPythonCommand(
+        context.executablePath,
+        ['-m', 'pip', 'install', '--upgrade', 'pip'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 8),
+      );
+      if (upgradeResult.exitCode != 0) {
+        return PluginOperationResult(
+          success: false,
+          message: 'pip 升级失败: ${upgradeResult.stderr}',
+        );
+      }
+    }
+
+    final version = await _readPipVersion(context.executablePath);
+    if (version == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'pip 安装后验证失败',
+      );
+    }
+    onProgress?.call('pip $version 安装成功');
+    return PluginOperationResult(
+      success: true,
+      message: 'pip $version 已就绪',
+      newVersion: version,
     );
   }
 
@@ -772,6 +858,60 @@ fi
     }
   }
 
+  Future<PluginOperationResult> updatePip({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在检测 Python 运行时…');
+    final context = await _detectPythonRuntimeContext();
+    if (context == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: '未检测到可用的 Python 运行时。',
+      );
+    }
+
+    switch (context.source) {
+      case _PythonRuntimeSource.pyenv:
+      case _PythonRuntimeSource.homebrew:
+        onProgress?.call('正在升级 pip…');
+        final result = await _runBoundPythonCommand(
+          context.executablePath,
+          ['-m', 'pip', 'install', '--upgrade', 'pip'],
+          onProgress: onProgress,
+          timeout: const Duration(minutes: 8),
+        );
+        if (result.exitCode != 0) {
+          return PluginOperationResult(
+            success: false,
+            message: 'pip 升级失败: ${result.stderr}',
+          );
+        }
+        final version = await _readPipVersion(context.executablePath);
+        if (version == null) {
+          return const PluginOperationResult(
+            success: false,
+            message: 'pip 升级后验证失败',
+          );
+        }
+        onProgress?.call('pip 已更新到 $version');
+        return PluginOperationResult(
+          success: true,
+          message: 'pip 已更新到 $version',
+          newVersion: version,
+        );
+      case _PythonRuntimeSource.system:
+        return const PluginOperationResult(
+          success: false,
+          message: '当前 pip 绑定的是系统 Python，暂不支持自动升级，请手动维护。',
+        );
+      case _PythonRuntimeSource.unknown:
+        return const PluginOperationResult(
+          success: false,
+          message: '当前 pip 绑定的 Python 来源未知，暂不支持自动升级，请手动维护。',
+        );
+    }
+  }
+
   Future<PluginOperationResult> updatePlaywright({
     void Function(String line)? onProgress,
   }) async {
@@ -932,6 +1072,16 @@ fi
     }
   }
 
+  Future<PluginOperationResult> uninstallPip({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('pip 不支持独立卸载');
+    return const PluginOperationResult(
+      success: false,
+      message: 'pip 不支持卸载，仅支持安装与升级。',
+    );
+  }
+
   Future<PluginOperationResult> uninstallPlaywright({
     void Function(String line)? onProgress,
   }) async {
@@ -1067,6 +1217,11 @@ String? _extractPythonVersion(String output) {
   return match?.group(1);
 }
 
+String? _extractPipVersion(String output) {
+  final match = RegExp(r'pip\s+(\d+(?:\.\d+)+)').firstMatch(output);
+  return match?.group(1);
+}
+
 String? _extractFirstSemver(String output, {String? prefix}) {
   final matches = RegExp(r'(\d+\.\d+\.\d+)').allMatches(output);
   for (final match in matches) {
@@ -1101,6 +1256,11 @@ bool _looksLikeHomebrewPath(String path) {
       path.contains('/opt/homebrew/') ||
       path.contains('/usr/local/opt/python') ||
       path.contains('/usr/local/bin/python');
+}
+
+bool _looksLikeSystemPython(String path) {
+  return path.startsWith('/usr/bin/') ||
+      path.startsWith('/Library/Developer/CommandLineTools/');
 }
 
 String? _extractBrewPythonFormulaFromPath(String path) {

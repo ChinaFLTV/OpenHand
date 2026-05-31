@@ -254,6 +254,7 @@ class _PluginCard extends StatelessWidget {
     final pluginIcon = switch (plugin.id) {
       'nodejs' => Icons.javascript_rounded,
       'python' => Icons.code_rounded,
+      'pip' => Icons.inventory_2_rounded,
       'playwright' => Icons.theaters_rounded,
       _ => Icons.extension_rounded,
     };
@@ -475,7 +476,7 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.system_update_alt_rounded, size: 18),
           ),
         // 卸载
-        if (plugin.isInstalled)
+        if (plugin.isInstalled && plugin.supportsUninstall)
           IconButton.filledTonal(
             tooltip: isZh ? '卸载' : 'Uninstall',
             onPressed: isBusy ? null : () => _doUninstall(context),
@@ -578,16 +579,16 @@ class _PluginCard extends StatelessWidget {
 
   Future<void> _doUninstall(BuildContext context) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    for (final other in controller.plugins) {
-      if (other.id == plugin.id) continue;
-      if (other.isInstalled && other.dependencies.contains(plugin.id)) {
+    for (final dependentId in plugin.dependents) {
+      final dependent = controller.pluginById(dependentId);
+      if (dependent != null && dependent.isInstalled) {
         _showPluginSnackBar(
           context,
           SnackBar(
             content: Text(
               isZh
-                  ? '${other.name} 依赖 ${plugin.name}，请先卸载 ${other.name}'
-                  : '${other.name} depends on ${plugin.name}. Uninstall it first.',
+                  ? '${dependent.name} 依赖 ${plugin.name}，请先卸载 ${dependent.name}'
+                  : '${dependent.name} depends on ${plugin.name}. Uninstall it first.',
             ),
           ),
         );
@@ -1207,21 +1208,30 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       }
       if (widget.plugin.id == 'python' && widget.plugin.isInstalled) {
         try {
-          final pythonResult = await runTrackedProcessOrFailed('python3', [
-            '--version',
-          ], timeout: const Duration(seconds: 5));
+          final pythonExecutable = widget.plugin.installPath ?? 'python3';
+          final pythonResult = await runTrackedProcessOrFailed(
+            pythonExecutable,
+            ['--version'],
+            timeout: const Duration(seconds: 5),
+          );
           if (pythonResult.exitCode == 0) {
-            info['python3'] = '${pythonResult.stdout}${pythonResult.stderr}'
+            info['python'] = '${pythonResult.stdout}${pythonResult.stderr}'
                 .trim();
           }
-          final pipResult = await runTrackedProcessOrFailed('python3', [
+        } catch (_) {}
+      }
+      if (widget.plugin.id == 'pip' && widget.plugin.isInstalled) {
+        try {
+          final pythonExecutable = widget.plugin.installPath ?? 'python3';
+          final pipResult = await runTrackedProcessOrFailed(pythonExecutable, [
             '-m',
             'pip',
             '--version',
           ], timeout: const Duration(seconds: 8));
           if (pipResult.exitCode == 0) {
-            info['pip'] = pipResult.stdout.toString().trim();
+            info['pip'] = '${pipResult.stdout}${pipResult.stderr}'.trim();
           }
+          info[widget.isZh ? '绑定解释器' : 'Bound Python'] = pythonExecutable;
         } catch (_) {}
       }
       if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {

@@ -21,6 +21,7 @@ export interface PluginSummary {
   install_path: string | null;
   dependencies: string[];
   dependents: string[];
+  supports_uninstall: boolean;
   error_message: string | null;
   has_update: boolean;
 }

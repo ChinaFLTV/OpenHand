@@ -1,6 +1,6 @@
 // PluginsPage —— 插件服务管理页面。
 //
-// 展示可选插件（NodeJS / Python / Playwright）的安装状态，支持安装、更新、卸载操作。
+// 展示可选插件（NodeJS / Playwright / Python / pip）的安装状态，支持安装、更新与按能力约束的卸载操作。
 // 5 秒轮询刷新状态，操作期间实时反馈进度。UI 风格与 ToolboxPage 保持一致。
 
 import { useEffect, useState } from 'preact/hooks';
@@ -41,8 +41,9 @@ function statusBadge(status: PluginStatus): { color: string; bg: string; label: 
 function pluginIcon(id: string): string {
   switch (id) {
     case 'nodejs': return '⬢';
-    case 'python': return 'Py';
     case 'playwright': return '🎭';
+    case 'python': return 'Py';
+    case 'pip': return 'Pkg';
     default: return '🧩';
   }
 }
@@ -159,7 +160,6 @@ export function PluginsPage() {
           </div>
         ) : null}
 
-        {/* 操作栏 */}
         <div class="flex items-center justify-between mb-4">
           <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('plugins.scanHint', '自动扫描本机环境，已安装的插件将被识别并显示版本信息。')}
@@ -213,7 +213,6 @@ export function PluginsPage() {
                           <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
                             {plugin.description}
                           </p>
-                          {/* 版本信息 */}
                           {plugin.installed_version ? (
                             <div class="oh-toolbox-meta-grid mt-2">
                               <div>{t('plugins.version', '版本')}: <code>{plugin.installed_version}</code></div>
@@ -227,7 +226,6 @@ export function PluginsPage() {
                               ) : null}
                             </div>
                           ) : null}
-                          {/* 依赖信息 */}
                           {plugin.dependencies.length > 0 ? (
                             <div class="mt-2 flex items-center gap-1 flex-wrap">
                               <span class="text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -251,7 +249,6 @@ export function PluginsPage() {
                               })}
                             </div>
                           ) : null}
-                          {/* 错误信息 */}
                           {plugin.error_message ? (
                             <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
                               {plugin.error_message}
@@ -259,7 +256,6 @@ export function PluginsPage() {
                           ) : null}
                         </div>
                       </div>
-                      {/* 操作按钮 */}
                       <div class="flex items-center gap-2 flex-shrink-0">
                         {plugin.status === 'notInstalled' ? (
                           <button
@@ -300,23 +296,25 @@ export function PluginsPage() {
                                 {t('plugins.update', '更新')}
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm"
-                              style={{
-                                border: '1px solid var(--m3-outline-variant)',
-                                color: 'var(--m3-error)',
-                                opacity: isBusy ? 0.6 : 1,
-                              }}
-                              disabled={isBusy}
-                              onClick={() => setConfirmAction({
-                                pluginId: plugin.id,
-                                pluginName: plugin.name,
-                                action: 'uninstall',
-                              })}
-                            >
-                              {t('plugins.uninstall', '卸载')}
-                            </button>
+                            {plugin.supports_uninstall ? (
+                              <button
+                                type="button"
+                                class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm"
+                                style={{
+                                  border: '1px solid var(--m3-outline-variant)',
+                                  color: 'var(--m3-error)',
+                                  opacity: isBusy ? 0.6 : 1,
+                                }}
+                                disabled={isBusy}
+                                onClick={() => setConfirmAction({
+                                  pluginId: plugin.id,
+                                  pluginName: plugin.name,
+                                  action: 'uninstall',
+                                })}
+                              >
+                                {t('plugins.uninstall', '卸载')}
+                              </button>
+                            ) : null}
                           </>
                         ) : isBusy ? (
                           <span class="text-xs" style={{ color: 'var(--m3-primary)' }}>
@@ -333,7 +331,6 @@ export function PluginsPage() {
         ) : null}
       </div>
 
-      {/* 确认弹窗 */}
       {confirmAction ? (
         <ConfirmDialog
           title={confirmActionLabel}

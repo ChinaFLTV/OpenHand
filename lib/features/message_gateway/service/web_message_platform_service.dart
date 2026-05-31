@@ -1750,6 +1750,23 @@ class WebMessagePlatformService {
 
   // ─── Plugin Service Handlers ───────────────────────────────────────────────
 
+  Map<String, Object?> _pluginPayload(PluginInfo p) {
+    return <String, Object?>{
+      'id': p.id,
+      'name': p.name,
+      'description': p.description,
+      'status': p.status.name,
+      'installed_version': p.installedVersion,
+      'latest_version': p.latestVersion,
+      'install_path': p.installPath,
+      'dependencies': p.dependencies,
+      'dependents': p.dependents,
+      'supports_uninstall': p.supportsUninstall,
+      'error_message': p.errorMessage,
+      'has_update': p.hasUpdate,
+    };
+  }
+
   Future<shelf.Response> _listPluginsHandler() async {
     try {
       final controller = _pluginServiceController;
@@ -1757,21 +1774,7 @@ class WebMessagePlatformService {
         return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
       }
       final items = controller.plugins
-          .map(
-            (p) => <String, Object?>{
-              'id': p.id,
-              'name': p.name,
-              'description': p.description,
-              'status': p.status.name,
-              'installed_version': p.installedVersion,
-              'latest_version': p.latestVersion,
-              'install_path': p.installPath,
-              'dependencies': p.dependencies,
-              'dependents': p.dependents,
-              'error_message': p.errorMessage,
-              'has_update': p.hasUpdate,
-            },
-          )
+          .map(_pluginPayload)
           .toList(growable: false);
       return _json(HttpStatus.ok, <String, Object?>{'items': items});
     } catch (e) {
@@ -1860,21 +1863,7 @@ class WebMessagePlatformService {
     }
     await controller.rescan();
     final items = controller.plugins
-        .map(
-          (p) => <String, Object?>{
-            'id': p.id,
-            'name': p.name,
-            'description': p.description,
-            'status': p.status.name,
-            'installed_version': p.installedVersion,
-            'latest_version': p.latestVersion,
-            'install_path': p.installPath,
-            'dependencies': p.dependencies,
-            'dependents': p.dependents,
-            'error_message': p.errorMessage,
-            'has_update': p.hasUpdate,
-          },
-        )
+        .map(_pluginPayload)
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
@@ -1935,7 +1924,7 @@ class WebMessagePlatformService {
       'message_types': _config.allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
-        'active_model_key': _activeModelKey(),
+      'active_model_key': _activeModelKey(),
       // 暴露给 Web 端「指令胶囊条」展示用的可用用户指令清单。
       // 仅返回 allowedInstructionIds 过滤后的 enabled 条目，与 App 端
       // _ComposerInstructionsStrip 的 enabledEntries 完全对齐。

@@ -6,7 +6,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../model/plugin_info.dart';
 
-/// 扫描本机已安装的插件（NodeJS / Python / Playwright），检测版本与可用性。
+/// 扫描本机已安装的插件（NodeJS / Playwright / Python / pip），检测版本与可用性。
 ///
 /// 对于 nvm / pyenv 用户，优先直接解析或借助管理器拿到真实可执行路径，
 /// 避免 GUI 应用进程 PATH 与终端不一致的问题。
@@ -235,6 +235,11 @@ class PluginScannerService {
     return match?.group(1);
   }
 
+  static String? _extractPipVersion(String output) {
+    final match = RegExp(r'pip\s+(\d+(?:\.\d+)+)').firstMatch(output);
+    return match?.group(1);
+  }
+
   static bool _looksLikeHomebrewPath(String path) {
     return path.contains('/Cellar/python') ||
         path.contains('/Homebrew/Cellar/python') ||
@@ -307,6 +312,21 @@ class PluginScannerService {
       if (versions is! Map<String, Object?>) return null;
       final stable = versions['stable'];
       return stable is String && stable.isNotEmpty ? stable : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _queryLatestPipVersion() async {
+    final result = await _shellRun('curl -fsSL https://pypi.org/pypi/pip/json');
+    if (result.exitCode != 0) return null;
+    try {
+      final decoded = jsonDecode(result.stdout.toString());
+      if (decoded is! Map<String, Object?>) return null;
+      final info = decoded['info'];
+      if (info is! Map<String, Object?>) return null;
+      final version = info['version'];
+      return version is String && version.isNotEmpty ? version : null;
     } catch (_) {
       return null;
     }
@@ -512,6 +532,49 @@ class PluginScannerService {
     return _pythonNotInstalled;
   }
 
+  Future<PluginInfo> scanPip() async {
+    try {
+      final pyenvAvailable = await _isPyenvAvailable();
+      final runtime = pyenvAvailable
+          ? await _resolvePyenvPython()
+          : await _resolveShellPython();
+      final resolvedRuntime = runtime ?? await _resolveShellPython();
+      if (resolvedRuntime == null) return _pipNotInstalled;
+      final pipVersionResult = await runTrackedProcessOrFailed(
+        resolvedRuntime.executable,
+        ['-m', 'pip', '--version'],
+        timeout: const Duration(seconds: 8),
+        tag: 'plugin_scanner.pip_probe',
+      );
+      if (pipVersionResult.exitCode != 0) {
+        return _pipNotInstalled;
+      }
+      final version = _extractPipVersion(
+        '${pipVersionResult.stdout}\n${pipVersionResult.stderr}',
+      );
+      if (version == null) return _pipNotInstalled;
+      final latestVersion = switch (resolvedRuntime.source) {
+        _PythonRuntimeSource.pyenv ||
+        _PythonRuntimeSource.homebrew => await _queryLatestPipVersion(),
+        _ => null,
+      };
+      return PluginInfo(
+        id: 'pip',
+        name: 'pip',
+        description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
+        status: PluginStatus.installed,
+        installedVersion: version,
+        latestVersion: latestVersion,
+        installPath: resolvedRuntime.executable,
+        dependencies: const ['python'],
+        supportsUninstall: false,
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanPip', e);
+    }
+    return _pipNotInstalled;
+  }
+
   Future<PluginInfo> scanPlaywright() async {
     try {
       final npxCheck = await _shellRun('which npx');
@@ -558,13 +621,6 @@ class PluginScannerService {
     dependents: ['playwright'],
   );
 
-  static const _pythonNotInstalled = PluginInfo(
-    id: 'python',
-    name: 'Python',
-    description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
-    status: PluginStatus.notInstalled,
-  );
-
   static const _playwrightNotInstalled = PluginInfo(
     id: 'playwright',
     name: 'Playwright',
@@ -573,19 +629,37 @@ class PluginScannerService {
     dependencies: ['nodejs'],
   );
 
+  static const _pythonNotInstalled = PluginInfo(
+    id: 'python',
+    name: 'Python',
+    description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
+    status: PluginStatus.notInstalled,
+  );
+
+  static const _pipNotInstalled = PluginInfo(
+    id: 'pip',
+    name: 'pip',
+    description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
+    status: PluginStatus.notInstalled,
+    dependencies: ['python'],
+    supportsUninstall: false,
+  );
+
   Future<List<PluginInfo>> scanAll() async {
     final results = await Future.wait([
       scanNodeJs(),
-      scanPython(),
       scanPlaywright(),
+      scanPython(),
+      scanPip(),
     ]);
     final nodeJs = results[0];
-    final python = results[1];
-    final playwright = results[2];
+    final playwright = results[1];
+    final python = results[2];
+    final pip = results[3];
     final updatedNodeJs = nodeJs.copyWith(
       dependents: playwright.isInstalled ? const ['playwright'] : const [],
     );
-    return [updatedNodeJs, python, playwright];
+    return [updatedNodeJs, playwright, python, pip];
   }
 }
 

@@ -34,6 +34,7 @@ class PluginInfo {
     this.installPath,
     this.dependencies = const [],
     this.dependents = const [],
+    this.supportsUninstall = true,
     this.errorMessage,
   });
 
@@ -66,6 +67,9 @@ class PluginInfo {
 
   /// 依赖本插件的其他插件 id 列表（卸载本插件前需先卸载这些）
   final List<String> dependents;
+
+  /// 是否支持卸载
+  final bool supportsUninstall;
 
   /// 错误信息
   final String? errorMessage;
@@ -116,6 +120,7 @@ class PluginInfo {
     String? installPath,
     List<String>? dependencies,
     List<String>? dependents,
+    bool? supportsUninstall,
     String? errorMessage,
   }) {
     return PluginInfo(
@@ -129,6 +134,7 @@ class PluginInfo {
       installPath: installPath ?? this.installPath,
       dependencies: dependencies ?? this.dependencies,
       dependents: dependents ?? this.dependents,
+      supportsUninstall: supportsUninstall ?? this.supportsUninstall,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
