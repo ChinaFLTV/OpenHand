@@ -351,6 +351,30 @@ Future<void> showOpenHandLoadingDialog({
   );
 }
 
+Widget buildOpenHandDialogFooter({
+  required String primaryLabel,
+  required VoidCallback? onPrimaryPressed,
+  Widget? leading,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
+}) {
+  final action = OpenHandDialogActionButton.primary(
+    label: primaryLabel,
+    onPressed: onPrimaryPressed,
+  );
+  if (leading == null) {
+    return Padding(
+      padding: padding,
+      child: SizedBox(width: double.infinity, child: action),
+    );
+  }
+  return Padding(
+    padding: padding,
+    child: Row(
+      children: [Expanded(child: leading), action],
+    ),
+  );
+}
+
 Widget buildOpenHandDialogFormShell({
   required BuildContext context,
   required String title,

@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseDomSearchDialog(
@@ -353,15 +352,9 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.commonClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
+            buildOpenHandDialogFooter(
+              primaryLabel: loc?.commonClose ?? 'Close',
+              onPrimaryPressed: () => Navigator.of(context).pop(),
             ),
           ],
         ),

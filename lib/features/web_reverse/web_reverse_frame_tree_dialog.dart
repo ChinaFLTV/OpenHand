@@ -12,7 +12,6 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -239,24 +238,15 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                           _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
                     ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      loc?.webReverseFrameTreeCount(_rows.length) ??
-                          '${_rows.length} frames',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.commonClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+            buildOpenHandDialogFooter(
+              primaryLabel: loc?.commonClose ?? 'Close',
+              onPrimaryPressed: () => Navigator.of(context).pop(),
+              leading: Text(
+                loc?.webReverseFrameTreeCount(_rows.length) ??
+                    '${_rows.length} frames',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
           ],
