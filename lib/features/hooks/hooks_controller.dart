@@ -1,16 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
+import '../../shared/core/managed_change_notifier.dart';
 import 'data/hooks_store.dart';
 
 /// Controller for managing hook configurations.
 ///
 /// Follows the same ChangeNotifier + mutation queue pattern used by
 /// SettingsController, McpController, etc.
-class HooksController extends ChangeNotifier {
+class HooksController extends ManagedChangeNotifier {
   HooksController._({
     required HooksStore store,
     required List<HookEntry> entries,
@@ -30,10 +29,10 @@ class HooksController extends ChangeNotifier {
   final HooksStore _store;
   List<HookEntry> _entries;
   List<HookEntry> _entriesView;
-  bool _isDisposed = false;
-  Future<void> _mutationQueue = Future<void>.value();
+  final ChangePulse _saveSuccessPulse = ChangePulse();
 
   List<HookEntry> get entries => _entriesView;
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
   /// Returns all enabled hooks for a specific event.
   List<HookEntry> enabledHooksForEvent(HookEvent event) {
@@ -45,14 +44,8 @@ class HooksController extends ChangeNotifier {
   }
 
   @override
-  void notifyListeners() {
-    if (_isDisposed) return;
-    super.notifyListeners();
-  }
-
-  @override
   void dispose() {
-    _isDisposed = true;
+    _saveSuccessPulse.dispose();
     super.dispose();
   }
 
@@ -104,9 +97,11 @@ class HooksController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    final entries = await _store.loadAll();
-    _setEntries(entries);
-    notifyListeners();
+    await enqueueOperation(() async {
+      final entries = await _store.loadAll();
+      _setEntries(entries);
+      notifyListeners();
+    });
   }
 
   /// 删除所有 hook 条目（数据清理面板使用）。批处理走单次 saveAll([])。
@@ -125,16 +120,20 @@ class HooksController extends ChangeNotifier {
   }
 
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
-    final completer = Completer<bool>();
-    _mutationQueue = _mutationQueue.then((_) async {
+    return enqueueOperation(() async {
+      final previousEntries = List<HookEntry>.from(_entries);
       try {
         final result = await mutation();
+        if (result) {
+          _saveSuccessPulse.emit();
+        }
         notifyListeners();
-        completer.complete(result);
-      } catch (error) {
-        completer.complete(false);
+        return result;
+      } catch (_) {
+        _setEntries(previousEntries);
+        notifyListeners();
+        return false;
       }
     });
-    return completer.future;
   }
 }

@@ -1,11 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
+import '../../shared/core/managed_change_notifier.dart';
 import 'data/skills_repository.dart';
 import 'model/local_skill.dart';
 
-class SkillsController extends ChangeNotifier {
+class SkillsController extends ManagedChangeNotifier {
   SkillsController._({
     required SkillsRepository repository,
     required String storagePath,
@@ -51,28 +50,12 @@ class SkillsController extends ChangeNotifier {
   bool _isLoading;
   String? _errorMessage;
   List<LocalSkill> _skills = const <LocalSkill>[];
-  bool _isDisposed = false;
-  Future<void> _operationQueue = Future<void>.value();
 
   String get storagePath => _storagePath;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<LocalSkill> get skills => List<LocalSkill>.unmodifiable(_skills);
   int get installedCount => _skills.length;
-
-  @override
-  void notifyListeners() {
-    if (_isDisposed) {
-      return;
-    }
-    super.notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _isDisposed = true;
-    super.dispose();
-  }
 
   Future<void> refresh() async {
     await _enqueueOperation(_refreshLocked);
@@ -238,26 +221,6 @@ class SkillsController extends ChangeNotifier {
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    if (_isDisposed) {
-      return Future<T>.error(StateError('SkillsController is disposed'));
-    }
-    final completer = Completer<T>();
-    _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
-      // Check disposed state before executing to avoid race conditions.
-      if (_isDisposed) {
-        if (!completer.isCompleted) {
-          completer.completeError(StateError('SkillsController is disposed'));
-        }
-        return;
-      }
-      try {
-        completer.complete(await operation());
-      } catch (error, stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      }
-    });
-    return completer.future;
+    return enqueueOperation(operation);
   }
 }

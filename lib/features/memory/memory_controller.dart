@@ -1,12 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../shared/core/managed_change_notifier.dart';
 import 'data/memory_store.dart';
 import 'model/user_memory_entry.dart';
 
-class MemoryController extends ChangeNotifier {
+class MemoryController extends ManagedChangeNotifier {
   MemoryController._({
     required MemoryStore store,
     required String Function() idGenerator,
@@ -58,13 +57,11 @@ class MemoryController extends ChangeNotifier {
   List<UserMemoryEntry> _entries = const <UserMemoryEntry>[];
   List<UserMemoryEntry> _entriesView = const <UserMemoryEntry>[];
   MemoryPersistenceIssue? _persistenceIssue;
-  bool _isDisposed = false;
-  Future<void> _operationQueue = Future<void>.value();
-  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+  final ChangePulse _saveSuccessPulse = ChangePulse();
 
   /// Increments after each successful `_store.save`. UI may listen via
   /// `HighlightPulse` to flash on commit.
-  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -95,17 +92,8 @@ class MemoryController extends ChangeNotifier {
   }
 
   @override
-  void notifyListeners() {
-    if (_isDisposed) {
-      return;
-    }
-    super.notifyListeners();
-  }
-
-  @override
   void dispose() {
-    _isDisposed = true;
-    _saveSuccessSignal.dispose();
+    _saveSuccessPulse.dispose();
     super.dispose();
   }
 
@@ -257,7 +245,7 @@ class MemoryController extends ChangeNotifier {
         _persistenceIssue = null;
         notifyListeners();
       }
-      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+      _saveSuccessPulse.emit();
       return true;
     } catch (error) {
       _setEntries(previousEntries);
@@ -277,26 +265,6 @@ class MemoryController extends ChangeNotifier {
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    if (_isDisposed) {
-      return Future<T>.error(StateError('MemoryController is disposed'));
-    }
-    final completer = Completer<T>();
-    _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
-      // Check disposed state before executing to avoid race conditions.
-      if (_isDisposed) {
-        if (!completer.isCompleted) {
-          completer.completeError(StateError('MemoryController is disposed'));
-        }
-        return;
-      }
-      try {
-        completer.complete(await operation());
-      } catch (error, stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      }
-    });
-    return completer.future;
+    return enqueueOperation(operation);
   }
 }

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/model/hook_config.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../hooks_controller.dart';
 
@@ -24,82 +25,93 @@ class HooksView extends StatelessWidget {
     final hooksController = context.read<HooksController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        // Header
-        Row(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Hooks', style: theme.textTheme.displaySmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    isZh
-                        ? '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。'
-                        : 'Configure scripts to run at each AI agent lifecycle stage. Hooks execute sequentially when the corresponding event fires.',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Hooks', style: theme.textTheme.displaySmall),
+                      const SizedBox(height: 8),
+                      Text(
+                        isZh
+                            ? '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。'
+                            : 'Configure scripts to run at each AI agent lifecycle stage. Hooks execute sequentially when the corresponding event fires.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                FilledButton.icon(
+                  onPressed: () => _showHookEditorDialog(context, null),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(isZh ? '新增 Hook' : 'New Hook'),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            FilledButton.icon(
-              onPressed: () => _showHookEditorDialog(context, null),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(isZh ? '新增 Hook' : 'New Hook'),
+            const SizedBox(height: 24),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: entries.isEmpty
+                    ? KeyedSubtree(
+                        key: const ValueKey<String>('empty'),
+                        child: _EmptyState(isZh: isZh),
+                      )
+                    : ScrollConfiguration(
+                        key: const ValueKey<String>('list'),
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.only(top: 2),
+                          itemCount: entries.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final entry = entries[index];
+                            return AppearOnce(
+                              key: ValueKey<String>('hook-entry-${entry.id}'),
+                              child: _HookEntryCard(
+                                entry: entry,
+                                isZh: isZh,
+                                onEdit: () =>
+                                    _showHookEditorDialog(context, entry),
+                                onToggle: (enabled) {
+                                  hooksController.toggleHookEnabled(
+                                    entry.id,
+                                    enabled: enabled,
+                                  );
+                                },
+                                onDelete: () => _confirmDelete(context, entry),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        // Content — empty ↔ list cross-fade; entries fade in on insert.
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            child: entries.isEmpty
-                ? KeyedSubtree(
-                    key: const ValueKey<String>('empty'),
-                    child: _EmptyState(isZh: isZh),
-                  )
-                : ScrollConfiguration(
-                    key: const ValueKey<String>('list'),
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: ListView.separated(
-                      // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被视口剪掉。
-                      padding: const EdgeInsets.only(top: 2),
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return AppearOnce(
-                          key: ValueKey<String>('hook-entry-${entry.id}'),
-                          child: _HookEntryCard(
-                            entry: entry,
-                            isZh: isZh,
-                            onEdit: () => _showHookEditorDialog(context, entry),
-                            onToggle: (enabled) {
-                              hooksController.toggleHookEnabled(
-                                entry.id,
-                                enabled: enabled,
-                              );
-                            },
-                            onDelete: () => _confirmDelete(context, entry),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: HighlightPulse(signal: hooksController.saveSuccessSignal),
           ),
         ),
       ],

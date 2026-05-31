@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
+import '../../shared/core/managed_change_notifier.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
@@ -47,7 +49,7 @@ class WebGatewayInstructionOption {
   final bool enabled;
 }
 
-class MessageGatewayController extends ChangeNotifier {
+class MessageGatewayController extends ManagedChangeNotifier {
   MessageGatewayController.uninitialized({
     required AiSessionController sessionController,
     required SettingsController settingsController,
@@ -98,9 +100,10 @@ class MessageGatewayController extends ChangeNotifier {
   String? _errorMessage;
   bool _hasPendingRuntimeConfig = false;
   WebGatewayHealthResult? _lastHealthResult;
-  final ValueNotifier<int> saveSuccessSignal = ValueNotifier<int>(0);
+  final ChangePulse _saveSuccessPulse = ChangePulse();
 
   WebMessagePlatformConfig get config => _config;
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   bool get isOperating =>
@@ -249,7 +252,7 @@ class MessageGatewayController extends ChangeNotifier {
       } else {
         _hasPendingRuntimeConfig = _service.isRunning;
       }
-      saveSuccessSignal.value = saveSuccessSignal.value + 1;
+      _saveSuccessPulse.emit();
     } catch (error) {
       _errorMessage = '$error';
       rethrow;
@@ -437,7 +440,7 @@ class MessageGatewayController extends ChangeNotifier {
   void dispose() {
     _logNotifyTimer?.cancel();
     _logSub.cancel();
-    saveSuccessSignal.dispose();
+    _saveSuccessPulse.dispose();
     unawaited(_service.dispose());
     super.dispose();
   }

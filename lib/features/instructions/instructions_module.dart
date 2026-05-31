@@ -5,9 +5,10 @@ import 'instructions_controller.dart';
 
 /// Assembly point for the instructions feature.
 ///
-/// Initialization is intentionally lightweight (synchronous) to preserve
-/// the "non-critical-path lazy init" semantics — the controller's heavy
-/// store hydration happens on first access, not at app boot.
+/// Construction is intentionally lightweight and synchronous. `main.dart`
+/// currently bootstraps the module at app start, then schedules
+/// `controller.refresh()` in the background so sqlite hydration stays off the
+/// first-frame critical path while the feature remains ready soon after boot.
 class InstructionsModule {
   InstructionsModule._({required this.controller});
 

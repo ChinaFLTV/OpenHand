@@ -5,8 +5,9 @@ import 'plugin_service_controller.dart';
 
 /// Assembly point for the plugin_service feature.
 ///
-/// Construction is synchronous; the controller's first scan happens on
-/// demand from the UI (not at boot).
+/// Construction is synchronous. `main.dart` currently bootstraps the module
+/// during app startup and then schedules `controller.initialize()` in the
+/// background so the first plugin scan does not block first paint.
 class PluginServiceModule {
   PluginServiceModule._({required this.controller});
 

@@ -3,15 +3,14 @@
 /// 2026-04-25 / Phase 4-Instructions
 library;
 
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../shared/core/managed_change_notifier.dart';
 import 'data/instructions_store.dart';
 import 'model/user_instruction_entry.dart';
 
-class InstructionsController extends ChangeNotifier {
+class InstructionsController extends ManagedChangeNotifier {
   InstructionsController._({
     required InstructionsStore store,
     required String Function() idGenerator,
@@ -54,8 +53,6 @@ class InstructionsController extends ChangeNotifier {
   String? _errorMessage;
   List<UserInstructionEntry> _entries = const <UserInstructionEntry>[];
   List<UserInstructionEntry> _entriesView = const <UserInstructionEntry>[];
-  bool _isDisposed = false;
-  Future<void> _operationQueue = Future<void>.value();
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -66,22 +63,15 @@ class InstructionsController extends ChangeNotifier {
   List<UserInstructionEntry> get enabledEntries =>
       _entriesView.where((entry) => entry.enabled).toList(growable: false);
 
-  final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
+  final ChangePulse _saveSuccessPulse = ChangePulse();
 
   /// Increments after each successful `_store.saveAll`. UI may listen via
   /// `HighlightPulse` to flash on commit.
-  ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
-
-  @override
-  void notifyListeners() {
-    if (_isDisposed) return;
-    super.notifyListeners();
-  }
+  ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
   @override
   void dispose() {
-    _isDisposed = true;
-    _saveSuccessSignal.dispose();
+    _saveSuccessPulse.dispose();
     super.dispose();
   }
 
@@ -287,7 +277,7 @@ class InstructionsController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.saveAll(_entries);
-      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+      _saveSuccessPulse.emit();
       return true;
     } catch (error) {
       _setEntries(previous);
@@ -303,25 +293,6 @@ class InstructionsController extends ChangeNotifier {
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    if (_isDisposed) {
-      return Future<T>.error(StateError('InstructionsController is disposed'));
-    }
-    final completer = Completer<T>();
-    _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
-      if (_isDisposed) {
-        if (!completer.isCompleted) {
-          completer.completeError(
-            StateError('InstructionsController is disposed'),
-          );
-        }
-        return;
-      }
-      try {
-        completer.complete(await operation());
-      } catch (error, stack) {
-        if (!completer.isCompleted) completer.completeError(error, stack);
-      }
-    });
-    return completer.future;
+    return enqueueOperation(operation);
   }
 }

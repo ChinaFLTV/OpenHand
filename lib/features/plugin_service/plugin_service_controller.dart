@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
+import '../../shared/core/managed_change_notifier.dart';
 import 'model/plugin_info.dart';
 import 'service/plugin_lifecycle_service.dart';
 import 'service/plugin_scanner_service.dart';
@@ -10,7 +9,7 @@ import 'service/plugin_scanner_service.dart';
 ///
 /// 管理插件的扫描、安装、更新、卸载，并通知 UI 状态变化。
 /// 处理插件间依赖关系，确保操作顺序正确。
-class PluginServiceController extends ChangeNotifier {
+class PluginServiceController extends ManagedChangeNotifier {
   PluginServiceController({
     PluginScannerService? scanner,
     PluginLifecycleService? lifecycle,
@@ -26,7 +25,7 @@ class PluginServiceController extends ChangeNotifier {
   String? _checkingPluginId;
   String? _errorMessage;
   final List<String> _operationLogs = [];
-  final ValueNotifier<int> operationSuccessSignal = ValueNotifier<int>(0);
+  final ChangePulse _operationSuccessPulse = ChangePulse();
 
   List<PluginInfo> get plugins => _plugins;
   bool get isLoading => _isLoading;
@@ -34,6 +33,8 @@ class PluginServiceController extends ChangeNotifier {
   String? get checkingPluginId => _checkingPluginId;
   String? get errorMessage => _errorMessage;
   List<String> get operationLogs => List.unmodifiable(_operationLogs);
+  ValueListenable<int> get operationSuccessSignal =>
+      _operationSuccessPulse.listenable;
 
   PluginInfo? pluginById(String id) {
     for (final p in _plugins) {
@@ -154,7 +155,7 @@ class PluginServiceController extends ChangeNotifier {
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
-        operationSuccessSignal.value++;
+        _operationSuccessPulse.emit();
         await rescan();
         return true;
       }
@@ -194,7 +195,7 @@ class PluginServiceController extends ChangeNotifier {
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
-        operationSuccessSignal.value++;
+        _operationSuccessPulse.emit();
         await rescan();
         return true;
       }
@@ -257,7 +258,7 @@ class PluginServiceController extends ChangeNotifier {
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
-        operationSuccessSignal.value++;
+        _operationSuccessPulse.emit();
         await rescan();
         return true;
       }
@@ -318,7 +319,7 @@ class PluginServiceController extends ChangeNotifier {
 
   @override
   void dispose() {
-    operationSuccessSignal.dispose();
+    _operationSuccessPulse.dispose();
     super.dispose();
   }
 }

@@ -6,8 +6,10 @@ import 'skills_controller.dart';
 
 /// Assembly point for the skills feature.
 ///
-/// Construction is synchronous via [SkillsController.uninitialized] — the
-/// filesystem scan happens on first `refresh()`, not at boot.
+/// Construction is synchronous via [SkillsController.uninitialized].
+/// `main.dart` currently bootstraps the module during app startup and then
+/// schedules `controller.refresh()` in the background so the filesystem scan
+/// stays off the first-frame critical path.
 ///
 /// Unlike other Plan-2 modules, this bootstrap takes [initialStoragePath]
 /// because the underlying controller's lazy-init factory has it as a

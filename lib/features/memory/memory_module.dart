@@ -5,9 +5,10 @@ import 'memory_controller.dart';
 
 /// Assembly point for the memory feature.
 ///
-/// Initialization is intentionally lightweight (synchronous-in-async wrapper)
-/// to preserve the "non-critical-path lazy init" semantics — store hydration
-/// happens on first `refresh()` / mutation, not at boot.
+/// Initialization stays lightweight (synchronous-in-async wrapper). `main.dart`
+/// currently constructs the controller during boot and immediately schedules
+/// `controller.refresh()` in the background so memory hydration does not block
+/// first paint while still becoming available shortly after startup.
 class MemoryModule {
   MemoryModule._({required this.controller});
 
