@@ -554,8 +554,7 @@ class PluginScannerService {
       );
       if (version == null) return _pipNotInstalled;
       final latestVersion = switch (resolvedRuntime.source) {
-        _PythonRuntimeSource.pyenv ||
-        _PythonRuntimeSource.homebrew => await _queryLatestPipVersion(),
+        _PythonRuntimeSource.pyenv => await _queryLatestPipVersion(),
         _ => null,
       };
       return PluginInfo(

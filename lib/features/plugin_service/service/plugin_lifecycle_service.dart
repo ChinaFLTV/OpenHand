@@ -141,14 +141,16 @@ fi
         : null;
     final executable = await _resolvePyenvPythonPath();
     if (executable == null) return null;
+    final managedPyenvVersion = selected != null && _isSemanticVersion(selected)
+        ? selected
+        : _extractPyenvVersionFromPath(executable);
+    if (managedPyenvVersion == null) return null;
     final version = await _readPythonVersion(executable);
     return _PythonRuntimeContext(
       source: _PythonRuntimeSource.pyenv,
       executablePath: executable,
       version: version,
-      pyenvVersion: selected != null && _isSemanticVersion(selected)
-          ? selected
-          : _extractPyenvVersionFromPath(executable),
+      pyenvVersion: managedPyenvVersion,
     );
   }
 
@@ -216,6 +218,25 @@ fi
     );
     if (result.exitCode != 0) return null;
     return _extractPipVersion('${result.stdout}\n${result.stderr}');
+  }
+
+  bool _isExternallyManagedPipError(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('externally-managed-environment') ||
+        normalized.contains('externally managed') ||
+        normalized.contains('pep 668');
+  }
+
+  String _pipManagedEnvironmentMessage(_PythonRuntimeContext context) {
+    return switch (context.source) {
+      _PythonRuntimeSource.homebrew =>
+        '当前 pip 由 Homebrew Python 管理，不能在插件中直接自升级。请通过 Homebrew 更新对应 Python。',
+      _PythonRuntimeSource.system =>
+        '当前 pip 绑定的是系统 Python，不能在插件中直接自升级。若需安装第三方库，请使用虚拟环境。',
+      _PythonRuntimeSource.unknown =>
+        '当前 pip 绑定的 Python 来源未知，不能安全地在插件中直接自升级。若需安装第三方库，请使用虚拟环境。',
+      _ => '当前 pip 所在环境不支持在插件中直接自升级。',
+    };
   }
 
   Future<String?> _queryLatestPyenvPatch(String currentVersion) async {
@@ -477,6 +498,17 @@ fi
       );
     }
 
+    final existingVersion = await _readPipVersion(context.executablePath);
+    if (existingVersion != null &&
+        context.source == _PythonRuntimeSource.homebrew) {
+      onProgress?.call('检测到 Homebrew 管理的 pip，跳过插件内自升级。');
+      return PluginOperationResult(
+        success: true,
+        message: '当前 pip 由 Homebrew Python 管理，请通过 Homebrew 更新对应 Python。',
+        newVersion: existingVersion,
+      );
+    }
+
     onProgress?.call('正在引导 pip…');
     final ensureResult = await _runBoundPythonCommand(
       context.executablePath,
@@ -485,14 +517,22 @@ fi
       timeout: const Duration(minutes: 8),
     );
     if (ensureResult.exitCode != 0) {
+      final ensureMessage = ensureResult.stderr.isNotEmpty
+          ? ensureResult.stderr
+          : ensureResult.stdout;
+      if (_isExternallyManagedPipError(ensureMessage)) {
+        return PluginOperationResult(
+          success: false,
+          message: _pipManagedEnvironmentMessage(context),
+        );
+      }
       return PluginOperationResult(
         success: false,
-        message: 'pip 引导失败: ${ensureResult.stderr}',
+        message: 'pip 引导失败: $ensureMessage',
       );
     }
 
-    if (context.source == _PythonRuntimeSource.pyenv ||
-        context.source == _PythonRuntimeSource.homebrew) {
+    if (context.source == _PythonRuntimeSource.pyenv) {
       onProgress?.call('正在升级 pip…');
       final upgradeResult = await _runBoundPythonCommand(
         context.executablePath,
@@ -501,9 +541,18 @@ fi
         timeout: const Duration(minutes: 8),
       );
       if (upgradeResult.exitCode != 0) {
+        final upgradeMessage = upgradeResult.stderr.isNotEmpty
+            ? upgradeResult.stderr
+            : upgradeResult.stdout;
+        if (_isExternallyManagedPipError(upgradeMessage)) {
+          return PluginOperationResult(
+            success: false,
+            message: _pipManagedEnvironmentMessage(context),
+          );
+        }
         return PluginOperationResult(
           success: false,
-          message: 'pip 升级失败: ${upgradeResult.stderr}',
+          message: 'pip 升级失败: $upgradeMessage',
         );
       }
     }
@@ -872,7 +921,6 @@ fi
 
     switch (context.source) {
       case _PythonRuntimeSource.pyenv:
-      case _PythonRuntimeSource.homebrew:
         onProgress?.call('正在升级 pip…');
         final result = await _runBoundPythonCommand(
           context.executablePath,
@@ -881,9 +929,18 @@ fi
           timeout: const Duration(minutes: 8),
         );
         if (result.exitCode != 0) {
+          final updateMessage = result.stderr.isNotEmpty
+              ? result.stderr
+              : result.stdout;
+          if (_isExternallyManagedPipError(updateMessage)) {
+            return PluginOperationResult(
+              success: false,
+              message: _pipManagedEnvironmentMessage(context),
+            );
+          }
           return PluginOperationResult(
             success: false,
-            message: 'pip 升级失败: ${result.stderr}',
+            message: 'pip 升级失败: $updateMessage',
           );
         }
         final version = await _readPipVersion(context.executablePath);
@@ -899,15 +956,20 @@ fi
           message: 'pip 已更新到 $version',
           newVersion: version,
         );
-      case _PythonRuntimeSource.system:
-        return const PluginOperationResult(
+      case _PythonRuntimeSource.homebrew:
+        return PluginOperationResult(
           success: false,
-          message: '当前 pip 绑定的是系统 Python，暂不支持自动升级，请手动维护。',
+          message: _pipManagedEnvironmentMessage(context),
+        );
+      case _PythonRuntimeSource.system:
+        return PluginOperationResult(
+          success: false,
+          message: _pipManagedEnvironmentMessage(context),
         );
       case _PythonRuntimeSource.unknown:
-        return const PluginOperationResult(
+        return PluginOperationResult(
           success: false,
-          message: '当前 pip 绑定的 Python 来源未知，暂不支持自动升级，请手动维护。',
+          message: _pipManagedEnvironmentMessage(context),
         );
     }
   }
