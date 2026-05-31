@@ -1,6 +1,6 @@
 // PluginsPage —— 插件服务管理页面。
 //
-// 展示可选插件（NodeJS / Playwright）的安装状态，支持安装、更新、卸载操作。
+// 展示可选插件（NodeJS / Python / Playwright）的安装状态，支持安装、更新、卸载操作。
 // 5 秒轮询刷新状态，操作期间实时反馈进度。UI 风格与 ToolboxPage 保持一致。
 
 import { useEffect, useState } from 'preact/hooks';
@@ -41,6 +41,7 @@ function statusBadge(status: PluginStatus): { color: string; bg: string; label: 
 function pluginIcon(id: string): string {
   switch (id) {
     case 'nodejs': return '⬢';
+    case 'python': return 'Py';
     case 'playwright': return '🎭';
     default: return '🧩';
   }

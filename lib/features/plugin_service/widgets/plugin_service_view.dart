@@ -253,6 +253,7 @@ class _PluginCard extends StatelessWidget {
     };
     final pluginIcon = switch (plugin.id) {
       'nodejs' => Icons.javascript_rounded,
+      'python' => Icons.code_rounded,
       'playwright' => Icons.theaters_rounded,
       _ => Icons.extension_rounded,
     };
@@ -1201,6 +1202,25 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           ], timeout: const Duration(seconds: 5));
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
+          }
+        } catch (_) {}
+      }
+      if (widget.plugin.id == 'python' && widget.plugin.isInstalled) {
+        try {
+          final pythonResult = await runTrackedProcessOrFailed('python3', [
+            '--version',
+          ], timeout: const Duration(seconds: 5));
+          if (pythonResult.exitCode == 0) {
+            info['python3'] = '${pythonResult.stdout}${pythonResult.stderr}'
+                .trim();
+          }
+          final pipResult = await runTrackedProcessOrFailed('python3', [
+            '-m',
+            'pip',
+            '--version',
+          ], timeout: const Duration(seconds: 8));
+          if (pipResult.exitCode == 0) {
+            info['pip'] = pipResult.stdout.toString().trim();
           }
         } catch (_) {}
       }

@@ -109,6 +109,7 @@ class PluginServiceController extends ChangeNotifier {
     try {
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.installNodeJs(onProgress: _addLog),
+        'python' => await _lifecycle.installPython(onProgress: _addLog),
         'playwright' => await _lifecycle.installPlaywright(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
@@ -148,6 +149,7 @@ class PluginServiceController extends ChangeNotifier {
     try {
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.updateNodeJs(onProgress: _addLog),
+        'python' => await _lifecycle.updatePython(onProgress: _addLog),
         'playwright' => await _lifecycle.updatePlaywright(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
@@ -201,6 +203,7 @@ class PluginServiceController extends ChangeNotifier {
           playwrightInstalled: playwrightInstalled,
           onProgress: _addLog,
         ),
+        'python' => await _lifecycle.uninstallPython(onProgress: _addLog),
         'playwright' => await _lifecycle.uninstallPlaywright(
           onProgress: _addLog,
         ),
