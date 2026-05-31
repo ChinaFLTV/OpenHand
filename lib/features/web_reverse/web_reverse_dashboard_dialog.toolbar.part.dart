@@ -601,65 +601,56 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       }
     }
     if (!context.mounted) return;
-    await showAnimatedDialog<void>(
+    await showOpenHandInfoDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? 'HAR 对比' : 'HAR diff'),
-        content: SizedBox(
-          width: 880,
-          height: 540,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isZh
-                    ? '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}'
-                    : '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
+      title: isZh ? 'HAR 对比' : 'HAR diff',
+      closeLabel: isZh ? '关闭' : 'Close',
+      content: SizedBox(
+        width: 880,
+        height: 540,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isZh
+                  ? '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}'
+                  : '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: _HarDiffColumn(
+                      title: isZh ? 'A 独有' : 'Only A',
+                      items: onlyAKeys,
+                      accent: Colors.red,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  SizedBox(
+                    width: 220,
+                    child: _HarDiffColumn(
+                      title: isZh ? 'B 独有' : 'Only B',
+                      items: onlyBKeys,
+                      accent: Colors.green,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: _HarChangedColumn(
+                      title: isZh ? '同 URL 已变' : 'Changed',
+                      changes: changed,
+                      isZh: isZh,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: _HarDiffColumn(
-                        title: isZh ? 'A 独有' : 'Only A',
-                        items: onlyAKeys,
-                        accent: Colors.red,
-                      ),
-                    ),
-                    const VerticalDivider(width: 1),
-                    SizedBox(
-                      width: 220,
-                      child: _HarDiffColumn(
-                        title: isZh ? 'B 独有' : 'Only B',
-                        items: onlyBKeys,
-                        accent: Colors.green,
-                      ),
-                    ),
-                    const VerticalDivider(width: 1),
-                    Expanded(
-                      child: _HarChangedColumn(
-                        title: isZh ? '同 URL 已变' : 'Changed',
-                        changes: changed,
-                        isZh: isZh,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
       ),
     );
   }

@@ -522,25 +522,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    showAnimatedDialog<void>(
+    showOpenHandInfoDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? 'LSP Hover' : 'LSP Hover'),
-        content: SizedBox(
-          width: 560,
-          child: SelectableText(
-            md,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
+      title: isZh ? 'LSP Hover' : 'LSP Hover',
+      closeLabel: isZh ? '关闭' : 'Close',
+      content: SizedBox(
+        width: 560,
+        child: SelectableText(
+          md,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
       ),
     );
   }
