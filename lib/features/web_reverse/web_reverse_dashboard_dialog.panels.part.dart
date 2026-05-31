@@ -4592,30 +4592,21 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
 
   void _showEventDetail(_FlameEvent e) {
     final isZh = widget.isZh;
-    showAnimatedDialog<void>(
+    showOpenHandInfoDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '事件详情' : 'Event detail'),
-        content: SizedBox(
-          width: 560,
-          child: SelectableText(
-            'name: ${e.name}\n'
-            'cat: ${e.cat}\n'
-            'pid: ${e.pid} · tid: ${e.tid}\n'
-            'ts: ${e.ts} (μs)\n'
-            'dur: ${e.dur} μs (${(e.dur / 1000).toStringAsFixed(2)} ms)\n'
-            '\nargs:\n${const JsonEncoder.withIndent('  ').convert(e.args)}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
+      title: isZh ? '事件详情' : 'Event detail',
+      closeLabel: isZh ? '关闭' : 'Close',
+      content: SizedBox(
+        width: 560,
+        child: SelectableText(
+          'name: ${e.name}\n'
+          'cat: ${e.cat}\n'
+          'pid: ${e.pid} · tid: ${e.tid}\n'
+          'ts: ${e.ts} (μs)\n'
+          'dur: ${e.dur} μs (${(e.dur / 1000).toStringAsFixed(2)} ms)\n'
+          '\nargs:\n${const JsonEncoder.withIndent('  ').convert(e.args)}',
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
       ),
     );
   }
