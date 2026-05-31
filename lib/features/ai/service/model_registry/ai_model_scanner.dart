@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/ui/structured_error_text.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
@@ -155,19 +156,18 @@ class AiModelScanner {
     final headers = _buildHeaders(config);
     final transport = _effectiveTransport;
     AiModelScanResult? lastFailure;
-    final primary = _router.resolve(
-      config,
-      AiApiFamily.models,
-      method: 'GET',
-    );
+    final primary = _router.resolve(config, AiApiFamily.models, method: 'GET');
     final candidates = <String>[primary.url];
     if (!config.normalizedBaseUrl.endsWith('/v1')) {
       final fallback = Uri.parse(config.normalizedBaseUrl)
-          .replace(pathSegments: <String>[
-            ...Uri.parse(config.normalizedBaseUrl).pathSegments
-                .where((segment) => segment.isNotEmpty),
-            'models',
-          ])
+          .replace(
+            pathSegments: <String>[
+              ...Uri.parse(
+                config.normalizedBaseUrl,
+              ).pathSegments.where((segment) => segment.isNotEmpty),
+              'models',
+            ],
+          )
           .toString();
       if (!candidates.contains(fallback)) {
         candidates.add(fallback);
@@ -634,11 +634,19 @@ class _ScanErrorMessages {
       AiTransportDiagnosticMessages.timeout(limit);
 
   static String http(HttpException e) => AiTransportDiagnosticMessages.format(
-    title: 'HTTP protocol error · HTTP 协议错误',
-    reason:
-        'HTTP 客户端在解析响应阶段失败：${e.message}\n'
-        '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
-    try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
+    title: StructuredErrorText.pick(zh: 'HTTP 协议错误', en: 'HTTP protocol error'),
+    reason: StructuredErrorText.pick(
+      zh: 'HTTP 客户端在解析响应阶段失败：${e.message}\n通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
+      en:
+          'The HTTP client failed while parsing the response: ${e.message}\n'
+          'This usually means the server did not return a valid HTTP response, or the payload was truncated by an intermediate device.',
+    ),
+    try_: StructuredErrorText.pick(
+      zh: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
+      en:
+          '· Verify that the Base URL points to the correct HTTPS endpoint\n'
+          '· Ask the relay provider whether the port is being intercepted or rewritten',
+    ),
   );
 
   static String socket(SocketException e) {
@@ -686,7 +694,7 @@ class _ScanErrorMessages {
       suggest = '· 确认网络可用并复核 Base URL\n· 必要时联系中转方排查链路';
     }
     return AiTransportDiagnosticMessages.format(
-      title: 'Network error · 网络层错误',
+      title: StructuredErrorText.pick(zh: '网络层错误', en: 'Network error'),
       reason: reason,
       try_: suggest,
       raw: e.osError == null ? e.message : '${e.message} (${e.osError})',
@@ -699,85 +707,241 @@ class _ScanErrorMessages {
     String suggest;
     switch (code) {
       case 400:
-        title = 'Bad request (400) · 请求被拒';
-        reason =
-            '服务端拒绝处理本次请求 (400 Bad Request)。Base URL 或自定义 header 可能不符合该协议规范。';
-        suggest =
-            '· 确认 Base URL 与协议类型匹配 (例如 Claude 协议应指向 /v1)\n· 检查自定义 header 中是否有非法字符';
+        title = StructuredErrorText.pick(
+          zh: '请求被拒 (400)',
+          en: 'Bad request (400)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端拒绝处理本次请求（400 Bad Request）。Base URL 或自定义 header 可能不符合该协议规范。',
+          en: 'The server refused to process the request (400 Bad Request). The Base URL or custom headers may not match the expected protocol.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 确认 Base URL 与协议类型匹配（例如 Claude 协议应指向 /v1）\n· 检查自定义 header 中是否有非法字符',
+          en:
+              '· Confirm that the Base URL matches the protocol type (for example, Claude-compatible endpoints should usually point to /v1)\n'
+              '· Check for invalid characters in custom headers',
+        );
         break;
       case 401:
-        title = 'Authentication failed (401) · 鉴权失败';
-        reason = '服务端返回 401 Unauthorized：身份令牌缺失或已失效。';
-        suggest =
-            '· 确认 API Key / Token 已正确粘贴，无前后空格\n· 在中转方控制台重新生成令牌\n· 确认鉴权方式 (Bearer / X-API-Key) 与中转要求一致';
+        title = StructuredErrorText.pick(
+          zh: '鉴权失败 (401)',
+          en: 'Authentication failed (401)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 401 Unauthorized：身份令牌缺失或已失效。',
+          en: 'The server returned 401 Unauthorized: the credential is missing or has expired.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 确认 API Key / Token 已正确粘贴且无前后空格\n· 在中转方控制台重新生成令牌\n· 确认鉴权方式（Bearer / X-API-Key）与中转要求一致',
+          en:
+              '· Make sure the API key or token was pasted correctly with no surrounding spaces\n'
+              '· Regenerate the credential in the relay console\n'
+              '· Confirm that the authentication scheme (Bearer / X-API-Key) matches the relay requirements',
+        );
         break;
       case 403:
-        title = 'Forbidden (403) · 访问被拒';
-        reason =
-            '服务端返回 403 Forbidden。可能的原因：\n'
-            '  · 当前令牌不具备访问该模型 / 接口的权限\n'
-            '  · IP 地理位置不在中转方允许的区域\n'
-            '  · 触发了中转方的 WAF / 风控规则';
-        suggest = '· 在中转方控制台确认账号余额与权限\n· 切换网络或地区后重试\n· 联系中转方支持核实账号状态';
+        title = StructuredErrorText.pick(
+          zh: '访问被拒 (403)',
+          en: 'Forbidden (403)',
+        );
+        reason = StructuredErrorText.pick(
+          zh:
+              '服务端返回 403 Forbidden。可能的原因：\n'
+              '  · 当前令牌不具备访问该模型或接口的权限\n'
+              '  · IP 地理位置不在中转方允许的区域\n'
+              '  · 触发了中转方的 WAF 或风控规则',
+          en:
+              'The server returned 403 Forbidden. Possible causes:\n'
+              '  · The current credential does not have permission to access the model or endpoint\n'
+              '  · The IP location is outside the relay provider\'s allowed region\n'
+              '  · A WAF or risk-control rule was triggered',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 在中转方控制台确认账号余额与权限\n· 切换网络或地区后重试\n· 联系中转方支持核实账号状态',
+          en:
+              '· Check account balance and permissions in the relay console\n'
+              '· Retry from another network or region\n'
+              '· Ask the relay provider to verify the account status',
+        );
         break;
       case 404:
-        title = 'Endpoint not found (404) · 端点不存在';
-        reason =
-            '服务端返回 404 Not Found：该 Base URL 下没有 /models 端点。多数中转 / 代理只转发 /v1/messages 而不暴露模型列表。';
-        suggest = '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n· 确认 Base URL 是否需要去掉多余的 /v1 后缀';
+        title = StructuredErrorText.pick(
+          zh: '端点不存在 (404)',
+          en: 'Endpoint not found (404)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 404 Not Found：该 Base URL 下没有 /models 端点。多数中转或代理只转发 /v1/messages，而不暴露模型列表。',
+          en: 'The server returned 404 Not Found: there is no /models endpoint under this Base URL. Many relays or proxies forward only /v1/messages and do not expose a model list.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n· 确认 Base URL 是否需要去掉多余的 /v1 后缀',
+          en:
+              '· Enter the model ID manually in the model field\n'
+              '· Check whether the Base URL should omit an extra /v1 suffix',
+        );
         break;
       case 405:
-        title = 'Method not allowed (405) · 方法不被允许';
-        reason = '服务端不接受 GET 方法访问 /models。该端点可能仅暴露 POST 或不支持模型列表。';
-        suggest = '· 在「手动添加模型 ID」处录入模型名继续配置';
+        title = StructuredErrorText.pick(
+          zh: '方法不被允许 (405)',
+          en: 'Method not allowed (405)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端不接受用 GET 方法访问 /models。该端点可能只暴露 POST，或者根本不支持模型列表。',
+          en: 'The server does not allow GET requests to /models. This endpoint may only expose POST, or may not support model listing at all.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 在「手动添加模型 ID」处录入模型名继续配置',
+          en: '· Enter the model ID manually and continue configuring the model',
+        );
         break;
       case 408:
-        title = 'Server timeout (408) · 服务端超时';
-        reason = '服务端在收到请求头后超时关闭连接 (408 Request Timeout)。';
-        suggest = '· 稍后重试\n· 切换网络后再试';
+        title = StructuredErrorText.pick(
+          zh: '服务端超时 (408)',
+          en: 'Server timeout (408)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端在收到请求头后超时关闭了连接。',
+          en: 'The server closed the connection after timing out while handling the request headers.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍后重试\n· 切换网络后再试',
+          en: '· Retry later\n· Try again from another network',
+        );
         break;
       case 429:
-        title = 'Rate limited (429) · 触发限流';
-        reason = '服务端返回 429 Too Many Requests：当前账户调用过于频繁或额度已用尽。';
-        suggest = '· 稍等几分钟后重试\n· 在中转方控制台确认配额 / 余额\n· 升级套餐或更换 token';
+        title = StructuredErrorText.pick(
+          zh: '触发限流 (429)',
+          en: 'Rate limited (429)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 429 Too Many Requests：当前账户调用过于频繁，或额度已用尽。',
+          en: 'The server returned 429 Too Many Requests: the current account is calling too frequently, or the quota has been exhausted.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍等几分钟后重试\n· 在中转方控制台确认配额或余额\n· 升级套餐或更换 token',
+          en:
+              '· Wait a few minutes and try again\n'
+              '· Check quota or balance in the relay console\n'
+              '· Upgrade the plan or switch to another token',
+        );
         break;
       case 500:
-        title = 'Server error (500) · 服务端内部错误';
-        reason = '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。';
-        suggest = '· 稍后重试\n· 联系中转方查看服务状态';
+        title = StructuredErrorText.pick(
+          zh: '服务端内部错误 (500)',
+          en: 'Server error (500)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。',
+          en: 'The server returned 500 Internal Server Error: the upstream provider or relay itself encountered a failure.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍后重试\n· 联系中转方查看服务状态',
+          en:
+              '· Retry later\n'
+              '· Ask the relay provider to check service status',
+        );
         break;
       case 502:
-        title = 'Bad gateway (502) · 网关异常';
-        reason = '服务端返回 502 Bad Gateway：中转无法从上游 (Anthropic / OpenAI 等) 取得有效响应。';
-        suggest = '· 稍后重试\n· 联系中转方确认上游通路';
+        title = StructuredErrorText.pick(
+          zh: '网关异常 (502)',
+          en: 'Bad gateway (502)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 502 Bad Gateway：中转无法从上游（Anthropic / OpenAI 等）获得有效响应。',
+          en: 'The server returned 502 Bad Gateway: the relay could not obtain a valid response from the upstream provider (Anthropic / OpenAI, etc.).',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍后重试\n· 联系中转方确认上游通路',
+          en:
+              '· Retry later\n'
+              '· Ask the relay provider to verify the upstream connection',
+        );
         break;
       case 503:
-        title = 'Service unavailable (503) · 服务不可用';
-        reason = '服务端返回 503 Service Unavailable：服务在维护或被熔断。';
-        suggest = '· 稍后重试\n· 关注中转方公告';
+        title = StructuredErrorText.pick(
+          zh: '服务不可用 (503)',
+          en: 'Service unavailable (503)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 503 Service Unavailable：服务在维护，或已被熔断。',
+          en: 'The server returned 503 Service Unavailable: the service is under maintenance or has been circuit-broken.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍后重试\n· 关注中转方公告',
+          en:
+              '· Retry later\n'
+              '· Check announcements from the relay provider',
+        );
         break;
       case 504:
-        title = 'Gateway timeout (504) · 网关超时';
-        reason = '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超过了时限。';
-        suggest = '· 稍后重试\n· 切换中转或网络后再试';
+        title = StructuredErrorText.pick(
+          zh: '网关超时 (504)',
+          en: 'Gateway timeout (504)',
+        );
+        reason = StructuredErrorText.pick(
+          zh: '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超时。',
+          en: 'The server returned 504 Gateway Timeout: the relay timed out while talking to the upstream LLM.',
+        );
+        suggest = StructuredErrorText.pick(
+          zh: '· 稍后重试\n· 切换中转或网络后再试',
+          en:
+              '· Retry later\n'
+              '· Switch to another relay or network and try again',
+        );
         break;
       default:
         if (isAuth) {
-          title = 'Authentication failed ($code) · 鉴权失败';
-          reason = '服务端返回 $code，并提示鉴权失败。';
-          suggest = '· 检查 API Key / Token / 鉴权方式是否正确';
+          title = StructuredErrorText.pick(
+            zh: '鉴权失败 ($code)',
+            en: 'Authentication failed ($code)',
+          );
+          reason = StructuredErrorText.pick(
+            zh: '服务端返回 $code，并提示鉴权失败。',
+            en: 'The server returned $code and indicated an authentication failure.',
+          );
+          suggest = StructuredErrorText.pick(
+            zh: '· 检查 API Key、Token 与鉴权方式是否正确',
+            en: '· Check whether the API key, token, and authentication scheme are correct',
+          );
         } else if (code >= 500) {
-          title = 'Server error ($code) · 服务端错误';
-          reason = '服务端返回 $code。多为中转 / 上游故障。';
-          suggest = '· 稍后重试\n· 联系中转方排查';
+          title = StructuredErrorText.pick(
+            zh: '服务端错误 ($code)',
+            en: 'Server error ($code)',
+          );
+          reason = StructuredErrorText.pick(
+            zh: '服务端返回 $code，多为中转或上游故障。',
+            en: 'The server returned $code, which usually indicates a relay or upstream failure.',
+          );
+          suggest = StructuredErrorText.pick(
+            zh: '· 稍后重试\n· 联系中转方排查',
+            en: '· Retry later\n· Ask the relay provider to investigate',
+          );
         } else if (code >= 400) {
-          title = 'Client error ($code) · 客户端请求被拒';
-          reason = '服务端返回 $code。请求未通过协议或鉴权校验。';
-          suggest = '· 复核 Base URL / token / 自定义 header';
+          title = StructuredErrorText.pick(
+            zh: '客户端请求被拒 ($code)',
+            en: 'Client error ($code)',
+          );
+          reason = StructuredErrorText.pick(
+            zh: '服务端返回 $code，请求未通过协议或鉴权校验。',
+            en: 'The server returned $code, and the request failed protocol or authentication validation.',
+          );
+          suggest = StructuredErrorText.pick(
+            zh: '· 复核 Base URL、token 与自定义 header',
+            en: '· Recheck the Base URL, token, and custom headers',
+          );
         } else {
-          title = 'Unexpected status ($code) · 非预期响应';
-          reason = '服务端返回非 2xx 状态码 $code。';
-          suggest = '· 联系中转方排查';
+          title = StructuredErrorText.pick(
+            zh: '非预期响应 ($code)',
+            en: 'Unexpected status ($code)',
+          );
+          reason = StructuredErrorText.pick(
+            zh: '服务端返回了非 2xx 状态码 $code。',
+            en: 'The server returned a non-2xx status code: $code.',
+          );
+          suggest = StructuredErrorText.pick(
+            zh: '· 联系中转方排查',
+            en: '· Ask the relay provider to investigate',
+          );
         }
     }
     return AiTransportDiagnosticMessages.format(
@@ -787,20 +951,37 @@ class _ScanErrorMessages {
     );
   }
 
-  static String formatError(String detail) =>
-      AiTransportDiagnosticMessages.format(
-        title: 'Unexpected response format · 响应格式异常',
-        reason:
-            '服务端虽返回了 200，但响应体不是合法 JSON：$detail\n'
-            '通常意味着中转返回了 HTML 错误页 / Cloudflare 验证页 / 纯文本错误提示。',
-        try_: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
-      );
+  static String formatError(
+    String detail,
+  ) => AiTransportDiagnosticMessages.format(
+    title: StructuredErrorText.pick(
+      zh: '响应格式异常',
+      en: 'Unexpected response format',
+    ),
+    reason: StructuredErrorText.pick(
+      zh: '服务端虽然返回了 200，但响应体不是合法 JSON：$detail\n通常意味着中转返回了 HTML 错误页、Cloudflare 验证页或纯文本错误提示。',
+      en:
+          'The server returned 200, but the body was not valid JSON: $detail\n'
+          'This usually means the relay returned an HTML error page, a Cloudflare challenge page, or a plain-text error message.',
+    ),
+    try_: StructuredErrorText.pick(
+      zh: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
+      en:
+          '· Open the URL directly in a browser to inspect the real response\n'
+          '· Ask the relay provider to confirm that /models really returns JSON',
+    ),
+  );
 
   static String unexpected(Object error) =>
       AiTransportDiagnosticMessages.format(
-        title: 'Unexpected error · 未识别错误',
+        title: StructuredErrorText.pick(zh: '未识别错误', en: 'Unexpected error'),
         reason: '$error',
-        try_: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
+        try_: StructuredErrorText.pick(
+          zh: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
+          en:
+              '· Retry or switch to another network environment\n'
+              '· Enter the model ID manually to bypass scanning',
+        ),
       );
 
   static String _format({

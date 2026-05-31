@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
+import '../../../../shared/ui/structured_error_text.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
@@ -606,6 +607,28 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
+    final canUseResponses =
+        model.apiDialect == AiApiDialect.openAiCompat &&
+        creationRequest.mode == AiCreationMode.none &&
+        tools.isEmpty &&
+        responseModalities.isEmpty &&
+        messages.every(
+          (item) =>
+              item.effectiveParts.isEmpty ||
+              item.effectiveParts.every(
+                (part) => part.kind == AiChatContentPartKind.text,
+              ),
+        );
+    if (canUseResponses) {
+      return _sendResponsesStream(
+        model: model,
+        messages: messages,
+        timeout: timeout,
+        streamIdleTimeout: streamIdleTimeout,
+        cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
+      );
+    }
     // Media generation is a one-shot or bounded-poll protocol on dedicated
     // endpoints, so wrap it in a synthetic stream that emits one textDelta
     // containing the final markdown media reference.
@@ -1128,6 +1151,211 @@ class AiChatService implements AiChatClient {
         _debugAiStreamLog('model=${model.modelId} cancel_requested');
         completeStreamResult('cancelled', wasCancelled: true);
         await responseSubscription?.cancel();
+      },
+    );
+  }
+
+  Future<AiChatStreamingResponse> _sendResponsesStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required Duration timeout,
+    required Duration streamIdleTimeout,
+    Future<void>? cancelSignal,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+  }) async {
+    _responsesService ??= AiResponsesService();
+    final flattenedInput = messages
+        .map((item) => '${item.roleName}: ${item.content}'.trim())
+        .where((item) => item.isNotEmpty)
+        .join('\n\n');
+    final request = _responsesService!.buildRequest(
+      model: model,
+      input: flattenedInput,
+      stream: true,
+    );
+    final streamStartedAt = DateTime.now().toUtc();
+    final capturedHeaders = Map<String, String>.unmodifiable(request.headers);
+    final capturedBody = request.body;
+    onRequestStarted?.call(
+      AiChatRequestTelemetry(
+        requestUrl: request.url,
+        requestMethod: request.method,
+        requestHeaders: capturedHeaders,
+        requestBody: capturedBody,
+        startedAt: streamStartedAt,
+      ),
+    );
+    final streamedResponseFuture = _sendHttpRequestWithRedirects(
+      client: _client,
+      method: request.method,
+      uri: Uri.parse(request.url),
+      headers: request.headers,
+      body: jsonEncode(request.body),
+      timeout: timeout,
+    );
+    late final http.StreamedResponse streamedResponse;
+    if (cancelSignal == null) {
+      streamedResponse = await streamedResponseFuture;
+    } else {
+      final firstResult = await Future.any(<Future<Object?>>[
+        streamedResponseFuture,
+        cancelSignal.then((_) => _cancelledStreamSentinel),
+      ]);
+      if (identical(firstResult, _cancelledStreamSentinel)) {
+        return AiChatStreamingResponse(
+          events: const Stream<AiChatStreamEvent>.empty(),
+          result: Future<AiChatStreamResult>.value(
+            const AiChatStreamResult(
+              reply: '',
+              reasoning: '',
+              toolCalls: <AiToolCall>[],
+              wasCancelled: true,
+            ),
+          ),
+        );
+      }
+      streamedResponse = firstResult as http.StreamedResponse;
+    }
+    if (streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
+      final errorBody = await streamedResponse.stream.bytesToString();
+      throw AiChatException(
+        AiTransportDiagnosticMessages.httpStatus(
+          streamedResponse.statusCode,
+          serverMessage: errorBody,
+          contextHint: 'responses',
+        ),
+        telemetry: AiChatRequestTelemetry(
+          requestUrl: request.url,
+          requestMethod: request.method,
+          requestHeaders: capturedHeaders,
+          requestBody: capturedBody,
+          rawResponse: errorBody,
+          startedAt: streamStartedAt,
+          endedAt: DateTime.now().toUtc(),
+          durationMs: DateTime.now()
+              .toUtc()
+              .difference(streamStartedAt)
+              .inMilliseconds,
+          error: errorBody,
+        ),
+      );
+    }
+
+    final eventController = StreamController<AiChatStreamEvent>(sync: true);
+    final resultCompleter = Completer<AiChatStreamResult>();
+    final textBuffer = StringBuffer();
+    final reasoningBuffer = StringBuffer();
+    final rawResponseBuffer = StringBuffer();
+    final lineBuffer = StringBuffer();
+    AiTokenUsage? usage;
+    String? finishReason;
+
+    void emitEvent(AiChatStreamEvent event) {
+      if (!resultCompleter.isCompleted && !eventController.isClosed) {
+        eventController.add(event);
+      }
+    }
+
+    void processEventBlock(String block) {
+      final trimmedBlock = block.trim();
+      if (trimmedBlock.isEmpty || resultCompleter.isCompleted) return;
+      final dataLines = trimmedBlock
+          .split('\n')
+          .where((line) => line.startsWith('data:'))
+          .map((line) => line.substring(5).trim())
+          .toList(growable: false);
+      if (dataLines.isEmpty) return;
+      final data = dataLines.join('\n');
+      if (data == '[DONE]') {
+        finishReason ??= 'stop';
+        return;
+      }
+      rawResponseBuffer.writeln(data);
+      final decoded = jsonDecode(data);
+      if (decoded is! Map<String, Object?>) return;
+      _responsesService!.parseSseEvent(
+        decoded,
+        textBuffer: textBuffer,
+        reasoningBuffer: reasoningBuffer,
+        usage: () => usage,
+        setUsage: (value) => usage = value,
+        emitEvent: emitEvent,
+        setFinishReason: (value) => finishReason = value,
+      );
+    }
+
+    void processChunk(String chunk) {
+      lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+      while (!resultCompleter.isCompleted) {
+        if (lineBuffer.length < 2) break;
+        final current = lineBuffer.toString();
+        final separatorIndex = current.indexOf('\n\n');
+        if (separatorIndex == -1) break;
+        final block = current.substring(0, separatorIndex);
+        final remaining = current.substring(separatorIndex + 2);
+        lineBuffer
+          ..clear()
+          ..write(remaining);
+        processEventBlock(block);
+      }
+    }
+
+    late final StreamSubscription<String> responseSubscription;
+    responseSubscription = streamedResponse.stream
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .timeout(streamIdleTimeout)
+        .listen(
+          processChunk,
+          onError: (Object error, StackTrace stackTrace) {
+            if (!resultCompleter.isCompleted) {
+              resultCompleter.completeError(error, stackTrace);
+            }
+            if (!eventController.isClosed) {
+              unawaited(eventController.close());
+            }
+          },
+          onDone: () {
+            if (lineBuffer.isNotEmpty) {
+              processEventBlock(lineBuffer.toString());
+            }
+            if (!resultCompleter.isCompleted) {
+              resultCompleter.complete(
+                AiChatStreamResult(
+                  reply: textBuffer.toString().trim(),
+                  reasoning: reasoningBuffer.toString().trim(),
+                  toolCalls: const <AiToolCall>[],
+                  usage: usage,
+                  rawResponse: rawResponseBuffer.toString(),
+                  finishReason: finishReason,
+                  requestUrl: request.url,
+                  requestMethod: request.method,
+                  requestHeaders: capturedHeaders,
+                  requestBody: capturedBody,
+                  startedAt: streamStartedAt,
+                  endedAt: DateTime.now().toUtc(),
+                  durationMs: DateTime.now()
+                      .toUtc()
+                      .difference(streamStartedAt)
+                      .inMilliseconds,
+                ),
+              );
+            }
+            if (!eventController.isClosed) {
+              unawaited(eventController.close());
+            }
+          },
+          cancelOnError: true,
+        );
+
+    return AiChatStreamingResponse(
+      events: eventController.stream,
+      result: resultCompleter.future,
+      cancel: () async {
+        await responseSubscription.cancel();
+        if (!eventController.isClosed) {
+          await eventController.close();
+        }
       },
     );
   }
@@ -1837,20 +2065,37 @@ extension on AiChatService {
           );
       if (scanResult.isSuccess) {
         final ids = scanResult.modelIds;
-        final knownModel = model.modelId.trim().isNotEmpty &&
+        final knownModel =
+            model.modelId.trim().isNotEmpty &&
             ids.contains(model.modelId.trim());
         final modelsLabel = ids.isEmpty
-            ? '模型列表接口可达，但未返回任何模型。'
+            ? StructuredErrorText.pick(
+                zh: '模型列表接口可达，但未返回任何模型。',
+                en: 'The models endpoint is reachable, but it returned no models.',
+              )
             : knownModel
-            ? '模型列表接口可达，且已包含当前模型 ID。'
-            : '模型列表接口可达，但未找到当前模型 ID：${model.modelId.trim()}';
+            ? StructuredErrorText.pick(
+                zh: '模型列表接口可达，且已包含当前模型 ID。',
+                en: 'The models endpoint is reachable and already includes the current model ID.',
+              )
+            : StructuredErrorText.pick(
+                zh: '模型列表接口可达，但未找到当前模型 ID：${model.modelId.trim()}',
+                en: 'The models endpoint is reachable, but it did not include the current model ID: ${model.modelId.trim()}',
+              );
         final summary = relayAvailabilityReason != null
-            ? '这进一步说明网关本身在线，当前失败主要是模型分组/渠道可用性问题，而不是 Base URL 或协议不兼容。'
-            : '这通常说明网关本身在线，失败更可能出在聊天端点兼容性、模型权限或该模型在当前中转未实际开通。';
-        probeDiagnosis = '探测补充 / Probe follow-up:\n$modelsLabel\n$summary';
+            ? StructuredErrorText.pick(
+                zh: '这进一步说明网关本身在线，当前失败主要是模型分组或渠道可用性问题，而不是 Base URL 或协议不兼容。',
+                en: 'This further suggests that the gateway itself is online, and the current failure is mainly about model-group or channel availability rather than the Base URL or protocol.',
+              )
+            : StructuredErrorText.pick(
+                zh: '这通常说明网关本身在线，失败更可能出在聊天端点兼容性、模型权限或该模型在当前中转未实际开通。',
+                en: 'This usually means the gateway itself is online, and the failure is more likely caused by chat-endpoint compatibility, model permissions, or the model not actually being enabled on the current relay.',
+              );
+        probeDiagnosis =
+            '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n$modelsLabel\n$summary';
       } else if ((scanResult.error ?? '').trim().isNotEmpty) {
         probeDiagnosis =
-            '探测补充 / Probe follow-up:\n模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。\n${scanResult.error!.trim()}';
+            '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n${scanResult.error!.trim()}';
       }
     } catch (_) {
       // Keep the original provider-test failure as the primary signal.
@@ -1879,10 +2124,12 @@ String _buildProviderProbeDetail(
   final method = (telemetry?.requestMethod ?? '').trim();
   final url = (telemetry?.requestUrl ?? '').trim();
   if (method.isNotEmpty) {
-    extraLines.add('请求方法 / Method: $method');
+    extraLines.add(
+      StructuredErrorText.pick(zh: '请求方法：$method', en: 'Method: $method'),
+    );
   }
   if (url.isNotEmpty) {
-    extraLines.add('请求地址 / URL: $url');
+    extraLines.add(StructuredErrorText.pick(zh: '请求地址：$url', en: 'URL: $url'));
   }
   final trimmedDiagnosis = (diagnosis ?? '').trim();
   if (trimmedDiagnosis.isNotEmpty) {

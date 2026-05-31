@@ -40,6 +40,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _realtimeUrlOverrideController;
   late final TextEditingController _endpointOverridesController;
   late final TextEditingController _operationExtrasController;
+  late String _realtimeCapabilityStatus;
+  late String _filesCapabilityStatus;
+  late String _fineTunesCapabilityStatus;
   bool _obscureToken = true;
   bool _isSaving = false;
   bool _isScanning = false;
@@ -142,6 +145,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         widget.initialModel?.operationExtras ?? const <String, Object?>{},
       ),
     );
+    _realtimeCapabilityStatus =
+        widget.initialModel?.capabilityStatusFor(AiApiFamily.realtime) ??
+        'experimental';
+    _filesCapabilityStatus =
+        widget.initialModel?.capabilityStatusFor(AiApiFamily.files) ??
+        'disabled';
+    _fineTunesCapabilityStatus =
+        widget.initialModel?.capabilityStatusFor(AiApiFamily.fineTunes) ??
+        'disabled';
     _availableModelIds = AiModelConfig.normalizeModelIds(
       widget.initialModel?.availableModelIds ?? const <String>[],
     );
@@ -1294,6 +1306,96 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                       '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  Widget dropdown({
+                                    required String label,
+                                    required String value,
+                                    required ValueChanged<String?> onChanged,
+                                  }) {
+                                    return DropdownButtonFormField<String>(
+                                      initialValue: value,
+                                      decoration: InputDecoration(
+                                        labelText: label,
+                                      ),
+                                      items: const <DropdownMenuItem<String>>[
+                                        DropdownMenuItem<String>(
+                                          value: 'supported',
+                                          child: Text('supported'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'experimental',
+                                          child: Text('experimental'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'disabled',
+                                          child: Text('disabled'),
+                                        ),
+                                      ],
+                                      onChanged: _isSaving ? null : onChanged,
+                                    );
+                                  }
+
+                                  final realtimeDropdown = dropdown(
+                                    label: 'Realtime 能力状态',
+                                    value: _realtimeCapabilityStatus,
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _realtimeCapabilityStatus = value;
+                                      });
+                                    },
+                                  );
+                                  final filesDropdown = dropdown(
+                                    label: 'Files 能力状态',
+                                    value: _filesCapabilityStatus,
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _filesCapabilityStatus = value;
+                                      });
+                                    },
+                                  );
+                                  final fineTunesDropdown = dropdown(
+                                    label: 'Fine-tunes 能力状态',
+                                    value: _fineTunesCapabilityStatus,
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _fineTunesCapabilityStatus = value;
+                                      });
+                                    },
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        realtimeDropdown,
+                                        const SizedBox(height: 12),
+                                        filesDropdown,
+                                        const SizedBox(height: 12),
+                                        fineTunesDropdown,
+                                      ],
+                                    );
+                                  }
+                                  return Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(child: realtimeDropdown),
+                                          const SizedBox(width: 16),
+                                          Expanded(child: filesDropdown),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      fineTunesDropdown,
+                                    ],
+                                  );
+                                },
+                              ),
                               const SizedBox(height: 20),
                               // ── Custom headers section ──
                               Row(
@@ -1451,6 +1553,20 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       _errorMessage = null;
     });
 
+    final Map<String, Object?> endpointOverridesJson;
+    final Map<String, Object?> operationExtrasJson;
+    try {
+      endpointOverridesJson = _decodeJsonObject(_endpointOverridesController.text);
+      operationExtrasJson = _decodeJsonObject(_operationExtrasController.text);
+    } on FormatException catch (error) {
+      setState(() {
+        _isSaving = false;
+        _errorMessage = error.message;
+      });
+      _errorPulse.value++;
+      return;
+    }
+
     final model = AiModelConfig(
       id:
           widget.initialModel?.id ??
@@ -1498,10 +1614,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         ),
         defaultVoice: _normalizeOptionalText(_defaultVoiceController.text),
       ),
-      endpointOverrides: parseAiEndpointOverrides(
-        _decodeJsonObject(_endpointOverridesController.text),
-      ),
-      operationExtras: _decodeJsonObject(_operationExtrasController.text),
+      endpointOverrides: parseAiEndpointOverrides(endpointOverridesJson),
+      capabilityOverrides: <AiApiFamily, String>{
+        AiApiFamily.realtime: _realtimeCapabilityStatus,
+        AiApiFamily.files: _filesCapabilityStatus,
+        AiApiFamily.fineTunes: _fineTunesCapabilityStatus,
+      },
+      operationExtras: operationExtrasJson,
       realtime: AiRealtimeConfig(
         transport: _normalizeOptionalText(_realtimeTransportController.text),
         urlOverride: _normalizeOptionalText(
@@ -1569,7 +1688,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     if (decoded is Map) {
       return Map<String, Object?>.from(decoded);
     }
-    throw const FormatException('Expected a JSON object.');
+    throw const FormatException(
+      '高级 JSON 配置必须是合法的 JSON 对象。',
+    );
   }
 
   String _prettyJson(Map<String, Object?> map) {

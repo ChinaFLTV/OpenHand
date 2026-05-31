@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:web_socket_channel/web_socket_channel.dart';
+
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -20,6 +24,16 @@ class AiRealtimeSessionDescriptor {
   final String? inputFormat;
   final String? outputFormat;
   final int? sampleRate;
+}
+
+class AiRealtimeConnection {
+  const AiRealtimeConnection({
+    required this.channel,
+    required this.descriptor,
+  });
+
+  final WebSocketChannel channel;
+  final AiRealtimeSessionDescriptor descriptor;
 }
 
 class AiRealtimeService {
@@ -46,5 +60,11 @@ class AiRealtimeService {
       outputFormat: model.realtime.outputFormat,
       sampleRate: model.realtime.sampleRate,
     );
+  }
+
+  Future<AiRealtimeConnection> connect(AiModelConfig model) async {
+    final descriptor = describeSession(model);
+    final channel = WebSocketChannel.connect(Uri.parse(descriptor.url));
+    return AiRealtimeConnection(channel: channel, descriptor: descriptor);
   }
 }

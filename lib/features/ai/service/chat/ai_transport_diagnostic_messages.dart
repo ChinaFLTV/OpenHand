@@ -24,8 +24,14 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/ui/structured_error_text.dart';
+
 class AiTransportDiagnosticMessages {
   AiTransportDiagnosticMessages._();
+
+  static String _text({required String zh, required String en}) {
+    return StructuredErrorText.pick(zh: zh, en: en);
+  }
 
   static String _suffix(String contextLabel) {
     final t = contextLabel.trim();
@@ -35,31 +41,61 @@ class AiTransportDiagnosticMessages {
   static String handshake(HandshakeException e, {String contextLabel = ''}) {
     final detail = e.message.trim();
     return _format(
-      title: 'TLS handshake rejected · TLS 握手被拒绝${_suffix(contextLabel)}',
-      reason:
-          '请求未到达业务层，TLS 握手就被服务端 / 中间设备拒绝。常见原因：\n'
-          '  · Cloudflare / WAF 通过 JA3 / JA4 指纹封锁了非浏览器 TLS 客户端\n'
-          '  · 服务端要求强制 TLS 1.3，本地链路被中间盒降级\n'
-          '  · 系统时间偏差过大导致证书被判定为未生效 / 已过期\n'
-          '  · 客户端与服务端无可协商的加密套件',
-      try_:
-          '· 切换其他可访问的中转 / 直连官方 endpoint\n'
-          '· 检查本机系统时间是否准确\n'
-          '· 通过 curl 等工具复现，确认是否被 WAF 拦截',
+      title:
+          '${_text(zh: 'TLS 握手被拒绝', en: 'TLS handshake rejected')}${_suffix(contextLabel)}',
+      reason: _text(
+        zh:
+            '请求未到达业务层，TLS 握手就被服务端或中间设备拒绝。常见原因：\n'
+            '  · Cloudflare / WAF 通过 JA3 / JA4 指纹封锁了非浏览器 TLS 客户端\n'
+            '  · 服务端要求强制 TLS 1.3，本地链路被中间盒降级\n'
+            '  · 系统时间偏差过大导致证书被判定为未生效或已过期\n'
+            '  · 客户端与服务端无可协商的加密套件',
+        en:
+            'The request never reached the application layer because the server or a middlebox rejected the TLS handshake. Common causes:\n'
+            '  · Cloudflare / WAF blocked a non-browser TLS fingerprint such as JA3 / JA4\n'
+            '  · The server requires TLS 1.3 and a middlebox downgraded the connection\n'
+            '  · System time is far enough off that the certificate appears not yet valid or expired\n'
+            '  · The client and server could not negotiate a shared cipher suite',
+      ),
+      try_: _text(
+        zh:
+            '· 切换其他可访问的中转或直连官方 endpoint\n'
+            '· 检查本机系统时间是否准确\n'
+            '· 通过 curl 等工具复现，确认是否被 WAF 拦截',
+        en:
+            '· Try another relay or the direct official endpoint\n'
+            '· Check that the local system time is correct\n'
+            '· Reproduce with curl or a similar tool to confirm whether a WAF is blocking it',
+      ),
       raw: detail.isEmpty ? null : detail,
     );
   }
 
   static String tls(TlsException e, {String contextLabel = ''}) {
     return _format(
-      title: 'TLS error · TLS 协议错误${_suffix(contextLabel)}',
-      reason:
-          'TLS 通道异常：${e.message}\n'
-          '常见诱因：\n'
-          '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
-          '  · 中间存在 HTTPS 拦截 (公司防火墙 / 抓包工具)\n'
-          '  · 本机根证书库过旧未包含目标 CA',
-      try_: '· 在浏览器打开同一 URL 检查证书是否报警\n· 关闭抓包工具 / 公司代理后再试\n· 联系中转方确认证书链',
+      title:
+          '${_text(zh: 'TLS 协议错误', en: 'TLS error')}${_suffix(contextLabel)}',
+      reason: _text(
+        zh:
+            'TLS 通道异常：${e.message}\n'
+            '常见诱因：\n'
+            '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
+            '  · 中间存在 HTTPS 拦截（公司防火墙 / 抓包工具）\n'
+            '  · 本机根证书库过旧未包含目标 CA',
+        en:
+            'The TLS channel failed: ${e.message}\n'
+            'Common causes:\n'
+            '  · The server certificate expired, does not match the hostname, or was not issued by a trusted CA\n'
+            '  · HTTPS interception is happening in the middle (corporate firewall / packet capture tool)\n'
+            '  · The local root certificate store is too old to trust the target CA',
+      ),
+      try_: _text(
+        zh: '· 在浏览器打开同一 URL 检查证书是否报警\n· 关闭抓包工具或公司代理后再试\n· 联系中转方确认证书链',
+        en:
+            '· Open the same URL in a browser and check whether the certificate is flagged\n'
+            '· Disable packet capture tools or the corporate proxy and try again\n'
+            '· Ask the relay provider to verify the certificate chain',
+      ),
     );
   }
 
@@ -68,32 +104,80 @@ class AiTransportDiagnosticMessages {
     String reason;
     String suggest;
     if (msg.contains('failed host lookup') || msg.contains('no address')) {
-      reason =
-          '主机名 DNS 解析失败。可能的原因：\n'
-          '  · Base URL 写错或多/少了协议前缀\n'
-          '  · 本机 DNS 配置异常或网络无外网\n'
-          '  · 域名被运营商屏蔽 / 劫持';
-      suggest = '· 复核 Base URL\n· 在终端执行 `ping`/`nslookup` 验证\n· 切换网络 / VPN';
+      reason = _text(
+        zh:
+            '主机名 DNS 解析失败。可能的原因：\n'
+            '  · Base URL 写错或多了/少了协议前缀\n'
+            '  · 本机 DNS 配置异常或当前网络无法访问外网\n'
+            '  · 域名被运营商屏蔽或劫持',
+        en:
+            'DNS resolution for the hostname failed. Possible causes:\n'
+            '  · The Base URL is misspelled or has the wrong protocol prefix\n'
+            '  · Local DNS is misconfigured or the current network has no Internet access\n'
+            '  · The domain is blocked or hijacked by the ISP',
+      );
+      suggest = _text(
+        zh: '· 复核 Base URL\n· 在终端执行 `ping` / `nslookup` 验证\n· 切换网络或 VPN',
+        en:
+            '· Recheck the Base URL\n'
+            '· Verify resolution with `ping` or `nslookup` in a terminal\n'
+            '· Try another network or VPN',
+      );
     } else if (msg.contains('connection refused')) {
-      reason = 'TCP 连接被服务端主动拒绝。可能服务未启动 / 端口写错 / 防火墙拦截。';
-      suggest = '· 确认 Base URL 中端口与服务端实际端口一致\n· 暂停本机防火墙再试';
+      reason = _text(
+        zh: 'TCP 连接被服务端主动拒绝。可能是服务未启动、端口写错，或被防火墙拦截。',
+        en: 'The server actively refused the TCP connection. The service may be down, the port may be wrong, or a firewall may be blocking it.',
+      );
+      suggest = _text(
+        zh: '· 确认 Base URL 中端口与服务端实际端口一致\n· 暂停本机防火墙后再试',
+        en:
+            '· Confirm that the port in the Base URL matches the server\'s real listening port\n'
+            '· Temporarily disable the local firewall and try again',
+      );
     } else if (msg.contains('network is unreachable') ||
         msg.contains('no route to host')) {
-      reason = '本机当前无法到达目标网络 (network unreachable / no route to host)。';
-      suggest = '· 检查 Wi-Fi / 蜂窝 / 有线连接\n· 内网目标请确认 VPN 已连通';
+      reason = _text(
+        zh: '本机当前无法到达目标网络。',
+        en: 'The local machine cannot currently reach the target network.',
+      );
+      suggest = _text(
+        zh: '· 检查 Wi-Fi、蜂窝或有线连接\n· 若目标位于内网，请确认 VPN 已连通',
+        en:
+            '· Check the Wi-Fi, cellular, or wired connection\n'
+            '· If the target is on an internal network, confirm that the VPN is connected',
+      );
     } else if (msg.contains('timed out') || msg.contains('timeout')) {
-      reason =
-          'TCP 连接超时。常见诱因：\n'
-          '  · 跨境弱网 / 中间链路丢包\n'
-          '  · 服务端被防火墙静默丢包\n'
-          '  · 端口被运营商屏蔽';
-      suggest = '· 切换网络后重试\n· traceroute / mtr 定位卡点';
+      reason = _text(
+        zh:
+            'TCP 连接超时。常见诱因：\n'
+            '  · 跨境弱网或中间链路丢包\n'
+            '  · 服务端被防火墙静默丢包\n'
+            '  · 端口被运营商屏蔽',
+        en:
+            'The TCP connection timed out. Common causes:\n'
+            '  · High latency or packet loss on the route\n'
+            '  · A firewall is silently dropping packets on the server side\n'
+            '  · The ISP is blocking the port',
+      );
+      suggest = _text(
+        zh: '· 切换网络后重试\n· 用 traceroute / mtr 定位卡点',
+        en:
+            '· Retry from another network\n'
+            '· Use traceroute or mtr to identify where the route is stalling',
+      );
     } else {
-      reason = '底层 socket 抛出错误：${e.message}';
-      suggest = '· 重试或更换网络环境';
+      reason = _text(
+        zh: '底层 socket 抛出错误：${e.message}',
+        en: 'The underlying socket layer returned an error: ${e.message}',
+      );
+      suggest = _text(
+        zh: '· 重试或更换网络环境',
+        en: '· Retry or switch to another network environment',
+      );
     }
     return _format(
-      title: 'Network error · 网络层错误${_suffix(contextLabel)}',
+      title:
+          '${_text(zh: '网络层错误', en: 'Network error')}${_suffix(contextLabel)}',
       reason: reason,
       try_: suggest,
       raw: e.osError == null ? e.message : '${e.message} (${e.osError})',
@@ -102,9 +186,21 @@ class AiTransportDiagnosticMessages {
 
   static String httpClient(http.ClientException e, {String contextLabel = ''}) {
     return _format(
-      title: 'HTTP client error · HTTP 客户端错误${_suffix(contextLabel)}',
-      reason: 'HTTP 客户端在处理请求 / 响应阶段失败：${e.message}\n通常意味着连接中断、响应被截断、或服务端关闭连接。',
-      try_: '· 稍后重试\n· 检查网络稳定性\n· 联系中转方确认服务状态',
+      title:
+          '${_text(zh: 'HTTP 客户端错误', en: 'HTTP client error')}${_suffix(contextLabel)}',
+      reason: _text(
+        zh: 'HTTP 客户端在处理请求或响应阶段失败：${e.message}\n通常意味着连接中断、响应被截断，或服务端关闭了连接。',
+        en:
+            'The HTTP client failed while handling the request or response: ${e.message}\n'
+            'This usually means the connection was interrupted, the response was truncated, or the server closed the connection.',
+      ),
+      try_: _text(
+        zh: '· 稍后重试\n· 检查网络稳定性\n· 联系中转方确认服务状态',
+        en:
+            '· Retry later\n'
+            '· Check network stability\n'
+            '· Ask the relay provider to confirm service status',
+      ),
     );
   }
 
@@ -114,15 +210,31 @@ class AiTransportDiagnosticMessages {
     String? customReasonExtras,
   }) {
     final extras = (customReasonExtras ?? '').trim();
+    final extraLine = extras.isEmpty ? '' : '\n  · $extras';
     return _format(
-      title: 'Request timed out · 请求超时${_suffix(contextLabel)}',
-      reason:
-          '本次调用在 ${limit.inSeconds} 秒内未能完成。常见诱因：\n'
-          '  · 跨境网络延迟过高\n'
-          '  · 服务端处理慢 / 队列拥塞\n'
-          '  · 中间代理在传输中卡死'
-          '${extras.isEmpty ? '' : '\n  · $extras'}',
-      try_: '· 稍后重试\n· 切换网络或中转\n· 缩短上下文长度后再发送',
+      title:
+          '${_text(zh: '请求超时', en: 'Request timed out')}${_suffix(contextLabel)}',
+      reason: _text(
+        zh:
+            '本次调用在 ${limit.inSeconds} 秒内未能完成。常见诱因：\n'
+            '  · 跨境网络延迟过高\n'
+            '  · 服务端处理较慢或队列拥塞\n'
+            '  · 中间代理在传输中卡住'
+            '$extraLine',
+        en:
+            'This request did not complete within ${limit.inSeconds} seconds. Common causes:\n'
+            '  · Cross-region network latency is too high\n'
+            '  · The server is slow or the queue is congested\n'
+            '  · An intermediate proxy stalled during transfer'
+            '$extraLine',
+      ),
+      try_: _text(
+        zh: '· 稍后重试\n· 切换网络或中转\n· 缩短上下文后再发送',
+        en:
+            '· Retry later\n'
+            '· Switch to another network or relay\n'
+            '· Shorten the context before sending again',
+      ),
     );
   }
 
@@ -142,84 +254,209 @@ class AiTransportDiagnosticMessages {
     final relayAvailabilityReason = relayModelAvailabilityReason(trimmedServer);
     if (relayAvailabilityReason != null) {
       return _format(
-        title: 'Model unavailable in relay ($code) · 模型在当前中转不可用$hintSuffix$labelSuffix',
+        title:
+            '${_text(zh: '模型在当前中转不可用 ($code)', en: 'Model unavailable in relay ($code)')}$hintSuffix$labelSuffix',
         reason: relayAvailabilityReason,
-        try_:
-            '· 改用该中转已上架的模型 ID\n'
-            '· 在中转方控制台确认当前分组 / 渠道是否开通该模型\n'
-            '· 若你预期可用，联系中转方检查 distributor / channel 配置',
+        try_: _text(
+          zh:
+              '· 改用该中转已上架的模型 ID\n'
+              '· 在中转方控制台确认当前分组或渠道是否开通该模型\n'
+              '· 若你预期可用，请联系中转方检查 distributor / channel 配置',
+          en:
+              '· Switch to a model ID that is already enabled on this relay\n'
+              '· Check in the relay console whether the current group or channel can access this model\n'
+              '· If you expect it to be available, ask the relay provider to inspect the distributor / channel configuration',
+        ),
         raw: trimmedServer.isEmpty ? null : trimmedServer,
       );
     }
     switch (code) {
       case 400:
-        title = 'Bad request (400) · 请求被拒$hintSuffix$labelSuffix';
-        reason = '服务端拒绝处理本次请求 (400)。请求体可能不符合该协议规范，或附件 / 参数超出允许范围。';
-        suggest = '· 复核 Base URL 与协议是否匹配\n· 缩减消息长度 / 附件数量后重试';
+        title =
+            '${_text(zh: '请求被拒 (400)', en: 'Bad request (400)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端拒绝处理本次请求（400）。请求体可能不符合该协议规范，或附件、参数超出允许范围。',
+          en: 'The server refused to process the request (400). The payload may not match the expected protocol, or the attachments / parameters may be out of range.',
+        );
+        suggest = _text(
+          zh: '· 复核 Base URL 与协议是否匹配\n· 缩减消息长度或附件数量后重试',
+          en:
+              '· Check that the Base URL matches the protocol\n'
+              '· Reduce message length or attachment count and try again',
+        );
         break;
       case 401:
-        title = 'Authentication failed (401) · 鉴权失败$hintSuffix$labelSuffix';
-        reason = '服务端返回 401 Unauthorized：身份令牌缺失或已失效。';
-        suggest = '· 确认 API Key / Token 已正确粘贴，无前后空格\n· 在中转方控制台重新生成令牌';
+        title =
+            '${_text(zh: '鉴权失败 (401)', en: 'Authentication failed (401)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 401 Unauthorized：身份令牌缺失或已失效。',
+          en: 'The server returned 401 Unauthorized: the credential is missing or has expired.',
+        );
+        suggest = _text(
+          zh: '· 确认 API Key / Token 已正确粘贴且无前后空格\n· 在中转方控制台重新生成令牌',
+          en:
+              '· Make sure the API key or token was pasted correctly with no surrounding spaces\n'
+              '· Regenerate the credential in the relay console',
+        );
         break;
       case 403:
-        title = 'Forbidden (403) · 访问被拒$hintSuffix$labelSuffix';
-        reason = '服务端返回 403 Forbidden：当前令牌无权访问该模型，或 IP 不在允许地区，或触发了 WAF / 风控。';
-        suggest = '· 在中转方控制台确认账号余额与权限\n· 切换网络 / VPN 后重试';
+        title =
+            '${_text(zh: '访问被拒 (403)', en: 'Forbidden (403)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 403 Forbidden：当前令牌无权访问该模型，或 IP 不在允许地区，或触发了 WAF / 风控。',
+          en: 'The server returned 403 Forbidden: the current credential cannot access this model, the IP is outside the allowed region, or a WAF / risk-control rule was triggered.',
+        );
+        suggest = _text(
+          zh: '· 在中转方控制台确认账号余额与权限\n· 切换网络或 VPN 后重试',
+          en:
+              '· Check account balance and permissions in the relay console\n'
+              '· Retry from another network or through a VPN',
+        );
         break;
       case 404:
-        title = 'Endpoint not found (404) · 端点不存在$hintSuffix$labelSuffix';
-        reason = '服务端返回 404 Not Found：Base URL 路径错误，或所选模型在该中转尚未上架。';
-        suggest = '· 复核 Base URL 与模型 ID\n· 在中转方控制台查看可用模型列表';
+        title =
+            '${_text(zh: '端点不存在 (404)', en: 'Endpoint not found (404)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 404 Not Found：Base URL 路径错误，或所选模型在该中转尚未上架。',
+          en: 'The server returned 404 Not Found. The Base URL path may be wrong, or the selected model may not be available on this relay.',
+        );
+        suggest = _text(
+          zh: '· 复核 Base URL 与模型 ID\n· 在中转方控制台查看可用模型列表',
+          en:
+              '· Recheck the Base URL and model ID\n'
+              '· Open the relay console and inspect the list of available models',
+        );
         break;
       case 408:
-        title = 'Server timeout (408) · 服务端超时$hintSuffix$labelSuffix';
-        reason = '服务端在收到请求头后超时关闭连接 (408)。';
-        suggest = '· 稍后重试\n· 切换网络后再试';
+        title =
+            '${_text(zh: '服务端超时 (408)', en: 'Server timeout (408)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端在收到请求头后超时关闭了连接。',
+          en: 'The server closed the connection after timing out while handling the request headers.',
+        );
+        suggest = _text(
+          zh: '· 稍后重试\n· 切换网络后再试',
+          en: '· Retry later\n· Try again from another network',
+        );
         break;
       case 413:
-        title = 'Payload too large (413) · 请求体过大$hintSuffix$labelSuffix';
-        reason = '请求体超过中转 / 上游允许的最大尺寸 (413)。多发生于附件较多或上下文过长的场景。';
-        suggest = '· 删减附件数量 / 大小\n· 缩短上下文 / 摘要旧消息后再发送';
+        title =
+            '${_text(zh: '请求体过大 (413)', en: 'Payload too large (413)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '请求体超过了中转或上游允许的最大尺寸。常见于附件较多或上下文过长的场景。',
+          en: 'The request body exceeded the maximum size allowed by the relay or upstream service. This is common when too many attachments are included or the context is too long.',
+        );
+        suggest = _text(
+          zh: '· 删减附件数量或大小\n· 缩短上下文，必要时先摘要旧消息',
+          en:
+              '· Reduce attachment count or size\n'
+              '· Shorten the context and summarize older messages first if needed',
+        );
         break;
       case 429:
-        title = 'Rate limited (429) · 触发限流$hintSuffix$labelSuffix';
-        reason = '服务端返回 429 Too Many Requests：调用过于频繁或额度已用尽。';
-        suggest = '· 稍等几分钟后重试\n· 在中转方控制台确认配额 / 余额';
+        title =
+            '${_text(zh: '触发限流 (429)', en: 'Rate limited (429)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 429 Too Many Requests：调用过于频繁，或额度已用尽。',
+          en: 'The server returned 429 Too Many Requests: requests are too frequent, or the quota has been exhausted.',
+        );
+        suggest = _text(
+          zh: '· 稍等几分钟后重试\n· 在中转方控制台确认配额或余额',
+          en:
+              '· Wait a few minutes and try again\n'
+              '· Check quota or balance in the relay console',
+        );
         break;
       case 500:
-        title = 'Server error (500) · 服务端内部错误$hintSuffix$labelSuffix';
-        reason = '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。';
-        suggest = '· 稍后重试\n· 联系中转方查看服务状态';
+        title =
+            '${_text(zh: '服务端内部错误 (500)', en: 'Server error (500)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。',
+          en: 'The server returned 500 Internal Server Error: the upstream provider or relay itself encountered a failure.',
+        );
+        suggest = _text(
+          zh: '· 稍后重试\n· 联系中转方查看服务状态',
+          en:
+              '· Retry later\n'
+              '· Ask the relay provider to check service status',
+        );
         break;
       case 502:
-        title = 'Bad gateway (502) · 网关异常$hintSuffix$labelSuffix';
-        reason = '服务端返回 502 Bad Gateway：中转无法从上游 (Anthropic / OpenAI 等) 取得有效响应。';
-        suggest = '· 稍后重试\n· 联系中转方确认上游通路';
+        title =
+            '${_text(zh: '网关异常 (502)', en: 'Bad gateway (502)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 502 Bad Gateway：中转无法从上游（Anthropic / OpenAI 等）获得有效响应。',
+          en: 'The server returned 502 Bad Gateway: the relay could not obtain a valid response from the upstream provider (Anthropic / OpenAI, etc.).',
+        );
+        suggest = _text(
+          zh: '· 稍后重试\n· 联系中转方确认上游通路',
+          en:
+              '· Retry later\n'
+              '· Ask the relay provider to verify the upstream connection',
+        );
         break;
       case 503:
-        title = 'Service unavailable (503) · 服务不可用$hintSuffix$labelSuffix';
-        reason = '服务端返回 503 Service Unavailable：服务在维护或被熔断。';
-        suggest = '· 稍后重试\n· 关注中转方公告';
+        title =
+            '${_text(zh: '服务不可用 (503)', en: 'Service unavailable (503)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 503 Service Unavailable：服务正在维护，或已被熔断。',
+          en: 'The server returned 503 Service Unavailable: the service is under maintenance or has been circuit-broken.',
+        );
+        suggest = _text(
+          zh: '· 稍后重试\n· 关注中转方公告',
+          en:
+              '· Retry later\n'
+              '· Check announcements from the relay provider',
+        );
         break;
       case 504:
-        title = 'Gateway timeout (504) · 网关超时$hintSuffix$labelSuffix';
-        reason = '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超时。';
-        suggest = '· 稍后重试\n· 切换中转或缩短上下文后再试';
+        title =
+            '${_text(zh: '网关超时 (504)', en: 'Gateway timeout (504)')}$hintSuffix$labelSuffix';
+        reason = _text(
+          zh: '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超时。',
+          en: 'The server returned 504 Gateway Timeout: the relay timed out while talking to the upstream LLM.',
+        );
+        suggest = _text(
+          zh: '· 稍后重试\n· 切换中转或缩短上下文后再试',
+          en:
+              '· Retry later\n'
+              '· Switch to another relay or shorten the context before trying again',
+        );
         break;
       default:
         if (code >= 500) {
-          title = 'Server error ($code) · 服务端错误$hintSuffix$labelSuffix';
-          reason = '服务端返回 $code，多为中转 / 上游故障。';
-          suggest = '· 稍后重试\n· 联系中转方排查';
+          title =
+              '${_text(zh: '服务端错误 ($code)', en: 'Server error ($code)')}$hintSuffix$labelSuffix';
+          reason = _text(
+            zh: '服务端返回 $code，多半是中转或上游故障。',
+            en: 'The server returned $code, which usually indicates a relay or upstream failure.',
+          );
+          suggest = _text(
+            zh: '· 稍后重试\n· 联系中转方排查',
+            en: '· Retry later\n· Ask the relay provider to investigate',
+          );
         } else if (code >= 400) {
-          title = 'Client error ($code) · 客户端请求被拒$hintSuffix$labelSuffix';
-          reason = '服务端返回 $code，请求未通过协议或鉴权校验。';
-          suggest = '· 复核 Base URL / token / 自定义 header';
+          title =
+              '${_text(zh: '客户端请求被拒 ($code)', en: 'Client error ($code)')}$hintSuffix$labelSuffix';
+          reason = _text(
+            zh: '服务端返回 $code，请求未通过协议或鉴权校验。',
+            en: 'The server returned $code, and the request failed protocol or authentication validation.',
+          );
+          suggest = _text(
+            zh: '· 复核 Base URL、token 与自定义 header',
+            en: '· Recheck the Base URL, token, and custom headers',
+          );
         } else {
-          title = 'Unexpected status ($code) · 非预期响应$hintSuffix$labelSuffix';
-          reason = '服务端返回非 2xx 状态码 $code。';
-          suggest = '· 联系中转方排查';
+          title =
+              '${_text(zh: '非预期响应 ($code)', en: 'Unexpected status ($code)')}$hintSuffix$labelSuffix';
+          reason = _text(
+            zh: '服务端返回了非 2xx 状态码 $code。',
+            en: 'The server returned a non-2xx status code: $code.',
+          );
+          suggest = _text(
+            zh: '· 联系中转方排查',
+            en: '· Ask the relay provider to investigate',
+          );
         }
     }
     return _format(
@@ -256,17 +493,11 @@ class AiTransportDiagnosticMessages {
     required String try_,
     String? raw,
   }) {
-    final buf = StringBuffer()
-      ..writeln(title)
-      ..writeln('原因 / Why:')
-      ..writeln(reason)
-      ..writeln('建议 / Try:')
-      ..write(try_);
-    if (raw != null && raw.isNotEmpty) {
-      buf
-        ..writeln()
-        ..write('服务端原文 / Server says: $raw');
-    }
-    return buf.toString();
+    return StructuredErrorText.format(
+      title: title,
+      reason: reason,
+      try_: try_,
+      server: raw,
+    );
   }
 }
