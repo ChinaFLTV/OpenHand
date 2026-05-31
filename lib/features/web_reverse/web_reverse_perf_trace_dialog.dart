@@ -299,39 +299,33 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  if (_lastSaved.isNotEmpty)
-                    OpenHandDialogActionButton.secondary(
-                      label: loc?.webReversePerfCopyPath ?? 'Copy path',
-                      icon: Icons.copy_rounded,
-                      onPressed: _copyPath,
-                    ),
-                  if (_busy)
-                    OpenHandDialogActionButton.destructive(
-                      label: loc?.webReversePerfStop ?? 'Stop',
-                      icon: Icons.stop_circle_rounded,
-                      onPressed: _earlyStop == null ? null : _stop,
-                    )
-                  else
-                    OpenHandDialogActionButton.secondary(
-                      label: loc?.webReversePerfStart ?? 'Start',
-                      icon: Icons.fiber_manual_record_rounded,
-                      onPressed: _selected.isEmpty ? null : _start,
-                    ),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.webReversePerfClose ?? 'Close',
-                    onPressed: _busy
-                        ? null
-                        : () => Navigator.of(context).pop(),
+            buildOpenHandDialogActionsBar(
+              actions: [
+                if (_lastSaved.isNotEmpty)
+                  OpenHandDialogActionButton.secondary(
+                    label: loc?.webReversePerfCopyPath ?? 'Copy path',
+                    icon: Icons.copy_rounded,
+                    onPressed: _copyPath,
                   ),
-                ],
-              ),
+                if (_busy)
+                  OpenHandDialogActionButton.destructive(
+                    label: loc?.webReversePerfStop ?? 'Stop',
+                    icon: Icons.stop_circle_rounded,
+                    onPressed: _earlyStop == null ? null : _stop,
+                  )
+                else
+                  OpenHandDialogActionButton.secondary(
+                    label: loc?.webReversePerfStart ?? 'Start',
+                    icon: Icons.fiber_manual_record_rounded,
+                    onPressed: _selected.isEmpty ? null : _start,
+                  ),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReversePerfClose ?? 'Close',
+                  onPressed: _busy
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
           ],
         ),

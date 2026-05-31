@@ -487,23 +487,19 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
-            Padding(
+            buildOpenHandDialogActionsBar(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseCollectionExportClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.webReverseCollectionExportCopyAction ??
-                        'Copy collection',
-                    onPressed: entries.isEmpty ? null : _copy,
-                  ),
-                ],
-              ),
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseCollectionExportClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReverseCollectionExportCopyAction ??
+                      'Copy collection',
+                  onPressed: entries.isEmpty ? null : _copy,
+                ),
+              ],
             ),
           ],
         ),

@@ -375,6 +375,33 @@ Widget buildOpenHandDialogFooter({
   );
 }
 
+Widget buildOpenHandDialogActionsBar({
+  required List<Widget> actions,
+  Widget? leading,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
+  double spacing = 8,
+  MainAxisAlignment alignment = MainAxisAlignment.center,
+}) {
+  final actionsRow = Wrap(
+    alignment: WrapAlignment.center,
+    spacing: spacing,
+    runSpacing: spacing,
+    children: actions,
+  );
+  if (leading == null) {
+    return Padding(
+      padding: padding,
+      child: actionsRow,
+    );
+  }
+  return Padding(
+    padding: padding,
+    child: Row(
+      children: [Expanded(child: leading), const SizedBox(width: 8), actionsRow],
+    ),
+  );
+}
+
 Widget buildOpenHandDialogFormShell({
   required BuildContext context,
   required String title,

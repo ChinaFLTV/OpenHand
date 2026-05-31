@@ -402,35 +402,29 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                       },
                     ),
             ),
-            Padding(
+            buildOpenHandDialogActionsBar(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _busy
-                          ? (loc?.webReverseReplayProgress(_progress, _total) ??
-                              'Replaying $_progress / $_total')
-                          : (loc?.webReverseReplaySelected(
-                                  _selected.length, entries.length) ??
-                              'Selected ${_selected.length} / ${entries.length}'),
-                      style: theme.textTheme.labelMedium,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseReplayRunBatch ?? 'Run Batch',
-                    icon: Icons.send_rounded,
-                    busy: _busy,
-                    onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.webReverseReplayClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              leading: Text(
+                _busy
+                    ? (loc?.webReverseReplayProgress(_progress, _total) ??
+                        'Replaying $_progress / $_total')
+                    : (loc?.webReverseReplaySelected(
+                            _selected.length, entries.length) ??
+                        'Selected ${_selected.length} / ${entries.length}'),
+                style: theme.textTheme.labelMedium,
               ),
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseReplayRunBatch ?? 'Run Batch',
+                  icon: Icons.send_rounded,
+                  busy: _busy,
+                  onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
+                ),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReverseReplayClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
           ],
         ),

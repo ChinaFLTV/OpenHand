@@ -175,33 +175,29 @@ class _HeapDialogState extends State<_HeapDialog> {
                 ],
               ),
             ),
-            Padding(
+            buildOpenHandDialogActionsBar(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  if (_lastSaved.isNotEmpty)
-                    OpenHandDialogActionButton.secondary(
-                      label: loc?.webReverseHeapCopyPath ?? 'Copy path',
-                      icon: Icons.copy_rounded,
-                      onPressed: _copyPath,
-                    ),
+              spacing: 10,
+              actions: [
+                if (_lastSaved.isNotEmpty)
                   OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseHeapTake ?? 'Take Snapshot',
-                    icon: Icons.camera_alt_rounded,
-                    busy: _busy,
-                    onPressed: _busy ? null : _take,
+                    label: loc?.webReverseHeapCopyPath ?? 'Copy path',
+                    icon: Icons.copy_rounded,
+                    onPressed: _copyPath,
                   ),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.commonClose ?? 'Close',
-                    onPressed: _busy
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseHeapTake ?? 'Take Snapshot',
+                  icon: Icons.camera_alt_rounded,
+                  busy: _busy,
+                  onPressed: _busy ? null : _take,
+                ),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.commonClose ?? 'Close',
+                  onPressed: _busy
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
           ],
         ),

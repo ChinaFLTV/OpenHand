@@ -229,25 +229,21 @@ class _ReplDialogState extends State<_ReplDialog> {
                     'eg: document.title or await fetch("/api").then(r=>r.json())',
               ),
             ),
-            Padding(
+            buildOpenHandDialogActionsBar(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseReplRun ?? 'Run',
-                    icon: Icons.play_arrow_rounded,
-                    busy: _busy,
-                    onPressed: _busy ? null : _run,
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.commonClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+              spacing: 10,
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseReplRun ?? 'Run',
+                  icon: Icons.play_arrow_rounded,
+                  busy: _busy,
+                  onPressed: _busy ? null : _run,
+                ),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.commonClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
           ],
         ),
