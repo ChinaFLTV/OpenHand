@@ -26,6 +26,8 @@ import 'animated_dialog.dart';
 /// transitions in [buildAnimationStyleTransition] use only
 /// [FadeTransition] / [SlideTransition] / [Opacity] / [Transform]
 /// composed at paint-time.
+enum AnimatedAppearancePhase { enter, exit }
+
 class AnimatedAppearance extends StatefulWidget {
   const AnimatedAppearance({
     super.key,
@@ -140,6 +142,65 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
 /// builder receives a `requestRemove` callback to wire to the chip's
 /// X button — calling it triggers the exit animation, then
 /// `onRemove` once the animation completes.
+class AnimatedListAppearance extends StatelessWidget {
+  const AnimatedListAppearance({
+    super.key,
+    required this.animation,
+    required this.settings,
+    required this.phase,
+    required this.child,
+    this.collapseSize = true,
+    this.collapseAxis = Axis.vertical,
+    this.collapseAxisAlignment = -1.0,
+  });
+
+  final Animation<double> animation;
+  final DialogAnimationSettings settings;
+  final AnimatedAppearancePhase phase;
+  final Widget child;
+  final bool collapseSize;
+  final Axis collapseAxis;
+  final double collapseAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final effectiveSettings = disableAnimations
+        ? const DialogAnimationSettings(
+            entranceStyle: DialogAnimationStyle.none,
+            exitStyle: DialogAnimationStyle.none,
+            durationMs: 0,
+          )
+        : settings;
+    final style = switch (phase) {
+      AnimatedAppearancePhase.enter => effectiveSettings.entranceStyle,
+      AnimatedAppearancePhase.exit => effectiveSettings.exitStyle,
+    };
+    final transitionSettings = effectiveSettings.copyWith(
+      entranceStyle: style,
+      exitStyle: style,
+    );
+    Widget content = buildAnimationStyleTransition(
+      animation: animation,
+      settings: transitionSettings,
+      child: child,
+    );
+    if (collapseSize) {
+      content = SizeTransition(
+        sizeFactor: CurvedAnimation(
+          parent: animation,
+          curve: transitionSettings.curve.curve,
+          reverseCurve: transitionSettings.curve.reverseCurve,
+        ),
+        axis: collapseAxis,
+        axisAlignment: collapseAxisAlignment,
+        child: content,
+      );
+    }
+    return content;
+  }
+}
+
 class AnimatedRemovableChip extends StatefulWidget {
   const AnimatedRemovableChip({
     super.key,

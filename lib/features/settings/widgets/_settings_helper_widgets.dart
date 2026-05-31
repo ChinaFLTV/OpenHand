@@ -820,11 +820,13 @@ class _AiProviderOverflowChip extends StatelessWidget {
 
 class _AiModelTile extends StatefulWidget {
   const _AiModelTile({
+    super.key,
     required this.model,
     required this.isSelected,
     required this.isTesting,
     required this.isFirst,
     required this.isLast,
+    required this.actionsEnabled,
     required this.onSelect,
     required this.onTest,
     required this.onEdit,
@@ -839,6 +841,7 @@ class _AiModelTile extends StatefulWidget {
   final bool isTesting;
   final bool isFirst;
   final bool isLast;
+  final bool actionsEnabled;
   final VoidCallback onSelect;
   final VoidCallback onTest;
   final VoidCallback onEdit;
@@ -986,7 +989,9 @@ class _AiModelTileState extends State<_AiModelTile> {
                       children: [
                         if (canExpandModels)
                           IconButton(
-                            onPressed: _toggleModelChipsExpanded,
+                            onPressed: widget.actionsEnabled
+                                ? _toggleModelChipsExpanded
+                                : null,
                             tooltip: _modelChipsExpanded
                                 ? _localizedText(
                                     context,
@@ -1021,27 +1026,33 @@ class _AiModelTileState extends State<_AiModelTile> {
                             ),
                           ),
                         IconButton(
-                          onPressed: widget.isFirst ? null : widget.onMoveUp,
+                          onPressed: widget.actionsEnabled && !widget.isFirst
+                              ? widget.onMoveUp
+                              : null,
                           tooltip: l10n.aiModelMoveUp,
                           icon: const Icon(Icons.arrow_upward_rounded),
                         ),
                         IconButton(
-                          onPressed: widget.isLast ? null : widget.onMoveDown,
+                          onPressed: widget.actionsEnabled && !widget.isLast
+                              ? widget.onMoveDown
+                              : null,
                           tooltip: l10n.aiModelMoveDown,
                           icon: const Icon(Icons.arrow_downward_rounded),
                         ),
                         IconButton(
-                          onPressed: widget.onEdit,
+                          onPressed: widget.actionsEnabled ? widget.onEdit : null,
                           tooltip: l10n.commonEdit,
                           icon: const Icon(Icons.edit_outlined),
                         ),
                         IconButton(
-                          onPressed: widget.onDelete,
+                          onPressed: widget.actionsEnabled ? widget.onDelete : null,
                           tooltip: l10n.commonDelete,
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                         IconButton(
-                          onPressed: widget.isTesting ? null : widget.onTest,
+                          onPressed: widget.actionsEnabled && !widget.isTesting
+                              ? widget.onTest
+                              : null,
                           tooltip: widget.isTesting
                               ? l10n.aiModelTesting
                               : l10n.aiModelTest,

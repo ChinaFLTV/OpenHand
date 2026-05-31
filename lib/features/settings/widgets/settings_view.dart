@@ -32,6 +32,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/fps/openhand_fps_monitor.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
@@ -77,6 +78,13 @@ part '_settings_active_tool_calls.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
+
+const DialogAnimationSettings _kNoListItemAnimationSettings =
+    DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.none,
+      exitStyle: DialogAnimationStyle.none,
+      durationMs: 0,
+    );
 
 String _formatCacheMegabytesInput(int bytes) {
   if (bytes <= 0) return '0';
@@ -274,6 +282,10 @@ class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _mcpAutoProbeConcurrencyController;
   late final FocusNode _mcpAutoProbeConcurrencyFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
+  GlobalKey<AnimatedListState> _aiModelListKey =
+      GlobalKey<AnimatedListState>();
+  final Set<String> _mutatingAiModelIds = <String>{};
+  final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
 
   @override
   void initState() {
@@ -331,6 +343,210 @@ class _SettingsViewState extends State<SettingsView> {
     _mcpLazyLoadingThresholdFocusNode = FocusNode();
     _mcpAutoProbeConcurrencyController = TextEditingController();
     _mcpAutoProbeConcurrencyFocusNode = FocusNode();
+  }
+
+  void _syncAnimatedAiModels(List<AiModelConfig> aiModels) {
+    if (_mutatingAiModelIds.isNotEmpty) {
+      final ids = aiModels.map((model) => model.id).toSet();
+      _testingAiModelIds.removeWhere((id) => !ids.contains(id));
+      return;
+    }
+    final sameLength = _animatedAiModels.length == aiModels.length;
+    final sameOrder =
+        sameLength &&
+        _animatedAiModels.asMap().entries.every(
+          (entry) => entry.value.id == aiModels[entry.key].id,
+        );
+    if (sameOrder) {
+      _animatedAiModels
+        ..clear()
+        ..addAll(aiModels);
+      final ids = aiModels.map((model) => model.id).toSet();
+      _testingAiModelIds.removeWhere((id) => !ids.contains(id));
+      return;
+    }
+    _animatedAiModels
+      ..clear()
+      ..addAll(aiModels);
+    _testingAiModelIds.removeWhere(
+      (id) => !_animatedAiModels.any((model) => model.id == id),
+    );
+    _aiModelListKey = GlobalKey<AnimatedListState>();
+  }
+
+  int _indexOfAnimatedAiModel(String id) {
+    return _animatedAiModels.indexWhere((model) => model.id == id);
+  }
+
+  void _removeAnimatedAiModelAt(
+    int index, {
+    required DialogAnimationSettings settings,
+  }) {
+    final removedModel = _animatedAiModels.removeAt(index);
+    final listState = _aiModelListKey.currentState;
+    if (listState == null) {
+      return;
+    }
+    listState.removeItem(
+      index,
+      (context, animation) => _buildAnimatedAiModelRow(
+        context,
+        removedModel,
+        animation,
+        settings: settings,
+        phase: AnimatedAppearancePhase.exit,
+      ),
+      duration: settings.duration,
+    );
+  }
+
+  void _insertAnimatedAiModelAt(
+    int index,
+    AiModelConfig model, {
+    required DialogAnimationSettings settings,
+  }) {
+    _animatedAiModels.insert(index, model);
+    final listState = _aiModelListKey.currentState;
+    if (listState == null) {
+      return;
+    }
+    listState.insertItem(index, duration: settings.duration);
+  }
+
+  Widget _buildAnimatedAiModelRow(
+    BuildContext context,
+    AiModelConfig model,
+    Animation<double> animation, {
+    required DialogAnimationSettings settings,
+    required AnimatedAppearancePhase phase,
+  }) {
+    final settingsController = context.read<SettingsController>();
+    final index = _indexOfAnimatedAiModel(model.id);
+    final isPresent = index != -1;
+    final isMutating = _mutatingAiModelIds.contains(model.id);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: AnimatedListAppearance(
+        animation: animation,
+        settings: settings,
+        phase: phase,
+        child: _AiModelTile(
+          key: ValueKey<String>(
+            'ai-model-${model.id}-${phase == AnimatedAppearancePhase.exit ? 'exit' : 'live'}',
+          ),
+          model: model,
+          isSelected: settingsController.selectedAiModelId == model.id,
+          isTesting: _testingAiModelIds.contains(model.id),
+          isFirst: !isPresent || index == 0,
+          isLast: !isPresent || index == _animatedAiModels.length - 1,
+          actionsEnabled: isPresent && !isMutating,
+          onSelect: isPresent
+              ? () => settingsController.updateSelectedAiModel(model.id)
+              : () {},
+          onTest: isPresent ? () => _testAiModel(model) : () {},
+          onEdit: isPresent
+              ? () => _showAiModelDialog(context, initialModel: model)
+              : () {},
+          onMoveUp: isPresent ? () => _moveAiModel(model.id, -1) : () {},
+          onMoveDown: isPresent ? () => _moveAiModel(model.id, 1) : () {},
+          onDelete: isPresent ? () => _confirmDeleteAiModel(context, model) : () {},
+          onActiveModelChanged: isPresent
+              ? (modelId) => settingsController.updateProviderActiveModel(
+                  model.id,
+                  modelId,
+                  alsoSelectProvider: false,
+                )
+              : (_) {},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteAiModelWithAnimation(AiModelConfig model) async {
+    final settingsController = context.read<SettingsController>();
+    final l10n = AppLocalizations.of(context)!;
+    final settings = MediaQuery.disableAnimationsOf(context)
+        ? _kNoListItemAnimationSettings
+        : settingsController.listItemAnimationSettings;
+    final index = _indexOfAnimatedAiModel(model.id);
+    if (index == -1) {
+      final deleted = await settingsController.deleteAiModel(model.id);
+      if (!mounted) return;
+      if (!deleted) {
+        _showPersistenceFailureSnackBar(context);
+        return;
+      }
+      _showSnackBar(
+        context,
+        l10n.aiModelDeleteSuccess,
+        kind: OpenHandSnackKind.success,
+      );
+      return;
+    }
+    setState(() {
+      _mutatingAiModelIds.add(model.id);
+      _removeAnimatedAiModelAt(index, settings: settings);
+    });
+    final deleted = await settingsController.deleteAiModel(model.id);
+    if (!mounted) return;
+    if (!deleted) {
+      setState(() {
+        _insertAnimatedAiModelAt(index, model, settings: settings);
+        _mutatingAiModelIds.remove(model.id);
+      });
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    setState(() {
+      _mutatingAiModelIds.remove(model.id);
+      _testingAiModelIds.remove(model.id);
+    });
+    _showSnackBar(
+      context,
+      l10n.aiModelDeleteSuccess,
+      kind: OpenHandSnackKind.success,
+    );
+  }
+
+  Future<void> _moveAiModel(String id, int direction) async {
+    if (_mutatingAiModelIds.isNotEmpty) {
+      return;
+    }
+    final fromIndex = _indexOfAnimatedAiModel(id);
+    final toIndex = fromIndex + direction;
+    if (fromIndex < 0 ||
+        toIndex < 0 ||
+        toIndex >= _animatedAiModels.length ||
+        fromIndex == toIndex) {
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final settings = MediaQuery.disableAnimationsOf(context)
+        ? _kNoListItemAnimationSettings
+        : settingsController.listItemAnimationSettings;
+    final model = _animatedAiModels[fromIndex];
+    setState(() {
+      _mutatingAiModelIds.add(id);
+      _removeAnimatedAiModelAt(fromIndex, settings: settings);
+      _insertAnimatedAiModelAt(toIndex, model, settings: settings);
+    });
+    final moved = await settingsController.moveAiModel(fromIndex, toIndex);
+    if (!mounted) return;
+    if (!moved) {
+      final rollbackIndex = _indexOfAnimatedAiModel(id);
+      setState(() {
+        if (rollbackIndex != -1) {
+          _removeAnimatedAiModelAt(rollbackIndex, settings: settings);
+          _insertAnimatedAiModelAt(fromIndex, model, settings: settings);
+        }
+        _mutatingAiModelIds.remove(id);
+      });
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    setState(() {
+      _mutatingAiModelIds.remove(id);
+    });
   }
 
   @override
@@ -942,6 +1158,7 @@ class _SettingsViewState extends State<SettingsView> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     final aiModels = settingsController.aiModels;
+    _syncAnimatedAiModels(aiModels);
     final allowCommandRules = settingsController.aiAllowCommandRules;
     final denyCommandRules = settingsController.aiDenyCommandRules;
     final compressionControl = Column(
@@ -2113,68 +2330,65 @@ class _SettingsViewState extends State<SettingsView> {
                 label: Text(l10n.aiModelAdd),
               ),
               const SizedBox(height: 16),
-              if (aiModels.isEmpty)
-                _SettingsStateBox(
-                  icon: Icons.hub_outlined,
-                  title: l10n.aiModelsEmptyTitle,
-                  body: l10n.aiModelsEmptyBody,
-                )
-              else
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 520),
-                  // Use ListView.builder so that off-screen provider tiles
-                  // (each tile renders a title row, icon button cluster and
-                  // a Wrap of up to 20 model chips) are not built eagerly.
-                  // With up to 20 providers, the previous Column-in-
-                  // SingleChildScrollView built every tile on every rebuild
-                  // of the settings page, which dominated Build time when
-                  // opening the Settings section.
-                  child: ListView.separated(
-                    primary: false,
-                    cacheExtent: 240,
-                    itemCount: aiModels.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      return AppearOnce(
-                        key: ValueKey<String>('ai-model-${aiModels[index].id}'),
-                        child: _AiModelTile(
-                          model: aiModels[index],
-                          isSelected:
-                              settingsController.selectedAiModelId ==
-                              aiModels[index].id,
-                          isTesting: _testingAiModelIds.contains(
-                            aiModels[index].id,
-                          ),
-                          isFirst: index == 0,
-                          isLast: index == aiModels.length - 1,
-                          onSelect: () => settingsController
-                              .updateSelectedAiModel(aiModels[index].id),
-                          onTest: () => _testAiModel(aiModels[index]),
-                          onEdit: () => _showAiModelDialog(
-                            context,
-                            initialModel: aiModels[index],
-                          ),
-                          onMoveUp: () =>
-                              settingsController.moveAiModel(index, index - 1),
-                          onMoveDown: () =>
-                              settingsController.moveAiModel(index, index + 1),
-                          onDelete: () =>
-                              _confirmDeleteAiModel(context, aiModels[index]),
-                          onActiveModelChanged: (modelId) =>
-                              settingsController.updateProviderActiveModel(
-                                aiModels[index].id,
-                                modelId,
-                                // 2026-05-19 — 设置页里点"模型胶囊"只切换
-                                // 该 provider 的默认活跃模型，不把该 provider
-                                // 顺手升为活跃 provider。
-                                alsoSelectProvider: false,
-                              ),
+              AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 260),
+                reverseDuration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.98, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutBack,
+                          reverseCurve: Curves.easeInCubic,
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+                      alignment: Alignment.topCenter,
+                      child: child,
+                    ),
+                  );
+                },
+                child: _animatedAiModels.isEmpty
+                    ? KeyedSubtree(
+                        key: const ValueKey<String>('aiModelsEmpty'),
+                        child: _SettingsStateBox(
+                          icon: Icons.hub_outlined,
+                          title: l10n.aiModelsEmptyTitle,
+                          body: l10n.aiModelsEmptyBody,
+                        ),
+                      )
+                    : ConstrainedBox(
+                        key: const ValueKey<String>('aiModelsList'),
+                        constraints: const BoxConstraints(maxHeight: 520),
+                        child: AnimatedList(
+                          key: _aiModelListKey,
+                          primary: false,
+                          initialItemCount: _animatedAiModels.length,
+                          itemBuilder: (context, index, animation) {
+                            final model = _animatedAiModels[index];
+                            final settings = MediaQuery.disableAnimationsOf(
+                                  context,
+                                )
+                                ? _kNoListItemAnimationSettings
+                                : settingsController.listItemAnimationSettings;
+                            return _buildAnimatedAiModelRow(
+                              context,
+                              model,
+                              animation,
+                              settings: settings,
+                              phase: AnimatedAppearancePhase.enter,
+                            );
+                          },
+                        ),
+                      ),
+              ),
             ],
           ),
         ),
@@ -5310,21 +5524,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (!confirmed || !context.mounted) {
       return;
     }
-    final deleted = await context.read<SettingsController>().deleteAiModel(
-      model.id,
-    );
-    if (!context.mounted) {
-      return;
-    }
-    if (!deleted) {
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _showSnackBar(
-      context,
-      l10n.aiModelDeleteSuccess,
-      kind: OpenHandSnackKind.success,
-    );
+    await _deleteAiModelWithAnimation(model);
   }
 
   void _showPersistenceFailureSnackBar(BuildContext context) {
