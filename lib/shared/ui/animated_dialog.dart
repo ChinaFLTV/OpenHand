@@ -315,6 +315,42 @@ Future<void> showOpenHandInfoDialog({
   );
 }
 
+Future<void> showOpenHandLoadingDialog({
+  required BuildContext context,
+  String? message,
+  Widget? content,
+  bool barrierDismissible = false,
+  bool dismissOnEscape = false,
+}) {
+  final body =
+      content ??
+      SizedBox(
+        height: 56,
+        child: Center(
+          child: message == null
+              ? const CircularProgressIndicator()
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                    const SizedBox(width: 16),
+                    Flexible(child: Text(message)),
+                  ],
+                ),
+        ),
+      );
+  return showAnimatedDialog<void>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    builder: (_) => AlertDialog(content: body),
+  );
+}
+
 Future<T?> showAnimatedModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,

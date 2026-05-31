@@ -5706,28 +5706,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {
-    // 显示 pending 弹窗
-    showAnimatedDialog<void>(
+    showOpenHandLoadingDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              _localizedText(
-                dialogContext,
-                zh: '正在生成摘要标题…',
-                en: 'Generating title…',
-              ),
-            ),
-          ],
-        ),
+      message: _localizedText(
+        context,
+        zh: '正在生成摘要标题…',
+        en: 'Generating title…',
       ),
     );
     try {

@@ -704,16 +704,7 @@ class _NetworkRow extends StatelessWidget {
           builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
         );
     if (overrides == null || !context.mounted) return;
-    showAnimatedDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: SizedBox(
-          height: 56,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ),
-    );
+    showOpenHandLoadingDialog(context: context);
     final r = await controller.replayRequest(
       entry,
       overrideUrl: overrides.url,
@@ -751,16 +742,7 @@ class _NetworkRow extends StatelessWidget {
   Future<void> _replayAndShow(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     // 显示一个"重放中"占位 dialog，结束后用结果替换。
-    showAnimatedDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: SizedBox(
-          height: 56,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ),
-    );
+    showOpenHandLoadingDialog(context: context);
     final r = await controller.replayRequest(entry);
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
