@@ -4795,7 +4795,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get cacheBarSectionToolsLabel => '[2] Outils';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] État';
+  String get cacheBarSectionStateLabel => '[3s/3d] État';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] Mémoire';
@@ -4810,7 +4810,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get cacheBarSectionHistoryLabel => 'Historique';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] Récent';
+  String get cacheBarSectionLatestLabel => 'Queue / récent';
 
   @override
   String get cacheBarSectionSysSummary =>

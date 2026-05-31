@@ -1,11 +1,10 @@
 // 2026-05-05 — 缓存断点位置控件（结构条 + 可拖拽插桩）。
-// 顶部展示一条对照实际 prompt 结构的彩色分段条（[0] 系统指令 / [1] 开发者指令 /
-// [2] 工具目录 / [4] 用户记忆 / [4.5] 用户指令 / [5] 会话摘要 / 历史 /
-// [3] 会话状态 / [6] 最新消息），鼠标悬停显示该段简要概述与缓存稳定性提示；
-// 上方铺有 N-1 个静态插桩（用户可拖动），尾部固定一个动态插桩（跟随
-// 缓存更新间隔）。拖拽实时更新本地草稿，松手时提交持久化。
-//
-// 提取为独立公共 widget 以便 widget 测试覆盖。
+// 顶部展示一条对照当前 prompt 实际结构的彩色分段条：稳定前缀
+// （[0]/[1]/[2]/[4]/[4.5]/[5]/history）后接易变尾部
+// （[3s]/[3d]/[5.5]/reminders/latest-turn payload 的合并示意）。
+// 鼠标悬停显示该段概述与缓存稳定性提示；上方铺有 N-1 个静态插桩
+// （用户可拖动），尾部固定一个动态插桩（跟随缓存更新间隔）。
+// 拖拽实时更新本地草稿，松手时提交持久化。
 
 import 'package:flutter/material.dart';
 
@@ -75,15 +74,15 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   // 2026-05-23 — Session State 重排到尾部，与 prompt builder 一致；
   // 这样 [0..5] + history 形成稳定可缓存的长前缀。
   static const List<_PromptStructureSpec> _specs = <_PromptStructureSpec>[
-    _PromptStructureSpec('sys',       Color(0xFF6F4FB4), 1.2),
-    _PromptStructureSpec('dev',       Color(0xFF4955A6), 1.0),
-    _PromptStructureSpec('tools',     Color(0xFF2D6FA4), 1.5),
-    _PromptStructureSpec('memory',    Color(0xFF4F8C50), 1.0),
+    _PromptStructureSpec('sys', Color(0xFF6F4FB4), 1.2),
+    _PromptStructureSpec('dev', Color(0xFF4955A6), 1.0),
+    _PromptStructureSpec('tools', Color(0xFF2D6FA4), 1.5),
+    _PromptStructureSpec('memory', Color(0xFF4F8C50), 1.0),
     _PromptStructureSpec('user_inst', Color(0xFF84A03A), 0.8),
-    _PromptStructureSpec('summary',   Color(0xFFB07B2C), 0.6),
-    _PromptStructureSpec('history',   Color(0xFFB85549), 2.4),
-    _PromptStructureSpec('state',     Color(0xFF3E847B), 0.6),
-    _PromptStructureSpec('latest',    Color(0xFFA04079), 0.6),
+    _PromptStructureSpec('summary', Color(0xFFB07B2C), 0.7),
+    _PromptStructureSpec('history', Color(0xFFB85549), 2.5),
+    _PromptStructureSpec('state', Color(0xFF3E847B), 0.75),
+    _PromptStructureSpec('latest', Color(0xFFA04079), 0.55),
   ];
 
   List<_PromptStructureSegment> _segments(AppLocalizations l10n) {

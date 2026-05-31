@@ -52,6 +52,7 @@ export interface SessionSummary {
   full_access_permission?: boolean;
   last_used_model_id?: string | null;
   last_used_model_label?: string | null;
+  last_used_model_protocol?: string | null;
   is_title_manually_edited?: boolean;
   auto_title_acquired?: boolean;
   auto_title_retry_count?: number;

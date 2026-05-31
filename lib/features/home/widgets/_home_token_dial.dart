@@ -37,10 +37,11 @@ class _TokenDial extends StatefulWidget {
           statistics.totalPromptTokens ?? 0,
         );
     if (prompt <= 0) return 0.0;
-    // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
-    final denom = claudeStyle ? (prompt + read) : prompt;
-    if (denom == 0) return 0.0;
-    return read / denom;
+    return computeCacheHitRatio(
+      promptTokens: prompt,
+      cacheReadTokens: read,
+      claudeStyle: claudeStyle,
+    );
   }
 
   @override
@@ -245,7 +246,7 @@ class _TokenDialState extends State<_TokenDial>
 /// - 输出侧：Completion
 /// - 总计：Total
 /// - 会话累计 (消息数 / prompt 字符 / 构建次数)
-class _TokenDialPopup extends StatelessWidget {
+class _TokenDialPopup extends StatefulWidget {
   const _TokenDialPopup({
     required this.session,
     required this.statistics,
@@ -259,6 +260,14 @@ class _TokenDialPopup extends StatelessWidget {
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
   final bool compact;
+
+  @override
+  State<_TokenDialPopup> createState() => _TokenDialPopupState();
+}
+
+class _TokenDialPopupState extends State<_TokenDialPopup> {
+  SessionCacheHitDisplayMode _displayMode =
+      SessionCacheHitDisplayMode.excludeExtremeMisses;
 
   @override
   Widget build(BuildContext context) {
@@ -281,34 +290,29 @@ class _TokenDialPopup extends StatelessWidget {
     final reasoningValueStyle = valueStyle?.copyWith(
       color: Colors.purple.shade400,
     );
-    final promptTokensTotal = statistics.totalPromptTokens ?? 0;
-    final firstPrompt = statistics.firstPromptTokens ?? 0;
+    final promptTokensTotal = widget.statistics.totalPromptTokens ?? 0;
+    final firstPrompt = widget.statistics.firstPromptTokens ?? 0;
     final promptTokens = (promptTokensTotal - firstPrompt).clamp(
       0,
       promptTokensTotal,
     );
-    final completionTokens = statistics.totalCompletionTokens ?? 0;
-    final cacheRead = statistics.cacheReadTokens ?? 0;
-    final cacheWrite = statistics.cacheCreationTokens ?? 0;
-    final reasoning = statistics.reasoningTokens ?? 0;
-    final total = statistics.totalTokens ?? 0;
-    // Claude：prompt 不含 cache，需分开相加；OpenAI 系：prompt 已含 cache。
-    final cacheDenominator = claudeStyle
-        ? (promptTokens + cacheRead)
-        : promptTokens;
-    final cacheHitRatio = cacheDenominator <= 0
-        ? 0.0
-        : cacheRead / cacheDenominator;
+    final completionTokens = widget.statistics.totalCompletionTokens ?? 0;
+    final cacheRead = widget.statistics.cacheReadTokens ?? 0;
+    final cacheWrite = widget.statistics.cacheCreationTokens ?? 0;
+    final reasoning = widget.statistics.reasoningTokens ?? 0;
+    final total = widget.statistics.totalTokens ?? 0;
     final trend = SessionCacheHitTrend.fromSession(
-      session,
-      claudeStyle: claudeStyle,
+      widget.session,
+      claudeStyle: widget.claudeStyle,
     );
+    final displayData = trend.displayData(_displayMode);
+    final cacheHitRatio = displayData.averageHitRatio;
     return Material(
       color: Colors.transparent,
       child: Container(
         constraints: BoxConstraints(
-          minWidth: compact ? 320 : 360,
-          maxWidth: compact ? 420 : 520,
+          minWidth: widget.compact ? 320 : 360,
+          maxWidth: widget.compact ? 420 : 520,
         ),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         decoration: BoxDecoration(
@@ -405,17 +409,22 @@ class _TokenDialPopup extends StatelessWidget {
               const SizedBox(height: 6),
               _CacheHitBar(
                 ratio: cacheHitRatio,
-                cacheRead: cacheRead,
-                cacheWrite: cacheWrite,
-                prompt: claudeStyle
-                    ? promptTokens
-                    : (promptTokens - cacheRead).clamp(0, promptTokens),
+                cacheRead: displayData.cacheReadTokens,
+                cacheWrite: displayData.cacheWriteTokens,
+                prompt: displayData.uncachedPromptTokens,
               ),
-              if (trend.hasEnoughPoints) ...[
+              if (displayData.trend.hasEnoughPoints) ...[
                 const SizedBox(height: 10),
                 TokenPopupCacheHitTrendChart(
                   trend: trend,
-                  height: compact ? 176 : 220,
+                  displayMode: _displayMode,
+                  onDisplayModeChanged: (mode) {
+                    if (_displayMode == mode) return;
+                    setState(() {
+                      _displayMode = mode;
+                    });
+                  },
+                  height: widget.compact ? 176 : 220,
                 ),
               ],
             ],
@@ -429,19 +438,19 @@ class _TokenDialPopup extends StatelessWidget {
             const SizedBox(height: 6),
             _PopupRow(
               label: AppLocalizations.of(context)!.tokenPopupMessages,
-              value: statistics.totalMessageCount,
+              value: widget.statistics.totalMessageCount,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
             _PopupRow(
               label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
-              value: statistics.promptBuildCount,
+              value: widget.statistics.promptBuildCount,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
             _PopupRow(
               label: AppLocalizations.of(context)!.tokenPopupPromptChars,
-              value: statistics.totalPromptCharacters,
+              value: widget.statistics.totalPromptCharacters,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
@@ -475,7 +484,7 @@ class _TokenDialPopup extends StatelessWidget {
     required int cacheRead,
     required int cacheWrite,
   }) {
-    if (activeProfile == null) return const <Widget>[];
+    if (widget.activeProfile == null) return const <Widget>[];
     final breakdown = AiCostBreakdown.compute(
       usage: AiTokenUsage(
         promptTokens: promptTokens,
@@ -483,8 +492,8 @@ class _TokenDialPopup extends StatelessWidget {
         cacheReadTokens: cacheRead,
         cacheCreationTokens: cacheWrite,
       ),
-      profile: activeProfile,
-      claudeStyle: claudeStyle,
+      profile: widget.activeProfile,
+      claudeStyle: widget.claudeStyle,
     );
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 

@@ -1,28 +1,14 @@
 // ignore_for_file: avoid_print
 //
 // Standalone Dart CLI to preview the assembled prompt-template bundles for
-// each of the 5 thread templates (default / machine_expert /
-// hardness_engineering / programming_expert / hermes_talker), exactly as
-// `AiPromptTemplateRepository.loadBundle` would resolve them at runtime
-// (system_instructions + v4 discipline appendix + memory tone policy).
+// all current thread templates, exactly as OpenHand resolves them at runtime.
 //
 // Usage: `dart run scripts/preview_prompts.dart`
 // Output: build/preview/<template_id>/{system,developer,compression_summary}.md
-//
-// This script intentionally avoids importing any code from `lib/` so it can
-// run with plain `dart run` (no flutter SDK linking). The marker rules below
-// MUST stay in sync with `lib/features/ai/service/prompt/ai_prompt_template_repository.dart`:
-//   - skip v4 discipline append when system already contains either
-//       Markdown headings: "Atomic Change Discipline" / "Uncertainty Honesty"
-//       or XML tags: <atomic_change_discipline> / <uncertainty_honesty>
-//   - else, if CJK ratio (non-whitespace) ≥ 15% → append v4_discipline_zh.md
-//                                                else → append v4_discipline_en.md
-//   - append shared identity/refusal/tone/workflow snippets only when the
-//       target xml tag is absent; machine_expert is intentionally exempt
-//   - skip memory tone policy when system already contains (lower):
-//       "## memory tone policy"
 
 import 'dart:io';
+
+import '../lib/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 
 const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'default', dir: 'assets/prompts/default'),
@@ -33,101 +19,37 @@ const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'web_reverse_expert', dir: 'assets/prompts/web_reverse_expert'),
 ];
 
-const String _memoryTonePolicySection = '''
-
-## Memory Tone Policy
-When your answer draws on stored user memories or profile data, weave that
-knowledge into your reply naturally without announcing it. Do NOT say "I
-remember that…", "from memory…", "you told me earlier…", or similar
-tell-tales. Treat memory as invisible context, not as something the user
-needs to be reminded you're tracking.
-''';
-
-bool _looksLikeChinese(String text) {
-  int cjk = 0;
-  int total = 0;
-  for (final rune in text.runes) {
-    if (rune == 0x20 || rune == 0x09 || rune == 0x0A || rune == 0x0D) {
-      continue;
-    }
-    total++;
-    if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
-        (rune >= 0x3400 && rune <= 0x4DBF) ||
-        (rune >= 0xF900 && rune <= 0xFAFF)) {
-      cjk++;
-    }
-  }
-  if (total == 0) {
-    return false;
-  }
-  return cjk * 100 ~/ total >= 15;
-}
-
-bool _hasXmlSectionTag(String instructions, String tag) {
-  return instructions.toLowerCase().contains('<${tag.toLowerCase()}>');
-}
-
 String _appendSharedSectionsIfAbsent(String instructions, String templateId) {
-  if (templateId == 'machine_expert') {
+  final sections = aiPromptSharedSectionsForTemplate(templateId)
+      .map(
+        (section) => AiPromptLoadedSection(
+          tag: section.tag,
+          content: _readOrEmpty(section.assetPath),
+        ),
+      )
+      .where((section) => section.content.trim().isNotEmpty)
+      .toList(growable: false);
+  if (sections.isEmpty) {
     return instructions;
   }
-  const sections = <({String tag, String assetPath})>[
-    (tag: 'identity', assetPath: 'assets/prompts/_shared/identity.md'),
-    (tag: 'refusal_handling', assetPath: 'assets/prompts/_shared/refusal.md'),
-    (tag: 'tone_and_formatting', assetPath: 'assets/prompts/_shared/tone.md'),
-    (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
-  ];
-  var output = instructions.trimRight();
-  for (final section in sections) {
-    if (_hasXmlSectionTag(output, section.tag)) {
-      continue;
-    }
-    final snippet = _readOrEmpty(section.assetPath);
-    if (snippet.isEmpty) continue;
-    output = '$output\n\n$snippet';
-  }
-  return '$output\n';
-}
-
-bool _hasV4DisciplineMarker(String instructions) {
-  const headingPatterns = <String>[
-    'atomic change discipline',
-    'uncertainty honesty',
-    '通用纪律',
-    '不确定性诚实',
-  ];
-  for (final heading in headingPatterns) {
-    if (RegExp(
-      '^#{1,6}\\s+${RegExp.escape(heading)}\\b',
-      caseSensitive: false,
-      multiLine: true,
-    ).hasMatch(instructions)) {
-      return true;
-    }
-  }
-  final lower = instructions.toLowerCase();
-  return lower.contains('<atomic_change_discipline>') ||
-      lower.contains('<uncertainty_honesty>') ||
-      lower.contains('<universal_discipline>');
+  return appendAiPromptSharedSectionsIfAbsent(instructions, sections);
 }
 
 String _appendV4DisciplineIfAbsent(String instructions) {
-  if (_hasV4DisciplineMarker(instructions)) {
-    return instructions;
-  }
-  final assetPath = _looksLikeChinese(instructions)
-      ? 'assets/prompts/common/v4_discipline_zh.md'
-      : 'assets/prompts/common/v4_discipline_en.md';
-  final snippet = _readOrEmpty(assetPath);
-  if (snippet.isEmpty) return instructions;
-  return '${instructions.trimRight()}\n\n$snippet\n';
+  final zhSnippet = _readOrEmpty('assets/prompts/common/v4_discipline_zh.md');
+  final enSnippet = _readOrEmpty('assets/prompts/common/v4_discipline_en.md');
+  return appendAiPromptV4DisciplineIfAbsent(
+    instructions,
+    zhSnippet: zhSnippet,
+    enSnippet: enSnippet,
+  );
 }
 
 String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  if (instructions.toLowerCase().contains('## memory tone policy')) {
-    return instructions;
-  }
-  return '${instructions.trimRight()}\n$_memoryTonePolicySection';
+  return appendAiPromptMemoryTonePolicyIfAbsent(
+    instructions,
+    section: aiPromptMemoryTonePolicySection,
+  );
 }
 
 String _readOrEmpty(String path) {
@@ -161,10 +83,8 @@ void main() {
       continue;
     }
 
-    final v4Marker = _hasV4DisciplineMarker(system);
-    final tonePolicyMarker = system.toLowerCase().contains(
-      '## memory tone policy',
-    );
+    final v4Marker = aiPromptInstructionsHasV4DisciplineMarker(system);
+    final tonePolicyMarker = aiPromptInstructionsHasMemoryTonePolicy(system);
     final cjkRatio = _cjkRatioPct(system);
 
     final assembled = _appendMemoryTonePolicyIfAbsent(
@@ -193,7 +113,7 @@ void main() {
     );
     print(
       '    cjk ratio     : ${cjkRatio.toStringAsFixed(1)}% '
-      '(→ ${_looksLikeChinese(system) ? "zh" : "en"} discipline)',
+      '(→ ${aiPromptInstructionsLooksLikeChinese(system) ? "zh" : "en"} discipline)',
     );
     print(
       '    v4 marker     : ${v4Marker ? "PRESENT (skip append)" : "absent (append)"}',

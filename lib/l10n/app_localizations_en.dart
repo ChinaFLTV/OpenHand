@@ -4720,7 +4720,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cacheBarSectionToolsLabel => '[2] Tools';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] State';
+  String get cacheBarSectionStateLabel => '[3s/3d] State';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] Memory';
@@ -4735,7 +4735,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cacheBarSectionHistoryLabel => 'History';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] Latest';
+  String get cacheBarSectionLatestLabel => 'Tail / latest';
 
   @override
   String get cacheBarSectionSysSummary =>
@@ -4763,11 +4763,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cacheBarSectionStateSummary =>
-      'Session metadata JSON: counters, todo list, plan flags, attachments.';
+      'Static + dynamic session state, focus context and other volatile tail system blocks that sit after history in the current prompt layout.';
 
   @override
   String get cacheBarSectionStateCacheHint =>
-      'Volatile: counters tick every turn — caching here often misses.';
+      'Mostly volatile: plan/todo/focus/reminder changes can invalidate this tail region without disturbing the earlier stable prefix.';
 
   @override
   String get cacheBarSectionMemorySummary =>
@@ -4803,11 +4803,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cacheBarSectionLatestSummary =>
-      'The user message currently being answered (with attachment metadata).';
+      'The latest-turn payload near the prompt tail, including the current user turn and per-turn volatile reminder content.';
 
   @override
   String get cacheBarSectionLatestCacheHint =>
-      'Always changing: this is what the dynamic breakpoint targets.';
+      'Always changing: this is the hottest tail region and the main target of the dynamic breakpoint.';
 
   @override
   String get cacheBarDynamicTooltip =>

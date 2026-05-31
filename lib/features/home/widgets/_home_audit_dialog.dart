@@ -66,9 +66,13 @@ double? _auditMessageHitRatio({
   final prompt = promptTokens ?? 0;
   final read = cacheReadTokens ?? 0;
   if (prompt <= 0 && read <= 0) return null;
+  final ratio = computeCacheHitRatio(
+    promptTokens: prompt,
+    cacheReadTokens: read,
+    claudeStyle: claudeStyle,
+  );
   final denom = claudeStyle ? (prompt + read) : prompt;
   if (denom <= 0) return null;
-  final ratio = read / denom;
   if (ratio.isNaN || ratio.isInfinite) return null;
   return ratio.clamp(0.0, 1.0).toDouble();
 }

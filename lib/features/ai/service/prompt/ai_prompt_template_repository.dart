@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../model/ai_thread_template.dart';
+import 'ai_prompt_template_assembly.dart';
 import 'machine_expert_prompts.dart';
 import 'programming_expert_prompts.dart';
 
@@ -185,34 +186,21 @@ class AiPromptTemplateRepository {
     String instructions, {
     required String templateId,
   }) async {
-    if (templateId == 'machine_expert') {
+    final sections = aiPromptSharedSectionsForTemplate(templateId);
+    if (sections.isEmpty) {
       return instructions;
     }
-    final sections = <({String tag, String assetPath})>[
-      (tag: 'identity', assetPath: 'assets/prompts/_shared/identity.md'),
-      (
-        tag: 'refusal_handling',
-        assetPath: 'assets/prompts/_shared/refusal.md',
-      ),
-      (
-        tag: 'tone_and_formatting',
-        assetPath: 'assets/prompts/_shared/tone.md',
-      ),
-      if (templateId != 'hermes_talker')
-        (tag: 'workflow', assetPath: 'assets/prompts/_shared/workflow.md'),
-    ];
-    var output = instructions.trimRight();
+    final loadedSections = <AiPromptLoadedSection>[];
     for (final section in sections) {
-      if (_hasXmlSectionTag(output, section.tag)) {
-        continue;
-      }
       final snippet = await _loadTemplateSection(section.assetPath, '');
       if (snippet.isEmpty) {
         continue;
       }
-      output = '$output\n\n$snippet';
+      loadedSections.add(
+        AiPromptLoadedSection(tag: section.tag, content: snippet),
+      );
     }
-    return '$output\n';
+    return appendAiPromptSharedSectionsIfAbsent(instructions, loadedSections);
   }
 
   /// Appends the shared v4 discipline block (Uncertainty Honesty + Atomic
@@ -224,77 +212,25 @@ class AiPromptTemplateRepository {
   /// `machine_expert`) are detected via heading/tag markers and left untouched.
   /// Language is inferred from the instructions' CJK-character ratio.
   Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
-    if (_hasV4DisciplineMarker(instructions)) {
-      return instructions;
-    }
-    final useChinese = _looksLikeChinese(instructions);
-    final assetPath = useChinese
-        ? 'assets/prompts/common/v4_discipline_zh.md'
-        : 'assets/prompts/common/v4_discipline_en.md';
-    final snippet = await _loadTemplateSection(assetPath, '');
-    if (snippet.isEmpty) {
-      return instructions;
-    }
-    return '${instructions.trimRight()}\n\n$snippet\n';
+    final zhSnippet = await _loadTemplateSection(
+      'assets/prompts/common/v4_discipline_zh.md',
+      '',
+    );
+    final enSnippet = await _loadTemplateSection(
+      'assets/prompts/common/v4_discipline_en.md',
+      '',
+    );
+    return appendAiPromptV4DisciplineIfAbsent(
+      instructions,
+      zhSnippet: zhSnippet,
+      enSnippet: enSnippet,
+    );
   }
 
   /// Heuristic: treat instructions as Chinese when CJK characters make up
   /// ≥15% of all non-whitespace characters. Threshold is intentionally low
   /// because English-only templates have ~0% CJK while Chinese templates
   /// (hardness_engineering, machine_expert) routinely exceed 40%.
-  bool _looksLikeChinese(String text) {
-    int cjk = 0;
-    int total = 0;
-    for (final rune in text.runes) {
-      if (rune == 0x20 || rune == 0x09 || rune == 0x0A || rune == 0x0D) {
-        continue;
-      }
-      total++;
-      if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
-          (rune >= 0x3400 && rune <= 0x4DBF) ||
-          (rune >= 0xF900 && rune <= 0xFAFF)) {
-        cjk++;
-      }
-    }
-    if (total == 0) {
-      return false;
-    }
-    return cjk * 100 ~/ total >= 15;
-  }
-
-  bool _hasXmlSectionTag(String instructions, String tag) {
-    return instructions.toLowerCase().contains('<${tag.toLowerCase()}>');
-  }
-
-  bool _hasV4DisciplineMarker(String instructions) {
-    const headingPatterns = <String>[
-      'atomic change discipline',
-      'uncertainty honesty',
-      '通用纪律',
-      '不确定性诚实',
-    ];
-    for (final heading in headingPatterns) {
-      if (RegExp(
-        '^#{1,6}\\s+${RegExp.escape(heading)}\\b',
-        caseSensitive: false,
-        multiLine: true,
-      ).hasMatch(instructions)) {
-        return true;
-      }
-    }
-    const xmlTags = <String>[
-      '<atomic_change_discipline>',
-      '<uncertainty_honesty>',
-      '<universal_discipline>',
-    ];
-    final lower = instructions.toLowerCase();
-    for (final tag in xmlTags) {
-      if (lower.contains(tag)) {
-        return true;
-      }
-    }
-    return false;
-  }
 
   Future<String> _loadTemplateSection(String assetPath, String fallback) async {
     try {
@@ -340,25 +276,11 @@ class AiPromptTemplateRepository {
 /// Templates whose fallback already embeds this section (e.g.
 /// `hermes_talker`) will NOT have it appended twice — see
 /// [_appendMemoryTonePolicyIfAbsent].
-const String _memoryTonePolicySection = '''
-
-## Memory Tone Policy
-When your answer draws on stored user memories or profile data, weave that
-knowledge into your reply naturally without announcing it. Do NOT say "I
-remember that…", "from memory…", "you told me earlier…", or similar
-tell-tales. Treat memory as invisible context, not as something the user
-needs to be reminded you're tracking.
-''';
-
-/// Marker used to detect whether an instruction payload already contains the
-/// tone policy section. Matched case-insensitively.
-const String _memoryTonePolicyMarker = '## memory tone policy';
-
 String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  if (instructions.toLowerCase().contains(_memoryTonePolicyMarker)) {
-    return instructions;
-  }
-  return '${instructions.trimRight()}\n$_memoryTonePolicySection';
+  return appendAiPromptMemoryTonePolicyIfAbsent(
+    instructions,
+    section: aiPromptMemoryTonePolicySection,
+  );
 }
 
 // ── Emergency fallback prompts ────────────────────────────────────────────────

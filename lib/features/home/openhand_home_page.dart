@@ -75,6 +75,7 @@ import '../plugin_service/index.dart';
 import '../settings/index.dart';
 import '../skills/index.dart';
 import '../web_reverse/index.dart';
+import 'model/cache_hit_ratio.dart';
 import 'model/session_cache_hit_trend.dart';
 import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';

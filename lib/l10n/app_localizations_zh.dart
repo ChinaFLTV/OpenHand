@@ -4486,7 +4486,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheBarSectionToolsLabel => '[2] 工具目录';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] 会话状态';
+  String get cacheBarSectionStateLabel => '[3s/3d] 会话状态';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] 用户记忆';
@@ -4501,7 +4501,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheBarSectionHistoryLabel => '历史消息';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] 最新消息';
+  String get cacheBarSectionLatestLabel => '尾部 / 最新轮次';
 
   @override
   String get cacheBarSectionSysSummary =>
@@ -4524,10 +4524,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheBarSectionToolsCacheHint => '较稳定：除非工具注册表变化，否则可放心命中缓存。';
 
   @override
-  String get cacheBarSectionStateSummary => '会话元数据 JSON：计数器、Todo、计划标记、附件等。';
+  String get cacheBarSectionStateSummary =>
+      '当前结构中位于 history 之后的静态/动态会话状态、Focus Context 与其它易变 system tail 区块。';
 
   @override
-  String get cacheBarSectionStateCacheHint => '易变：每轮计数器都会更新，断点放此处易失效。';
+  String get cacheBarSectionStateCacheHint =>
+      '大多易变：计划/Todo/Focus/Reminder 的变化会打断这一尾部区域，但不会破坏更前面的稳定前缀。';
 
   @override
   String get cacheBarSectionMemorySummary => '长期用户记忆事实，作为已掌握的常识自然融入。';
@@ -4554,10 +4556,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheBarSectionHistoryCacheHint => '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。';
 
   @override
-  String get cacheBarSectionLatestSummary => '当前正在回答的用户消息（含附件元数据）。';
+  String get cacheBarSectionLatestSummary =>
+      '靠近 prompt 尾部的最新轮次载荷，包含当前用户轮次与按轮变化的 reminder 内容。';
 
   @override
-  String get cacheBarSectionLatestCacheHint => '每轮变化：动态断点正是为命中此段而设。';
+  String get cacheBarSectionLatestCacheHint => '始终变化：这是最热的尾部区域，也是动态断点重点照顾的位置。';
 
   @override
   String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
@@ -12335,7 +12338,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get cacheBarSectionToolsLabel => '[2] 工具目录';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] 会话状态';
+  String get cacheBarSectionStateLabel => '[3s/3d] 会话状态';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] 用户记忆';
@@ -12350,7 +12353,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get cacheBarSectionHistoryLabel => '历史消息';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] 最新消息';
+  String get cacheBarSectionLatestLabel => '尾部 / 最新轮次';
 
   @override
   String get cacheBarSectionSysSummary =>
@@ -12373,10 +12376,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get cacheBarSectionToolsCacheHint => '较稳定：除非工具注册表变化，否则可放心命中缓存。';
 
   @override
-  String get cacheBarSectionStateSummary => '会话元数据 JSON：计数器、Todo、计划标记、附件等。';
+  String get cacheBarSectionStateSummary =>
+      '当前结构中位于 history 之后的静态/动态会话状态、Focus Context 与其它易变 system tail 区块。';
 
   @override
-  String get cacheBarSectionStateCacheHint => '易变：每轮计数器都会更新，断点放此处易失效。';
+  String get cacheBarSectionStateCacheHint =>
+      '大多易变：计划/Todo/Focus/Reminder 的变化会打断这一尾部区域，但不会破坏更前面的稳定前缀。';
 
   @override
   String get cacheBarSectionMemorySummary => '长期用户记忆事实，作为已掌握的常识自然融入。';
@@ -12403,10 +12408,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get cacheBarSectionHistoryCacheHint => '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。';
 
   @override
-  String get cacheBarSectionLatestSummary => '当前正在回答的用户消息（含附件元数据）。';
+  String get cacheBarSectionLatestSummary =>
+      '靠近 prompt 尾部的最新轮次载荷，包含当前用户轮次与按轮变化的 reminder 内容。';
 
   @override
-  String get cacheBarSectionLatestCacheHint => '每轮变化：动态断点正是为命中此段而设。';
+  String get cacheBarSectionLatestCacheHint => '始终变化：这是最热的尾部区域，也是动态断点重点照顾的位置。';
 
   @override
   String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
@@ -20183,7 +20189,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get cacheBarSectionToolsLabel => '[2] 工具目錄';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] 會話狀態';
+  String get cacheBarSectionStateLabel => '[3s/3d] 會話狀態';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] 使用者記憶';
@@ -20198,7 +20204,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get cacheBarSectionHistoryLabel => '歷史訊息';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] 最新訊息';
+  String get cacheBarSectionLatestLabel => '尾部 / 最新輪次';
 
   @override
   String get cacheBarSectionSysSummary =>

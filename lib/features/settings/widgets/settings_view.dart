@@ -400,10 +400,6 @@ class _SettingsViewState extends State<SettingsView> {
         _skillsPathController.text != settingsController.skillsStoragePath) {
       _skillsPathController.text = settingsController.skillsStoragePath;
     }
-    if (!_memoryFileFocusNode.hasFocus &&
-        _memoryFileController.text != settingsController.userMemoryFilePath) {
-      _memoryFileController.text = settingsController.userMemoryFilePath;
-    }
     final compressionThresholdText =
         '${settingsController.aiMessageCompressionThresholdChars}';
     if (!_compressionThresholdFocusNode.hasFocus &&
@@ -3114,17 +3110,6 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         const SizedBox(height: 14),
-        TextField(
-          key: const ValueKey<String>('settingsMemoryFileField'),
-          controller: _memoryFileController,
-          focusNode: _memoryFileFocusNode,
-          decoration: InputDecoration(
-            labelText: l10n.userMemoryFileLabel,
-            hintText: settingsController.defaultUserMemoryFileLabel,
-          ),
-          onSubmitted: (value) => _saveMemoryFilePath(context, value),
-        ),
-        const SizedBox(height: 12),
         Text(
           l10n.memoryFileBody,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -3132,42 +3117,13 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         const SizedBox(height: 18),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            FilledButton.icon(
-              key: const ValueKey<String>('settingsMemorySaveButton'),
-              onPressed: () =>
-                  _saveMemoryFilePath(context, _memoryFileController.text),
-              icon: const Icon(Icons.save_outlined),
-              label: Text(l10n.memoryFileSave),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _browseMemoryFilePath(context),
-              icon: const Icon(Icons.edit_note_outlined),
-              label: Text(l10n.memoryFileBrowse),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _openMemoryDirectory(context),
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: Text(l10n.memoryOpenDirectory),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _resetMemoryFilePath(context),
-              icon: const Icon(Icons.restart_alt_rounded),
-              label: Text(l10n.memoryFileReset),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
         _ReadonlySettingRow(
           label: l10n.userMemoryFileLabel,
-          value: settingsController.displayUserMemoryFilePath,
+          value: context.read<MemoryController>().userMemoryFilePath,
         ),
         _ReadonlySettingRow(
           label: l10n.memoryFileDefaultPath,
-          value: settingsController.defaultUserMemoryFileLabel,
+          value: context.read<MemoryController>().storageDirectoryPath,
         ),
       ],
     );
@@ -3868,27 +3824,6 @@ class _SettingsViewState extends State<SettingsView> {
     await _saveSkillsPath(context, defaultPath);
   }
 
-  Future<void> _saveMemoryFilePath(BuildContext context, String rawPath) async {
-    final l10n = AppLocalizations.of(context)!;
-    final settingsController = context.read<SettingsController>();
-    final memoryController = context.read<MemoryController>();
-    await _saveReloadablePathSetting(
-      context: context,
-      fieldController: _memoryFileController,
-      rawPath: rawPath,
-      currentPath: (controller) => controller.userMemoryFilePath,
-      saveSetting: settingsController.updateUserMemoryFilePath,
-      reloadRuntime: memoryController.reloadFromFilePath,
-      restoreSetting: (previousPath) => _restoreMemoryFilePath(
-        settingsController,
-        memoryController,
-        previousPath,
-      ),
-      successMessage: l10n.memoryPathSaved,
-      failureMessage: l10n.memoryOperationFailed,
-    );
-  }
-
   Future<void> _saveReloadablePathSetting({
     required BuildContext context,
     required TextEditingController fieldController,
@@ -3959,22 +3894,6 @@ class _SettingsViewState extends State<SettingsView> {
       }
     }
     return skillsController.reloadFromPath(previousPath);
-  }
-
-  Future<bool> _restoreMemoryFilePath(
-    SettingsController settingsController,
-    MemoryController memoryController,
-    String previousPath,
-  ) async {
-    if (settingsController.userMemoryFilePath != previousPath) {
-      final restored = await settingsController.updateUserMemoryFilePath(
-        previousPath,
-      );
-      if (!restored) {
-        return false;
-      }
-    }
-    return memoryController.reloadFromFilePath(previousPath);
   }
 
   Future<void> _saveConnectTimeout(
@@ -5192,46 +5111,6 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Future<void> _browseMemoryFilePath(BuildContext context) async {
-    final settingsController = context.read<SettingsController>();
-    final selectedLocation = await getSaveLocation(
-      initialDirectory: p.dirname(settingsController.userMemoryFilePath),
-      suggestedName: OpenHandPaths.basename(
-        settingsController.userMemoryFilePath,
-      ),
-    );
-    final selectedPath = selectedLocation?.path;
-    if (!context.mounted || selectedPath == null || selectedPath.isEmpty) {
-      return;
-    }
-    _memoryFileController.text = selectedPath;
-    await _saveMemoryFilePath(context, selectedPath);
-  }
-
-  Future<void> _openMemoryDirectory(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    try {
-      await context.read<MemoryController>().openStorageDirectory();
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(
-        context,
-        l10n.memoryOperationFailed,
-        kind: OpenHandSnackKind.error,
-      );
-    }
-  }
-
-  Future<void> _resetMemoryFilePath(BuildContext context) async {
-    final defaultPath = context
-        .read<SettingsController>()
-        .defaultUserMemoryFilePath;
-    _memoryFileController.text = defaultPath;
-    await _saveMemoryFilePath(context, defaultPath);
-  }
-
   Future<void> _openMcpDirectory(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     try {
@@ -6105,9 +5984,9 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
   }
 
   Future<void> _pickTime(BuildContext context) async {
-    final picked = await showTimePicker(
+    final picked = await showAnimatedDialog<TimeOfDay>(
       context: context,
-      initialTime: _timeOfDay,
+      builder: (dialogContext) => TimePickerDialog(initialTime: _timeOfDay),
     );
     if (picked == null) return;
     final hh = picked.hour.toString().padLeft(2, '0');

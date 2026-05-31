@@ -4160,6 +4160,15 @@ class WebMessagePlatformService {
     return null;
   }
 
+  String? _lastModelProtocolForSession(AiSession session) {
+    final providerId = session.lastUsedModelId;
+    if (providerId == null || providerId.isEmpty) return null;
+    return _settingsController.aiModels
+        .where((model) => model.id == providerId)
+        .map((model) => model.protocolType.storageValue)
+        .firstOrNull;
+  }
+
   String? _lastModelKeyForSession(AiSession session) {
     for (final message in session.displayMessages.reversed) {
       final direct = _allowedModelKeyFromValue(message.metadata['model_key']);
@@ -4205,6 +4214,7 @@ class WebMessagePlatformService {
       'full_access_permission': session.fullAccessPermission,
       'last_used_model_id': session.lastUsedModelId,
       'last_used_model_label': session.lastUsedModelLabel,
+      'last_used_model_protocol': _lastModelProtocolForSession(session),
       'is_title_manually_edited': session.isTitleManuallyEdited,
       'auto_title_acquired': session.autoTitleAcquired,
       'auto_title_retry_count': session.autoTitleRetryCount,

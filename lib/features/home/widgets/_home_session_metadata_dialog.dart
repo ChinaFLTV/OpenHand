@@ -1977,10 +1977,11 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
         .map((point) {
           final prompt = point.promptTokens;
           final read = point.cacheReadTokens;
-          final altDenom = widget.primaryClaudeStyle ? prompt : (prompt + read);
-          return altDenom <= 0
-              ? null
-              : (read / altDenom).clamp(0.0, 1.0).toDouble();
+          return computeCacheHitRatio(
+            promptTokens: prompt,
+            cacheReadTokens: read,
+            claudeStyle: !widget.primaryClaudeStyle,
+          );
         })
         .toList(growable: false);
     if (primary.length < 2) return const SizedBox.shrink();

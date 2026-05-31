@@ -354,6 +354,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
   }
 
+  DialogAnimationSettings _resolveDialogAnimationSettingsSafe() {
+    try {
+      return Provider.of<SettingsController>(context, listen: false)
+          .dialogAnimationSettings;
+    } catch (_) {
+      return const DialogAnimationSettings();
+    }
+  }
+
   void _showAtMentionOverlay() {
     if (_atMentionOverlay != null) {
       _atMentionVisible?.value = true;
@@ -363,15 +372,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final overlay = Overlay.of(context, rootOverlay: true);
     final visible = ValueNotifier<bool>(true);
     _atMentionVisible = visible;
-    DialogAnimationSettings animationSettings;
-    try {
-      animationSettings = Provider.of<SettingsController>(
-        context,
-        listen: false,
-      ).dialogAnimationSettings;
-    } catch (_) {
-      animationSettings = const DialogAnimationSettings();
-    }
+    final animationSettings = _resolveDialogAnimationSettingsSafe();
     _atMentionOverlay = OverlayEntry(
       builder: (ctx) {
         return _AtMentionOverlayPanel(
@@ -386,6 +387,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           onDismiss: _userDismissAtMentionOverlay,
           visible: visible,
           animationSettings: animationSettings,
+          onExitComplete: _finalizeAtMentionOverlayRemoval,
         );
       },
     );
@@ -406,22 +408,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     // AnimatedOpacity reversing to 0.  When the overlay is being disposed
     // synchronously (widget tree torn down), fall back to instant removal.
     final visible = _atMentionVisible;
-    if (visible != null && mounted) {
-      visible.value = false;
-      // Schedule removal after the exit animation completes.
-      final entry = _atMentionOverlay;
-      final notifier = _atMentionVisible;
-      Future<void>.delayed(const Duration(milliseconds: 320), () {
-        entry?.remove();
-        notifier?.dispose();
-        if (_atMentionOverlay == entry) _atMentionOverlay = null;
-        if (_atMentionVisible == notifier) _atMentionVisible = null;
-      });
+    if (visible == null || _atMentionOverlay == null || !mounted) {
+      _finalizeAtMentionOverlayRemoval();
     } else {
-      _atMentionOverlay?.remove();
-      _atMentionOverlay = null;
-      _atMentionVisible?.dispose();
-      _atMentionVisible = null;
+      visible.value = false;
     }
     if (_atMentionTriggerOffset >= 0) {
       _atMentionTriggerOffset = -1;
@@ -439,6 +429,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         _atMentionDismissedOffset = -1;
       }
     }
+  }
+
+  void _finalizeAtMentionOverlayRemoval() {
+    final entry = _atMentionOverlay;
+    _atMentionOverlay = null;
+    entry?.remove();
+    final visible = _atMentionVisible;
+    _atMentionVisible = null;
+    visible?.dispose();
   }
 
   void _handleAtMentionSelect(_AtMentionItem item) {
@@ -609,18 +608,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final overlay = Overlay.of(context, rootOverlay: true);
     final visible = ValueNotifier<bool>(true);
     _skillPickerVisible = visible;
-    // Resolve animation settings from the global SettingsController so the
-    // picker respects the user's preferred dialog animation style/curve/
-    // duration.  Fallback to defaults if the provider is unreachable.
-    DialogAnimationSettings animationSettings;
-    try {
-      animationSettings = Provider.of<SettingsController>(
-        context,
-        listen: false,
-      ).dialogAnimationSettings;
-    } catch (_) {
-      animationSettings = const DialogAnimationSettings();
-    }
+    final animationSettings = _resolveDialogAnimationSettingsSafe();
     _skillPickerOverlay = OverlayEntry(
       builder: (_) {
         return _SkillPickerOverlayPanel(
@@ -2556,7 +2544,7 @@ class _ProjectReferenceChip extends StatelessWidget {
           Icon(
             item.isDirectory
                 ? Icons.folder_rounded
-                : _AtMentionOverlayPanel._atMentionIcon(item),
+                : _AtMentionOverlayPanelState._atMentionIcon(item),
             size: 14,
             color: colorScheme.primary,
           ),
@@ -2608,7 +2596,7 @@ class _AtMentionItem {
   final bool isDirectory;
 }
 
-class _AtMentionOverlayPanel extends StatelessWidget {
+class _AtMentionOverlayPanel extends StatefulWidget {
   const _AtMentionOverlayPanel({
     required this.link,
     required this.items,
@@ -2621,6 +2609,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     required this.onDismiss,
     required this.visible,
     required this.animationSettings,
+    required this.onExitComplete,
   });
 
   final LayerLink link;
@@ -2634,6 +2623,65 @@ class _AtMentionOverlayPanel extends StatelessWidget {
   final VoidCallback onDismiss;
   final ValueListenable<bool> visible;
   final DialogAnimationSettings animationSettings;
+  final VoidCallback onExitComplete;
+
+  @override
+  State<_AtMentionOverlayPanel> createState() => _AtMentionOverlayPanelState();
+}
+
+class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = widget.animationSettings;
+    final baseMs = settings.duration.inMilliseconds;
+    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: durationMs),
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: settings.curve.curve,
+      reverseCurve: settings.curve.reverseCurve,
+    );
+    widget.visible.addListener(_handleVisibilityChanged);
+    if (widget.visible.value) {
+      _controller.forward();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onExitComplete();
+      });
+    }
+    _controller.addStatusListener(_handleAnimationStatus);
+  }
+
+  void _handleVisibilityChanged() {
+    if (!mounted) return;
+    if (widget.visible.value) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && !widget.visible.value) {
+      widget.onExitComplete();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.visible.removeListener(_handleVisibilityChanged);
+    _controller.removeStatusListener(_handleAnimationStatus);
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2641,8 +2689,6 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final baseMs = animationSettings.duration.inMilliseconds;
-    final animMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
     final disableAnim = MediaQuery.disableAnimationsOf(context);
 
     final content = Stack(
@@ -2651,36 +2697,14 @@ class _AtMentionOverlayPanel extends StatelessWidget {
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onTap: onDismiss,
+            onTap: widget.onDismiss,
           ),
         ),
         CompositedTransformFollower(
-          link: link,
+          link: widget.link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
-          // Q-springy entrance: fade + slight up-translate + scale-up from
-          // 0.97, anchored at bottom-left. Duration/curve follow global
-          // dialog-animation settings. Disabled animations → instant.
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: disableAnim || animMs == 0
-                ? Duration.zero
-                : Duration(milliseconds: animMs),
-            curve: animationSettings.curve.curve,
-            builder: (context, t, child) {
-              return Opacity(
-                opacity: t,
-                child: Transform.translate(
-                  offset: Offset(0, (1 - t) * 6),
-                  child: Transform.scale(
-                    scale: 0.97 + 0.03 * t,
-                    alignment: Alignment.bottomLeft,
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: ConstrainedBox(
+          child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
               child: Material(
                 elevation: 8,
@@ -2695,7 +2719,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Breadcrumb row.
-                    if (breadcrumbs.isNotEmpty)
+                    if (widget.breadcrumbs.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
                         child: SingleChildScrollView(
@@ -2706,9 +2730,9 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                               _AtMentionBreadcrumbChip(
                                 label: isZh ? '项目根目录' : 'Project Root',
                                 icon: Icons.home_rounded,
-                                onTap: () => onBreadcrumbTap(-1),
+                                onTap: () => widget.onBreadcrumbTap(-1),
                               ),
-                              for (var i = 0; i < breadcrumbs.length; i++) ...[
+                              for (var i = 0; i < widget.breadcrumbs.length; i++) ...[
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
@@ -2721,10 +2745,10 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                                   ),
                                 ),
                                 _AtMentionBreadcrumbChip(
-                                  label: breadcrumbs[i],
+                                  label: widget.breadcrumbs[i],
                                   icon: Icons.folder_rounded,
-                                  onTap: () => onBreadcrumbTap(i),
-                                  isLast: i == breadcrumbs.length - 1,
+                                  onTap: () => widget.onBreadcrumbTap(i),
+                                  isLast: i == widget.breadcrumbs.length - 1,
                                 ),
                               ],
                             ],
@@ -2732,7 +2756,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                         ),
                       ),
                     // Results.
-                    if (loading)
+                    if (widget.loading)
                       const Padding(
                         padding: EdgeInsets.all(16),
                         child: Center(
@@ -2743,7 +2767,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                           ),
                         ),
                       )
-                    else if (items.isEmpty)
+                    else if (widget.items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Center(
@@ -2764,10 +2788,10 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           shrinkWrap: true,
-                          itemCount: items.length,
+                          itemCount: widget.items.length,
                           itemBuilder: (ctx, index) {
-                            final item = items[index];
-                            final isSelected = index == selectedIndex;
+                            final item = widget.items[index];
+                            final isSelected = index == widget.selectedIndex;
                             return Material(
                               color: isSelected
                                   ? colorScheme.primaryContainer.withValues(
@@ -2775,7 +2799,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                                     )
                                   : Colors.transparent,
                               child: InkWell(
-                                onTap: () => onSelect(item),
+                                onTap: () => widget.onSelect(item),
                                 borderRadius: BorderRadius.circular(8),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -2834,7 +2858,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                                             tooltip: isZh
                                                 ? '进入目录'
                                                 : 'Open directory',
-                                            onPressed: () => onDrillDown(item),
+                                            onPressed: () => widget.onDrillDown(item),
                                             icon: Icon(
                                               Icons.chevron_right_rounded,
                                               size: 18,
@@ -2856,22 +2880,15 @@ class _AtMentionOverlayPanel extends StatelessWidget {
               ),
             ),
           ),
-        ),
       ],
     );
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: visible,
-      builder: (context, isVisible, child) {
-        return AnimatedOpacity(
-          opacity: isVisible ? 1.0 : 0.0,
-          duration: disableAnim || animMs == 0
-              ? Duration.zero
-              : Duration(milliseconds: animMs),
-          curve: animationSettings.curve.curve,
-          child: child,
-        );
-      },
+    if (disableAnim) {
+      return content;
+    }
+    return buildAnimationStyleTransition(
+      animation: _animation,
+      settings: widget.animationSettings,
       child: content,
     );
   }
@@ -3261,130 +3278,14 @@ class _SkillPickerTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Honor reduceMotion / OS disableAnimations: skip the transition
-    // entirely so the picker pops to its resting state immediately.
     if (MediaQuery.disableAnimationsOf(context)) {
       return child;
     }
-    // Pick entrance vs exit style based on direction so reverse animations
-    // can differ from entrance when the user configured them separately.
-    final forward =
-        animation.status == AnimationStatus.forward ||
-        animation.status == AnimationStatus.completed;
-    final style = forward ? settings.entranceStyle : settings.exitStyle;
-    switch (style) {
-      case DialogAnimationStyle.none:
-        return FadeTransition(opacity: animation, child: child);
-      case DialogAnimationStyle.fade:
-        return FadeTransition(opacity: animation, child: child);
-      case DialogAnimationStyle.fadeScale:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomCenter,
-            scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.slideUp:
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.08),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.slideDown:
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.08),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.expand:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomLeft,
-            scale: Tween<double>(begin: 0.6, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.rotateScale:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomLeft,
-            scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
-            child: RotationTransition(
-              turns: Tween<double>(begin: -0.02, end: 0.0).animate(animation),
-              child: child,
-            ),
-          ),
-        );
-      case DialogAnimationStyle.elastic:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomLeft,
-            scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.slideLeft:
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(-0.08, 0),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.slideRight:
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.08, 0),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.springScale:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomLeft,
-            scale: Tween<double>(begin: 0.6, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeInBack,
-              ),
-            ),
-            child: child,
-          ),
-        );
-      case DialogAnimationStyle.flipX:
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            alignment: Alignment.bottomLeft,
-            scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-    }
+    return buildAnimationStyleTransition(
+      animation: animation,
+      settings: settings,
+      child: child,
+    );
   }
 }
 

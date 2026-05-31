@@ -4555,7 +4555,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cacheBarSectionToolsLabel => '[2] ツール';
 
   @override
-  String get cacheBarSectionStateLabel => '[3] 状態';
+  String get cacheBarSectionStateLabel => '[3s/3d] 状態';
 
   @override
   String get cacheBarSectionMemoryLabel => '[4] メモリ';
@@ -4570,7 +4570,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cacheBarSectionHistoryLabel => '履歴';
 
   @override
-  String get cacheBarSectionLatestLabel => '[6] 最新';
+  String get cacheBarSectionLatestLabel => '末尾 / 最新ターン';
 
   @override
   String get cacheBarSectionSysSummary =>

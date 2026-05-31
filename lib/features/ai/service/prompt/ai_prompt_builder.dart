@@ -25,6 +25,7 @@ import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 import 'ai_output_format_prompts.dart';
+import 'ai_prompt_sections.dart';
 import 'ai_prompt_template_repository.dart';
 
 class AiPromptBuildResult {
@@ -432,17 +433,17 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
+            '${AiPromptSectionHeaders.systemInstructions}\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [1] Developer Instructions\n\n${templateBundle.developerInstructions}',
+            '${AiPromptSectionHeaders.developerInstructions}\n\n${templateBundle.developerInstructions}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
+            '${AiPromptSectionHeaders.toolCatalog}\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分，均置于 history 之前：
@@ -464,11 +465,11 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content: isCompactTemplate
-            ? '# [4] User Memory\n\n'
+            ? '${AiPromptSectionHeaders.userMemory}\n\n'
                   'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
-            : '# [4] User Memory (long-term facts)\n\n'
+            : '${AiPromptSectionHeaders.userMemoryLongTermFacts}\n\n'
                   'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
@@ -486,7 +487,7 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# [4.5] User Instructions\n\n'
+              '${AiPromptSectionHeaders.userInstructions}\n\n'
               '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。若 [3d] Dynamic Session State 里出现了 `skipped_user_instruction_ids`，本轮临时忽略该 id 对应的指令。 / '
               'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
               '${_renderUserInstructionsBody(runtimeContext.userInstructions, const <String>{})}',
@@ -494,54 +495,54 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content: isCompactTemplate
-            ? '# [5] Conversation Context\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
-            : '# [5] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
+            ? '${AiPromptSectionHeaders.conversationContext}\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
+            : '${AiPromptSectionHeaders.recentConversationSummary}\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
       ),
       // 2026-05-23 v3 — restored contexts 移至 history 之前：
       // 它们在压缩点前保持稳定，放在此前缀区可增加缓存命中 token。
       if (restoredFileContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [5.6] Restored File Context\n\n$restoredFileContext',
+          content: '${AiPromptSectionHeaders.restoredFileContext}\n\n$restoredFileContext',
         ),
       if (restoredSkillContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [5.7] Restored Skill Context\n\n$restoredSkillContext',
+          content: '${AiPromptSectionHeaders.restoredSkillContext}\n\n$restoredSkillContext',
         ),
       if (restoredPlanContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [5.8] Restored Plan Context\n\n$restoredPlanContext',
+          content: '${AiPromptSectionHeaders.restoredPlanContext}\n\n$restoredPlanContext',
         ),
       if (restoredMcpContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [5.9] Restored MCP Context\n\n$restoredMcpContext',
+          content: '${AiPromptSectionHeaders.restoredMcpContext}\n\n$restoredMcpContext',
         ),
       if (restoredSessionStartHookContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# [5.10] Restored SessionStart Hook Context\n\n$restoredSessionStartHookContext',
+              '${AiPromptSectionHeaders.restoredSessionStartHookContext}\n\n$restoredSessionStartHookContext',
         ),
       if (restoredToolAgentContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# [5.11] Restored Tool and Agent Listing\n\n$restoredToolAgentContext',
+              '${AiPromptSectionHeaders.restoredToolAndAgentListing}\n\n$restoredToolAgentContext',
         ),
       if (restoredAgentResultContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# [5.12] Restored Agent Result Context\n\n$restoredAgentResultContext',
+              '${AiPromptSectionHeaders.restoredAgentResultContext}\n\n$restoredAgentResultContext',
         ),
       // [3s] Static Session State — in stable prefix, before history.
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [3s] Static Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
+            '${AiPromptSectionHeaders.staticSessionState}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
       ),
       // ─────────────────────────────────────────────────────────────
       // 2026-05-30 cache-friendly ordering：history 之前只放真正稳定的
@@ -563,22 +564,22 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# [3d] Dynamic Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
+              '${AiPromptSectionHeaders.dynamicSessionState}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
         ),
       if (focusContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [5.5] Focus Context\n\n$focusContext',
+          content: '${AiPromptSectionHeaders.focusContext}\n\n$focusContext',
         ),
       if (todoReminder != null && todoReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# System Reminder\n\n$todoReminder',
+          content: '${AiPromptSectionHeaders.systemReminder}\n\n$todoReminder',
         ),
       if (planModeReminder != null && planModeReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# Plan Mode Reminder\n\n$planModeReminder',
+          content: '${AiPromptSectionHeaders.planModeReminder}\n\n$planModeReminder',
         ),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
@@ -589,7 +590,7 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# Output Format Reminder\n\n${AiOutputFormatPrompts.plainText}',
+              '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.plainText}',
         ),
       if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
           AiOutputFormatPrompts.htmlFor(
@@ -598,7 +599,7 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# Output Format Reminder\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
+              '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
         ),
       // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
       if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
@@ -607,7 +608,7 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '# GPT Chat Rules Reminder\n\n${AiOutputFormatPrompts.gptChatRules}',
+              '${AiPromptSectionHeaders.gptChatRulesReminder}\n\n${AiOutputFormatPrompts.gptChatRules}',
         ),
     ];
     final systemMessageCount = messages
@@ -677,7 +678,7 @@ class AiPromptBuilder {
     final buffer = StringBuffer()
       ..writeln()
       ..writeln()
-      ..writeln('# Workspace Instructions')
+      ..writeln(AiPromptSectionHeaders.workspaceInstructions)
       ..writeln()
       ..writeln(
         'The following workspace instruction files are active. Later entries are generally more specific than earlier ones.',
@@ -1487,7 +1488,7 @@ class AiPromptBuilder {
         .map(
           (reminder) => AiChatTurn(
             role: AiChatRole.system,
-            content: '# System Reminder\n\n$reminder',
+            content: '${AiPromptSectionHeaders.systemReminder}\n\n$reminder',
           ),
         )
         .toList(growable: true);
@@ -1579,17 +1580,17 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# Compression System Instructions\n\n$compressionSystemContent',
+            '${AiPromptSectionHeaders.compressionSystemInstructions}\n\n$compressionSystemContent',
       ),
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# Compression Developer Instructions\n\n${templateBundle.compressionSummaryInstructions}',
+            '${AiPromptSectionHeaders.compressionDeveloperInstructions}\n\n${templateBundle.compressionSummaryInstructions}',
       ),
       AiChatTurn(
         role: AiChatRole.user,
         content:
-            '# Compression Task Payload\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
+            '${AiPromptSectionHeaders.compressionTaskPayload}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
   }

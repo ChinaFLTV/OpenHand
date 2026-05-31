@@ -3157,14 +3157,19 @@ export function SessionDetailPage() {
     const tokenStats = asRecord(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
-    const sessCacheBase = sessPrompt + sessCacheRead;
-    const cacheSavingsPercent = sessCacheBase > 0
-      ? Math.round((sessCacheRead / sessCacheBase) * 100)
-      : 0;
+    const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
+    const cacheSavingsPercent = computeCacheHitRatioPercent({
+      promptTokens: sessPrompt,
+      cacheReadTokens: sessCacheRead,
+      claudeStyle,
+    });
+    const cacheSavingsBase = claudeStyle
+      ? sessPrompt + sessCacheRead
+      : sessPrompt;
     const tokensBadge = sessCacheRead > 0
       ? {
           text: `${cacheSavingsPercent}%`,
-          title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${sessCacheBase.toLocaleString()}`,
+          title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheSavingsBase.toLocaleString()}`,
           tone: 'success' as const,
         }
       : undefined;
@@ -4659,16 +4664,21 @@ function SessionTokenStatsDialog({
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
-  const cacheHitBase = promptTokens + cacheReadTokens;
-  const cacheHitRatio = cacheHitBase === 0
-    ? 0
-    : Math.round((cacheReadTokens / cacheHitBase) * 100);
+  const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
+  const cacheHitRatio = computeCacheHitRatioPercent({
+    promptTokens,
+    cacheReadTokens,
+    claudeStyle,
+  });
   // Stacked-bar weights (read / write / unCached prompt). Sum = 1 when any
   // cache activity exists.
-  const segmentTotal = promptTokens + cacheReadTokens + cacheWriteTokens;
+  const uncachedPromptTokens = claudeStyle
+    ? promptTokens
+    : Math.max(0, promptTokens - cacheReadTokens);
+  const segmentTotal = uncachedPromptTokens + cacheReadTokens + cacheWriteTokens;
   const readWeight = segmentTotal > 0 ? cacheReadTokens / segmentTotal : 0;
   const writeWeight = segmentTotal > 0 ? cacheWriteTokens / segmentTotal : 0;
-  const missWeight = segmentTotal > 0 ? promptTokens / segmentTotal : 0;
+  const missWeight = segmentTotal > 0 ? uncachedPromptTokens / segmentTotal : 0;
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const node = (
     <div
@@ -5222,6 +5232,29 @@ function readStatNumber(value: unknown, fallback: unknown): number {
     if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
   }
   return 0;
+}
+
+function usesClaudeStyleCacheMath(protocol: unknown): boolean {
+  const normalized = String(protocol ?? '').trim().toLowerCase();
+  return normalized === 'claude';
+}
+
+function computeCacheHitRatioPercent({
+  promptTokens,
+  cacheReadTokens,
+  claudeStyle,
+}: {
+  promptTokens: number;
+  cacheReadTokens: number;
+  claudeStyle: boolean;
+}): number {
+  const denominator = claudeStyle
+    ? promptTokens + cacheReadTokens
+    : promptTokens;
+  if (denominator <= 0) return 0;
+  const ratio = cacheReadTokens / denominator;
+  if (!Number.isFinite(ratio)) return 0;
+  return Math.max(0, Math.min(100, Math.round(ratio * 100)));
 }
 
 function formatDialogDate(value?: string | null): string {

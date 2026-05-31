@@ -51,12 +51,16 @@ List<String> messageFilePathRoots(
     roots.add(p.normalize(trimmed));
   }
 
+  bool isVirtualStorePath(String path) {
+    return path.contains('://');
+  }
+
   void addParentRoot(String? rawPath) {
     if (rawPath == null) {
       return;
     }
     final trimmed = rawPath.trim();
-    if (trimmed.isEmpty) {
+    if (trimmed.isEmpty || isVirtualStorePath(trimmed)) {
       return;
     }
     addRoot(p.dirname(trimmed));

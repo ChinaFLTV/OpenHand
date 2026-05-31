@@ -38,6 +38,7 @@ import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
 import 'service/prompt/ai_prompt_builder.dart';
+import 'service/prompt/ai_prompt_sections.dart';
 import 'service/prompt/ai_prompt_template_repository.dart';
 import 'service/runtime/ai_plan_approval_detector.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
@@ -549,31 +550,8 @@ class AiSessionController extends ChangeNotifier {
     'websearch',
     'todowrite',
   };
-  static const Set<String> _internalPromptLeakHeaders = <String>{
-    // 必须与 ai_prompt_builder.dart `buildSessionPrompt` 实际拼装的章节
-    // 标题保持一致；任一漂移都会导致模型无意复述这些标题时无法被识别为
-    // "提示词模板泄漏"，从而出现在用户可见气泡里。
-    '# [0] System Instructions',
-    '# [1] Developer Instructions',
-    '# [2] Tool Catalog',
-    '# [3s] Static Session State',
-    '# [3d] Dynamic Session State',
-    '# [4] User Memory',
-    '# [4] User Memory (long-term facts)',
-    '# [4.5] User Instructions',
-    '# [5] Conversation Context',
-    '# [5] Recent Conversations Summary (past chats, titles + snippets)',
-    '# [5.5] Focus Context',
-    // 2026-05-23 — 移除 "# [6] Your latest message" 前缀以统一 history/latest
-    // 用户消息格式，消除跨轮缓存断裂点。
-    '# System Reminder',
-    '# Plan Mode Reminder',
-    '# Runtime Environment Snapshot',
-    '# Workspace Instructions',
-    '# Compression System Instructions',
-    '# Compression Developer Instructions',
-    '# Compression Task Payload',
-  };
+  static const Set<String> _internalPromptLeakHeaders =
+      aiInternalPromptLeakHeaders;
 
   final AiSessionStore _store;
   final AiChatClient _chatClient;
