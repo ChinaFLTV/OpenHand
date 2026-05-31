@@ -24,26 +24,26 @@ class AiAudioIoService {
 
   Future<AiAudioIoResult> transcribe({
     required AiModelConfig model,
-    required String inputLabel,
+    required String filePath,
     Duration timeout = const Duration(seconds: 120),
   }) {
     return _sendAudioRequest(
       model: model,
       family: AiApiFamily.audioTranscription,
-      inputLabel: inputLabel,
+      filePath: filePath,
       timeout: timeout,
     );
   }
 
   Future<AiAudioIoResult> translate({
     required AiModelConfig model,
-    required String inputLabel,
+    required String filePath,
     Duration timeout = const Duration(seconds: 120),
   }) {
     return _sendAudioRequest(
       model: model,
       family: AiApiFamily.audioTranslation,
-      inputLabel: inputLabel,
+      filePath: filePath,
       timeout: timeout,
     );
   }
@@ -51,7 +51,7 @@ class AiAudioIoService {
   Future<AiAudioIoResult> _sendAudioRequest({
     required AiModelConfig model,
     required AiApiFamily family,
-    required String inputLabel,
+    required String filePath,
     required Duration timeout,
   }) async {
     final endpoint = _router.resolve(
@@ -79,7 +79,7 @@ class AiAudioIoService {
       headers: headers,
       body: <String, Object?>{
         'model': model.resolveOperationModelId(family),
-        'file': inputLabel,
+        'file': AiMultipartUploadFile(filePath: filePath),
       },
       timeout: timeout,
     );

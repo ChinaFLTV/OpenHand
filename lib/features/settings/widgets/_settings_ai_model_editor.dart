@@ -27,9 +27,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late bool _streamEnabled;
   late final TextEditingController _responsesModelIdController;
   late final TextEditingController _embeddingModelIdController;
+  late final TextEditingController _moderationModelIdController;
+  late final TextEditingController _rerankModelIdController;
   late final TextEditingController _imageModelIdController;
   late final TextEditingController _videoModelIdController;
   late final TextEditingController _speechModelIdController;
+  late final TextEditingController _transcriptionModelIdController;
+  late final TextEditingController _translationModelIdController;
+  late final TextEditingController _realtimeModelIdController;
   late final TextEditingController _defaultVoiceController;
   late final TextEditingController _realtimeTransportController;
   late final TextEditingController _realtimeUrlOverrideController;
@@ -91,6 +96,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _embeddingModelIdController = TextEditingController(
       text: widget.initialModel?.operationRouting.embeddingModelId ?? '',
     );
+    _moderationModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.moderationModelId ?? '',
+    );
+    _rerankModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.rerankModelId ?? '',
+    );
     _imageModelIdController = TextEditingController(
       text: widget.initialModel?.operationRouting.imageModelId ?? '',
     );
@@ -99,6 +110,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     );
     _speechModelIdController = TextEditingController(
       text: widget.initialModel?.operationRouting.speechModelId ?? '',
+    );
+    _transcriptionModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.transcriptionModelId ?? '',
+    );
+    _translationModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.translationModelId ?? '',
+    );
+    _realtimeModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.realtimeModelId ?? '',
     );
     _defaultVoiceController = TextEditingController(
       text: widget.initialModel?.operationRouting.defaultVoice ?? '',
@@ -156,9 +176,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _temperatureController.dispose();
     _responsesModelIdController.dispose();
     _embeddingModelIdController.dispose();
+    _moderationModelIdController.dispose();
+    _rerankModelIdController.dispose();
     _imageModelIdController.dispose();
     _videoModelIdController.dispose();
     _speechModelIdController.dispose();
+    _transcriptionModelIdController.dispose();
+    _translationModelIdController.dispose();
+    _realtimeModelIdController.dispose();
     _defaultVoiceController.dispose();
     _realtimeTransportController.dispose();
     _realtimeUrlOverrideController.dispose();
@@ -1044,6 +1069,44 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               LayoutBuilder(
                                 builder: (context, constraints) {
                                   final stacked = constraints.maxWidth < 640;
+                                  final moderationField = TextField(
+                                    controller: _moderationModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Moderations 模型 ID（可选）',
+                                    ),
+                                  );
+                                  final rerankField = TextField(
+                                    controller: _rerankModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Rerank 模型 ID（可选）',
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        moderationField,
+                                        const SizedBox(height: 12),
+                                        rerankField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: moderationField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: rerankField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
                                   final imageField = TextField(
                                     controller: _imageModelIdController,
                                     enabled: !_isSaving,
@@ -1120,6 +1183,44 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               LayoutBuilder(
                                 builder: (context, constraints) {
                                   final stacked = constraints.maxWidth < 640;
+                                  final transcriptionField = TextField(
+                                    controller: _transcriptionModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Transcription 模型 ID（可选）',
+                                    ),
+                                  );
+                                  final translationField = TextField(
+                                    controller: _translationModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Translation 模型 ID（可选）',
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        transcriptionField,
+                                        const SizedBox(height: 12),
+                                        translationField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: transcriptionField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: translationField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
                                   final realtimeTransportField = TextField(
                                     controller: _realtimeTransportController,
                                     enabled: !_isSaving,
@@ -1134,6 +1235,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                       labelText: 'Realtime URL Override（可选）',
                                     ),
                                   );
+                                  final realtimeModelField = TextField(
+                                    controller: _realtimeModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Realtime 模型 ID（可选）',
+                                    ),
+                                  );
                                   if (stacked) {
                                     return Column(
                                       crossAxisAlignment:
@@ -1142,14 +1250,22 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         realtimeTransportField,
                                         const SizedBox(height: 12),
                                         realtimeUrlField,
+                                        const SizedBox(height: 12),
+                                        realtimeModelField,
                                       ],
                                     );
                                   }
-                                  return Row(
+                                  return Column(
                                     children: [
-                                      Expanded(child: realtimeTransportField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: realtimeUrlField),
+                                      Row(
+                                        children: [
+                                          Expanded(child: realtimeTransportField),
+                                          const SizedBox(width: 16),
+                                          Expanded(child: realtimeUrlField),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      realtimeModelField,
                                     ],
                                   );
                                 },
@@ -1364,9 +1480,22 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         embeddingModelId: _normalizeOptionalText(
           _embeddingModelIdController.text,
         ),
+        moderationModelId: _normalizeOptionalText(
+          _moderationModelIdController.text,
+        ),
+        rerankModelId: _normalizeOptionalText(_rerankModelIdController.text),
         imageModelId: _normalizeOptionalText(_imageModelIdController.text),
         videoModelId: _normalizeOptionalText(_videoModelIdController.text),
         speechModelId: _normalizeOptionalText(_speechModelIdController.text),
+        transcriptionModelId: _normalizeOptionalText(
+          _transcriptionModelIdController.text,
+        ),
+        translationModelId: _normalizeOptionalText(
+          _translationModelIdController.text,
+        ),
+        realtimeModelId: _normalizeOptionalText(
+          _realtimeModelIdController.text,
+        ),
         defaultVoice: _normalizeOptionalText(_defaultVoiceController.text),
       ),
       endpointOverrides: parseAiEndpointOverrides(

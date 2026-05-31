@@ -3,8 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import '../../../../app/support/system_proxy.dart';
+
+class AiMultipartUploadFile {
+  const AiMultipartUploadFile({required this.filePath, this.filename});
+
+  final String filePath;
+  final String? filename;
+}
 
 class AiTransportClient {
   AiTransportClient({http.Client? client})
@@ -38,8 +46,32 @@ class AiTransportClient {
       if (key.trim().toLowerCase() == 'content-type') return;
       request.headers[key] = value;
     });
-    body.forEach((key, value) {
-      if (value == null) return;
+    for (final entry in body.entries) {
+      final key = entry.key;
+      final value = entry.value;
+      if (value == null) continue;
+      if (value is AiMultipartUploadFile) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            key,
+            value.filePath,
+            filename: value.filename ?? p.basename(value.filePath),
+          ),
+        );
+        continue;
+      }
+      if (value is List<AiMultipartUploadFile>) {
+        for (final item in value) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              key,
+              item.filePath,
+              filename: item.filename ?? p.basename(item.filePath),
+            ),
+          );
+        }
+        continue;
+      }
       final fieldValue =
           value is String
               ? value
@@ -47,7 +79,7 @@ class AiTransportClient {
                   ? value.toString()
                   : jsonEncode(value));
       request.fields[key] = fieldValue;
-    });
+    }
     final streamed = await _client.send(request).timeout(timeout);
     return http.Response.fromStream(streamed).timeout(timeout);
   }

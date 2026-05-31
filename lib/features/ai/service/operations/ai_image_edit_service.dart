@@ -25,7 +25,7 @@ class AiImageEditService {
   Future<AiImageEditResult> editImage({
     required AiModelConfig model,
     required String prompt,
-    required String imageLabel,
+    required String imageFilePath,
     Duration timeout = const Duration(seconds: 120),
   }) async {
     final endpoint = _router.resolve(
@@ -54,7 +54,7 @@ class AiImageEditService {
       body: <String, Object?>{
         'model': model.resolveOperationModelId(AiApiFamily.imageEdit),
         'prompt': prompt,
-        'image': imageLabel,
+        'image': AiMultipartUploadFile(filePath: imageFilePath),
       },
       timeout: timeout,
     );
