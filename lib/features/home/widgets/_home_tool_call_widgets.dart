@@ -633,10 +633,7 @@ class _ExpandableToolSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasPreview = preview.trim().isNotEmpty;
-    final motionDuration = cardMotionDurationFor(
-      context,
-      expanding: expanded,
-    );
+    final motionDuration = cardMotionDurationFor(context, expanding: expanded);
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
       borderRadius: const BorderRadius.all(Radius.circular(16)),
@@ -690,10 +687,8 @@ class _ExpandableToolSection extends StatelessWidget {
                     alignment: Alignment.topLeft,
                     children: [...previous, if (current != null) current],
                   ),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  ),
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
                   child: expanded
                       ? Padding(
                           key: const ValueKey<String>('expanded'),
@@ -3274,7 +3269,8 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         // pointer events so that the chip and underlying widgets remain
         // interactive (e.g. clicking the chip still opens Finder).
         child: IgnorePointer(
-          child: FadeInOverlayContent(
+          child: AnimatedOverlayContent(
+            useMenuSettings: true,
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(8),
@@ -3657,7 +3653,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 ? StreamingTextReveal(
                     textLength: aiReasoning.length,
                     streaming: true,
-                  animateSize: false,
+                    animateSize: false,
                     child: _SelfLearningMarkdown(
                       data: aiReasoning,
                       muted: true,
@@ -3683,7 +3679,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 ? StreamingTextReveal(
                     textLength: aiResponse.length,
                     streaming: true,
-                  animateSize: false,
+                    animateSize: false,
                     child: _SelfLearningMarkdown(
                       data: aiResponse,
                       muted: false,

@@ -4217,198 +4217,204 @@ class _MultiSelectDropdownMenuState<T>
     final effectiveSelected = _effectiveSelectedValues();
     final selectedCount = effectiveSelected.length;
     final scopeText = query.isEmpty ? '全部条目' : '当前筛选 ${filtered.length} 项';
-    return buildAnimationStyleTransition(
-      animation: _transitionController,
-      settings: settings,
-      child: Material(
-        type: MaterialType.card,
-        clipBehavior: Clip.antiAlias,
-        elevation: 14,
-        shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
-        surfaceTintColor: colorScheme.surfaceTint,
-        color: colorScheme.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: buildAnimationStyleTransition(
+        animation: _transitionController,
+        settings: settings,
+        child: Material(
+          type: MaterialType.card,
+          clipBehavior: Clip.antiAlias,
+          elevation: 14,
+          shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
+          surfaceTintColor: colorScheme.surfaceTint,
+          color: colorScheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
           ),
-        ),
-        child: SizedBox(
-          width: 460,
-          height: 410,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(13),
+          child: SizedBox(
+            width: 460,
+            height: 410,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.tune_rounded,
-                        size: 18,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.label,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.label,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _selectionSummaryText(
+                                selectedCount,
+                                totalValues.length,
+                                scopeText,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _GatewayRoundIconActionButton(
+                        tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                        icon: Icons.done_all_rounded,
+                        onPressed: filteredValues.isEmpty
+                            ? null
+                            : () => _selectValues(filteredValues),
+                      ),
+                      const SizedBox(width: 8),
+                      _GatewayRoundIconActionButton(
+                        tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                        icon: Icons.remove_done_rounded,
+                        onPressed: filteredValues.isEmpty
+                            ? null
+                            : () => _deselectValues(filteredValues),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.58,
+                      ),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText: '搜索',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: colorScheme.outlineVariant,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.72,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _selectionSummaryText(
-                              selectedCount,
-                              totalValues.length,
-                              scopeText,
+                        ),
+                      ),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: '清空搜索',
+                              onPressed: _searchController.clear,
+                              icon: const Icon(Icons.clear_rounded, size: 18),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: colorScheme.outlineVariant),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            '没有匹配项',
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _GatewayRoundIconActionButton(
-                      tooltip: query.isEmpty ? '全选' : '当前筛选全选',
-                      icon: Icons.done_all_rounded,
-                      onPressed: filteredValues.isEmpty
-                          ? null
-                          : () => _selectValues(filteredValues),
-                    ),
-                    const SizedBox(width: 8),
-                    _GatewayRoundIconActionButton(
-                      tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
-                      icon: Icons.remove_done_rounded,
-                      onPressed: filteredValues.isEmpty
-                          ? null
-                          : () => _deselectValues(filteredValues),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.58,
-                    ),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    hintText: '搜索',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.72,
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 4),
+                          itemBuilder: (context, index) {
+                            final option = filtered[index];
+                            final selected = effectiveSelected.contains(
+                              option.value,
+                            );
+                            return Material(
+                              color: selected
+                                  ? colorScheme.primaryContainer.withValues(
+                                      alpha: 0.36,
+                                    )
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                              child: CheckboxListTile(
+                                dense: true,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                value: selected,
+                                onChanged: (_) => _toggle(option.value),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                title: Text(
+                                  option.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: selected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                    suffixIcon: _searchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: '清空搜索',
-                            onPressed: _searchController.clear,
-                            icon: const Icon(Icons.clear_rounded, size: 18),
-                          ),
-                  ),
                 ),
-              ),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              Expanded(
-                child: filtered.isEmpty
-                    ? Center(
+                Divider(height: 1, color: colorScheme.outlineVariant),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          '没有匹配项',
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          query.isEmpty ? '对全部条目生效' : '仅对当前筛选结果生效',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                        itemCount: filtered.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 4),
-                        itemBuilder: (context, index) {
-                          final option = filtered[index];
-                          final selected = effectiveSelected.contains(
-                            option.value,
-                          );
-                          return Material(
-                            color: selected
-                                ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.36,
-                                  )
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(14),
-                            child: CheckboxListTile(
-                              dense: true,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              value: selected,
-                              onChanged: (_) => _toggle(option.value),
-                              controlAffinity: ListTileControlAffinity.leading,
-                              title: Text(
-                                option.label,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: selected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
                       ),
-              ),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        query.isEmpty ? '对全部条目生效' : '仅对当前筛选结果生效',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      _MenuActionButton(
+                        onPressed: _applyAndClose,
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('完成'),
+                        filled: true,
                       ),
-                    ),
-                    _MenuActionButton(
-                      onPressed: _applyAndClose,
-                      icon: const Icon(Icons.check_rounded, size: 18),
-                      label: const Text('完成'),
-                      filled: true,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -4501,6 +4507,7 @@ DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
       entranceStyle: DialogAnimationStyle.springScale,
       exitStyle: DialogAnimationStyle.springScale,
       durationMs: 260,
+      curve: DialogAnimationCurve.easeOutCubic,
     );
   }
 }

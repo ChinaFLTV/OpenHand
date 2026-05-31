@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
 
 const DialogAnimationSettings _kNoMenuAnimationSettings =
@@ -334,133 +335,14 @@ Widget _buildMenuTransition(
   DialogAnimationSettings settings,
   Widget child,
 ) {
-  final forward =
-      animation.status == AnimationStatus.forward ||
-      animation.status == AnimationStatus.completed;
-  final style = forward ? settings.entranceStyle : settings.exitStyle;
-  final curveData = settings.curve;
-  final curved = CurvedAnimation(
-    parent: animation,
-    curve: curveData.curve,
-    reverseCurve: curveData.reverseCurve,
+  return Align(
+    alignment: Alignment.topLeft,
+    child: buildAnimationStyleTransition(
+      animation: animation,
+      settings: settings,
+      child: child,
+    ),
   );
-
-  return switch (style) {
-    DialogAnimationStyle.none => child,
-    DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
-    DialogAnimationStyle.fadeScale => FadeTransition(
-      opacity: curved,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
-        alignment: Alignment.topLeft,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.slideUp => FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.08),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.slideDown => FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, -0.08),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.expand => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: curved,
-        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.88, end: 1.0).animate(
-          CurvedAnimation(
-            parent: curved,
-            curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
-          ),
-        ),
-        alignment: Alignment.topLeft,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.rotateScale => FadeTransition(
-      opacity: curved,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
-        child: RotationTransition(
-          turns: Tween<double>(begin: -0.03, end: 0.0).animate(curved),
-          child: child,
-        ),
-      ),
-    ),
-    DialogAnimationStyle.elastic => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
-        reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
-        alignment: Alignment.topLeft,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.slideLeft => FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(-0.08, 0),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.slideRight => FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0.08, 0),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.springScale => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
-        reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-            reverseCurve: Curves.easeInBack,
-          ),
-        ),
-        alignment: Alignment.topLeft,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.flipX => FadeTransition(
-      opacity: curved,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
-        alignment: Alignment.topLeft,
-        child: child,
-      ),
-    ),
-  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

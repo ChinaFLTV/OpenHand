@@ -13291,7 +13291,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       final overlay = Overlay.of(context, rootOverlay: true);
       if (_diagnosticTooltipEntry == null) {
         _diagnosticTooltipEntry = OverlayEntry(
-          builder: (overlayContext) => FadeInOverlayContent(
+          builder: (overlayContext) => AnimatedOverlayContent(
+            useMenuSettings: true,
+            enableScaleAnimation: true,
             child: _buildDiagnosticTooltipOverlay(overlayContext),
           ),
         );

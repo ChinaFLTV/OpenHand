@@ -69,7 +69,8 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
         left: targetLeft,
         top: targetTop,
         child: IgnorePointer(
-          child: FadeInOverlayContent(
+          child: AnimatedOverlayContent(
+            useMenuSettings: true,
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(8),
