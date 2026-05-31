@@ -88,10 +88,14 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
     super.key,
     required this.trend,
     this.height = 168,
+    this.displayMode = SessionCacheHitDisplayMode.excludeExtremeMisses,
+    this.onDisplayModeChanged,
   });
 
   final SessionCacheHitTrend trend;
   final double height;
+  final SessionCacheHitDisplayMode displayMode;
+  final ValueChanged<SessionCacheHitDisplayMode>? onDisplayModeChanged;
 
   @override
   State<TokenPopupCacheHitTrendChart> createState() =>
@@ -150,13 +154,18 @@ class _TokenPopupCacheHitTrendChartState
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final visiblePoints = _visiblePoints(widget.trend.points, _viewport);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final displayData = widget.trend.displayData(widget.displayMode);
+    final effectiveViewport = _viewport.totalPoints == displayData.trend.points.length
+        ? _viewport
+        : SessionCacheHitViewport.full(displayData.trend.points.length);
+    final visiblePoints = _visiblePoints(displayData.trend.points, effectiveViewport);
     final valueStyle = theme.textTheme.labelSmall?.copyWith(
       color: colorScheme.onSurfaceVariant,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    if (!widget.trend.hasEnoughPoints) {
+    if (!displayData.trend.hasEnoughPoints) {
       return const SizedBox.shrink();
     }
 
@@ -185,7 +194,7 @@ class _TokenPopupCacheHitTrendChartState
                 ),
               ),
               Text(
-                '${l10n.sessMetaCacheHitAvg}: ${(widget.trend.averageHitRatio * 100).round()}%',
+                '${l10n.sessMetaCacheHitAvg}: ${(displayData.averageHitRatio * 100).round()}%',
                 style: valueStyle,
               ),
               const SizedBox(width: 8),
@@ -237,6 +246,41 @@ class _TokenPopupCacheHitTrendChartState
               ],
             ],
           ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _CacheHitModeChip(
+                label: isZh ? '排除极端值' : 'Exclude extremes',
+                selected:
+                    widget.displayMode == SessionCacheHitDisplayMode.excludeExtremeMisses,
+                onTap: () {
+                  _viewport = SessionCacheHitViewport.full(
+                    displayData.trend.points.length,
+                  );
+                  widget.onDisplayModeChanged?.call(
+                    SessionCacheHitDisplayMode.excludeExtremeMisses,
+                  );
+                },
+              ),
+              _CacheHitModeChip(
+                label: isZh ? '包括全部' : 'Include all',
+                selected: widget.displayMode == SessionCacheHitDisplayMode.includeAll,
+                onTap: () {
+                  _viewport = SessionCacheHitViewport.full(widget.trend.points.length);
+                  widget.onDisplayModeChanged?.call(
+                    SessionCacheHitDisplayMode.includeAll,
+                  );
+                },
+              ),
+              if (displayData.excludedPointCount > 0)
+                Text(
+                  '已排除 ${displayData.excludedPointCount} 轮',
+                  style: valueStyle,
+                ),
+            ],
+          ),
           const SizedBox(height: 10),
           SizedBox(
             height: widget.height,
@@ -252,7 +296,7 @@ class _TokenPopupCacheHitTrendChartState
                 final averageY =
                     chartRect.bottom -
                     chartRect.height *
-                        widget.trend.averageHitRatio.clamp(0.0, 1.0);
+                        displayData.averageHitRatio.clamp(0.0, 1.0);
                 final startTurn = visiblePoints.first.turnIndex;
                 final middleTurn =
                     visiblePoints[visiblePoints.length ~/ 2].turnIndex;
@@ -322,7 +366,7 @@ class _TokenPopupCacheHitTrendChartState
                           child: RepaintBoundary(
                             child: CustomPaint(
                               painter: _TokenPopupCacheHitTrendStaticPainter(
-                                averageHitRatio: widget.trend.averageHitRatio,
+                                averageHitRatio: displayData.averageHitRatio,
                                 colorScheme: colorScheme,
                               ),
                               child: const SizedBox.expand(),
@@ -534,5 +578,50 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.progress != progress ||
         oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class _CacheHitModeChip extends StatelessWidget {
+  const _CacheHitModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? colorScheme.primary.withValues(alpha: 0.12)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.5)
+                : colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }
