@@ -958,33 +958,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           ? _localizedText(context, zh: 'Web 用户', en: 'a Web user')
           : notice.deletedByLabel.trim();
       unawaited(
-        showAnimatedDialog<void>(
+        showOpenHandInfoDialog(
           context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
-            title: Text(
-              _localizedText(
-                dialogContext,
-                zh: '当前线程已被删除',
-                en: 'Current Thread Deleted',
-              ),
-            ),
-            content: Text(
-              _localizedText(
-                dialogContext,
-                zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
-                en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
-              ),
-            ),
-            actions: [
-              OpenHandDialogActionButton.primary(
-                label: _localizedText(dialogContext, zh: '返回', en: 'Back'),
-                onPressed: () => Navigator.of(dialogContext).pop(),
-              ),
-            ],
+          title: _localizedText(
+            context,
+            zh: '当前线程已被删除',
+            en: 'Current Thread Deleted',
           ),
+          message: _localizedText(
+            context,
+            zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
+            en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
+          ),
+          closeLabel: _localizedText(context, zh: '返回', en: 'Back'),
+          barrierDismissible: false,
         ),
       );
     });
