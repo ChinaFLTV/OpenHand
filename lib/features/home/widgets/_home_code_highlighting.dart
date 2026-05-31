@@ -587,7 +587,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _copied = true;
     });
     final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
+    OpenHandSnackBar.hideCurrentOn(messenger);
     _showHomeSnackBarWithMessenger(
       context,
       messenger,
@@ -620,7 +620,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         _copied = false;
       });
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -658,7 +658,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         _downloaded = true;
       });
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -685,7 +685,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         return;
       }
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -1451,7 +1451,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         _isCleaning = false;
       });
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -1470,7 +1470,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       setState(() {
         _isCleaning = false;
       });
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
@@ -1503,7 +1503,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         return;
       }
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,

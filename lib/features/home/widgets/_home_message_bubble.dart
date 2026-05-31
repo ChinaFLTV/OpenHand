@@ -2800,7 +2800,7 @@ $mediaTag
     final messenger = ScaffoldMessenger.maybeOf(context);
     void showSnack(String zh, String en) {
       if (messenger == null) return;
-      messenger.hideCurrentSnackBar();
+      OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
         context,
         messenger,

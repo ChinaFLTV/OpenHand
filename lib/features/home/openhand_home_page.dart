@@ -63,6 +63,7 @@ import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
+import '../../shared/ui/structured_error_text.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../hardness/index.dart';
@@ -1179,7 +1180,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _composerController.clear();
       }
       if (mounted && l10n != null && messenger != null) {
-        messenger.hideCurrentSnackBar();
+        OpenHandSnackBar.hideCurrentOn(messenger);
         _showHomeSnackBarWithMessenger(
           context,
           messenger,
@@ -2969,7 +2970,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   /// 把 [WebReverseLaunchException] 转成"标题 + 详情"两段式文案，
-  /// 标题给 SnackBar 主行，详情通过「详情 / Details」按钮展开。
+  /// 标题给 SnackBar 主行，详情通过「详情」按钮展开。
   /// 详情区由 [WebReverseLaunchDiagnosis] 把 launcher 抓回来的 stderr
   /// 摘要 / 探测次数 / 进程退出码结构化为「现象 → 根因 → 建议」三段式，
   /// 末尾保留原始报错供高级用户复制。
@@ -3977,7 +3978,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _showFullAccessConfirmationDialog() {
     return showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
+      title: _localizedText(
+        context,
+        zh: '启用完全访问权限？',
+        en: 'Enable Full Access?',
+      ),
       message: _localizedText(
         context,
         zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
@@ -4015,7 +4020,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
     _showHomeSnackBar(
       context,
       SnackBar(
@@ -5506,7 +5511,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     return showOpenHandInfoDialog(
       context: context,
-      title: _localizedText(context, zh: 'Slash Commands', en: 'Slash Commands'),
+      title: _localizedText(
+        context,
+        zh: 'Slash Commands',
+        en: 'Slash Commands',
+      ),
       closeLabel: closeLabel,
       content: SelectableText(detail),
     );

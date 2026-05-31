@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
@@ -9,8 +10,8 @@ import 'openhand_snack_bar.dart';
 /// 把可能很长的「现象 / 原因 / 建议」三段式错误文案以**对用户友好**的方式
 /// 展示在 SnackBar 上：
 ///   · SnackBar 主文本只截取第一非空行（作者设计为简短中英标题）
-///   · 当原始文本含有多行时，附带「详情 / Details」动作按钮，点击后
-///     弹出 AlertDialog 用 SelectableText 完整展示，便于复制 / 排查
+///   · 当原始文本含有多行时，附带「详情」动作按钮，点击后
+///     弹出 AlertDialog 用 SelectableText 完整展示，便于复制与排查
 ///
 /// 这样用户既不会被 SnackBar 截断的长报错气死，也能在需要时拿到完整
 /// 排错信息。同时也避免到处堆砌 dialog 重复样板。
@@ -19,6 +20,7 @@ void showFriendlyErrorSnackBar(
   required String? message,
   required String fallback,
 }) {
+  final l10n = AppLocalizations.of(context)!;
   final raw = (message ?? '').trim();
   final effective = raw.isEmpty ? fallback : raw;
   // 拆出第一非空行作为 SnackBar 主标题。
@@ -36,7 +38,7 @@ void showFriendlyErrorSnackBar(
   // ancestor is unsafe」断言。这里提前抓住根 Navigator 的 context，
   // 它由 MaterialApp 持有，生命周期与 App 一致，可在异步回调里安全使用。
   final rootContext = Navigator.of(context, rootNavigator: true).context;
-  messenger.hideCurrentSnackBar();
+  OpenHandSnackBar.hideCurrentOn(messenger);
   OpenHandSnackBar.show(
     context,
     messenger,
@@ -49,7 +51,7 @@ void showFriendlyErrorSnackBar(
           : const Duration(seconds: 4),
       action: hasDetails
           ? SnackBarAction(
-              label: '详情 / Details',
+              label: l10n.commonDetails,
               onPressed: () {
                 if (!rootContext.mounted) return;
                 showFriendlyErrorDetailsDialog(
@@ -78,11 +80,12 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
   showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) {
+      final l10n = AppLocalizations.of(dialogContext)!;
       final theme = Theme.of(dialogContext);
       return AlertDialog(
         actionsAlignment: MainAxisAlignment.center,
         actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: const Text('错误详情 / Error details'),
+        title: Text(l10n.sessMetaErrorDetail),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
           child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
@@ -93,22 +96,22 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
               await Clipboard.setData(ClipboardData(text: fullText));
               if (!dialogContext.mounted) return;
               final messenger = ScaffoldMessenger.of(dialogContext);
-              messenger.hideCurrentSnackBar();
+              OpenHandSnackBar.hideCurrentOn(messenger);
               OpenHandSnackBar.show(
                 dialogContext,
                 messenger,
                 OpenHandSnackBar.success(
                   dialogContext,
-                  '已复制到剪贴板 / Copied to clipboard',
+                  l10n.commonCopiedToClipboard,
                 ),
               );
             },
             icon: Icons.copy_all_outlined,
-            label: '复制 / Copy',
+            label: l10n.commonCopy,
           ),
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: '关闭 / Close',
+            label: l10n.commonClose,
           ),
         ],
       );

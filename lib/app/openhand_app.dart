@@ -7,10 +7,10 @@ import 'package:provider/provider.dart';
 import '../features/home/openhand_home_page.dart';
 import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
+import '../shared/ui/openhand_snack_bar.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'support/input_repair_service.dart';
-import 'support/openhand_notification_service.dart';
 import 'support/safe_subprocess.dart';
 import 'support/silent_log.dart';
 import 'theme/openhand_theme.dart';
@@ -80,7 +80,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: OpenHandNotificationService.scaffoldMessengerKey,
+      scaffoldMessengerKey: OpenHandSnackBar.rootMessengerKey,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       themeMode: themeMode,
       theme: OpenHandTheme.light(themePreset),
@@ -115,12 +115,12 @@ class _OpenHandAppState extends State<OpenHandApp> {
           children: [
             builtChild,
             Offstage(
-              offstage: true,
               child: Focus(
                 focusNode: _inputRepairSentinelFocusNode,
                 child: const SizedBox.shrink(),
               ),
             ),
+            const OpenHandGlobalSnackBarHost(),
           ],
         );
       },

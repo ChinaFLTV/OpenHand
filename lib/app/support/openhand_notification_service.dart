@@ -9,9 +9,6 @@ import 'safe_subprocess.dart';
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
 
 abstract final class OpenHandNotificationService {
-  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-
   static bool get supportsVibration => Platform.isAndroid || Platform.isIOS;
 
   static Future<void> showInApp({
@@ -21,8 +18,8 @@ abstract final class OpenHandNotificationService {
     bool playSound = false,
     bool vibrate = false,
   }) async {
-    final messenger = scaffoldMessengerKey.currentState;
-    final context = scaffoldMessengerKey.currentContext;
+    final messenger = OpenHandSnackBar.rootMessengerKey.currentState;
+    final context = OpenHandSnackBar.rootMessengerKey.currentContext;
     if (messenger == null || context == null) return;
 
     final colorScheme = Theme.of(context).colorScheme;
