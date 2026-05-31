@@ -17,7 +17,6 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -446,17 +445,10 @@ class _WatchDialogState extends State<_WatchDialog> {
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
-            Padding(
+            buildOpenHandDialogFooter(
+              primaryLabel: loc?.webReverseWatchClose ?? 'Close',
+              onPrimaryPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseWatchClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

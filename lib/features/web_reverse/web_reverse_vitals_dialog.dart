@@ -21,7 +21,6 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -358,26 +357,21 @@ class _VitalsDialogState extends State<_VitalsDialog> {
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
-            Padding(
+            buildOpenHandDialogFooter(
+              primaryLabel:
+                  AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
+              onPrimaryPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-              child: Row(
-                children: [
-                  if (_busy)
-                    SizedBox(
+              leading: _busy
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: cs.primary,
                       ),
-                    ),
-                  const Spacer(),
-                  OpenHandDialogActionButton.primary(
-                    label: AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
