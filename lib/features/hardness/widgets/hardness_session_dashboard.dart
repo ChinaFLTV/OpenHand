@@ -1993,30 +1993,17 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
   Future<void> _deletePhaseLog(BuildContext context, int phaseIndex) async {
     final isZh = widget.isZh;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除阶段' : 'Delete Phase'),
-        content: Text(
-          isZh
-              ? '确定删除这个阶段吗？删除后该阶段的执行日志将被移除。'
-              : 'Are you sure you want to delete this phase? The execution log will be removed.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: isZh ? '删除' : 'Delete',
-          ),
-        ],
-      ),
+      title: isZh ? '删除阶段' : 'Delete Phase',
+      message: isZh
+          ? '确定删除这个阶段吗？删除后该阶段的执行日志将被移除。'
+          : 'Are you sure you want to delete this phase? The execution log will be removed.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     widget.orchestrator.deletePhaseLog(phaseIndex);
   }
 

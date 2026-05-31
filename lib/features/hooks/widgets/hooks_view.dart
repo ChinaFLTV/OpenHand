@@ -113,34 +113,22 @@ class HooksView extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, HookEntry entry) {
+  Future<void> _confirmDelete(BuildContext context, HookEntry entry) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    showAnimatedDialog(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除 Hook' : 'Delete Hook'),
-        content: Text(
-          isZh
-              ? '确定删除 "${entry.label}" 吗？此操作不可撤销。'
-              : 'Delete "${entry.label}"? This action cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: isZh ? '取消' : 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          OpenHandDialogActionButton.primary(
-            label: isZh ? '删除' : 'Delete',
-            onPressed: () {
-              context.read<HooksController>().deleteHook(entry.id);
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
+      title: isZh ? '删除 Hook' : 'Delete Hook',
+      message: isZh
+          ? '确定删除 "${entry.label}" 吗？此操作不可撤销。'
+          : 'Delete "${entry.label}"? This action cannot be undone.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    context.read<HooksController>().deleteHook(entry.id);
   }
 }
 

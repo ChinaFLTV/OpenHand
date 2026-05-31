@@ -434,29 +434,14 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
 
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
-    // Confirmation dialog.
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '确认登出' : 'Confirm Logout'),
-        content: Text(
-          isZh
-              ? '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。'
-              : 'Are you sure you want to log out of ${cli.name}? You will need to log in again to use this CLI.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(true),
-            label: isZh ? '登出' : 'Logout',
-          ),
-        ],
-      ),
+      title: isZh ? '确认登出' : 'Confirm Logout',
+      message: isZh
+          ? '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。'
+          : 'Are you sure you want to log out of ${cli.name}? You will need to log in again to use this CLI.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '登出' : 'Logout',
     );
 
     if (confirmed != true || !mounted) return;

@@ -3987,37 +3987,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<bool> _showFullAccessConfirmationDialog() async {
-    final confirmed = await showAnimatedDialog<bool>(
+  Future<bool> _showFullAccessConfirmationDialog() {
+    return showOpenHandConfirmDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
-          ),
-          content: Text(
-            _localizedText(
-              context,
-              zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
-              en: 'With Full Access enabled, OpenHand can edit any file and run commands without requiring your explicit approval.\n\nPlease evaluate carefully before enabling. This action significantly increases the risk of data loss, leakage, or unexpected behavior.',
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(context).pop(false),
-              label: _localizedText(context, zh: '取消', en: 'Cancel'),
-            ),
-            OpenHandDialogActionButton.destructive(
-              onPressed: () => Navigator.of(context).pop(true),
-              label: _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
-            ),
-          ],
-        );
-      },
+      title: _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
+      message: _localizedText(
+        context,
+        zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
+        en: 'With Full Access enabled, OpenHand can edit any file and run commands without requiring your explicit approval.\n\nPlease evaluate carefully before enabling. This action significantly increases the risk of data loss, leakage, or unexpected behavior.',
+      ),
+      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      confirmLabel: _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
+      destructive: true,
     );
-    return confirmed == true;
   }
 
   void _queueMessageForSession({

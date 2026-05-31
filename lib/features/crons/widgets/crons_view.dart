@@ -144,34 +144,22 @@ class CronsView extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, CronEntry entry) {
+  Future<void> _confirmDelete(BuildContext context, CronEntry entry) async {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    showAnimatedDialog(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除定时任务' : 'Delete Cron Job'),
-        content: Text(
-          isZh
-              ? '确定删除 "${entry.name}" 吗？此操作不可撤销，执行历史也将一并删除。'
-              : 'Delete "${entry.name}"? This cannot be undone. Execution history will also be removed.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: isZh ? '取消' : 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          OpenHandDialogActionButton.primary(
-            label: isZh ? '删除' : 'Delete',
-            onPressed: () {
-              context.read<CronsController>().deleteCron(entry.id);
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
+      title: isZh ? '删除定时任务' : 'Delete Cron Job',
+      message: isZh
+          ? '确定删除 "${entry.name}" 吗？此操作不可撤销，执行历史也将一并删除。'
+          : 'Delete "${entry.name}"? This cannot be undone. Execution history will also be removed.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    context.read<CronsController>().deleteCron(entry.id);
   }
 }
 
@@ -2038,60 +2026,36 @@ class _CronHistoryDialog extends StatelessWidget {
     );
   }
 
-  void _confirmClearAll(
+  Future<void> _confirmClearAll(
     BuildContext context,
     CronsController controller,
     bool isZh,
-  ) {
-    showAnimatedDialog(
+  ) async {
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '清空执行历史' : 'Clear Execution History'),
-        content: Text(
-          isZh
-              ? '确定清空「${entry.name}」的全部执行历史吗？此操作不可撤销。'
-              : 'Clear all execution history for "${entry.name}"? This cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: isZh ? '取消' : 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          OpenHandDialogActionButton.primary(
-            label: isZh ? '清空' : 'Clear',
-            onPressed: () {
-              controller.clearHistoryForCron(entry.id);
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
+      title: isZh ? '清空执行历史' : 'Clear Execution History',
+      message: isZh
+          ? '确定清空「${entry.name}」的全部执行历史吗？此操作不可撤销。'
+          : 'Clear all execution history for "${entry.name}"? This cannot be undone.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '清空' : 'Clear',
+      destructive: true,
     );
+    if (!confirmed) {
+      return;
+    }
+    controller.clearHistoryForCron(entry.id);
   }
 
-  Future<bool> _confirmDeleteRecord(BuildContext context, bool isZh) async {
-    final result = await showAnimatedDialog<bool>(
+  Future<bool> _confirmDeleteRecord(BuildContext context, bool isZh) {
+    return showOpenHandConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '删除执行记录' : 'Delete Execution Record'),
-        content: Text(isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?'),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: isZh ? '取消' : 'Cancel',
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          OpenHandDialogActionButton.primary(
-            label: isZh ? '删除' : 'Delete',
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      ),
+      title: isZh ? '删除执行记录' : 'Delete Execution Record',
+      message: isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
-    return result ?? false;
   }
 }
 
