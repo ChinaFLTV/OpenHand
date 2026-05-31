@@ -23,6 +23,7 @@ class PluginServiceController extends ChangeNotifier {
   List<PluginInfo> _plugins = [];
   bool _isLoading = true;
   bool _isOperating = false;
+  String? _checkingPluginId;
   String? _errorMessage;
   final List<String> _operationLogs = [];
   final ValueNotifier<int> operationSuccessSignal = ValueNotifier<int>(0);
@@ -30,6 +31,7 @@ class PluginServiceController extends ChangeNotifier {
   List<PluginInfo> get plugins => _plugins;
   bool get isLoading => _isLoading;
   bool get isOperating => _isOperating;
+  String? get checkingPluginId => _checkingPluginId;
   String? get errorMessage => _errorMessage;
   List<String> get operationLogs => List.unmodifiable(_operationLogs);
 
@@ -75,6 +77,7 @@ class PluginServiceController extends ChangeNotifier {
     final plugin = pluginById(pluginId);
     if (plugin == null) return null;
     _errorMessage = null;
+    _checkingPluginId = pluginId;
     notifyListeners();
     try {
       final refreshed = await switch (pluginId) {
@@ -102,6 +105,9 @@ class PluginServiceController extends ChangeNotifier {
       _errorMessage = '$e';
       notifyListeners();
       return null;
+    } finally {
+      _checkingPluginId = null;
+      notifyListeners();
     }
   }
 

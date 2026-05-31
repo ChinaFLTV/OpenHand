@@ -420,7 +420,8 @@ class _PluginCard extends StatelessWidget {
 
   Widget _buildActions(BuildContext context) {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final isBusy = plugin.isBusy || controller.isOperating;
+    final isCheckingUpdate = controller.checkingPluginId == plugin.id;
+    final isBusy = plugin.isBusy || controller.isOperating || isCheckingUpdate;
     final hasMcp = plugin.id == 'playwright';
 
     return Wrap(
@@ -439,7 +440,13 @@ class _PluginCard extends StatelessWidget {
           IconButton.filledTonal(
             tooltip: isZh ? '检查更新' : 'Check Updates',
             onPressed: isBusy ? null : () => _checkUpdate(context),
-            icon: const Icon(Icons.refresh_rounded, size: 18),
+            icon: isCheckingUpdate
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 18),
           ),
         // MCP 服务（仅 Playwright）
         if (hasMcp && plugin.isInstalled)

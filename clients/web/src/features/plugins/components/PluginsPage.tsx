@@ -54,6 +54,7 @@ export function PluginsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [operating, setOperating] = useState<string | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     pluginId: string;
     pluginName: string;
@@ -122,7 +123,7 @@ export function PluginsPage() {
   };
 
   const handleCheckUpdate = async (pluginId: string) => {
-    setOperating(pluginId);
+    setCheckingUpdate(pluginId);
     try {
       const result = await checkPluginUpdate(pluginId);
       setPlugins((current) => current?.map((plugin) =>
@@ -142,7 +143,7 @@ export function PluginsPage() {
     } catch (err) {
       showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
     } finally {
-      setOperating(null);
+      setCheckingUpdate(null);
     }
   };
 
@@ -214,7 +215,9 @@ export function PluginsPage() {
           <ul class="space-y-3">
             {plugins.map((plugin, idx) => {
               const badge = statusBadge(plugin.status);
+              const isChecking = checkingUpdate === plugin.id;
               const isBusy = operating === plugin.id ||
+                isChecking ||
                 plugin.status === 'installing' ||
                 plugin.status === 'updating' ||
                 plugin.status === 'uninstalling';
@@ -286,7 +289,7 @@ export function PluginsPage() {
                         {plugin.status === 'installed' ? (
                           <button
                             type="button"
-                            class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm"
+                            class="oh-tap-press text-sm px-3 py-1.5 rounded-m3-sm inline-flex items-center gap-2"
                             style={{
                               border: '1px solid var(--m3-outline-variant)',
                               color: 'var(--m3-primary)',
@@ -295,6 +298,7 @@ export function PluginsPage() {
                             disabled={isBusy}
                             onClick={() => void handleCheckUpdate(plugin.id)}
                           >
+                            {isChecking ? <span class="animate-spin">↻</span> : null}
                             {t('plugins.checkUpdate', '检查更新')}
                           </button>
                         ) : null}
