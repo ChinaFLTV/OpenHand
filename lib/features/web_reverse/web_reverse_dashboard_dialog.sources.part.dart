@@ -610,28 +610,18 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final summary = changes is Map
         ? '${changes.length} files'
         : (docChanges is List ? '${docChanges.length} changes' : 'edit');
-    showAnimatedDialog<void>(
+    showOpenHandInfoDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)'),
-        content: SizedBox(
-          width: 600,
-          child: SelectableText(
-            isZh
-                ? '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；'
-                      '如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
-                : 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-          ),
+      title: isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)',
+      closeLabel: isZh ? '关闭' : 'Close',
+      content: SizedBox(
+        width: 600,
+        child: SelectableText(
+          isZh
+              ? '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
+              : 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
       ),
     );
   }

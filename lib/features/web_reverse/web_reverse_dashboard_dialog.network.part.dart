@@ -731,30 +731,19 @@ class _NetworkRow extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    await showAnimatedDialog<void>(
+    await showOpenHandInfoDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(
-          isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
-        ),
-        content: SizedBox(
-          width: 640,
-          height: 360,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+      title: isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
+      closeLabel: isZh ? '关闭' : 'Close',
+      content: SizedBox(
+        width: 640,
+        height: 360,
+        child: SingleChildScrollView(
+          child: SelectableText(
+            r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
       ),
     );
   }

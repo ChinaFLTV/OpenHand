@@ -5517,24 +5517,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       zh: '可用本地命令：\n$commandList\n\n`/help`、`/commands`、`/feedback`、`/new`、`/status`、`/stop` 不会发给模型，而是由 OpenHand 本地处理。\n\n写命令确认：${settingsController.aiWriteCommandConfirmationEnabled ? '开启' : '关闭'}\n允许命令规则：${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\n设置文件：${settingsController.displaySettingsFilePath}\n会话目录：${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
       en: 'Available local commands:\n$commandList\n\n`/help`, `/commands`, `/feedback`, `/new`, `/status`, and `/stop` are handled locally by OpenHand instead of being sent to the model.\n\nWrite command confirmation: ${settingsController.aiWriteCommandConfirmationEnabled ? 'enabled' : 'disabled'}\nAllow command rules: ${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\nSettings file: ${settingsController.displaySettingsFilePath}\nSession directory: ${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
     );
-    return showAnimatedDialog<void>(
+    return showOpenHandInfoDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(context, zh: 'Slash Commands', en: 'Slash Commands'),
-          ),
-          content: SelectableText(detail),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              label: closeLabel,
-            ),
-          ],
-        );
-      },
+      title: _localizedText(context, zh: 'Slash Commands', en: 'Slash Commands'),
+      closeLabel: closeLabel,
+      content: SelectableText(detail),
     );
   }
 

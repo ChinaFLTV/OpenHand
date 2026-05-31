@@ -275,6 +275,46 @@ Future<T?> showAnimatedThemedDialog<T>({
   );
 }
 
+Future<void> showOpenHandInfoDialog({
+  required BuildContext context,
+  required String title,
+  String? closeLabel,
+  String? message,
+  Widget? content,
+  Widget? icon,
+  double? maxWidth,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+}) {
+  final dialogContent = content ?? (message == null ? null : Text(message));
+  return showAnimatedDialog<void>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    builder: (dialogContext) => AlertDialog(
+      actionsAlignment: MainAxisAlignment.center,
+      actionsOverflowAlignment: OverflowBarAlignment.center,
+      icon: icon,
+      title: Text(title),
+      content: dialogContent == null
+          ? null
+          : maxWidth == null
+          ? dialogContent
+          : ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: dialogContent,
+            ),
+      actions: <Widget>[
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          label:
+              closeLabel ?? MaterialLocalizations.of(context).closeButtonLabel,
+        ),
+      ],
+    ),
+  );
+}
+
 Future<T?> showAnimatedModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
