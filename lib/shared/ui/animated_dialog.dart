@@ -351,6 +351,52 @@ Future<void> showOpenHandLoadingDialog({
   );
 }
 
+Widget buildOpenHandDialogFormShell({
+  required BuildContext context,
+  required String title,
+  required Widget content,
+  required List<Widget> actions,
+  double? maxWidth,
+  EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  ShapeBorder? shape,
+  Color? backgroundColor,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  return Dialog(
+    backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
+    shape: shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth ?? 520),
+      child: Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            content,
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < actions.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  actions[i],
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 Future<T?> showAnimatedModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,

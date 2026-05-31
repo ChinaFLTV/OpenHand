@@ -174,80 +174,74 @@ class _StorageDialogState extends State<_StorageDialog>
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
-        final cs = Theme.of(ctx).colorScheme;
-        return Dialog(
-          backgroundColor: cs.surfaceContainer,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        return buildOpenHandDialogFormShell(
+          context: ctx,
+          title: loc?.webReverseStorageAddCookie ?? 'Add Cookie',
+          maxWidth: 480,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: nameCtl,
+                decoration: const InputDecoration(
+                  labelText: 'name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: valueCtl,
+                decoration: const InputDecoration(
+                  labelText: 'value',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: domainCtl,
+                decoration: const InputDecoration(
+                  labelText: 'domain (optional)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: pathCtl,
+                decoration: const InputDecoration(
+                  labelText: 'path',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  Text(loc?.webReverseStorageAddCookie ?? 'Add Cookie',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: nameCtl,
-                      decoration: const InputDecoration(
-                          labelText: 'name',
-                          border: OutlineInputBorder(),
-                          isDense: true)),
-                  const SizedBox(height: 8),
-                  TextField(
-                      controller: valueCtl,
-                      decoration: const InputDecoration(
-                          labelText: 'value',
-                          border: OutlineInputBorder(),
-                          isDense: true)),
-                  const SizedBox(height: 8),
-                  TextField(
-                      controller: domainCtl,
-                      decoration: const InputDecoration(
-                          labelText: 'domain (optional)',
-                          border: OutlineInputBorder(),
-                          isDense: true)),
-                  const SizedBox(height: 8),
-                  TextField(
-                      controller: pathCtl,
-                      decoration: const InputDecoration(
-                          labelText: 'path',
-                          border: OutlineInputBorder(),
-                          isDense: true)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Switch(
-                        value: secure, onChanged: (v) => setS(() => secure = v)),
-                    const Text('Secure'),
-                    const SizedBox(width: 16),
-                    Switch(
-                        value: httpOnly,
-                        onChanged: (v) => setS(() => httpOnly = v)),
-                    const Text('HttpOnly'),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OpenHandDialogActionButton.secondary(
-                        label: loc?.webReverseStorageCancel ?? 'Cancel',
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                      ),
-                      const SizedBox(width: 8),
-                      OpenHandDialogActionButton.primary(
-                        label: loc?.webReverseStorageSave ?? 'Save',
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                      ),
-                    ],
-                  )
+                  Switch(value: secure, onChanged: (v) => setS(() => secure = v)),
+                  const Text('Secure'),
+                  const SizedBox(width: 16),
+                  Switch(
+                    value: httpOnly,
+                    onChanged: (v) => setS(() => httpOnly = v),
+                  ),
+                  const Text('HttpOnly'),
                 ],
               ),
-            ),
+            ],
           ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: loc?.webReverseStorageCancel ?? 'Cancel',
+              onPressed: () => Navigator.of(ctx).pop(false),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: loc?.webReverseStorageSave ?? 'Save',
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ],
         );
       }),
     );
@@ -291,63 +285,46 @@ class _StorageDialogState extends State<_StorageDialog>
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return Dialog(
-          backgroundColor: cs.surfaceContainer,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    key0 == null
-                        ? (loc?.webReverseStorageAddEntry ?? 'Add entry')
-                        : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: keyCtl,
-                    enabled: key0 == null,
-                    decoration: const InputDecoration(
-                        labelText: 'key',
-                        border: OutlineInputBorder(),
-                        isDense: true),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: valueCtl,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'value',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OpenHandDialogActionButton.secondary(
-                        label: loc?.webReverseStorageCancel ?? 'Cancel',
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                      ),
-                      const SizedBox(width: 8),
-                      OpenHandDialogActionButton.primary(
-                        label: loc?.webReverseStorageSave ?? 'Save',
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                      ),
-                    ],
-                  )
-                ],
+        return buildOpenHandDialogFormShell(
+          context: ctx,
+          title: key0 == null
+              ? (loc?.webReverseStorageAddEntry ?? 'Add entry')
+              : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
+          maxWidth: 520,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: keyCtl,
+                enabled: key0 == null,
+                decoration: const InputDecoration(
+                  labelText: 'key',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: valueCtl,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'value',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: loc?.webReverseStorageCancel ?? 'Cancel',
+              onPressed: () => Navigator.of(ctx).pop(false),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: loc?.webReverseStorageSave ?? 'Save',
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ],
         );
       },
     );
