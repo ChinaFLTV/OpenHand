@@ -246,35 +246,6 @@ DialogAnimationSettings _resolveDialogAnimationSettings(BuildContext context) {
   }
 }
 
-/// Shows an animated dialog with a themed shell so teams can keep dialog
-/// visuals consistent (Material 3 / Material You expressive) while still
-/// customizing body content.
-Future<T?> showAnimatedThemedDialog<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-  DialogAnimationSettings? settings,
-  bool barrierDismissible = true,
-  bool dismissOnEscape = true,
-  String? barrierLabel,
-  Color? barrierColor,
-  bool useRootNavigator = true,
-  RouteSettings? routeSettings,
-  AlignmentGeometry alignment = Alignment.center,
-}) {
-  return showAnimatedDialog<T>(
-    context: context,
-    settings: settings,
-    barrierDismissible: barrierDismissible,
-    dismissOnEscape: dismissOnEscape,
-    barrierLabel: barrierLabel,
-    barrierColor: barrierColor,
-    useRootNavigator: useRootNavigator,
-    routeSettings: routeSettings,
-    alignment: alignment,
-    builder: builder,
-  );
-}
-
 Future<void> showOpenHandInfoDialog({
   required BuildContext context,
   required String title,
@@ -380,7 +351,6 @@ Widget buildOpenHandDialogActionsBar({
   Widget? leading,
   EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
   double spacing = 8,
-  MainAxisAlignment alignment = MainAxisAlignment.center,
 }) {
   final actionsRow = Wrap(
     alignment: WrapAlignment.center,

@@ -528,7 +528,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   bool _repairing = false;
 
   Future<void> _showRepairReportDialog(InputRepairReport report) {
-    return showAnimatedThemedDialog<void>(
+    return showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         actionsAlignment: MainAxisAlignment.center,

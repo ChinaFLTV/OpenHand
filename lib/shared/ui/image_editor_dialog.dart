@@ -1389,7 +1389,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     _processingDialogCloseRequested = false;
     final processingMessage =
         AppLocalizations.of(context)?.imageEditorProcessing ?? '处理中…';
-    showAnimatedThemedDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,
@@ -1688,7 +1688,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       Colors.pink,
     ];
 
-    final picked = await showAnimatedThemedDialog<HSLColor>(
+    final picked = await showAnimatedDialog<HSLColor>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
