@@ -134,24 +134,45 @@ class AiModelScanner {
     }
   }
 
-  /// Strips common endpoint suffixes from a base URL and appends `/models`.
+  /// Derives OpenAI-compatible model-list URLs from a user-entered base URL.
   ///
-  /// Users sometimes paste the full endpoint URL (e.g.
-  /// `https://api.openai.com/v1/chat/completions`) as their base URL.
-  /// This normalizes such URLs so the models endpoint is correctly derived.
-  static String _toModelsUrl(String baseUrl) {
-    const suffixes = <String>[
+  /// Users may paste a host (`https://relay.example.com`), a versioned root
+  /// (`https://relay.example.com/v1`), or a full endpoint
+  /// (`https://relay.example.com/v1/chat/completions`). Try `/v1/models`
+  /// first for bare hosts because many relays only expose the versioned path.
+  static List<String> _openAiModelsUrls(String baseUrl) {
+    const endpointSuffixes = <String>[
       '/chat/completions',
       '/completions',
       '/embeddings',
       '/models',
     ];
-    for (final suffix in suffixes) {
-      if (baseUrl.endsWith(suffix)) {
-        return '${baseUrl.substring(0, baseUrl.length - suffix.length)}/models';
+    var normalizedBase = baseUrl;
+    for (final suffix in endpointSuffixes) {
+      if (normalizedBase.endsWith(suffix)) {
+        normalizedBase = normalizedBase.substring(
+          0,
+          normalizedBase.length - suffix.length,
+        );
+        break;
       }
     }
-    return '$baseUrl/models';
+
+    final candidates = <String>[];
+    void addCandidate(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty && !candidates.contains(trimmed)) {
+        candidates.add(trimmed);
+      }
+    }
+
+    if (normalizedBase.endsWith('/v1')) {
+      addCandidate('$normalizedBase/models');
+    } else {
+      addCandidate('$normalizedBase/v1/models');
+      addCandidate('$normalizedBase/models');
+    }
+    return candidates;
   }
 
   /// OpenAI-compatible /models endpoint.
@@ -159,27 +180,44 @@ class AiModelScanner {
     AiModelConfig config, {
     required Duration timeout,
   }) async {
-    final modelsUrl = _toModelsUrl(config.normalizedBaseUrl);
-
     final headers = _buildHeaders(config);
-    final response = await _httpClient
-        .get(Uri.parse(modelsUrl), headers: headers)
-        .timeout(timeout);
+    AiModelScanResult? lastFailure;
 
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      return AiModelScanResult(
+    for (final modelsUrl in _openAiModelsUrls(config.normalizedBaseUrl)) {
+      final response = await _httpClient
+          .get(Uri.parse(modelsUrl), headers: headers)
+          .timeout(timeout);
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return AiModelScanResult(
+          modelIds: const <String>[],
+          error: _ScanErrorMessages.httpStatus(
+            response.statusCode,
+            isAuth: true,
+            hint: modelsUrl,
+          ),
+        );
+      }
+      if (response.statusCode == 200) {
+        return _parseOpenAiModelsResponse(response.body);
+      }
+      lastFailure = AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.httpStatus(response.statusCode, isAuth: true),
+        error: _ScanErrorMessages.httpStatus(
+          response.statusCode,
+          hint: modelsUrl,
+        ),
       );
-    }
-    if (response.statusCode != 200) {
-      return AiModelScanResult(
-        modelIds: const <String>[],
-        error: _ScanErrorMessages.httpStatus(response.statusCode),
-      );
+      if (response.statusCode != 404 && response.statusCode != 405) {
+        break;
+      }
     }
 
-    return _parseOpenAiModelsResponse(response.body);
+    return lastFailure ??
+        const AiModelScanResult(
+          modelIds: <String>[],
+          error: 'Failed to derive a models endpoint from the Base URL.',
+        );
   }
 
   /// Ollama /api/tags endpoint.
@@ -449,6 +487,21 @@ class AiModelScanner {
     }
   }
 
+  static String _seedModelsUrl(String baseUrl) {
+    const suffixes = <String>[
+      '/chat/completions',
+      '/completions',
+      '/embeddings',
+      '/models',
+    ];
+    for (final suffix in suffixes) {
+      if (baseUrl.endsWith(suffix)) {
+        return '${baseUrl.substring(0, baseUrl.length - suffix.length)}/models';
+      }
+    }
+    return '$baseUrl/models';
+  }
+
   /// Seed/豆包/Volcengine (火山方舟) models endpoint.
   /// Base URL is typically https://ark.cn-beijing.volces.com/api/v3
   /// which uses /api/v3/models instead of /v1/models.
@@ -456,7 +509,7 @@ class AiModelScanner {
     AiModelConfig config, {
     required Duration timeout,
   }) async {
-    final modelsUrl = _toModelsUrl(config.normalizedBaseUrl);
+    final modelsUrl = _seedModelsUrl(config.normalizedBaseUrl);
 
     final headers = _buildHeaders(config);
     final response = await _httpClient

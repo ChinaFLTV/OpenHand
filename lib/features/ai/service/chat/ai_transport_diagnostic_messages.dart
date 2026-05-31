@@ -135,9 +135,22 @@ class AiTransportDiagnosticMessages {
     String title;
     String reason;
     String suggest;
+    final trimmedServer = serverMessage.trim();
     final ctxHint = contextHint.trim();
     final hintSuffix = ctxHint.isEmpty ? '' : ' · $ctxHint';
     final labelSuffix = _suffix(contextLabel);
+    final relayAvailabilityReason = relayModelAvailabilityReason(trimmedServer);
+    if (relayAvailabilityReason != null) {
+      return _format(
+        title: 'Model unavailable in relay ($code) · 模型在当前中转不可用$hintSuffix$labelSuffix',
+        reason: relayAvailabilityReason,
+        try_:
+            '· 改用该中转已上架的模型 ID\n'
+            '· 在中转方控制台确认当前分组 / 渠道是否开通该模型\n'
+            '· 若你预期可用，联系中转方检查 distributor / channel 配置',
+        raw: trimmedServer.isEmpty ? null : trimmedServer,
+      );
+    }
     switch (code) {
       case 400:
         title = 'Bad request (400) · 请求被拒$hintSuffix$labelSuffix';
@@ -209,13 +222,25 @@ class AiTransportDiagnosticMessages {
           suggest = '· 联系中转方排查';
         }
     }
-    final trimmedServer = serverMessage.trim();
     return _format(
       title: title,
       reason: reason,
       try_: suggest,
       raw: trimmedServer.isEmpty ? null : trimmedServer,
     );
+  }
+
+  static String? relayModelAvailabilityReason(String serverMessage) {
+    final raw = serverMessage.trim();
+    if (raw.isEmpty) {
+      return null;
+    }
+    if (raw.contains('无可用渠道') ||
+        raw.toLowerCase().contains('distributor') ||
+        raw.toLowerCase().contains('channel')) {
+      return '中转站已收到请求，但当前账号所在分组/渠道没有这个模型的可用分发。通常不是 Base URL、协议或密钥格式错误，而是该模型在当前中转未上架、未分配到你的分组，或对应渠道暂时不可用。';
+    }
+    return null;
   }
 
   static String format({

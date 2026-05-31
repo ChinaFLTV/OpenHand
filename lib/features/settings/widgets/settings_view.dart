@@ -5481,7 +5481,10 @@ class _SettingsViewState extends State<SettingsView> {
         context,
         message: l10n.aiModelTestFailure(
           model.providerLabel,
-          _normalizeAiModelTestMessage(error.message, l10n.chatRequestFailed),
+          _normalizeAiModelTestMessage(
+            _buildAiModelTestErrorDetails(error),
+            l10n.chatRequestFailed,
+          ),
         ),
         fallback: l10n.chatRequestFailed,
       );
@@ -5547,6 +5550,10 @@ class _SettingsViewState extends State<SettingsView> {
         .where((line) => line.isNotEmpty);
     final normalized = lines.join('\n').trim();
     return normalized.isEmpty ? fallback : normalized;
+  }
+
+  String _buildAiModelTestErrorDetails(AiChatException error) {
+    return error.message.trim();
   }
 
   Future<void> _showShortcutRecorderDialog(

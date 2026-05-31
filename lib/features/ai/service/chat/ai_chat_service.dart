@@ -14,6 +14,7 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
+import '../model_registry/ai_model_scanner.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_transport_diagnostic_messages.dart';
@@ -216,9 +217,13 @@ class AiChatStreamingResponse {
 }
 
 class AiChatService implements AiChatClient {
-  AiChatService({http.Client? client, AiImageGenerationService? imageService})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
-      _imageService = imageService ?? AiImageGenerationService(client: client);
+  AiChatService({
+    http.Client? client,
+    AiImageGenerationService? imageService,
+    AiModelScanner? modelScanner,
+  }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+       _imageService = imageService ?? AiImageGenerationService(client: client),
+       _modelScanner = modelScanner;
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
@@ -234,6 +239,7 @@ class AiChatService implements AiChatClient {
 
   final http.Client _client;
   final AiImageGenerationService _imageService;
+  final AiModelScanner? _modelScanner;
 
   /// Returns true when [creationRequest] asks for media output and the
   /// selected model exposes the matching generation capability. Gemini keeps
@@ -1219,18 +1225,48 @@ class AiChatService implements AiChatClient {
     if (model.modelId.trim().isEmpty) {
       throw const AiChatException('Missing model ID.');
     }
-    final reply = await sendMessage(
-      model: model,
-      messages: const <AiChatTurn>[
-        AiChatTurn(role: AiChatRole.user, content: _availabilityProbePrompt),
-      ],
-      timeout: const Duration(seconds: 20),
+    final probeModel = model.copyWith(
+      clearMaxTokens: true,
+      clearTemperature: true,
     );
-    final normalizedReply = reply.reply.trim();
-    if (normalizedReply.isEmpty) {
-      throw const AiChatException('Empty assistant reply.');
+    try {
+      final reply = await sendMessage(
+        model: probeModel,
+        messages: const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.user, content: _availabilityProbePrompt),
+        ],
+        timeout: const Duration(seconds: 20),
+      );
+      final normalizedReply = reply.reply.trim();
+      if (normalizedReply.isEmpty) {
+        throw AiChatException(
+          'Empty assistant reply.',
+          telemetry: reply.requestUrl == null && reply.requestMethod == null
+              ? null
+              : AiChatRequestTelemetry(
+                  requestUrl: reply.requestUrl,
+                  requestMethod: reply.requestMethod,
+                  requestHeaders: reply.requestHeaders,
+                  requestBody: reply.requestBody,
+                  rawResponse: reply.rawResponse,
+                  startedAt: reply.startedAt,
+                  endedAt: reply.endedAt,
+                  durationMs: reply.durationMs,
+                  error: 'Empty assistant reply.',
+                ),
+        );
+      }
+      return normalizedReply;
+    } on AiChatException catch (error) {
+      if (!_isOpenAiCompatibleProtocol(probeModel.protocolType)) {
+        rethrow;
+      }
+      throw await _decorateProviderProbeFailure(
+        probeModel,
+        error,
+        timeout: const Duration(seconds: 12),
+      );
     }
-    return normalizedReply;
   }
 
   @override
@@ -1718,6 +1754,107 @@ class AiChatException implements Exception {
 
   @override
   String toString() => message;
+}
+
+bool _isOpenAiCompatibleProtocol(AiProtocolType protocol) {
+  switch (protocol) {
+    case AiProtocolType.openai:
+    case AiProtocolType.qwen:
+    case AiProtocolType.kimi:
+    case AiProtocolType.glm:
+    case AiProtocolType.grok:
+    case AiProtocolType.deepseek:
+    case AiProtocolType.seed:
+    case AiProtocolType.stepfun:
+    case AiProtocolType.minimax:
+    case AiProtocolType.longcat:
+    case AiProtocolType.joycode:
+    case AiProtocolType.wenxin:
+    case AiProtocolType.meta:
+    case AiProtocolType.mimo:
+    case AiProtocolType.hunyuan:
+    case AiProtocolType.vllm:
+    case AiProtocolType.sglang:
+    case AiProtocolType.ollama:
+      return true;
+    case AiProtocolType.gemini:
+    case AiProtocolType.claude:
+      return false;
+  }
+}
+
+extension on AiChatService {
+  Future<AiChatException> _decorateProviderProbeFailure(
+    AiModelConfig model,
+    AiChatException error, {
+    required Duration timeout,
+  }) async {
+    final scanner = _modelScanner ?? AiModelScanner();
+    final ownsScanner = identical(scanner, _modelScanner) == false;
+    String? probeDiagnosis;
+    try {
+      final scanResult = await scanner.scan(model, timeout: timeout);
+      final relayAvailabilityReason =
+          AiTransportDiagnosticMessages.relayModelAvailabilityReason(
+            error.message,
+          );
+      if (scanResult.isSuccess) {
+        final ids = scanResult.modelIds;
+        final knownModel = model.modelId.trim().isNotEmpty &&
+            ids.contains(model.modelId.trim());
+        final modelsLabel = ids.isEmpty
+            ? '模型列表接口可达，但未返回任何模型。'
+            : knownModel
+            ? '模型列表接口可达，且已包含当前模型 ID。'
+            : '模型列表接口可达，但未找到当前模型 ID：${model.modelId.trim()}';
+        final summary = relayAvailabilityReason != null
+            ? '这进一步说明网关本身在线，当前失败主要是模型分组/渠道可用性问题，而不是 Base URL 或协议不兼容。'
+            : '这通常说明网关本身在线，失败更可能出在聊天端点兼容性、模型权限或该模型在当前中转未实际开通。';
+        probeDiagnosis = '探测补充 / Probe follow-up:\n$modelsLabel\n$summary';
+      } else if ((scanResult.error ?? '').trim().isNotEmpty) {
+        probeDiagnosis =
+            '探测补充 / Probe follow-up:\n模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。\n${scanResult.error!.trim()}';
+      }
+    } catch (_) {
+      // Keep the original provider-test failure as the primary signal.
+    } finally {
+      if (ownsScanner) {
+        scanner.dispose();
+      }
+    }
+
+    final detail = _buildProviderProbeDetail(
+      error.message,
+      telemetry: error.telemetry,
+      diagnosis: probeDiagnosis,
+    );
+    return AiChatException(detail, telemetry: error.telemetry);
+  }
+}
+
+String _buildProviderProbeDetail(
+  String message, {
+  AiChatRequestTelemetry? telemetry,
+  String? diagnosis,
+}) {
+  final base = message.trim();
+  final extraLines = <String>[];
+  final method = (telemetry?.requestMethod ?? '').trim();
+  final url = (telemetry?.requestUrl ?? '').trim();
+  if (method.isNotEmpty) {
+    extraLines.add('请求方法 / Method: $method');
+  }
+  if (url.isNotEmpty) {
+    extraLines.add('请求地址 / URL: $url');
+  }
+  final trimmedDiagnosis = (diagnosis ?? '').trim();
+  if (trimmedDiagnosis.isNotEmpty) {
+    extraLines.add(trimmedDiagnosis);
+  }
+  if (extraLines.isEmpty) {
+    return base;
+  }
+  return '$base\n${extraLines.join('\n')}';
 }
 
 class _MutableToolCall {
