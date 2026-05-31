@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -463,20 +462,13 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
-            Padding(
+            buildOpenHandDialogFooter(
+              primaryLabel: loc?.webReverseJwtClose ?? 'Close',
+              onPrimaryPressed: () {
+                _timer?.cancel();
+                Navigator.of(context).pop();
+              },
               padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseJwtClose ?? 'Close',
-                    onPressed: () {
-                      _timer?.cancel();
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              ),
             ),
           ],
         ),
