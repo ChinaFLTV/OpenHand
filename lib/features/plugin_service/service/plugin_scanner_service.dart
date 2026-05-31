@@ -45,6 +45,19 @@ class PluginScannerService {
     );
   }
 
+  String _readNvmDefaultAlias() {
+    final home = Platform.environment['HOME'] ?? '';
+    final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
+    try {
+      final aliasFile = File('$nvmDir/alias/default');
+      if (aliasFile.existsSync()) {
+        final alias = aliasFile.readAsStringSync().trim();
+        if (alias.isNotEmpty) return alias;
+      }
+    } catch (_) {}
+    return 'node';
+  }
+
   /// 直接从 nvm 目录结构解析当前默认 Node 版本（不依赖 shell）。
   Future<({String version, String nodeBin, String npmBin})?>
   _resolveNvmDirect() async {
@@ -67,13 +80,7 @@ class PluginScannerService {
     if (versions.isEmpty) return null;
     versions.sort(_compareNodeVersions);
 
-    String alias = 'node';
-    try {
-      final aliasFile = File('$nvmDir/alias/default');
-      if (aliasFile.existsSync()) {
-        alias = aliasFile.readAsStringSync().trim();
-      }
-    } catch (_) {}
+    final alias = _readNvmDefaultAlias();
 
     String resolvedVersion;
     if (alias == 'node' || alias == 'stable' || alias == 'current') {
@@ -148,6 +155,67 @@ class PluginScannerService {
   static String? _extractVersion(String output) {
     final match = RegExp(r'v(\d+\.\d+\.\d+)').firstMatch(output);
     return match?.group(0);
+  }
+
+  Future<String?> _queryLatestNodeVersion({
+    required String installedVersion,
+    String? releaseHint,
+  }) async {
+    final major = _extractNodeMajor(installedVersion);
+    if (major == null) return null;
+    final normalizedHint = (releaseHint ?? '').trim().toLowerCase();
+    final preferLts = normalizedHint.startsWith('lts') || major.isEven;
+
+    if (preferLts) {
+      final latestLts = await _queryNvmAliasVersion('lts/*');
+      if (latestLts != null) return latestLts;
+    } else {
+      final latestCurrent = await _queryNvmAliasVersion('node');
+      if (latestCurrent != null) return latestCurrent;
+    }
+
+    final indexVersion = await _queryNodeIndexVersion(preferLts: preferLts);
+    if (indexVersion != null) return indexVersion;
+
+    final fallbackAlias = preferLts ? 'lts/*' : 'node';
+    return _queryNvmAliasVersion(fallbackAlias);
+  }
+
+  Future<String?> _queryNvmAliasVersion(String alias) async {
+    final result = await _shellRun('nvm version $alias');
+    if (result.exitCode != 0) return null;
+    return _extractVersion(result.stdout.toString());
+  }
+
+  Future<String?> _queryNodeIndexVersion({required bool preferLts}) async {
+    final result = await _shellRun(
+      'curl -fsSL https://nodejs.org/dist/index.json',
+    );
+    if (result.exitCode != 0) return null;
+    try {
+      final decoded = jsonDecode(result.stdout.toString());
+      if (decoded is! List) return null;
+      for (final entry in decoded) {
+        if (entry is! Map<String, Object?>) continue;
+        final version = entry['version'];
+        if (version is! String || !_isNodeVersion(version)) continue;
+        final lts = entry['lts'];
+        final isLts = lts is String && lts.isNotEmpty;
+        if (preferLts ? isLts : !isLts) return version;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  static int? _extractNodeMajor(String version) {
+    final match = RegExp(r'v?(\d+)').firstMatch(version);
+    return int.tryParse(match?.group(1) ?? '');
+  }
+
+  static bool _isNodeVersion(String value) {
+    return RegExp(r'^v\d+\.\d+\.\d+$').hasMatch(value);
   }
 
   static String? _pickHigherNodeVersion(
@@ -368,22 +436,10 @@ class PluginScannerService {
         final version = versionResult.exitCode == 0
             ? versionResult.stdout.toString().trim()
             : nvm.version;
-        String? latestVersion;
-        try {
-          if (File(nvm.npmBin).existsSync()) {
-            final r = await runTrackedProcessOrFailed(nvm.npmBin, [
-              'view',
-              'node',
-              'version',
-            ], timeout: const Duration(seconds: 10));
-            if (r.exitCode == 0) {
-              final m = RegExp(
-                r'(\d+\.\d+\.\d+)',
-              ).firstMatch(r.stdout.toString());
-              if (m != null) latestVersion = 'v${m.group(1)}';
-            }
-          }
-        } catch (_) {}
+        final latestVersion = await _queryLatestNodeVersion(
+          installedVersion: version,
+          releaseHint: _readNvmDefaultAlias(),
+        );
         return PluginInfo(
           id: 'nodejs',
           name: 'Node.js',
@@ -406,16 +462,16 @@ class PluginScannerService {
         final installPath = pathResult.exitCode == 0
             ? _extractAbsolutePath(pathResult.stdout.toString())
             : null;
-        String? latestVersion;
-        try {
-          final r = await _shellRun('npm view node version');
-          if (r.exitCode == 0) {
-            final m = RegExp(
-              r'(\d+\.\d+\.\d+)',
-            ).firstMatch(r.stdout.toString());
-            if (m != null) latestVersion = 'v${m.group(1)}';
-          }
-        } catch (_) {}
+        final releaseHint =
+            (installPath != null &&
+                (installPath.contains('.nvm/') ||
+                    installPath.contains('.fnm/')))
+            ? 'node'
+            : version;
+        final latestVersion = await _queryLatestNodeVersion(
+          installedVersion: version,
+          releaseHint: releaseHint,
+        );
         return PluginInfo(
           id: 'nodejs',
           name: 'Node.js',
