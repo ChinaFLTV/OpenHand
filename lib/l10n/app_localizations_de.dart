@@ -3784,6 +3784,30 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sessMetaErrorDetail => 'Fehlerdetail';
 
   @override
+  String get commonDetails => 'Details';
+
+  @override
+  String get commonCopy => 'Kopieren';
+
+  @override
+  String get commonViewDetails => 'Details anzeigen';
+
+  @override
+  String get commonCopiedToClipboard => 'In die Zwischenablage kopiert';
+
+  @override
+  String get structuredErrorWhy => 'Why:';
+
+  @override
+  String get structuredErrorTry => 'Try:';
+
+  @override
+  String get structuredErrorServerSays => 'Server says:';
+
+  @override
+  String get structuredErrorRaw => 'Raw:';
+
+  @override
   String get sessMetaPresented => 'Angezeigt';
 
   @override

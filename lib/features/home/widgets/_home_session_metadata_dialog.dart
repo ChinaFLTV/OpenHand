@@ -230,8 +230,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                     e.key == 'hardness_config') &&
                                 !(session.templateId == 'programming_expert' &&
                                     e.key == 'programming_expert_config') &&
-                                !(session.templateId ==
-                                        'web_reverse_expert' &&
+                                !(session.templateId == 'web_reverse_expert' &&
                                     e.key == 'web_reverse_config'),
                           )
                           .isNotEmpty) ...[
@@ -768,10 +767,7 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return [
       const SizedBox(height: 12),
-      _CacheHitTrendChart(
-        trend: trend,
-        primaryClaudeStyle: claudeStyle,
-      ),
+      _CacheHitTrendChart(trend: trend, primaryClaudeStyle: claudeStyle),
     ];
   }
 
@@ -1634,13 +1630,10 @@ int? _extractConfiguredToolLoopLimit(String detail) {
 }
 
 /// 判断 `error.message` 是否来自 AiChatService / AiImageGenerationService /
-/// AiModelScanner 抛出的「现象 / 原因 / 建议」三段式中英双语文案。三个
-/// helper (`_ChatErrorMessages` / `_MediaErrorMessages` / `_ScanErrorMessages`)
-/// 共用 `_format` 写出 `原因 / Why:` + `建议 / Try:` 两个固定锚点，匹配其中
-/// 任一即可识别为结构化文案。
+/// AiModelScanner 抛出的结构化错误文案。需要同时兼容历史双语锚点与当前
+/// 按 locale 输出的单语锚点，避免旧会话里的持久化错误详情失去可识别性。
 bool _isStructuredChatErrorMessage(String raw) {
-  if (raw.isEmpty) return false;
-  return raw.contains('原因 / Why:') || raw.contains('建议 / Try:');
+  return StructuredErrorText.isStructured(raw);
 }
 
 /// 把结构化三段式文案拆成 banner 用的 (title, message) —— 第一非空行作为
@@ -2012,11 +2005,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
 
     final altColor = colorScheme.tertiary;
     final ttlLabel = _localizedText(context, zh: 'TTL', en: 'TTL');
-    final driftLabel = _localizedText(
-      context,
-      zh: '前缀漂移',
-      en: 'Prefix drift',
-    );
+    final driftLabel = _localizedText(context, zh: '前缀漂移', en: 'Prefix drift');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2258,10 +2247,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
 }
 
 class _CacheHitDiagnosisChip extends StatelessWidget {
-  const _CacheHitDiagnosisChip({
-    required this.color,
-    required this.label,
-  });
+  const _CacheHitDiagnosisChip({required this.color, required this.label});
 
   final Color color;
   final String label;

@@ -40,43 +40,40 @@ class MediaPreviewDialog extends StatefulWidget {
     String? sourceUrl,
     String? mimeType,
     MediaPreviewKind kind = MediaPreviewKind.image,
-  }) =>
-      MediaPreviewDialog._(
-        bytes: bytes,
-        title: title,
-        kind: kind,
-        mimeType: mimeType,
-        onCopyUrl: sourceUrl == null
-            ? null
-            : () => Clipboard.setData(ClipboardData(text: sourceUrl)),
-      );
+  }) => MediaPreviewDialog._(
+    bytes: bytes,
+    title: title,
+    kind: kind,
+    mimeType: mimeType,
+    onCopyUrl: sourceUrl == null
+        ? null
+        : () => Clipboard.setData(ClipboardData(text: sourceUrl)),
+  );
 
   factory MediaPreviewDialog.network({
     required String url,
     required String title,
     String? mimeType,
     MediaPreviewKind kind = MediaPreviewKind.image,
-  }) =>
-      MediaPreviewDialog._(
-        networkUrl: url,
-        title: title,
-        kind: kind,
-        mimeType: mimeType,
-        onCopyUrl: () => Clipboard.setData(ClipboardData(text: url)),
-      );
+  }) => MediaPreviewDialog._(
+    networkUrl: url,
+    title: title,
+    kind: kind,
+    mimeType: mimeType,
+    onCopyUrl: () => Clipboard.setData(ClipboardData(text: url)),
+  );
 
   factory MediaPreviewDialog.file({
     required String filePath,
     required String title,
     String? mimeType,
     MediaPreviewKind kind = MediaPreviewKind.image,
-  }) =>
-      MediaPreviewDialog._(
-        filePath: filePath,
-        title: title,
-        kind: kind,
-        mimeType: mimeType,
-      );
+  }) => MediaPreviewDialog._(
+    filePath: filePath,
+    title: title,
+    kind: kind,
+    mimeType: mimeType,
+  );
 
   final Uint8List? bytes;
   final String? networkUrl;
@@ -164,8 +161,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
     final disableAnim = MediaQuery.disableAnimationsOf(context);
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     final maxDialogW = math.max(
       _kMinDialogW,
@@ -254,11 +250,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                       ),
                       if (widget.onCopyUrl != null)
                         IconButton(
-                          tooltip: isZh ? '复制源 URL' : 'Copy source URL',
+                          tooltip: isZh ? '复制源地址' : 'Copy source URL',
                           onPressed: () {
                             widget.onCopyUrl!();
-                            final messenger =
-                                ScaffoldMessenger.maybeOf(context);
+                            final messenger = ScaffoldMessenger.maybeOf(
+                              context,
+                            );
                             if (messenger != null) {
                               OpenHandSnackBar.show(
                                 context,
@@ -343,8 +340,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
-          child: Icon(Icons.broken_image_outlined,
-              size: 48, color: cs.error),
+          child: Icon(Icons.broken_image_outlined, size: 48, color: cs.error),
         ),
       ),
     );
@@ -387,11 +383,12 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
 
   Future<void> _bootstrap() async {
     try {
-      final mime = (widget.mimeType ??
-              (widget.kind == MediaPreviewKind.video
-                  ? 'video/mp4'
-                  : 'audio/mpeg'))
-          .toLowerCase();
+      final mime =
+          (widget.mimeType ??
+                  (widget.kind == MediaPreviewKind.video
+                      ? 'video/mp4'
+                      : 'audio/mpeg'))
+              .toLowerCase();
       String src;
       if (widget.networkUrl != null) {
         src = widget.networkUrl!;
@@ -416,7 +413,8 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         return;
       }
       final tag = widget.kind == MediaPreviewKind.video ? 'video' : 'audio';
-      final html = '''
+      final html =
+          '''
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 html,body{margin:0;padding:0;background:#0f0f10;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}

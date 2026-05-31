@@ -31,6 +31,7 @@ import 'features/settings/service/throttle_auto_sync_service.dart';
 import 'features/skills/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
+import 'shared/ui/structured_error_text.dart';
 
 Future<void> main() async {
   // Use a guarded zone so uncaught async errors (including stray
@@ -142,16 +143,25 @@ Future<void> _bootstrap() async {
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Text(
-                '数据库初始化失败 / Database initialization failed\n'
-                '\n'
-                '原因 / Why:\n'
-                '$error\n'
-                '\n'
-                '建议 / Try:\n'
-                '· 检查 Application Support 目录是否可写 / 是否被其他实例占用\n'
-                '· 检查磁盘剩余空间是否充足\n'
-                '· 退出其他 OpenHand 进程后再启动 (sqlite 不允许同库多写)\n'
-                '· 必要时备份并删除 openhand.db 让程序重新建库',
+                StructuredErrorText.format(
+                  title: StructuredErrorText.pick(
+                    zh: '数据库初始化失败',
+                    en: 'Database initialization failed',
+                  ),
+                  reason: '$error',
+                  try_: StructuredErrorText.pick(
+                    zh:
+                        '· 检查 Application Support 目录是否可写，以及是否被其他实例占用\n'
+                        '· 检查磁盘剩余空间是否充足\n'
+                        '· 退出其他 OpenHand 进程后再启动（sqlite 不允许同库多写）\n'
+                        '· 必要时备份并删除 openhand.db，让程序重新建库',
+                    en:
+                        '· Check whether the Application Support directory is writable and whether another instance is using it\n'
+                        '· Confirm that enough disk space is available\n'
+                        '· Exit other OpenHand processes before starting again (sqlite does not allow concurrent writers to the same database)\n'
+                        '· If needed, back up and remove openhand.db so the app can rebuild it',
+                  ),
+                ),
                 style: const TextStyle(
                   color: Color(0xFFE0E0E0),
                   fontSize: 13,
@@ -257,7 +267,10 @@ Future<void> _bootstrap() async {
   final instructions = await instructionsModuleFuture;
   unawaited(instructions.controller.refresh());
   final appInfo = await appInfoFuture;
-  AppRuntimeContext.initialize(appInfo);
+  AppRuntimeContext.initialize(appInfo, appLocale: settingsController.locale);
+  settingsController.addListener(() {
+    AppRuntimeContext.updateAppLocale(settingsController.locale);
+  });
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memory.controller;
   final ai = await aiModuleFuture;

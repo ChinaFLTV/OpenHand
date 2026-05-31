@@ -12,6 +12,7 @@ import '../../app/model/app_settings_snapshot.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/ui/structured_error_text.dart';
 import '../hooks/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';

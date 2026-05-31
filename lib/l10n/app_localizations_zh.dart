@@ -3557,6 +3557,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sessMetaErrorDetail => '错误细节';
 
   @override
+  String get commonDetails => '详情';
+
+  @override
+  String get commonCopy => '复制';
+
+  @override
+  String get commonViewDetails => '查看详情';
+
+  @override
+  String get commonCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get structuredErrorWhy => '原因：';
+
+  @override
+  String get structuredErrorTry => '建议：';
+
+  @override
+  String get structuredErrorServerSays => '服务端原文：';
+
+  @override
+  String get structuredErrorRaw => '原始错误：';
+
+  @override
   String get sessMetaPresented => '已展示';
 
   @override
@@ -11409,6 +11433,30 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get sessMetaErrorDetail => '错误细节';
 
   @override
+  String get commonDetails => '详情';
+
+  @override
+  String get commonCopy => '复制';
+
+  @override
+  String get commonViewDetails => '查看详情';
+
+  @override
+  String get commonCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get structuredErrorWhy => '原因：';
+
+  @override
+  String get structuredErrorTry => '建议：';
+
+  @override
+  String get structuredErrorServerSays => '服务端原文：';
+
+  @override
+  String get structuredErrorRaw => '原始错误：';
+
+  @override
   String get sessMetaPresented => '已展示';
 
   @override
@@ -19258,6 +19306,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sessMetaErrorDetail => '错误细节';
+
+  @override
+  String get commonDetails => '詳情';
+
+  @override
+  String get commonCopy => '複製';
+
+  @override
+  String get commonViewDetails => '查看詳情';
+
+  @override
+  String get commonCopiedToClipboard => '已複製到剪貼簿';
+
+  @override
+  String get structuredErrorWhy => '原因：';
+
+  @override
+  String get structuredErrorTry => '建議：';
+
+  @override
+  String get structuredErrorServerSays => '服務端原文：';
+
+  @override
+  String get structuredErrorRaw => '原始錯誤：';
 
   @override
   String get sessMetaPresented => '已展示';

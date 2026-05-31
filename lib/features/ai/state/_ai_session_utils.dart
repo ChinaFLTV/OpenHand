@@ -568,16 +568,37 @@ String _friendlyAiSessionPersistenceError(
             '· 检查磁盘剩余空间\n'
             '· 关闭可能占用该文件的外部程序\n'
             '· 重启应用后再次尝试';
-  final buffer = StringBuffer()
-    ..writeln('$operationZh失败 / Failed to $operationEn')
-    ..writeln()
-    ..writeln('原因 / Why:')
-    ..writeln(reasonZh)
-    ..writeln()
-    ..writeln('建议 / Try:')
-    ..writeln(tryZh)
-    ..writeln()
-    ..writeln('原始错误 / Raw:')
-    ..write(raw);
-  return buffer.toString();
+  return StructuredErrorText.format(
+    title: StructuredErrorText.pick(
+      zh: '$operationZh失败',
+      en: 'Failed to $operationEn',
+    ),
+    reason: StructuredErrorText.pick(
+      zh: reasonZh,
+      en: isDb
+          ? 'The local sqlite database refused the operation. Common causes:\n'
+                '  · The database file is locked by another OpenHand instance or tool\n'
+                '  · The disk is full or out of space\n'
+                '  · The database file is corrupted, or the schema is incompatible with the current version\n'
+                '  · A unique or foreign-key constraint was violated'
+          : 'The local file system refused the operation. Common causes:\n'
+                '  · The path does not exist or its parent directory was removed\n'
+                '  · The current process lacks read/write permission for the path\n'
+                '  · Another process holds the path exclusively or locked it\n'
+                '  · The disk is full',
+    ),
+    try_: StructuredErrorText.pick(
+      zh: tryZh,
+      en: isDb
+          ? '· Close other OpenHand processes and try again\n'
+                '· Check free space in the Application Support directory\n'
+                '· If needed, back up and remove openhand.db so the app can rebuild it\n'
+                '· Restart the app and retry the operation'
+          : '· Verify that the path exists and is writable\n'
+                '· Check remaining disk space\n'
+                '· Close external programs that may be holding the file\n'
+                '· Restart the app and try again',
+    ),
+    raw: raw,
+  );
 }

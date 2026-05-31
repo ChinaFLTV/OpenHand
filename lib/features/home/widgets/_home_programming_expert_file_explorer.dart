@@ -13649,7 +13649,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                           ? (_) {
                               if (_hoveredGutterLine != lineNumber) {
                                 _hoveredGutterLine = lineNumber;
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   if (mounted) setState(() {});
                                 });
                               }
@@ -13659,7 +13661,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                           ? (_) {
                               if (_hoveredGutterLine == lineNumber) {
                                 _hoveredGutterLine = null;
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   if (mounted) setState(() {});
                                 });
                               }
@@ -14317,24 +14321,48 @@ class _EditorTab extends StatelessWidget {
 /// 避免在编辑器结果栏里直接展示 `TimeoutException: ...` 这种栈底信息。
 String _friendlyLspError(Object error) {
   if (error is TimeoutException) {
-    return 'LSP 请求超时 / LSP request timed out\n'
-        '\n'
-        '原因 / Why:\n'
-        'LSP 服务器在限定时间内没有返回结果，可能是分析进程被大文件 / 索引重建 / 死锁卡住。\n'
-        '\n'
-        '建议 / Try:\n'
-        '· 等待索引完成后再试一次\n'
-        '· 重启 LSP 服务器 (设置 → 编辑器 → LSP)\n'
-        '· 关闭过大的工作区 / 减少打开的项目\n'
-        '· 升级或重新安装该语言的 LSP\n'
-        '\n'
-        '原始错误 / Raw:\n'
-        '$error';
+    return StructuredErrorText.format(
+      title: StructuredErrorText.pick(
+        zh: 'LSP 请求超时',
+        en: 'LSP request timed out',
+      ),
+      reason: StructuredErrorText.pick(
+        zh: 'LSP 服务器在限定时间内没有返回结果，可能是分析进程被大文件、索引重建或死锁卡住。',
+        en: 'The LSP server did not return a result within the allowed time. A large file, index rebuild, or deadlock may have stalled the analysis process.',
+      ),
+      try_: StructuredErrorText.pick(
+        zh:
+            '· 等待索引完成后再试一次\n'
+            '· 重启 LSP 服务器（设置 → 编辑器 → LSP）\n'
+            '· 关闭过大的工作区或减少同时打开的项目\n'
+            '· 升级或重新安装该语言的 LSP',
+        en:
+            '· Wait for indexing to finish and try again\n'
+            '· Restart the LSP server (Settings → Editor → LSP)\n'
+            '· Close very large workspaces or reduce the number of open projects\n'
+            '· Upgrade or reinstall the language server',
+      ),
+      raw: '$error',
+    );
   }
   if (error is UnsupportedError) {
-    return 'LSP 操作不支持 / Unsupported LSP operation\n\n'
-        '该 LSP 服务器对当前操作没有对应的能力声明，可能需要更换 / 升级语言服务器。\n\n'
-        '原始错误 / Raw:\n$error';
+    return StructuredErrorText.format(
+      title: StructuredErrorText.pick(
+        zh: 'LSP 操作不支持',
+        en: 'Unsupported LSP operation',
+      ),
+      reason: StructuredErrorText.pick(
+        zh: '当前 LSP 服务器没有声明这项能力，可能需要更换或升级语言服务器。',
+        en: 'The current LSP server did not declare support for this operation. You may need to switch to a different language server or upgrade it.',
+      ),
+      try_: StructuredErrorText.pick(
+        zh: '· 更换语言服务器后重试\n· 升级当前 LSP 或相关扩展',
+        en:
+            '· Retry with another language server\n'
+            '· Upgrade the current LSP or related extension',
+      ),
+      raw: '$error',
+    );
   }
   // StateError 通常来自 _resolutionErrorMessage(backend) 或 "too many
   // pending requests" — 它们的 message 已经是用户可读的描述，直接透传

@@ -3601,6 +3601,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sessMetaErrorDetail => 'エラー詳細';
 
   @override
+  String get commonDetails => '詳細';
+
+  @override
+  String get commonCopy => 'コピー';
+
+  @override
+  String get commonViewDetails => '詳細を表示';
+
+  @override
+  String get commonCopiedToClipboard => 'クリップボードにコピーしました';
+
+  @override
+  String get structuredErrorWhy => 'Why:';
+
+  @override
+  String get structuredErrorTry => 'Try:';
+
+  @override
+  String get structuredErrorServerSays => 'Server says:';
+
+  @override
+  String get structuredErrorRaw => 'Raw:';
+
+  @override
   String get sessMetaPresented => '表示';
 
   @override

@@ -6764,6 +6764,54 @@ abstract class AppLocalizations {
   /// **'错误细节'**
   String get sessMetaErrorDetail;
 
+  /// No description provided for @commonDetails.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'详情'**
+  String get commonDetails;
+
+  /// No description provided for @commonCopy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制'**
+  String get commonCopy;
+
+  /// No description provided for @commonViewDetails.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看详情'**
+  String get commonViewDetails;
+
+  /// No description provided for @commonCopiedToClipboard.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制到剪贴板'**
+  String get commonCopiedToClipboard;
+
+  /// No description provided for @structuredErrorWhy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原因：'**
+  String get structuredErrorWhy;
+
+  /// No description provided for @structuredErrorTry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'建议：'**
+  String get structuredErrorTry;
+
+  /// No description provided for @structuredErrorServerSays.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务端原文：'**
+  String get structuredErrorServerSays;
+
+  /// No description provided for @structuredErrorRaw.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始错误：'**
+  String get structuredErrorRaw;
+
   /// No description provided for @sessMetaPresented.
   ///
   /// In zh_Hans, this message translates to:

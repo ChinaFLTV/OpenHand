@@ -2130,6 +2130,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final presentation = _presentSessionError(context, widget.error);
@@ -2218,7 +2219,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      '查看详情 / View details',
+                      l10n.commonViewDetails,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onErrorContainer.withValues(
                           alpha: 0.8,
