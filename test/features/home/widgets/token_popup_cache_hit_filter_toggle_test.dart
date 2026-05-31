@@ -77,6 +77,11 @@ void main() {
     expect(find.textContaining('平均: 38%'), findsOneWidget);
     expect(find.text('排除极端值'), findsOneWidget);
     expect(find.text('包括全部'), findsOneWidget);
+    expect(find.text('已排除 1 轮'), findsOneWidget);
+
+    final cardRect = tester.getRect(find.byType(TokenPopupCacheHitTrendChart));
+    final excludedRect = tester.getRect(find.text('已排除 1 轮'));
+    expect(excludedRect.left, greaterThan(cardRect.center.dx));
 
     await tester.tap(find.text('包括全部'));
     await tester.pumpAndSettle();

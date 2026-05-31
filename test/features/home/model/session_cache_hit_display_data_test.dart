@@ -140,6 +140,65 @@ void main() {
       expect(filtered.cacheReadTokens, 60);
       expect(filtered.uncachedPromptTokens, 100);
     });
+
+    test('falls back to user timestamp gap when idle metadata is missing', () {
+      final trend = SessionCacheHitTrend.fromSession(
+        _buildSession([
+          _user('u1', 0),
+          _assistant('a1', 1, prompt: 100, cacheRead: 0),
+          _user('u2', 7202),
+          _assistant('a2', 7203, prompt: 100, cacheRead: 0),
+          _user('u3', 7204),
+          _assistant('a3', 7205, prompt: 100, cacheRead: 60),
+        ]),
+        claudeStyle: true,
+      );
+
+      final filtered = trend.displayData(
+        SessionCacheHitDisplayMode.excludeExtremeMisses,
+      );
+      final all = trend.displayData(SessionCacheHitDisplayMode.includeAll);
+
+      expect(filtered.excludedPointCount, 1);
+      expect(filtered.trend.points.map((point) => point.turnIndex), [1, 3]);
+      expect(filtered.averageHitRatio, closeTo(60 / 160, 0.0001));
+      expect(all.averageHitRatio, closeTo(60 / 260, 0.0001));
+    });
+
+    test('uses user-message usage when assistant usage is absent', () {
+      final trend = SessionCacheHitTrend.fromSession(
+        _buildSession([
+          _user(
+            'u1',
+            0,
+            usage: const AiTokenUsage(promptTokens: 100, cacheReadTokens: 0),
+          ),
+          AiSessionMessage.assistant(
+            id: 'a1',
+            content: 'reply',
+            createdAt: DateTime.utc(2026, 1, 1, 0, 0, 1),
+          ),
+          _user(
+            'u2',
+            2,
+            usage: const AiTokenUsage(promptTokens: 100, cacheReadTokens: 60),
+          ),
+          AiSessionMessage.assistant(
+            id: 'a2',
+            content: 'reply2',
+            createdAt: DateTime.utc(2026, 1, 1, 0, 0, 3),
+          ),
+        ]),
+        claudeStyle: true,
+      );
+
+      expect(trend.points, hasLength(2));
+      expect(trend.points[1].cacheReadTokens, 60);
+      expect(
+        trend.displayData(SessionCacheHitDisplayMode.excludeExtremeMisses).averageHitRatio,
+        closeTo(60 / 160, 0.0001),
+      );
+    });
   });
 }
 
@@ -194,12 +253,13 @@ AiSessionMessage _user(
   String id,
   int second, {
   Map<String, Object?> metadata = const <String, Object?>{},
+  AiTokenUsage? usage,
 }) => AiSessionMessage.user(
   id: id,
   content: 'user $id',
   createdAt: DateTime.utc(2026, 1, 1, 0, 0, second),
   metadata: metadata,
-);
+).copyWith(usage: usage);
 
 AiSessionMessage _assistant(
   String id,

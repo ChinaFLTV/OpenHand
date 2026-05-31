@@ -156,10 +156,14 @@ class _TokenPopupCacheHitTrendChartState
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final displayData = widget.trend.displayData(widget.displayMode);
-    final effectiveViewport = _viewport.totalPoints == displayData.trend.points.length
+    final effectiveViewport =
+        _viewport.totalPoints == displayData.trend.points.length
         ? _viewport
         : SessionCacheHitViewport.full(displayData.trend.points.length);
-    final visiblePoints = _visiblePoints(displayData.trend.points, effectiveViewport);
+    final visiblePoints = _visiblePoints(
+      displayData.trend.points,
+      effectiveViewport,
+    );
     final valueStyle = theme.textTheme.labelSmall?.copyWith(
       color: colorScheme.onSurfaceVariant,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -247,36 +251,45 @@ class _TokenPopupCacheHitTrendChartState
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
+          Row(
             children: [
-              _CacheHitModeChip(
-                label: isZh ? '排除极端值' : 'Exclude extremes',
-                selected:
-                    widget.displayMode == SessionCacheHitDisplayMode.excludeExtremeMisses,
-                onTap: () {
-                  _viewport = SessionCacheHitViewport.full(
-                    displayData.trend.points.length,
-                  );
-                  widget.onDisplayModeChanged?.call(
-                    SessionCacheHitDisplayMode.excludeExtremeMisses,
-                  );
-                },
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _CacheHitModeChip(
+                    label: isZh ? '排除极端值' : 'Exclude extremes',
+                    selected:
+                        widget.displayMode ==
+                        SessionCacheHitDisplayMode.excludeExtremeMisses,
+                    onTap: () {
+                      _viewport = SessionCacheHitViewport.full(
+                        displayData.trend.points.length,
+                      );
+                      widget.onDisplayModeChanged?.call(
+                        SessionCacheHitDisplayMode.excludeExtremeMisses,
+                      );
+                    },
+                  ),
+                  _CacheHitModeChip(
+                    label: isZh ? '包括全部' : 'Include all',
+                    selected: widget.displayMode == SessionCacheHitDisplayMode.includeAll,
+                    onTap: () {
+                      _viewport = SessionCacheHitViewport.full(
+                        widget.trend.points.length,
+                      );
+                      widget.onDisplayModeChanged?.call(
+                        SessionCacheHitDisplayMode.includeAll,
+                      );
+                    },
+                  ),
+                ],
               ),
-              _CacheHitModeChip(
-                label: isZh ? '包括全部' : 'Include all',
-                selected: widget.displayMode == SessionCacheHitDisplayMode.includeAll,
-                onTap: () {
-                  _viewport = SessionCacheHitViewport.full(widget.trend.points.length);
-                  widget.onDisplayModeChanged?.call(
-                    SessionCacheHitDisplayMode.includeAll,
-                  );
-                },
-              ),
+              const Spacer(),
               if (displayData.excludedPointCount > 0)
                 Text(
                   '已排除 ${displayData.excludedPointCount} 轮',
+                  textAlign: TextAlign.right,
                   style: valueStyle,
                 ),
             ],
@@ -617,7 +630,9 @@ class _CacheHitModeChip extends StatelessWidget {
         child: Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
           ),
         ),

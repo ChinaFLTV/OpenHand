@@ -197,7 +197,7 @@ class SessionCacheHitTrend {
       if (assistantMessage == null || assistantMessage.kind != AiSessionMessageKind.assistant) {
         continue;
       }
-      final usage = assistantMessage.usage;
+      final usage = assistantMessage.usage ?? message.usage;
       final promptTokens = usage?.promptTokens ?? 0;
       final cacheReadTokens = usage?.cacheReadTokens ?? 0;
       final cacheWriteTokens = usage?.cacheCreationTokens ?? 0;
@@ -222,9 +222,16 @@ class SessionCacheHitTrend {
         cacheReadTokens: averageCacheReadTotal,
         claudeStyle: claudeStyle,
       );
+      final previousUserMessage = _previousUserMessage(session, message.id);
+      final fallbackIdleGapSeconds = previousUserMessage == null
+          ? null
+          : message.createdAt
+                .difference(previousUserMessage.createdAt)
+                .inSeconds;
       final diagnostics = _cacheHitDiagnostics(
         primaryMetadata: assistantMessage.metadata,
         relatedMetadata: message.metadata,
+        fallbackIdleGapSeconds: fallbackIdleGapSeconds,
       );
       points.add(
         SessionCacheHitTurnPoint(
@@ -271,6 +278,23 @@ class _CacheHitDiagnostics {
   final bool prefixDriftSuspected;
 }
 
+AiSessionMessage? _previousUserMessage(
+  AiSession session,
+  String currentUserMessageId,
+) {
+  final startIndex = session.messages.indexWhere((item) => item.id == currentUserMessageId);
+  if (startIndex <= 0) {
+    return null;
+  }
+  for (var index = startIndex - 1; index >= 0; index--) {
+    final candidate = session.messages[index];
+    if (!candidate.isDeleted && candidate.kind == AiSessionMessageKind.user) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 AiSessionMessage? _cacheHitRelatedTelemetryMessage(
   AiSession session,
   AiSessionMessage userMessage,
@@ -279,6 +303,7 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
   if (startIndex == -1) {
     return null;
   }
+  AiSessionMessage? firstAssistantReply;
   AiSessionMessage? fallbackTelemetry;
   for (var index = startIndex + 1; index < session.messages.length; index++) {
     final candidate = session.messages[index];
@@ -288,9 +313,11 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
     if (candidate.isDeleted) {
       continue;
     }
-    if (candidate.kind == AiSessionMessageKind.assistant &&
-        candidate.usage != null) {
-      return candidate;
+    if (candidate.kind == AiSessionMessageKind.assistant) {
+      firstAssistantReply ??= candidate;
+      if (candidate.usage != null) {
+        return candidate;
+      }
     }
     final metadata = candidate.metadata;
     final hasTelemetry =
@@ -304,12 +331,13 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
         metadata.containsKey('telemetry');
     fallbackTelemetry ??= hasTelemetry ? candidate : null;
   }
-  return fallbackTelemetry;
+  return firstAssistantReply ?? fallbackTelemetry;
 }
 
 _CacheHitDiagnostics _cacheHitDiagnostics({
   required Map<String, Object?> primaryMetadata,
   required Map<String, Object?> relatedMetadata,
+  required int? fallbackIdleGapSeconds,
 }) {
   Map<String, Object?>? asMap(Object? value) => switch (value) {
     Map<String, Object?> map => map,
@@ -353,6 +381,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     primaryMetadata['idle_gap_seconds'],
     relatedMetadata['idle_gap_seconds'],
     if (promptMetadata != null) promptMetadata['idle_gap_seconds'],
+    fallbackIdleGapSeconds,
   ]);
   final ttlSuspected = firstBool([
     primaryMetadata['ttl_suspected'],
