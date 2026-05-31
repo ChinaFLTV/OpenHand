@@ -18,7 +18,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
-import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -48,44 +49,16 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final controller = context.watch<MessageGatewayController>();
 
-    return Stack(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.settingsMessageGatewayTitle,
-                  style: theme.textTheme.displaySmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.settingsMessageGatewayDescription,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(child: _buildBody(context, controller)),
-          ],
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: HighlightPulse(signal: controller.saveSuccessSignal),
-          ),
-        ),
-      ],
+    return FeaturePageShell(
+      title: l10n.settingsMessageGatewayTitle,
+      subtitle: l10n.settingsMessageGatewayDescription,
+      actions: const SizedBox.shrink(),
+      successSignal: controller.saveSuccessSignal,
+      body: _buildBody(context, controller),
+      headerSpacing: 16,
     );
   }
 
@@ -94,8 +67,9 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
       return const Center(child: CircularProgressIndicator());
     }
     if (controller.errorMessage != null) {
-      return _GatewayStateCard(
+      return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
         title: '消息网关加载失败',
         body: controller.errorMessage!,
       );
@@ -2899,52 +2873,6 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     } finally {
       if (mounted) setState(() => _isCleaning = false);
     }
-  }
-}
-
-class _GatewayStateCard extends StatelessWidget {
-  const _GatewayStateCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Card(
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Row(
-              children: [
-                Icon(icon),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(title, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 6),
-                      Text(body),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

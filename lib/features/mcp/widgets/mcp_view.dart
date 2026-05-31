@@ -18,7 +18,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
-import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -129,144 +130,77 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       (controller) => controller.mcpEnabled,
     );
 
-    return Stack(
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked = constraints.maxWidth < 980;
-                final actions = Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: mcpSnapshot.isLoading
-                          ? null
-                          : () => mcpController.refresh(),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(l10n.mcpRefresh),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openDirectory(context),
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: Text(l10n.mcpOpenDirectory),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _showSnapshotExportMenu(context),
-                      icon: const Icon(Icons.ios_share_rounded),
-                      label: Text(
-                        _localizedText(
-                          context,
-                          zh: '导出快照',
-                          en: 'Export snapshot',
-                        ),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: mcpController.isBuildingKeywordIndex
-                          ? null
-                          : () => _buildKeywordIndex(context),
-                      icon: const Icon(Icons.travel_explore_rounded),
-                      label: Text(l10n.mcpBuildKeywordIndex),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: mcpSnapshot.servers.isEmpty
-                          ? null
-                          : () => _showProbeDetailsDialog(context),
-                      icon: const Icon(Icons.radar_rounded),
-                      label: Text(
-                        _localizedText(
-                          context,
-                          zh: '探测详情',
-                          en: 'Probe Details',
-                        ),
-                      ),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () => _showServerDialog(context),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(l10n.mcpNewServer),
-                    ),
-                  ],
-                );
-
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _McpPageHeader(
-                        title: l10n.mcpPageTitle,
-                        subtitle: l10n.mcpPageSubtitle,
-                      ),
-                      const SizedBox(height: 20),
-                      actions,
-                    ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _McpPageHeader(
-                        title: l10n.mcpPageTitle,
-                        subtitle: l10n.mcpPageSubtitle,
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: actions,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            if (!mcpEnabled) ...[
-              _McpInfoCard(
-                icon: Icons.toggle_off_rounded,
-                title: l10n.mcpDisabledTitle,
-                body: l10n.mcpDisabledBody,
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (mcpSnapshot.persistenceIssue != null) ...[
-              _McpPersistenceIssueCard(
-                issue: mcpSnapshot.persistenceIssue!,
-                onDismiss: mcpController.clearPersistenceIssue,
-              ),
-              const SizedBox(height: 16),
-            ],
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                child: _buildBody(
-                  context,
-                  isLoading: mcpSnapshot.isLoading,
-                  errorMessage: mcpSnapshot.errorMessage,
-                  servers: mcpSnapshot.servers,
-                ),
-              ),
-            ),
-          ],
+        FilledButton.tonalIcon(
+          onPressed: mcpSnapshot.isLoading
+              ? null
+              : () => mcpController.refresh(),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(l10n.mcpRefresh),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: HighlightPulse(signal: mcpController.saveSuccessSignal),
+        OutlinedButton.icon(
+          onPressed: () => _openDirectory(context),
+          icon: const Icon(Icons.folder_open_rounded),
+          label: Text(l10n.mcpOpenDirectory),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _showSnapshotExportMenu(context),
+          icon: const Icon(Icons.ios_share_rounded),
+          label: Text(
+            _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
           ),
         ),
+        OutlinedButton.icon(
+          onPressed: mcpController.isBuildingKeywordIndex
+              ? null
+              : () => _buildKeywordIndex(context),
+          icon: const Icon(Icons.travel_explore_rounded),
+          label: Text(l10n.mcpBuildKeywordIndex),
+        ),
+        OutlinedButton.icon(
+          onPressed: mcpSnapshot.servers.isEmpty
+              ? null
+              : () => _showProbeDetailsDialog(context),
+          icon: const Icon(Icons.radar_rounded),
+          label: Text(_localizedText(context, zh: '探测详情', en: 'Probe Details')),
+        ),
+        FilledButton.icon(
+          onPressed: () => _showServerDialog(context),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.mcpNewServer),
+        ),
       ],
+    );
+
+    return FeaturePageShell(
+      title: l10n.mcpPageTitle,
+      subtitle: l10n.mcpPageSubtitle,
+      actions: actions,
+      successSignal: mcpController.saveSuccessSignal,
+      notices: [
+        if (!mcpEnabled)
+          FeatureStateCard.inline(
+            icon: Icons.toggle_off_rounded,
+            tone: FeatureStateTone.secondary,
+            title: l10n.mcpDisabledTitle,
+            body: l10n.mcpDisabledBody,
+          ),
+        if (mcpSnapshot.persistenceIssue != null)
+          _McpPersistenceIssueCard(
+            issue: mcpSnapshot.persistenceIssue!,
+            onDismiss: mcpController.clearPersistenceIssue,
+          ),
+      ],
+      body: _buildBody(
+        context,
+        isLoading: mcpSnapshot.isLoading,
+        errorMessage: mcpSnapshot.errorMessage,
+        servers: mcpSnapshot.servers,
+      ),
     );
   }
 
@@ -281,17 +215,20 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return const Center(child: CircularProgressIndicator());
     }
     if (errorMessage != null) {
-      return _McpStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('mcp-error'),
         icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
         title: l10n.mcpLoadFailedTitle,
         body: errorMessage,
-        primaryActionLabel: l10n.mcpRefresh,
-        onPrimaryAction: () => context.read<McpController>().refresh(),
+        action: OpenHandDialogActionButton.primary(
+          onPressed: () => context.read<McpController>().refresh(),
+          label: l10n.mcpRefresh,
+        ),
       );
     }
     if (servers.isEmpty) {
-      return _McpStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('mcp-empty'),
         icon: Icons.hub_outlined,
         title: l10n.mcpEmptyTitle,
@@ -1380,32 +1317,6 @@ class _EditableHeaderRow {
   }
 }
 
-class _McpPageHeader extends StatelessWidget {
-  const _McpPageHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _McpServerCard extends StatefulWidget {
   const _McpServerCard({
     super.key,
@@ -1935,10 +1846,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                       return SizeTransition(
                         sizeFactor: animation,
                         axisAlignment: -1.0,
-                        child: FadeTransition(
-                          opacity: animation,
-                          child: child,
-                        ),
+                        child: FadeTransition(opacity: animation, child: child),
                       );
                     },
                     child: _showToolSearch
@@ -1951,8 +1859,9 @@ class _McpServerCardState extends State<_McpServerCard> {
                               autofocus: true,
                               onChanged: (value) {
                                 setState(() {
-                                  _toolSearchKeyword =
-                                      value.trim().toLowerCase();
+                                  _toolSearchKeyword = value
+                                      .trim()
+                                      .toLowerCase();
                                 });
                               },
                               decoration: InputDecoration(
@@ -1961,32 +1870,29 @@ class _McpServerCardState extends State<_McpServerCard> {
                                   zh: '输入关键字过滤 Tool…',
                                   en: 'Type to filter tools…',
                                 ),
-                                prefixIcon:
-                                    const Icon(Icons.search_rounded),
+                                prefixIcon: const Icon(Icons.search_rounded),
                                 suffixIcon:
                                     _toolSearchController.text.isNotEmpty
-                                        ? GestureDetector(
-                                            onTap: () {
-                                              _toolSearchController
-                                                  .clear();
-                                              setState(() {
-                                                _toolSearchKeyword = '';
-                                              });
-                                            },
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(12),
-                                              child: Icon(
-                                                Icons.clear_rounded,
-                                                size: 20,
-                                              ),
-                                            ),
-                                          )
-                                        : null,
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          _toolSearchController.clear();
+                                          setState(() {
+                                            _toolSearchKeyword = '';
+                                          });
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child: Icon(
+                                            Icons.clear_rounded,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
+                                contentPadding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                   horizontal: 16,
                                 ),
@@ -4037,19 +3943,18 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
     final filteredTools = keyword.isEmpty
         ? allTools
         : allTools
-            .where(
-              (t) => t.name.toLowerCase().contains(keyword),
-            )
-            .toList(growable: false);
+              .where((t) => t.name.toLowerCase().contains(keyword))
+              .toList(growable: false);
     final showAll =
         _expanded || filteredTools.length <= _mcpToolPreviewCollapsedLimit;
     final previewTools = showAll
         ? filteredTools
         : filteredTools
-            .take(_mcpToolPreviewCollapsedLimit)
-            .toList(growable: false);
-    final hiddenToolCount =
-        showAll ? 0 : filteredTools.length - previewTools.length;
+              .take(_mcpToolPreviewCollapsedLimit)
+              .toList(growable: false);
+    final hiddenToolCount = showAll
+        ? 0
+        : filteredTools.length - previewTools.length;
     final canExpand = filteredTools.length > _mcpToolPreviewCollapsedLimit;
 
     return Column(
@@ -5234,8 +5139,11 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
     // 超大响应直接跳过格式化，截断展示原始文本
     if (rawText.length > _kSkipFormatThreshold) {
-      _applyDisplay(rawText.substring(0, _kMaxDisplaySize), null,
-          _kTruncationNote(rawText.length));
+      _applyDisplay(
+        rawText.substring(0, _kMaxDisplaySize),
+        null,
+        _kTruncationNote(rawText.length),
+      );
       return;
     }
 
@@ -5255,7 +5163,9 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
     if (!mounted) return;
     setState(() => _isFormatting = true);
 
-    final formatted = await Isolate.run(() => _formatMcpDisplayContent(rawText));
+    final formatted = await Isolate.run(
+      () => _formatMcpDisplayContent(rawText),
+    );
     if (!mounted) return;
 
     final (display, truncated) = _capDisplay(formatted);
@@ -5316,8 +5226,9 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer
-                            .withValues(alpha: 0.5),
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -5336,8 +5247,9 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.tertiaryContainer
-                            .withValues(alpha: 0.6),
+                        color: colorScheme.tertiaryContainer.withValues(
+                          alpha: 0.6,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -5429,123 +5341,6 @@ class _SchemaField {
   final String type;
   final String description;
   final bool required;
-}
-
-class _McpStateCard extends StatelessWidget {
-  const _McpStateCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.primaryActionLabel,
-    this.onPrimaryAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final String? primaryActionLabel;
-  final VoidCallback? onPrimaryAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: colorScheme.onPrimaryContainer),
-                ),
-                const SizedBox(height: 18),
-                Text(title, style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 10),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (primaryActionLabel != null && onPrimaryAction != null) ...[
-                  const SizedBox(height: 20),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: onPrimaryAction,
-                    label: primaryActionLabel!,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _McpInfoCard extends StatelessWidget {
-  const _McpInfoCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      color: colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.onSecondaryContainer),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _McpPersistenceIssueCard extends StatelessWidget {
