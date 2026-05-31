@@ -5846,32 +5846,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _deleteHardnessSession() async {
     final record = _persistedHardnessSession;
     if (record == null) return;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(
-              dialogContext,
-              zh: '删除 Hardness Engineering 会话',
-              en: 'Delete HE Session',
-            ),
-          ),
-          content: Text(record.title),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(dialogContext)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(dialogContext)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: _localizedText(
+        context,
+        zh: '删除 Hardness Engineering 会话',
+        en: 'Delete HE Session',
+      ),
+      content: Text(record.title),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonDelete,
+      destructive: true,
     );
     if (confirmed != true || !mounted) {
       return;
@@ -6244,34 +6229,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<bool> _deleteMessage(AiSessionMessage message) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(dialogContext, zh: '删除消息', en: 'Delete Message'),
-          ),
-          content: Text(
-            _localizedText(
-              dialogContext,
-              zh: '删除后，这条消息将不再显示。',
-              en: 'This message will no longer be shown.',
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: _localizedText(context, zh: '删除消息', en: 'Delete Message'),
+      message: _localizedText(
+        context,
+        zh: '删除后，这条消息将不再显示。',
+        en: 'This message will no longer be shown.',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonDelete,
+      destructive: true,
     );
     if (confirmed != true || !mounted) {
       return false;
@@ -6294,38 +6262,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<bool> _deleteMessageFromHere(AiSessionMessage message) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(
-            _localizedText(
-              dialogContext,
-              zh: '删除此条及后续消息',
-              en: 'Delete From Here',
-            ),
-          ),
-          content: Text(
-            _localizedText(
-              dialogContext,
-              zh: '删除后，这条消息及其后续消息将不再显示。',
-              en: 'This message and the later messages will no longer be shown.',
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.commonDelete,
-            ),
-          ],
-        );
-      },
+      title: _localizedText(context, zh: '删除此条及后续消息', en: 'Delete From Here'),
+      message: _localizedText(
+        context,
+        zh: '删除后，这条消息及其后续消息将不再显示。',
+        en: 'This message and the later messages will no longer be shown.',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: AppLocalizations.of(context)!.commonDelete,
+      destructive: true,
     );
     if (confirmed != true || !mounted) {
       return false;

@@ -1450,32 +1450,14 @@ Future<void> _toggleMitmproxyBridge(
   }
   // 提示用户配置代理。
   if (!context.mounted) return;
-  final go = await showAnimatedDialog<bool>(
+  final go = await showOpenHandConfirmDialog(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge'),
-      content: Text(
-        isZh
-            ? '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n'
-                  '首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n'
-                  '所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
-            : 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\n'
-                  'First time? Trust the CA via http://mitm.it.\n\n'
-                  'Captured traffic shows up under the mitmproxy resource type.',
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          label: isZh ? '取消' : 'Cancel',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          label: isZh ? '启动' : 'Start',
-        ),
-      ],
-    ),
+    title: isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge',
+    message: isZh
+        ? '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
+        : 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\nFirst time? Trust the CA via http://mitm.it.\n\nCaptured traffic shows up under the mitmproxy resource type.',
+    cancelLabel: isZh ? '取消' : 'Cancel',
+    confirmLabel: isZh ? '启动' : 'Start',
   );
   if (go != true || !context.mounted) return;
   final r = await ctrl.startMitmproxyBridge();

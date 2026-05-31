@@ -2009,29 +2009,15 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
   Future<void> _requestCancel(BuildContext context) async {
     final isZh = widget.isZh;
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '确认中止' : 'Confirm Cancel'),
-        content: Text(
-          isZh
-              ? '当前会话仍在运行中，确定要中止吗？\nCLI 进程将被终止，已生成的文件会保留。'
-              : 'Session is still running. Cancel it?\n'
-                    'The active CLI process will be killed. Already-generated files are kept.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: isZh ? '继续运行' : 'Keep Running',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: isZh ? '中止' : 'Cancel',
-          ),
-        ],
-      ),
+      title: isZh ? '确认中止' : 'Confirm Cancel',
+      message: isZh
+          ? '当前会话仍在运行中，确定要中止吗？\nCLI 进程将被终止，已生成的文件会保留。'
+          : 'Session is still running. Cancel it?\nThe active CLI process will be killed. Already-generated files are kept.',
+      cancelLabel: isZh ? '继续运行' : 'Keep Running',
+      confirmLabel: isZh ? '中止' : 'Cancel',
+      destructive: true,
     );
     if (confirmed == true && mounted) {
       widget.orchestrator.cancel();

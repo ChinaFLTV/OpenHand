@@ -586,32 +586,18 @@ class _HeSteeringFileEditorDialogState
     }
   }
 
-  Future<bool> _confirmDiscard() async {
-    if (!_dirty) return true;
-    final result = await showAnimatedDialog<bool>(
+  Future<bool> _confirmDiscard() {
+    if (!_dirty) return Future<bool>.value(true);
+    return showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(widget.isZh ? '放弃更改？' : 'Discard changes?'),
-        content: Text(
-          widget.isZh
-              ? '你有未保存的更改，确定要放弃吗？'
-              : 'You have unsaved changes. Discard them?',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: widget.isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: widget.isZh ? '放弃' : 'Discard',
-          ),
-        ],
-      ),
+      title: widget.isZh ? '放弃更改？' : 'Discard changes?',
+      message: widget.isZh
+          ? '你有未保存的更改，确定要放弃吗？'
+          : 'You have unsaved changes. Discard them?',
+      cancelLabel: widget.isZh ? '取消' : 'Cancel',
+      confirmLabel: widget.isZh ? '放弃' : 'Discard',
+      destructive: true,
     );
-    return result ?? false;
   }
 
   // ── Format helpers ─────────────────────────────────────────────────────────

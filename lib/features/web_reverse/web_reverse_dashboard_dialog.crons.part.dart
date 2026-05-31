@@ -217,60 +217,35 @@ class _CronsBodyState extends State<_CronsBody> {
     widget.onPersist();
   }
 
-  void _delete() {
+  Future<void> _delete() async {
     final id = _selectedId;
     if (id == null) return;
     final isZh = widget.isZh;
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '删除任务？' : 'Delete cron?'),
-        content: Text(isZh ? '将立即取消定时并不可撤销。' : 'Timer will be cancelled.'),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () async {
-              await widget.controller.removeCron(id);
-              widget.onPersist();
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            label: isZh ? '删除' : 'Delete',
-          ),
-        ],
-      ),
+      title: isZh ? '删除任务？' : 'Delete cron?',
+      message: isZh ? '将立即取消定时并不可撤销。' : 'Timer will be cancelled.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    await widget.controller.removeCron(id);
+    if (!mounted) return;
+    widget.onPersist();
   }
 
-  void _confirmDiscard(VoidCallback onConfirm) {
+  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
     final isZh = widget.isZh;
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?'),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: isZh ? '继续编辑' : 'Keep editing',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onConfirm();
-            },
-            label: isZh ? '丢弃' : 'Discard',
-          ),
-        ],
-      ),
+      title: isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?',
+      cancelLabel: isZh ? '继续编辑' : 'Keep editing',
+      confirmLabel: isZh ? '丢弃' : 'Discard',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    onConfirm();
   }
 
   String _formatAgo(DateTime? t, bool isZh) {

@@ -169,65 +169,36 @@ class _HooksBodyState extends State<_HooksBody> {
     widget.onPersist();
   }
 
-  void _delete() {
+  Future<void> _delete() async {
     final id = _selectedId;
     if (id == null) return;
     final loc = AppLocalizations.of(context);
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(loc?.webReverseHooksDeleteTitle ?? 'Delete hook?'),
-        content: Text(
-          loc?.webReverseHooksDeleteContent ??
-              'Will be uninstalled immediately.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: loc?.commonCancel ?? 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () async {
-              await widget.controller.removeHook(id);
-              widget.onPersist();
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            label: loc?.webReverseHooksDelete ?? 'Delete',
-          ),
-        ],
-      ),
+      title: loc?.webReverseHooksDeleteTitle ?? 'Delete hook?',
+      message:
+          loc?.webReverseHooksDeleteContent ?? 'Will be uninstalled immediately.',
+      cancelLabel: loc?.commonCancel ?? 'Cancel',
+      confirmLabel: loc?.webReverseHooksDelete ?? 'Delete',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    await widget.controller.removeHook(id);
+    if (!mounted) return;
+    widget.onPersist();
   }
 
-  void _confirmDiscard(VoidCallback onConfirm) {
+  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
     final loc = AppLocalizations.of(context);
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(
-          loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onConfirm();
-            },
-            label: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
-          ),
-        ],
-      ),
+      title: loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
+      cancelLabel: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
+      confirmLabel: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    onConfirm();
   }
 
   @override

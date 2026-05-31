@@ -1442,28 +1442,14 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
   }
 
   Future<void> _deleteMessage(AiSessionMessage message) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(AppLocalizations.of(dialogContext)!.auditDeleteMessage),
-        content: Text(
-          AppLocalizations.of(
-            dialogContext,
-          )!.auditDeleteThisMessageThisCannotBe,
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: AppLocalizations.of(dialogContext)!.auditCancel,
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: AppLocalizations.of(dialogContext)!.auditDelete,
-          ),
-        ],
-      ),
+      title: loc.auditDeleteMessage,
+      message: loc.auditDeleteThisMessageThisCannotBe,
+      cancelLabel: loc.auditCancel,
+      confirmLabel: loc.auditDelete,
+      destructive: true,
     );
     if (confirmed != true) return;
     setState(() => _busy = true);

@@ -45,11 +45,7 @@ Future<bool> showOpenHandConfirmDialog({
   bool barrierDismissible = true,
   bool dismissOnEscape = true,
 }) async {
-  assert(
-    message != null || content != null,
-    'Either message or content must be provided.',
-  );
-  final dialogContent = content ?? Text(message!);
+  final dialogContent = content ?? (message == null ? null : Text(message));
   final confirmed = await showAnimatedDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -59,7 +55,9 @@ Future<bool> showOpenHandConfirmDialog({
       actionsOverflowAlignment: OverflowBarAlignment.center,
       icon: icon,
       title: Text(title),
-      content: maxWidth == null
+      content: dialogContent == null
+          ? null
+          : maxWidth == null
           ? dialogContent
           : ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),

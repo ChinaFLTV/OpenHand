@@ -178,64 +178,34 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     }
   }
 
-  void _delete() {
+  Future<void> _delete() async {
     final id = _selectedId;
     if (id == null) return;
     final loc = AppLocalizations.of(context);
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(loc?.webReverseSnippetsDeleteTitle ?? 'Delete snippet?'),
-        content: Text(
-          loc?.webReverseSnippetsDeleteContent ?? 'This cannot be undone.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: loc?.commonCancel ?? 'Cancel',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () {
-              widget.controller.removeSnippet(id);
-              widget.onPersist();
-              Navigator.of(ctx).pop();
-            },
-            label: loc?.webReverseSnippetsDelete ?? 'Delete',
-          ),
-        ],
-      ),
+      title: loc?.webReverseSnippetsDeleteTitle ?? 'Delete snippet?',
+      message: loc?.webReverseSnippetsDeleteContent ?? 'This cannot be undone.',
+      cancelLabel: loc?.commonCancel ?? 'Cancel',
+      confirmLabel: loc?.webReverseSnippetsDelete ?? 'Delete',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    widget.controller.removeSnippet(id);
+    widget.onPersist();
   }
 
-  void _confirmDiscard(VoidCallback onConfirm) {
+  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
     final loc = AppLocalizations.of(context);
-    showAnimatedDialog<void>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(
-          loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
-          ),
-          OpenHandDialogActionButton.destructive(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onConfirm();
-            },
-            label: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
-          ),
-        ],
-      ),
+      title: loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
+      cancelLabel: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
+      confirmLabel: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    onConfirm();
   }
 
   @override
