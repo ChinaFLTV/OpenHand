@@ -15,6 +15,7 @@ import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/web_fetch/web_fetch_cache_store.dart';
 import '../../service/web_fetch/web_fetch_orchestrator.dart';
+import '../../service/web_fetch/web_fetch_scrapling_bridge.dart';
 import '../../service/web_fetch/web_fetch_telemetry_store.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -29,13 +30,16 @@ class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
     required AiChatClient backgroundChatClient,
     required http.Client httpClient,
+    required WebFetchScraplingBridge scraplingBridge,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
   }) : _backgroundChatClient = backgroundChatClient,
        _httpClient = httpClient,
+       _scraplingBridge = scraplingBridge,
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host));
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
+  final WebFetchScraplingBridge _scraplingBridge;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
 
   // 由 AiSessionController 推送的运行时参数（保留向后兼容字段）。
@@ -234,6 +238,7 @@ class AiWebFetchTool extends AiTool {
       settings: settings,
       httpClient: _httpClient,
       availableModels: availableModels,
+      scraplingBridge: _scraplingBridge,
     );
 
     final WebFetchOrchestrationResult orchestrationResult;

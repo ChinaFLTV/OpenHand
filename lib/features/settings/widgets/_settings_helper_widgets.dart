@@ -119,10 +119,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
           color: colorScheme.outlineVariant.withValues(alpha: 0.45),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: body,
-      ),
+      child: Padding(padding: const EdgeInsets.all(18), child: body),
     );
   }
 }
@@ -401,24 +398,29 @@ class _SettingsElasticExpansion extends StatelessWidget {
             ],
           ),
           transitionBuilder: (transitionChild, animation) {
-            final eased = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutBack,
-              reverseCurve: Curves.easeInCubic,
-            );
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, -0.018),
-                  end: Offset.zero,
-                ).animate(eased),
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.985, end: 1).animate(eased),
-                  alignment: Alignment.topCenter,
-                  child: transitionChild,
-                ),
-              ),
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, _) {
+                final raw = animation.value.clamp(0.0, 1.0);
+                final eased = animation.status == AnimationStatus.reverse
+                    ? Curves.easeInCubic.transform(raw)
+                    : Curves.easeOutBack.transform(raw);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: AlwaysStoppedAnimation<Offset>(
+                      Offset(0, -0.018 * (1.0 - eased)),
+                    ),
+                    child: ScaleTransition(
+                      scale: AlwaysStoppedAnimation<double>(
+                        0.985 + 0.015 * eased,
+                      ),
+                      alignment: Alignment.topCenter,
+                      child: transitionChild,
+                    ),
+                  ),
+                );
+              },
             );
           },
           child: expanded
@@ -460,8 +462,6 @@ Widget _settingsTransparentReorderProxy(
 ) {
   final colorScheme = Theme.of(context).colorScheme;
   final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  final eased = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
-
   return AnimatedBuilder(
     animation: animation,
     child: Material(
@@ -472,7 +472,8 @@ Widget _settingsTransparentReorderProxy(
       child: child,
     ),
     builder: (context, proxyChild) {
-      final t = reduceMotion ? 1.0 : eased.value;
+      final raw = animation.value.clamp(0.0, 1.0);
+      final t = reduceMotion ? 1.0 : Curves.easeOutBack.transform(raw);
       return Transform.scale(
         scale: 1 + 0.018 * t,
         child: DecoratedBox(
@@ -1040,12 +1041,16 @@ class _AiModelTileState extends State<_AiModelTile> {
                           icon: const Icon(Icons.arrow_downward_rounded),
                         ),
                         IconButton(
-                          onPressed: widget.actionsEnabled ? widget.onEdit : null,
+                          onPressed: widget.actionsEnabled
+                              ? widget.onEdit
+                              : null,
                           tooltip: l10n.commonEdit,
                           icon: const Icon(Icons.edit_outlined),
                         ),
                         IconButton(
-                          onPressed: widget.actionsEnabled ? widget.onDelete : null,
+                          onPressed: widget.actionsEnabled
+                              ? widget.onDelete
+                              : null,
                           tooltip: l10n.commonDelete,
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
@@ -1261,25 +1266,28 @@ class _AnimatedSettingReveal extends StatelessWidget {
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (child, animation) {
-            final slide = Tween<Offset>(
-              begin: const Offset(0, -0.06),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-            );
-            final scale = Tween<double>(begin: 0.97, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-            );
-            return SlideTransition(
-              position: slide,
-              child: FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: scale,
-                  alignment: Alignment.topCenter,
-                  child: child,
-                ),
-              ),
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, _) {
+                final raw = animation.value.clamp(0.0, 1.0);
+                final slideT = Curves.easeOutBack.transform(raw);
+                final scaleT = Curves.easeOutCubic.transform(raw);
+                return SlideTransition(
+                  position: AlwaysStoppedAnimation<Offset>(
+                    Offset(0, -0.06 * (1.0 - slideT)),
+                  ),
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: AlwaysStoppedAnimation<double>(
+                        0.97 + 0.03 * scaleT,
+                      ),
+                      alignment: Alignment.topCenter,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
             );
           },
           child: visible
@@ -1290,4 +1298,3 @@ class _AnimatedSettingReveal extends StatelessWidget {
     );
   }
 }
-

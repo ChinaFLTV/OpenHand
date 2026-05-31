@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_fetch_settings.dart';
 import 'web_fetch_engine.dart';
+import 'web_fetch_scrapling_bridge.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 真正的「URL → 全文」抓取引擎：firecrawl、tavily-extract、exa-contents。
@@ -69,6 +70,48 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
 }
 
 /// Tavily /extract — https://docs.tavily.com/api-reference/endpoint/extract
+class WebFetchScraplingEngine extends WebFetchEngine {
+  WebFetchScraplingEngine({
+    required super.config,
+    required super.httpClient,
+    required this.scraplingBridge,
+    required this.scraplingSettings,
+  });
+
+  final WebFetchScraplingBridge scraplingBridge;
+  final AiWebFetchScraplingSettings scraplingSettings;
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Duration get fetchTimeout =>
+      Duration(seconds: scraplingSettings.requestTimeoutSeconds + 5);
+
+  @override
+  Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
+    final result = await scraplingBridge.fetch(
+      url: req.url,
+      maxChars: req.maxChars,
+      settings: scraplingSettings,
+      cancelSignal: req.cancelSignal,
+    );
+    if (result.content.trim().isEmpty) {
+      return const <WebFetchEngineContent>[];
+    }
+    return [
+      WebFetchEngineContent(
+        url: result.url,
+        title: result.title.trim().isEmpty ? req.url : result.title.trim(),
+        content: result.content,
+        contentType: result.contentType,
+        statusCode: result.statusCode,
+        responseHeaders: result.responseHeaders,
+      ),
+    ];
+  }
+}
+
 class WebFetchTavilyEngine extends WebFetchEngine {
   WebFetchTavilyEngine({required super.config, required super.httpClient});
 
@@ -155,10 +198,20 @@ class WebFetchExaEngine extends WebFetchEngine {
 WebFetchEngine? buildScrapeEngine({
   required AiWebFetchEngineConfig config,
   required http.Client httpClient,
+  required AiWebFetchScraplingSettings scraplingSettings,
+  WebFetchScraplingBridge? scraplingBridge,
 }) {
   switch (config.kind) {
     case AiWebFetchEngineKind.firecrawl:
       return WebFetchFirecrawlEngine(config: config, httpClient: httpClient);
+    case AiWebFetchEngineKind.scrapling:
+      if (scraplingBridge == null) return null;
+      return WebFetchScraplingEngine(
+        config: config,
+        httpClient: httpClient,
+        scraplingBridge: scraplingBridge,
+        scraplingSettings: scraplingSettings,
+      );
     case AiWebFetchEngineKind.tavily:
       return WebFetchTavilyEngine(config: config, httpClient: httpClient);
     case AiWebFetchEngineKind.exa:

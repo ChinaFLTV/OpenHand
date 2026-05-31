@@ -11,6 +11,7 @@ import '../web_engine/web_engine_quality.dart';
 import 'web_fetch_direct_engines.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrape_engines.dart';
+import 'web_fetch_scrapling_bridge.dart';
 import 'web_fetch_search_engines.dart';
 import 'web_fetch_telemetry_store.dart';
 
@@ -57,11 +58,13 @@ class WebFetchOrchestrator {
     required this.settings,
     required this.httpClient,
     required this.availableModels,
+    this.scraplingBridge,
   });
 
   final AiWebFetchSettings settings;
   final http.Client httpClient;
   final List<AiModelConfig> availableModels;
+  final WebFetchScraplingBridge? scraplingBridge;
 
   Future<WebFetchOrchestrationResult> run({
     required String url,
@@ -114,6 +117,7 @@ class WebFetchOrchestrator {
     final ctx = WebFetchEngineContext(
       httpClient: httpClient,
       availableModels: availableModels,
+      scraplingBridge: scraplingBridge,
     );
 
     final engines = effectiveConfigs
@@ -352,6 +356,7 @@ class WebFetchOrchestrator {
   bool _isNativeUrlFetchKind(AiWebFetchEngineKind kind) {
     return switch (kind) {
       AiWebFetchEngineKind.firecrawl ||
+      AiWebFetchEngineKind.scrapling ||
       AiWebFetchEngineKind.tavily ||
       AiWebFetchEngineKind.exa ||
       AiWebFetchEngineKind.duckduckgo ||
@@ -379,7 +384,12 @@ class WebFetchOrchestrator {
     AiWebFetchEngineConfig config,
     WebFetchEngineContext ctx,
   ) {
-    return buildScrapeEngine(config: config, httpClient: httpClient) ??
+    return buildScrapeEngine(
+          config: config,
+          httpClient: httpClient,
+          scraplingBridge: ctx.scraplingBridge,
+          scraplingSettings: settings.scrapling,
+        ) ??
         buildSearchAsFetchEngine(
           config: config,
           httpClient: httpClient,

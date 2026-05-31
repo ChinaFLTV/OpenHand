@@ -41,6 +41,14 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   bool _telemetryLoading = false;
   bool _clearingTelemetry = false;
   bool _exportingTelemetry = false;
+  WebFetchScraplingProbeStatus _scraplingProbe =
+      const WebFetchScraplingProbeStatus(
+        ready: false,
+        code: 'not_checked',
+        detail: 'Not checked yet.',
+      );
+  bool _scraplingProbeLoading = false;
+  bool _scraplingRuntimeBusy = false;
 
   @override
   void initState() {
@@ -54,8 +62,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     _cacheMaxBytesController = TextEditingController(
       text: _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
     );
+    _scraplingProbe = context
+        .read<AiSessionController>()
+        .toolRuntimeService
+        .lastWebFetchScraplingProbe;
     _refreshCacheBytesOnDisk();
     _refreshTelemetry();
+    unawaited(_refreshScraplingProbe());
   }
 
   Future<void> _refreshCacheBytesOnDisk() async {
@@ -97,6 +110,138 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
+  }
+
+  Future<void> _refreshScraplingProbe([
+    AiWebFetchScraplingSettings? settings,
+  ]) async {
+    if (_scraplingProbeLoading) return;
+    setState(() => _scraplingProbeLoading = true);
+    final effectiveSettings = settings ?? widget.value.scrapling;
+    try {
+      final probe = await context
+          .read<AiSessionController>()
+          .toolRuntimeService
+          .probeWebFetchScrapling(settings: effectiveSettings);
+      if (!mounted) return;
+      setState(() {
+        _scraplingProbe = probe;
+        _scraplingProbeLoading = false;
+      });
+    } catch (e, st) {
+      silentLog('settings.webfetch', '_refreshScraplingProbe', e, st);
+      if (!mounted) return;
+      setState(() {
+        _scraplingProbe = WebFetchScraplingProbeStatus(
+          ready: false,
+          code: 'probe_failed',
+          detail: '$e',
+          updatedAt: DateTime.now().toUtc(),
+        );
+        _scraplingProbeLoading = false;
+      });
+    }
+  }
+
+  Future<void> _resetScraplingRuntime() async {
+    try {
+      await context
+          .read<AiSessionController>()
+          .toolRuntimeService
+          .resetWebFetchScrapling();
+    } catch (e, st) {
+      silentLog('settings.webfetch', '_resetScraplingRuntime', e, st);
+    }
+    await _refreshScraplingProbe();
+  }
+
+  Future<void> _installScraplingRuntime() async {
+    if (_scraplingRuntimeBusy) return;
+    setState(() => _scraplingRuntimeBusy = true);
+    try {
+      final result = await showAnimatedDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _ScraplingRuntimeDialog(
+          action: _ScraplingRuntimeAction.install,
+          settings: widget.value.scrapling,
+        ),
+      );
+      if (!mounted) return;
+      if (result == true) {
+        OpenHandSnackBar.showSuccess(
+          context,
+          _localizedText(
+            context,
+            zh: 'Scrapling 运行时安装完成',
+            en: 'Scrapling runtime installed',
+          ),
+        );
+      }
+    } catch (e, st) {
+      silentLog('settings.webfetch', '_installScraplingRuntime', e, st);
+      if (!mounted) return;
+      OpenHandSnackBar.showError(
+        context,
+        _localizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
+      );
+    } finally {
+      if (mounted) setState(() => _scraplingRuntimeBusy = false);
+    }
+    await _refreshScraplingProbe();
+  }
+
+  Future<void> _uninstallScraplingRuntime() async {
+    if (_scraplingRuntimeBusy) return;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: _localizedText(
+        context,
+        zh: '卸载 Scrapling 运行时？',
+        en: 'Uninstall Scrapling runtime?',
+      ),
+      message: _localizedText(
+        context,
+        zh: '会执行 python -m pip uninstall -y scrapling，并重置当前 Scrapling 本地运行时。',
+        en: 'This runs python -m pip uninstall -y scrapling and resets the current local Scrapling runtime.',
+      ),
+      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      confirmLabel: _localizedText(context, zh: '确认卸载', en: 'Uninstall'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _scraplingRuntimeBusy = true);
+    try {
+      final result = await showAnimatedDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _ScraplingRuntimeDialog(
+          action: _ScraplingRuntimeAction.uninstall,
+          settings: widget.value.scrapling,
+        ),
+      );
+      if (!mounted) return;
+      if (result == true) {
+        OpenHandSnackBar.showSuccess(
+          context,
+          _localizedText(
+            context,
+            zh: 'Scrapling 运行时已卸载',
+            en: 'Scrapling runtime uninstalled',
+          ),
+        );
+      }
+    } catch (e, st) {
+      silentLog('settings.webfetch', '_uninstallScraplingRuntime', e, st);
+      if (!mounted) return;
+      OpenHandSnackBar.showError(
+        context,
+        _localizedText(context, zh: '卸载失败：$e', en: 'Uninstall failed: $e'),
+      );
+    } finally {
+      if (mounted) setState(() => _scraplingRuntimeBusy = false);
+    }
+    await _refreshScraplingProbe();
   }
 
   Future<void> _confirmAndClearTelemetry() async {
@@ -216,7 +361,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
         _cacheMaxBytesController.text !=
             _formatCacheMegabytesInput(widget.value.cacheMaxBytes)) {
-      _cacheMaxBytesController.text = _formatCacheMegabytesInput(widget.value.cacheMaxBytes);
+      _cacheMaxBytesController.text = _formatCacheMegabytesInput(
+        widget.value.cacheMaxBytes,
+      );
     }
   }
 
@@ -559,7 +706,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
         // ── Engines list ──
         Text(
-          _localizedText(context, zh: '搜索引擎', en: 'Search Engines'),
+          _localizedText(context, zh: '抓取引擎', en: 'Fetch Engines'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),
@@ -567,11 +714,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           _localizedText(
             context,
             zh:
-                '拖拽卡片调整顺序;启用至少一个引擎,'
-                '若全部禁用则自动启用 Bing/DuckDuckGo 兜底。',
+                '拖拽卡片调整顺序；启用至少一个引擎；若全部禁用则自动启用 '
+                'Bing/DuckDuckGo 兜底。Scrapling 未就绪时只会跳过该引擎。',
             en:
                 'Drag cards to reorder; enable at least one. '
-                'If all are disabled, Bing/DuckDuckGo fallback kicks in.',
+                'If all are disabled, Bing/DuckDuckGo fallback kicks in. '
+                'If Scrapling is not ready, only that engine is skipped.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -593,6 +741,26 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {
             final cfg = v.engines[idx];
+            if (cfg.kind == AiWebFetchEngineKind.scrapling) {
+              return _ScraplingSettingsCard(
+                key: ValueKey(cfg.kind),
+                index: idx,
+                config: cfg,
+                settings: v.scrapling,
+                probe: _scraplingProbe,
+                loading: _scraplingProbeLoading,
+                runtimeBusy: _scraplingRuntimeBusy,
+                onEngineChanged: (next) => _updateEngine(idx, next),
+                onSettingsChanged: (next) {
+                  _emit(v.copyWith(scrapling: next));
+                  unawaited(_refreshScraplingProbe(next));
+                },
+                onRefresh: _refreshScraplingProbe,
+                onResetRuntime: _resetScraplingRuntime,
+                onInstallRuntime: _installScraplingRuntime,
+                onUninstallRuntime: _uninstallScraplingRuntime,
+              );
+            }
             return _WebFetchEngineCard(
               key: ValueKey(cfg.kind),
               index: idx,
@@ -1224,6 +1392,478 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   }
 }
 
+class _ScraplingSettingsCard extends StatefulWidget {
+  const _ScraplingSettingsCard({
+    required super.key,
+    required this.index,
+    required this.config,
+    required this.settings,
+    required this.probe,
+    required this.loading,
+    required this.runtimeBusy,
+    required this.onEngineChanged,
+    required this.onSettingsChanged,
+    required this.onRefresh,
+    required this.onResetRuntime,
+    required this.onInstallRuntime,
+    required this.onUninstallRuntime,
+  });
+
+  final int index;
+  final AiWebFetchEngineConfig config;
+  final AiWebFetchScraplingSettings settings;
+  final WebFetchScraplingProbeStatus probe;
+  final bool loading;
+  final bool runtimeBusy;
+  final ValueChanged<AiWebFetchEngineConfig> onEngineChanged;
+  final ValueChanged<AiWebFetchScraplingSettings> onSettingsChanged;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onResetRuntime;
+  final Future<void> Function() onInstallRuntime;
+  final Future<void> Function() onUninstallRuntime;
+
+  @override
+  State<_ScraplingSettingsCard> createState() => _ScraplingSettingsCardState();
+}
+
+class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
+  late TextEditingController _pythonController;
+  late TextEditingController _startupController;
+  late TextEditingController _requestController;
+  late TextEditingController _installController;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pythonController = TextEditingController(
+      text: widget.settings.pythonExecutable ?? '',
+    );
+    _startupController = TextEditingController(
+      text: '${widget.settings.startupTimeoutSeconds}',
+    );
+    _requestController = TextEditingController(
+      text: '${widget.settings.requestTimeoutSeconds}',
+    );
+    _installController = TextEditingController(
+      text: '${widget.settings.installTimeoutSeconds}',
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScraplingSettingsCard old) {
+    super.didUpdateWidget(old);
+    if (old.settings.pythonExecutable != widget.settings.pythonExecutable &&
+        _pythonController.text != (widget.settings.pythonExecutable ?? '')) {
+      _pythonController.text = widget.settings.pythonExecutable ?? '';
+    }
+    if (old.settings.startupTimeoutSeconds !=
+            widget.settings.startupTimeoutSeconds &&
+        _startupController.text != '${widget.settings.startupTimeoutSeconds}') {
+      _startupController.text = '${widget.settings.startupTimeoutSeconds}';
+    }
+    if (old.settings.requestTimeoutSeconds !=
+            widget.settings.requestTimeoutSeconds &&
+        _requestController.text != '${widget.settings.requestTimeoutSeconds}') {
+      _requestController.text = '${widget.settings.requestTimeoutSeconds}';
+    }
+    if (old.settings.installTimeoutSeconds !=
+            widget.settings.installTimeoutSeconds &&
+        _installController.text != '${widget.settings.installTimeoutSeconds}') {
+      _installController.text = '${widget.settings.installTimeoutSeconds}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _pythonController.dispose();
+    _startupController.dispose();
+    _requestController.dispose();
+    _installController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final probe = widget.probe;
+    final (chipBg, chipFg, chipLabel) = _scraplingProbePresentation(
+      context,
+      probe,
+    );
+    return Padding(
+      key: ValueKey('engine-${widget.config.kind.name}-${widget.index}'),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: widget.config.enabled
+              ? colorScheme.surfaceContainerLow
+              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: widget.config.enabled
+                ? colorScheme.primary.withValues(alpha: 0.4)
+                : colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ReorderableDragStartListener(
+                    index: widget.index,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(Icons.drag_indicator_rounded, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Scrapling', style: theme.textTheme.titleSmall),
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '本地 Python 抓取桥接 · 复杂页面更稳',
+                            en: 'Local Python bridge · better on complex pages',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: chipBg,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      chipLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(color: chipFg),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    tooltip: _expanded
+                        ? _localizedText(context, zh: '收起', en: 'Collapse')
+                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                    icon: _SettingsExpandIcon(expanded: _expanded),
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                  ),
+                  Switch(
+                    value: widget.config.enabled,
+                    onChanged: (v) => widget.onEngineChanged(
+                      widget.config.copyWith(enabled: v),
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsElasticExpansion(
+                expanded: _expanded,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      probe.detail,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if ((probe.pythonExecutable ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: 'Python: ${probe.pythonExecutable}',
+                          en: 'Python: ${probe.pythonExecutable}',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        TextButton.icon(
+                          onPressed: widget.loading || widget.runtimeBusy
+                              ? null
+                              : widget.onRefresh,
+                          icon: widget.loading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh, size: 16),
+                          label: Text(
+                            _localizedText(context, zh: '检测环境', en: 'Probe'),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: widget.runtimeBusy || widget.loading
+                              ? null
+                              : widget.onResetRuntime,
+                          icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                          label: Text(
+                            _localizedText(
+                              context,
+                              zh: '重置运行时',
+                              en: 'Reset Runtime',
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: widget.runtimeBusy || widget.loading
+                              ? null
+                              : widget.onInstallRuntime,
+                          icon:
+                              widget.runtimeBusy &&
+                                  !widget.probe.runtimeInstalled
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.download_rounded, size: 16),
+                          label: Text(
+                            _localizedText(
+                              context,
+                              zh: '安装运行时',
+                              en: 'Install Runtime',
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: widget.runtimeBusy || widget.loading
+                              ? null
+                              : widget.onUninstallRuntime,
+                          icon:
+                              widget.runtimeBusy &&
+                                  widget.probe.runtimeInstalled
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 16,
+                                ),
+                          label: Text(
+                            _localizedText(
+                              context,
+                              zh: '卸载运行时',
+                              en: 'Uninstall Runtime',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _pythonController,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: 'Python 可执行文件（留空自动发现）',
+                          en: 'Python executable (blank = auto detect)',
+                        ),
+                      ),
+                      onChanged: (value) {
+                        final trimmed = value.trim();
+                        widget.onSettingsChanged(
+                          widget.settings.copyWith(
+                            pythonExecutable: trimmed.isEmpty ? null : trimmed,
+                            clearPythonExecutable: trimmed.isEmpty,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _startupController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '启动超时（秒）',
+                                en: 'Startup timeout (s)',
+                              ),
+                            ),
+                            onChanged: (value) {
+                              final parsed =
+                                  int.tryParse(value.trim()) ??
+                                  AiWebFetchScraplingSettings
+                                      .defaultStartupTimeoutSeconds;
+                              widget.onSettingsChanged(
+                                widget.settings.copyWith(
+                                  startupTimeoutSeconds: parsed.clamp(
+                                    AiWebFetchScraplingSettings
+                                        .minStartupTimeoutSeconds,
+                                    AiWebFetchScraplingSettings
+                                        .maxStartupTimeoutSeconds,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _requestController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '请求超时（秒）',
+                                en: 'Request timeout (s)',
+                              ),
+                            ),
+                            onChanged: (value) {
+                              final parsed =
+                                  int.tryParse(value.trim()) ??
+                                  AiWebFetchScraplingSettings
+                                      .defaultRequestTimeoutSeconds;
+                              widget.onSettingsChanged(
+                                widget.settings.copyWith(
+                                  requestTimeoutSeconds: parsed.clamp(
+                                    AiWebFetchScraplingSettings
+                                        .minRequestTimeoutSeconds,
+                                    AiWebFetchScraplingSettings
+                                        .maxRequestTimeoutSeconds,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _installController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '安装/卸载超时（秒）',
+                          en: 'Install/Uninstall timeout (s)',
+                        ),
+                      ),
+                      onChanged: (value) {
+                        final parsed =
+                            int.tryParse(value.trim()) ??
+                            AiWebFetchScraplingSettings
+                                .defaultInstallTimeoutSeconds;
+                        widget.onSettingsChanged(
+                          widget.settings.copyWith(
+                            installTimeoutSeconds: parsed.clamp(
+                              AiWebFetchScraplingSettings
+                                  .minInstallTimeoutSeconds,
+                              AiWebFetchScraplingSettings
+                                  .maxInstallTimeoutSeconds,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '默认使用当前 Python 执行 pip install / uninstall Scrapling 运行时；仍保持现有全局弹窗与设置页动效风格。',
+                        en: 'Uses the current Python to run pip install / uninstall for the Scrapling runtime while preserving the existing dialog and settings motion style.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+(Color, Color, String) _scraplingProbePresentation(
+  BuildContext context,
+  WebFetchScraplingProbeStatus probe,
+) {
+  final colorScheme = Theme.of(context).colorScheme;
+  if (probe.ready) {
+    return (
+      colorScheme.primaryContainer,
+      colorScheme.onPrimaryContainer,
+      _localizedText(context, zh: '已就绪', en: 'Ready'),
+    );
+  }
+  return switch (probe.code) {
+    'python_not_found' => (
+      colorScheme.errorContainer,
+      colorScheme.onErrorContainer,
+      _localizedText(context, zh: '缺少 Python', en: 'No Python'),
+    ),
+    'scrapling_not_installed' || 'scrapling_fetchers_missing' => (
+      colorScheme.tertiaryContainer,
+      colorScheme.onTertiaryContainer,
+      _localizedText(context, zh: '缺少依赖', en: 'Missing deps'),
+    ),
+    'probe_failed' || 'bridge_exception' => (
+      colorScheme.errorContainer,
+      colorScheme.onErrorContainer,
+      _localizedText(context, zh: '探测失败', en: 'Probe failed'),
+    ),
+    'not_checked' => (
+      colorScheme.surfaceContainerHighest,
+      colorScheme.onSurfaceVariant,
+      _localizedText(context, zh: '未检测', en: 'Not checked'),
+    ),
+    _ => (
+      colorScheme.surfaceContainerHighest,
+      colorScheme.onSurfaceVariant,
+      _localizedText(context, zh: '未就绪', en: 'Not ready'),
+    ),
+  };
+}
+
 class _FetchAdvancedCooldownTierRow extends StatelessWidget {
   const _FetchAdvancedCooldownTierRow({
     required this.label,
@@ -1497,6 +2137,7 @@ class _WebFetchSparklinePainter extends CustomPainter {
 String _fetchEngineDisplayName(AiWebFetchEngineKind kind) {
   return switch (kind) {
     AiWebFetchEngineKind.firecrawl => 'Firecrawl',
+    AiWebFetchEngineKind.scrapling => 'Scrapling',
     AiWebFetchEngineKind.tavily => 'Tavily Extract',
     AiWebFetchEngineKind.exa => 'Exa Contents',
     AiWebFetchEngineKind.kimi => 'Kimi (Moonshot)',
@@ -1747,25 +2388,47 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                             en: 'API Key',
                           ),
                           hintText: _fetchApiKeyHint(cfg.kind),
-                          suffixIcon: IconButton(
-                            tooltip: _apiKeyVisible
-                                ? _localizedText(
-                                    context,
-                                    zh: '隐藏 API Key',
-                                    en: 'Hide API Key',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '显示 API Key',
-                                    en: 'Show API Key',
-                                  ),
-                            icon: Icon(
-                              _apiKeyVisible
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                            ),
-                            onPressed: () => setState(
-                              () => _apiKeyVisible = !_apiKeyVisible,
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          suffixIcon: Align(
+                            widthFactor: 1,
+                            heightFactor: 1,
+                            child: IconButton(
+                              tooltip: _apiKeyVisible
+                                  ? _localizedText(
+                                      context,
+                                      zh: '隐藏 API Key',
+                                      en: 'Hide API Key',
+                                    )
+                                  : _localizedText(
+                                      context,
+                                      zh: '显示 API Key',
+                                      en: 'Show API Key',
+                                    ),
+                              visualDensity: VisualDensity.compact,
+                              splashRadius: 18,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 36,
+                                height: 36,
+                              ),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                surfaceTintColor: Colors.transparent,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              icon: Icon(
+                                _apiKeyVisible
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(
+                                () => _apiKeyVisible = !_apiKeyVisible,
+                              ),
                             ),
                           ),
                         ),
@@ -1838,6 +2501,7 @@ bool _fetchCanLinkProvider(AiWebFetchEngineKind kind) {
 String? _fetchApiKeyHint(AiWebFetchEngineKind kind) {
   return switch (kind) {
     AiWebFetchEngineKind.firecrawl => 'fc-...',
+    AiWebFetchEngineKind.scrapling => null,
     AiWebFetchEngineKind.tavily => 'tvly-...',
     AiWebFetchEngineKind.exa => 'exa-...',
     AiWebFetchEngineKind.kimi => 'sk-... (Moonshot)',
@@ -1856,6 +2520,11 @@ String _fetchEngineSubtitle(BuildContext context, AiWebFetchEngineKind kind) {
       context,
       zh: '专业网页抓取 · 渲染 JS',
       en: 'Pro scrape · renders JS',
+    ),
+    AiWebFetchEngineKind.scrapling => _localizedText(
+      context,
+      zh: '本地 Python 抓取 · 复杂页面更稳',
+      en: 'Local Python scrape · better on complex pages',
     ),
     AiWebFetchEngineKind.tavily => _localizedText(
       context,

@@ -22,6 +22,7 @@ import '../fs/ai_file_history_service.dart';
 import '../fs/ai_file_mutation_ledger.dart';
 import '../fs/ai_file_tracker_service.dart';
 import '../hook/ai_claude_hook_service.dart';
+import '../web_fetch/web_fetch_scrapling_bridge.dart';
 import 'ai_tool_execution_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
@@ -207,6 +208,7 @@ class AiToolRuntimeService {
        _backgroundChatClient = backgroundChatClient,
        _httpClient =
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+       _scraplingBridge = WebFetchScraplingBridge(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
@@ -217,6 +219,7 @@ class AiToolRuntimeService {
       hookService: _hookService,
       backgroundChatClient: _backgroundChatClient,
       httpClient: _httpClient,
+      scraplingBridge: _scraplingBridge,
       hostLookup: _hostLookup,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
@@ -228,6 +231,7 @@ class AiToolRuntimeService {
   final McpToolDiscoveryService _mcpToolService;
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
+  final WebFetchScraplingBridge _scraplingBridge;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   late final AiToolRegistry _toolRegistry;
 
@@ -249,6 +253,33 @@ class AiToolRuntimeService {
   /// 2026-05-03 — 新型文件变动 ledger（全局单例，供工具钩子/UI
   /// 联动 undo/redo 使用）。
   AiFileMutationLedger get mutationLedger => _mutationLedger;
+
+  Future<WebFetchScraplingProbeStatus> probeWebFetchScrapling({
+    required AiWebFetchScraplingSettings settings,
+  }) => _scraplingBridge.probe(settings: settings);
+
+  Stream<WebFetchScraplingRuntimeEvent>
+  installWebFetchScraplingRuntimeStreaming({
+    required AiWebFetchScraplingSettings settings,
+  }) => _scraplingBridge.installRuntimeStreaming(settings: settings);
+
+  Future<void> installWebFetchScraplingRuntime({
+    required AiWebFetchScraplingSettings settings,
+  }) => _scraplingBridge.installRuntime(settings: settings);
+
+  Stream<WebFetchScraplingRuntimeEvent>
+  uninstallWebFetchScraplingRuntimeStreaming({
+    required AiWebFetchScraplingSettings settings,
+  }) => _scraplingBridge.uninstallRuntimeStreaming(settings: settings);
+
+  Future<void> uninstallWebFetchScraplingRuntime({
+    required AiWebFetchScraplingSettings settings,
+  }) => _scraplingBridge.uninstallRuntime(settings: settings);
+
+  Future<void> resetWebFetchScrapling() => _scraplingBridge.dispose();
+
+  WebFetchScraplingProbeStatus get lastWebFetchScraplingProbe =>
+      _scraplingBridge.lastProbe;
 
   static const int _maxToolNameLength = 64;
 
@@ -1552,6 +1583,7 @@ class AiToolRuntimeService {
   }
 
   void dispose() {
+    unawaited(_scraplingBridge.dispose());
     _bashToolService.dispose();
     _httpClient.close();
   }

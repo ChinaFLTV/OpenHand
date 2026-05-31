@@ -69,6 +69,7 @@ part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
 part '_settings_web_search_editor.dart';
 part '_settings_web_fetch_editor.dart';
+part '_settings_web_fetch_runtime_dialog.dart';
 part '_settings_helper_widgets.dart';
 part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
@@ -143,8 +144,7 @@ Future<bool> _confirmClearToolTelemetry({
     message: _localizedText(
       context,
       zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。本地缓存 (summary) 不受影响。',
-      en:
-          'Removes the recent call ring buffer (up to 200 entries) and all per-engine success-rate/latency aggregates. Cached summaries are not affected.',
+      en: 'Removes the recent call ring buffer (up to 200 entries) and all per-engine success-rate/latency aggregates. Cached summaries are not affected.',
     ),
     cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
     confirmLabel: _localizedText(context, zh: '确认清空', en: 'Clear'),
@@ -282,8 +282,7 @@ class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _mcpAutoProbeConcurrencyController;
   late final FocusNode _mcpAutoProbeConcurrencyFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
-  GlobalKey<AnimatedListState> _aiModelListKey =
-      GlobalKey<AnimatedListState>();
+  GlobalKey<AnimatedListState> _aiModelListKey = GlobalKey<AnimatedListState>();
   final Set<String> _mutatingAiModelIds = <String>{};
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
 
@@ -449,7 +448,9 @@ class _SettingsViewState extends State<SettingsView> {
               : () {},
           onMoveUp: isPresent ? () => _moveAiModel(model.id, -1) : () {},
           onMoveDown: isPresent ? () => _moveAiModel(model.id, 1) : () {},
-          onDelete: isPresent ? () => _confirmDeleteAiModel(context, model) : () {},
+          onDelete: isPresent
+              ? () => _confirmDeleteAiModel(context, model)
+              : () {},
           onActiveModelChanged: isPresent
               ? (modelId) => settingsController.updateProviderActiveModel(
                   model.id,
@@ -2373,9 +2374,8 @@ class _SettingsViewState extends State<SettingsView> {
                           initialItemCount: _animatedAiModels.length,
                           itemBuilder: (context, index, animation) {
                             final model = _animatedAiModels[index];
-                            final settings = MediaQuery.disableAnimationsOf(
-                                  context,
-                                )
+                            final settings =
+                                MediaQuery.disableAnimationsOf(context)
                                 ? _kNoListItemAnimationSettings
                                 : settingsController.listItemAnimationSettings;
                             return _buildAnimatedAiModelRow(
@@ -5541,9 +5541,8 @@ class _SettingsViewState extends State<SettingsView> {
 
   String _normalizeAiModelTestMessage(String raw, String fallback) {
     // 保留换行，仅压缩单行内连续空格。这样上游传下来的
-    // 「现象 / 原因 / 建议」三段式中英双语文案能进入下游 SnackBar
-    // 与「详情 / Details」对话框，避免原本的多行诊断全部被推成
-    // 一句读不顺的长句。
+    // 结构化错误文案能进入下游 SnackBar 与「详情」对话框，
+    // 避免原本的多行诊断全部被推成一句读不顺的长句。
     final lines = raw
         .split('\n')
         .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())

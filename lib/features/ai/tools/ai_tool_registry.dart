@@ -6,6 +6,7 @@ import '../service/bash/ai_bash_tool_service.dart';
 import '../service/chat/ai_chat_service.dart';
 import '../service/hook/ai_claude_hook_service.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
+import '../service/web_fetch/web_fetch_scrapling_bridge.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'bash/ai_bash_background_tool.dart';
@@ -72,6 +73,7 @@ class AiToolRegistry {
     required AiClaudeHookService hookService,
     required AiChatClient backgroundChatClient,
     required http.Client httpClient,
+    required WebFetchScraplingBridge scraplingBridge,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
@@ -110,6 +112,7 @@ class AiToolRegistry {
       AiWebFetchTool(
         backgroundChatClient: backgroundChatClient,
         httpClient: httpClient,
+        scraplingBridge: scraplingBridge,
         hostLookup: hostLookup,
       ),
     );

@@ -10,6 +10,9 @@ enum AiWebFetchEngineKind {
   /// Firecrawl `/v1/scrape` —— 专业 URL 抓取，需要 `FC_API_KEY`。
   firecrawl,
 
+  /// Scrapling 本地 Python 抓取桥接。
+  scrapling,
+
   /// Tavily `/extract` —— URL → 全文。
   tavily,
 
@@ -42,6 +45,7 @@ enum AiWebFetchEngineKind {
 
   bool get requiresApiKey {
     return switch (this) {
+      AiWebFetchEngineKind.scrapling => false,
       AiWebFetchEngineKind.duckduckgo => false,
       AiWebFetchEngineKind.bing => false,
       _ => true,
@@ -173,6 +177,108 @@ class AiWebFetchEngineConfig {
 /// 设计上与 [AiWebSearchSettings] 保持平行：相同的引擎卡片 UI、相同的
 /// 排序权重 fan-out 模型、相同的缓存语义；仅去掉 summary 模型字段
 /// （WebFetch 直接把原始内容塞给 model 让 model 现场总结）。
+class AiWebFetchScraplingSettings {
+  const AiWebFetchScraplingSettings({
+    this.pythonExecutable,
+    this.startupTimeoutSeconds = defaultStartupTimeoutSeconds,
+    this.requestTimeoutSeconds = defaultRequestTimeoutSeconds,
+    this.installTimeoutSeconds = defaultInstallTimeoutSeconds,
+  });
+
+  static const int defaultStartupTimeoutSeconds = 12;
+  static const int minStartupTimeoutSeconds = 3;
+  static const int maxStartupTimeoutSeconds = 120;
+  static const int defaultRequestTimeoutSeconds = 30;
+  static const int minRequestTimeoutSeconds = 5;
+  static const int maxRequestTimeoutSeconds = 180;
+  static const int defaultInstallTimeoutSeconds = 300;
+  static const int minInstallTimeoutSeconds = 30;
+  static const int maxInstallTimeoutSeconds = 1800;
+
+  final String? pythonExecutable;
+  final int startupTimeoutSeconds;
+  final int requestTimeoutSeconds;
+  final int installTimeoutSeconds;
+
+  AiWebFetchScraplingSettings copyWith({
+    String? pythonExecutable,
+    int? startupTimeoutSeconds,
+    int? requestTimeoutSeconds,
+    int? installTimeoutSeconds,
+    bool clearPythonExecutable = false,
+  }) {
+    return AiWebFetchScraplingSettings(
+      pythonExecutable: clearPythonExecutable
+          ? null
+          : (pythonExecutable ?? this.pythonExecutable),
+      startupTimeoutSeconds:
+          startupTimeoutSeconds ?? this.startupTimeoutSeconds,
+      requestTimeoutSeconds:
+          requestTimeoutSeconds ?? this.requestTimeoutSeconds,
+      installTimeoutSeconds:
+          installTimeoutSeconds ?? this.installTimeoutSeconds,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (pythonExecutable != null && pythonExecutable!.trim().isNotEmpty)
+        'python_executable': pythonExecutable,
+      'startup_timeout_seconds': startupTimeoutSeconds,
+      'request_timeout_seconds': requestTimeoutSeconds,
+      'install_timeout_seconds': installTimeoutSeconds,
+    };
+  }
+
+  static AiWebFetchScraplingSettings? fromJson(Object? raw) {
+    Map<String, Object?>? json;
+    if (raw is Map) {
+      json = Map<String, Object?>.from(raw);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          json = Map<String, Object?>.from(decoded);
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_web_fetch_scrapling_settings',
+          'decode JSON string',
+          error,
+          stack,
+        );
+        return null;
+      }
+    }
+    if (json == null) return null;
+    int clamp(int value, int lo, int hi) =>
+        value < lo ? lo : (value > hi ? hi : value);
+    return AiWebFetchScraplingSettings(
+      pythonExecutable: json['python_executable'] is String
+          ? json['python_executable'] as String
+          : null,
+      startupTimeoutSeconds: clamp(
+        (json['startup_timeout_seconds'] as num?)?.toInt() ??
+            defaultStartupTimeoutSeconds,
+        minStartupTimeoutSeconds,
+        maxStartupTimeoutSeconds,
+      ),
+      requestTimeoutSeconds: clamp(
+        (json['request_timeout_seconds'] as num?)?.toInt() ??
+            defaultRequestTimeoutSeconds,
+        minRequestTimeoutSeconds,
+        maxRequestTimeoutSeconds,
+      ),
+      installTimeoutSeconds: clamp(
+        (json['install_timeout_seconds'] as num?)?.toInt() ??
+            defaultInstallTimeoutSeconds,
+        minInstallTimeoutSeconds,
+        maxInstallTimeoutSeconds,
+      ),
+    );
+  }
+}
+
 class AiWebFetchSettings {
   const AiWebFetchSettings({
     required this.engines,
@@ -191,6 +297,7 @@ class AiWebFetchSettings {
     this.alertSuccessRatePct = 0,
     this.alertAvgDurationMs = 0,
     this.throttlePerMinute = 0,
+    this.scrapling = const AiWebFetchScraplingSettings(),
   });
 
   static const int defaultResultCount = 8;
@@ -257,6 +364,7 @@ class AiWebFetchSettings {
 
   /// 单引擎 60 秒内最多调用次数。0 = 不限制。
   final int throttlePerMinute;
+  final AiWebFetchScraplingSettings scrapling;
 
   bool get cacheEnabled => cacheTtlSeconds > 0;
 
@@ -291,6 +399,7 @@ class AiWebFetchSettings {
     int? alertSuccessRatePct,
     int? alertAvgDurationMs,
     int? throttlePerMinute,
+    AiWebFetchScraplingSettings? scrapling,
   }) {
     return AiWebFetchSettings(
       engines: engines ?? this.engines,
@@ -312,6 +421,7 @@ class AiWebFetchSettings {
       alertSuccessRatePct: alertSuccessRatePct ?? this.alertSuccessRatePct,
       alertAvgDurationMs: alertAvgDurationMs ?? this.alertAvgDurationMs,
       throttlePerMinute: throttlePerMinute ?? this.throttlePerMinute,
+      scrapling: scrapling ?? this.scrapling,
     );
   }
 
@@ -333,6 +443,7 @@ class AiWebFetchSettings {
       'alert_success_rate_pct': alertSuccessRatePct,
       'alert_avg_duration_ms': alertAvgDurationMs,
       'throttle_per_minute': throttlePerMinute,
+      'scrapling': scrapling.toJson(),
     };
   }
 
@@ -377,6 +488,9 @@ class AiWebFetchSettings {
 
     return AiWebFetchSettings(
       engines: engines,
+      scrapling:
+          AiWebFetchScraplingSettings.fromJson(json['scrapling']) ??
+          const AiWebFetchScraplingSettings(),
       resultCount: clamp(
         (json['result_count'] as num?)?.toInt() ?? defaultResultCount,
         minResultCount,

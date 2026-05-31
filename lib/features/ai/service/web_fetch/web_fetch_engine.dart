@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_base.dart';
+import 'web_fetch_scrapling_bridge.dart';
 
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_http_exception.dart'
@@ -131,10 +132,12 @@ class WebFetchEngineContext {
   WebFetchEngineContext({
     required this.httpClient,
     required this.availableModels,
+    this.scraplingBridge,
   });
 
   final http.Client httpClient;
   final List<AiModelConfig> availableModels;
+  final WebFetchScraplingBridge? scraplingBridge;
 
   String? resolveProviderApiKey(String? configId) {
     if (configId == null || configId.isEmpty) return null;

@@ -64,6 +64,7 @@ flutter:
     - assets/web/
     - assets/web/chunks/
     - assets/web/assets/
+    - assets/tooling/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:
