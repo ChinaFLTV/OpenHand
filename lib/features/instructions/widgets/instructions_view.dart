@@ -14,7 +14,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
-import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -28,7 +29,6 @@ class InstructionsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final snapshot = context
         .select<
@@ -47,92 +47,39 @@ class InstructionsView extends StatelessWidget {
         );
     final controller = context.read<InstructionsController>();
 
-    return Stack(
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked = constraints.maxWidth < 980;
-                final actions = Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: snapshot.isLoading
-                          ? null
-                          : () => controller.refresh(),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(l10n.instructionRefresh),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () => _openEditor(context, controller, null),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(l10n.instructionNewEntry),
-                    ),
-                  ],
-                );
-                final header = _InstructionsHeader(
-                  title: l10n.instructionPageTitle,
-                  subtitle: l10n.instructionPageSubtitle,
-                );
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      header,
-                      const SizedBox(height: 20),
-                      Align(alignment: Alignment.centerRight, child: actions),
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(child: header),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: actions,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            if (snapshot.errorMessage != null &&
-                snapshot.entries.isNotEmpty) ...[
-              _InstructionsStateCard(
-                icon: Icons.error_outline_rounded,
-                color: theme.colorScheme.error,
-                title: l10n.instructionLoadFailedTitle,
-                body: snapshot.errorMessage!,
-              ),
-              const SizedBox(height: 16),
-            ],
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                child: _buildBody(context, controller, snapshot),
-              ),
-            ),
-          ],
+        FilledButton.tonalIcon(
+          onPressed: snapshot.isLoading ? null : () => controller.refresh(),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(l10n.instructionRefresh),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: HighlightPulse(signal: controller.saveSuccessSignal),
-          ),
+        FilledButton.icon(
+          onPressed: () => _openEditor(context, controller, null),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.instructionNewEntry),
         ),
       ],
+    );
+
+    return FeaturePageShell(
+      title: l10n.instructionPageTitle,
+      subtitle: l10n.instructionPageSubtitle,
+      actions: actions,
+      successSignal: controller.saveSuccessSignal,
+      notices: [
+        if (snapshot.errorMessage != null && snapshot.entries.isNotEmpty)
+          FeatureStateCard.inline(
+            icon: Icons.error_outline_rounded,
+            tone: FeatureStateTone.error,
+            title: l10n.instructionLoadFailedTitle,
+            body: snapshot.errorMessage!,
+          ),
+      ],
+      body: _buildBody(context, controller, snapshot),
     );
   }
 
@@ -143,7 +90,6 @@ class InstructionsView extends StatelessWidget {
     snapshot,
   ) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
     if (snapshot.isLoading && snapshot.entries.isEmpty) {
       return const Center(
         key: ValueKey('loading'),
@@ -151,25 +97,20 @@ class InstructionsView extends StatelessWidget {
       );
     }
     if (snapshot.errorMessage != null && snapshot.entries.isEmpty) {
-      return Center(
+      return FeatureStateCard.centered(
         key: const ValueKey('error'),
-        child: _InstructionsStateCard(
-          icon: Icons.error_outline_rounded,
-          color: colorScheme.error,
-          title: l10n.instructionLoadFailedTitle,
-          body: snapshot.errorMessage!,
-        ),
+        icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
+        title: l10n.instructionLoadFailedTitle,
+        body: snapshot.errorMessage!,
       );
     }
     if (snapshot.entries.isEmpty) {
-      return Center(
+      return FeatureStateCard.centered(
         key: const ValueKey('empty'),
-        child: _InstructionsStateCard(
-          icon: Icons.tips_and_updates_outlined,
-          color: colorScheme.primary,
-          title: l10n.instructionEmptyTitle,
-          body: l10n.instructionEmptyBody,
-        ),
+        icon: Icons.tips_and_updates_outlined,
+        title: l10n.instructionEmptyTitle,
+        body: l10n.instructionEmptyBody,
       );
     }
     return ReorderableListView.builder(
@@ -243,76 +184,6 @@ class InstructionsView extends StatelessWidget {
     if (confirmed) {
       await controller.deleteEntry(entry.id);
     }
-  }
-}
-
-class _InstructionsHeader extends StatelessWidget {
-  const _InstructionsHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InstructionsStateCard extends StatelessWidget {
-  const _InstructionsStateCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 560),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.32)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(body, style: theme.textTheme.bodyMedium),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

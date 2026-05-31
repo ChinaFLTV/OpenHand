@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -125,114 +127,65 @@ class _SkillsViewState extends State<SkillsView> {
     final skillsController = context.watch<SkillsController>();
     final filteredSkills = _filterSkills(skillsController.skills);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 980;
-            final actions = Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.end,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: stacked ? constraints.maxWidth : 320,
-                    maxWidth: stacked ? constraints.maxWidth : 340,
-                  ),
-                  child: SearchBar(
-                    controller: _searchController,
-                    hintText: l10n.skillsSearchHint,
-                    leading: const Icon(Icons.search_rounded),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: skillsController.isLoading
-                      ? null
-                      : () => _refreshSkills(context),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(l10n.skillsRefresh),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: () => _showSkillMarket(context),
-                  icon: const Icon(Icons.storefront_rounded),
-                  label: Text(
-                    _localizedSkillsText(
-                      context,
-                      zh: '技能市场',
-                      en: 'Skill Market',
-                    ),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _openSkillsDirectory(context),
-                  icon: const Icon(Icons.folder_open_rounded),
-                  label: Text(l10n.skillsOpenDirectory),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _importSkillDirectory(context),
-                  icon: const Icon(Icons.drive_folder_upload_outlined),
-                  label: Text(l10n.skillsImport),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _showCreateSkillDialog(context),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(l10n.skillsNewSkill),
-                ),
-              ],
-            );
-
-            if (stacked) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PageHeader(
-                    title: l10n.skillsPageTitle,
-                    subtitle: l10n.skillsPageSubtitle,
-                  ),
-                  const SizedBox(height: 20),
-                  actions,
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _PageHeader(
-                    title: l10n.skillsPageTitle,
-                    subtitle: l10n.skillsPageSubtitle,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Flexible(
-                  child: Align(alignment: Alignment.topRight, child: actions),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
-            child: _buildBody(
-              context,
-              filteredSkills: filteredSkills,
-              skillsController: skillsController,
-            ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 320, maxWidth: 340),
+          child: SearchBar(
+            controller: _searchController,
+            hintText: l10n.skillsSearchHint,
+            leading: const Icon(Icons.search_rounded),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
           ),
         ),
+        FilledButton.tonalIcon(
+          onPressed: skillsController.isLoading
+              ? null
+              : () => _refreshSkills(context),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(l10n.skillsRefresh),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: () => _showSkillMarket(context),
+          icon: const Icon(Icons.storefront_rounded),
+          label: Text(
+            _localizedSkillsText(context, zh: '技能市场', en: 'Skill Market'),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _openSkillsDirectory(context),
+          icon: const Icon(Icons.folder_open_rounded),
+          label: Text(l10n.skillsOpenDirectory),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _importSkillDirectory(context),
+          icon: const Icon(Icons.drive_folder_upload_outlined),
+          label: Text(l10n.skillsImport),
+        ),
+        FilledButton.icon(
+          onPressed: () => _showCreateSkillDialog(context),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.skillsNewSkill),
+        ),
       ],
+    );
+
+    return FeaturePageShell(
+      title: l10n.skillsPageTitle,
+      subtitle: l10n.skillsPageSubtitle,
+      actions: actions,
+      body: _buildBody(
+        context,
+        filteredSkills: filteredSkills,
+        skillsController: skillsController,
+      ),
     );
   }
 
@@ -246,17 +199,20 @@ class _SkillsViewState extends State<SkillsView> {
       return const Center(child: CircularProgressIndicator());
     }
     if (skillsController.errorMessage != null) {
-      return _SkillsStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('skills-error'),
         icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
         title: l10n.skillsStorageStatusError,
         body: skillsController.errorMessage!,
-        primaryActionLabel: l10n.skillsRefresh,
-        onPrimaryAction: () => _refreshSkills(context),
+        action: OpenHandDialogActionButton.primary(
+          onPressed: () => _refreshSkills(context),
+          label: l10n.skillsRefresh,
+        ),
       );
     }
     if (skillsController.skills.isEmpty) {
-      return _SkillsStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('skills-empty'),
         icon: Icons.extension_off_outlined,
         title: l10n.skillsEmptyTitle,
@@ -264,16 +220,19 @@ class _SkillsViewState extends State<SkillsView> {
       );
     }
     if (filteredSkills.isEmpty) {
-      return _SkillsStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('skills-no-results'),
         icon: Icons.search_off_rounded,
+        tone: FeatureStateTone.neutral,
         title: l10n.skillsNoResultsTitle,
         body: l10n.skillsNoResultsBody,
-        primaryActionLabel: l10n.skillsRefresh,
-        onPrimaryAction: () => setState(() {
-          _searchController.clear();
-          _searchQuery = '';
-        }),
+        action: OpenHandDialogActionButton.primary(
+          onPressed: () => setState(() {
+            _searchController.clear();
+            _searchQuery = '';
+          }),
+          label: l10n.skillsRefresh,
+        ),
       );
     }
 
@@ -1454,32 +1413,6 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
   }
 }
 
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SkillCard extends StatelessWidget {
   const _SkillCard({
     required this.skill,
@@ -1728,63 +1661,6 @@ class _SkillCardAvatarFallback extends StatelessWidget {
       style: Theme.of(
         context,
       ).textTheme.titleLarge?.copyWith(color: colorScheme.onPrimaryContainer),
-    );
-  }
-}
-
-class _SkillsStateCard extends StatelessWidget {
-  const _SkillsStateCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.primaryActionLabel,
-    this.onPrimaryAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final String? primaryActionLabel;
-  final VoidCallback? onPrimaryAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 56, color: theme.colorScheme.primary),
-                const SizedBox(height: 18),
-                Text(title, style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 12),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (primaryActionLabel != null && onPrimaryAction != null) ...[
-                  const SizedBox(height: 20),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: onPrimaryAction,
-                    icon: Icons.arrow_forward_rounded,
-                    label: primaryActionLabel!,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

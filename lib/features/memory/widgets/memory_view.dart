@@ -8,7 +8,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
-import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -63,113 +64,56 @@ class MemoryView extends StatelessWidget {
       (controller) => controller.memoryEnabled,
     );
 
-    return Stack(
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked = constraints.maxWidth < 980;
-                final actions = Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: memorySnapshot.isLoading
-                          ? null
-                          : () => memoryController.refresh(),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(l10n.memoryRefresh),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _openDirectory(context),
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: Text(l10n.memoryOpenDirectory),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () => _showMemoryDialog(context),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(l10n.memoryNewEntry),
-                    ),
-                  ],
-                );
-
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _MemoryPageHeader(
-                        title: l10n.memoryPageTitle,
-                        subtitle: l10n.memoryPageSubtitle,
-                      ),
-                      const SizedBox(height: 20),
-                      actions,
-                    ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _MemoryPageHeader(
-                        title: l10n.memoryPageTitle,
-                        subtitle: l10n.memoryPageSubtitle,
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: actions,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            if (!memoryEnabled) ...[
-              _MemoryInfoCard(
-                icon: Icons.toggle_off_rounded,
-                title: l10n.memoryDisabledTitle,
-                body: l10n.memoryDisabledBody,
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (memorySnapshot.persistenceIssue != null) ...[
-              _MemoryPersistenceIssueCard(
-                issue: memorySnapshot.persistenceIssue!,
-                onDismiss: memoryController.clearPersistenceIssue,
-              ),
-              const SizedBox(height: 16),
-            ],
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                child: _buildBody(
-                  context,
-                  isLoading: memorySnapshot.isLoading,
-                  errorMessage: memorySnapshot.errorMessage,
-                  entries: memorySnapshot.entries,
-                ),
-              ),
-            ),
-          ],
+        FilledButton.tonalIcon(
+          onPressed: memorySnapshot.isLoading
+              ? null
+              : () => memoryController.refresh(),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(l10n.memoryRefresh),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: HighlightPulse(signal: memoryController.saveSuccessSignal),
-          ),
+        OutlinedButton.icon(
+          onPressed: () => _openDirectory(context),
+          icon: const Icon(Icons.folder_open_rounded),
+          label: Text(l10n.memoryOpenDirectory),
+        ),
+        FilledButton.icon(
+          onPressed: () => _showMemoryDialog(context),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.memoryNewEntry),
         ),
       ],
+    );
+
+    return FeaturePageShell(
+      title: l10n.memoryPageTitle,
+      subtitle: l10n.memoryPageSubtitle,
+      actions: actions,
+      successSignal: memoryController.saveSuccessSignal,
+      notices: [
+        if (!memoryEnabled)
+          FeatureStateCard.inline(
+            icon: Icons.toggle_off_rounded,
+            tone: FeatureStateTone.secondary,
+            title: l10n.memoryDisabledTitle,
+            body: l10n.memoryDisabledBody,
+          ),
+        if (memorySnapshot.persistenceIssue != null)
+          _MemoryPersistenceIssueCard(
+            issue: memorySnapshot.persistenceIssue!,
+            onDismiss: memoryController.clearPersistenceIssue,
+          ),
+      ],
+      body: _buildBody(
+        context,
+        isLoading: memorySnapshot.isLoading,
+        errorMessage: memorySnapshot.errorMessage,
+        entries: memorySnapshot.entries,
+      ),
     );
   }
 
@@ -184,17 +128,20 @@ class MemoryView extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (errorMessage != null) {
-      return _MemoryStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('memory-error'),
         icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
         title: l10n.memoryLoadFailedTitle,
         body: errorMessage,
-        primaryActionLabel: l10n.memoryRefresh,
-        onPrimaryAction: () => context.read<MemoryController>().refresh(),
+        action: OpenHandDialogActionButton.primary(
+          onPressed: () => context.read<MemoryController>().refresh(),
+          label: l10n.memoryRefresh,
+        ),
       );
     }
     if (entries.isEmpty) {
-      return _MemoryStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('memory-empty'),
         icon: Icons.psychology_alt_outlined,
         title: l10n.memoryEmptyTitle,
@@ -208,8 +155,7 @@ class MemoryView extends StatelessWidget {
     final regular = <UserMemoryEntry>[];
     var profileSkipped = false;
     for (final entry in entries) {
-      if (!profileSkipped &&
-          entry.type == UserMemoryEntry.userProfileType) {
+      if (!profileSkipped && entry.type == UserMemoryEntry.userProfileType) {
         profileSkipped = true;
         continue;
       }
@@ -228,7 +174,7 @@ class MemoryView extends StatelessWidget {
       items.add(_MemoryDisplayItem.regular(entry));
     }
     if (items.isEmpty) {
-      return _MemoryStateCard(
+      return FeatureStateCard.centered(
         key: const ValueKey<String>('memory-empty-after-filter'),
         icon: Icons.psychology_alt_outlined,
         title: l10n.memoryEmptyTitle,
@@ -360,7 +306,11 @@ class MemoryView extends StatelessWidget {
       );
       return;
     }
-    _showSnackBar(context, l10n.memoryEntryDeleted, kind: OpenHandSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.memoryEntryDeleted,
+      kind: OpenHandSnackKind.success,
+    );
   }
 
   void _showSnackBar(
@@ -771,32 +721,6 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   }
 }
 
-class _MemoryPageHeader extends StatelessWidget {
-  const _MemoryPageHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MemoryEntryCard extends StatelessWidget {
   const _MemoryEntryCard({
     super.key,
@@ -987,123 +911,6 @@ class _MemoryEntryCard extends StatelessWidget {
     // 完整正文与单行预览一致，说明只是短文本被原样回显——隐藏标题。
     if (preview == content) return false;
     return true;
-  }
-}
-
-class _MemoryStateCard extends StatelessWidget {
-  const _MemoryStateCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.primaryActionLabel,
-    this.onPrimaryAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final String? primaryActionLabel;
-  final VoidCallback? onPrimaryAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: colorScheme.onPrimaryContainer),
-                ),
-                const SizedBox(height: 18),
-                Text(title, style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 10),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (primaryActionLabel != null && onPrimaryAction != null) ...[
-                  const SizedBox(height: 20),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: onPrimaryAction,
-                    label: primaryActionLabel!,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemoryInfoCard extends StatelessWidget {
-  const _MemoryInfoCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      color: colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.onSecondaryContainer),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

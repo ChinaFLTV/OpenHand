@@ -8,7 +8,8 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
-import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../mcp/index.dart';
 import '../model/plugin_info.dart';
@@ -30,87 +31,36 @@ class PluginServiceView extends StatefulWidget {
 class _PluginServiceViewState extends State<PluginServiceView> {
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final controller = context.watch<PluginServiceController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
-    return Stack(
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked = constraints.maxWidth < 980;
-                final actions = Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: controller.isOperating
-                          ? null
-                          : controller.rescan,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(isZh ? '重新扫描' : 'Rescan'),
-                    ),
-                  ],
-                );
-                final header = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isZh ? '插件' : 'Plugins',
-                      style: theme.textTheme.displaySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      isZh
-                          ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
-                          : 'Manage optional plugin installation, updates, and removal.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                );
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      header,
-                      const SizedBox(height: 20),
-                      Align(alignment: Alignment.centerRight, child: actions),
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: header),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: actions,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            Expanded(child: _buildBody(context, controller)),
-          ],
+        FilledButton.tonalIcon(
+          onPressed: controller.isOperating ? null : controller.rescan,
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(isZh ? '重新扫描' : 'Rescan'),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: HighlightPulse(signal: controller.operationSuccessSignal),
+      ],
+    );
+
+    return FeaturePageShell(
+      title: isZh ? '插件' : 'Plugins',
+      subtitle: isZh
+          ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
+          : 'Manage optional plugin installation, updates, and removal.',
+      actions: actions,
+      successSignal: controller.operationSuccessSignal,
+      body: _buildBody(context, controller),
+      notices: [
+        if (controller.errorMessage != null && controller.plugins.isNotEmpty)
+          _ErrorBanner(
+            message: controller.errorMessage!,
+            onDismiss: controller.clearError,
           ),
-        ),
       ],
     );
   }
@@ -135,8 +85,9 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       );
     }
     if (controller.errorMessage != null && controller.plugins.isEmpty) {
-      return _PluginStateCard(
+      return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
+        tone: FeatureStateTone.error,
         title: isZh ? '插件扫描失败' : 'Plugin scan failed',
         body: controller.errorMessage!,
         action: TextButton.icon(
@@ -149,20 +100,6 @@ class _PluginServiceViewState extends State<PluginServiceView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
-        AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: controller.errorMessage != null
-              ? Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ErrorBanner(
-                    message: controller.errorMessage!,
-                    onDismiss: controller.clearError,
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
         for (final plugin in controller.plugins) ...[
           _PluginCard(plugin: plugin, controller: controller),
           const SizedBox(height: 12),
@@ -1142,52 +1079,6 @@ class _StatusDot extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // 状态卡片（加载失败等全屏提示）
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _PluginStateCard extends StatelessWidget {
-  const _PluginStateCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.action,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 48, color: theme.colorScheme.onSurfaceVariant),
-                const SizedBox(height: 16),
-                Text(title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(
-                  body,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (action != null) ...[const SizedBox(height: 16), action!],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 插件详情弹窗
