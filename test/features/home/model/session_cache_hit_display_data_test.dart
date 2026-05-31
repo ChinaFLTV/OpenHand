@@ -110,6 +110,36 @@ void main() {
         closeTo(50 / 150, 0.0001),
       );
     });
+
+    test('detects extreme idle expiry from prompt_metadata on the user message', () {
+      final trend = SessionCacheHitTrend.fromSession(
+        _buildSession([
+          _user(
+            'u1',
+            0,
+            metadata: const <String, Object?>{
+              'prompt_metadata': <String, Object?>{
+                'idle_gap_seconds': 7201,
+                'ttl_suspected': true,
+              },
+            },
+          ),
+          _assistant('a1', 1, prompt: 100, cacheRead: 0),
+          _user('u2', 2),
+          _assistant('a2', 3, prompt: 100, cacheRead: 60),
+        ]),
+        claudeStyle: true,
+      );
+
+      final filtered = trend.displayData(SessionCacheHitDisplayMode.excludeExtremeMisses);
+
+      expect(trend.points, hasLength(2));
+      expect(filtered.excludedPointCount, 1);
+      expect(filtered.trend.points.map((point) => point.turnIndex), [2]);
+      expect(filtered.averageHitRatio, closeTo(60 / 160, 0.0001));
+      expect(filtered.cacheReadTokens, 60);
+      expect(filtered.uncachedPromptTokens, 100);
+    });
   });
 }
 
@@ -160,10 +190,15 @@ AiSession _buildSession(List<AiSessionMessage> messages) {
   );
 }
 
-AiSessionMessage _user(String id, int second) => AiSessionMessage.user(
+AiSessionMessage _user(
+  String id,
+  int second, {
+  Map<String, Object?> metadata = const <String, Object?>{},
+}) => AiSessionMessage.user(
   id: id,
   content: 'user $id',
   createdAt: DateTime.utc(2026, 1, 1, 0, 0, second),
+  metadata: metadata,
 );
 
 AiSessionMessage _assistant(

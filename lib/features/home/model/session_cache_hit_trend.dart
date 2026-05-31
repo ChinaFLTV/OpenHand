@@ -150,7 +150,10 @@ class SessionCacheHitTrend {
     var cacheReadTokens = 0;
     var cacheWriteTokens = 0;
     var uncachedPromptTokens = 0;
-    for (final point in filteredPoints.skip(1)) {
+    for (final point in filteredPoints) {
+      if (point.turnIndex == 1) {
+        continue;
+      }
       cacheReadTokens += point.cacheReadTokens;
       cacheWriteTokens += point.cacheWriteTokens;
       uncachedPromptTokens += computeUncachedPromptTokens(
@@ -308,11 +311,15 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   required Map<String, Object?> primaryMetadata,
   required Map<String, Object?> relatedMetadata,
 }) {
-  final promptMetadata = switch (primaryMetadata['prompt_metadata']) {
-    Map<String, Object?> value => value,
-    Map value => Map<String, Object?>.from(value),
+  Map<String, Object?>? asMap(Object? value) => switch (value) {
+    Map<String, Object?> map => map,
+    Map map => Map<String, Object?>.from(map),
     _ => null,
   };
+
+  final promptMetadata =
+      asMap(primaryMetadata['prompt_metadata']) ??
+      asMap(relatedMetadata['prompt_metadata']);
   int? firstInt(List<Object?> values) {
     for (final value in values) {
       if (value is int) return value;
