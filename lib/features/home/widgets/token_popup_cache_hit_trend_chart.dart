@@ -6,6 +6,83 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import '../model/session_cache_hit_trend.dart';
 
+const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
+
+@visibleForTesting
+double tokenPopupCacheHitTrendAnimationProgress(double t) {
+  final clamped = t.clamp(0.0, 1.0);
+  return _tokenPopupCacheHitTrendEntranceCurve
+      .transform(clamped)
+      .clamp(0.0, 1.0);
+}
+
+@visibleForTesting
+List<Offset> tokenPopupCacheHitTrendAnimatedPolyline({
+  required List<double> ratios,
+  required Rect chartRect,
+  required double progress,
+}) {
+  if (ratios.isEmpty) return const <Offset>[];
+  final easedProgress = tokenPopupCacheHitTrendAnimationProgress(progress);
+  final visibleCount = (ratios.length * easedProgress).clamp(
+    1.0,
+    ratios.length.toDouble(),
+  );
+  final fullCount = visibleCount.floor();
+  final partial = visibleCount - fullCount;
+  final points = <Offset>[];
+  final stepX = ratios.length <= 1
+      ? chartRect.width
+      : chartRect.width / (ratios.length - 1);
+
+  Offset pointFor(int index) {
+    final ratio = ratios[index].clamp(0.0, 1.0);
+    return Offset(
+      chartRect.left + stepX * index,
+      chartRect.bottom - chartRect.height * ratio,
+    );
+  }
+
+  for (var i = 0; i < fullCount && i < ratios.length; i++) {
+    points.add(pointFor(i));
+  }
+  if (partial > 0 && fullCount < ratios.length && fullCount >= 1) {
+    final start = pointFor(fullCount - 1);
+    final end = pointFor(fullCount);
+    points.add(
+      Offset(
+        start.dx + (end.dx - start.dx) * partial,
+        start.dy + (end.dy - start.dy) * partial,
+      ),
+    );
+  }
+  if (points.isEmpty) {
+    points.add(pointFor(0));
+  }
+  return points;
+}
+
+void _drawTokenPopupCacheHitTrendDashedLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  Paint paint,
+) {
+  const dash = 4.0;
+  const gap = 4.0;
+  final total = end.dx - start.dx;
+  var x = 0.0;
+  while (x < total) {
+    final next = math.min(x + dash, total);
+    canvas.drawLine(
+      Offset(start.dx + x, start.dy),
+      Offset(start.dx + next, end.dy),
+      paint,
+    );
+    x += dash + gap;
+  }
+}
+
 class TokenPopupCacheHitTrendChart extends StatefulWidget {
   const TokenPopupCacheHitTrendChart({
     super.key,
@@ -242,19 +319,32 @@ class _TokenPopupCacheHitTrendChartState
                       clipBehavior: Clip.none,
                       children: [
                         Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _TokenPopupCacheHitTrendStaticPainter(
+                                averageHitRatio: widget.trend.averageHitRatio,
+                                colorScheme: colorScheme,
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
                           child: AnimatedBuilder(
                             animation: _controller,
                             builder: (context, _) {
-                              return CustomPaint(
-                                painter: _TokenPopupCacheHitTrendPainter(
-                                  points: visiblePoints,
-                                  averageHitRatio: widget.trend.averageHitRatio,
-                                  progress: reduceMotion
-                                      ? 1
-                                      : _controller.value,
-                                  colorScheme: colorScheme,
+                              return RepaintBoundary(
+                                child: CustomPaint(
+                                  painter:
+                                      _TokenPopupCacheHitTrendDynamicPainter(
+                                        points: visiblePoints,
+                                        progress: reduceMotion
+                                            ? 1
+                                            : _controller.value,
+                                        colorScheme: colorScheme,
+                                      ),
+                                  child: const SizedBox.expand(),
                                 ),
-                                child: const SizedBox.expand(),
                               );
                             },
                           ),
@@ -316,16 +406,65 @@ class _TokenPopupCacheHitTrendChartState
   }
 }
 
-class _TokenPopupCacheHitTrendPainter extends CustomPainter {
-  const _TokenPopupCacheHitTrendPainter({
-    required this.points,
+class _TokenPopupCacheHitTrendStaticPainter extends CustomPainter {
+  const _TokenPopupCacheHitTrendStaticPainter({
     required this.averageHitRatio,
+    required this.colorScheme,
+  });
+
+  final double averageHitRatio;
+  final ColorScheme colorScheme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const padding = EdgeInsets.fromLTRB(30, 8, 8, 22);
+    final chart = Rect.fromLTWH(
+      padding.left,
+      padding.top,
+      math.max(1, size.width - padding.horizontal),
+      math.max(1, size.height - padding.vertical),
+    );
+    final gridPaint = Paint()
+      ..color = colorScheme.outlineVariant.withValues(alpha: 0.35)
+      ..strokeWidth = 1;
+    final dashedPaint = Paint()
+      ..color = Colors.green.shade600.withValues(alpha: 0.75)
+      ..strokeWidth = 1.1
+      ..style = PaintingStyle.stroke;
+
+    for (var i = 0; i <= 4; i++) {
+      final ratio = i / 4;
+      final y = chart.bottom - chart.height * ratio;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+    }
+
+    final averageY =
+        chart.bottom - chart.height * averageHitRatio.clamp(0.0, 1.0);
+    _drawTokenPopupCacheHitTrendDashedLine(
+      canvas,
+      Offset(chart.left, averageY),
+      Offset(chart.right, averageY),
+      dashedPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _TokenPopupCacheHitTrendStaticPainter oldDelegate,
+  ) {
+    return oldDelegate.averageHitRatio != averageHitRatio ||
+        oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
+  const _TokenPopupCacheHitTrendDynamicPainter({
+    required this.points,
     required this.progress,
     required this.colorScheme,
   });
 
   final List<SessionCacheHitTurnPoint> points;
-  final double averageHitRatio;
   final double progress;
   final ColorScheme colorScheme;
 
@@ -341,13 +480,6 @@ class _TokenPopupCacheHitTrendPainter extends CustomPainter {
       math.max(1, size.width - padding.horizontal),
       math.max(1, size.height - padding.vertical),
     );
-    final gridPaint = Paint()
-      ..color = colorScheme.outlineVariant.withValues(alpha: 0.35)
-      ..strokeWidth = 1;
-    final dashedPaint = Paint()
-      ..color = Colors.green.shade600.withValues(alpha: 0.75)
-      ..strokeWidth = 1.1
-      ..style = PaintingStyle.stroke;
     final linePaint = Paint()
       ..color = colorScheme.primary
       ..strokeWidth = 2
@@ -364,86 +496,42 @@ class _TokenPopupCacheHitTrendPainter extends CustomPainter {
         ],
       ).createShader(chart);
 
-    for (var i = 0; i <= 4; i++) {
-      final ratio = i / 4;
-      final y = chart.bottom - chart.height * ratio;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
-    }
-
-    final averageY =
-        chart.bottom - chart.height * averageHitRatio.clamp(0.0, 1.0);
-    _drawDashedLine(
-      canvas,
-      Offset(chart.left, averageY),
-      Offset(chart.right, averageY),
-      dashedPaint,
+    final polyline = tokenPopupCacheHitTrendAnimatedPolyline(
+      ratios: points.map((point) => point.hitRatio).toList(growable: false),
+      chartRect: chart,
+      progress: progress,
     );
-
-    final visibleCount = (points.length * progress)
-        .clamp(1, points.length)
-        .toInt();
-    final visible = points.take(visibleCount).toList(growable: false);
-    final stepX = visible.length <= 1
-        ? chart.width
-        : chart.width / (visible.length - 1);
-    final linePath = Path();
-    final fillPath = Path();
-    for (var i = 0; i < visible.length; i++) {
-      final x = chart.left + stepX * i;
-      final y =
-          chart.bottom - chart.height * visible[i].hitRatio.clamp(0.0, 1.0);
-      if (i == 0) {
-        linePath.moveTo(x, y);
-        fillPath
-          ..moveTo(x, chart.bottom)
-          ..lineTo(x, y);
-      } else {
-        final prevX = chart.left + stepX * (i - 1);
-        final prevY =
-            chart.bottom -
-            chart.height * visible[i - 1].hitRatio.clamp(0.0, 1.0);
-        final cp1 = Offset(prevX + stepX * 0.35, prevY);
-        final cp2 = Offset(x - stepX * 0.35, y);
-        linePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, x, y);
-        fillPath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, x, y);
-      }
-      if (i == visible.length - 1) {
-        fillPath
-          ..lineTo(x, chart.bottom)
-          ..close();
-      }
+    if (polyline.length < 2) {
+      return;
     }
+
+    final linePath = Path()..moveTo(polyline.first.dx, polyline.first.dy);
+    final fillPath = Path()
+      ..moveTo(polyline.first.dx, chart.bottom)
+      ..lineTo(polyline.first.dx, polyline.first.dy);
+    for (var i = 1; i < polyline.length; i++) {
+      final prev = polyline[i - 1];
+      final current = polyline[i];
+      final deltaX = current.dx - prev.dx;
+      final cp1 = Offset(prev.dx + deltaX * 0.35, prev.dy);
+      final cp2 = Offset(current.dx - deltaX * 0.35, current.dy);
+      linePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, current.dx, current.dy);
+      fillPath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, current.dx, current.dy);
+    }
+    fillPath
+      ..lineTo(polyline.last.dx, chart.bottom)
+      ..close();
+
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(linePath, linePaint);
-
-    final last = visible.last;
-    final lastOffset = Offset(
-      chart.left + stepX * (visible.length - 1),
-      chart.bottom - chart.height * last.hitRatio.clamp(0.0, 1.0),
-    );
-    canvas.drawCircle(lastOffset, 3.6, Paint()..color = colorScheme.primary);
-  }
-
-  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
-    const dash = 4.0;
-    const gap = 4.0;
-    final total = end.dx - start.dx;
-    var x = 0.0;
-    while (x < total) {
-      final next = math.min(x + dash, total);
-      canvas.drawLine(
-        Offset(start.dx + x, start.dy),
-        Offset(start.dx + next, end.dy),
-        paint,
-      );
-      x += dash + gap;
-    }
+    canvas.drawCircle(polyline.last, 3.6, Paint()..color = colorScheme.primary);
   }
 
   @override
-  bool shouldRepaint(covariant _TokenPopupCacheHitTrendPainter oldDelegate) {
+  bool shouldRepaint(
+    covariant _TokenPopupCacheHitTrendDynamicPainter oldDelegate,
+  ) {
     return oldDelegate.points != points ||
-        oldDelegate.averageHitRatio != averageHitRatio ||
         oldDelegate.progress != progress ||
         oldDelegate.colorScheme != colorScheme;
   }
