@@ -124,7 +124,8 @@ class PluginScannerService {
   static int _compareSemver(String a, String b) {
     final ap = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
     final bp = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    for (int i = 0; i < 3; i++) {
+    final maxLength = ap.length > bp.length ? ap.length : bp.length;
+    for (int i = 0; i < maxLength; i++) {
       final av = i < ap.length ? ap[i] : 0;
       final bv = i < bp.length ? bp[i] : 0;
       if (av != bv) return av.compareTo(bv);
@@ -147,6 +148,18 @@ class PluginScannerService {
   static String? _extractVersion(String output) {
     final match = RegExp(r'v(\d+\.\d+\.\d+)').firstMatch(output);
     return match?.group(0);
+  }
+
+  static String? _pickHigherNodeVersion(
+    String installedVersion,
+    String? candidateLatestVersion,
+  ) {
+    if (candidateLatestVersion == null || candidateLatestVersion.isEmpty) {
+      return null;
+    }
+    return _compareNodeVersions(candidateLatestVersion, installedVersion) > 0
+        ? candidateLatestVersion
+        : null;
   }
 
   static String? _extractPythonVersion(String output) {
@@ -377,7 +390,7 @@ class PluginScannerService {
           description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
           status: PluginStatus.installed,
           installedVersion: version,
-          latestVersion: latestVersion,
+          latestVersion: _pickHigherNodeVersion(version, latestVersion),
           installPath: nvm.nodeBin,
           dependents: const ['playwright'],
         );
@@ -409,7 +422,7 @@ class PluginScannerService {
           description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
           status: PluginStatus.installed,
           installedVersion: version,
-          latestVersion: latestVersion,
+          latestVersion: _pickHigherNodeVersion(version, latestVersion),
           installPath: installPath?.isEmpty == true ? null : installPath,
           dependents: const ['playwright'],
         );
