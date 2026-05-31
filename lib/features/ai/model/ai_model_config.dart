@@ -1,7 +1,12 @@
 import 'dart:convert';
 
 import '../../../l10n/app_localizations.dart';
+import 'ai_api_dialect.dart';
+import 'ai_api_family.dart';
+import 'ai_endpoint_override.dart';
 import 'ai_model_catalog.dart';
+import 'ai_operation_routing.dart';
+import 'ai_realtime_config.dart';
 
 List<String> _parseStringListLoose(Object? value) {
   if (value is! List) return const <String>[];
@@ -612,6 +617,11 @@ class AiModelConfig {
     final availableModelIds = _parseAvailableModelIds(
       json['available_model_ids'],
     );
+    final protocolType = AiProtocolType.fromStorage(
+      '${json['protocol_type'] ?? ''}',
+    );
+    final rawApiDialect = '${json['api_dialect'] ?? ''}'.trim();
+    final rawProviderKind = '${json['provider_kind'] ?? ''}'.trim();
     return AiModelConfig(
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}'.trim(),
@@ -619,9 +629,13 @@ class AiModelConfig {
       authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
       token: '${json['token'] ?? ''}',
       modelId: '${json['model_id'] ?? ''}'.trim(),
-      protocolType: AiProtocolType.fromStorage(
-        '${json['protocol_type'] ?? ''}',
-      ),
+      protocolType: protocolType,
+      apiDialect: rawApiDialect.isEmpty
+          ? inferAiApiDialect(protocolType)
+          : AiApiDialect.fromStorage(rawApiDialect),
+      providerKind: rawProviderKind.isEmpty
+          ? inferAiProviderKind(protocolType)
+          : AiProviderKind.fromStorage(rawProviderKind),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
       availableModelIds: availableModelIds,
       customHeaders: _parseCustomHeaders(json['custom_headers']),
@@ -630,6 +644,17 @@ class AiModelConfig {
       temperature: _readNullableDouble(json['temperature']),
       streamEnabled: json['stream_enabled'] as bool? ?? true,
       modelProfiles: _parseModelProfiles(json['model_profiles']),
+      endpointOverrides: parseAiEndpointOverrides(json['endpoint_overrides']),
+      operationRouting:
+          AiOperationRouting.fromJson(json['operation_routing']) ??
+          const AiOperationRouting(),
+      capabilityOverrides: _parseCapabilityOverrides(
+        json['capability_overrides'],
+      ),
+      operationExtras: _parseOperationExtras(json['operation_extras']),
+      realtime:
+          AiRealtimeConfig.fromJson(json['realtime']) ??
+          const AiRealtimeConfig(),
     );
   }
   const AiModelConfig({
@@ -640,6 +665,8 @@ class AiModelConfig {
     required this.token,
     required this.modelId,
     required this.protocolType,
+    this.apiDialect = AiApiDialect.openAiCompat,
+    this.providerKind = AiProviderKind.custom,
     this.maxContextTokens,
     this.availableModelIds = const <String>[],
     this.customHeaders = const <String, String>{},
@@ -648,6 +675,11 @@ class AiModelConfig {
     this.temperature,
     this.streamEnabled = true,
     this.modelProfiles = const <String, AiModelProfile>{},
+    this.endpointOverrides = const <AiApiFamily, AiEndpointOverride>{},
+    this.operationRouting = const AiOperationRouting(),
+    this.capabilityOverrides = const <AiApiFamily, String>{},
+    this.operationExtras = const <String, Object?>{},
+    this.realtime = const AiRealtimeConfig(),
   });
 
   static List<String> normalizeModelIds(Iterable<String> values) {
@@ -675,6 +707,8 @@ class AiModelConfig {
   /// The currently active model ID for this provider.
   final String modelId;
   final AiProtocolType protocolType;
+  final AiApiDialect apiDialect;
+  final AiProviderKind providerKind;
   final int? maxContextTokens;
 
   /// All known model IDs for this provider (auto-scanned + manually added).
@@ -698,6 +732,12 @@ class AiModelConfig {
   /// Per-model user-configurable profiles, keyed by model ID.
   /// Overrides hardcoded heuristics for vision detection, capabilities, etc.
   final Map<String, AiModelProfile> modelProfiles;
+
+  final Map<AiApiFamily, AiEndpointOverride> endpointOverrides;
+  final AiOperationRouting operationRouting;
+  final Map<AiApiFamily, String> capabilityOverrides;
+  final Map<String, Object?> operationExtras;
+  final AiRealtimeConfig realtime;
 
   /// Returns the effective [AiModelProfile] for the given [id].
   ///
@@ -797,6 +837,15 @@ class AiModelConfig {
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
 
+  String resolveOperationModelId(AiApiFamily family) {
+    return operationRouting.resolveModelId(family, modelId) ?? modelId.trim();
+  }
+
+  String? capabilityStatusFor(AiApiFamily family) {
+    final status = capabilityOverrides[family]?.trim();
+    return status == null || status.isEmpty ? null : status;
+  }
+
   /// Short display label for the provider.
   /// Prefers the user-defined [name]; falls back to the base URL host;
   /// falls back to the protocol type.
@@ -848,6 +897,8 @@ class AiModelConfig {
     String? token,
     String? modelId,
     AiProtocolType? protocolType,
+    AiApiDialect? apiDialect,
+    AiProviderKind? providerKind,
     int? maxContextTokens,
     bool clearMaxContextTokens = false,
     List<String>? availableModelIds,
@@ -859,6 +910,11 @@ class AiModelConfig {
     bool clearTemperature = false,
     bool? streamEnabled,
     Map<String, AiModelProfile>? modelProfiles,
+    Map<AiApiFamily, AiEndpointOverride>? endpointOverrides,
+    AiOperationRouting? operationRouting,
+    Map<AiApiFamily, String>? capabilityOverrides,
+    Map<String, Object?>? operationExtras,
+    AiRealtimeConfig? realtime,
   }) {
     return AiModelConfig(
       id: id ?? this.id,
@@ -868,6 +924,8 @@ class AiModelConfig {
       token: token ?? this.token,
       modelId: modelId ?? this.modelId,
       protocolType: protocolType ?? this.protocolType,
+      apiDialect: apiDialect ?? this.apiDialect,
+      providerKind: providerKind ?? this.providerKind,
       maxContextTokens: clearMaxContextTokens
           ? null
           : maxContextTokens ?? this.maxContextTokens,
@@ -880,6 +938,11 @@ class AiModelConfig {
       temperature: clearTemperature ? null : temperature ?? this.temperature,
       streamEnabled: streamEnabled ?? this.streamEnabled,
       modelProfiles: modelProfiles ?? this.modelProfiles,
+      endpointOverrides: endpointOverrides ?? this.endpointOverrides,
+      operationRouting: operationRouting ?? this.operationRouting,
+      capabilityOverrides: capabilityOverrides ?? this.capabilityOverrides,
+      operationExtras: operationExtras ?? this.operationExtras,
+      realtime: realtime ?? this.realtime,
     );
   }
 
@@ -890,6 +953,14 @@ class AiModelConfig {
         profilesJson[entry.key] = entry.value.toJson();
       }
     }
+    final endpointOverridesJson = aiEndpointOverridesToJson(endpointOverrides);
+    final capabilityOverridesJson = <String, Object?>{};
+    for (final entry in capabilityOverrides.entries) {
+      final value = entry.value.trim();
+      if (value.isNotEmpty) {
+        capabilityOverridesJson[entry.key.storageValue] = value;
+      }
+    }
     return <String, Object?>{
       'id': id,
       'name': name,
@@ -898,6 +969,8 @@ class AiModelConfig {
       'token': token,
       'model_id': modelId.trim(),
       'protocol_type': protocolType.storageValue,
+      'api_dialect': apiDialect.storageValue,
+      'provider_kind': providerKind.storageValue,
       'max_context_tokens': maxContextTokens,
       'available_model_ids': normalizeModelIds(availableModelIds),
       'custom_headers': customHeaders,
@@ -906,6 +979,13 @@ class AiModelConfig {
       'temperature': temperature,
       'stream_enabled': streamEnabled,
       if (profilesJson.isNotEmpty) 'model_profiles': profilesJson,
+      if (endpointOverridesJson.isNotEmpty)
+        'endpoint_overrides': endpointOverridesJson,
+      if (!operationRouting.isEmpty) 'operation_routing': operationRouting.toJson(),
+      if (capabilityOverridesJson.isNotEmpty)
+        'capability_overrides': capabilityOverridesJson,
+      if (operationExtras.isNotEmpty) 'operation_extras': operationExtras,
+      if (!realtime.isEmpty) 'realtime': realtime.toJson(),
     };
   }
 
@@ -1050,4 +1130,60 @@ class AiModelConfig {
     }
     return result;
   }
+
+  static Map<AiApiFamily, String> _parseCapabilityOverrides(Object? value) {
+    if (value is! Map) return const <AiApiFamily, String>{};
+    final result = <AiApiFamily, String>{};
+    for (final entry in value.entries) {
+      final family = AiApiFamily.fromStorage('${entry.key}'.trim());
+      final status = '${entry.value ?? ''}'.trim();
+      if (family == null || status.isEmpty) continue;
+      result[family] = status;
+    }
+    return result;
+  }
+
+  static Map<String, Object?> _parseOperationExtras(Object? value) {
+    if (value is Map<String, Object?>) {
+      return Map<String, Object?>.from(value);
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const <String, Object?>{};
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map<String, Object?>) {
+          return Map<String, Object?>.from(decoded);
+        }
+        if (decoded is Map) {
+          return Map<String, Object?>.from(decoded);
+        }
+      } catch (_) {
+        // Not valid JSON — ignore.
+      }
+    }
+    return const <String, Object?>{};
+  }
+}
+
+AiApiDialect inferAiApiDialect(AiProtocolType protocolType) {
+  return switch (protocolType) {
+    AiProtocolType.claude => AiApiDialect.anthropicNative,
+    AiProtocolType.gemini => AiApiDialect.geminiNative,
+    _ => AiApiDialect.openAiCompat,
+  };
+}
+
+AiProviderKind inferAiProviderKind(AiProtocolType protocolType) {
+  return switch (protocolType) {
+    AiProtocolType.openai => AiProviderKind.openai,
+    AiProtocolType.claude => AiProviderKind.claude,
+    AiProtocolType.gemini => AiProviderKind.gemini,
+    AiProtocolType.qwen => AiProviderKind.qwen,
+    AiProtocolType.minimax => AiProviderKind.minimax,
+    _ => AiProviderKind.custom,
+  };
 }

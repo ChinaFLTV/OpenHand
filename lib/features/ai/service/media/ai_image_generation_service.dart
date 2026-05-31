@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_catalog.dart';
 import '../../model/ai_model_config.dart';
@@ -227,15 +228,17 @@ class AiImageGenerationService {
   /// Returns the model id to use for image generation. The user is expected
   /// to configure an image-capable model directly in their provider settings.
   static String resolveImageModelId(AiModelConfig model, AiCreationMode mode) {
-    return model.modelId.trim();
+    return mode == AiCreationMode.image
+        ? model.resolveOperationModelId(AiApiFamily.imageGeneration)
+        : model.resolveOperationModelId(AiApiFamily.imageEdit);
   }
 
   static String resolveVideoModelId(AiModelConfig model) {
-    return model.modelId.trim();
+    return model.resolveOperationModelId(AiApiFamily.videoGeneration);
   }
 
   static String resolveAudioModelId(AiModelConfig model) {
-    return model.modelId.trim();
+    return model.resolveOperationModelId(AiApiFamily.audioSpeech);
   }
 
   /// Generates one or more images via an OpenAI-compatible

@@ -5,8 +5,11 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/system_proxy.dart';
+import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
+import '../runtime/ai_endpoint_router.dart';
+import '../runtime/ai_transport_client.dart';
 
 /// Result of a model scan attempt.
 class AiModelScanResult {
@@ -23,13 +26,23 @@ class AiModelScanResult {
 
 /// Scans an AI provider's API to discover available model IDs.
 class AiModelScanner {
-  AiModelScanner({http.Client? httpClient})
-    : _httpClient =
-          httpClient ?? SystemProxyResolver.instance.createHttpClient();
+  AiModelScanner({
+    http.Client? httpClient,
+    AiEndpointRouter? router,
+    AiTransportClient? transport,
+  }) : _httpClient =
+           httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+       _router = router ?? const AiEndpointRouter(),
+       _transport = transport;
 
   final http.Client _httpClient;
+  final AiEndpointRouter _router;
+  final AiTransportClient? _transport;
 
   static const Duration _defaultTimeout = Duration(seconds: 15);
+
+  AiTransportClient get _effectiveTransport =>
+      _transport ?? AiTransportClient(client: _httpClient);
 
   /// Attempts to list all models available at the provider defined by [config].
   ///
@@ -134,59 +147,39 @@ class AiModelScanner {
     }
   }
 
-  /// Derives OpenAI-compatible model-list URLs from a user-entered base URL.
-  ///
-  /// Users may paste a host (`https://relay.example.com`), a versioned root
-  /// (`https://relay.example.com/v1`), or a full endpoint
-  /// (`https://relay.example.com/v1/chat/completions`). Try `/v1/models`
-  /// first for bare hosts because many relays only expose the versioned path.
-  static List<String> _openAiModelsUrls(String baseUrl) {
-    const endpointSuffixes = <String>[
-      '/chat/completions',
-      '/completions',
-      '/embeddings',
-      '/models',
-    ];
-    var normalizedBase = baseUrl;
-    for (final suffix in endpointSuffixes) {
-      if (normalizedBase.endsWith(suffix)) {
-        normalizedBase = normalizedBase.substring(
-          0,
-          normalizedBase.length - suffix.length,
-        );
-        break;
-      }
-    }
-
-    final candidates = <String>[];
-    void addCandidate(String value) {
-      final trimmed = value.trim();
-      if (trimmed.isNotEmpty && !candidates.contains(trimmed)) {
-        candidates.add(trimmed);
-      }
-    }
-
-    if (normalizedBase.endsWith('/v1')) {
-      addCandidate('$normalizedBase/models');
-    } else {
-      addCandidate('$normalizedBase/v1/models');
-      addCandidate('$normalizedBase/models');
-    }
-    return candidates;
-  }
-
   /// OpenAI-compatible /models endpoint.
   Future<AiModelScanResult> _scanOpenAiCompatible(
     AiModelConfig config, {
     required Duration timeout,
   }) async {
     final headers = _buildHeaders(config);
+    final transport = _effectiveTransport;
     AiModelScanResult? lastFailure;
+    final primary = _router.resolve(
+      config,
+      AiApiFamily.models,
+      method: 'GET',
+    );
+    final candidates = <String>[primary.url];
+    if (!config.normalizedBaseUrl.endsWith('/v1')) {
+      final fallback = Uri.parse(config.normalizedBaseUrl)
+          .replace(pathSegments: <String>[
+            ...Uri.parse(config.normalizedBaseUrl).pathSegments
+                .where((segment) => segment.isNotEmpty),
+            'models',
+          ])
+          .toString();
+      if (!candidates.contains(fallback)) {
+        candidates.add(fallback);
+      }
+    }
 
-    for (final modelsUrl in _openAiModelsUrls(config.normalizedBaseUrl)) {
-      final response = await _httpClient
-          .get(Uri.parse(modelsUrl), headers: headers)
-          .timeout(timeout);
+    for (final modelsUrl in candidates) {
+      final response = await transport.get(
+        uri: Uri.parse(modelsUrl),
+        headers: headers,
+        timeout: timeout,
+      );
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         return AiModelScanResult(

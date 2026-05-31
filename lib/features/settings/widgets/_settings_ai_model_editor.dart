@@ -21,8 +21,20 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _temperatureController;
   late AiAuthScheme _authScheme;
   late AiProtocolType _protocolType;
+  late AiApiDialect _apiDialect;
+  late AiProviderKind _providerKind;
   late String _requestMethod;
   late bool _streamEnabled;
+  late final TextEditingController _responsesModelIdController;
+  late final TextEditingController _embeddingModelIdController;
+  late final TextEditingController _imageModelIdController;
+  late final TextEditingController _videoModelIdController;
+  late final TextEditingController _speechModelIdController;
+  late final TextEditingController _defaultVoiceController;
+  late final TextEditingController _realtimeTransportController;
+  late final TextEditingController _realtimeUrlOverrideController;
+  late final TextEditingController _endpointOverridesController;
+  late final TextEditingController _operationExtrasController;
   bool _obscureToken = true;
   bool _isSaving = false;
   bool _isScanning = false;
@@ -67,8 +79,49 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     );
     _authScheme = widget.initialModel?.authScheme ?? AiAuthScheme.bearer;
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
+    _apiDialect =
+        widget.initialModel?.apiDialect ?? inferAiApiDialect(_protocolType);
+    _providerKind =
+        widget.initialModel?.providerKind ?? inferAiProviderKind(_protocolType);
     _requestMethod = widget.initialModel?.requestMethod ?? 'POST';
     _streamEnabled = widget.initialModel?.streamEnabled ?? true;
+    _responsesModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.responsesModelId ?? '',
+    );
+    _embeddingModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.embeddingModelId ?? '',
+    );
+    _imageModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.imageModelId ?? '',
+    );
+    _videoModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.videoModelId ?? '',
+    );
+    _speechModelIdController = TextEditingController(
+      text: widget.initialModel?.operationRouting.speechModelId ?? '',
+    );
+    _defaultVoiceController = TextEditingController(
+      text: widget.initialModel?.operationRouting.defaultVoice ?? '',
+    );
+    _realtimeTransportController = TextEditingController(
+      text: widget.initialModel?.realtime.transport ?? '',
+    );
+    _realtimeUrlOverrideController = TextEditingController(
+      text: widget.initialModel?.realtime.urlOverride ?? '',
+    );
+    _endpointOverridesController = TextEditingController(
+      text: _prettyJson(
+        aiEndpointOverridesToJson(
+          widget.initialModel?.endpointOverrides ??
+              const <AiApiFamily, AiEndpointOverride>{},
+        ),
+      ),
+    );
+    _operationExtrasController = TextEditingController(
+      text: _prettyJson(
+        widget.initialModel?.operationExtras ?? const <String, Object?>{},
+      ),
+    );
     _availableModelIds = AiModelConfig.normalizeModelIds(
       widget.initialModel?.availableModelIds ?? const <String>[],
     );
@@ -101,6 +154,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _manualModelIdController.dispose();
     _maxTokensController.dispose();
     _temperatureController.dispose();
+    _responsesModelIdController.dispose();
+    _embeddingModelIdController.dispose();
+    _imageModelIdController.dispose();
+    _videoModelIdController.dispose();
+    _speechModelIdController.dispose();
+    _defaultVoiceController.dispose();
+    _realtimeTransportController.dispose();
+    _realtimeUrlOverrideController.dispose();
+    _endpointOverridesController.dispose();
+    _operationExtrasController.dispose();
     for (final entry in _customHeaderEntries) {
       entry.keyController.dispose();
       entry.valueController.dispose();
@@ -883,6 +946,239 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 },
                               ),
                               const SizedBox(height: 20),
+                              Text(
+                                '高级接口配置',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final dialectDropdown =
+                                      DropdownButtonFormField<AiApiDialect>(
+                                        initialValue: _apiDialect,
+                                        decoration: const InputDecoration(
+                                          labelText: 'API 方言',
+                                        ),
+                                        items: AiApiDialect.values
+                                            .map(
+                                              (item) => DropdownMenuItem<
+                                                AiApiDialect
+                                              >(
+                                                value: item,
+                                                child: Text(item.storageValue),
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: _isSaving
+                                            ? null
+                                            : (value) {
+                                                if (value == null) return;
+                                                setState(() {
+                                                  _apiDialect = value;
+                                                });
+                                              },
+                                      );
+                                  final providerKindDropdown =
+                                      DropdownButtonFormField<AiProviderKind>(
+                                        initialValue: _providerKind,
+                                        decoration: const InputDecoration(
+                                          labelText: '服务商类型',
+                                        ),
+                                        items: AiProviderKind.values
+                                            .map(
+                                              (item) => DropdownMenuItem<
+                                                AiProviderKind
+                                              >(
+                                                value: item,
+                                                child: Text(item.storageValue),
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: _isSaving
+                                            ? null
+                                            : (value) {
+                                                if (value == null) return;
+                                                setState(() {
+                                                  _providerKind = value;
+                                                });
+                                              },
+                                      );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        dialectDropdown,
+                                        const SizedBox(height: 16),
+                                        providerKindDropdown,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: dialectDropdown),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: providerKindDropdown),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _responsesModelIdController,
+                                enabled: !_isSaving,
+                                decoration: const InputDecoration(
+                                  labelText: 'Responses 模型 ID（可选）',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _embeddingModelIdController,
+                                enabled: !_isSaving,
+                                decoration: const InputDecoration(
+                                  labelText: 'Embeddings 模型 ID（可选）',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final imageField = TextField(
+                                    controller: _imageModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: '图像模型 ID（可选）',
+                                    ),
+                                  );
+                                  final videoField = TextField(
+                                    controller: _videoModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: '视频模型 ID（可选）',
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        imageField,
+                                        const SizedBox(height: 12),
+                                        videoField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: imageField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: videoField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final speechField = TextField(
+                                    controller: _speechModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: '语音模型 ID（可选）',
+                                    ),
+                                  );
+                                  final voiceField = TextField(
+                                    controller: _defaultVoiceController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: '默认 Voice（可选）',
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        speechField,
+                                        const SizedBox(height: 12),
+                                        voiceField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: speechField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: voiceField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final realtimeTransportField = TextField(
+                                    controller: _realtimeTransportController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Realtime Transport（可选）',
+                                    ),
+                                  );
+                                  final realtimeUrlField = TextField(
+                                    controller: _realtimeUrlOverrideController,
+                                    enabled: !_isSaving,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Realtime URL Override（可选）',
+                                    ),
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        realtimeTransportField,
+                                        const SizedBox(height: 12),
+                                        realtimeUrlField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
+                                    children: [
+                                      Expanded(child: realtimeTransportField),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: realtimeUrlField),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _endpointOverridesController,
+                                enabled: !_isSaving,
+                                minLines: 4,
+                                maxLines: 8,
+                                decoration: const InputDecoration(
+                                  labelText: 'Endpoint Overrides JSON（可选）',
+                                  helperText:
+                                      '按 family 自定义 path/url/method/transport/headers/query_defaults。',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _operationExtrasController,
+                                enabled: !_isSaving,
+                                minLines: 4,
+                                maxLines: 8,
+                                decoration: const InputDecoration(
+                                  labelText: 'Operation Extras JSON（可选）',
+                                  helperText:
+                                      '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
+                                ),
+                              ),
+                              const SizedBox(height: 20),
                               // ── Custom headers section ──
                               Row(
                                 children: [
@@ -1049,6 +1345,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       token: _tokenController.text.trim(),
       modelId: _modelIdController.text.trim(),
       protocolType: _protocolType,
+      apiDialect: _apiDialect,
+      providerKind: _providerKind,
       maxContextTokens: _parseOptionalPositiveInt(
         _maxContextTokensController.text,
       ),
@@ -1059,6 +1357,28 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       temperature: _parseOptionalDouble(_temperatureController.text),
       streamEnabled: _streamEnabled,
       modelProfiles: _modelProfiles,
+      operationRouting: AiOperationRouting(
+        responsesModelId: _normalizeOptionalText(
+          _responsesModelIdController.text,
+        ),
+        embeddingModelId: _normalizeOptionalText(
+          _embeddingModelIdController.text,
+        ),
+        imageModelId: _normalizeOptionalText(_imageModelIdController.text),
+        videoModelId: _normalizeOptionalText(_videoModelIdController.text),
+        speechModelId: _normalizeOptionalText(_speechModelIdController.text),
+        defaultVoice: _normalizeOptionalText(_defaultVoiceController.text),
+      ),
+      endpointOverrides: parseAiEndpointOverrides(
+        _decodeJsonObject(_endpointOverridesController.text),
+      ),
+      operationExtras: _decodeJsonObject(_operationExtrasController.text),
+      realtime: AiRealtimeConfig(
+        transport: _normalizeOptionalText(_realtimeTransportController.text),
+        urlOverride: _normalizeOptionalText(
+          _realtimeUrlOverrideController.text,
+        ),
+      ),
     );
 
     late final bool saved;
@@ -1101,6 +1421,31 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     final trimmed = rawValue.trim();
     if (trimmed.isEmpty) return null;
     return double.tryParse(trimmed);
+  }
+
+  String? _normalizeOptionalText(String rawValue) {
+    final trimmed = rawValue.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Map<String, Object?> _decodeJsonObject(String rawValue) {
+    final trimmed = rawValue.trim();
+    if (trimmed.isEmpty) {
+      return const <String, Object?>{};
+    }
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map<String, Object?>) {
+      return Map<String, Object?>.from(decoded);
+    }
+    if (decoded is Map) {
+      return Map<String, Object?>.from(decoded);
+    }
+    throw const FormatException('Expected a JSON object.');
+  }
+
+  String _prettyJson(Map<String, Object?> map) {
+    if (map.isEmpty) return '';
+    return const JsonEncoder.withIndent('  ').convert(map);
   }
 }
 

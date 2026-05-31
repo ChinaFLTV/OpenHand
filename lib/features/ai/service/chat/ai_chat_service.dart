@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
+import '../../model/ai_api_dialect.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
@@ -15,6 +16,7 @@ import '../../model/ai_token_usage.dart';
 import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
 import '../model_registry/ai_model_scanner.dart';
+import '../operations/ai_responses_service.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_transport_diagnostic_messages.dart';
@@ -240,6 +242,7 @@ class AiChatService implements AiChatClient {
   final http.Client _client;
   final AiImageGenerationService _imageService;
   final AiModelScanner? _modelScanner;
+  AiResponsesService? _responsesService;
 
   /// Returns true when [creationRequest] asks for media output and the
   /// selected model exposes the matching generation capability. Gemini keeps
@@ -395,6 +398,40 @@ class AiChatService implements AiChatClient {
         );
       } on AiMediaGenerationException catch (error) {
         throw AiChatException(error.message);
+      }
+    }
+    final canUseResponses =
+        model.apiDialect == AiApiDialect.openAiCompat &&
+        creationRequest.mode == AiCreationMode.none &&
+        tools.isEmpty &&
+        responseModalities.isEmpty &&
+        messages.every(
+          (item) =>
+              item.effectiveParts.isEmpty ||
+              item.effectiveParts.every(
+                (part) => part.kind == AiChatContentPartKind.text,
+              ),
+        );
+    if (canUseResponses) {
+      final flattenedInput = messages
+          .map((item) => '${item.roleName}: ${item.content}'.trim())
+          .where((item) => item.isNotEmpty)
+          .join('\n\n');
+      try {
+        _responsesService ??= AiResponsesService();
+        final response = await _responsesService!.createResponse(
+          model: model,
+          input: flattenedInput,
+          timeout: timeout,
+        );
+        return AiChatCompletion(
+          reply: response.text,
+          reasoningContent: response.reasoning,
+          rawResponse: response.rawResponse,
+        );
+      } catch (_) {
+        // Fall back to the existing chat/completions path when the provider
+        // does not actually expose a compatible /responses family yet.
       }
     }
     try {
