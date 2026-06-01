@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -106,7 +107,15 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
       // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
       final launch = await _resolveDirectLaunch(server);
-      final process = await startTrackedProcess(launch.executable, launch.args);
+      // npx -y / uvx 等首次拉包 + 后续 MCP 服务运行期出站都依赖同一套
+      // 代理环境。把 SystemProxyResolver 解析出的 HTTP(S)/SOCKS 端点注
+      // 入子进程，否则在企业代理 / 内网透明代理环境下会 TCP 握手超时。
+      final process = await startTrackedProcess(
+        launch.executable,
+        launch.args,
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
+      );
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');

@@ -12,6 +12,7 @@ import 'package:yaml/yaml.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
@@ -454,11 +455,17 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     try {
       // 1. 卸载全局包
-      final result = await runTrackedProcessOrFailed('npm', [
-        'uninstall',
-        '-g',
-        packageName,
-      ], timeout: const Duration(seconds: 30));
+      final result = await runTrackedProcessOrFailed(
+        'npm',
+        [
+          'uninstall',
+          '-g',
+          packageName,
+        ],
+        timeout: const Duration(seconds: 30),
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
+      );
 
       // 2. 清理该服务在隔离缓存中的残留
       final cacheRoot = mcpStdioIsolatedCacheRoot();

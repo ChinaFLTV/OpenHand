@@ -543,7 +543,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       process: await startTrackedProcess(
         resolved.executable,
         resolved.args,
-        environment: resolved.environment,
+        environment: <String, String>{
+          ...SystemProxyResolver.instance
+              .resolveSubprocessEnvironment(),
+          ...resolved.environment,
+        },
         // Windows .cmd / .bat / .ps1 launchers (e.g. `npx.cmd`) only resolve
         // through the shell. On macOS / Linux we already resolved an absolute
         // path, so direct exec keeps argv quoting honest.
