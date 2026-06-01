@@ -2,8 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
@@ -107,6 +111,12 @@ class _TokenPopupCacheHitTrendChartState
     with SingleTickerProviderStateMixin {
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
+  // 2026-06-01 — hover 状态专用的进退场控制器：
+  // - 悬停进入：0 → 1（沿用全局 DialogAnimationSettings.springScale，
+  //   带 easeOutBack 微弹）；
+  // - 悬停退出：1 → 0（同一曲线的 reverse）；
+  // - 移动到不同点：data 立即更新但 controller 保持 1.0，不重启。
+  late final AnimationController _hoverController;
   double _wheelScaleAccumulator = 1;
   int? _hoveredPointIndex;
 
@@ -118,6 +128,12 @@ class _TokenPopupCacheHitTrendChartState
       vsync: this,
       duration: const Duration(milliseconds: 560),
     )..forward();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 200),
+      value: 0.0,
+    );
   }
 
   @override
@@ -128,12 +144,18 @@ class _TokenPopupCacheHitTrendChartState
       _controller
         ..reset()
         ..forward();
+      // 数据集换新时立刻让浮窗退场，避免残留。
+      if (_hoveredPointIndex != null) {
+        _hoveredPointIndex = null;
+        _hoverController.value = 0.0;
+      }
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _hoverController.dispose();
     super.dispose();
   }
 
@@ -141,6 +163,26 @@ class _TokenPopupCacheHitTrendChartState
     setState(() {
       _viewport = _viewport.zoomAround(anchor: anchor, scale: scale);
     });
+  }
+
+  /// 2026-06-01 — 给 hover tooltip 专用的进退场设置：
+  /// - 风格锁为 `springScale`（Q 弹微弹），不再沿用全局默认 fadeScale，
+  ///   让 tooltip 的进程退场天然具备"轻拂鼠标入场/退场"丝滑感；
+  /// - 时长 / 曲线沿用全局设置，保留用户在"弹窗动画"里的全局风格选择；
+  /// - 尊重 `MediaQuery.disableAnimationsOf`：0ms + none 风格直出直入。
+  DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.none,
+        exitStyle: DialogAnimationStyle.none,
+        durationMs: 0,
+      );
+    }
+    final global = context.read<SettingsController>().dialogAnimationSettings;
+    return global.copyWith(
+      entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.springScale,
+    );
   }
 
   void _pan(double deltaPoints) {
@@ -380,6 +422,7 @@ class _TokenPopupCacheHitTrendChartState
                         if (localDx < 0 || localDx > chartRect.width) {
                           if (_hoveredPointIndex != null) {
                             setState(() => _hoveredPointIndex = null);
+                            _hoverController.reverse();
                           }
                           return;
                         }
@@ -395,12 +438,21 @@ class _TokenPopupCacheHitTrendChartState
                           visiblePoints.length - 1,
                         ).toInt();
                         if (_hoveredPointIndex != idx) {
+                          final wasHovering = _hoveredPointIndex != null;
                           setState(() => _hoveredPointIndex = idx);
+                          if (!wasHovering) {
+                            // 第一次入场或退场中再次入场：从当前值 forward，
+                            // 已完全显示时（value==1）forward 是 no-op，
+                            // 退场中（0<value<1）则继续推进到 1，保证
+                            // 进出衔接自然不闪。
+                            _hoverController.forward();
+                          }
                         }
                       },
                       onExit: (_) {
                         if (_hoveredPointIndex != null) {
                           setState(() => _hoveredPointIndex = null);
+                          _hoverController.reverse();
                         }
                       },
                       child: Stack(
@@ -439,8 +491,10 @@ class _TokenPopupCacheHitTrendChartState
                         ),
                         // 2026-06-01 — hover 高亮 + tooltip：把鼠标位置
                         // 映射到最近的 visiblePoints 索引，叠一个发光圆点
-                        // + 浮窗，跟其它已存在的弹窗/菜单走同一套
-                        // 缓动曲线与短时长，避免生硬切换。
+                        // + 浮窗，整组走 springScale 的 Q 弹进退场（由
+                        // [_hoverController] 驱动 forward / reverse），与
+                        // 全局 DialogAnimationSettings 的时长 / 曲线保持
+                        // 一致。
                         if (_hoveredPointIndex != null)
                           _buildHoverOverlay(
                             visiblePoints: visiblePoints,
@@ -448,6 +502,7 @@ class _TokenPopupCacheHitTrendChartState
                             chartRect: chartRect,
                             colorScheme: colorScheme,
                             l10n: l10n,
+                            hoverSettings: _hoverSettingsFor(context),
                           ),
                         Positioned(
                           left: 0,
@@ -508,14 +563,20 @@ class _TokenPopupCacheHitTrendChartState
 
   /// 2026-06-01 — hover 高亮 + tooltip：
   /// - 渲染当前鼠标位置对应的数据点（发光圆 + tooltip 浮窗）；
-  /// - tooltip 沿用全局 DialogAnimationSettings 的 easeOutCubic 曲线与
-  ///   短时长，确保与其它弹窗/菜单的进退场行为一致。
+  /// - 圆点 + 浮窗共用 [_hoverController] 走 springScale 风格的 Q 弹
+  ///   进退场（_SpringScaleTransition 内部用 Curves.easeOutBack / easeInBack
+  ///   ，带微弹），时长 / 曲线沿用全局 DialogAnimationSettings 并尊重
+  ///   `MediaQuery.disableAnimationsOf` 走 0ms 关闭动画；
+  /// - tooltip 内部"上方 / 下方"翻转时由 springScale 的 alignment 决定
+  ///   scale 锚点（上方时从底部中心展开、避免侵入 chart 上沿；下方时
+  ///   从顶部中心展开、避免侵入 chart 下沿）。
   Widget _buildHoverOverlay({
     required List<SessionCacheHitTurnPoint> visiblePoints,
     required int hoveredIndex,
     required Rect chartRect,
     required ColorScheme colorScheme,
     required AppLocalizations l10n,
+    required DialogAnimationSettings hoverSettings,
   }) {
     if (hoveredIndex < 0 || hoveredIndex >= visiblePoints.length) {
       return const SizedBox.shrink();
@@ -534,7 +595,6 @@ class _TokenPopupCacheHitTrendChartState
     final tooltipBorder = colorScheme.outlineVariant.withValues(alpha: 0.7);
     final percentText = '${(ratio * 100).round()}%';
     final turnLabel = l10n.sessMetaCacheHitPoint(point.turnIndex);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     const tooltipWidth = 132.0;
     const tooltipHeight = 46.0;
     // tooltip 优先放在点的上方；空间不足时翻转到下方。
@@ -547,10 +607,16 @@ class _TokenPopupCacheHitTrendChartState
       chartRect.left,
       chartRect.right - tooltipWidth,
     );
+    // 把 hover 设置同步到控制器时长（duration / reverseDuration 独立维护，
+    // 退出用稍短时长让"轻拂鼠标离开"更利落）。
+    _hoverController.duration = hoverSettings.duration;
+    _hoverController.reverseDuration = hoverSettings.duration ~/ 5 * 4;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // 命中点发光圆：套两层 (外晕 + 实心) 让悬停反馈更明显。
+        // 命中点发光圆 + 实心圆：套在同一个 springScale transition 内，
+        // 与 tooltip 同步 Q 弹进退场。
         Positioned(
           left: cx - 9,
           top: cy - 9,
@@ -585,17 +651,12 @@ class _TokenPopupCacheHitTrendChartState
           left: tooltipLeft,
           top: tooltipTop,
           child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              opacity: 1,
-              child: AnimatedScale(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                scale: reduceMotion ? 1 : 0.94,
-                alignment: showAbove
-                    ? Alignment.bottomCenter
-                    : Alignment.topCenter,
+            child: SizedBox(
+              width: tooltipWidth,
+              height: tooltipHeight,
+              child: buildAnimationStyleTransition(
+                animation: _hoverController,
+                settings: hoverSettings,
                 child: Container(
                   width: tooltipWidth,
                   height: tooltipHeight,
