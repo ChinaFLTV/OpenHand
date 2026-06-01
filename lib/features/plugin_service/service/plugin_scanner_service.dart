@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/plugin_info.dart';
 
 /// 扫描本机已安装的插件（NodeJS / Playwright / Python / pip），检测版本与可用性。
@@ -17,6 +18,15 @@ class PluginScannerService {
     final shell = Platform.environment['SHELL'];
     if (shell != null && shell.isNotEmpty) return shell;
     return '/bin/zsh';
+  }
+
+  /// 把 SystemProxyResolver 解析出的代理端点叠加到子进程环境。
+  /// 几乎所有 scanner 路径都可能触网（curl nodejs.org / PyPI / npm view
+  /// / brew info / pyenv install --list / ghcr.io 等），所以统一加
+  /// 代理；本地查 --version / which / command -v 时也带上，对本地命令
+  /// 是 no-op，对网络命令是必备通道。
+  static Map<String, String> _proxyEnv() {
+    return SystemProxyResolver.instance.resolveSubprocessEnvironment();
   }
 
   /// 通过 shell 执行命令（用于 fnm/volta/brew/pyenv 等场景）。
@@ -42,6 +52,7 @@ class PluginScannerService {
       ['-c', script.toString()],
       timeout: const Duration(seconds: 15),
       tag: 'plugin_scanner.shell_probe',
+      environment: _proxyEnv(),
     );
   }
 
@@ -371,6 +382,7 @@ class PluginScannerService {
         ['--version'],
         timeout: const Duration(seconds: 5),
         tag: 'plugin_scanner.python_probe',
+        environment: _proxyEnv(),
       );
       if (versionResult.exitCode != 0) continue;
       final version = _extractPythonVersion(
@@ -450,9 +462,12 @@ class PluginScannerService {
     try {
       final nvm = await _resolveNvmDirect();
       if (nvm != null) {
-        final versionResult = await runTrackedProcessOrFailed(nvm.nodeBin, [
-          '--version',
-        ], timeout: const Duration(seconds: 5));
+        final versionResult = await runTrackedProcessOrFailed(
+          nvm.nodeBin,
+          ['--version'],
+          timeout: const Duration(seconds: 5),
+          environment: _proxyEnv(),
+        );
         final version = versionResult.exitCode == 0
             ? versionResult.stdout.toString().trim()
             : nvm.version;
@@ -545,6 +560,7 @@ class PluginScannerService {
         ['-m', 'pip', '--version'],
         timeout: const Duration(seconds: 8),
         tag: 'plugin_scanner.pip_probe',
+        environment: _proxyEnv(),
       );
       if (pipVersionResult.exitCode != 0) {
         return _pipNotInstalled;

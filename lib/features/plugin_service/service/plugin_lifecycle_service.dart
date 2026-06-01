@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/system_proxy.dart';
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -30,6 +31,14 @@ class PluginLifecycleService {
     final shell = Platform.environment['SHELL'];
     if (shell != null && shell.isNotEmpty) return shell;
     return '/bin/zsh';
+  }
+
+  /// 把 SystemProxyResolver 解析出的代理端点叠加到子进程环境。
+  /// 任何需要访问外网（PyPI / npm / Homebrew bottles / Node release /
+  /// ghcr.io 等）的子流程都必须走这条通道，否则在企业代理 / 内网
+  /// 透明代理环境下 install / update 会因 TCP 握手失败而超时。
+  static Map<String, String> _proxyEnv() {
+    return SystemProxyResolver.instance.resolveSubprocessEnvironment();
   }
 
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
@@ -63,6 +72,7 @@ fi
       ['-c', script],
       onProgress: onProgress,
       timeout: timeout,
+      environment: _proxyEnv(),
     );
   }
 
@@ -77,6 +87,7 @@ fi
       ['-c', script],
       onProgress: onProgress,
       timeout: timeout,
+      environment: _proxyEnv(),
     );
   }
 
@@ -91,6 +102,7 @@ fi
       arguments,
       onProgress: onProgress,
       timeout: timeout,
+      environment: _proxyEnv(),
     );
   }
 
@@ -243,6 +255,7 @@ fi
     final parts = currentVersion.split('.');
     if (parts.length < 2) return null;
     final majorMinor = '${parts[0]}.${parts[1]}';
+    final proxyEnv = _proxyEnv();
     final latestResult = await runTrackedProcessOrFailed(
       _pickShell(),
       [
@@ -251,6 +264,7 @@ fi
       ],
       timeout: const Duration(seconds: 8),
       tag: 'plugin_lifecycle.pyenv_latest',
+      environment: proxyEnv,
     );
     final quickVersion = _extractFirstSemver(
       '${latestResult.stdout}\n${latestResult.stderr}',
@@ -263,6 +277,7 @@ fi
       ['-c', '${_pythonShellPrefix()}pyenv install --list'],
       timeout: const Duration(seconds: 15),
       tag: 'plugin_lifecycle.pyenv_list',
+      environment: proxyEnv,
     );
     if (listResult.exitCode != 0) return null;
     final versions = _extractStablePyenvVersions(
@@ -280,6 +295,7 @@ fi
       ['-c', '${_pythonShellPrefix()}brew info --json=v2 $formula'],
       timeout: const Duration(seconds: 10),
       tag: 'plugin_lifecycle.brew_info',
+      environment: _proxyEnv(),
     );
     if (result.exitCode != 0) return null;
     try {
@@ -1190,9 +1206,18 @@ fi
     List<String> arguments, {
     void Function(String line)? onProgress,
     Duration timeout = const Duration(minutes: 3),
+    Map<String, String>? environment,
   }) async {
     try {
-      final process = await startTrackedProcess(executable, arguments);
+      final mergedEnv = <String, String>{
+        ...?environment,
+        ..._proxyEnv(),
+      };
+      final process = await startTrackedProcess(
+        executable,
+        arguments,
+        environment: mergedEnv,
+      );
       final stdoutLines = <String>[];
       final stderrLines = <String>[];
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {

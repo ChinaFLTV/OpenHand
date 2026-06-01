@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import 'web_fetch_engine.dart';
 
@@ -269,6 +270,8 @@ class WebFetchScraplingBridge {
         const <String>['--version'],
         timeout: Duration(seconds: settings.startupTimeoutSeconds),
         tag: 'web_fetch_scrapling.which',
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
       );
       return result.exitCode == 0 ? custom : null;
     }
@@ -278,6 +281,8 @@ class WebFetchScraplingBridge {
         const <String>['--version'],
         timeout: Duration(seconds: settings.startupTimeoutSeconds),
         tag: 'web_fetch_scrapling.which',
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
       );
       if (result.exitCode == 0) {
         return candidate;
@@ -306,9 +311,13 @@ class WebFetchScraplingBridge {
     _readyCompleter = ready;
     _activePythonExecutable = pythonExecutable;
     _stderrTail = '';
-    final process = await startTrackedProcess(pythonExecutable, <String>[
-      helperPath,
-    ], workingDirectory: OpenHandPaths.applicationDirectoryPath());
+    final process = await startTrackedProcess(
+      pythonExecutable,
+      <String>[helperPath],
+      workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+      environment: SystemProxyResolver.instance
+          .resolveSubprocessEnvironment(),
+    );
     _process = process;
     _stdoutSubscription = process.stdout
         .transform(utf8.decoder)
@@ -508,6 +517,8 @@ class WebFetchScraplingBridge {
         timeoutSeconds: settings.installTimeoutSeconds,
         tag: '$tag.ca_retry',
         environment: <String, String>{
+          ...SystemProxyResolver.instance
+              .resolveSubprocessEnvironment(),
           'PIP_CERT': tlsBundle,
           'SSL_CERT_FILE': tlsBundle,
           'REQUESTS_CA_BUNDLE': tlsBundle,
@@ -562,11 +573,18 @@ class WebFetchScraplingBridge {
     final stdout = StringBuffer();
     final stderr = StringBuffer();
     try {
+      // 把 SystemProxyResolver 解析出的代理端点叠加到子进程环境。
+      // pip install / uninstall 一定要走代理，否则在企业代理 / 内网透明
+      // 代理环境下 PyPI 连接会超时失败（参见 plugin_service 同源修复）。
+      final mergedEnv = <String, String>{
+        ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+        ...?environment,
+      };
       final process = await startTrackedProcess(
         python,
         command,
         workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-        environment: environment,
+        environment: mergedEnv,
       );
       final stdoutDone = Completer<void>();
       final stderrDone = Completer<void>();
