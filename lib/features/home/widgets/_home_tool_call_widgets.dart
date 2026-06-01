@@ -1481,7 +1481,17 @@ class _ToolExecutionChip extends StatelessWidget {
             child: Icon(icon, size: 14, key: ValueKey<int>(icon.codePoint)),
           ),
           const SizedBox(width: 6),
-          Text(label, style: theme.textTheme.labelMedium),
+          // 2026-06 — label 用 Flexible + ellipsis 兜底：工作目录、耗时
+          // 等长文案在窄 Wrap 行内可能撑爆 chip，缩略展示并允许上层
+          // Wrap 换行，避免 RenderFlex 62px 溢出。
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
