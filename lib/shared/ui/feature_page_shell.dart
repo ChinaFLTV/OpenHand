@@ -82,7 +82,16 @@ class FeaturePageShell extends StatelessWidget {
             SizedBox(height: headerSpacing),
             if (notices.isNotEmpty)
               ...notices.expand(
-                (notice) => <Widget>[notice, SizedBox(height: noticeSpacing)],
+                (notice) => <Widget>[
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: notice,
+                    ),
+                  ),
+                  SizedBox(height: noticeSpacing),
+                ],
               ),
             bodyWidget,
           ],

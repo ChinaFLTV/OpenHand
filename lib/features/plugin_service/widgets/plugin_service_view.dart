@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -132,18 +133,25 @@ class _ErrorBanner extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 18,
-            color: theme.colorScheme.error,
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              size: 18,
+              color: theme.colorScheme.error,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
+            child: SingleChildScrollView(
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           ),
@@ -1479,12 +1487,18 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         bool npmInstalled = false;
         String? npmVersion;
         try {
-          final listResult = await runTrackedProcessOrFailed('npm', [
-            'list',
-            '-g',
-            '@playwright/mcp',
-            '--depth=0',
-          ], timeout: const Duration(seconds: 10));
+          final listResult = await runTrackedProcessOrFailed(
+            'npm',
+            [
+              'list',
+              '-g',
+              '@playwright/mcp',
+              '--depth=0',
+            ],
+            timeout: const Duration(seconds: 10),
+            environment: SystemProxyResolver.instance
+                .resolveSubprocessEnvironment(),
+          );
           npmInstalled =
               listResult.exitCode == 0 &&
               listResult.stdout.toString().contains('@playwright/mcp');
@@ -1525,7 +1539,12 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     _addLog('> npm ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await startTrackedProcess('npm', args);
+      final process = await startTrackedProcess(
+        'npm',
+        args,
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
+      );
       process.stdout.transform(const SystemEncoding().decoder).listen((data) {
         for (final line in data.split('\n')) {
           if (line.trim().isNotEmpty) _addLog(line);
