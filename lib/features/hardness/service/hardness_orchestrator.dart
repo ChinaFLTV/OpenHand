@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_phase_context_config.dart';
@@ -2190,6 +2191,8 @@ class HardnessOrchestrator extends ChangeNotifier {
     final process = await startTrackedProcess(
       resolveHardnessCliShellExecutable(),
       buildHardnessCliShellArgs(fullCmd),
+      environment: SystemProxyResolver.instance
+          .resolveSubprocessEnvironment(),
     );
     _activeProcess = process;
 

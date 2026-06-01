@@ -9,6 +9,7 @@ import '../../../app/support/app_runtime_context.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/exponential_backoff.dart';
 
 /// Maximum characters to collect from cron script stdout / stderr.
@@ -301,7 +302,10 @@ class CronExecutor {
       cmd.executable,
       cmd.arguments,
       workingDirectory: workDir,
-      environment: entry.environment.isNotEmpty ? entry.environment : null,
+      environment: <String, String>{
+        ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+        if (entry.environment.isNotEmpty) ...entry.environment,
+      },
       runInShell: entry.runAsUser != null && entry.runAsUser!.isNotEmpty,
     );
 

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 typedef AiProcessRunner =
@@ -245,6 +246,8 @@ class AiGitSnapshotService {
       'git',
       arguments,
       workingDirectory: workingDirectory,
+      environment: SystemProxyResolver.instance
+          .resolveSubprocessEnvironment(),
     );
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();

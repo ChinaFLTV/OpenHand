@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/model/hook_config.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/system_proxy.dart';
 import '../hooks_controller.dart';
 
 /// Maximum characters to collect from hook script stdout / stderr.
@@ -336,7 +337,10 @@ class HooksExecutor {
         shellCommand.executable,
         shellCommand.arguments,
         workingDirectory: workingDirectory,
-        environment: environment,
+        environment: <String, String>{
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+          ...environment,
+        },
       );
 
       final stdoutFuture = _collectOutput(process.stdout);

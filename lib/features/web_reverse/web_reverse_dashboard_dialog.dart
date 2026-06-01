@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../app/support/input_repair_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';

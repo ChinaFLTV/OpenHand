@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
@@ -929,6 +930,9 @@ Future<Process> startHardnessCliInteractiveProcess({
       // though stdout is not a real PTY.  Many Node-based tools (Ink, chalk)
       // check FORCE_COLOR before falling back to isatty().
       'FORCE_COLOR': '1',
+      // 内置 CLI 经常需要触网（登录 / 同步 / 拉取包列表等），与全局代理
+      // 保持一致可避免企业代理环境下的连接失败。
+      ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     },
   );
 }

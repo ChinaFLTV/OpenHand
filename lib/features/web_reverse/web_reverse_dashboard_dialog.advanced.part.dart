@@ -2512,6 +2512,8 @@ Future<String> _runWebcrack(String src) async {
       runInShell: Platform.isWindows,
       timeout: const Duration(minutes: 5),
       tag: 'web_reverse.webcrack',
+      environment: SystemProxyResolver.instance
+          .resolveSubprocessEnvironment(),
     );
     if (result.exitCode != 0) {
       return '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}';
