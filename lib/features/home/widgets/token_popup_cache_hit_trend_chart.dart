@@ -108,7 +108,12 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
 
 class _TokenPopupCacheHitTrendChartState
     extends State<TokenPopupCacheHitTrendChart>
-    with SingleTickerProviderStateMixin {
+    // 2026-06-01 — 升级为 TickerProviderStateMixin：
+    // 该 State 同时持有主线入场动画 `_controller` 和 hover 浮窗的
+    // `_hoverController` 两个 AnimationController。SingleTickerProvider
+    // 只允许一个 ticker，否则 initState 里会抛 "multiple tickers were
+    // created" 断言并红屏。
+    with TickerProviderStateMixin {
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
   // 2026-06-01 — hover 状态专用的进退场控制器：
@@ -117,6 +122,10 @@ class _TokenPopupCacheHitTrendChartState
   // - 悬停退出：1 → 0（同一曲线的 reverse）；
   // - 移动到不同点：data 立即更新但 controller 保持 1.0，不重启。
   late final AnimationController _hoverController;
+  // 缓存上一次应用到控制器的 hover 设置，避免每帧重设 duration /
+  // reverseDuration（Flutter 内部会清零 _lastElapsedDuration，存在动画
+  // 中点被踩扁的理论风险）。
+  DialogAnimationSettings? _lastAppliedHoverSettings;
   double _wheelScaleAccumulator = 1;
   int? _hoveredPointIndex;
 
@@ -144,11 +153,13 @@ class _TokenPopupCacheHitTrendChartState
       _controller
         ..reset()
         ..forward();
-      // 数据集换新时立刻让浮窗退场，避免残留。
+      // 数据集换新时立刻让浮窗退场，避免残留（旧 points 索引可能越界
+      // 新数据集，悬停态必须复位）。
       if (_hoveredPointIndex != null) {
         _hoveredPointIndex = null;
         _hoverController.value = 0.0;
       }
+      _lastAppliedHoverSettings = null;
     }
   }
 
@@ -417,6 +428,16 @@ class _TokenPopupCacheHitTrendChartState
                     },
                     child: MouseRegion(
                       onHover: (event) {
+                        // 边界：visiblePoints 为空（理论上 hasEnoughPoints
+                        // 已守住，但作为 onHover 顶层保护，避免驱动空动画
+                        // 与 setState 不必要的 rebuild）。
+                        if (visiblePoints.isEmpty) {
+                          if (_hoveredPointIndex != null) {
+                            setState(() => _hoveredPointIndex = null);
+                            _hoverController.reverse();
+                          }
+                          return;
+                        }
                         final localDx = (event.localPosition.dx - chartRect.left)
                             .clamp(0.0, chartRect.width);
                         if (localDx < 0 || localDx > chartRect.width) {
@@ -433,6 +454,8 @@ class _TokenPopupCacheHitTrendChartState
                         final raw = span <= 0
                             ? 0.0
                             : (localDx / span).round();
+                        // 上面已 guard visiblePoints.isEmpty，这里 length-1
+                            // 一定 >= 0，clamp 区间合法。
                         final idx = raw.clamp(
                           0,
                           visiblePoints.length - 1,
@@ -607,10 +630,15 @@ class _TokenPopupCacheHitTrendChartState
       chartRect.left,
       chartRect.right - tooltipWidth,
     );
-    // 把 hover 设置同步到控制器时长（duration / reverseDuration 独立维护，
-    // 退出用稍短时长让"轻拂鼠标离开"更利落）。
-    _hoverController.duration = hoverSettings.duration;
-    _hoverController.reverseDuration = hoverSettings.duration ~/ 5 * 4;
+    // 2026-06-01 — 仅在 hoverSettings 实际变化时把 duration /
+    // reverseDuration 同步到控制器。Flutter 内部对 controller.duration
+    // 的 setter 会清零 _lastElapsedDuration，若每帧重设同一值虽然
+    // 视觉无跳变，但属于无谓写入；这里加一个等价性 cache 规避。
+    if (_lastAppliedHoverSettings != hoverSettings) {
+      _hoverController.duration = hoverSettings.duration;
+      _hoverController.reverseDuration = hoverSettings.duration ~/ 5 * 4;
+      _lastAppliedHoverSettings = hoverSettings;
+    }
 
     return Stack(
       clipBehavior: Clip.none,
