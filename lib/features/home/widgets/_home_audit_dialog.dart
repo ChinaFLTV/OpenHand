@@ -1571,19 +1571,20 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         ),
                       Builder(
                         builder: (context) {
-                          // 会话维度的命中率：与 [_TokenDial.cacheHitRatio] 对齐，
-                          // 扣除首轮 prompt（必然 miss）。
-                          final read = statistics.cacheReadTokens ?? 0;
-                          final totalPrompt = statistics.totalPromptTokens ?? 0;
-                          final firstPrompt = (statistics.firstPromptTokens ?? 0)
-                              .clamp(0, totalPrompt);
-                          final adjustedPrompt = totalPrompt - firstPrompt;
-                          final ratio = _auditMessageHitRatio(
-                            promptTokens: adjustedPrompt,
-                            cacheReadTokens: read,
+                          // 2026-06-01 — 与 TopBar 胶囊 / 浮窗"Cache 命中率"
+                          // 走同一公式（[SessionCacheHitTrend] 排除首轮 + 排除
+                          // 极端空闲 miss），避免审计页 / TopBar / 浮窗三方口径
+                          // 错位。
+                          final trend = SessionCacheHitTrend.fromSession(
+                            session,
                             claudeStyle: widget.claudeStyle,
                           );
-                          if (ratio == null) {
+                          final ratio = trend
+                              .displayData(
+                                SessionCacheHitDisplayMode.excludeExtremeMisses,
+                              )
+                              .averageHitRatio;
+                          if (ratio <= 0 && (statistics.cacheReadTokens ?? 0) <= 0) {
                             return const SizedBox.shrink();
                           }
                           return _AuditKvRow(

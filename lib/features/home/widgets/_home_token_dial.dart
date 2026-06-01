@@ -19,9 +19,13 @@ class _TokenDial extends StatefulWidget {
 
   /// 当前会话的 cache 命中率，范围 0..1。
   ///
-  /// 分母排除首轮 prompt tokens（首轮必然 cache miss，会拉低真实命中率）。
+  /// 2026-06-01 — 改为与浮窗完全同一公式：复用
+  /// [SessionCacheHitTrend.fromSession] + `excludeExtremeMisses` 模式，
+  /// 排除首轮（turnIndex==1 必然 miss）后再做加权平均。这样 TopBar 胶囊
+  /// 与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50% 这种
+  /// 口径错位。
   ///
-  /// 协议差异：
+  /// 协议差异（沿用 [computeCacheHitRatio]）：
   /// - Claude / Anthropic：prompt_tokens 不包含 cache_read，二者独立。
   ///   → 分母 = prompt + cache_read（即总输入 token 数）。
   /// - OpenAI 兼容系（OpenAI / DeepSeek / Qwen / GLM / Kimi / Grok / Seed /
@@ -29,19 +33,13 @@ class _TokenDial extends StatefulWidget {
   ///   prompt_tokens 已包含 cache_read 子集。
   ///   → 分母 = prompt（含 cache_read 的总 prompt token 数）。
   double get cacheHitRatio {
-    final read = cacheReadTokens ?? 0;
-    final prompt =
-        (statistics.totalPromptTokens ?? 0) -
-        (statistics.firstPromptTokens ?? 0).clamp(
-          0,
-          statistics.totalPromptTokens ?? 0,
-        );
-    if (prompt <= 0) return 0.0;
-    return computeCacheHitRatio(
-      promptTokens: prompt,
-      cacheReadTokens: read,
+    final trend = SessionCacheHitTrend.fromSession(
+      session,
       claudeStyle: claudeStyle,
     );
+    return trend
+        .displayData(SessionCacheHitDisplayMode.excludeExtremeMisses)
+        .averageHitRatio;
   }
 
   @override

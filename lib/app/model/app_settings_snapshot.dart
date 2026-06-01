@@ -389,7 +389,14 @@ class AppSettingsSnapshot {
   /// 会冻结 prompt 的静态前缀（系统指令/工具/技能/MCP/记忆/指令），并
   /// 在 Anthropic 协议上自动注入 cache_control 断点；同时在用户首条消息
   /// 发出后锁定服务商/模型选择，确保缓存命中。
-  static const bool defaultAiInputCacheEnabled = false;
+  ///
+  /// 2026-06-01 — 默认改为 `true`：
+  /// 旧默认 `false` 导致绝大多数用户从未开启；从第 2 轮起无法享受
+  /// Anthropic prefix cache 命中，token 费用直线上升。开启后 Claude 协议
+  /// 会自动注入 `cache_control: {type: ephemeral}` 断点；OpenAI 兼容
+  /// / Gemini 等其它协议下为无操作（这些协议走 provider 端自动缓存），
+  /// 不会产生副作用。少数场景需要关闭时再在"输入缓存"设置里手动关闭。
+  static const bool defaultAiInputCacheEnabled = true;
 
   /// 2026-05-02 — 缓存断点更新模式：allMessages | userMessages | tokens。
   static const String aiInputCacheUpdateModeAllMessages = 'allMessages';

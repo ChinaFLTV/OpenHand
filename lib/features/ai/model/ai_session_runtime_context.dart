@@ -101,7 +101,11 @@ class AiSessionRuntimeContext {
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
-    this.aiInputCacheEnabled = false,
+    // 2026-06-01 — 与 AppSettingsSnapshot.defaultAiInputCacheEnabled
+    // 同步改为 true：绝大多数用户依赖 Claude 协议前缀缓存降低成本；
+    // 关闭后只能依赖 provider 端自动缓存（OpenAI 兼容 / Gemini 等），
+    // hit rate 与稳定性都明显变差。手动关闭入口仍在"输入缓存"设置页。
+    this.aiInputCacheEnabled = true,
     this.aiInputCacheUpdateMode = 'allMessages',
     this.aiInputCacheUpdateInterval = 10,
     this.aiInputCacheBreakpointCount = 4,
