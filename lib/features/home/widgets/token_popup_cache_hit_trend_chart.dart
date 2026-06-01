@@ -108,6 +108,7 @@ class _TokenPopupCacheHitTrendChartState
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
   double _wheelScaleAccumulator = 1;
+  int? _hoveredPointIndex;
 
   @override
   void initState() {
@@ -372,7 +373,37 @@ class _TokenPopupCacheHitTrendChartState
                         _pan(deltaPoints);
                       }
                     },
-                    child: Stack(
+                    child: MouseRegion(
+                      onHover: (event) {
+                        final localDx = (event.localPosition.dx - chartRect.left)
+                            .clamp(0.0, chartRect.width);
+                        if (localDx < 0 || localDx > chartRect.width) {
+                          if (_hoveredPointIndex != null) {
+                            setState(() => _hoveredPointIndex = null);
+                          }
+                          return;
+                        }
+                        // 把鼠标横向位置映射到 visiblePoints 索引。
+                        final span = visiblePoints.length <= 1
+                            ? 0.0
+                            : chartRect.width / (visiblePoints.length - 1);
+                        final raw = span <= 0
+                            ? 0.0
+                            : (localDx / span).round();
+                        final idx = raw.clamp(
+                          0,
+                          visiblePoints.length - 1,
+                        ).toInt();
+                        if (_hoveredPointIndex != idx) {
+                          setState(() => _hoveredPointIndex = idx);
+                        }
+                      },
+                      onExit: (_) {
+                        if (_hoveredPointIndex != null) {
+                          setState(() => _hoveredPointIndex = null);
+                        }
+                      },
+                      child: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned.fill(
@@ -406,6 +437,18 @@ class _TokenPopupCacheHitTrendChartState
                             },
                           ),
                         ),
+                        // 2026-06-01 — hover 高亮 + tooltip：把鼠标位置
+                        // 映射到最近的 visiblePoints 索引，叠一个发光圆点
+                        // + 浮窗，跟其它已存在的弹窗/菜单走同一套
+                        // 缓动曲线与短时长，避免生硬切换。
+                        if (_hoveredPointIndex != null)
+                          _buildHoverOverlay(
+                            visiblePoints: visiblePoints,
+                            hoveredIndex: _hoveredPointIndex!,
+                            chartRect: chartRect,
+                            colorScheme: colorScheme,
+                            l10n: l10n,
+                          ),
                         Positioned(
                           left: 0,
                           top: chartRect.top - 7,
@@ -442,6 +485,7 @@ class _TokenPopupCacheHitTrendChartState
                         ),
                       ],
                     ),
+                    ),
                   ),
                 );
               },
@@ -460,6 +504,152 @@ class _TokenPopupCacheHitTrendChartState
     final start = viewport.start.floor().clamp(0, points.length - 1);
     final end = viewport.end.ceil().clamp(0, points.length - 1);
     return points.sublist(start, end + 1);
+  }
+
+  /// 2026-06-01 — hover 高亮 + tooltip：
+  /// - 渲染当前鼠标位置对应的数据点（发光圆 + tooltip 浮窗）；
+  /// - tooltip 沿用全局 DialogAnimationSettings 的 easeOutCubic 曲线与
+  ///   短时长，确保与其它弹窗/菜单的进退场行为一致。
+  Widget _buildHoverOverlay({
+    required List<SessionCacheHitTurnPoint> visiblePoints,
+    required int hoveredIndex,
+    required Rect chartRect,
+    required ColorScheme colorScheme,
+    required AppLocalizations l10n,
+  }) {
+    if (hoveredIndex < 0 || hoveredIndex >= visiblePoints.length) {
+      return const SizedBox.shrink();
+    }
+    final point = visiblePoints[hoveredIndex];
+    final ratio = point.hitRatio.clamp(0.0, 1.0).toDouble();
+    final span = visiblePoints.length <= 1
+        ? 0.0
+        : chartRect.width / (visiblePoints.length - 1);
+    final cx = span <= 0
+        ? chartRect.center.dx
+        : chartRect.left + span * hoveredIndex;
+    final cy = chartRect.bottom - chartRect.height * ratio;
+    final theme = Theme.of(context);
+    final tooltipBg = colorScheme.surfaceContainerHigh;
+    final tooltipBorder = colorScheme.outlineVariant.withValues(alpha: 0.7);
+    final percentText = '${(ratio * 100).round()}%';
+    final turnLabel = l10n.sessMetaCacheHitPoint(point.turnIndex);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    const tooltipWidth = 132.0;
+    const tooltipHeight = 46.0;
+    // tooltip 优先放在点的上方；空间不足时翻转到下方。
+    final showAbove = (cy - tooltipHeight - 12) >= chartRect.top;
+    final tooltipTop = showAbove
+        ? cy - tooltipHeight - 12
+        : (cy + 12).clamp(chartRect.top, chartRect.bottom - tooltipHeight);
+    // 横向避免超出 chartRect。
+    final tooltipLeft = (cx - tooltipWidth / 2).clamp(
+      chartRect.left,
+      chartRect.right - tooltipWidth,
+    );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // 命中点发光圆：套两层 (外晕 + 实心) 让悬停反馈更明显。
+        Positioned(
+          left: cx - 9,
+          top: cy - 9,
+          child: IgnorePointer(
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary.withValues(alpha: 0.18),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: cx - 4,
+          top: cy - 4,
+          child: IgnorePointer(
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary,
+                border: Border.all(color: colorScheme.surface, width: 1.4),
+              ),
+            ),
+          ),
+        ),
+        // tooltip 浮窗。
+        Positioned(
+          left: tooltipLeft,
+          top: tooltipTop,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              opacity: 1,
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                scale: reduceMotion ? 1 : 0.94,
+                alignment: showAbove
+                    ? Alignment.bottomCenter
+                    : Alignment.topCenter,
+                child: Container(
+                  width: tooltipWidth,
+                  height: tooltipHeight,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: tooltipBg.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: tooltipBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withValues(alpha: 0.18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        turnLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        percentText,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: ratio >= 0.95
+                              ? Colors.green.shade700
+                              : ratio >= 0.5
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
