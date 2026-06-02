@@ -3,6 +3,10 @@ import 'cache_hit_ratio.dart';
 
 enum SessionCacheMissKind { normal, ttlSuspected, prefixDrift }
 
+/// "极端值"判定：长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）。
+const int kExtremeIdleGapSeconds = 1800; // 30 分钟
+const double kExtremeHitRatioThreshold = 0.01; // 1%
+
 enum SessionCacheHitDisplayMode { excludeExtremeMisses, includeAll }
 
 class SessionCacheHitDisplayData {
@@ -425,8 +429,19 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   );
 }
 
+/// 极端值 = 长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）的轮次。
+///
+/// 设计要点：
+/// - 用 `idleGapSeconds >= 1800`（30 分钟）排除会话内短暂停顿造成的低命中轮，
+///   也避免冷启动首轮（idleGap 为 0）被误判。
+/// - 用 `hitRatio < 0.01`（1%）作为"几乎完全失效"阈值；只要存在极少量
+///   `cacheReadTokens`（例如远小于 prompt 的 1%）的边界情况，也能正确归类。
+/// - 不再依赖 `cacheReadTokens <= 0` 的硬等于判定，避免因少量残留命中导致
+///   整轮极端值被忽略。
 bool _isExtremeIdleExpiryMiss(SessionCacheHitTurnPoint point) {
-  return point.cacheReadTokens <= 0 &&
-      point.hitRatio <= 0 &&
-      (point.idleGapSeconds ?? 0) > 3600;
+  final idleGap = point.idleGapSeconds ?? 0;
+  if (idleGap < kExtremeIdleGapSeconds) {
+    return false;
+  }
+  return point.hitRatio < kExtremeHitRatioThreshold;
 }
