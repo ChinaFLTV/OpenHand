@@ -124,7 +124,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 同一时刻只会存在一个 OpenHand home page。
   static _OpenHandHomePageState? _activeHomeState;
 
-  final TextEditingController _composerController = TextEditingController();
+  final TextEditingController _composerController = SafeTextEditingController();
   final ScrollController _messageScrollController =
       OpenHandStableScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
@@ -588,6 +588,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             return const InputRepairParticipantResult.success();
           },
         );
+    // 2026-06-02 — 当平台 IME 反向回调 `updateEditingState` 触发
+    // `Range start ... is out of text of length ...` 断言时，由
+    // `FlutterError.onError` 摘调这个轻量钩子做一次 composer 焦点重置，
+    // 避免每次都把完整的 `repair()` 全套（killTrackedChildren +
+    // clearTextInputClient + hideTextInput）跑一遍而强行关掉键盘。
+    InputRepairService.instance.registerSoftRecoveryHook(
+      _runComposerImeSoftRecovery,
+    );
     _loadPersistedHardnessSession();
     _initNativeMenuChannel();
   }
@@ -702,6 +710,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _macosMenuChannel = null;
     _globalShortcutFocusNode.dispose();
     _composerFocusNode.dispose();
+    InputRepairService.instance.registerSoftRecoveryHook(null);
     _composerController.dispose();
     _messageScrollController.dispose();
     _navigationWidthNotifier.dispose();
@@ -1159,10 +1168,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _replayToolSearchSelectQuery(List<String> names) async {
     if (!mounted || names.isEmpty) return;
     final query = names.map((n) => 'select:$n').join(', ');
-    _composerController.value = TextEditingValue(
-      text: query,
-      selection: TextSelection.collapsed(offset: query.length),
-    );
+    _replaceComposerTextAndRefocus(query);
 
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -4535,10 +4541,56 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _replaceComposerText(String value) {
+    _replaceComposerTextAndRefocus(value, requestFocusAfter: false);
+  }
+
+  /// 2026-06-02 — 程序化改写 composer 文本的统一入口。
+  ///
+  /// 直接 `_composerController.value = ...` 会在 IME 正在组合（composing）
+  /// 期间把陈旧的 selection 推给 framework 与平台 IME，下一次
+  /// `TextInputClient.updateEditingState` 反向回调时可能带着越界 selection
+  /// （典型日志：`Range start 293 is out of text of length 290`）触发
+  /// `TextEditingValue.fromJSON` 断言。先把焦点摘掉、清掉平台 IME 的
+  /// 组合态，再写入新值；如需恢复焦点再走 `requestFocusAfter`。
+  void _replaceComposerTextAndRefocus(
+    String value, {
+    bool requestFocusAfter = true,
+  }) {
+    final wasFocused = _composerFocusNode.hasFocus;
+    if (wasFocused) {
+      _composerFocusNode.unfocus();
+    }
     _composerController.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
     );
+    if (requestFocusAfter && wasFocused && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_composerCollapsed) {
+          _composerFocusNode.requestFocus();
+        }
+      });
+    }
+  }
+
+  /// 2026-06-02 — 给 [InputRepairService] 注册的软恢复钩子：当 framework
+  /// 在 `TextInputClient.updateEditingState` 里检测到平台 IME 选区越界
+  /// 时，由 `FlutterError.onError` 触发本钩子，做一次"摘焦点 → 重新
+  /// focus"动作，把 IME 的陈旧 composing/selection 状态清掉，重新与
+  /// controller 对齐。`scheduleMicrotask` 包裹避免同步路径里连续两次 focus
+  /// 切换被 framework 去抖吞掉。
+  void _runComposerImeSoftRecovery() {
+    if (!mounted) return;
+    final wasFocused = _composerFocusNode.hasFocus;
+    if (wasFocused) {
+      _composerFocusNode.unfocus();
+    }
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      if (wasFocused && !_composerCollapsed) {
+        _composerFocusNode.requestFocus();
+      }
+    });
   }
 
   bool _selectedModelSupportsAttachments(AiModelConfig? model) {

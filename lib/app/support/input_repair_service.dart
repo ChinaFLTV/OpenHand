@@ -116,6 +116,84 @@ class _InputRepairParticipant {
   final InputRepairParticipantCallback onRepair;
 }
 
+/// 2026-06-02 — [SafeTextEditingController] 在 [TextEditingController] 之上做
+/// 两层加固：
+///   1. setter 阶段强制把 selection / composing 钳到 [0, text.length] 区间内，
+///      避免外部误用（比如我们自己 `_replaceComposerText` 写入了带陈旧
+///      selection 的值）把越界状态推给 framework 后再被
+///      `TextEditingValue.fromJSON` 断言打回；
+///   2. 可选地记录"上一次文本被外部短化"的事件，供上层在需要时主动触发
+///      IME 软恢复（[InputRepairService.triggerSoftRecovery]）。
+///
+/// 与 framework 自身的 `Range start ... is out of text of length ...` 断言
+/// 配合：本类负责把越界值拦在 app 层，framework 负责把平台 IME 反向
+/// `updateEditingState` 里的越界值打回——两者互为补充。
+class SafeTextEditingController extends TextEditingController {
+  SafeTextEditingController({super.text});
+
+  bool _lastShrunkExternally = false;
+
+  /// 仅在 [SafeTextEditingController.value] setter 检测到文本比上一次短、
+  /// 且调用方没有显式声明期望长度时被置 true；外部可读后自行复位。
+  bool consumeShrunkExternally() {
+    final v = _lastShrunkExternally;
+    _lastShrunkExternally = false;
+    return v;
+  }
+
+  @override
+  set value(TextEditingValue newValue) {
+    final clamped = _clampValue(newValue);
+    final prevLen = value.text.length;
+    super.value = clamped;
+    if (prevLen > clamped.text.length) {
+      _lastShrunkExternally = true;
+    }
+  }
+
+  static TextEditingValue _clampValue(TextEditingValue raw) {
+    final text = raw.text;
+    final len = text.length;
+    final selection = _clampSelection(raw.selection, len);
+    final composing = _clampRange(raw.composing, len);
+    if (selection == raw.selection &&
+        composing.start == raw.composing.start &&
+        composing.end == raw.composing.end) {
+      return raw;
+    }
+    return TextEditingValue(
+      text: text,
+      selection: selection,
+      composing: composing,
+    );
+  }
+
+  static TextSelection _clampSelection(TextSelection s, int len) {
+    if (!s.isValid) return s;
+    final base = s.baseOffset.clamp(0, len).toInt();
+    final extent = s.extentOffset.clamp(0, len).toInt();
+    if (base == s.baseOffset && extent == s.extentOffset) {
+      return s;
+    }
+    return TextSelection(
+      baseOffset: base,
+      extentOffset: extent,
+      affinity: s.affinity,
+      isDirectional: s.isDirectional,
+    );
+  }
+
+  static TextRange _clampRange(TextRange r, int len) {
+    if (!r.isValid) return r;
+    final start = r.start.clamp(0, len).toInt();
+    final end = r.end.clamp(0, len).toInt();
+    if (start == r.start && end == r.end) {
+      return r;
+    }
+    return TextRange(start: start, end: end);
+  }
+}
+
 class InputRepairService {
   InputRepairService._();
 
@@ -131,6 +209,31 @@ class InputRepairService {
 
   InputRepairReport? _lastReport;
   InputRepairReport? get lastReport => _lastReport;
+
+  // 2026-06-02 — 软恢复钩子：用于在不重建 IME 连接的前提下，对 composer
+  // 文本输入做一次轻量级"重置 + 复位"（典型做法：临时 unfocus 再
+  // requestFocus），把可能已经脱钩的平台 IME 选区/组合态与 controller
+  // 重新对齐。当 `FlutterError.onError` 捕获到
+  // `TextInputClient.updateEditingState` 的 selection 越界断言时调用，
+  // 比 `repair()` 走 clearClient/hide 全套流程更轻，也不会强行关闭键盘。
+  VoidCallback? _softRecoveryHook;
+
+  void registerSoftRecoveryHook(VoidCallback? hook) {
+    _softRecoveryHook = hook;
+  }
+
+  /// 触发一次轻量级 IME 软恢复。返回 true 表示已有钩子处理。
+  bool triggerSoftRecovery() {
+    final hook = _softRecoveryHook;
+    if (hook == null) return false;
+    try {
+      hook();
+      return true;
+    } catch (error, stack) {
+      silentLog('input_repair', 'soft recovery', error, stack);
+      return false;
+    }
+  }
 
   InputRepairParticipantToken registerParticipant({
     required String debugLabel,
@@ -150,6 +253,7 @@ class InputRepairService {
   void resetForTest() {
     _participants.clear();
     _lastReport = null;
+    _softRecoveryHook = null;
     debugKillTrackedChildrenOverride = null;
     debugKillDirectChildrenOverride = null;
     debugTextInputMethodOverride = null;

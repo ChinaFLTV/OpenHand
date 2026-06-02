@@ -14,6 +14,7 @@ import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
+import 'app/support/input_repair_service.dart';
 import 'app/support/safe_subprocess.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
@@ -105,6 +106,21 @@ Future<void> _bootstrap() async {
       }
       return;
     }
+    // 2026-06-02 — 平台 IME 选区越界断言：framework 在
+    // `TextInputClient.updateEditingState` 解析出
+    // `Range start N is out of text of length M` 时，捕获后既会
+    // `FlutterError.reportError` 又会 rethrow。此处吞掉红屏并触发
+    // composer 轻量级 IME 软恢复（unfocus + requestFocus），把脱钩的
+    // selection / composing 状态与 controller 重新对齐。
+    if (_isComposerImeRangeOverflow(details.exception)) {
+      if (kDebugMode) {
+        debugPrint(
+          '[openhand] swallowed IME range overflow: ${details.exceptionAsString()}',
+        );
+      }
+      _triggerComposerImeSoftRecovery();
+      return;
+    }
     if (details.exceptionAsString().contains(
       'is dispatched, but the state shows that the physical key is',
     )) {
@@ -124,6 +140,10 @@ Future<void> _bootstrap() async {
       if (kDebugMode) {
         debugPrint('[openhand] swallowed async error: $error');
       }
+      return true;
+    }
+    if (_isComposerImeRangeOverflow(error)) {
+      _triggerComposerImeSoftRecovery();
       return true;
     }
     return false;
@@ -491,11 +511,43 @@ bool _shouldSilencePrintLine(String line) {
       line.contains('FormatException: Invalid radix-16 number');
 }
 
+/// 2026-06-02 — 识别 `TextEditingValue.fromJSON` / `TextRange` 选区越界断言。
+/// framework 抛出的文案是 `Range start N is out of text of length M`，
+/// 必伴随 `TextInputClient.updateEditingState` 上下文（来自
+/// `_loudlyHandleTextInputInvocation`）。命中即交给 composer 软恢复处理。
+bool _isComposerImeRangeOverflow(Object error) {
+  if (error is AssertionError) {
+    final message = error.message?.toString() ?? '';
+    if (message.contains('is out of text of length')) {
+      return true;
+    }
+  }
+  final str = error.toString();
+  return str.contains('TextInputClient.updateEditingState') &&
+      str.contains('is out of text of length');
+}
+
+/// 2026-06-02 — 触发 composer 的轻量级 IME 软恢复。注册在
+/// [InputRepairService] 上的钩子由 home page 在 `initState` 里挂上，做
+/// `unfocus → scheduleMicrotask → requestFocus` 的最小重置，避免每次
+/// 越界都跑 `InputRepairService.repair()` 的全流程。
+void _triggerComposerImeSoftRecovery() {
+  try {
+    InputRepairService.instance.triggerSoftRecovery();
+  } catch (error, stack) {
+    silentLog('main', 'trigger composer ime soft recovery', error, stack);
+  }
+}
+
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
   if (_shouldSilenceRenderingError(error)) {
     if (kDebugMode) {
       debugPrint('[openhand] swallowed zone error: $error');
     }
+    return;
+  }
+  if (_isComposerImeRangeOverflow(error)) {
+    _triggerComposerImeSoftRecovery();
     return;
   }
   FlutterError.reportError(

@@ -455,15 +455,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         0,
         widget.controller.text.length,
       );
+      // 2026-06-02 — 改用一次 value 写入，避免 text/selection 分两次
+      // 推到 IME 时陈旧 composing 与新 selection 之间产生间隙，触发
+      // `Range start ... is out of text of length ...` 断言。
       _atMentionSuppressListener = true;
       try {
-        widget.controller.text = widget.controller.text.replaceRange(
-          _atMentionTriggerOffset,
-          cursor,
-          '',
-        );
-        widget.controller.selection = TextSelection.collapsed(
-          offset: _atMentionTriggerOffset,
+        widget.controller.value = TextEditingValue(
+          text: widget.controller.text.replaceRange(
+            _atMentionTriggerOffset,
+            cursor,
+            '',
+          ),
+          selection: TextSelection.collapsed(
+            offset: _atMentionTriggerOffset,
+          ),
         );
       } finally {
         _atMentionSuppressListener = false;
@@ -493,14 +498,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       final cursor = widget.controller.selection.baseOffset.clamp(0, textLen);
       final start = _atMentionTriggerOffset + 1;
       if (start <= cursor) {
+        // 2026-06-02 — 同样合并为单次 value 写入。
         _atMentionSuppressListener = true;
         try {
-          widget.controller.text = widget.controller.text.replaceRange(
-            start,
-            cursor,
-            '',
+          widget.controller.value = TextEditingValue(
+            text: widget.controller.text.replaceRange(start, cursor, ''),
+            selection: TextSelection.collapsed(offset: start),
           );
-          widget.controller.selection = TextSelection.collapsed(offset: start);
         } finally {
           _atMentionSuppressListener = false;
         }
@@ -682,8 +686,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ? trigger.tokenEnd + 1
             : trigger.tokenEnd;
         final newText = text.substring(remainderStart);
-        widget.controller.text = newText;
-        widget.controller.selection = const TextSelection.collapsed(offset: 0);
+        // 2026-06-02 — 合并为单次 value 写入，避免与 IME 之间产生
+        // selection 越界。
+        widget.controller.value = TextEditingValue(
+          text: newText,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
       } finally {
         _atMentionSuppressListener = false;
       }
@@ -823,13 +831,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _atMentionSuppressListener = true;
     try {
       final currentText = widget.controller.text;
-      if (currentText.trim().isEmpty) {
-        widget.controller.text = refs;
-      } else {
-        widget.controller.text = '$refs\n$currentText';
-      }
-      widget.controller.selection = TextSelection.collapsed(
-        offset: widget.controller.text.length,
+      final merged = currentText.trim().isEmpty ? refs : '$refs\n$currentText';
+      // 2026-06-02 — 合并为单次 value 写入，避免与 IME 之间产生
+      // selection 越界。
+      widget.controller.value = TextEditingValue(
+        text: merged,
+        selection: TextSelection.collapsed(offset: merged.length),
       );
     } finally {
       _atMentionSuppressListener = false;
