@@ -242,23 +242,31 @@ class _StreamingReasoningBody extends StatelessWidget {
     // 流式期间若用户主动折叠（expanded=false），也展示前 5-6 行预览。
     // 同样不再嵌内部 AnimatedSize：外层 bubble 已经负责高度动画，
     // 这里只做内容 keyed 切换，避免双动画抖动。
+    //
+    // 2026-06-04 修复：流失追加阶段不再走 `_SafeMarkdownBody` 完整 markdown
+    // 渲染路径。`_SafeMarkdownBody` 内部对 >400 字符内容走 deferred 解析,
+    // 第一帧降级纯文本占位、第二帧再升级为 markdown 树,造成
+    // 「plain text ↔ markdown」的逐帧高度抖动。当思考卡片占满整个窗口时,
+    // 该抖动被外层 `SizeChangedLayoutNotifier` + `_scheduleScrollToBottom`
+    // 的 jumpTo 捕获并把视口逐帧弹跳式拽回新底部,呈现"上蹿下跳 / 鬼畜抽搐"。
+    // 正式响应卡片流式走的是 `_StreamingAssistantTextBody`(SelectableText),
+    // 没有 markdown 占位/升级抖动,所以无此问题。
+    //
+    // 修复策略: 流失阶段与正式响应走同一套 plain text 路径,只保留文本流
+    // 自身的高亮;外层 `_ReasoningBody` 在流结束后会切回完整 markdown 渲染
+    // (与「流式期间 plain / 流式结束后 markdown」这一视觉切换一致)。
     return expanded
         ? KeyedSubtree(
             key: const ValueKey<String>(
-              'streaming-reasoning-markdown-expanded',
+              'streaming-reasoning-plain-expanded',
             ),
             child: StreamingTextReveal(
               textLength: effectiveContent.length,
               streaming: true,
               animateSize: false,
-              child: _SafeMarkdownBody(
+              child: _StreamingReasoningPlainBody(
                 data: effectiveContent,
-                selectable: selectable,
-                builders: builders,
-                styleSheet: styleSheet,
-                inlineSyntaxes: inlineSyntaxes,
-                pathRoots: pathRoots,
-                parseKey: '$parseKey|streaming-markdown',
+                textStyle: textStyle,
               ),
             ),
           )
@@ -275,6 +283,28 @@ class _StreamingReasoningBody extends StatelessWidget {
               fadeColor: fadeColor,
             ),
           );
+  }
+}
+
+/// 思考卡片流失追加阶段的纯文本渲染体。结构对齐
+/// [_StreamingAssistantTextBody] / [_PlainTextMessageBody] 的 plain text
+/// 路径,绕开 `_SafeMarkdownBody` 的 deferred parse 占位抖动;外层
+/// `StreamingTextReveal` 仍负责流式字符的尾部 fade 高亮。
+class _StreamingReasoningPlainBody extends StatelessWidget {
+  const _StreamingReasoningPlainBody({required this.data, this.textStyle});
+
+  final String data;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectableText(
+      data,
+      // markdown 风格在流式阶段对纯文本主要体现在 p 段的 line-height
+      // 与字号;直接套用上层传入的 textStyle 即可保证色、字号、字高与
+      // 流结束后的 markdown 渲染一致,避免视觉跳变。
+      style: textStyle,
+    );
   }
 }
 
