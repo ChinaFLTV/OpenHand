@@ -368,6 +368,26 @@ class _TokenPopupCacheHitTrendChartState
                 final middleTurn =
                     visiblePoints[visiblePoints.length ~/ 2].turnIndex;
                 final endTurn = visiblePoints.last.turnIndex;
+                // 2026-06-03 — 修复 X 轴刻度与数据点未对齐：按各数据点
+                // 真实 x 坐标（chartRect.left + stepX * index）居中放置。
+                // 旧实现用 Row + spaceBetween 会出现两类错位：
+                //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
+                //   2) 中间标签落在 Row 几何中点，但可见点中点位于 chartRect.width
+                //      * (length/2) / (length-1) 处，对 4 点而言是 2/3 宽而非 1/2 宽。
+                final startX = chartRect.left;
+                final endX = chartRect.right;
+                final middleIndex = visiblePoints.length ~/ 2;
+                final middleX = visiblePoints.length > 1
+                    ? chartRect.left +
+                          chartRect.width /
+                              (visiblePoints.length - 1) *
+                          middleIndex
+                    : chartRect.center.dx;
+                // 仅当中间标签与首/尾不重复时才渲染（例如 4 点时显示 1/3/4，
+                // 2 点时只显示首尾避免视觉重复）。
+                final showMiddleLabel = visiblePoints.length > 2 &&
+                    middleTurn != startTurn &&
+                    middleTurn != endTurn;
                 return Listener(
                   onPointerPanZoomStart: (_) {
                     _wheelScaleAccumulator = 1;
@@ -532,14 +552,31 @@ class _TokenPopupCacheHitTrendChartState
                           top: chartRect.top - 7,
                           child: Text('100%', style: valueStyle),
                         ),
+                        // 2026-06-03 — 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
+                        // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
+                        // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
+                        // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
+                        // （用 surface 浮于 chart 半透明背景之上），既远离
+                        // y 轴区域，又能在平均值贴近最后一个数据点时不被
+                        // 发光圆 / 实心点遮挡。
                         Positioned(
-                          left: 8,
+                          right: 12,
                           top: averageY - 8,
-                          child: Text(
-                            l10n.sessMetaCacheHitAvg,
-                            style: valueStyle?.copyWith(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.w700,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surface,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              l10n.sessMetaCacheHitAvg,
+                              style: valueStyle?.copyWith(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
@@ -548,17 +585,52 @@ class _TokenPopupCacheHitTrendChartState
                           bottom: 14,
                           child: Text('0%', style: valueStyle),
                         ),
+                        // 2026-06-03 — X 轴刻度改为按数据点真实 x 居中：
+                        // 用 Stack + Positioned(left: dataX - 16, width: 32)
+                        // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
+                        // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
                         Positioned(
-                          left: chartRect.left - 8,
+                          left: 0,
                           right: 0,
                           bottom: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('$startTurn', style: valueStyle),
-                              Text('$middleTurn', style: valueStyle),
-                              Text('$endTurn', style: valueStyle),
-                            ],
+                          child: SizedBox(
+                            height: 18,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned(
+                                  left: startX - 16,
+                                  width: 32,
+                                  child: Center(
+                                    child: Text(
+                                      '$startTurn',
+                                      style: valueStyle,
+                                    ),
+                                  ),
+                                ),
+                                if (showMiddleLabel)
+                                  Positioned(
+                                    left: middleX - 16,
+                                    width: 32,
+                                    child: Center(
+                                      child: Text(
+                                        '$middleTurn',
+                                        style: valueStyle,
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  left: endX - 16,
+                                  width: 32,
+                                  child: Center(
+                                    child: Text(
+                                      '$endTurn',
+                                      style: valueStyle,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
