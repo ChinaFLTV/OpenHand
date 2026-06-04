@@ -82,6 +82,35 @@ function formatMermaidError(err: unknown): string {
   return String(err);
 }
 
+async function renderPngBlobFromSvg(svg: string): Promise<Blob> {
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('failed_to_load_svg_image'));
+      image.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    const width = Math.max(1, Math.ceil(image.naturalWidth || 1));
+    const height = Math.max(1, Math.ceil(image.naturalHeight || 1));
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('missing_canvas_context');
+    ctx.drawImage(image, 0, 0, width, height);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((png) => {
+        if (png) resolve(png);
+        else reject(new Error('failed_to_encode_png'));
+      }, 'image/png');
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 const isDarkTheme = (): boolean => {
   if (typeof document === 'undefined') return false;
   const root = document.documentElement;
@@ -125,14 +154,22 @@ export function MermaidView({ source }: MermaidViewProps) {
     if (!svg) return;
     try {
       if ('ClipboardItem' in window && navigator.clipboard?.write) {
-        const blob = new Blob([svg], { type: 'image/svg+xml' });
-        await navigator.clipboard.write([new ClipboardItem({ 'image/svg+xml': blob })]);
+        const png = await renderPngBlobFromSvg(svg);
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
         showSnackbar('图像已复制', { tone: 'success' });
       } else {
         await navigator.clipboard.writeText(svg);
         showSnackbar('浏览器不支持图像复制，已复制 SVG 文本', { tone: 'success' });
       }
     } catch {
+      try {
+        if ('ClipboardItem' in window && navigator.clipboard?.write) {
+          const blob = new Blob([svg], { type: 'image/svg+xml' });
+          await navigator.clipboard.write([new ClipboardItem({ 'image/svg+xml': blob })]);
+          showSnackbar('PNG 复制失败，已复制 SVG 图像', { tone: 'success' });
+          return;
+        }
+      } catch {}
       showSnackbar('复制图像失败，请检查浏览器权限', { tone: 'error' });
     }
   }
@@ -151,6 +188,23 @@ export function MermaidView({ source }: MermaidViewProps) {
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       showSnackbar('导出 SVG 失败', { tone: 'error' });
+    }
+  }
+
+  async function downloadPng(): Promise<void> {
+    const svg = svgMarkupRef.current.trim();
+    if (!svg) return;
+    try {
+      const blob = await renderPngBlobFromSvg(svg);
+      await saveBlobWithPicker(
+        blob,
+        `${suggestedBasename}.png`,
+        [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }],
+      );
+      showSnackbar('PNG 已导出', { tone: 'success' });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showSnackbar('导出 PNG 失败', { tone: 'error' });
     }
   }
 
@@ -235,6 +289,7 @@ export function MermaidView({ source }: MermaidViewProps) {
         <button type="button" class="oh-code-block-copy" onClick={() => void copySvgMarkup()} disabled={controlsLocked}>复制 SVG</button>
         <button type="button" class="oh-code-block-copy" onClick={() => void copySvgImage()} disabled={controlsLocked}>复制图像</button>
         <button type="button" class="oh-code-block-copy" onClick={() => void downloadSvg()} disabled={controlsLocked}>导出 SVG</button>
+        <button type="button" class="oh-code-block-copy" onClick={() => void downloadPng()} disabled={controlsLocked}>导出 PNG</button>
         <span class="oh-mermaid-zoom-chip">{zoomPercent}%</span>
       </div>
       <div class={`oh-mermaid-stage ${dragActive ? 'is-dragging' : ''}`} ref={stageRef}>
@@ -265,6 +320,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
   let longPressTimer: number | null = null;
   let dragReady = false;
   let longPressPointerId: number | null = null;
+  let manualViewport = false;
   const stageController = stage as typeof stage & {
     __openhandMermaid?: {
       reset: () => void;
@@ -295,6 +351,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     tx = 0;
     ty = 0;
     scale = 1;
+    manualViewport = true;
     emitDragState(false);
     apply();
   };
@@ -303,6 +360,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     clearLongPress();
     dragReady = false;
     longPressPointerId = null;
+    manualViewport = false;
     const svg = inner.querySelector('svg');
     if (!(svg instanceof SVGGraphicsElement)) {
       reset();
@@ -418,6 +476,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
         tx = centerX - (centerX - tx) * (newScale / scale);
         ty = centerY - (centerY - ty) * (newScale / scale);
         scale = newScale;
+        manualViewport = true;
         apply();
       }
       return;
@@ -432,6 +491,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
         const dy = e.clientY - parseFloat(stage.dataset.dragY ?? '0');
         tx = parseFloat(stage.dataset.dragTx ?? '0') + dx;
         ty = parseFloat(stage.dataset.dragTy ?? '0') + dy;
+        manualViewport = true;
         apply();
       }
     }
@@ -457,6 +517,15 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     reset();
   };
 
+  const resizeObserver = typeof ResizeObserver !== 'undefined'
+    ? new ResizeObserver(() => {
+        if (!manualViewport) {
+          fit();
+        }
+      })
+    : null;
+  resizeObserver?.observe(stage);
+
   stage.addEventListener('wheel', onWheel, { passive: false });
   stage.addEventListener('pointerdown', onPointerDown);
   stage.addEventListener('pointermove', onPointerMove);
@@ -467,6 +536,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
   return () => {
     clearLongPress();
     emitDragState(false);
+    resizeObserver?.disconnect();
     delete stageController.__openhandMermaid;
     stage.removeEventListener('wheel', onWheel);
     stage.removeEventListener('pointerdown', onPointerDown);

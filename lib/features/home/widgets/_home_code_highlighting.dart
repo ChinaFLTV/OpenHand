@@ -2084,8 +2084,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   Timer? _loadWatchdog;
   String? _tempHtmlPath;
   String _svgMarkup = '';
+  String _pngDataUrl = '';
   double _zoomPercent = 100;
   bool _dragActive = false;
+  Brightness? _lastBrightness;
 
   Widget _buildToolPill({
     required String label,
@@ -2136,6 +2138,40 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     _bootstrap();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final brightness = Theme.of(context).brightness;
+    if (_lastBrightness == null) {
+      _lastBrightness = brightness;
+      return;
+    }
+    if (_lastBrightness != brightness) {
+      _lastBrightness = brightness;
+      unawaited(
+        _runMermaidCommand(
+          'window.__openhandMermaidFit&&window.__openhandMermaidFit();',
+        ),
+      );
+    }
+  }
+
+  Uint8List? _decodePngBytes(String dataUrl) {
+    final trimmed = dataUrl.trim();
+    if (trimmed.isEmpty) return null;
+    final match = RegExp(
+      r'^data:image\/png;base64,(.+)$',
+      dotAll: true,
+    ).firstMatch(trimmed);
+    final base64Part = match?.group(1);
+    if (base64Part == null || base64Part.isEmpty) return null;
+    try {
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _bootstrap() async {
     try {
       final controller = WebViewController()
@@ -2167,6 +2203,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             if (raw.startsWith('svg:')) {
               if (mounted) {
                 setState(() => _svgMarkup = raw.substring(4));
+              }
+              return;
+            }
+            if (raw.startsWith('png:')) {
+              if (mounted) {
+                setState(() => _pngDataUrl = raw.substring(4));
               }
               return;
             }
@@ -2323,6 +2365,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               onTap: controlsLocked ? null : () => unawaited(_downloadSvg()),
             ),
             _buildToolPill(
+              label: _localizedText(context, zh: '导出 PNG', en: 'Export PNG'),
+              icon: Icons.image_rounded,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : () => unawaited(_downloadPng()),
+            ),
+            _buildToolPill(
               label: _localizedText(
                 context,
                 zh: _dragActive ? '拖动中' : '长按拖动 / 双指缩放',
@@ -2411,18 +2460,41 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     } catch (_) {}
   }
 
+  Uint8List _svgUtf8Bytes(String svg) => Uint8List.fromList(utf8.encode(svg));
+
   Future<void> _copySvgImage() async {
+    final pngBytes = _decodePngBytes(_pngDataUrl);
+    if (pngBytes != null) {
+      try {
+        await Pasteboard.writeImage(pngBytes);
+        if (!mounted) return;
+        _showHomeSnackBarWithMessenger(
+          context,
+          ScaffoldMessenger.of(context),
+          SnackBar(
+            content: Text(
+              _localizedText(context, zh: '已复制图像。', en: 'Image copied.'),
+            ),
+          ),
+        );
+        return;
+      } catch (_) {}
+    }
     final svg = _svgMarkup.trim();
     if (svg.isEmpty) return;
     try {
-      await Pasteboard.writeImage(Uint8List.fromList(utf8.encode(svg)));
+      await Pasteboard.writeImage(_svgUtf8Bytes(svg));
       if (!mounted) return;
       _showHomeSnackBarWithMessenger(
         context,
         ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '已复制图像。', en: 'Image copied.'),
+            _localizedText(
+              context,
+              zh: 'PNG 复制失败，已回退复制 SVG 图像。',
+              en: 'PNG copy failed; copied SVG image instead.',
+            ),
           ),
         ),
       );
@@ -2455,6 +2527,52 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         SnackBar(
           content: Text(
             _localizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _downloadPng() async {
+    final pngBytes = _decodePngBytes(_pngDataUrl);
+    if (pngBytes == null) {
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: 'PNG 仍未就绪，请稍后重试。',
+              en: 'PNG is not ready yet. Please try again.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    try {
+      final location = await getSaveLocation(
+        suggestedName: 'mermaid_diagram.png',
+        acceptedTypeGroups: <XTypeGroup>[
+          const XTypeGroup(
+            label: 'PNG',
+            mimeTypes: <String>['image/png'],
+            extensions: <String>['png'],
+          ),
+        ],
+      );
+      final path = location?.path;
+      if (!mounted || path == null || path.isEmpty) return;
+      await File(path).writeAsBytes(pngBytes, flush: true);
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: 'PNG 已导出。', en: 'PNG exported.'),
           ),
         ),
       );
@@ -2567,6 +2685,27 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           }
           document.getElementById('inner').innerHTML = svg;
           post('svg:' + svg);
+          try {
+            var svgNode = document.querySelector('#inner svg');
+            if (svgNode) {
+              var box = svgNode.getBBox ? svgNode.getBBox() : {x:0,y:0,width:svgNode.clientWidth||1,height:svgNode.clientHeight||1};
+              var canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.ceil(box.width || svgNode.clientWidth || 1));
+              canvas.height = Math.max(1, Math.ceil(box.height || svgNode.clientHeight || 1));
+              var ctx = canvas.getContext('2d');
+              if (ctx) {
+                var img = new Image();
+                img.onload = function(){
+                  try {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    post('png:' + canvas.toDataURL('image/png'));
+                  } catch (_) {}
+                };
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+              }
+            }
+          } catch (_) {}
           if (result && typeof result.bindFunctions === 'function') {
             result.bindFunctions(document.getElementById('inner'));
           }
