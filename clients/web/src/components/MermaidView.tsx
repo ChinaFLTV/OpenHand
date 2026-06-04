@@ -290,7 +290,7 @@ export function MermaidView({ source }: MermaidViewProps) {
         <button type="button" class="oh-code-block-copy" onClick={() => void copySvgImage()} disabled={controlsLocked}>复制图像</button>
         <button type="button" class="oh-code-block-copy" onClick={() => void downloadSvg()} disabled={controlsLocked}>导出 SVG</button>
         <button type="button" class="oh-code-block-copy" onClick={() => void downloadPng()} disabled={controlsLocked}>导出 PNG</button>
-        <span class="oh-mermaid-zoom-chip">{zoomPercent}%</span>
+        <button type="button" class="oh-code-block-copy oh-mermaid-zoom-chip" onClick={resetView} disabled={controlsLocked}>{zoomPercent}%</button>
       </div>
       <div class={`oh-mermaid-stage ${dragActive ? 'is-dragging' : ''}`} ref={stageRef}>
         <div class="oh-mermaid-inner" ref={containerRef} />
