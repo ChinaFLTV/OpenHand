@@ -4575,17 +4575,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// 2026-06-02 — 给 [InputRepairService] 注册的软恢复钩子：当 framework
   /// 在 `TextInputClient.updateEditingState` 里检测到平台 IME 选区越界
-  /// 时，由 `FlutterError.onError` 触发本钩子，做一次"摘焦点 → 重新
+  /// 时，由 `FlutterError.onError` 触发本钩子，做一次"摘焦点 → 下一帧再
   /// focus"动作，把 IME 的陈旧 composing/selection 状态清掉，重新与
-  /// controller 对齐。`scheduleMicrotask` 包裹避免同步路径里连续两次 focus
-  /// 切换被 framework 去抖吞掉。
+  /// controller 对齐。这里不用 `scheduleMicrotask`，避免与 overlay/
+  /// follower 退场和 leader 清理落在同一帧，触发 Flutter layer 断言。
   void _runComposerImeSoftRecovery() {
     if (!mounted) return;
     final wasFocused = _composerFocusNode.hasFocus;
     if (wasFocused) {
       _composerFocusNode.unfocus();
     }
-    scheduleMicrotask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (wasFocused && !_composerCollapsed) {
         _composerFocusNode.requestFocus();

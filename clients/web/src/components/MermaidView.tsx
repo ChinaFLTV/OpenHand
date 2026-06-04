@@ -18,11 +18,47 @@ interface MermaidViewProps {
   source: string;
 }
 
+type MermaidRenderResult = {
+  svg?: unknown;
+  bindFunctions?: unknown;
+};
+
 let mermaidLoader: Promise<typeof import('mermaid').default> | null = null;
 function loadMermaid(): Promise<typeof import('mermaid').default> {
   if (mermaidLoader != null) return mermaidLoader;
   mermaidLoader = import('mermaid').then((mod) => mod.default);
   return mermaidLoader;
+}
+
+function extractMermaidSvg(result: unknown): string | null {
+  if (typeof result === 'string') return result;
+  if (result != null && typeof result === 'object') {
+    const renderResult = result as MermaidRenderResult;
+    if (typeof renderResult.svg === 'string') {
+      return renderResult.svg;
+    }
+  }
+  return null;
+}
+
+function formatMermaidError(err: unknown): string {
+  if (err instanceof Error && err.message.trim().length > 0) {
+    return err.message.trim();
+  }
+  if (err != null && typeof err === 'object') {
+    const record = err as Record<string, unknown>;
+    for (const key of ['str', 'message', 'hash']) {
+      const value = record[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+    try {
+      const serialized = JSON.stringify(record, null, 2);
+      if (serialized && serialized !== '{}') return serialized;
+    } catch {}
+  }
+  return String(err);
 }
 
 const isDarkTheme = (): boolean => {
@@ -65,14 +101,16 @@ export function MermaidView({ source }: MermaidViewProps) {
         });
         const result = await mermaid.render(renderId, source);
         if (disposed || containerRef.current == null) return;
-        const svg = typeof result === 'string' ? result : result.svg;
+        const svg = extractMermaidSvg(result);
+        if (svg == null || !svg.includes('<svg')) {
+          throw new Error(formatMermaidError(result));
+        }
         containerRef.current.innerHTML = svg;
         panZoomDisposer = attachPanZoom(stageRef.current!, containerRef.current!);
         setIsReady(true);
       } catch (err) {
         if (disposed) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
+        setError(formatMermaidError(err));
         setIsReady(true);
       }
     })();

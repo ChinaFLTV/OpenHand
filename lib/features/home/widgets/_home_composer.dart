@@ -448,7 +448,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     if (_projectFileReferences.any((r) => r.path == item.path)) {
       // Already referenced — just dismiss.
       _dismissAtMentionOverlay();
-      widget.focusNode.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.focusNode.requestFocus();
+      });
       return;
     }
     // Remove the '@query' text from the input.
@@ -479,7 +482,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _projectFileReferences = [..._projectFileReferences, item];
     });
     _dismissAtMentionOverlay();
-    widget.focusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.focusNode.requestFocus();
+    });
   }
 
   void _handleAtMentionDrillDown(_AtMentionItem item) {
@@ -711,7 +717,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _selectedSkill = skill;
       _selectedSkillManifest = manifestContent;
     });
-    widget.focusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.focusNode.requestFocus();
+    });
   }
 
   void _clearSelectedSkill() {

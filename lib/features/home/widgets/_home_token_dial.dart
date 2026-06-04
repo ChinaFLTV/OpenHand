@@ -52,6 +52,14 @@ class _TokenDialState extends State<_TokenDial>
   final LayerLink _link = LayerLink();
   late final AnimationController _transitionController;
   Timer? _hideTimer;
+  bool _showQueued = false;
+
+  void _runAfterFrame(VoidCallback callback) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      callback();
+    });
+  }
 
   bool get _useTapSheet =>
       !kIsWeb &&
@@ -93,21 +101,27 @@ class _TokenDialState extends State<_TokenDial>
 
   void _showPopup() {
     _hideTimer?.cancel();
-    if (!_portalController.isShowing) {
-      _portalController.show();
-    }
-    _transitionController.forward();
+    _showQueued = true;
+    _runAfterFrame(() {
+      if (!_showQueued) return;
+      if (!_portalController.isShowing) {
+        _portalController.show();
+      }
+      _transitionController.forward();
+    });
   }
 
   void _schedulePopupHide() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 60), () async {
-      if (!mounted) return;
-      await _transitionController.reverse();
-      if (!mounted) return;
-      if (_portalController.isShowing) {
-        _portalController.hide();
-      }
+    _showQueued = false;
+    _hideTimer = Timer(const Duration(milliseconds: 60), () {
+      _runAfterFrame(() async {
+        await _transitionController.reverse();
+        if (!mounted) return;
+        if (_portalController.isShowing) {
+          _portalController.hide();
+        }
+      });
     });
   }
 
