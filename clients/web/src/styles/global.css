@@ -4490,3 +4490,45 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-code-block-copy:hover {
   background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
 }
+
+/* Mermaid diagram stage (MermaidView.tsx) */
+.oh-mermaid-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  max-height: 560px;
+  overflow: auto;
+  touch-action: pinch-zoom;
+  cursor: grab;
+  background: var(--m3-surface-container-low, rgba(0,0,0,0.02));
+}
+.oh-mermaid-stage:active { cursor: grabbing; }
+.oh-mermaid-inner {
+  display: inline-block;
+  transform-origin: 0 0;
+  transition: transform 80ms ease-out;
+}
+.oh-mermaid-inner svg {
+  max-width: none;
+  height: auto;
+}
+.oh-mermaid-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m3-on-surface-variant, #666);
+  font-size: 0.85em;
+  font-weight: 600;
+  pointer-events: none;
+}
+.oh-mermaid-error {
+  margin: 0;
+  padding: 16px;
+  color: #d93025;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow: auto;
+}

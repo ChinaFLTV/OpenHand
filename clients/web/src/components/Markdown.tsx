@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { showSnackbar } from './Snackbar';
+import { MermaidView } from './MermaidView';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
 /// 直到首次遇到 ``` 代码块的消息才发起 dynamic import (chunk 已经 split，
@@ -274,6 +275,84 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
   );
 }
 
+interface CodeBlockSurfaceProps {
+  lang: string | null;
+  plainText: string;
+  codeClassName: string | undefined;
+  codeRest: Record<string, unknown>;
+  children: any;
+}
+
+/// 代码块外层 (header + body),承载 mermaid 视图/代码 toggle 与 HTML
+/// 浏览器打开按钮。状态局部于本组件,跨消息实例完全独立;未在视图
+/// 态时 MermaidView 不挂载,主线程不付出 mermaid 解析代价。
+function CodeBlockSurface({
+  lang,
+  plainText,
+  codeClassName,
+  codeRest,
+  children,
+}: CodeBlockSurfaceProps) {
+  const [mermaidViewActive, setMermaidViewActive] = useState(false);
+  const isMermaid = (lang ?? '').trim().toLowerCase() === 'mermaid';
+  const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
+  return (
+    <div class="oh-code-block">
+      <div class="oh-code-block-header">
+        {lang && <span class="oh-code-block-lang">{lang}</span>}
+        <span style={{ flex: 1 }} />
+        {isMermaid ? (
+          <button
+            type="button"
+            class="oh-code-block-copy"
+            style={{ marginRight: 8 }}
+            onClick={() => setMermaidViewActive((v) => !v)}
+          >{mermaidViewActive ? '代码' : '视图'}</button>
+        ) : null}
+        {isHtmlLang ? (
+          <button
+            type="button"
+            class="oh-code-block-copy"
+            style={{ marginRight: 8 }}
+            onClick={() => openHtmlInNewTab(plainText)}
+          >浏览器打开</button>
+        ) : null}
+        <button
+          type="button"
+          class="oh-code-block-copy"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(plainText);
+              showSnackbar('代码已复制', { tone: 'success' });
+            } catch {
+              showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
+            }
+          }}
+        >复制</button>
+      </div>
+      {isMermaid && mermaidViewActive ? (
+        <MermaidView source={plainText} />
+      ) : (
+        <code
+          className={codeClassName}
+          {...(codeRest as any)}
+          style={{
+            display: 'block',
+            padding: '0.75rem 1rem',
+            overflowX: 'auto',
+            fontSize: '0.86em',
+            lineHeight: 1.6,
+            background: 'transparent',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }}
+        >
+          {children}
+        </code>
+      )}
+    </div>
+  );
+}
+
 export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown' }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
@@ -414,45 +493,15 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
             return '';
           };
           const plainText = extractText(children);
-          const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
           return (
-            <div class="oh-code-block">
-              <div class="oh-code-block-header">
-                {lang && <span class="oh-code-block-lang">{lang}</span>}
-                <span style={{ flex: 1 }} />
-                {isHtmlLang ? (
-                  <button
-                    type="button"
-                    class="oh-code-block-copy"
-                    style={{ marginRight: 8 }}
-                    onClick={() => openHtmlInNewTab(plainText)}
-                  >浏览器打开</button>
-                ) : null}
-                <button
-                  type="button"
-                  class="oh-code-block-copy"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(plainText);
-                      showSnackbar('代码已复制', { tone: 'success' });
-                    } catch {
-                      showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
-                    }
-                  }}
-                >复制</button>
-              </div>
-              <code className={className} {...rest} style={{
-                display: 'block',
-                padding: '0.75rem 1rem',
-                overflowX: 'auto',
-                fontSize: '0.86em',
-                lineHeight: 1.6,
-                background: 'transparent',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              }}>
-                {children}
-              </code>
-            </div>
+            <CodeBlockSurface
+              lang={lang}
+              plainText={plainText}
+              codeClassName={className}
+              codeRest={rest}
+            >
+              {children}
+            </CodeBlockSurface>
           );
         }
         // Inline code
