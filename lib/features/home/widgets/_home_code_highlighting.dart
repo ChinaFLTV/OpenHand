@@ -2325,77 +2325,81 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildToolPill(
-              label: _localizedText(context, zh: '适配', en: 'Fit'),
-              icon: Icons.fit_screen_rounded,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : _fitToView,
-            ),
-            _buildToolPill(
-              label: _localizedText(context, zh: '重置', en: 'Reset'),
-              icon: Icons.center_focus_strong_rounded,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : _resetView,
-            ),
-            _buildToolPill(
-              label: _localizedText(context, zh: '复制 SVG', en: 'Copy SVG'),
-              icon: Icons.copy_all_rounded,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
-            ),
-            _buildToolPill(
-              label: _localizedText(context, zh: '复制图像', en: 'Copy Image'),
-              icon: Icons.image_outlined,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : () => unawaited(_copySvgImage()),
-            ),
-            _buildToolPill(
-              label: _localizedText(context, zh: '导出 SVG', en: 'Export SVG'),
-              icon: Icons.download_rounded,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : () => unawaited(_downloadSvg()),
-            ),
-            _buildToolPill(
-              label: _localizedText(context, zh: '导出 PNG', en: 'Export PNG'),
-              icon: Icons.image_rounded,
-              backgroundColor: widget.palette.actionColor,
-              foregroundColor: widget.palette.actionTextColor,
-              onTap: controlsLocked ? null : () => unawaited(_downloadPng()),
-            ),
-            _buildToolPill(
-              label: _localizedText(
-                context,
-                zh: _dragActive ? '拖动中' : '长按拖动 / 双指缩放',
-                en: _dragActive
-                    ? 'Dragging'
-                    : 'Long press to pan / pinch to zoom',
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _buildToolPill(
+                label: _localizedText(context, zh: '适配', en: 'Fit'),
+                icon: Icons.fit_screen_rounded,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : _fitToView,
               ),
-              icon: _dragActive
-                  ? Icons.pan_tool_alt_rounded
-                  : Icons.zoom_out_map_rounded,
-              backgroundColor: widget.palette.actionColor.withValues(
-                alpha: 0.72,
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(context, zh: '重置', en: 'Reset'),
+                icon: Icons.center_focus_strong_rounded,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : _resetView,
               ),
-              foregroundColor: widget.palette.actionTextColor,
-            ),
-            _buildToolPill(
-              label: '${_zoomPercent.toStringAsFixed(0)}%',
-              icon: Icons.search_rounded,
-              backgroundColor: widget.palette.actionColor.withValues(
-                alpha: 0.72,
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(context, zh: '复制 SVG', en: 'Copy SVG'),
+                icon: Icons.copy_all_rounded,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
               ),
-              foregroundColor: widget.palette.actionTextColor,
-            ),
-          ],
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(context, zh: '复制图像', en: 'Copy Image'),
+                icon: Icons.image_outlined,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : () => unawaited(_copySvgImage()),
+              ),
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(context, zh: '导出 SVG', en: 'Export SVG'),
+                icon: Icons.download_rounded,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : () => unawaited(_downloadSvg()),
+              ),
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(context, zh: '导出 PNG', en: 'Export PNG'),
+                icon: Icons.image_rounded,
+                backgroundColor: widget.palette.actionColor,
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : () => unawaited(_downloadPng()),
+              ),
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: _localizedText(
+                  context,
+                  zh: _dragActive ? '拖动中' : '长按拖动 / 双指缩放',
+                  en: _dragActive ? 'Dragging' : 'Long press to pan / pinch to zoom',
+                ),
+                icon: _dragActive
+                    ? Icons.pan_tool_alt_rounded
+                    : Icons.zoom_out_map_rounded,
+                backgroundColor: widget.palette.actionColor.withValues(alpha: 0.72),
+                foregroundColor: widget.palette.actionTextColor,
+              ),
+              const SizedBox(width: 8),
+              _buildToolPill(
+                label: '${_zoomPercent.toStringAsFixed(0)}%',
+                icon: Icons.search_rounded,
+                backgroundColor: widget.palette.actionColor.withValues(alpha: 0.72),
+                foregroundColor: widget.palette.actionTextColor,
+                onTap: controlsLocked ? null : _resetView,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 10),
         ConstrainedBox(
