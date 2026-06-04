@@ -97,6 +97,7 @@ class _ComposerPanel extends StatefulWidget {
 
 class _ComposerPanelState extends State<_ComposerPanel> {
   final LayerLink _atMentionLayerLink = LayerLink();
+  final LayerLink _skillPickerLayerLink = LayerLink();
   OverlayEntry? _atMentionOverlay;
   List<_AtMentionItem> _atMentionResults = const [];
   int _atMentionSelectedIndex = 0;
@@ -356,8 +357,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   DialogAnimationSettings _resolveDialogAnimationSettingsSafe() {
     try {
-      return Provider.of<SettingsController>(context, listen: false)
-          .dialogAnimationSettings;
+      return Provider.of<SettingsController>(
+        context,
+        listen: false,
+      ).dialogAnimationSettings;
     } catch (_) {
       return const DialogAnimationSettings();
     }
@@ -466,9 +469,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             cursor,
             '',
           ),
-          selection: TextSelection.collapsed(
-            offset: _atMentionTriggerOffset,
-          ),
+          selection: TextSelection.collapsed(offset: _atMentionTriggerOffset),
         );
       } finally {
         _atMentionSuppressListener = false;
@@ -616,7 +617,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _skillPickerOverlay = OverlayEntry(
       builder: (_) {
         return _SkillPickerOverlayPanel(
-          link: _atMentionLayerLink,
+          link: _skillPickerLayerLink,
           items: _skillPickerResults,
           selectedIndex: _skillPickerSelectedIndex,
           loading: _skillPickerLoading,
@@ -1236,31 +1237,43 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           curve: Curves.easeOutCubic,
           child: SizedBox(
             height: widget.composerHeight,
-            child: CompositedTransformTarget(
-              link: _atMentionLayerLink,
-              // 2026-04-26: Wrap the editable text in a Shortcuts/Actions
-              // pair driven by the global SettingsController bindings so
-              // that send-message and toggle-composer hotkeys (Ctrl+Enter
-              // and Ctrl+P by default) are consumed *inside* the focused
-              // TextField before default editing shortcuts see them.
-              //
-              // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
-              // to MoveSelectionUpTextIntent at the WidgetsApp level. The
-              // actual send/toggle action is still dispatched once by
-              // _handleGlobalShortcutKeyEvent; this local host only stops
-              // the focus-tree shortcut from leaking onward.
-              child: _ComposerShortcutsHost(
-                bindings: context.watch<SettingsController>().shortcutBindings,
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: widget.focusNode,
-                  expands: true,
-                  maxLines: null,
-                  textInputAction: TextInputAction.newline,
-                  textAlignVertical: TextAlignVertical.top,
-                  decoration: InputDecoration(hintText: l10n.composerHint),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CompositedTransformTarget(
+                  link: _atMentionLayerLink,
+                  child: const SizedBox.expand(),
                 ),
-              ),
+                CompositedTransformTarget(
+                  link: _skillPickerLayerLink,
+                  child: const SizedBox.expand(),
+                ),
+                // 2026-04-26: Wrap the editable text in a Shortcuts/Actions
+                // pair driven by the global SettingsController bindings so
+                // that send-message and toggle-composer hotkeys (Ctrl+Enter
+                // and Ctrl+P by default) are consumed *inside* the focused
+                // TextField before default editing shortcuts see them.
+                //
+                // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
+                // to MoveSelectionUpTextIntent at the WidgetsApp level. The
+                // actual send/toggle action is still dispatched once by
+                // _handleGlobalShortcutKeyEvent; this local host only stops
+                // the focus-tree shortcut from leaking onward.
+                _ComposerShortcutsHost(
+                  bindings: context
+                      .watch<SettingsController>()
+                      .shortcutBindings,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    expands: true,
+                    maxLines: null,
+                    textInputAction: TextInputAction.newline,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(hintText: l10n.composerHint),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2712,181 +2725,184 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
           child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
-              child: Material(
-                elevation: 8,
-                shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
-                color: isDark
-                    ? colorScheme.surfaceContainerHigh
-                    : colorScheme.surface,
-                surfaceTintColor: colorScheme.surfaceTint,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Breadcrumb row.
-                    if (widget.breadcrumbs.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _AtMentionBreadcrumbChip(
-                                label: isZh ? '项目根目录' : 'Project Root',
-                                icon: Icons.home_rounded,
-                                onTap: () => widget.onBreadcrumbTap(-1),
+            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
+            child: Material(
+              elevation: 8,
+              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(16),
+              color: isDark
+                  ? colorScheme.surfaceContainerHigh
+                  : colorScheme.surface,
+              surfaceTintColor: colorScheme.surfaceTint,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Breadcrumb row.
+                  if (widget.breadcrumbs.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _AtMentionBreadcrumbChip(
+                              label: isZh ? '项目根目录' : 'Project Root',
+                              icon: Icons.home_rounded,
+                              onTap: () => widget.onBreadcrumbTap(-1),
+                            ),
+                            for (
+                              var i = 0;
+                              i < widget.breadcrumbs.length;
+                              i++
+                            ) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 14,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
                               ),
-                              for (var i = 0; i < widget.breadcrumbs.length; i++) ...[
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                  ),
-                                  child: Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 14,
-                                    color: colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                _AtMentionBreadcrumbChip(
-                                  label: widget.breadcrumbs[i],
-                                  icon: Icons.folder_rounded,
-                                  onTap: () => widget.onBreadcrumbTap(i),
-                                  isLast: i == widget.breadcrumbs.length - 1,
-                                ),
-                              ],
+                              _AtMentionBreadcrumbChip(
+                                label: widget.breadcrumbs[i],
+                                icon: Icons.folder_rounded,
+                                onTap: () => widget.onBreadcrumbTap(i),
+                                isLast: i == widget.breadcrumbs.length - 1,
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
-                    // Results.
-                    if (widget.loading)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                    ),
+                  // Results.
+                  if (widget.loading)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                      )
-                    else if (widget.items.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: Text(
-                            isZh
-                                ? '未找到匹配文件或目录'
-                                : 'No matching files or directories',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.6,
-                              ),
+                      ),
+                    )
+                  else if (widget.items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          isZh
+                              ? '未找到匹配文件或目录'
+                              : 'No matching files or directories',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
                             ),
                           ),
                         ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          shrinkWrap: true,
-                          itemCount: widget.items.length,
-                          itemBuilder: (ctx, index) {
-                            final item = widget.items[index];
-                            final isSelected = index == widget.selectedIndex;
-                            return Material(
-                              color: isSelected
-                                  ? colorScheme.primaryContainer.withValues(
-                                      alpha: 0.4,
-                                    )
-                                  : Colors.transparent,
-                              child: InkWell(
-                                onTap: () => widget.onSelect(item),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _atMentionIcon(item),
-                                        size: 18,
-                                        color: item.isDirectory
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        shrinkWrap: true,
+                        itemCount: widget.items.length,
+                        itemBuilder: (ctx, index) {
+                          final item = widget.items[index];
+                          final isSelected = index == widget.selectedIndex;
+                          return Material(
+                            color: isSelected
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.4,
+                                  )
+                                : Colors.transparent,
+                            child: InkWell(
+                              onTap: () => widget.onSelect(item),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _atMentionIcon(item),
+                                      size: 18,
+                                      color: item.isDirectory
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            item.relativePath,
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: colorScheme
+                                                      .onSurfaceVariant
+                                                      .withValues(alpha: 0.55),
+                                                  fontSize: 10,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.name,
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              item.relativePath,
-                                              style: theme.textTheme.labelSmall
-                                                  ?.copyWith(
-                                                    color: colorScheme
-                                                        .onSurfaceVariant
-                                                        .withValues(
-                                                          alpha: 0.55,
-                                                        ),
-                                                    fontSize: 10,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (item.isDirectory) ...[
-                                        const SizedBox(width: 4),
-                                        SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            tooltip: isZh
-                                                ? '进入目录'
-                                                : 'Open directory',
-                                            onPressed: () => widget.onDrillDown(item),
-                                            icon: Icon(
-                                              Icons.chevron_right_rounded,
-                                              size: 18,
-                                              color: colorScheme.primary,
-                                            ),
+                                    ),
+                                    if (item.isDirectory) ...[
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          tooltip: isZh
+                                              ? '进入目录'
+                                              : 'Open directory',
+                                          onPressed: () =>
+                                              widget.onDrillDown(item),
+                                          icon: Icon(
+                                            Icons.chevron_right_rounded,
+                                            size: 18,
+                                            color: colorScheme.primary,
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
+        ),
       ],
     );
 

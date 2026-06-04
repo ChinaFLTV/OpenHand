@@ -45,6 +45,9 @@ export function MermaidView({ source }: MermaidViewProps) {
     let disposed = false;
     let panZoomDisposer: (() => void) | null = null;
 
+    setError(null);
+    setIsReady(false);
+
     const renderId = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     void (async () => {
@@ -60,11 +63,10 @@ export function MermaidView({ source }: MermaidViewProps) {
           gantt: { useMaxWidth: false },
           fontSize: 13,
         });
-        const { svg } = await mermaid.render(renderId, source);
+        const result = await mermaid.render(renderId, source);
         if (disposed || containerRef.current == null) return;
+        const svg = typeof result === 'string' ? result : result.svg;
         containerRef.current.innerHTML = svg;
-        // mermaid 11.x 默认就把 <svg> 渲染为可缩放 (preserveAspectRatio="xMidYMid meet"),
-        // 但仍由我们的 PanZoom 提供 pointer / wheel 放缩体验。
         panZoomDisposer = attachPanZoom(stageRef.current!, containerRef.current!);
         setIsReady(true);
       } catch (err) {

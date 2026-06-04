@@ -296,6 +296,7 @@ function CodeBlockSurface({
   const [mermaidViewActive, setMermaidViewActive] = useState(false);
   const isMermaid = (lang ?? '').trim().toLowerCase() === 'mermaid';
   const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
+  const effectivePlainText = plainText.replace(/\n$/, '');
   return (
     <div class="oh-code-block">
       <div class="oh-code-block-header">
@@ -314,7 +315,7 @@ function CodeBlockSurface({
             type="button"
             class="oh-code-block-copy"
             style={{ marginRight: 8 }}
-            onClick={() => openHtmlInNewTab(plainText)}
+            onClick={() => openHtmlInNewTab(effectivePlainText)}
           >浏览器打开</button>
         ) : null}
         <button
@@ -322,7 +323,7 @@ function CodeBlockSurface({
           class="oh-code-block-copy"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(plainText);
+              await navigator.clipboard.writeText(effectivePlainText);
               showSnackbar('代码已复制', { tone: 'success' });
             } catch {
               showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
@@ -331,7 +332,7 @@ function CodeBlockSurface({
         >复制</button>
       </div>
       {isMermaid && mermaidViewActive ? (
-        <MermaidView source={plainText} />
+        <MermaidView source={effectivePlainText} />
       ) : (
         <code
           className={codeClassName}
@@ -351,6 +352,31 @@ function CodeBlockSurface({
       )}
     </div>
   );
+}
+
+function extractMarkdownCodeText(nodes: unknown): string {
+  if (nodes == null || typeof nodes === 'boolean') return '';
+  if (typeof nodes === 'string' || typeof nodes === 'number') {
+    return String(nodes);
+  }
+  if (Array.isArray(nodes)) {
+    return nodes.map(extractMarkdownCodeText).join('');
+  }
+  if (typeof nodes !== 'object') return '';
+  const record = nodes as Record<string, unknown>;
+  if (typeof record.value === 'string' || typeof record.value === 'number') {
+    return String(record.value);
+  }
+  if ('children' in record) {
+    return extractMarkdownCodeText(record.children);
+  }
+  if ('props' in record) {
+    const props = record.props as Record<string, unknown> | undefined;
+    if (props != null && 'children' in props) {
+      return extractMarkdownCodeText(props.children);
+    }
+  }
+  return '';
 }
 
 export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown' }: MarkdownProps) {
@@ -473,26 +499,17 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
         // which indicates this is a processed block code element.
         const { className, children, node, ...rest } = props;
         const hasHljsClass = Boolean(className);
+        const parentTag = typeof node?.tagName === 'string' ? String(node.tagName).toLowerCase() : '';
         const hasElementChildren = Array.isArray(children) && children.some(
           (c: unknown) => c != null && typeof c === 'object',
         );
-        const isBlock = hasHljsClass || hasElementChildren;
+        const isBlock = parentTag === 'code' && (hasHljsClass || hasElementChildren);
         if (isBlock) {
           const lang = className
             ?.split(' ')
             .find((c: string) => c.startsWith('language-'))
             ?.replace('language-', '') || null;
-          // Extract plain text for copy button
-          const extractText = (nodes: unknown): string => {
-            if (typeof nodes === 'string') return nodes;
-            if (Array.isArray(nodes)) return nodes.map(extractText).join('');
-            if (nodes != null && typeof nodes === 'object') {
-              const n = nodes as any;
-              if (n.props?.children) return extractText(n.props.children);
-            }
-            return '';
-          };
-          const plainText = extractText(children);
+          const plainText = extractMarkdownCodeText(children);
           return (
             <CodeBlockSurface
               lang={lang}

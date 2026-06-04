@@ -613,6 +613,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   ? _toolResultMarkdownCollapseLineThreshold
                                   : _messageMarkdownCollapseLineThreshold,
                               previewMaxHeight: isToolResult ? 176 : 240,
+                              wrapInSelectionArea: !isToolResult,
                             ),
                           if (isStreamingAssistant) ...[
                             const SizedBox(height: 4),

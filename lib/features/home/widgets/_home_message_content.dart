@@ -257,9 +257,7 @@ class _StreamingReasoningBody extends StatelessWidget {
     // (与「流式期间 plain / 流式结束后 markdown」这一视觉切换一致)。
     return expanded
         ? KeyedSubtree(
-            key: const ValueKey<String>(
-              'streaming-reasoning-plain-expanded',
-            ),
+            key: const ValueKey<String>('streaming-reasoning-plain-expanded'),
             child: StreamingTextReveal(
               textLength: effectiveContent.length,
               streaming: true,
@@ -1646,9 +1644,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     // `package:flutter/widgets.dart` 公开导出（仅由 `SelectableRegion`
     // 内部持有），这里以最简实现覆盖核心需求：拖选/选词/选段/全选/清除
     // 在多个 `Selectable` 之间正确串联。
-    return SelectionArea(
-      child: _MarkdownSelectionContainer(child: body),
-    );
+    return SelectionArea(child: _MarkdownSelectionContainer(child: body));
   }
 }
 
@@ -1784,7 +1780,9 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
             startSelectionPoint: startPoint,
             endSelectionPoint: endPoint,
             selectionRects: rects,
-            status: uncollapsed ? SelectionStatus.uncollapsed : SelectionStatus.collapsed,
+            status: uncollapsed
+                ? SelectionStatus.uncollapsed
+                : SelectionStatus.collapsed,
             hasContent: true,
           )
         : const SelectionGeometry(
@@ -1847,10 +1845,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
       }
     }
     if (startOffset == null || endOffset == null) return null;
-    return SelectedContentRange(
-      startOffset: startOffset,
-      endOffset: endOffset,
-    );
+    return SelectedContentRange(startOffset: startOffset, endOffset: endOffset);
   }
 
   @override
@@ -1859,7 +1854,8 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     switch (event.type) {
       case SelectionEventType.startEdgeUpdate:
         final typed = event as SelectionEdgeUpdateEvent;
-        final target = _selectableAt(typed.globalPosition) ?? _selectables.first;
+        final target =
+            _selectableAt(typed.globalPosition) ?? _selectables.first;
         _anchorStart = target;
         _anchorEnd ??= target;
         final result = target.dispatchSelectionEvent(typed);
@@ -1951,10 +1947,7 @@ class _MarkdownSelectionContainerState
 
   @override
   Widget build(BuildContext context) {
-    return SelectionContainer(
-      delegate: _delegate,
-      child: widget.child,
-    );
+    return SelectionContainer(delegate: _delegate, child: widget.child);
   }
 }
 
@@ -3696,6 +3689,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     required this.collapseCharThreshold,
     required this.collapseLineThreshold,
     required this.previewMaxHeight,
+    this.wrapInSelectionArea = true,
   });
 
   final String data;
@@ -3711,11 +3705,17 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final int collapseCharThreshold;
   final int collapseLineThreshold;
   final double previewMaxHeight;
+  final bool wrapInSelectionArea;
+
+  Widget _wrapSelection(Widget child) {
+    if (!wrapInSelectionArea) return child;
+    return SelectionArea(child: child);
+  }
 
   Widget _buildMarkdown() {
     return _CollapsibleMessageMarkdownBody(
       data: data.isEmpty ? ' ' : data,
-      selectable: true,
+      selectable: !wrapInSelectionArea,
       builders: markdownBuilders,
       styleSheet: markdownStyleSheet,
       inlineSyntaxes: inlineSyntaxes,
@@ -3738,8 +3738,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildHtmlOrFallback() {
-    // 仅当 HTML 结构未闭合时回退，避免半成品 DOM 在 layout 期抛
-    // `RenderBox was not laid out` 导致整段气泡变空。
     if (!_isHtmlStructurallyBalanced(data)) {
       return htmlFallback == AiHtmlRenderFallback.plainText
           ? _buildPlainText()
@@ -3764,13 +3762,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    switch (format) {
-      case AiMessageContentFormat.plainText:
-        return _buildPlainText();
-      case AiMessageContentFormat.html:
-        return _buildHtmlOrFallback();
-      case AiMessageContentFormat.markdown:
-        return _buildMarkdown();
-    }
+    final body = switch (format) {
+      AiMessageContentFormat.plainText => _buildPlainText(),
+      AiMessageContentFormat.html => _buildHtmlOrFallback(),
+      AiMessageContentFormat.markdown => _buildMarkdown(),
+    };
+    return _wrapSelection(body);
   }
 }
