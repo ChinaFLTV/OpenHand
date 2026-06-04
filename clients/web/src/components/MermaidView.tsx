@@ -279,6 +279,9 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     inner.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     options.onZoomChanged?.(scale);
   };
+  const setInteractiveTransition = (enabled: boolean): void => {
+    inner.style.transition = enabled ? 'transform 80ms ease-out' : 'none';
+  };
   const clearLongPress = (): void => {
     if (longPressTimer != null) {
       window.clearTimeout(longPressTimer);
@@ -296,6 +299,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     apply();
   };
   const fit = (): void => {
+    setInteractiveTransition(true);
     clearLongPress();
     dragReady = false;
     longPressPointerId = null;
@@ -339,13 +343,14 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     }),
   };
   inner.style.transformOrigin = '0 0';
-  inner.style.transition = 'transform 80ms ease-out';
+  setInteractiveTransition(true);
   fit();
 
   const onWheel = (e: WheelEvent): void => {
     if (!(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
     clearLongPress();
+    setInteractiveTransition(false);
     const delta = -e.deltaY * 0.0025;
     const newScale = Math.min(8, Math.max(0.25, scale * (1 + delta)));
     const rect = stage.getBoundingClientRect();
@@ -364,6 +369,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
       clearLongPress();
       dragReady = false;
       emitDragState(false);
+      setInteractiveTransition(false);
       const pts = Array.from(pointers.values());
       pinchStartDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
       pinchStartScale = scale;
@@ -378,10 +384,17 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     stage.dataset.dragTx = String(tx);
     stage.dataset.dragTy = String(ty);
     clearLongPress();
+    if (e.pointerType === 'mouse') {
+      dragReady = true;
+      emitDragState(true);
+      setInteractiveTransition(false);
+      return;
+    }
     longPressTimer = window.setTimeout(() => {
       if (pointers.size === 1 && longPressPointerId === e.pointerId) {
         dragReady = true;
         emitDragState(true);
+        setInteractiveTransition(false);
       }
     }, 280);
   };
@@ -394,10 +407,16 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
       clearLongPress();
       dragReady = false;
       emitDragState(false);
+      setInteractiveTransition(false);
       const pts = Array.from(pointers.values());
       const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
       if (pinchStartDist > 0) {
+        const rect = stage.getBoundingClientRect();
+        const centerX = (pts[0]!.x + pts[1]!.x) / 2 - rect.left;
+        const centerY = (pts[0]!.y + pts[1]!.y) / 2 - rect.top;
         const newScale = Math.min(8, Math.max(0.25, pinchStartScale * (dist / pinchStartDist)));
+        tx = centerX - (centerX - tx) * (newScale / scale);
+        ty = centerY - (centerY - ty) * (newScale / scale);
         scale = newScale;
         apply();
       }
@@ -426,6 +445,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
       dragReady = false;
       longPressPointerId = null;
       emitDragState(false);
+      setInteractiveTransition(true);
       delete stage.dataset.dragX;
       delete stage.dataset.dragY;
       delete stage.dataset.dragTx;

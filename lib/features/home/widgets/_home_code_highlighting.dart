@@ -2593,12 +2593,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         var dragReady = false;
         var longPressPointerId = null;
         function clearLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
+        function setInteractiveTransition(enabled){ inner.style.transition = enabled ? 'transform 80ms ease-out' : 'none'; }
         function apply() {
           inner.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
           postZoom();
         }
-        function reset(){ clearLongPress(); dragReady=false; longPressPointerId=null; tx=0; ty=0; scale=1; postDrag(false); apply(); }
+        function reset(){ clearLongPress(); dragReady=false; longPressPointerId=null; tx=0; ty=0; scale=1; postDrag(false); setInteractiveTransition(true); apply(); }
         function fit(){
+          setInteractiveTransition(true);
           clearLongPress(); dragReady=false; longPressPointerId=null;
           var svg = inner.querySelector('svg');
           if(!svg || !svg.getBBox){ reset(); return; }
@@ -2620,6 +2622,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           if (!(e.ctrlKey || e.metaKey)) return;
           e.preventDefault();
           clearLongPress();
+          setInteractiveTransition(false);
           var delta = -e.deltaY * 0.0025;
           var newScale = Math.min(8, Math.max(0.2, scale * (1 + delta)));
           var rect = stage.getBoundingClientRect();
@@ -2634,7 +2637,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           stage.setPointerCapture(e.pointerId);
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.size === 2) {
-            clearLongPress(); dragReady=false; postDrag(false);
+            clearLongPress(); dragReady=false; postDrag(false); setInteractiveTransition(false);
             var pts = Array.from(pointers.values());
             pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             pinchStartScale = scale;
@@ -2648,9 +2651,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           stage.dataset.dragTx = tx;
           stage.dataset.dragTy = ty;
           clearLongPress();
+          if (e.pointerType === 'mouse') {
+            dragReady = true; postDrag(true); setInteractiveTransition(false); return;
+          }
           longPressTimer = setTimeout(function(){
             if (pointers.size === 1 && longPressPointerId === e.pointerId) {
-              dragReady = true; postDrag(true);
+              dragReady = true; postDrag(true); setInteractiveTransition(false);
             }
           }, 280);
         });
@@ -2659,11 +2665,16 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           var previous = pointers.get(e.pointerId);
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.size === 2) {
-            clearLongPress(); dragReady=false; postDrag(false);
+            clearLongPress(); dragReady=false; postDrag(false); setInteractiveTransition(false);
             var pts = Array.from(pointers.values());
             var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             if (pinchStartDist > 0) {
+              var rect = stage.getBoundingClientRect();
+              var centerX = (pts[0].x + pts[1].x) / 2 - rect.left;
+              var centerY = (pts[0].y + pts[1].y) / 2 - rect.top;
               var newScale = Math.min(8, Math.max(0.2, pinchStartScale * (dist / pinchStartDist)));
+              tx = centerX - (centerX - tx) * (newScale / scale);
+              ty = centerY - (centerY - ty) * (newScale / scale);
               scale = newScale;
               apply();
             }
@@ -2686,7 +2697,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           clearLongPress();
           if (pointers.size < 2) pinchStartDist = 0;
           if (pointers.size === 0) {
-            dragReady = false; longPressPointerId = null; postDrag(false);
+            dragReady = false; longPressPointerId = null; postDrag(false); setInteractiveTransition(true);
             delete stage.dataset.dragX;
             delete stage.dataset.dragY;
             delete stage.dataset.dragTx;
