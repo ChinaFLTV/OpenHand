@@ -280,6 +280,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       zh: _mermaidViewActive ? '代码' : '视图',
       en: _mermaidViewActive ? 'Code' : 'View',
     );
+    final mermaidHintLabel = _localizedText(
+      context,
+      zh: '长按拖动 / 双指缩放',
+      en: 'Long press to pan / pinch to zoom',
+    );
     // 修复：将 border 移至 foregroundDecoration，确保边框绘制在子组件
     // 之上，避免 header 背景色在圆角处覆盖 border。
     // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
@@ -305,7 +310,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
             child: Row(
               children: [
                 if (effectiveLanguage != null)
-                  _buildHeaderPill(
+                  _buildToolPill(
                     label: effectiveLanguage,
                     icon: Icons.code_rounded,
                     backgroundColor: palette.badgeColor,
@@ -315,7 +320,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   const SizedBox(height: 32),
                 const Spacer(),
                 if (isMermaidLanguage) ...[
-                  _buildHeaderPill(
+                  _buildToolPill(
                     label: viewLabel,
                     icon: _mermaidViewActive
                         ? Icons.code_rounded
@@ -327,8 +332,17 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     onTap: _toggleMermaidView,
                   ),
                   const SizedBox(width: 8),
+                  _buildToolPill(
+                    label: mermaidHintLabel,
+                    icon: Icons.pan_tool_alt_rounded,
+                    backgroundColor: palette.actionColor.withValues(
+                      alpha: 0.72,
+                    ),
+                    foregroundColor: palette.actionTextColor,
+                  ),
+                  const SizedBox(width: 8),
                 ],
-                _buildHeaderPill(
+                _buildToolPill(
                   label: copyLabel,
                   icon: _copied
                       ? Icons.check_rounded
@@ -343,7 +357,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   },
                 ),
                 const SizedBox(width: 8),
-                _buildHeaderPill(
+                _buildToolPill(
                   label: downloadLabel,
                   icon: _downloaded
                       ? Icons.check_rounded
@@ -359,7 +373,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                 ),
                 if (isHtmlLanguage) ...[
                   const SizedBox(width: 8),
-                  _buildHeaderPill(
+                  _buildToolPill(
                     label: runLabel,
                     icon: Icons.play_arrow_rounded,
                     backgroundColor: palette.actionColor,
@@ -378,10 +392,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           Padding(
             padding: const EdgeInsets.all(14),
             child: isMermaidLanguage && _mermaidViewActive
-                ? _MermaidDiagramView(
-                    source: widget.content,
-                    palette: palette,
-                  )
+                ? _MermaidDiagramView(source: widget.content, palette: palette)
                 : _buildCodeBody(palette),
           ),
         ],
@@ -572,7 +583,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     });
   }
 
-  Widget _buildHeaderPill({
+  Widget _buildToolPill({
     required String label,
     required IconData icon,
     required Color backgroundColor,
@@ -2072,6 +2083,52 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   String? _loadError;
   Timer? _loadWatchdog;
   String? _tempHtmlPath;
+  String _svgMarkup = '';
+  double _zoomPercent = 100;
+  bool _dragActive = false;
+
+  Widget _buildToolPill({
+    required String label,
+    required IconData icon,
+    required Color backgroundColor,
+    required Color foregroundColor,
+    VoidCallback? onTap,
+  }) {
+    final theme = Theme.of(context);
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: foregroundColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+    final decoration = BoxDecoration(
+      color: backgroundColor,
+      borderRadius: _borderRadius999,
+    );
+    if (onTap == null) {
+      return DecoratedBox(decoration: decoration, child: child);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: _borderRadius999,
+        child: Ink(decoration: decoration, child: child),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -2094,6 +2151,25 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               }
               return;
             }
+            if (raw.startsWith('zoom:')) {
+              final value = double.tryParse(raw.substring(5));
+              if (value != null && mounted) {
+                setState(() => _zoomPercent = value);
+              }
+              return;
+            }
+            if (raw.startsWith('drag:')) {
+              if (mounted) {
+                setState(() => _dragActive = raw.substring(5) == '1');
+              }
+              return;
+            }
+            if (raw.startsWith('svg:')) {
+              if (mounted) {
+                setState(() => _svgMarkup = raw.substring(4));
+              }
+              return;
+            }
             if (raw.startsWith('error:')) {
               _loadWatchdog?.cancel();
               if (mounted) {
@@ -2113,7 +2189,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       // 沿用项目内 `_MediaPreviewDialog` 的 loadFile 套路。
       final html = _buildMermaidHtml();
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
-        final tempDir = Directory.systemTemp.createTempSync('openhand_mermaid_');
+        final tempDir = Directory.systemTemp.createTempSync(
+          'openhand_mermaid_',
+        );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
         await tempFile.writeAsString(html);
         _tempHtmlPath = tempFile.path;
@@ -2170,6 +2248,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   @override
   Widget build(BuildContext context) {
+    final controlsLocked =
+        !_isReady || _loadError != null || _controller == null;
     final body = Stack(
       children: [
         if (_controller != null)
@@ -2200,22 +2280,190 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
       ],
     );
-    return ConstrainedBox(
-      // Mermaid 流程图通常宽 > 600、高 > 400，限制一个最大高度并允许
-      // 内部 WebView 滚动；mermaid SVG 本身用 viewBox 自适应宽度。
-      constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: body,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildToolPill(
+              label: _localizedText(context, zh: '适配', en: 'Fit'),
+              icon: Icons.fit_screen_rounded,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : _fitToView,
+            ),
+            _buildToolPill(
+              label: _localizedText(context, zh: '重置', en: 'Reset'),
+              icon: Icons.center_focus_strong_rounded,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : _resetView,
+            ),
+            _buildToolPill(
+              label: _localizedText(context, zh: '复制 SVG', en: 'Copy SVG'),
+              icon: Icons.copy_all_rounded,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
+            ),
+            _buildToolPill(
+              label: _localizedText(context, zh: '复制图像', en: 'Copy Image'),
+              icon: Icons.image_outlined,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : () => unawaited(_copySvgImage()),
+            ),
+            _buildToolPill(
+              label: _localizedText(context, zh: '导出 SVG', en: 'Export SVG'),
+              icon: Icons.download_rounded,
+              backgroundColor: widget.palette.actionColor,
+              foregroundColor: widget.palette.actionTextColor,
+              onTap: controlsLocked ? null : () => unawaited(_downloadSvg()),
+            ),
+            _buildToolPill(
+              label: _localizedText(
+                context,
+                zh: _dragActive ? '拖动中' : '长按拖动 / 双指缩放',
+                en: _dragActive
+                    ? 'Dragging'
+                    : 'Long press to pan / pinch to zoom',
+              ),
+              icon: _dragActive
+                  ? Icons.pan_tool_alt_rounded
+                  : Icons.zoom_out_map_rounded,
+              backgroundColor: widget.palette.actionColor.withValues(
+                alpha: 0.72,
+              ),
+              foregroundColor: widget.palette.actionTextColor,
+            ),
+            _buildToolPill(
+              label: '${_zoomPercent.toStringAsFixed(0)}%',
+              icon: Icons.search_rounded,
+              backgroundColor: widget.palette.actionColor.withValues(
+                alpha: 0.72,
+              ),
+              foregroundColor: widget.palette.actionTextColor,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: body,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _runMermaidCommand(String script) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.runJavaScript(script);
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'mermaid command failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  void _resetView() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    unawaited(
+      _runMermaidCommand(
+        'window.__openhandMermaidReset&&window.__openhandMermaidReset();',
       ),
     );
   }
 
+  void _fitToView() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    unawaited(
+      _runMermaidCommand(
+        'window.__openhandMermaidFit&&window.__openhandMermaidFit();',
+      ),
+    );
+  }
+
+  Future<void> _copySvgMarkup() async {
+    final svg = _svgMarkup.trim();
+    if (svg.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: svg));
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: 'SVG 已复制。', en: 'SVG copied.'),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _copySvgImage() async {
+    final svg = _svgMarkup.trim();
+    if (svg.isEmpty) return;
+    try {
+      await Pasteboard.writeImage(Uint8List.fromList(utf8.encode(svg)));
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '已复制图像。', en: 'Image copied.'),
+          ),
+        ),
+      );
+    } catch (_) {
+      await _copySvgMarkup();
+    }
+  }
+
+  Future<void> _downloadSvg() async {
+    final svg = _svgMarkup.trim();
+    if (svg.isEmpty) return;
+    try {
+      final location = await getSaveLocation(
+        suggestedName: 'mermaid_diagram.svg',
+        acceptedTypeGroups: <XTypeGroup>[
+          const XTypeGroup(
+            label: 'SVG',
+            mimeTypes: <String>['image/svg+xml'],
+            extensions: <String>['svg'],
+          ),
+        ],
+      );
+      final path = location?.path;
+      if (!mounted || path == null || path.isEmpty) return;
+      await File(path).writeAsString(svg, flush: true);
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
   String _buildMermaidHtml() {
     final rawSource = widget.source;
-    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(
-      rawSource,
-    );
+    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
     final mermaidTheme = isDark ? 'dark' : 'default';
     final bg = isDark
@@ -2285,21 +2533,54 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           gantt: { useMaxWidth: false },
           themeVariables: { fontSize: '13px' },
         });
+        function svgMarkupOf(value) {
+          if (typeof value === 'string') return value;
+          if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
+            return value.outerHTML || '';
+          }
+          return '';
+        }
+        function postZoom() {
+          post('zoom:' + String(scale * 100));
+        }
+        function postDrag(active) {
+          post('drag:' + (active ? '1' : '0'));
+        }
+        function formatError(err) {
+          if (err && typeof err === 'object') {
+            if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
+            if (typeof err.message === 'string' && err.message.trim()) return err.message.trim();
+            if (typeof err.hash === 'string' && err.hash.trim()) return err.hash.trim();
+            try {
+              var json = JSON.stringify(err, null, 2);
+              if (json && json !== '{}') return json;
+            } catch (_) {}
+          }
+          return String(err);
+        }
         var sourceEl = document.getElementById('mermaid-source');
         var source = sourceEl.textContent || '';
-        window.mermaid.render('mermaid-svg', source).then(function(svg) {
+        window.mermaid.render('mermaid-svg', source).then(function(result) {
+          var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
+          if (!svg || svg.indexOf('<svg') === -1) {
+            throw new Error(formatError(result));
+          }
           document.getElementById('inner').innerHTML = svg;
+          post('svg:' + svg);
+          if (result && typeof result.bindFunctions === 'function') {
+            result.bindFunctions(document.getElementById('inner'));
+          }
           post('rendered');
         }).catch(function(err) {
-          var msg = (err && err.message) ? err.message : String(err);
+          var msg = formatError(err);
           document.getElementById('inner').innerHTML =
             '<div class="mermaid-error">' + msg + '</div>';
           post('error:' + msg);
         });
       } catch (err) {
-        post('error:' + ((err && err.message) ? err.message : String(err)));
+        post('error:' + formatError(err));
       }
-      // 双指/双击 放缩, 鼠标滚轮 + Ctrl 放缩, 拖动平移。
+      // 双指/双击 放缩, 鼠标滚轮 + Ctrl 放缩, 单指长按后拖动画布。
       (function() {
         var stage = document.getElementById('stage');
         var inner = document.getElementById('inner');
@@ -2308,12 +2589,37 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         var pointers = new Map();
         var pinchStartDist = 0;
         var pinchStartScale = 1;
+        var longPressTimer = null;
+        var dragReady = false;
+        var longPressPointerId = null;
+        function clearLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
         function apply() {
           inner.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+          postZoom();
         }
+        function reset(){ clearLongPress(); dragReady=false; longPressPointerId=null; tx=0; ty=0; scale=1; postDrag(false); apply(); }
+        function fit(){
+          clearLongPress(); dragReady=false; longPressPointerId=null;
+          var svg = inner.querySelector('svg');
+          if(!svg || !svg.getBBox){ reset(); return; }
+          var stageRect = stage.getBoundingClientRect();
+          var box = svg.getBBox();
+          if(!(box.width>0) || !(box.height>0) || !(stageRect.width>0) || !(stageRect.height>0)){ reset(); return; }
+          var padding = 24;
+          var fitScale = Math.min(8, Math.max(0.2, Math.min((stageRect.width-padding*2)/box.width,(stageRect.height-padding*2)/box.height)));
+          scale = fitScale;
+          tx = padding - box.x * fitScale + Math.max(0, (stageRect.width - box.width * fitScale - padding * 2) / 2);
+          ty = padding - box.y * fitScale + Math.max(0, (stageRect.height - box.height * fitScale - padding * 2) / 2);
+          postDrag(false);
+          apply();
+        }
+        window.__openhandMermaidReset = reset;
+        window.__openhandMermaidFit = fit;
+        fit();
         stage.addEventListener('wheel', function(e) {
           if (!(e.ctrlKey || e.metaKey)) return;
           e.preventDefault();
+          clearLongPress();
           var delta = -e.deltaY * 0.0025;
           var newScale = Math.min(8, Math.max(0.2, scale * (1 + delta)));
           var rect = stage.getBoundingClientRect();
@@ -2328,20 +2634,32 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           stage.setPointerCapture(e.pointerId);
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.size === 2) {
+            clearLongPress(); dragReady=false; postDrag(false);
             var pts = Array.from(pointers.values());
             pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             pinchStartScale = scale;
-          } else if (pointers.size === 1) {
-            stage.dataset.dragX = e.clientX;
-            stage.dataset.dragY = e.clientY;
-            stage.dataset.dragTx = tx;
-            stage.dataset.dragTy = ty;
+            return;
           }
+          if (pointers.size !== 1) return;
+          dragReady = false; postDrag(false);
+          longPressPointerId = e.pointerId;
+          stage.dataset.dragX = e.clientX;
+          stage.dataset.dragY = e.clientY;
+          stage.dataset.dragTx = tx;
+          stage.dataset.dragTy = ty;
+          clearLongPress();
+          longPressTimer = setTimeout(function(){
+            if (pointers.size === 1 && longPressPointerId === e.pointerId) {
+              dragReady = true; postDrag(true);
+            }
+          }, 280);
         });
         stage.addEventListener('pointermove', function(e) {
           if (!pointers.has(e.pointerId)) return;
+          var previous = pointers.get(e.pointerId);
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.size === 2) {
+            clearLongPress(); dragReady=false; postDrag(false);
             var pts = Array.from(pointers.values());
             var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             if (pinchStartDist > 0) {
@@ -2349,18 +2667,26 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               scale = newScale;
               apply();
             }
-          } else if (pointers.size === 1 && stage.dataset.dragX) {
-            var dx = e.clientX - parseFloat(stage.dataset.dragX);
-            var dy = e.clientY - parseFloat(stage.dataset.dragY);
-            tx = parseFloat(stage.dataset.dragTx) + dx;
-            ty = parseFloat(stage.dataset.dragTy) + dy;
-            apply();
+            return;
+          }
+          if (pointers.size === 1) {
+            var moved = previous ? Math.hypot(e.clientX - previous.x, e.clientY - previous.y) : 0;
+            if (!dragReady && moved > 8) clearLongPress();
+            if (dragReady && stage.dataset.dragX) {
+              var dx = e.clientX - parseFloat(stage.dataset.dragX);
+              var dy = e.clientY - parseFloat(stage.dataset.dragY);
+              tx = parseFloat(stage.dataset.dragTx) + dx;
+              ty = parseFloat(stage.dataset.dragTy) + dy;
+              apply();
+            }
           }
         });
         function endPointer(e) {
           pointers.delete(e.pointerId);
+          clearLongPress();
           if (pointers.size < 2) pinchStartDist = 0;
           if (pointers.size === 0) {
+            dragReady = false; longPressPointerId = null; postDrag(false);
             delete stage.dataset.dragX;
             delete stage.dataset.dragY;
             delete stage.dataset.dragTx;
@@ -2369,10 +2695,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
         stage.addEventListener('pointerup', endPointer);
         stage.addEventListener('pointercancel', endPointer);
-        // 双击重置。
-        stage.addEventListener('dblclick', function() {
-          scale = 1; tx = 0; ty = 0; apply();
-        });
+        stage.addEventListener('dblclick', function() { reset(); });
       })();
     })();
   </script>

@@ -310,6 +310,11 @@ function CodeBlockSurface({
             onClick={() => setMermaidViewActive((v) => !v)}
           >{mermaidViewActive ? '代码' : '视图'}</button>
         ) : null}
+        {isMermaid ? (
+          <span class="oh-code-block-copy" style={{ marginRight: 8, opacity: 0.8 }}>
+            长按拖动 / 双指缩放
+          </span>
+        ) : null}
         {isHtmlLang ? (
           <button
             type="button"
