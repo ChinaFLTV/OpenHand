@@ -4498,12 +4498,16 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-mermaid-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 .oh-mermaid-zoom-chip {
-  margin-left: auto;
+  flex: 0 0 auto;
+  margin-left: 0;
   padding: 8px 12px;
   border-radius: 999px;
   background: var(--m3-surface-container-high, rgba(0,0,0,0.06));

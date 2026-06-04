@@ -2411,9 +2411,22 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   Future<void> _runMermaidCommand(String script) async {
     final controller = _controller;
-    if (controller == null) return;
+    if (controller == null || !_isReady || _loadError != null) return;
     try {
-      await controller.runJavaScript(script);
+      await controller.runJavaScript('''
+        (function(){
+          try {
+            $script
+          } catch (_) {}
+        })();
+      ''');
+    } on PlatformException catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'mermaid command failed',
+        error,
+        stack,
+      );
     } catch (error, stack) {
       silentLog(
         'home_code_highlighting',
