@@ -185,6 +185,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   int? _highlightSignature;
   bool _copied = false;
   bool _downloaded = false;
+  bool _mermaidViewActive = false;
   Timer? _copiedResetTimer;
   Timer? _downloadedResetTimer;
   _CodeBlockPalette? _cachedPalette;
@@ -234,6 +235,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     super.dispose();
   }
 
+  void _toggleMermaidView() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    setState(() {
+      _mermaidViewActive = !_mermaidViewActive;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
@@ -266,6 +274,12 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     final runLabel = _localizedText(context, zh: '运行', en: 'Run');
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
+    final isMermaidLanguage = _isMermaidLanguage(effectiveLanguage);
+    final viewLabel = _localizedText(
+      context,
+      zh: _mermaidViewActive ? '代码' : '视图',
+      en: _mermaidViewActive ? 'Code' : 'View',
+    );
     // 修复：将 border 移至 foregroundDecoration，确保边框绘制在子组件
     // 之上，避免 header 背景色在圆角处覆盖 border。
     // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
@@ -300,6 +314,20 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                 else
                   const SizedBox(height: 32),
                 const Spacer(),
+                if (isMermaidLanguage) ...[
+                  _buildHeaderPill(
+                    label: viewLabel,
+                    icon: _mermaidViewActive
+                        ? Icons.code_rounded
+                        : Icons.visibility_outlined,
+                    backgroundColor: _mermaidViewActive
+                        ? palette.actionColor
+                        : palette.actionColor,
+                    foregroundColor: palette.actionTextColor,
+                    onTap: _toggleMermaidView,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _buildHeaderPill(
                   label: copyLabel,
                   icon: _copied
@@ -349,7 +377,12 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           ),
           Padding(
             padding: const EdgeInsets.all(14),
-            child: _buildCodeBody(palette),
+            child: isMermaidLanguage && _mermaidViewActive
+                ? _MermaidDiagramView(
+                    source: widget.content,
+                    palette: palette,
+                  )
+                : _buildCodeBody(palette),
           ),
         ],
       ),
@@ -1144,6 +1177,11 @@ String? _normalizeCodeLanguage(String? language) {
 bool _isHtmlLanguage(String? language) {
   final normalized = (language ?? '').trim().toLowerCase();
   return normalized == 'html' || normalized == 'htm';
+}
+
+bool _isMermaidLanguage(String? language) {
+  final normalized = (language ?? '').trim().toLowerCase();
+  return normalized == 'mermaid';
 }
 
 String _getFileExtensionForLanguage(String? language) {
@@ -2007,5 +2045,339 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
           ),
       ],
     );
+  }
+}
+
+/// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
+/// 按钮切到视图时启用：用 [WebView] + mermaid.js (CDN) 渲染 SVG,
+/// 配合 CSS `transform: scale/translate` + `touch-action: pinch-zoom`
+/// 提供双指放缩与拖动平移；mermaid 原生 `interaction: true` 还能让用户
+/// 点击图元悬浮 tooltip、点击边/节点触发回调。
+///
+/// 仅在用户主动切到「视图」时才挂载 WebView，默认展示代码文本，
+/// 不浪费主线程 / WebView 内存，与正式响应 markdown 渲染节流同源思路。
+class _MermaidDiagramView extends StatefulWidget {
+  const _MermaidDiagramView({required this.source, required this.palette});
+
+  final String source;
+  final _CodeBlockPalette palette;
+
+  @override
+  State<_MermaidDiagramView> createState() => _MermaidDiagramViewState();
+}
+
+class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
+  WebViewController? _controller;
+  bool _isReady = false;
+  String? _loadError;
+  Timer? _loadWatchdog;
+  String? _tempHtmlPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..addJavaScriptChannel(
+          'OpenHandMermaid',
+          onMessageReceived: (message) {
+            final raw = message.message.trim();
+            if (raw == 'rendered') {
+              _loadWatchdog?.cancel();
+              if (mounted && !_isReady) {
+                setState(() => _isReady = true);
+              }
+              return;
+            }
+            if (raw.startsWith('error:')) {
+              _loadWatchdog?.cancel();
+              if (mounted) {
+                setState(() {
+                  _loadError = raw.length > 6 ? raw.substring(6) : raw;
+                  _isReady = true;
+                });
+              }
+            }
+          },
+        );
+      if (!Platform.isMacOS) {
+        controller.setBackgroundColor(Colors.transparent);
+      }
+      // WKWebView on macOS 通过 loadHtmlString 加载时拒绝拉取远程
+      // `<script src>`，必须写到磁盘再 loadFile 才能 grant 网络访问。
+      // 沿用项目内 `_MediaPreviewDialog` 的 loadFile 套路。
+      final html = _buildMermaidHtml();
+      if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+        final tempDir = Directory.systemTemp.createTempSync('openhand_mermaid_');
+        final tempFile = File(p.join(tempDir.path, 'index.html'));
+        await tempFile.writeAsString(html);
+        _tempHtmlPath = tempFile.path;
+        await controller.loadFile(tempFile.path);
+      } else {
+        await controller.loadHtmlString(html);
+      }
+      _controller = controller;
+      _loadWatchdog = Timer(const Duration(seconds: 18), () {
+        if (!mounted) return;
+        if (!_isReady) {
+          setState(() {
+            _loadError ??= _localizedText(
+              context,
+              zh: 'Mermaid 加载超时',
+              en: 'Mermaid load timed out',
+            );
+            _isReady = true;
+          });
+        }
+      });
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'mermaid: setup failed',
+        error,
+        stack,
+      );
+      if (mounted) {
+        setState(() {
+          _loadError = '$error';
+          _isReady = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _loadWatchdog?.cancel();
+    final tempPath = _tempHtmlPath;
+    if (tempPath != null) {
+      Future<void>(() async {
+        try {
+          final file = File(tempPath);
+          if (await file.exists()) await file.delete();
+          final parent = file.parent;
+          if (await parent.exists()) await parent.delete(recursive: true);
+        } catch (_) {}
+      });
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Stack(
+      children: [
+        if (_controller != null)
+          Positioned.fill(child: WebViewWidget(controller: _controller!)),
+        if (!_isReady)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              backgroundColor: widget.palette.containerColor,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                widget.palette.actionTextColor,
+              ),
+            ),
+          ),
+        if (_loadError != null)
+          Positioned.fill(
+            child: Container(
+              color: widget.palette.containerColor,
+              padding: const EdgeInsets.all(12),
+              alignment: Alignment.center,
+              child: Text(
+                _loadError!,
+                style: TextStyle(color: widget.palette.actionTextColor),
+              ),
+            ),
+          ),
+      ],
+    );
+    return ConstrainedBox(
+      // Mermaid 流程图通常宽 > 600、高 > 400，限制一个最大高度并允许
+      // 内部 WebView 滚动；mermaid SVG 本身用 viewBox 自适应宽度。
+      constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: body,
+      ),
+    );
+  }
+
+  String _buildMermaidHtml() {
+    final rawSource = widget.source;
+    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(
+      rawSource,
+    );
+    final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
+    final mermaidTheme = isDark ? 'dark' : 'default';
+    final bg = isDark
+        ? const Color(0xFF0F1115).toARGB32().toRadixString(16).padLeft(8, '0')
+        : 'ffffff';
+    final fg = isDark ? 'eeeeee' : '111111';
+    return '''
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=4.0, user-scalable=yes" />
+<title>Mermaid</title>
+<style>
+  :root { color-scheme: ${isDark ? 'dark' : 'light'}; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #$bg; color: #$fg;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  /* 双指放缩 + 拖动平移, 来自 mermaid 官方 zoom 推荐写法。 */
+  .mermaid-stage {
+    width: 100%; height: 100%;
+    touch-action: pinch-zoom;
+    overflow: auto;
+    cursor: grab;
+  }
+  .mermaid-stage:active { cursor: grabbing; }
+  .mermaid-stage .mermaid-inner {
+    transform-origin: 0 0;
+    transition: transform 80ms ease-out;
+  }
+  .mermaid-stage svg { max-width: none; height: auto; }
+  .mermaid-error {
+    color: #d93025; padding: 16px; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+  <div class="mermaid-stage" id="stage">
+    <div class="mermaid-inner" id="inner">
+      <pre class="mermaid" id="mermaid-source">$escaped</pre>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script>
+    (function() {
+      function post(value) {
+        if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
+          window.OpenHandMermaid.postMessage(value);
+        }
+      }
+      if (!window.mermaid) {
+        post('error:mermaid-js 加载失败,请检查网络');
+        return;
+      }
+      try {
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: '$mermaidTheme',
+          securityLevel: 'loose',
+          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+          sequence: { useMaxWidth: false, showSequenceNumbers: true },
+          gantt: { useMaxWidth: false },
+          themeVariables: { fontSize: '13px' },
+        });
+        var sourceEl = document.getElementById('mermaid-source');
+        var source = sourceEl.textContent || '';
+        window.mermaid.render('mermaid-svg', source).then(function(svg) {
+          document.getElementById('inner').innerHTML = svg;
+          post('rendered');
+        }).catch(function(err) {
+          var msg = (err && err.message) ? err.message : String(err);
+          document.getElementById('inner').innerHTML =
+            '<div class="mermaid-error">' + msg + '</div>';
+          post('error:' + msg);
+        });
+      } catch (err) {
+        post('error:' + ((err && err.message) ? err.message : String(err)));
+      }
+      // 双指/双击 放缩, 鼠标滚轮 + Ctrl 放缩, 拖动平移。
+      (function() {
+        var stage = document.getElementById('stage');
+        var inner = document.getElementById('inner');
+        var scale = 1;
+        var tx = 0, ty = 0;
+        var pointers = new Map();
+        var pinchStartDist = 0;
+        var pinchStartScale = 1;
+        function apply() {
+          inner.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+        }
+        stage.addEventListener('wheel', function(e) {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          var delta = -e.deltaY * 0.0025;
+          var newScale = Math.min(8, Math.max(0.2, scale * (1 + delta)));
+          var rect = stage.getBoundingClientRect();
+          var cx = e.clientX - rect.left;
+          var cy = e.clientY - rect.top;
+          tx = cx - (cx - tx) * (newScale / scale);
+          ty = cy - (cy - ty) * (newScale / scale);
+          scale = newScale;
+          apply();
+        }, { passive: false });
+        stage.addEventListener('pointerdown', function(e) {
+          stage.setPointerCapture(e.pointerId);
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pointers.size === 2) {
+            var pts = Array.from(pointers.values());
+            pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            pinchStartScale = scale;
+          } else if (pointers.size === 1) {
+            stage.dataset.dragX = e.clientX;
+            stage.dataset.dragY = e.clientY;
+            stage.dataset.dragTx = tx;
+            stage.dataset.dragTy = ty;
+          }
+        });
+        stage.addEventListener('pointermove', function(e) {
+          if (!pointers.has(e.pointerId)) return;
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pointers.size === 2) {
+            var pts = Array.from(pointers.values());
+            var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            if (pinchStartDist > 0) {
+              var newScale = Math.min(8, Math.max(0.2, pinchStartScale * (dist / pinchStartDist)));
+              scale = newScale;
+              apply();
+            }
+          } else if (pointers.size === 1 && stage.dataset.dragX) {
+            var dx = e.clientX - parseFloat(stage.dataset.dragX);
+            var dy = e.clientY - parseFloat(stage.dataset.dragY);
+            tx = parseFloat(stage.dataset.dragTx) + dx;
+            ty = parseFloat(stage.dataset.dragTy) + dy;
+            apply();
+          }
+        });
+        function endPointer(e) {
+          pointers.delete(e.pointerId);
+          if (pointers.size < 2) pinchStartDist = 0;
+          if (pointers.size === 0) {
+            delete stage.dataset.dragX;
+            delete stage.dataset.dragY;
+            delete stage.dataset.dragTx;
+            delete stage.dataset.dragTy;
+          }
+        }
+        stage.addEventListener('pointerup', endPointer);
+        stage.addEventListener('pointercancel', endPointer);
+        // 双击重置。
+        stage.addEventListener('dblclick', function() {
+          scale = 1; tx = 0; ty = 0; apply();
+        });
+      })();
+    })();
+  </script>
+</body>
+</html>
+''';
   }
 }
