@@ -1660,6 +1660,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     with ChangeNotifier {
   final List<Selectable> _selectables = <Selectable>[];
+  bool _disposed = false;
   SelectionGeometry _geometry = const SelectionGeometry(
     status: SelectionStatus.none,
     hasContent: false,
@@ -1670,6 +1671,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   void add(Selectable selectable) {
+    if (_disposed) return;
     _selectables.add(selectable);
     _sortSelectables();
     selectable.addListener(_onSelectableChanged);
@@ -1682,22 +1684,31 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     _selectables.remove(selectable);
     if (_anchorStart == selectable) _anchorStart = null;
     if (_anchorEnd == selectable) _anchorEnd = null;
+    _refreshGeometry(notify: false);
+  }
+
+  void _onSelectableChanged() {
+    if (_disposed) return;
     _refreshGeometry();
   }
 
-  void _onSelectableChanged() => _refreshGeometry();
-
   void _sortSelectables() {
+    Rect? firstGlobalRectOf(Selectable selectable) {
+      try {
+        if (selectable.boundingBoxes.isEmpty) return null;
+        return MatrixUtils.transformRect(
+          selectable.getTransformTo(null),
+          selectable.boundingBoxes.first,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
     _selectables.sort((a, b) {
-      if (a.boundingBoxes.isEmpty || b.boundingBoxes.isEmpty) return 0;
-      final rectA = MatrixUtils.transformRect(
-        a.getTransformTo(null),
-        a.boundingBoxes.first,
-      );
-      final rectB = MatrixUtils.transformRect(
-        b.getTransformTo(null),
-        b.boundingBoxes.first,
-      );
+      final rectA = firstGlobalRectOf(a);
+      final rectB = firstGlobalRectOf(b);
+      if (rectA == null || rectB == null) return 0;
       final dy = rectA.top - rectB.top;
       if (dy.abs() > 0.5) return dy < 0 ? -1 : 1;
       return rectA.left.compareTo(rectB.left);
@@ -1711,13 +1722,17 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   Selectable? _selectableAt(Offset globalPosition) {
     for (final selectable in _selectables) {
-      if (selectable.boundingBoxes.isEmpty) continue;
-      final local = selectable.getTransformTo(null)..invert();
-      final localPoint = MatrixUtils.transformPoint(local, globalPosition);
-      for (final rect in selectable.boundingBoxes) {
-        if (rect.contains(localPoint)) {
-          return selectable;
+      try {
+        if (selectable.boundingBoxes.isEmpty) continue;
+        final local = selectable.getTransformTo(null)..invert();
+        final localPoint = MatrixUtils.transformPoint(local, globalPosition);
+        for (final rect in selectable.boundingBoxes) {
+          if (rect.contains(localPoint)) {
+            return selectable;
+          }
         }
+      } catch (_) {
+        continue;
       }
     }
     return null;
@@ -1750,14 +1765,15 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     }
   }
 
-  void _refreshGeometry() {
+  void _refreshGeometry({bool notify = true}) {
+    if (_disposed) return;
     if (_selectables.isEmpty) {
       if (_geometry.hasContent || _geometry.status != SelectionStatus.none) {
         _geometry = const SelectionGeometry(
           status: SelectionStatus.none,
           hasContent: false,
         );
-        notifyListeners();
+        if (notify) notifyListeners();
       }
       return;
     }
@@ -1791,8 +1807,20 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
           );
     if (next != _geometry) {
       _geometry = next;
-      notifyListeners();
+      if (notify) notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final selectable in _selectables) {
+      selectable.removeListener(_onSelectableChanged);
+    }
+    _selectables.clear();
+    _anchorStart = null;
+    _anchorEnd = null;
+    super.dispose();
   }
 
   @override
