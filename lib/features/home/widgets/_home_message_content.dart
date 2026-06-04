@@ -1627,13 +1627,334 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
           );
-    // 表格 cell 在 flutter_markdown_plus 内部各自挂的 SelectableText 是
-    // 互不相通的"选择孤岛"，且与 TableCell + Wrap 的布局组合下，鼠标
-    // 命中区被父级 TableCell 偷走 → 用户感知是"无法选中表格单元格"。
-    // 用 SelectionArea 包一层即可让整棵子树进入统一的 selection registrar，
-    // 既支持跨节点选择，又不破坏内部 SelectableText 自身的选择行为。
     if (!widget.selectable) return body;
-    return SelectionArea(child: body);
+    // 2026-06-04 修复：跨多行 select 选中 BUG。
+    //
+    // 旧实现直接用 `SelectionArea(child: body)`，但 `SelectionArea` 内部
+    // 是 `SelectableRegion`，其 `add(Selectable)` 强制 `assert(_selectable == null)`，
+    // 一棵子树里只能注册一个 `Selectable`。而 `flutter_markdown_plus` 的
+    // `MarkdownBuilder.build()` 会把每个段落、列表项、表格 cell 各生成
+    // 一个独立带 `UniqueKey()` 的 `SelectableText.rich`，多个 `Selectable`
+    // 同时竞争 `SelectableRegion` 的注册 — 只有最后一个能成功，其余全部
+    // 沦为「选择孤岛」，用户在孤岛之间拖拽就会被卡死，体感是「只能选一行」。
+    //
+    // 修复策略：在 `SelectionArea` 与 body 之间再嵌一层 `SelectionContainer`，
+    // 它本身是一个 `Selectable` 节点，对外层 `SelectionArea` 暴露为唯一
+    // 注册项；其 delegate 维护内部 N 个 `Selectable`（各 `SelectableText.rich`
+    // + 代码块内 `SelectableText.rich`），把跨节点的 selection event 派发到
+    // 命中节点。`MultiSelectableSelectionContainerDelegate` 未从
+    // `package:flutter/widgets.dart` 公开导出（仅由 `SelectableRegion`
+    // 内部持有），这里以最简实现覆盖核心需求：拖选/选词/选段/全选/清除
+    // 在多个 `Selectable` 之间正确串联。
+    return SelectionArea(
+      child: _MarkdownSelectionContainer(child: body),
+    );
+  }
+}
+
+/// 维持 markdown 树内多个 `SelectableText.rich` 节点的统一选择 registrar。
+///
+/// Flutter 内部用 `MultiSelectableSelectionContainerDelegate`（1000+ 行）支撑
+/// `SelectableRegion` 跨多 `Selectable` 行为，但该类未从公开 API 导出。
+/// 这里给 markdown 体专门写一个聚焦「选择区域派发」的精简版：
+/// - `add` / `remove` 维护 N 个 `Selectable` 列表（按文档顺序）；
+/// - `dispatchSelectionEvent` 路由到命中指针位置的 `Selectable`,
+///   并在拖选过程中追踪 start/end `Selectable` 以串联跨节点选区；
+/// - `getSelectedContent` / `value` 汇总整棵子树的 selection geometry。
+class _MarkdownSelectionDelegate extends SelectionContainerDelegate
+    with ChangeNotifier {
+  final List<Selectable> _selectables = <Selectable>[];
+  SelectionGeometry _geometry = const SelectionGeometry(
+    status: SelectionStatus.none,
+    hasContent: false,
+  );
+  // 跨节点拖选时锁定 start/end 节点,让中间 `Selectable` 同步全选。
+  Selectable? _anchorStart;
+  Selectable? _anchorEnd;
+
+  @override
+  void add(Selectable selectable) {
+    _selectables.add(selectable);
+    _sortSelectables();
+    selectable.addListener(_onSelectableChanged);
+    _refreshGeometry();
+  }
+
+  @override
+  void remove(Selectable selectable) {
+    selectable.removeListener(_onSelectableChanged);
+    _selectables.remove(selectable);
+    if (_anchorStart == selectable) _anchorStart = null;
+    if (_anchorEnd == selectable) _anchorEnd = null;
+    _refreshGeometry();
+  }
+
+  void _onSelectableChanged() => _refreshGeometry();
+
+  void _sortSelectables() {
+    _selectables.sort((a, b) {
+      if (a.boundingBoxes.isEmpty || b.boundingBoxes.isEmpty) return 0;
+      final rectA = MatrixUtils.transformRect(
+        a.getTransformTo(null),
+        a.boundingBoxes.first,
+      );
+      final rectB = MatrixUtils.transformRect(
+        b.getTransformTo(null),
+        b.boundingBoxes.first,
+      );
+      final dy = rectA.top - rectB.top;
+      if (dy.abs() > 0.5) return dy < 0 ? -1 : 1;
+      return rectA.left.compareTo(rectB.left);
+    });
+  }
+
+  int _indexOf(Selectable selectable) {
+    final i = _selectables.indexOf(selectable);
+    return i;
+  }
+
+  Selectable? _selectableAt(Offset globalPosition) {
+    for (final selectable in _selectables) {
+      if (selectable.boundingBoxes.isEmpty) continue;
+      final local = selectable.getTransformTo(null)..invert();
+      final localPoint = MatrixUtils.transformPoint(local, globalPosition);
+      for (final rect in selectable.boundingBoxes) {
+        if (rect.contains(localPoint)) {
+          return selectable;
+        }
+      }
+    }
+    return null;
+  }
+
+  void _fillIntermediate(Selectable start, Selectable end) {
+    final startIdx = _indexOf(start);
+    final endIdx = _indexOf(end);
+    if (startIdx < 0 || endIdx < 0) return;
+    final from = startIdx <= endIdx ? startIdx : endIdx;
+    final to = startIdx <= endIdx ? endIdx : startIdx;
+    for (var i = from + 1; i < to; i++) {
+      // 中间节点全选:发送 SelectAllSelectionEvent 即可。
+      _selectables[i].dispatchSelectionEvent(const SelectAllSelectionEvent());
+    }
+  }
+
+  void _clearOutsideRange(Selectable start, Selectable end) {
+    final startIdx = _indexOf(start);
+    final endIdx = _indexOf(end);
+    if (startIdx < 0 || endIdx < 0) return;
+    final from = startIdx <= endIdx ? startIdx : endIdx;
+    final to = startIdx <= endIdx ? endIdx : startIdx;
+    for (var i = 0; i < _selectables.length; i++) {
+      if (i < from || i > to) {
+        if (_selectables[i].value.hasContent) {
+          _selectables[i].dispatchSelectionEvent(const ClearSelectionEvent());
+        }
+      }
+    }
+  }
+
+  void _refreshGeometry() {
+    if (_selectables.isEmpty) {
+      if (_geometry.hasContent || _geometry.status != SelectionStatus.none) {
+        _geometry = const SelectionGeometry(
+          status: SelectionStatus.none,
+          hasContent: false,
+        );
+        notifyListeners();
+      }
+      return;
+    }
+    var hasAny = false;
+    var uncollapsed = false;
+    SelectionPoint? startPoint;
+    SelectionPoint? endPoint;
+    final rects = <Rect>[];
+    for (final selectable in _selectables) {
+      final g = selectable.value;
+      if (!g.hasContent) continue;
+      hasAny = true;
+      if (g.status == SelectionStatus.uncollapsed) uncollapsed = true;
+      startPoint ??= g.startSelectionPoint;
+      endPoint = g.endSelectionPoint ?? endPoint;
+      rects.addAll(g.selectionRects);
+    }
+    final next = hasAny
+        ? SelectionGeometry(
+            startSelectionPoint: startPoint,
+            endSelectionPoint: endPoint,
+            selectionRects: rects,
+            status: uncollapsed ? SelectionStatus.uncollapsed : SelectionStatus.collapsed,
+            hasContent: true,
+          )
+        : const SelectionGeometry(
+            status: SelectionStatus.none,
+            hasContent: false,
+          );
+    if (next != _geometry) {
+      _geometry = next;
+      notifyListeners();
+    }
+  }
+
+  @override
+  SelectionGeometry get value => _geometry;
+
+  @override
+  int get contentLength {
+    var total = 0;
+    for (final selectable in _selectables) {
+      total += selectable.contentLength;
+    }
+    return total;
+  }
+
+  @override
+  void pushHandleLayers(LayerLink? startHandle, LayerLink? endHandle) {
+    for (final selectable in _selectables) {
+      selectable.pushHandleLayers(startHandle, endHandle);
+    }
+  }
+
+  @override
+  SelectedContent? getSelectedContent() {
+    final buffer = StringBuffer();
+    for (final selectable in _selectables) {
+      final content = selectable.getSelectedContent();
+      if (content == null) continue;
+      if (buffer.isNotEmpty && content.plainText.isNotEmpty) {
+        buffer.write('\n');
+      }
+      buffer.write(content.plainText);
+    }
+    if (buffer.isEmpty) return null;
+    return SelectedContent(plainText: buffer.toString());
+  }
+
+  @override
+  SelectedContentRange? getSelection() {
+    if (_selectables.isEmpty) return null;
+    int? startOffset;
+    int? endOffset;
+    for (final selectable in _selectables) {
+      final range = selectable.getSelection();
+      if (range == null) continue;
+      if (startOffset == null) {
+        startOffset = range.startOffset;
+        endOffset = range.endOffset;
+      } else {
+        endOffset = range.endOffset;
+      }
+    }
+    if (startOffset == null || endOffset == null) return null;
+    return SelectedContentRange(
+      startOffset: startOffset,
+      endOffset: endOffset,
+    );
+  }
+
+  @override
+  SelectionResult dispatchSelectionEvent(SelectionEvent event) {
+    if (_selectables.isEmpty) return SelectionResult.none;
+    switch (event.type) {
+      case SelectionEventType.startEdgeUpdate:
+        final typed = event as SelectionEdgeUpdateEvent;
+        final target = _selectableAt(typed.globalPosition) ?? _selectables.first;
+        _anchorStart = target;
+        _anchorEnd ??= target;
+        final result = target.dispatchSelectionEvent(typed);
+        _fillIntermediate(_anchorStart!, _anchorEnd!);
+        return result;
+      case SelectionEventType.endEdgeUpdate:
+        final typed = event as SelectionEdgeUpdateEvent;
+        final target = _selectableAt(typed.globalPosition) ?? _selectables.last;
+        _anchorEnd = target;
+        _anchorStart ??= _selectables.first;
+        _clearOutsideRange(_anchorStart!, _anchorEnd!);
+        final result = target.dispatchSelectionEvent(typed);
+        _fillIntermediate(_anchorStart!, _anchorEnd!);
+        return result;
+      case SelectionEventType.clear:
+        for (final selectable in _selectables) {
+          selectable.dispatchSelectionEvent(const ClearSelectionEvent());
+        }
+        _anchorStart = null;
+        _anchorEnd = null;
+        return SelectionResult.none;
+      case SelectionEventType.selectAll:
+        for (final selectable in _selectables) {
+          selectable.dispatchSelectionEvent(const SelectAllSelectionEvent());
+        }
+        _anchorStart = _selectables.first;
+        _anchorEnd = _selectables.last;
+        return SelectionResult.none;
+      case SelectionEventType.selectWord:
+        final typed = event as SelectWordSelectionEvent;
+        final target = _selectableAt(typed.globalPosition);
+        if (target != null) {
+          _anchorStart = target;
+          _anchorEnd = target;
+          for (final s in _selectables) {
+            if (s != target && s.value.hasContent) {
+              s.dispatchSelectionEvent(const ClearSelectionEvent());
+            }
+          }
+          return target.dispatchSelectionEvent(typed);
+        }
+        return SelectionResult.none;
+      case SelectionEventType.selectParagraph:
+        final typed = event as SelectParagraphSelectionEvent;
+        final target = _selectableAt(typed.globalPosition);
+        if (target != null) {
+          _anchorStart = target;
+          _anchorEnd = target;
+          for (final s in _selectables) {
+            if (s != target && s.value.hasContent) {
+              s.dispatchSelectionEvent(const ClearSelectionEvent());
+            }
+          }
+          return target.dispatchSelectionEvent(typed);
+        }
+        return SelectionResult.none;
+      case SelectionEventType.granularlyExtendSelection:
+      case SelectionEventType.directionallyExtendSelection:
+        for (final selectable in _selectables) {
+          selectable.dispatchSelectionEvent(event);
+        }
+        return SelectionResult.end;
+    }
+  }
+}
+
+/// 把 markdown 子树包进 [SelectionContainer] 的薄壳 widget，
+/// 持有 [_MarkdownSelectionDelegate] 的生命周期。
+class _MarkdownSelectionContainer extends StatefulWidget {
+  const _MarkdownSelectionContainer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MarkdownSelectionContainer> createState() =>
+      _MarkdownSelectionContainerState();
+}
+
+class _MarkdownSelectionContainerState
+    extends State<_MarkdownSelectionContainer> {
+  late final _MarkdownSelectionDelegate _delegate =
+      _MarkdownSelectionDelegate();
+
+  @override
+  void dispose() {
+    _delegate.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectionContainer(
+      delegate: _delegate,
+      child: widget.child,
+    );
   }
 }
 
