@@ -280,11 +280,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       zh: _mermaidViewActive ? '代码' : '视图',
       en: _mermaidViewActive ? 'Code' : 'View',
     );
-    final mermaidHintLabel = _localizedText(
-      context,
-      zh: '长按拖动 / 双指缩放',
-      en: 'Long press to pan / pinch to zoom',
-    );
     // 修复：将 border 移至 foregroundDecoration，确保边框绘制在子组件
     // 之上，避免 header 背景色在圆角处覆盖 border。
     // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
@@ -330,15 +325,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                         : palette.actionColor,
                     foregroundColor: palette.actionTextColor,
                     onTap: _toggleMermaidView,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildToolPill(
-                    label: mermaidHintLabel,
-                    icon: Icons.pan_tool_alt_rounded,
-                    backgroundColor: palette.actionColor.withValues(
-                      alpha: 0.72,
-                    ),
-                    foregroundColor: palette.actionTextColor,
                   ),
                   const SizedBox(width: 8),
                 ],
