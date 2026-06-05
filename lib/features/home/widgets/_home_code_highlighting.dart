@@ -2118,7 +2118,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       child: InkWell(
         onTap: () {
           // 临时排查日志：确认工具栏按钮是否真的被点中。
-          debugPrint(
+          // ignore: avoid_print
+          print(
             '[mermaid-debug] tool pill tapped: $label, '
             'isReady=$_isReady, bridgeReady=$_bridgeReady, '
             'hasController=${_controller != null}, loadError=$_loadError',
