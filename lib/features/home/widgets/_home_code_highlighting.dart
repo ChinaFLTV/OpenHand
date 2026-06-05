@@ -2365,7 +2365,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 icon: Icons.copy_all_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
-                onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
+                onTap: () {
+                  // 临时诊断：绑 onTap 触发即打点，便于定位"按钮没反应"是哪一层挂掉。
+                  // ignore: avoid_print
+                  print('[mermaid-svg-copy] 复制 SVG 按钮 onTap 触发');
+                  unawaited(_copySvgMarkup());
+                },
               ),
               const SizedBox(width: 8),
               _buildToolPill(
@@ -2541,41 +2546,76 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   Future<void> _copySvgMarkup() async {
-    // 入口 trace：确认按钮 onTap 真的进了这个函数。
-    // 之前多次“点了控制台没日志”是因为 navigator.clipboard.writeText
-    // 在 WKWebView 里被静默拦截（既不报错也不写剪贴板），所以日志看不到。
-    // 现在改走 Dart 端 Clipboard.setData：这是 `_writeCodeBlockToClipboard`
-    // 已经验证过的“复制代码块”同一路径。
+    // ignore: avoid_print
+    print('[mermaid-svg-copy] === _copySvgMarkup 入口 ===');
     // ignore: avoid_print
     print(
-      '[mermaid-debug] _copySvgMarkup entry, hasController=${_controller != null}, '
-      'isReady=$_isReady, bridgeReady=$_bridgeReady, loadError=$_loadError, '
-      'svgMarkup.length=${_svgMarkup.length}',
+      '[mermaid-svg-copy] 状态: _controller=${_controller != null}, '
+      '_isReady=$_isReady, _bridgeReady=$_bridgeReady, '
+      '_loadError=$_loadError, _svgMarkup.length=${_svgMarkup.length}',
     );
-    final controller = _controller;
-    if (controller == null || !_isReady || _loadError != null) {
-      // ignore: avoid_print
-      print(
-        '[mermaid-debug] _copySvgMarkup: locked out, '
-        'hasController=${controller != null}, isReady=$_isReady, loadError=$_loadError',
+    final messenger = ScaffoldMessenger.of(context);
+
+    // 1) 立即给屏幕一个反馈，证明函数被调到了。
+    if (mounted) {
+      OpenHandSnackBar.hideCurrentOn(messenger);
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '正在复制 SVG…',
+              en: 'Copying SVG…',
+            ),
+          ),
+          duration: const Duration(milliseconds: 700),
+        ),
       );
-      return;
     }
 
-    // 首选：直接用桥里回包过来的 _svgMarkup。这是渲染完成后由 JS 通过
-    // postMessage 送回的最新 SVG，状态里就有，零 JS 依赖。
+    // 2) 首选：用桥里回包过来的 _svgMarkup state。
     String svg = _svgMarkup.trim();
+    // ignore: avoid_print
+    print('[mermaid-svg-copy] 步骤2: _svgMarkup 截尾后长度=${svg.length}');
 
-    // 兜底：如果状态没值（极端时序：rendered 比 svg 先到 setState 等），
-    // 再向 WebView 拉一次。这里要返回字符串，所以用
-    // runJavaScriptReturningResult，返回值是 JSON 编码后的字符串字面量。
+    // 3) 兜底：state 空时再向 WebView 拉一次。
     if (svg.isEmpty) {
+      final controller = _controller;
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤3: state 空, 准备从 WebView 拉取');
+      if (controller == null) {
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 错误: controller 也是 null');
+        if (mounted) {
+          OpenHandSnackBar.hideCurrentOn(messenger);
+          _showHomeSnackBarWithMessenger(
+            context,
+            messenger,
+            SnackBar(
+              content: Text(
+                _localizedText(
+                  context,
+                  zh: 'SVG 还未生成，请稍后再试。',
+                  en: 'SVG is not ready yet. Please try again.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
       try {
         final raw = await controller.runJavaScriptReturningResult(
           "(function(){try{var el=document.getElementById('inner');if(!el)return '';"
           "var n=el.querySelector('svg');if(!n)return '';"
           "return new XMLSerializer().serializeToString(n);}catch(_){return '';}})();",
         );
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3: runJavaScriptReturningResult 返回, '
+            'raw 类型=${raw.runtimeType}, isString=${raw is String}, '
+            'length=${raw is String ? raw.length : -1}');
         if (raw is String && raw.isNotEmpty) {
           String unwrapped = raw;
           if (unwrapped.startsWith('"') && unwrapped.endsWith('"')) {
@@ -2604,59 +2644,78 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           }
           svg = unwrapped.trim();
         }
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3: 解码后 svg 长度=${svg.length}');
       } catch (e) {
         // ignore: avoid_print
-        print('[mermaid-debug] _copySvgMarkup: runJavaScriptReturningResult failed: $e');
+        print('[mermaid-svg-copy] 步骤3 异常: $e');
       }
     }
 
     if (svg.isEmpty) {
       // ignore: avoid_print
-      print('[mermaid-debug] _copySvgMarkup: svg still empty after fallback');
-      if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
-        context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: 'SVG 还未生成，请稍后再试。',
-              en: 'SVG is not ready yet. Please try again.',
+      print('[mermaid-svg-copy] 失败: svg 仍为空');
+      if (mounted) {
+        OpenHandSnackBar.hideCurrentOn(messenger);
+        _showHomeSnackBarWithMessenger(
+          context,
+          messenger,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: 'SVG 还未生成，请稍后再试。',
+                en: 'SVG is not ready yet. Please try again.',
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
       return;
     }
 
+    // 4) 落剪贴板。Clipboard.setData 是 _writeCodeBlockToClipboard 走通的同一条路径。
     // ignore: avoid_print
-    print('[mermaid-debug] _copySvgMarkup: writing to clipboard, length=${svg.length}');
+    print('[mermaid-svg-copy] 步骤4: 调用 Clipboard.setData, length=${svg.length}');
     try {
       await Clipboard.setData(ClipboardData(text: svg));
-      if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
-        context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: 'SVG 已复制。', en: 'SVG copied.'),
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤4: Clipboard.setData 调用完成');
+      if (mounted) {
+        OpenHandSnackBar.hideCurrentOn(messenger);
+        _showHomeSnackBarWithMessenger(
+          context,
+          messenger,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: 'SVG 已复制。',
+                en: 'SVG copied.',
+              ),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (err) {
       // ignore: avoid_print
-      print('[mermaid-debug] _copySvgMarkup: clipboard write failed: $err');
-      if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
-        context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: '复制 SVG 失败。', en: 'Failed to copy SVG.'),
+      print('[mermaid-svg-copy] 步骤4 异常: $err');
+      if (mounted) {
+        OpenHandSnackBar.hideCurrentOn(messenger);
+        _showHomeSnackBarWithMessenger(
+          context,
+          messenger,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '复制 SVG 失败：$err',
+                en: 'Failed to copy SVG: $err',
+              ),
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
