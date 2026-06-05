@@ -2927,6 +2927,18 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           post('error:fit_failed:' + formatError(err));
         }
         post('ready');
+      } else {
+        // 当前宿主还不存在 stage / inner（页面还没渲染完），延后等 DOM ready 再 fit。
+        var onReady = function(){
+          try { fit(); } catch (err) { post('error:fit_failed:' + formatError(err)); }
+          post('ready');
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', onReady, { once: true });
+        } else {
+          setTimeout(onReady, 0);
+        }
+      }
         stage.addEventListener('wheel', function(e) {
           if (!(e.ctrlKey || e.metaKey)) return;
           e.preventDefault();
