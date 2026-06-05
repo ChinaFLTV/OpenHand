@@ -2304,6 +2304,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   Widget build(BuildContext context) {
     final controlsLocked =
         !_isReady || !_bridgeReady || _loadError != null || _controller == null;
+    // 临时排查日志：确认 build 时 controlsLocked 真实值。
+    // ignore: avoid_print
+    print(
+      '[mermaid-debug] build controlsLocked=$controlsLocked '
+      'isReady=$_isReady bridgeReady=$_bridgeReady '
+      'hasController=${_controller != null} loadError=$_loadError',
+    );
     final body = Stack(
       children: [
         if (_controller != null)
