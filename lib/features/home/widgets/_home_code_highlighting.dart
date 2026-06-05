@@ -2541,10 +2541,15 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   Future<void> _copySvgMarkup() async {
-    final svg = _svgMarkup.trim();
-    if (svg.isEmpty) return;
+    final controller = _controller;
+    if (controller == null || !_isReady || _loadError != null) return;
     try {
-      await Clipboard.setData(ClipboardData(text: svg));
+      // 2026-06-04: 不再依赖 _svgMarkup 跨帧 state，直接从 WebView 读最新 SVG
+      // 并在 WebView 内部用 navigator.clipboard.writeText 写剪贴板。
+      // 这样既能绕开 setState 同步问题，也能绕开 24KB 大文本走 macOS Pasteboard 的限制。
+      await controller.runJavaScript(
+        "(function(){try{var el=document.getElementById('inner');if(!el)return 0;var svg=el.querySelector('svg');if(!svg)return 0;var s=new XMLSerializer().serializeToString(svg);if(!s)return 0;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);return 1;}return 0;}catch(_){return 0;}})();",
+      );
       if (!mounted) return;
       _showHomeSnackBarWithMessenger(
         context,
