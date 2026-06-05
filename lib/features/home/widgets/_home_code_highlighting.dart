@@ -2184,6 +2184,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     try {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        // 临时诊断：把 WebView 内 console.log 接到 Flutter 调试输出，
+        // 用来定位 mermaid 画布手势为何收不到 pointer 事件。
+        // 问题解决后删除。
+        ..setOnConsoleMessage((message) {
+          // ignore: avoid_print
+          print('[mermaid-console] [${message.level.name}] ${message.message}');
+        })
         ..addJavaScriptChannel(
           'OpenHandMermaid',
           onMessageReceived: (message) {
@@ -3028,8 +3035,21 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       };
       window.__openhandMermaidReset = reset;
       window.__openhandMermaidFit = fit;
+      // 临时诊断：把关键事件打点抛到 console，配合 Flutter 端
+      // setOnConsoleMessage 接住，定位手势为何不响应。问题解决后删除。
+      var gestureLog = function (msg) {
+        try { console.log('[mermaid-gesture] ' + msg); } catch (_) {}
+      };
+      try {
+        var sRect = stage.getBoundingClientRect();
+        var iRect = inner.getBoundingClientRect();
+        gestureLog('init stage=' + sRect.width.toFixed(0) + 'x' + sRect.height.toFixed(0)
+          + ' inner=' + iRect.width.toFixed(0) + 'x' + iRect.height.toFixed(0)
+          + ' svgChild=' + (inner.querySelector('svg') ? 'yes' : 'no'));
+      } catch (_) {}
       // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点。
       stage.addEventListener('wheel', function (e) {
+        gestureLog('wheel ctrl=' + e.ctrlKey + ' meta=' + e.metaKey + ' dy=' + e.deltaY);
         if (!(e.ctrlKey || e.metaKey)) return;
         e.preventDefault();
         clearLongPress();
@@ -3044,11 +3064,17 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         state.scale = newScale;
         apply();
       }, { passive: false });
+      var moveLogCount = 0;
       var onPointerDown = function (e) {
         try { stage.setPointerCapture(e.pointerId); } catch (_) {}
         // 阻止 iOS Safari / 桌面浏览器默认手势（图片拖出、长按菜单等）。
         if (e.cancelable) e.preventDefault();
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        gestureLog('pointerdown type=' + e.pointerType
+          + ' target=' + (e.target && e.target.tagName)
+          + ' id=' + (e.target && e.target.id || '')
+          + ' captureEl=' + (e.currentTarget && e.currentTarget.tagName)
+          + ' pointers=' + pointers.size);
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
@@ -3086,6 +3112,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             tapStart = null;
             postDrag(true);
             setInteractiveTransition(false);
+            gestureLog('longPress fired');
           }
         }, 280);
       };
@@ -3097,6 +3124,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         var moved = Math.hypot(dx, dy);
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (moved > 4) pointerMoved = true;
+        if (moveLogCount < 3) {
+          gestureLog('pointermove type=' + e.pointerType
+            + ' target=' + (e.target && e.target.tagName)
+            + ' pointers=' + pointers.size
+            + ' dragReady=' + dragReady);
+          moveLogCount++;
+        }
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
@@ -3137,6 +3171,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           var wasTap = tapStart != null && !pointerMoved && !dragReady;
           var tapX = tapStart ? tapStart.x : 0;
           var tapY = tapStart ? tapStart.y : 0;
+          gestureLog('pointerend type=' + e.pointerType
+            + ' target=' + (e.target && e.target.tagName)
+            + ' wasTap=' + wasTap + ' dragReady=' + dragReady
+            + ' pointerMoved=' + pointerMoved);
           dragReady = false;
           longPressPointerId = null;
           tapStart = null;
@@ -3150,11 +3188,16 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           if (wasTap) forwardTap(tapX, tapY);
         }
       };
-      stage.addEventListener('pointerdown', onPointerDown);
-      stage.addEventListener('pointermove', onPointerMove);
-      stage.addEventListener('pointerup', onPointerEnd);
-      stage.addEventListener('pointercancel', onPointerEnd);
+      // 关键修复：使用 capture 阶段。Mermaid 10.x 在 SVG 节点上挂的
+      // click / pointer 处理器会 e.stopPropagation()，把 pointer 事件
+      // 拦在 SVG 内不再冒泡到 stage；切到 capture 后 stage 的监听
+      // 会在 SVG 自己的处理器之前触发，gesture 真正能拿到事件。
+      stage.addEventListener('pointerdown', onPointerDown, { capture: true });
+      stage.addEventListener('pointermove', onPointerMove, { capture: true });
+      stage.addEventListener('pointerup', onPointerEnd, { capture: true });
+      stage.addEventListener('pointercancel', onPointerEnd, { capture: true });
       stage.addEventListener('dblclick', function () { reset(); });
+      gestureLog('listeners attached (capture=true)');
     })();
   </script>
 </body>
