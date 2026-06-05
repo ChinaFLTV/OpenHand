@@ -2704,26 +2704,98 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       }
     }
 
-    // 验证：写完立刻从同一通路上读回。这是判别"写没写进去"的唯一硬指标。
+    // 验证：写完立刻读回，并交叉对比 Flutter 通道 vs OS 通道。
+    // 数据驱动结论（2026-06-05）：pbcopy 写 24576 字节，Flutter 读回 111220，
+    // 多出 86644 字节。原因待定：可能是 NSPasteboard 多个 scent 类型被合并，
+    // 也可能是 pbcopy 本身在某些 macOS 环境下写入路径异常。
     // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤4: 验证 Clipboard.getData 读回');
-    String? verifyText;
-    int verifyLen = 0;
+    print('[mermaid-svg-copy] 步骤4: 验证剪贴板 (Flutter + OS 双通道)');
+
+    String? flutterText;
+    int flutterLen = 0;
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
-      verifyText = data?.text;
-      verifyLen = verifyText?.length ?? 0;
+      flutterText = data?.text;
+      flutterLen = flutterText?.length ?? 0;
       // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4: 读回长度=$verifyLen, '
-          '期望长度=${svg.length}, 一致=${verifyLen == svg.length}');
+      print('[mermaid-svg-copy] 步骤4a: Flutter Clipboard.getData 读回长度=$flutterLen, '
+          '期望=${svg.length}, 一致=${flutterLen == svg.length}');
+      if (flutterText != null && flutterText.isNotEmpty) {
+        final headLen = flutterText.length < 300 ? flutterText.length : 300;
+        final tailStart = flutterText.length < 300 ? 0 : flutterText.length - 300;
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤4a: Flutter 读回首 300: '
+            '${flutterText.substring(0, headLen)}');
+        if (tailStart > 0) {
+          // ignore: avoid_print
+          print('[mermaid-svg-copy] 步骤4a: Flutter 读回末 300: '
+              '${flutterText.substring(tailStart)}');
+        }
+        // 统计 <svg / </svg 出现次数，若 > 1 则说明 pasteboard 里有多个 SVG 拼接
+        final svgOpenCount = '<svg'.allMatches(flutterText).length;
+        final svgCloseCount = '</svg>'.allMatches(flutterText).length;
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤4a: Flutter 读回内 <svg 出现=$svgOpenCount 次, '
+            '</svg> 出现=$svgCloseCount 次');
+      }
     } catch (e) {
       // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4 异常: $e');
+      print('[mermaid-svg-copy] 步骤4a 异常: $e');
     }
+
+    // 交叉：用 pbpaste 直接读 OS 剪贴板，看 pbcopy 写入是否在 OS 层就是 111220，
+    // 还是只有 Flutter 这条通道才看到 111220。这是定位根因的关键差异点。
+    int pbpasteLen = 0;
+    String? pbpasteHead;
+    int pbpasteSvgOpenCount = 0;
+    int pbpasteSvgCloseCount = 0;
+    try {
+      final proc = await Process.start('pbpaste', const <String>[]);
+      final chunks = <int>[];
+      await for (final chunk in proc.stdout) {
+        chunks.addAll(chunk);
+      }
+      final bytes = Uint8List.fromList(chunks);
+      final exitCode = await proc.exitCode;
+      pbpasteLen = bytes.length;
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤4b: pbpaste 读回字节数=$pbpasteLen, exitCode=$exitCode');
+      if (pbpasteLen > 0) {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        final headLen = text.length < 300 ? text.length : 300;
+        pbpasteHead = text.substring(0, headLen);
+        pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
+        pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤4b: pbpaste 读回首 300: $pbpasteHead');
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤4b: pbpaste 内 <svg 出现=$pbpasteSvgOpenCount 次, '
+            '</svg> 出现=$pbpasteSvgCloseCount 次');
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤4b 异常: $e');
+    }
+
+    // 关键判定：
+    // ① pbpaste 字节数 == svg.length 且 pbpaste 内有 1 个 <svg / </svg>：
+    //    写成功、OS 层正确，Flutter 读回 111220 是 Flutter 通道异常。
+    // ② pbpaste 字节数 == 111220：说明 pbcopy 实际写入了 111220 字节，
+    //    写入路径异常，与 Flutter 通道无关。
+    // ③ pbpaste 字节数 == 0：pbcopy 写失败（但 exitCode=0 自相矛盾）。
+    final bool osLayerOk = pbpasteLen == svg.length
+        && pbpasteSvgOpenCount == 1
+        && pbpasteSvgCloseCount == 1;
+    final bool flutterReadOk = flutterLen == svg.length;
+    // ignore: avoid_print
+    print('[mermaid-svg-copy] 步骤4 判定: osLayerOk=$osLayerOk, flutterReadOk=$flutterReadOk');
 
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
-    if (writeOk && verifyLen == svg.length) {
+    if (writeOk && osLayerOk) {
+      // pbpaste 字节数 == svg.length + <svg 出现 1 次：OS 层确认正确写入。
+      // 即便 Flutter 通道读回异常，剪贴板里实际数据就是这份 SVG。
+      // 告诉用户可以粘贴；并把"导出 SVG"作为可靠兜底。
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -2731,8 +2803,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           content: Text(
             _localizedText(
               context,
-              zh: 'SVG 已复制（${svg.length} 字节，方法=$writeMethod，剪贴板读回 OK）。请到目标 app 粘贴。',
-              en: 'SVG copied (${svg.length}B, method=$writeMethod, clipboard verified). Paste in target app.',
+              zh: 'SVG 已复制（${svg.length} 字节，OS 层 pbpaste 校验 OK）。请到目标 app 粘贴。如仍看不到，请改用右侧"导出 SVG"。',
+              en: 'SVG copied (${svg.length}B, OS pbpaste verified). Paste in target app. If still missing, use "Export SVG".',
             ),
           ),
         ),
@@ -2745,8 +2817,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           content: Text(
             _localizedText(
               context,
-              zh: '剪贴板异常：writeOk=$writeOk, 写入=${svg.length}B, 读回=${verifyLen}B${writeError != null ? '，错=$writeError' : ''}',
-              en: 'Clipboard issue: writeOk=$writeOk, wrote=${svg.length}B, read=${verifyLen}B${writeError != null ? ', err=$writeError' : ''}',
+              zh: '剪贴板异常：写入=${svg.length}B, Flutter 读回=${flutterLen}B, pbpaste 读回=${pbpasteLen}B, osOk=$osLayerOk, 方法=$writeMethod${writeError != null ? '，错=$writeError' : ''}。请改用右侧"导出 SVG"。',
+              en: 'Clipboard issue: wrote=${svg.length}B, Flutter read=${flutterLen}B, pbpaste read=${pbpasteLen}B, osOk=$osLayerOk, method=$writeMethod${writeError != null ? ', err=$writeError' : ''}. Use "Export SVG" instead.',
             ),
           ),
         ),
