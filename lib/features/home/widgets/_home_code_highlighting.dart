@@ -2047,12 +2047,24 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
 /// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
 /// 按钮切到视图时启用：用 [WebView] + mermaid.js (CDN) 渲染 SVG,
-/// 配合 CSS `transform: scale/translate` + `touch-action: pinch-zoom`
-/// 提供双指放缩与拖动平移；mermaid 原生 `interaction: true` 还能让用户
-/// 点击图元悬浮 tooltip、点击边/节点触发回调。
+/// 配合 CSS `transform: scale/translate` + `touch-action: none` 让
+/// JS 完全接管双指放缩与长按拖动平移；mermaid 原生 `interaction: true`
+/// 还能让用户点击图元悬浮 tooltip、点击边/节点触发回调。
 ///
 /// 仅在用户主动切到「视图」时才挂载 WebView，默认展示代码文本，
 /// 不浪费主线程 / WebView 内存，与正式响应 markdown 渲染节流同源思路。
+class _SvgClipboardVerification {
+  const _SvgClipboardVerification({
+    required this.pbpasteLen,
+    required this.flutterLen,
+    required this.osLayerOk,
+  });
+
+  final int pbpasteLen;
+  final int flutterLen;
+  final bool osLayerOk;
+}
+
 class _MermaidDiagramView extends StatefulWidget {
   const _MermaidDiagramView({required this.source, required this.palette});
 
@@ -2065,10 +2077,7 @@ class _MermaidDiagramView extends StatefulWidget {
 
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   final GlobalKey _interactiveRegionKey = GlobalKey();
-  final GlobalKey _viewportRegionKey = GlobalKey();
   WebViewController? _controller;
-  Offset? _pointerAnchorGlobal;
-  bool _pointerBridgeActive = false;
   bool _isReady = false;
   String? _loadError;
   Timer? _loadWatchdog;
@@ -2331,10 +2340,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
       ],
     );
-    void markInteractivePointer() {
-      _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-    }
-
     return Column(
       key: _interactiveRegionKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2365,12 +2370,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 icon: Icons.copy_all_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
-                onTap: () {
-                  // 临时诊断：绑 onTap 触发即打点，便于定位"按钮没反应"是哪一层挂掉。
-                  // ignore: avoid_print
-                  print('[mermaid-svg-copy] 复制 SVG 按钮 onTap 触发');
-                  unawaited(_copySvgMarkup());
-                },
+                onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
               ),
               const SizedBox(width: 8),
               _buildToolPill(
@@ -2408,47 +2408,15 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
         const SizedBox(height: 10),
-        Listener(
-          key: _viewportRegionKey,
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) {
-            markInteractivePointer();
-            _pointerAnchorGlobal = event.position;
-            _pointerBridgeActive = false;
-            unawaited(_forwardPointerDown(event.position));
-          },
-          onPointerMove: (event) {
-            markInteractivePointer();
-            final anchor = _pointerAnchorGlobal;
-            if (anchor == null) return;
-            if ((event.position - anchor).distance > 8) {
-              _pointerBridgeActive = true;
-            }
-            unawaited(_forwardPointerMove(event.position));
-          },
-          onPointerSignal: (_) => markInteractivePointer(),
-          onPointerCancel: (_) {
-            _pointerAnchorGlobal = null;
-            _pointerBridgeActive = false;
-          },
-          onPointerUp: (event) {
-            markInteractivePointer();
-            final anchor = _pointerAnchorGlobal;
-            final shouldTap = !_pointerBridgeActive && anchor != null &&
-                (event.position - anchor).distance <= 8;
-            _pointerAnchorGlobal = null;
-            _pointerBridgeActive = false;
-            unawaited(_forwardPointerUp(event.position));
-            if (shouldTap) {
-              unawaited(_simulateTapAtGlobal(event.position));
-            }
-          },
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: body,
-            ),
+        // 画布区域手势完全交给 WebView JS（touch-action: none + pointerdown/move/up），
+        // 这里不要再用 Flutter Listener 拦截：macOS 的 WKWebView 是 platform view，
+        // 不会把 pointer 事件回灌到 Flutter；iOS / Android 上的 webview_flutter 也是
+        // 直接由 platform view 消费事件，Listener 收到的是 platform view 之外的空白处。
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: body,
           ),
         ),
       ],
@@ -2483,50 +2451,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
   }
 
-  Offset? _localViewportPoint(Offset globalPosition) {
-    final context = _viewportRegionKey.currentContext;
-    final renderObject = context?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.attached) {
-      return null;
-    }
-    return renderObject.globalToLocal(globalPosition);
-  }
-
-  String _jsPoint(Offset point) =>
-      'var x=${point.dx.toStringAsFixed(2)},y=${point.dy.toStringAsFixed(2)};';
-
-  Future<void> _simulateTapAtGlobal(Offset globalPosition) async {
-    final local = _localViewportPoint(globalPosition);
-    if (local == null) return;
-    await _runMermaidCommand(
-      "${_jsPoint(local)}var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}",
-    );
-  }
-
-  Future<void> _forwardPointerDown(Offset globalPosition) async {
-    final local = _localViewportPoint(globalPosition);
-    if (local == null) return;
-    await _runMermaidCommand(
-      "${_jsPoint(local)}window.__openhandMermaidPointerDown&&window.__openhandMermaidPointerDown(x,y);",
-    );
-  }
-
-  Future<void> _forwardPointerMove(Offset globalPosition) async {
-    final local = _localViewportPoint(globalPosition);
-    if (local == null) return;
-    await _runMermaidCommand(
-      "${_jsPoint(local)}window.__openhandMermaidPointerMove&&window.__openhandMermaidPointerMove(x,y);",
-    );
-  }
-
-  Future<void> _forwardPointerUp(Offset globalPosition) async {
-    final local = _localViewportPoint(globalPosition);
-    if (local == null) return;
-    await _runMermaidCommand(
-      "${_jsPoint(local)}window.__openhandMermaidPointerUp&&window.__openhandMermaidPointerUp(x,y);",
-    );
-  }
-
   void _resetView() {
     _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
     unawaited(
@@ -2546,15 +2470,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   Future<void> _copySvgMarkup() async {
-    // ignore: avoid_print
-    print('[mermaid-svg-copy] === _copySvgMarkup 入口 ===');
-    // ignore: avoid_print
-    print(
-      '[mermaid-svg-copy] 状态: _controller=${_controller != null}, '
-      '_isReady=$_isReady, _bridgeReady=$_bridgeReady, '
-      '_loadError=$_loadError, _svgMarkup.length=${_svgMarkup.length}, '
-      'isMacOS=${Platform.isMacOS}',
-    );
     final messenger = ScaffoldMessenger.of(context);
 
     if (mounted) {
@@ -2576,28 +2491,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
 
     String svg = _svgMarkup.trim();
-    // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤2: svg length=${svg.length}');
-
     if (svg.isEmpty) {
       final controller = _controller;
       if (controller == null) {
-        if (mounted) {
-          OpenHandSnackBar.hideCurrentOn(messenger);
-          _showHomeSnackBarWithMessenger(
-            context,
-            messenger,
-            SnackBar(
-              content: Text(
-                _localizedText(
-                  context,
-                  zh: 'SVG 还未生成，请稍后再试。',
-                  en: 'SVG is not ready yet. Please try again.',
-                ),
-              ),
-            ),
-          );
-        }
+        _showSvgNotReadySnack(messenger);
         return;
       }
       try {
@@ -2609,190 +2506,53 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         if (raw is String && raw.isNotEmpty) {
           svg = raw.trim();
         }
-      } catch (e) {
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] WebView 兜底异常: $e');
+      } catch (_) {
+        // ignore: WebView fallback failed; fall through to "not ready" branch.
       }
     }
 
     if (svg.isEmpty) {
-      if (mounted) {
-        OpenHandSnackBar.hideCurrentOn(messenger);
-        _showHomeSnackBarWithMessenger(
-          context,
-          messenger,
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: 'SVG 还未生成，请稍后再试。',
-                en: 'SVG is not ready yet. Please try again.',
-              ),
-            ),
-          ),
-        );
-      }
+      _showSvgNotReadySnack(messenger);
       return;
     }
 
-    // 关键路径（macOS）：数据驱动显示 Flutter 的 Clipboard.setData /
-    // Pasteboard.writeText（两者在 pasteboard-0.5.0 包内就是同一函数）
-    // 静默"完成"但剪贴板里没数据。改走 OS 原生 pbcopy，跨进程直接写
-    // NSPasteboard.general，不依赖任何 Flutter 桥。
+    // macOS 上 Flutter 的 Clipboard.setData / Pasteboard.writeText 在部分
+    // 用户环境里会"静默"返回成功但剪贴板里没数据；先走 OS 原生 pbcopy，
+    // 再回退到 Pasteboard / Clipboard.setData。
     bool writeOk = false;
     String? writeMethod;
-    String? writeError;
     if (Platform.isMacOS) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤3: 调 pbcopy 写 NSPasteboard');
       try {
-        final proc = await Process.start(
-          'pbcopy',
-          const <String>[],
-        );
+        final proc = await Process.start('pbcopy', const <String>[]);
         proc.stdin.write(utf8.encode(svg));
         await proc.stdin.flush();
         await proc.stdin.close();
-        final exitCode = await proc.exitCode;
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3: pbcopy exitCode=$exitCode');
-        if (exitCode == 0) {
+        if (await proc.exitCode == 0) {
           writeOk = true;
           writeMethod = 'pbcopy';
-        } else {
-          final stderr = await proc.stderr
-              .transform(utf8.decoder)
-              .join()
-              .timeout(const Duration(milliseconds: 200));
-          writeError = 'pbcopy exitCode=$exitCode, stderr=$stderr';
         }
-      } catch (e) {
-        writeError = 'pbcopy exception: $e';
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3 异常: $e');
-      }
+      } catch (_) {}
     }
-
-    // 兜底：pasteboard.writeText（注意：pasteboard-0.5.0 里它就是
-    // Clipboard.setData 的同步别名，所以仅作防御性兜底）。
     if (!writeOk) {
       try {
         Pasteboard.writeText(svg);
         writeOk = true;
         writeMethod = 'Pasteboard.writeText';
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3b: Pasteboard.writeText 调用完成');
-      } catch (e) {
-        writeError ??= 'pasteboard exception: $e';
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3b 异常: $e');
-      }
+      } catch (_) {}
     }
-
-    // 兜底：Clipboard.setData 异步路径（与"复制代码块"同一来源）。
     if (!writeOk) {
       try {
         await Clipboard.setData(ClipboardData(text: svg));
         writeOk = true;
         writeMethod = 'Clipboard.setData';
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3c: Clipboard.setData 完成');
-      } catch (e) {
-        writeError ??= 'clipboard exception: $e';
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3c 异常: $e');
-      }
+      } catch (_) {}
     }
 
-    // 验证：写完立刻读回，并交叉对比 Flutter 通道 vs OS 通道。
-    // 数据驱动结论（2026-06-05）：pbcopy 写 24576 字节，Flutter 读回 111220，
-    // 多出 86644 字节。原因待定：可能是 NSPasteboard 多个 scent 类型被合并，
-    // 也可能是 pbcopy 本身在某些 macOS 环境下写入路径异常。
-    // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤4: 验证剪贴板 (Flutter + OS 双通道)');
+    // 验证剪贴板（OS 通道 pbpaste 优先，Flutter 通道为辅），用以决定
+    // snackbar 文案与是否提供"打开文件"按钮。
+    final verification = await _verifySvgClipboard(svg);
 
-    String? flutterText;
-    int flutterLen = 0;
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      flutterText = data?.text;
-      flutterLen = flutterText?.length ?? 0;
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4a: Flutter Clipboard.getData 读回长度=$flutterLen, '
-          '期望=${svg.length}, 一致=${flutterLen == svg.length}');
-      if (flutterText != null && flutterText.isNotEmpty) {
-        final headLen = flutterText.length < 300 ? flutterText.length : 300;
-        final tailStart = flutterText.length < 300 ? 0 : flutterText.length - 300;
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤4a: Flutter 读回首 300: '
-            '${flutterText.substring(0, headLen)}');
-        if (tailStart > 0) {
-          // ignore: avoid_print
-          print('[mermaid-svg-copy] 步骤4a: Flutter 读回末 300: '
-              '${flutterText.substring(tailStart)}');
-        }
-        // 统计 <svg / </svg 出现次数，若 > 1 则说明 pasteboard 里有多个 SVG 拼接
-        final svgOpenCount = '<svg'.allMatches(flutterText).length;
-        final svgCloseCount = '</svg>'.allMatches(flutterText).length;
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤4a: Flutter 读回内 <svg 出现=$svgOpenCount 次, '
-            '</svg> 出现=$svgCloseCount 次');
-      }
-    } catch (e) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4a 异常: $e');
-    }
-
-    // 交叉：用 pbpaste 直接读 OS 剪贴板，看 pbcopy 写入是否在 OS 层就是 111220，
-    // 还是只有 Flutter 这条通道才看到 111220。这是定位根因的关键差异点。
-    int pbpasteLen = 0;
-    String? pbpasteHead;
-    int pbpasteSvgOpenCount = 0;
-    int pbpasteSvgCloseCount = 0;
-    try {
-      final proc = await Process.start('pbpaste', const <String>[]);
-      final chunks = <int>[];
-      await for (final chunk in proc.stdout) {
-        chunks.addAll(chunk);
-      }
-      final bytes = Uint8List.fromList(chunks);
-      final exitCode = await proc.exitCode;
-      pbpasteLen = bytes.length;
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4b: pbpaste 读回字节数=$pbpasteLen, exitCode=$exitCode');
-      if (pbpasteLen > 0) {
-        final text = utf8.decode(bytes, allowMalformed: true);
-        final headLen = text.length < 300 ? text.length : 300;
-        pbpasteHead = text.substring(0, headLen);
-        pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
-        pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤4b: pbpaste 读回首 300: $pbpasteHead');
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤4b: pbpaste 内 <svg 出现=$pbpasteSvgOpenCount 次, '
-            '</svg> 出现=$pbpasteSvgCloseCount 次');
-      }
-    } catch (e) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4b 异常: $e');
-    }
-
-    // 关键判定：
-    // ① pbpaste 字节数 == svg.length 且 pbpaste 内有 1 个 <svg / </svg>：
-    //    写成功、OS 层正确，Flutter 读回 111220 是 Flutter 通道异常。
-    // ② pbpaste 字节数 == 111220：说明 pbcopy 实际写入了 111220 字节，
-    //    写入路径异常，与 Flutter 通道无关。
-    // ③ pbpaste 字节数 == 0：pbcopy 写失败（但 exitCode=0 自相矛盾）。
-    final bool osLayerOk = pbpasteLen == svg.length
-        && pbpasteSvgOpenCount == 1
-        && pbpasteSvgCloseCount == 1;
-    final bool flutterReadOk = flutterLen == svg.length;
-    // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤4 判定: osLayerOk=$osLayerOk, flutterReadOk=$flutterReadOk');
-
-    // 步骤5：始终把 SVG 写到 /tmp 下的临时文件，给用户一条
-    // 不依赖剪贴板的可靠路径。数据驱动显示 macOS 上剪贴板路径
-    // 在某些环境里写 24576 / 读 111220，对当前用户环境不可信。
+    // 始终把 SVG 写到 /tmp 临时文件，给用户一条不依赖剪贴板的可靠路径。
     String? savedPath;
     try {
       final ts = DateTime.now().millisecondsSinceEpoch;
@@ -2800,18 +2560,16 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
       await tempFile.writeAsString(svg);
       savedPath = tempFile.path;
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤5: 临时文件已写: $savedPath, '
-          '字节=${await tempFile.length()}');
-    } catch (e) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤5 写临时文件失败: $e');
-    }
+    } catch (_) {}
 
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
-    final pathHint = savedPath ?? '(临时文件写入失败)';
-    if (writeOk && osLayerOk) {
+    final pathHint = savedPath ?? _localizedText(
+      context,
+      zh: '临时文件写入失败',
+      en: 'temp file write failed',
+    );
+    if (writeOk && verification.osLayerOk) {
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
@@ -2836,8 +2594,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           content: Text(
             _localizedText(
               context,
-              zh: '剪贴板不可信：写 ${svg.length}B, pbpaste 读 ${pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
-              en: 'Clipboard unreliable: wrote ${svg.length}B, pbpaste read ${pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
+              zh: '剪贴板不可信：写 ${svg.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
+              en: 'Clipboard unreliable: wrote ${svg.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
             ),
             maxLines: 4,
           ),
@@ -2854,6 +2612,58 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ),
       );
     }
+  }
+
+  Future<_SvgClipboardVerification> _verifySvgClipboard(String svg) async {
+    int pbpasteLen = 0;
+    int pbpasteSvgOpenCount = 0;
+    int pbpasteSvgCloseCount = 0;
+    int flutterLen = 0;
+    try {
+      final proc = await Process.start('pbpaste', const <String>[]);
+      final chunks = <int>[];
+      await for (final chunk in proc.stdout) {
+        chunks.addAll(chunk);
+      }
+      await proc.exitCode;
+      final bytes = Uint8List.fromList(chunks);
+      pbpasteLen = bytes.length;
+      if (pbpasteLen > 0) {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
+        pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
+      }
+    } catch (_) {}
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      flutterLen = data?.text?.length ?? 0;
+    } catch (_) {}
+    final osLayerOk = pbpasteLen == svg.length &&
+        pbpasteSvgOpenCount == 1 &&
+        pbpasteSvgCloseCount == 1;
+    return _SvgClipboardVerification(
+      pbpasteLen: pbpasteLen,
+      flutterLen: flutterLen,
+      osLayerOk: osLayerOk,
+    );
+  }
+
+  void _showSvgNotReadySnack(ScaffoldMessengerState messenger) {
+    if (!mounted) return;
+    OpenHandSnackBar.hideCurrentOn(messenger);
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: 'SVG 还未生成，请稍后再试。',
+            en: 'SVG is not ready yet. Please try again.',
+          ),
+        ),
+      ),
+    );
   }
 
   Uint8List _svgUtf8Bytes(String svg) => Uint8List.fromList(utf8.encode(svg));
@@ -3001,9 +2811,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
   .mermaid-stage {
     width: 100%; height: 100%;
-    touch-action: pinch-zoom;
-    overflow: auto;
+    /* touch-action: none 让浏览器把所有 pointer 事件交给 JS，
+       否则 touch-action: pinch-zoom 会让浏览器在多指/拖动时
+       自行消费事件，JS 的双指缩放与单指长按拖动永远触发不了。 */
+    touch-action: none;
+    overflow: hidden;
     cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
   }
   .mermaid-stage:active { cursor: grabbing; }
   .mermaid-stage .mermaid-inner {
@@ -3140,6 +2955,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       var longPressTimer = null;
       var dragReady = false;
       var longPressPointerId = null;
+      // tap 转发：记录本轮手势的起点位置和累计移动量，
+      // 在所有手指抬起且无拖动时向 elementFromPoint 派发 click。
+      var tapStart = null;
+      var pointerMoved = false;
       var post = function (value) {
         if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
           window.OpenHandMermaid.postMessage(value);
@@ -3156,6 +2975,23 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       var apply = function () {
         inner.style.transform = 'translate(' + state.tx + 'px,' + state.ty + 'px) scale(' + state.scale + ')';
         postZoom();
+      };
+      var forwardTap = function (x, y) {
+        try {
+          var el = document.elementFromPoint(x, y);
+          if (!el || el === stage) return;
+          var opts = { bubbles: true, cancelable: true, view: window,
+                       clientX: x, clientY: y, button: 0 };
+          el.dispatchEvent(new MouseEvent('click', opts));
+          // 兼容依赖 PointerEvent 的 mermaid click handler。
+          try {
+            el.dispatchEvent(new PointerEvent('pointerdown',
+              Object.assign({ pointerType: 'mouse', isPrimary: true }, opts)));
+            el.dispatchEvent(new PointerEvent('pointerup',
+              Object.assign({ pointerType: 'mouse', isPrimary: true }, opts)));
+          } catch (_) {}
+          if (typeof el.focus === 'function') { try { el.focus(); } catch (_) {} }
+        } catch (_) {}
       };
       var reset = function () {
         clearLongPress();
@@ -3209,11 +3045,15 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         apply();
       }, { passive: false });
       var onPointerDown = function (e) {
-        stage.setPointerCapture(e.pointerId);
+        try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+        // 阻止 iOS Safari / 桌面浏览器默认手势（图片拖出、长按菜单等）。
+        if (e.cancelable) e.preventDefault();
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
+          tapStart = null;
+          pointerMoved = false;
           postDrag(false);
           setInteractiveTransition(false);
           var pts = Array.from(pointers.values());
@@ -3223,6 +3063,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
         if (pointers.size !== 1) return;
         dragReady = false;
+        pointerMoved = false;
+        tapStart = { x: e.clientX, y: e.clientY };
         postDrag(false);
         longPressPointerId = e.pointerId;
         stage.dataset.dragX = String(e.clientX);
@@ -3233,6 +3075,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         if (e.pointerType === 'mouse') {
           // 桌面鼠标按下即拖，避免长按迟滞。
           dragReady = true;
+          tapStart = null;
           postDrag(true);
           setInteractiveTransition(false);
           return;
@@ -3240,6 +3083,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         longPressTimer = setTimeout(function () {
           if (pointers.size === 1 && longPressPointerId === e.pointerId) {
             dragReady = true;
+            tapStart = null;
             postDrag(true);
             setInteractiveTransition(false);
           }
@@ -3248,10 +3092,15 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       var onPointerMove = function (e) {
         if (!pointers.has(e.pointerId)) return;
         var previous = pointers.get(e.pointerId);
+        var dx = previous ? (e.clientX - previous.x) : 0;
+        var dy = previous ? (e.clientY - previous.y) : 0;
+        var moved = Math.hypot(dx, dy);
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (moved > 4) pointerMoved = true;
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
+          tapStart = null;
           postDrag(false);
           setInteractiveTransition(false);
           var pts = Array.from(pointers.values());
@@ -3270,13 +3119,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           return;
         }
         if (pointers.size === 1) {
-          var moved = previous ? Math.hypot(e.clientX - previous.x, e.clientY - previous.y) : 0;
           if (!dragReady && moved > 8) clearLongPress();
           if (dragReady && stage.dataset.dragX) {
-            var dx = e.clientX - parseFloat(stage.dataset.dragX);
-            var dy = e.clientY - parseFloat(stage.dataset.dragY);
-            state.tx = parseFloat(stage.dataset.dragTx) + dx;
-            state.ty = parseFloat(stage.dataset.dragTy) + dy;
+            var ddx = e.clientX - parseFloat(stage.dataset.dragX);
+            var ddy = e.clientY - parseFloat(stage.dataset.dragY);
+            state.tx = parseFloat(stage.dataset.dragTx) + ddx;
+            state.ty = parseFloat(stage.dataset.dragTy) + ddy;
             apply();
           }
         }
@@ -3286,14 +3134,20 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         clearLongPress();
         if (pointers.size < 2) pinchStartDist = 0;
         if (pointers.size === 0) {
+          var wasTap = tapStart != null && !pointerMoved && !dragReady;
+          var tapX = tapStart ? tapStart.x : 0;
+          var tapY = tapStart ? tapStart.y : 0;
           dragReady = false;
           longPressPointerId = null;
+          tapStart = null;
+          pointerMoved = false;
           postDrag(false);
           setInteractiveTransition(true);
           delete stage.dataset.dragX;
           delete stage.dataset.dragY;
           delete stage.dataset.dragTx;
           delete stage.dataset.dragTy;
+          if (wasTap) forwardTap(tapX, tapY);
         }
       };
       stage.addEventListener('pointerdown', onPointerDown);
