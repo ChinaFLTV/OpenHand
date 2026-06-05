@@ -2076,7 +2076,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   String _svgMarkup = '';
   String _pngDataUrl = '';
   double _zoomPercent = 100;
-  bool _dragActive = false;
   bool _bridgeReady = false;
   Brightness? _lastBrightness;
 
@@ -2192,12 +2191,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               final value = double.tryParse(raw.substring(5));
               if (value != null && mounted) {
                 setState(() => _zoomPercent = value);
-              }
-              return;
-            }
-            if (raw.startsWith('drag:')) {
-              if (mounted) {
-                setState(() => _dragActive = raw.substring(5) == '1');
               }
               return;
             }
@@ -2387,19 +2380,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : () => unawaited(_downloadPng()),
-              ),
-              const SizedBox(width: 8),
-              _buildToolPill(
-                label: _localizedText(
-                  context,
-                  zh: _dragActive ? '拖动中' : '长按拖动 / 双指缩放',
-                  en: _dragActive ? 'Dragging' : 'Long press to pan / pinch to zoom',
-                ),
-                icon: _dragActive
-                    ? Icons.pan_tool_alt_rounded
-                    : Icons.zoom_out_map_rounded,
-                backgroundColor: widget.palette.actionColor.withValues(alpha: 0.72),
-                foregroundColor: widget.palette.actionTextColor,
               ),
               const SizedBox(width: 8),
               _buildToolPill(
@@ -2738,13 +2718,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   </div>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script>
+    // IIFE #1: 渲染 Mermaid SVG，并通过 postMessage 报告 ready / error / svg / png。
     (function () {
-      function post(value) {
+      var post = function (value) {
         if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
           window.OpenHandMermaid.postMessage(value);
         }
-      }
-      function formatError(err) {
+      };
+      var formatError = function (err) {
         if (err && typeof err === 'object') {
           if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
           if (typeof err.message === 'string' && err.message.trim()) return err.message.trim();
@@ -2755,14 +2736,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           } catch (_) {}
         }
         return String(err);
-      }
-      function svgMarkupOf(value) {
+      };
+      var svgMarkupOf = function (value) {
         if (typeof value === 'string') return value;
         if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
           return value.outerHTML || '';
         }
         return '';
-      }
+      };
       if (!window.mermaid) {
         post('error:mermaid-js 加载失败,请检查网络');
         post('ready');
@@ -2835,9 +2816,183 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           post('error:render_failed:' + formatError(err));
         })
         .then(function () {
-          // 无论渲染成功或失败，都在最后一刻发 ready，保证 bridge 一定 ready。
+          // 无论成功或失败，都发 ready，保证 bridge 一定 ready。
           post('ready');
         });
+    })();
+    // IIFE #2: 平移/缩放/双击重置手势；fit/reset 通过全局桥接函数暴露。
+    (function () {
+      var stage = document.getElementById('stage');
+      var inner = document.getElementById('inner');
+      if (!stage || !inner) return;
+      var state = { scale: 1, tx: 0, ty: 0 };
+      var pointers = new Map();
+      var pinchStartDist = 0;
+      var pinchStartScale = 1;
+      var longPressTimer = null;
+      var dragReady = false;
+      var longPressPointerId = null;
+      var post = function (value) {
+        if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
+          window.OpenHandMermaid.postMessage(value);
+        }
+      };
+      var postZoom = function () { post('zoom:' + Math.round(state.scale * 100)); };
+      var postDrag = function (active) { post('drag:' + (active ? '1' : '0')); };
+      var clearLongPress = function () {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      };
+      var setInteractiveTransition = function (enabled) {
+        inner.style.transition = enabled ? 'transform 80ms ease-out' : 'none';
+      };
+      var apply = function () {
+        inner.style.transform = 'translate(' + state.tx + 'px,' + state.ty + 'px) scale(' + state.scale + ')';
+        postZoom();
+      };
+      var reset = function () {
+        clearLongPress();
+        dragReady = false;
+        longPressPointerId = null;
+        state.scale = 1; state.tx = 0; state.ty = 0;
+        setInteractiveTransition(true);
+        postDrag(false);
+        apply();
+      };
+      var fit = function () {
+        setInteractiveTransition(true);
+        clearLongPress();
+        dragReady = false;
+        longPressPointerId = null;
+        var svg = inner.querySelector('svg');
+        if (!svg || !svg.getBBox) { reset(); return; }
+        var stageRect = stage.getBoundingClientRect();
+        var box = svg.getBBox();
+        if (!(box.width > 0) || !(box.height > 0) || !(stageRect.width > 0) || !(stageRect.height > 0)) {
+          reset();
+          return;
+        }
+        var padding = 24;
+        var fitScale = Math.min(8, Math.max(0.2, Math.min(
+          (stageRect.width - padding * 2) / box.width,
+          (stageRect.height - padding * 2) / box.height,
+        )));
+        state.scale = fitScale;
+        state.tx = padding - box.x * fitScale + Math.max(0, (stageRect.width - box.width * fitScale - padding * 2) / 2);
+        state.ty = padding - box.y * fitScale + Math.max(0, (stageRect.height - box.height * fitScale - padding * 2) / 2);
+        postDrag(false);
+        apply();
+      };
+      window.__openhandMermaidReset = reset;
+      window.__openhandMermaidFit = fit;
+      // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点。
+      stage.addEventListener('wheel', function (e) {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        clearLongPress();
+        setInteractiveTransition(false);
+        var delta = -e.deltaY * 0.0025;
+        var newScale = Math.min(8, Math.max(0.2, state.scale * (1 + delta)));
+        var rect = stage.getBoundingClientRect();
+        var cx = e.clientX - rect.left;
+        var cy = e.clientY - rect.top;
+        state.tx = cx - (cx - state.tx) * (newScale / state.scale);
+        state.ty = cy - (cy - state.ty) * (newScale / state.scale);
+        state.scale = newScale;
+        apply();
+      }, { passive: false });
+      var onPointerDown = function (e) {
+        stage.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) {
+          clearLongPress();
+          dragReady = false;
+          postDrag(false);
+          setInteractiveTransition(false);
+          var pts = Array.from(pointers.values());
+          pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          pinchStartScale = state.scale;
+          return;
+        }
+        if (pointers.size !== 1) return;
+        dragReady = false;
+        postDrag(false);
+        longPressPointerId = e.pointerId;
+        stage.dataset.dragX = String(e.clientX);
+        stage.dataset.dragY = String(e.clientY);
+        stage.dataset.dragTx = String(state.tx);
+        stage.dataset.dragTy = String(state.ty);
+        clearLongPress();
+        if (e.pointerType === 'mouse') {
+          // 桌面鼠标按下即拖，避免长按迟滞。
+          dragReady = true;
+          postDrag(true);
+          setInteractiveTransition(false);
+          return;
+        }
+        longPressTimer = setTimeout(function () {
+          if (pointers.size === 1 && longPressPointerId === e.pointerId) {
+            dragReady = true;
+            postDrag(true);
+            setInteractiveTransition(false);
+          }
+        }, 280);
+      };
+      var onPointerMove = function (e) {
+        if (!pointers.has(e.pointerId)) return;
+        var previous = pointers.get(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) {
+          clearLongPress();
+          dragReady = false;
+          postDrag(false);
+          setInteractiveTransition(false);
+          var pts = Array.from(pointers.values());
+          var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          if (pinchStartDist > 0) {
+            // 双指缩放以双指中心为锚点。
+            var rect = stage.getBoundingClientRect();
+            var centerX = (pts[0].x + pts[1].x) / 2 - rect.left;
+            var centerY = (pts[0].y + pts[1].y) / 2 - rect.top;
+            var newScale = Math.min(8, Math.max(0.2, pinchStartScale * (dist / pinchStartDist)));
+            state.tx = centerX - (centerX - state.tx) * (newScale / state.scale);
+            state.ty = centerY - (centerY - state.ty) * (newScale / state.scale);
+            state.scale = newScale;
+            apply();
+          }
+          return;
+        }
+        if (pointers.size === 1) {
+          var moved = previous ? Math.hypot(e.clientX - previous.x, e.clientY - previous.y) : 0;
+          if (!dragReady && moved > 8) clearLongPress();
+          if (dragReady && stage.dataset.dragX) {
+            var dx = e.clientX - parseFloat(stage.dataset.dragX);
+            var dy = e.clientY - parseFloat(stage.dataset.dragY);
+            state.tx = parseFloat(stage.dataset.dragTx) + dx;
+            state.ty = parseFloat(stage.dataset.dragTy) + dy;
+            apply();
+          }
+        }
+      };
+      var onPointerEnd = function (e) {
+        pointers.delete(e.pointerId);
+        clearLongPress();
+        if (pointers.size < 2) pinchStartDist = 0;
+        if (pointers.size === 0) {
+          dragReady = false;
+          longPressPointerId = null;
+          postDrag(false);
+          setInteractiveTransition(true);
+          delete stage.dataset.dragX;
+          delete stage.dataset.dragY;
+          delete stage.dataset.dragTx;
+          delete stage.dataset.dragTy;
+        }
+      };
+      stage.addEventListener('pointerdown', onPointerDown);
+      stage.addEventListener('pointermove', onPointerMove);
+      stage.addEventListener('pointerup', onPointerEnd);
+      stage.addEventListener('pointercancel', onPointerEnd);
+      stage.addEventListener('dblclick', function () { reset(); });
     })();
   </script>
 </body>
