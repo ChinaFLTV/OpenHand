@@ -2790,22 +2790,40 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // ignore: avoid_print
     print('[mermaid-svg-copy] 步骤4 判定: osLayerOk=$osLayerOk, flutterReadOk=$flutterReadOk');
 
+    // 步骤5：始终把 SVG 写到 /tmp 下的临时文件，给用户一条
+    // 不依赖剪贴板的可靠路径。数据驱动显示 macOS 上剪贴板路径
+    // 在某些环境里写 24576 / 读 111220，对当前用户环境不可信。
+    String? savedPath;
+    try {
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final tempDir = Directory.systemTemp.createTempSync('openhand_svg_');
+      final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
+      await tempFile.writeAsString(svg);
+      savedPath = tempFile.path;
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤5: 临时文件已写: $savedPath, '
+          '字节=${await tempFile.length()}');
+    } catch (e) {
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤5 写临时文件失败: $e');
+    }
+
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
+    final pathHint = savedPath ?? '(临时文件写入失败)';
     if (writeOk && osLayerOk) {
-      // pbpaste 字节数 == svg.length + <svg 出现 1 次：OS 层确认正确写入。
-      // 即便 Flutter 通道读回异常，剪贴板里实际数据就是这份 SVG。
-      // 告诉用户可以粘贴；并把"导出 SVG"作为可靠兜底。
       _showHomeSnackBarWithMessenger(
         context,
         messenger,
         SnackBar(
+          duration: const Duration(seconds: 6),
           content: Text(
             _localizedText(
               context,
-              zh: 'SVG 已复制（${svg.length} 字节，OS 层 pbpaste 校验 OK）。请到目标 app 粘贴。如仍看不到，请改用右侧"导出 SVG"。',
-              en: 'SVG copied (${svg.length}B, OS pbpaste verified). Paste in target app. If still missing, use "Export SVG".',
+              zh: 'SVG 已复制（${svg.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
+              en: 'SVG copied (${svg.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
             ),
+            maxLines: 4,
           ),
         ),
       );
@@ -2814,13 +2832,25 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         context,
         messenger,
         SnackBar(
+          duration: const Duration(seconds: 8),
           content: Text(
             _localizedText(
               context,
-              zh: '剪贴板异常：写入=${svg.length}B, Flutter 读回=${flutterLen}B, pbpaste 读回=${pbpasteLen}B, osOk=$osLayerOk, 方法=$writeMethod${writeError != null ? '，错=$writeError' : ''}。请改用右侧"导出 SVG"。',
-              en: 'Clipboard issue: wrote=${svg.length}B, Flutter read=${flutterLen}B, pbpaste read=${pbpasteLen}B, osOk=$osLayerOk, method=$writeMethod${writeError != null ? ', err=$writeError' : ''}. Use "Export SVG" instead.',
+              zh: '剪贴板不可信：写 ${svg.length}B, pbpaste 读 ${pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
+              en: 'Clipboard unreliable: wrote ${svg.length}B, pbpaste read ${pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
             ),
+            maxLines: 4,
           ),
+          action: savedPath == null
+              ? null
+              : SnackBarAction(
+                  label: _localizedText(context, zh: '打开', en: 'Open'),
+                  onPressed: () {
+                    try {
+                      Process.start('open', <String>[savedPath!]);
+                    } catch (_) {}
+                  },
+                ),
         ),
       );
     }
