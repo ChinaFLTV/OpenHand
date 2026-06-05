@@ -2202,14 +2202,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             }
             if (raw.startsWith('svg:')) {
               if (mounted) {
-                setState(() {
-                  _svgMarkup = raw.substring(4);
-                  // ignore: avoid_print
-                  print(
-                    '[mermaid-debug] svg received, length=${_svgMarkup.length}, '
-                    'startsWith=${_svgMarkup.substring(0, _svgMarkup.length.clamp(0, 24))}',
-                  );
-                });
+                setState(() => _svgMarkup = raw.substring(4));
               }
               return;
             }
@@ -2549,9 +2542,17 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   Future<void> _copySvgMarkup() async {
     final svg = _svgMarkup.trim();
+    // ignore: avoid_print
+    print(
+      '[mermaid-debug] _copySvgMarkup called, '
+      'svgMarkup.length=${_svgMarkup.length}, trimmed.length=${svg.length}',
+    );
     if (svg.isEmpty) return;
     try {
       await Clipboard.setData(ClipboardData(text: svg));
+      // ignore: avoid_print
+      print('[mermaid-debug] _copySvgMarkup setData done, '
+          'hasContext=$context, mounted=$mounted');
       if (!mounted) return;
       _showHomeSnackBarWithMessenger(
         context,
@@ -2562,7 +2563,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
       );
-    } catch (_) {}
+    } catch (err) {
+      // ignore: avoid_print
+      print('[mermaid-debug] _copySvgMarkup failed: $err');
+    }
   }
 
   Uint8List _svgUtf8Bytes(String svg) => Uint8List.fromList(utf8.encode(svg));
