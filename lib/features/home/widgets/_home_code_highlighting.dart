@@ -2817,10 +2817,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     overflow: hidden;
   }
   .mermaid-stage {
-    width: 100%; height: 100%;
-    /* touch-action: none 让浏览器把所有 pointer 事件交给 JS，
-       否则 touch-action: pinch-zoom 会让浏览器在多指/拖动时
-       自行消费事件，JS 的双指缩放与单指长按拖动永远触发不了。 */
+    /* 用 position: fixed + inset:0 强制铺满 WKWebView 视口，
+       不依赖 html/body 100% 高度链。loadFile 完成后那一帧
+       WKWebView 高度可能还是 0，单纯 100% 会让 stage 变 0x0
+       收不到任何 pointer 事件，gesture 完全失活。 */
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
     touch-action: none;
     overflow: hidden;
     cursor: grab;
@@ -3043,10 +3045,27 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       try {
         var sRect = stage.getBoundingClientRect();
         var iRect = inner.getBoundingClientRect();
-        gestureLog('init stage=' + sRect.width.toFixed(0) + 'x' + sRect.height.toFixed(0)
+        gestureLog('init viewport=' + window.innerWidth + 'x' + window.innerHeight
+          + ' stage=' + sRect.width.toFixed(0) + 'x' + sRect.height.toFixed(0)
           + ' inner=' + iRect.width.toFixed(0) + 'x' + iRect.height.toFixed(0)
           + ' svgChild=' + (inner.querySelector('svg') ? 'yes' : 'no'));
       } catch (_) {}
+      // 延迟复测：loadFile 完成时 WKWebView 经常还在等 Flutter 推第一帧，
+      // 当时 stage=0x0 收不到事件。下一帧 / 100ms 后通常已稳定。
+      var remeasure = function (tag) {
+        try {
+          var s = stage.getBoundingClientRect();
+          gestureLog('remeasure[' + tag + '] viewport=' + window.innerWidth + 'x' + window.innerHeight
+            + ' stage=' + s.width.toFixed(0) + 'x' + s.height.toFixed(0));
+        } catch (_) {}
+      };
+      requestAnimationFrame(function () { remeasure('raf1'); });
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { remeasure('raf2'); });
+      });
+      setTimeout(function () { remeasure('100ms'); }, 100);
+      setTimeout(function () { remeasure('500ms'); }, 500);
+      window.addEventListener('resize', function () { remeasure('resize'); });
       // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点。
       stage.addEventListener('wheel', function (e) {
         gestureLog('wheel ctrl=' + e.ctrlKey + ' meta=' + e.metaKey + ' dy=' + e.deltaY);
