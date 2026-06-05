@@ -2202,7 +2202,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             }
             if (raw.startsWith('svg:')) {
               if (mounted) {
-                setState(() => _svgMarkup = raw.substring(4));
+                setState(() {
+                  _svgMarkup = raw.substring(4);
+                  // ignore: avoid_print
+                  print(
+                    '[mermaid-debug] svg received, length=${_svgMarkup.length}, '
+                    'startsWith=${_svgMarkup.substring(0, _svgMarkup.length.clamp(0, 24))}',
+                  );
+                });
               }
               return;
             }
