@@ -2921,7 +2921,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           delete stage.dataset.dragTx;
           delete stage.dataset.dragTy;
         };
-        fit();
+        try {
+          fit();
+        } catch (err) {
+          post('error:fit_failed:' + formatError(err));
+        }
         post('ready');
         stage.addEventListener('wheel', function(e) {
           if (!(e.ctrlKey || e.metaKey)) return;
