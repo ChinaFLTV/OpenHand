@@ -2552,11 +2552,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     print(
       '[mermaid-svg-copy] 状态: _controller=${_controller != null}, '
       '_isReady=$_isReady, _bridgeReady=$_bridgeReady, '
-      '_loadError=$_loadError, _svgMarkup.length=${_svgMarkup.length}',
+      '_loadError=$_loadError, _svgMarkup.length=${_svgMarkup.length}, '
+      'isMacOS=${Platform.isMacOS}',
     );
     final messenger = ScaffoldMessenger.of(context);
 
-    // 1) 立即给屏幕一个反馈，证明函数被调到了。
     if (mounted) {
       OpenHandSnackBar.hideCurrentOn(messenger);
       _showHomeSnackBarWithMessenger(
@@ -2575,19 +2575,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
     }
 
-    // 2) 首选：用桥里回包过来的 _svgMarkup state。
     String svg = _svgMarkup.trim();
     // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤2: _svgMarkup 截尾后长度=${svg.length}');
+    print('[mermaid-svg-copy] 步骤2: svg length=${svg.length}');
 
-    // 3) 兜底：state 空时再向 WebView 拉一次。
     if (svg.isEmpty) {
       final controller = _controller;
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤3: state 空, 准备从 WebView 拉取');
       if (controller == null) {
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 错误: controller 也是 null');
         if (mounted) {
           OpenHandSnackBar.hideCurrentOn(messenger);
           _showHomeSnackBarWithMessenger(
@@ -2612,49 +2606,16 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           "var n=el.querySelector('svg');if(!n)return '';"
           "return new XMLSerializer().serializeToString(n);}catch(_){return '';}})();",
         );
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3: runJavaScriptReturningResult 返回, '
-            'raw 类型=${raw.runtimeType}, isString=${raw is String}, '
-            'length=${raw is String ? raw.length : -1}');
         if (raw is String && raw.isNotEmpty) {
-          String unwrapped = raw;
-          if (unwrapped.startsWith('"') && unwrapped.endsWith('"')) {
-            try {
-              final decoded = jsonDecode(raw);
-              if (decoded is String) {
-                unwrapped = decoded;
-              } else {
-                unwrapped = raw
-                    .substring(1, raw.length - 1)
-                    .replaceAll('\\n', '\n')
-                    .replaceAll('\\r', '\r')
-                    .replaceAll('\\t', '\t')
-                    .replaceAll('\\"', '"')
-                    .replaceAll('\\\\', '\\');
-              }
-            } catch (_) {
-              unwrapped = raw
-                  .substring(1, raw.length - 1)
-                  .replaceAll('\\n', '\n')
-                  .replaceAll('\\r', '\r')
-                  .replaceAll('\\t', '\t')
-                  .replaceAll('\\"', '"')
-                  .replaceAll('\\\\', '\\');
-            }
-          }
-          svg = unwrapped.trim();
+          svg = raw.trim();
         }
-        // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3: 解码后 svg 长度=${svg.length}');
       } catch (e) {
         // ignore: avoid_print
-        print('[mermaid-svg-copy] 步骤3 异常: $e');
+        print('[mermaid-svg-copy] WebView 兜底异常: $e');
       }
     }
 
     if (svg.isEmpty) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 失败: svg 仍为空');
       if (mounted) {
         OpenHandSnackBar.hideCurrentOn(messenger);
         _showHomeSnackBarWithMessenger(
@@ -2674,48 +2635,122 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       return;
     }
 
-    // 4) 落剪贴板。Clipboard.setData 是 _writeCodeBlockToClipboard 走通的同一条路径。
+    // 关键路径（macOS）：数据驱动显示 Flutter 的 Clipboard.setData /
+    // Pasteboard.writeText（两者在 pasteboard-0.5.0 包内就是同一函数）
+    // 静默"完成"但剪贴板里没数据。改走 OS 原生 pbcopy，跨进程直接写
+    // NSPasteboard.general，不依赖任何 Flutter 桥。
+    bool writeOk = false;
+    String? writeMethod;
+    String? writeError;
+    if (Platform.isMacOS) {
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤3: 调 pbcopy 写 NSPasteboard');
+      try {
+        final proc = await Process.start(
+          'pbcopy',
+          const <String>[],
+        );
+        proc.stdin.write(utf8.encode(svg));
+        await proc.stdin.flush();
+        await proc.stdin.close();
+        final exitCode = await proc.exitCode;
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3: pbcopy exitCode=$exitCode');
+        if (exitCode == 0) {
+          writeOk = true;
+          writeMethod = 'pbcopy';
+        } else {
+          final stderr = await proc.stderr
+              .transform(utf8.decoder)
+              .join()
+              .timeout(const Duration(milliseconds: 200));
+          writeError = 'pbcopy exitCode=$exitCode, stderr=$stderr';
+        }
+      } catch (e) {
+        writeError = 'pbcopy exception: $e';
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3 异常: $e');
+      }
+    }
+
+    // 兜底：pasteboard.writeText（注意：pasteboard-0.5.0 里它就是
+    // Clipboard.setData 的同步别名，所以仅作防御性兜底）。
+    if (!writeOk) {
+      try {
+        Pasteboard.writeText(svg);
+        writeOk = true;
+        writeMethod = 'Pasteboard.writeText';
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3b: Pasteboard.writeText 调用完成');
+      } catch (e) {
+        writeError ??= 'pasteboard exception: $e';
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3b 异常: $e');
+      }
+    }
+
+    // 兜底：Clipboard.setData 异步路径（与"复制代码块"同一来源）。
+    if (!writeOk) {
+      try {
+        await Clipboard.setData(ClipboardData(text: svg));
+        writeOk = true;
+        writeMethod = 'Clipboard.setData';
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3c: Clipboard.setData 完成');
+      } catch (e) {
+        writeError ??= 'clipboard exception: $e';
+        // ignore: avoid_print
+        print('[mermaid-svg-copy] 步骤3c 异常: $e');
+      }
+    }
+
+    // 验证：写完立刻从同一通路上读回。这是判别"写没写进去"的唯一硬指标。
     // ignore: avoid_print
-    print('[mermaid-svg-copy] 步骤4: 调用 Clipboard.setData, length=${svg.length}');
+    print('[mermaid-svg-copy] 步骤4: 验证 Clipboard.getData 读回');
+    String? verifyText;
+    int verifyLen = 0;
     try {
-      await Clipboard.setData(ClipboardData(text: svg));
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      verifyText = data?.text;
+      verifyLen = verifyText?.length ?? 0;
       // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4: Clipboard.setData 调用完成');
-      if (mounted) {
-        OpenHandSnackBar.hideCurrentOn(messenger);
-        _showHomeSnackBarWithMessenger(
-          context,
-          messenger,
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: 'SVG 已复制。',
-                en: 'SVG copied.',
-              ),
+      print('[mermaid-svg-copy] 步骤4: 读回长度=$verifyLen, '
+          '期望长度=${svg.length}, 一致=${verifyLen == svg.length}');
+    } catch (e) {
+      // ignore: avoid_print
+      print('[mermaid-svg-copy] 步骤4 异常: $e');
+    }
+
+    if (!mounted) return;
+    OpenHandSnackBar.hideCurrentOn(messenger);
+    if (writeOk && verifyLen == svg.length) {
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: 'SVG 已复制（${svg.length} 字节，方法=$writeMethod，剪贴板读回 OK）。请到目标 app 粘贴。',
+              en: 'SVG copied (${svg.length}B, method=$writeMethod, clipboard verified). Paste in target app.',
             ),
           ),
-        );
-      }
-    } catch (err) {
-      // ignore: avoid_print
-      print('[mermaid-svg-copy] 步骤4 异常: $err');
-      if (mounted) {
-        OpenHandSnackBar.hideCurrentOn(messenger);
-        _showHomeSnackBarWithMessenger(
-          context,
-          messenger,
-          SnackBar(
-            content: Text(
-              _localizedText(
-                context,
-                zh: '复制 SVG 失败：$err',
-                en: 'Failed to copy SVG: $err',
-              ),
+        ),
+      );
+    } else {
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '剪贴板异常：writeOk=$writeOk, 写入=${svg.length}B, 读回=${verifyLen}B${writeError != null ? '，错=$writeError' : ''}',
+              en: 'Clipboard issue: writeOk=$writeOk, wrote=${svg.length}B, read=${verifyLen}B${writeError != null ? ', err=$writeError' : ''}',
             ),
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
