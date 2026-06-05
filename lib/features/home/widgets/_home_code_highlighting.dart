@@ -2064,6 +2064,7 @@ class _MermaidDiagramView extends StatefulWidget {
 }
 
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
+  final GlobalKey _interactiveRegionKey = GlobalKey();
   WebViewController? _controller;
   bool _isReady = false;
   String? _loadError;
@@ -2128,6 +2129,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.registerEmbeddedInteractiveRegion(
+      _interactiveRegionKey,
+    );
     final brightness = Theme.of(context).brightness;
     if (_lastBrightness == null) {
       _lastBrightness = brightness;
@@ -2266,6 +2270,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   @override
   void dispose() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.unregisterEmbeddedInteractiveRegion(
+      _interactiveRegionKey,
+    );
     _loadWatchdog?.cancel();
     final tempPath = _tempHtmlPath;
     if (tempPath != null) {
@@ -2320,6 +2327,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
 
     return Listener(
+      key: _interactiveRegionKey,
       behavior: HitTestBehavior.opaque,
       onPointerDown: (_) => markInteractivePointer(),
       onPointerMove: (_) => markInteractivePointer(),

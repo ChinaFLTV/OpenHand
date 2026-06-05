@@ -69,6 +69,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 转交给对应 state 合成 DOM 点击或文本选择。
   final Map<GlobalKey, _HtmlBubbleWebViewState> _htmlInteractiveRegionStates =
       <GlobalKey, _HtmlBubbleWebViewState>{};
+  final Set<GlobalKey> _embeddedInteractiveRegions = <GlobalKey>{};
   _HtmlBubbleWebViewState? _htmlPointerDownState;
   bool _htmlSelectionDragActive = false;
 
@@ -93,6 +94,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
       if (rect.contains(globalPosition)) return entry.value;
     }
     return null;
+  }
+
+  void registerEmbeddedInteractiveRegion(GlobalKey key) {
+    _embeddedInteractiveRegions.add(key);
+  }
+
+  void unregisterEmbeddedInteractiveRegion(GlobalKey key) {
+    _embeddedInteractiveRegions.remove(key);
+  }
+
+  bool _isPointerInsideEmbeddedInteractiveRegion(Offset globalPosition) {
+    for (final key in _embeddedInteractiveRegions) {
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final topLeft = box.localToGlobal(Offset.zero);
+      final rect = topLeft & box.size;
+      if (rect.contains(globalPosition)) return true;
+    }
+    return false;
   }
 
   // Cached expensive objects to avoid re-allocation on every build.
@@ -840,6 +860,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         final htmlStateUp = _htmlInteractiveStateAt(event.position);
         final htmlStateDown =
             htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
+        if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
+            _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
+          return;
+        }
         if (htmlStateUp != null || htmlStateDown != null) {
           if (htmlSelectionActive) {
             (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
