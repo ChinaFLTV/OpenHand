@@ -2541,15 +2541,99 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   Future<void> _copySvgMarkup() async {
+    // 入口 trace：确认按钮 onTap 真的进了这个函数。
+    // 之前多次“点了控制台没日志”是因为 navigator.clipboard.writeText
+    // 在 WKWebView 里被静默拦截（既不报错也不写剪贴板），所以日志看不到。
+    // 现在改走 Dart 端 Clipboard.setData：这是 `_writeCodeBlockToClipboard`
+    // 已经验证过的“复制代码块”同一路径。
+    // ignore: avoid_print
+    print(
+      '[mermaid-debug] _copySvgMarkup entry, hasController=${_controller != null}, '
+      'isReady=$_isReady, bridgeReady=$_bridgeReady, loadError=$_loadError, '
+      'svgMarkup.length=${_svgMarkup.length}',
+    );
     final controller = _controller;
-    if (controller == null || !_isReady || _loadError != null) return;
-    try {
-      // 2026-06-04: 不再依赖 _svgMarkup 跨帧 state，直接从 WebView 读最新 SVG
-      // 并在 WebView 内部用 navigator.clipboard.writeText 写剪贴板。
-      // 这样既能绕开 setState 同步问题，也能绕开 24KB 大文本走 macOS Pasteboard 的限制。
-      await controller.runJavaScript(
-        "(function(){try{var el=document.getElementById('inner');if(!el)return 0;var svg=el.querySelector('svg');if(!svg)return 0;var s=new XMLSerializer().serializeToString(svg);if(!s)return 0;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);return 1;}return 0;}catch(_){return 0;}})();",
+    if (controller == null || !_isReady || _loadError != null) {
+      // ignore: avoid_print
+      print(
+        '[mermaid-debug] _copySvgMarkup: locked out, '
+        'hasController=${controller != null}, isReady=$_isReady, loadError=$_loadError',
       );
+      return;
+    }
+
+    // 首选：直接用桥里回包过来的 _svgMarkup。这是渲染完成后由 JS 通过
+    // postMessage 送回的最新 SVG，状态里就有，零 JS 依赖。
+    String svg = _svgMarkup.trim();
+
+    // 兜底：如果状态没值（极端时序：rendered 比 svg 先到 setState 等），
+    // 再向 WebView 拉一次。这里要返回字符串，所以用
+    // runJavaScriptReturningResult，返回值是 JSON 编码后的字符串字面量。
+    if (svg.isEmpty) {
+      try {
+        final raw = await controller.runJavaScriptReturningResult(
+          "(function(){try{var el=document.getElementById('inner');if(!el)return '';"
+          "var n=el.querySelector('svg');if(!n)return '';"
+          "return new XMLSerializer().serializeToString(n);}catch(_){return '';}})();",
+        );
+        if (raw is String && raw.isNotEmpty) {
+          String unwrapped = raw;
+          if (unwrapped.startsWith('"') && unwrapped.endsWith('"')) {
+            try {
+              final decoded = jsonDecode(raw);
+              if (decoded is String) {
+                unwrapped = decoded;
+              } else {
+                unwrapped = raw
+                    .substring(1, raw.length - 1)
+                    .replaceAll('\\n', '\n')
+                    .replaceAll('\\r', '\r')
+                    .replaceAll('\\t', '\t')
+                    .replaceAll('\\"', '"')
+                    .replaceAll('\\\\', '\\');
+              }
+            } catch (_) {
+              unwrapped = raw
+                  .substring(1, raw.length - 1)
+                  .replaceAll('\\n', '\n')
+                  .replaceAll('\\r', '\r')
+                  .replaceAll('\\t', '\t')
+                  .replaceAll('\\"', '"')
+                  .replaceAll('\\\\', '\\');
+            }
+          }
+          svg = unwrapped.trim();
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('[mermaid-debug] _copySvgMarkup: runJavaScriptReturningResult failed: $e');
+      }
+    }
+
+    if (svg.isEmpty) {
+      // ignore: avoid_print
+      print('[mermaid-debug] _copySvgMarkup: svg still empty after fallback');
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: 'SVG 还未生成，请稍后再试。',
+              en: 'SVG is not ready yet. Please try again.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // ignore: avoid_print
+    print('[mermaid-debug] _copySvgMarkup: writing to clipboard, length=${svg.length}');
+    try {
+      await Clipboard.setData(ClipboardData(text: svg));
       if (!mounted) return;
       _showHomeSnackBarWithMessenger(
         context,
@@ -2560,7 +2644,20 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
       );
-    } catch (_) {}
+    } catch (err) {
+      // ignore: avoid_print
+      print('[mermaid-debug] _copySvgMarkup: clipboard write failed: $err');
+      if (!mounted) return;
+      _showHomeSnackBarWithMessenger(
+        context,
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '复制 SVG 失败。', en: 'Failed to copy SVG.'),
+          ),
+        ),
+      );
+    }
   }
 
   Uint8List _svgUtf8Bytes(String svg) => Uint8List.fromList(utf8.encode(svg));
