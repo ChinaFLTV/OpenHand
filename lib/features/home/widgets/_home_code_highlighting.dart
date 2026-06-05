@@ -2065,6 +2065,7 @@ class _MermaidDiagramView extends StatefulWidget {
 
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   final GlobalKey _interactiveRegionKey = GlobalKey();
+  final GlobalKey _viewportRegionKey = GlobalKey();
   WebViewController? _controller;
   Offset? _pointerAnchorGlobal;
   bool _pointerBridgeActive = false;
@@ -2335,6 +2336,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         markInteractivePointer();
         _pointerAnchorGlobal = event.position;
         _pointerBridgeActive = false;
+        unawaited(_forwardPointerDown(event.position));
       },
       onPointerMove: (event) {
         markInteractivePointer();
@@ -2343,6 +2345,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         if ((event.position - anchor).distance > 8) {
           _pointerBridgeActive = true;
         }
+        unawaited(_forwardPointerMove(event.position));
       },
       onPointerSignal: (_) => markInteractivePointer(),
       onPointerCancel: (_) {
@@ -2356,6 +2359,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             (event.position - anchor).distance <= 8;
         _pointerAnchorGlobal = null;
         _pointerBridgeActive = false;
+        unawaited(_forwardPointerUp(event.position));
         if (shouldTap) {
           unawaited(_simulateTapAtGlobal(event.position));
         }
@@ -2480,18 +2484,47 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
   }
 
-  Future<void> _simulateTapAtGlobal(Offset globalPosition) async {
-    final controller = _controller;
-    final context = _interactiveRegionKey.currentContext;
+  Offset? _localViewportPoint(Offset globalPosition) {
+    final context = _viewportRegionKey.currentContext;
     final renderObject = context?.findRenderObject();
-    if (controller == null || renderObject is! RenderBox || !renderObject.attached) {
-      return;
+    if (renderObject is! RenderBox || !renderObject.attached) {
+      return null;
     }
-    final local = renderObject.globalToLocal(globalPosition);
-    final x = local.dx.toStringAsFixed(2);
-    final y = local.dy.toStringAsFixed(2);
+    return renderObject.globalToLocal(globalPosition);
+  }
+
+  String _jsPoint(Offset point) =>
+      'var x=${point.dx.toStringAsFixed(2)},y=${point.dy.toStringAsFixed(2)};';
+
+  Future<void> _simulateTapAtGlobal(Offset globalPosition) async {
+    final local = _localViewportPoint(globalPosition);
+    if (local == null) return;
     await _runMermaidCommand(
-      "var x=$x,y=$y;var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}",
+      "${_jsPoint(local)}var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}",
+    );
+  }
+
+  Future<void> _forwardPointerDown(Offset globalPosition) async {
+    final local = _localViewportPoint(globalPosition);
+    if (local == null) return;
+    await _runMermaidCommand(
+      "${_jsPoint(local)}window.__openhandMermaidPointerDown&&window.__openhandMermaidPointerDown(x,y);",
+    );
+  }
+
+  Future<void> _forwardPointerMove(Offset globalPosition) async {
+    final local = _localViewportPoint(globalPosition);
+    if (local == null) return;
+    await _runMermaidCommand(
+      "${_jsPoint(local)}window.__openhandMermaidPointerMove&&window.__openhandMermaidPointerMove(x,y);",
+    );
+  }
+
+  Future<void> _forwardPointerUp(Offset globalPosition) async {
+    final local = _localViewportPoint(globalPosition);
+    if (local == null) return;
+    await _runMermaidCommand(
+      "${_jsPoint(local)}window.__openhandMermaidPointerUp&&window.__openhandMermaidPointerUp(x,y);",
     );
   }
 
@@ -2827,6 +2860,44 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
         window.__openhandMermaidReset = reset;
         window.__openhandMermaidFit = fit;
+        window.__openhandMermaidPointerDown = function(x, y) {
+          pointers.set('flutter', { x: x, y: y });
+          dragReady = false; postDrag(false);
+          stage.dataset.dragX = x;
+          stage.dataset.dragY = y;
+          stage.dataset.dragTx = tx;
+          stage.dataset.dragTy = ty;
+          clearLongPress();
+          longPressPointerId = 'flutter';
+          longPressTimer = setTimeout(function(){
+            if (pointers.has('flutter') && longPressPointerId === 'flutter') {
+              dragReady = true; postDrag(true); setInteractiveTransition(false);
+            }
+          }, 280);
+        };
+        window.__openhandMermaidPointerMove = function(x, y) {
+          if (!pointers.has('flutter')) return;
+          var previous = pointers.get('flutter');
+          pointers.set('flutter', { x: x, y: y });
+          var moved = previous ? Math.hypot(x - previous.x, y - previous.y) : 0;
+          if (!dragReady && moved > 8) clearLongPress();
+          if (dragReady && stage.dataset.dragX) {
+            var dx = x - parseFloat(stage.dataset.dragX);
+            var dy = y - parseFloat(stage.dataset.dragY);
+            tx = parseFloat(stage.dataset.dragTx) + dx;
+            ty = parseFloat(stage.dataset.dragTy) + dy;
+            apply();
+          }
+        };
+        window.__openhandMermaidPointerUp = function(x, y) {
+          pointers.delete('flutter');
+          clearLongPress();
+          dragReady = false; longPressPointerId = null; postDrag(false); setInteractiveTransition(true);
+          delete stage.dataset.dragX;
+          delete stage.dataset.dragY;
+          delete stage.dataset.dragTx;
+          delete stage.dataset.dragTy;
+        };
         fit();
         post('ready');
         stage.addEventListener('wheel', function(e) {
