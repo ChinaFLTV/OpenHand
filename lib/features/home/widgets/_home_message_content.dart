@@ -1680,6 +1680,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   void remove(Selectable selectable) {
+    if (_disposed) return;
     selectable.removeListener(_onSelectableChanged);
     _selectables.remove(selectable);
     if (_anchorStart == selectable) _anchorStart = null;
@@ -1813,6 +1814,8 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   void dispose() {
+    // 2026-06-04: 严格按顺序清理，避免 Selectable 的回调
+    // 在我们已经 dispose 之后才抵达 _onSelectableChanged。
     _disposed = true;
     for (final selectable in _selectables) {
       selectable.removeListener(_onSelectableChanged);
@@ -1820,6 +1823,9 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     _selectables.clear();
     _anchorStart = null;
     _anchorEnd = null;
+    // 不再主动 _refreshGeometry，避免在 SelectionContainer 节点已
+    // 失活时尝试 read renderObject，触发
+    // "Cannot get renderObject of inactive element"。
     super.dispose();
   }
 

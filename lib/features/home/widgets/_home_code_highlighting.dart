@@ -2078,6 +2078,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   double _zoomPercent = 100;
   bool _bridgeReady = false;
   Brightness? _lastBrightness;
+  // 2026-06-04: 缓存 didChangeDependencies 阶段拿到的 scope，
+  // 让 dispose 不再重复查询 ancestor，避免
+  // “Looking up a deactivated widget's ancestor is unsafe”。
+  _MessageBubbleState? _bubbleScope;
 
   Widget _buildToolPill({
     required String label,
@@ -2131,9 +2135,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _BubbleHtmlInteractiveScope.maybeOf(context)?.registerEmbeddedInteractiveRegion(
-      _interactiveRegionKey,
-    );
+    final scope = _BubbleHtmlInteractiveScope.maybeOf(context);
+    if (scope != _bubbleScope) {
+      _bubbleScope?.unregisterEmbeddedInteractiveRegion(_interactiveRegionKey);
+      _bubbleScope = scope;
+      scope?.registerEmbeddedInteractiveRegion(_interactiveRegionKey);
+    }
     final brightness = Theme.of(context).brightness;
     if (_lastBrightness == null) {
       _lastBrightness = brightness;
@@ -2148,7 +2155,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
     }
   }
-
   Uint8List? _decodePngBytes(String dataUrl) {
     final trimmed = dataUrl.trim();
     if (trimmed.isEmpty) return null;
@@ -2269,9 +2275,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   @override
   void dispose() {
-    _BubbleHtmlInteractiveScope.maybeOf(context)?.unregisterEmbeddedInteractiveRegion(
-      _interactiveRegionKey,
-    );
+    // 2026-06-04: dispose 阶段 context 已经 deactivate，
+    // 直接 _BubbleHtmlInteractiveScope.maybeOf(context) 会触发
+    // “Looking up a deactivated widget's ancestor is unsafe”。
+    // 因此把在 didChangeDependencies 阶段拿到的 scope 缓存下来，
+    // 这里只走 cached 引用注销内嵌交互区域，不再二次查询 ancestor。
+    _bubbleScope?.unregisterEmbeddedInteractiveRegion(_interactiveRegionKey);
+    _bubbleScope = null;
     _loadWatchdog?.cancel();
     final tempPath = _tempHtmlPath;
     if (tempPath != null) {
