@@ -2116,7 +2116,15 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          // 临时排查日志：确认工具栏按钮是否真的被点中。
+          debugPrint(
+            '[mermaid-debug] tool pill tapped: $label, '
+            'isReady=$_isReady, bridgeReady=$_bridgeReady, '
+            'hasController=${_controller != null}, loadError=$_loadError',
+          );
+          onTap();
+        },
         borderRadius: _borderRadius999,
         child: Ink(decoration: decoration, child: child),
       ),
@@ -2540,6 +2548,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   void _fitToView() {
     _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    // 临时排查日志：确认按钮回调真的进入了。
+    debugPrint(
+      '[mermaid-debug] _fitToView dispatched '
+      'fit: isReady=$_isReady, bridgeReady=$_bridgeReady, '
+      'hasController=${_controller != null}, loadError=$_loadError',
+    );
     unawaited(
       _runMermaidCommand(
         'window.__openhandMermaidFit&&window.__openhandMermaidFit();',
