@@ -2073,6 +2073,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   String _pngDataUrl = '';
   double _zoomPercent = 100;
   bool _dragActive = false;
+  bool _bridgeReady = false;
   Brightness? _lastBrightness;
 
   Widget _buildToolPill({
@@ -2170,6 +2171,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               _loadWatchdog?.cancel();
               if (mounted && !_isReady) {
                 setState(() => _isReady = true);
+              }
+              return;
+            }
+            if (raw == 'ready') {
+              if (mounted) {
+                setState(() => _bridgeReady = true);
               }
               return;
             }
@@ -2277,7 +2284,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   @override
   Widget build(BuildContext context) {
     final controlsLocked =
-        !_isReady || _loadError != null || _controller == null;
+        !_isReady || !_bridgeReady || _loadError != null || _controller == null;
     final body = Stack(
       children: [
         if (_controller != null)
@@ -2760,6 +2767,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         window.__openhandMermaidReset = reset;
         window.__openhandMermaidFit = fit;
         fit();
+        post('ready');
         stage.addEventListener('wheel', function(e) {
           if (!(e.ctrlKey || e.metaKey)) return;
           e.preventDefault();
