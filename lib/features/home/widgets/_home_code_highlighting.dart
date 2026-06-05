@@ -2066,6 +2066,8 @@ class _MermaidDiagramView extends StatefulWidget {
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   final GlobalKey _interactiveRegionKey = GlobalKey();
   WebViewController? _controller;
+  Offset? _pointerAnchorGlobal;
+  bool _pointerBridgeActive = false;
   bool _isReady = false;
   String? _loadError;
   Timer? _loadWatchdog;
@@ -2329,9 +2331,35 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     return Listener(
       key: _interactiveRegionKey,
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => markInteractivePointer(),
-      onPointerMove: (_) => markInteractivePointer(),
+      onPointerDown: (event) {
+        markInteractivePointer();
+        _pointerAnchorGlobal = event.position;
+        _pointerBridgeActive = false;
+      },
+      onPointerMove: (event) {
+        markInteractivePointer();
+        final anchor = _pointerAnchorGlobal;
+        if (anchor == null) return;
+        if ((event.position - anchor).distance > 8) {
+          _pointerBridgeActive = true;
+        }
+      },
       onPointerSignal: (_) => markInteractivePointer(),
+      onPointerCancel: (_) {
+        _pointerAnchorGlobal = null;
+        _pointerBridgeActive = false;
+      },
+      onPointerUp: (event) {
+        markInteractivePointer();
+        final anchor = _pointerAnchorGlobal;
+        final shouldTap = !_pointerBridgeActive && anchor != null &&
+            (event.position - anchor).distance <= 8;
+        _pointerAnchorGlobal = null;
+        _pointerBridgeActive = false;
+        if (shouldTap) {
+          unawaited(_simulateTapAtGlobal(event.position));
+        }
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2450,6 +2478,21 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         stack,
       );
     }
+  }
+
+  Future<void> _simulateTapAtGlobal(Offset globalPosition) async {
+    final controller = _controller;
+    final context = _interactiveRegionKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (controller == null || renderObject is! RenderBox || !renderObject.attached) {
+      return;
+    }
+    final local = renderObject.globalToLocal(globalPosition);
+    final x = local.dx.toStringAsFixed(2);
+    final y = local.dy.toStringAsFixed(2);
+    await _runMermaidCommand(
+      "var x=$x,y=$y;var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}",
+    );
   }
 
   void _resetView() {
