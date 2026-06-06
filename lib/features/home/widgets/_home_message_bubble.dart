@@ -3384,16 +3384,18 @@ class _MessageContextCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _messageActionChipStyle(context);
-    final iconColor = style.iconColor?.resolve({});
-    return OutlinedButton.icon(
-      onPressed: null,
-      style: style,
-      icon: leading ?? Icon(icon, size: 16, color: iconColor),
-      label: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.fade,
+    final iconColor = style.iconColor?.resolve(const <WidgetState>{});
+    return IgnorePointer(
+      child: OutlinedButton.icon(
+        onPressed: () {},
+        style: style,
+        icon: leading ?? Icon(icon, size: 16, color: iconColor),
+        label: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+        ),
       ),
     );
   }
