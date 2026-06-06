@@ -378,7 +378,17 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           Padding(
             padding: const EdgeInsets.all(14),
             child: isMermaidLanguage && _mermaidViewActive
-                ? _MermaidDiagramView(source: widget.content, palette: palette)
+                // 外层 Column 是 CrossAxisAlignment.start，子节点只拿到松约束。
+                // _MermaidDiagramView 内层 Column 用 stretch，但实际宽度按
+                // intrinsic 算 → 工具栏 Row 决定，WebView 视口塌成 0 宽，
+                // 内部 stage 自然 0x0，pointer 永远命中不到。强制撑满父宽即可。
+                ? SizedBox(
+                    width: double.infinity,
+                    child: _MermaidDiagramView(
+                      source: widget.content,
+                      palette: palette,
+                    ),
+                  )
                 : _buildCodeBody(palette),
           ),
         ],
@@ -2184,13 +2194,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     try {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        // 临时诊断：把 WebView 内 console.log 接到 Flutter 调试输出，
-        // 用来定位 mermaid 画布手势为何收不到 pointer 事件。
-        // 问题解决后删除。
-        ..setOnConsoleMessage((message) {
-          // ignore: avoid_print
-          print('[mermaid-console] [${message.level.name}] ${message.message}');
-        })
         ..addJavaScriptChannel(
           'OpenHandMermaid',
           onMessageReceived: (message) {
@@ -2817,10 +2820,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     overflow: hidden;
   }
   .mermaid-stage {
-    /* 用 position: fixed + inset:0 强制铺满 WKWebView 视口，
-       不依赖 html/body 100% 高度链。loadFile 完成后那一帧
-       WKWebView 高度可能还是 0，单纯 100% 会让 stage 变 0x0
-       收不到任何 pointer 事件，gesture 完全失活。 */
+    /* position: fixed + inset:0 让 stage 始终铺满 WKWebView 视口，
+       不依赖 html/body 100% 高度链，避免边缘情况下 stage 塌成 0x0
+       而吃不到 pointer 事件。 */
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     touch-action: none;
@@ -3037,38 +3039,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       };
       window.__openhandMermaidReset = reset;
       window.__openhandMermaidFit = fit;
-      // 临时诊断：把关键事件打点抛到 console，配合 Flutter 端
-      // setOnConsoleMessage 接住，定位手势为何不响应。问题解决后删除。
-      var gestureLog = function (msg) {
-        try { console.log('[mermaid-gesture] ' + msg); } catch (_) {}
-      };
-      try {
-        var sRect = stage.getBoundingClientRect();
-        var iRect = inner.getBoundingClientRect();
-        gestureLog('init viewport=' + window.innerWidth + 'x' + window.innerHeight
-          + ' stage=' + sRect.width.toFixed(0) + 'x' + sRect.height.toFixed(0)
-          + ' inner=' + iRect.width.toFixed(0) + 'x' + iRect.height.toFixed(0)
-          + ' svgChild=' + (inner.querySelector('svg') ? 'yes' : 'no'));
-      } catch (_) {}
-      // 延迟复测：loadFile 完成时 WKWebView 经常还在等 Flutter 推第一帧，
-      // 当时 stage=0x0 收不到事件。下一帧 / 100ms 后通常已稳定。
-      var remeasure = function (tag) {
-        try {
-          var s = stage.getBoundingClientRect();
-          gestureLog('remeasure[' + tag + '] viewport=' + window.innerWidth + 'x' + window.innerHeight
-            + ' stage=' + s.width.toFixed(0) + 'x' + s.height.toFixed(0));
-        } catch (_) {}
-      };
-      requestAnimationFrame(function () { remeasure('raf1'); });
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () { remeasure('raf2'); });
-      });
-      setTimeout(function () { remeasure('100ms'); }, 100);
-      setTimeout(function () { remeasure('500ms'); }, 500);
-      window.addEventListener('resize', function () { remeasure('resize'); });
       // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点。
       stage.addEventListener('wheel', function (e) {
-        gestureLog('wheel ctrl=' + e.ctrlKey + ' meta=' + e.metaKey + ' dy=' + e.deltaY);
         if (!(e.ctrlKey || e.metaKey)) return;
         e.preventDefault();
         clearLongPress();
@@ -3083,17 +3055,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         state.scale = newScale;
         apply();
       }, { passive: false });
-      var moveLogCount = 0;
       var onPointerDown = function (e) {
         try { stage.setPointerCapture(e.pointerId); } catch (_) {}
         // 阻止 iOS Safari / 桌面浏览器默认手势（图片拖出、长按菜单等）。
         if (e.cancelable) e.preventDefault();
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        gestureLog('pointerdown type=' + e.pointerType
-          + ' target=' + (e.target && e.target.tagName)
-          + ' id=' + (e.target && e.target.id || '')
-          + ' captureEl=' + (e.currentTarget && e.currentTarget.tagName)
-          + ' pointers=' + pointers.size);
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
@@ -3131,7 +3097,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             tapStart = null;
             postDrag(true);
             setInteractiveTransition(false);
-            gestureLog('longPress fired');
           }
         }, 280);
       };
@@ -3143,13 +3108,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         var moved = Math.hypot(dx, dy);
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (moved > 4) pointerMoved = true;
-        if (moveLogCount < 3) {
-          gestureLog('pointermove type=' + e.pointerType
-            + ' target=' + (e.target && e.target.tagName)
-            + ' pointers=' + pointers.size
-            + ' dragReady=' + dragReady);
-          moveLogCount++;
-        }
         if (pointers.size === 2) {
           clearLongPress();
           dragReady = false;
@@ -3190,10 +3148,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           var wasTap = tapStart != null && !pointerMoved && !dragReady;
           var tapX = tapStart ? tapStart.x : 0;
           var tapY = tapStart ? tapStart.y : 0;
-          gestureLog('pointerend type=' + e.pointerType
-            + ' target=' + (e.target && e.target.tagName)
-            + ' wasTap=' + wasTap + ' dragReady=' + dragReady
-            + ' pointerMoved=' + pointerMoved);
           dragReady = false;
           longPressPointerId = null;
           tapStart = null;
@@ -3216,7 +3170,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       stage.addEventListener('pointerup', onPointerEnd, { capture: true });
       stage.addEventListener('pointercancel', onPointerEnd, { capture: true });
       stage.addEventListener('dblclick', function () { reset(); });
-      gestureLog('listeners attached (capture=true)');
     })();
   </script>
 </body>
