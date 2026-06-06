@@ -2101,6 +2101,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   // 让 dispose 不再重复查询 ancestor，避免
   // “Looking up a deactivated widget's ancestor is unsafe”。
   _MessageBubbleState? _bubbleScope;
+  // macOS 触控板捏合/平移：用 onPointerPanZoom* 跟踪累计 scale，
+  // 把"相对于手势起点的累计值"换算成"相对上一个回调的增量"，
+  // 再桥接到 WebView 内部的 __openhandZoomAt / __openhandPan。
+  double _trackpadLastScale = 1.0;
 
   Widget _buildToolPill({
     required String label,
@@ -2316,6 +2320,88 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     super.dispose();
   }
 
+  // macOS 上 webview_flutter 把 WKWebView 当 Flutter 子层，pointer 事件被
+  // Flutter 命中测试先吃掉、不再回灌给 WebView。这里只在 macOS 用 Listener
+  // 把事件桥接到 WebView：单指/鼠标 -> dispatchEvent 同等 PointerEvent，
+  // 滚轮 -> __openhandZoomAt，触控板 pan/zoom -> __openhandPan/__openhandZoomAt。
+  // 其他平台 (iOS/Android/WEB) 原生事件能进 WebView，直接返回原 widget 即可。
+  Widget _buildWebViewWithGestures() {
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
+    final webView = WebViewWidget(controller: controller);
+    if (!Platform.isMacOS) return webView;
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) => _forwardPointer('down', e),
+      onPointerMove: (e) => _forwardPointer('move', e),
+      onPointerUp: (e) => _forwardPointer('up', e),
+      onPointerCancel: (e) => _forwardPointer('cancel', e),
+      onPointerSignal: (e) {
+        if (e is PointerScrollEvent && e.scrollDelta.dy != 0) {
+          // 鼠标滚轮 / 触控板双指上下推动：以光标为锚点缩放，
+          // 系数与 JS 原生 wheel 路径保持一致 (0.0025/px)。
+          final factor = (1 - e.scrollDelta.dy * 0.0025).clamp(0.5, 2.0);
+          _forwardZoom(factor, e.localPosition);
+        }
+      },
+      onPointerPanZoomStart: (_) => _trackpadLastScale = 1.0,
+      onPointerPanZoomUpdate: (e) {
+        // 触控板捏合 + 同步两指推动：scale 是相对手势起点的累计值，
+        // 取增量再桥接，避免每帧重复施加历史缩放。
+        final scaleStep = e.scale / _trackpadLastScale;
+        _trackpadLastScale = e.scale;
+        if ((scaleStep - 1).abs() > 0.001) {
+          _forwardZoom(scaleStep, e.localPosition);
+        }
+        final pan = e.localPanDelta;
+        if (pan.dx != 0 || pan.dy != 0) {
+          _forwardPan(pan.dx, pan.dy);
+        }
+      },
+      onPointerPanZoomEnd: (_) => _trackpadLastScale = 1.0,
+      child: webView,
+    );
+  }
+
+  void _forwardPointer(String type, PointerEvent e) {
+    final controller = _controller;
+    if (controller == null) return;
+    final kind = e.kind == PointerDeviceKind.mouse
+        ? 'mouse'
+        : e.kind == PointerDeviceKind.touch
+            ? 'touch'
+            : 'pen';
+    final x = e.localPosition.dx;
+    final y = e.localPosition.dy;
+    unawaited(
+      controller.runJavaScript(
+        'window.__openhandDispatchPointer&&'
+        'window.__openhandDispatchPointer("$type",${e.pointer},$x,$y,"$kind")',
+      ),
+    );
+  }
+
+  void _forwardZoom(double scaleFactor, Offset anchor) {
+    final controller = _controller;
+    if (controller == null) return;
+    unawaited(
+      controller.runJavaScript(
+        'window.__openhandZoomAt&&'
+        'window.__openhandZoomAt($scaleFactor,${anchor.dx},${anchor.dy})',
+      ),
+    );
+  }
+
+  void _forwardPan(double dx, double dy) {
+    final controller = _controller;
+    if (controller == null) return;
+    unawaited(
+      controller.runJavaScript(
+        'window.__openhandPan&&window.__openhandPan($dx,$dy)',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controlsLocked =
@@ -2323,7 +2409,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final body = Stack(
       children: [
         if (_controller != null)
-          Positioned.fill(child: WebViewWidget(controller: _controller!)),
+          Positioned.fill(child: _buildWebViewWithGestures()),
         if (!_isReady)
           Positioned(
             top: 0,
@@ -3039,7 +3125,49 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       };
       window.__openhandMermaidReset = reset;
       window.__openhandMermaidFit = fit;
-      // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点。
+      // macOS 上 webview_flutter 把 WKWebView 嵌成 Flutter 子层，Flutter
+      // 的命中测试会先吃掉 pointer 事件，WebView 内的 JS 监听拿不到。
+      // 因此 Flutter 端在 macOS 用 Listener 接住事件，转手通过下面这些
+      // 桥接函数派发等价 PointerEvent / 直接操作 transform，让已有手势
+      // 逻辑无缝复用。iOS / Android / WEB 内嵌时仍走原生事件路径。
+      window.__openhandDispatchPointer = function (type, id, x, y, kind) {
+        try {
+          var event = new PointerEvent('pointer' + type, {
+            pointerId: id,
+            clientX: x,
+            clientY: y,
+            pointerType: kind || 'mouse',
+            isPrimary: true,
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            buttons: (type === 'down' || type === 'move') ? 1 : 0,
+          });
+          stage.dispatchEvent(event);
+        } catch (_) {}
+      };
+      window.__openhandZoomAt = function (scaleFactor, anchorX, anchorY) {
+        clearLongPress();
+        setInteractiveTransition(false);
+        var newScale = Math.min(8, Math.max(0.2, state.scale * scaleFactor));
+        if (newScale === state.scale) return;
+        var rect = stage.getBoundingClientRect();
+        var cx = anchorX - rect.left;
+        var cy = anchorY - rect.top;
+        state.tx = cx - (cx - state.tx) * (newScale / state.scale);
+        state.ty = cy - (cy - state.ty) * (newScale / state.scale);
+        state.scale = newScale;
+        apply();
+      };
+      window.__openhandPan = function (dx, dy) {
+        if (dx === 0 && dy === 0) return;
+        setInteractiveTransition(false);
+        state.tx += dx;
+        state.ty += dy;
+        apply();
+      };
+      // 滚轮 + Ctrl/Cmd 缩放，以光标为锚点（原生 wheel 兜底，
+      // 桌面端会被 Flutter Listener 截掉，所以主路径走 __openhandZoomAt）。
       stage.addEventListener('wheel', function (e) {
         if (!(e.ctrlKey || e.metaKey)) return;
         e.preventDefault();
@@ -3084,9 +3212,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         stage.dataset.dragTy = String(state.ty);
         clearLongPress();
         if (e.pointerType === 'mouse') {
-          // 桌面鼠标按下即拖，避免长按迟滞。
+          // 桌面鼠标按下即可拖；但保留 tapStart，让"按下后没移动直接抬起"
+          // 还能识别成 tap 转发到 mermaid 节点，链接/回调不丢。
           dragReady = true;
-          tapStart = null;
           postDrag(true);
           setInteractiveTransition(false);
           return;
@@ -3145,7 +3273,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         clearLongPress();
         if (pointers.size < 2) pinchStartDist = 0;
         if (pointers.size === 0) {
-          var wasTap = tapStart != null && !pointerMoved && !dragReady;
+          // "未发生移动" 就是 tap，鼠标/触屏一致 —— 鼠标按下即 dragReady
+          // 不再当作非 tap，避免单击 mermaid 节点时丢链接回调。
+          var wasTap = tapStart != null && !pointerMoved;
           var tapX = tapStart ? tapStart.x : 0;
           var tapY = tapStart ? tapStart.y : 0;
           dragReady = false;
