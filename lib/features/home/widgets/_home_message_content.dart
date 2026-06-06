@@ -4160,6 +4160,51 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapSelection(_buildDispatchedBody());
+    final body = AnimatedSwitcher(
+      duration: cardMotionDurationFor(
+        context,
+        expanding: !isStreaming,
+      ),
+      switchInCurve: kCardMotionCurve,
+      switchOutCurve: Curves.easeOutCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.topLeft,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder: (child, animation) {
+        final fade = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: kCardMotionCurve,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        );
+        return FadeTransition(
+          opacity: fade,
+          child: ScaleTransition(
+            scale: scale,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey<String>(
+          '${format.storageKey}|${isStreaming ? 'streaming' : 'stable'}|${wrapInSelectionArea ? 'select' : 'plain'}',
+        ),
+        child: _buildDispatchedBody(),
+      ),
+    );
+    return _wrapSelection(body);
   }
 }

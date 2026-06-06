@@ -609,16 +609,31 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               isStreaming: true,
                             )
                           else if (isStreamingAssistant)
-                            StreamingTextReveal(
-                              textLength: effectiveContent.length,
-                              streaming: true,
-                              animateSize: false,
-                              child: _StreamingAssistantTextBody(
-                                data: effectiveContent,
-                                textColor: textColor,
-                                backgroundColor: backgroundColor,
-                                style: markdownStyleSheet.styleSheet.p,
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0.992, end: 1.0),
+                              duration: cardMotionDurationFor(
+                                context,
+                                expanding: true,
                               ),
+                              curve: kCardMotionCurve,
+                              child: StreamingTextReveal(
+                                textLength: effectiveContent.length,
+                                streaming: true,
+                                animateSize: false,
+                                child: _StreamingAssistantTextBody(
+                                  data: effectiveContent,
+                                  textColor: textColor,
+                                  backgroundColor: backgroundColor,
+                                  style: markdownStyleSheet.styleSheet.p,
+                                ),
+                              ),
+                              builder: (context, value, child) {
+                                return Transform.scale(
+                                  scale: value,
+                                  alignment: Alignment.topLeft,
+                                  child: child,
+                                );
+                              },
                             )
                           else
                             _AssistantMessageBodyDispatcher(
@@ -648,8 +663,24 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           if (isStreamingAssistant &&
                               resolvedMessageContentFormat !=
                                   AiMessageContentFormat.html) ...[
-                            const SizedBox(height: 4),
-                            _TypewriterCaret(color: textColor),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _TypewriterCaret(color: textColor),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '生成中',
+                                    en: 'Streaming',
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: textColor.withValues(alpha: 0.72),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ],
                       ),
@@ -672,7 +703,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ),
                   ],
                 );
-                return ClipRect(child: bubbleContent);
+                return ClipRect(
+                  child: AnimatedSize(
+                    duration: cardMotionDurationFor(
+                      context,
+                      expanding: widget.isSelected || reasoningExpanded,
+                    ),
+                    curve: kCardMotionCurve,
+                    alignment: Alignment.topLeft,
+                    child: bubbleContent,
+                  ),
+                );
               },
             ),
           ),

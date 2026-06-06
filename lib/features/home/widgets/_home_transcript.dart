@@ -299,6 +299,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
+  final Set<String> _animatedMessageIds = <String>{};
 
   @override
   void initState() {
@@ -424,6 +425,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       'openhand.session.materialize',
       arguments: <String, Object?>{'count': visibleMessages.length},
     );
+    if (!animate) {
+      _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
+    }
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages) _TranscriptRenderEntry(message: message),
     ];
@@ -475,6 +479,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       }
       if (!hasExitingEntries) {
+        for (final message in visibleMessages) {
+          if (!activeEntryIdSet.contains(message.id)) {
+            _animatedMessageIds.remove(message.id);
+          }
+        }
         _replaceRenderEntries(visibleMessages);
         return;
       }
@@ -488,6 +497,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     if (hasAddedIds ||
         !_isOrderedSubsequence(visibleMessageIds, activeEntryIds)) {
+      for (final message in visibleMessages) {
+        if (!activeEntryIdSet.contains(message.id)) {
+          _animatedMessageIds.remove(message.id);
+        }
+      }
       _replaceRenderEntries(visibleMessages);
       return;
     }
@@ -1171,85 +1185,103 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 final hasLaterVisibleMessages =
                     visibleMessageIndex != null &&
                     visibleMessageIndex < visibleMessages.length - 1;
+                final shouldAnimateAppearance =
+                    !entry.exiting &&
+                    widget.sendPhase != AiSendPhase.idle &&
+                    isLastVisibleMessage &&
+                    !_animatedMessageIds.contains(message.id);
+                final bubble = _TranscriptBubbleRegistrar(
+                  messageId: message.id,
+                  registry: _bubbleRegistry,
+                  child: _MessageBubble(
+                    key: ValueKey<String>(message.id),
+                    message: message,
+                    sessionTitle: session.title,
+                    sessionEnvironment: session.environment,
+                    showReasoningSweep:
+                        !entry.exiting &&
+                        widget.sendPhase == AiSendPhase.responding &&
+                        _isStreamingReasoningMessage(message),
+                    trackLayoutChanges:
+                        !entry.exiting &&
+                        _shouldTrackMessageLayout(
+                          message: message,
+                          sendPhase: widget.sendPhase,
+                          isLastVisibleMessage: isLastVisibleMessage,
+                        ),
+                    onLayoutChanged: widget.onLayoutChanged,
+                    isSelected: isSelected,
+                    isScrollHighlighted:
+                        _highlightedMessageId == message.id,
+                    onSelect: () {
+                      if (_selectedMessageId == message.id) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedMessageId = message.id;
+                      });
+                    },
+                    onDeselect: () {
+                      if (_selectedMessageId != message.id) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedMessageId = null;
+                      });
+                    },
+                    onEdit:
+                        !entry.exiting &&
+                            message.kind == AiSessionMessageKind.user
+                        ? () => widget.onEditMessage(message)
+                        : null,
+                    onCopy: () => widget.onCopyMessage(message),
+                    onDelete: () async {
+                      if (entry.exiting) {
+                        return;
+                      }
+                      await _runDeleteAction(
+                        message,
+                        widget.onDeleteMessage,
+                      );
+                    },
+                    onDeleteFromHere:
+                        !entry.exiting && hasLaterVisibleMessages
+                        ? () => _runDeleteAction(
+                            message,
+                            widget.onDeleteMessageFromHere,
+                          )
+                        : null,
+                    onAudit: telemetryDebugEnabled
+                        ? () {
+                            _showMessageAuditDialog(
+                              context,
+                              message: message,
+                              session: session,
+                              controller: aiSessionController,
+                              claudeStyle: widget.claudeStyle,
+                            );
+                          }
+                        : null,
+                  ),
+                );
+                final content = shouldAnimateAppearance
+                    ? SettingsAwareAppearOnce(
+                        child: Builder(
+                          builder: (context) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _animatedMessageIds.add(message.id);
+                            });
+                            return bubble;
+                          },
+                        ),
+                      )
+                    : bubble;
                 return Padding(
                   key: ValueKey<String>('transcript-entry-${message.id}'),
                   padding: EdgeInsets.only(
                     bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
                   ),
-                  child: _TranscriptBubbleRegistrar(
-                    messageId: message.id,
-                    registry: _bubbleRegistry,
-                    child: _MessageBubble(
-                      key: ValueKey<String>(message.id),
-                      message: message,
-                      sessionTitle: session.title,
-                      sessionEnvironment: session.environment,
-                      showReasoningSweep:
-                          !entry.exiting &&
-                          widget.sendPhase == AiSendPhase.responding &&
-                          _isStreamingReasoningMessage(message),
-                      trackLayoutChanges:
-                          !entry.exiting &&
-                          _shouldTrackMessageLayout(
-                            message: message,
-                            sendPhase: widget.sendPhase,
-                            isLastVisibleMessage: isLastVisibleMessage,
-                          ),
-                      onLayoutChanged: widget.onLayoutChanged,
-                      isSelected: isSelected,
-                      isScrollHighlighted:
-                          _highlightedMessageId == message.id,
-                      onSelect: () {
-                        if (_selectedMessageId == message.id) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedMessageId = message.id;
-                        });
-                      },
-                      onDeselect: () {
-                        if (_selectedMessageId != message.id) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedMessageId = null;
-                        });
-                      },
-                      onEdit:
-                          !entry.exiting &&
-                              message.kind == AiSessionMessageKind.user
-                          ? () => widget.onEditMessage(message)
-                          : null,
-                      onCopy: () => widget.onCopyMessage(message),
-                      onDelete: () async {
-                        if (entry.exiting) {
-                          return;
-                        }
-                        await _runDeleteAction(
-                          message,
-                          widget.onDeleteMessage,
-                        );
-                      },
-                      onDeleteFromHere:
-                          !entry.exiting && hasLaterVisibleMessages
-                          ? () => _runDeleteAction(
-                              message,
-                              widget.onDeleteMessageFromHere,
-                            )
-                          : null,
-                      onAudit: telemetryDebugEnabled
-                          ? () {
-                              _showMessageAuditDialog(
-                                context,
-                                message: message,
-                                session: session,
-                                controller: aiSessionController,
-                                claudeStyle: widget.claudeStyle,
-                              );
-                            }
-                          : null,
-                    ),
-                  ),
+                  child: content,
                 );
               },
             ),
