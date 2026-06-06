@@ -1844,13 +1844,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom) {
-      // DEBUG 2026-06-06：抽搐定位 — auto-follow 被暂停时打点
-      debugPrint('[OHHome#scrollNtf] PAUSE '
-          'type=${notification.runtimeType} '
-          'd2b=${distanceToBottom.toStringAsFixed(1)} '
-          'away=$userScrolledAwayFromBottom '
-          'up=$userScrolledUpwardFromBottom '
-          'ptrUp=$pointerSignalScrolledUpwardFromBottom');
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
@@ -1862,9 +1855,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (_autoFollowEnabled &&
           _shouldAutoFollowMessages &&
           !_userScrollInProgress) {
-        debugPrint('[OHHome#scrollNtf] schedule@scrollEnd pending=$_pendingForcedScrollToBottom '
-            'queued=$_queuedForcedScrollToBottom');
-        _scheduleScrollToBottom(force: true, animated: true);
+        // 2026-06-06（线程模板抽搐 bug 真凶）：此分支原在 userScrollEnded
+        // 且 _userScrollInProgress=false（即 800 ms 宽限期已过）时强行
+        // animateTo(maxScrollExtent)。在用户做了"轻滑即停"动作后，
+        // 800 ms 之后视口被拽回底部 —— 与用户的"我在读旧消息"心智
+        // 模型相冲突，频繁触发时被感知为"消息上下抽"。删除 scheduleSTB：
+        // auto-follow 的贴底由 _armAutoFollowToBottom + jumpToBottomOnInit
+        // （初始化 / 会话切换）已完整覆盖，resume 路径不再抢 animateTo。
       }
     }
     // 2026-05-01: Resume gating tightened.
@@ -1888,24 +1885,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 值变小、图片解码后实际尺寸小于占位等），pixels 即使不变也会在数值上
     // "靠近底部"——但这是底部向用户靠近，而非用户向底部滚动。此时不应恢复
     // 自动跟随，否则视口会被强行拽回新底部，与用户上滑意图直接冲突。
+    //
+    // 2026-06-06（线程模板抽搐 bug 真凶）：实测日志显示 trackpad 在
+    // 0-32 px 滞回带内反复"轻滑-停-轻滑"，每次 release 都在 800 ms
+    // 宽限期内命中此分支，把视口强制 animateTo(maxScrollExtent) 拽回
+    // 底部。scheduleSTB(force=true, animated=true) 是此处的真凶 —— 移除
+    // 它。auto-follow 仍由 _armAutoFollowToBottom 接管"初始化 / 切会话
+    // / layout 高度回流"三个本就该贴底的场景；用户中途上滑后即便回到
+    // 32 px 滞回带内也不再被强行拉回，需要主动跳到 bottom 才能重新贴底。
     if (isNearBottom &&
         _autoFollowEnabled &&
         userScrollEnded &&
         _userScrollInProgress &&
         !maxExtentShrunkSignificantly) {
-      // DEBUG 2026-06-06：抽搐定位 — auto-follow 恢复时打点
-      debugPrint('[OHHome#scrollNtf] RESUME '
-          'd2b=${distanceToBottom.toStringAsFixed(1)} '
-          'maxShrunk=$maxExtentShrunkSignificantly '
-          'pending=$_pendingForcedScrollToBottom queued=$_queuedForcedScrollToBottom');
       _shouldAutoFollowMessages = true;
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;
       _userScrollInProgress = false;
-      if (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom) {
-        debugPrint('[OHHome#scrollNtf] schedule@resume');
-        _scheduleScrollToBottom(force: true, animated: true);
-      }
     }
     _syncAutoFollowPausedState();
     return false;
@@ -4949,11 +4945,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool animated = false,
     bool allowSettlePasses = true,
   }) {
-    // DEBUG 2026-06-06：抽搐定位 — 每次调用 _scheduleScrollToBottom 都打点
-    debugPrint('[OHHome#scheduleSTB] force=$force animated=$animated '
-        'allowSettle=$allowSettlePasses '
-        'enabled=$_autoFollowEnabled shouldAF=$_shouldAutoFollowMessages '
-        'userScrollInProg=$_userScrollInProgress');
     if (!force &&
         (!_autoFollowEnabled ||
             !_shouldAutoFollowMessages ||
@@ -5276,9 +5267,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || _shouldDeferAutoFollowScheduling()) {
         return;
       }
-      // DEBUG 2026-06-06：thread-template 抽搐定位 — 每次 layout 变化都打点
-      debugPrint('[OHHome#layoutChg] shouldAF=$_shouldAutoFollowMessages '
-          'enabled=$_autoFollowEnabled scrollingInProg=$_userScrollInProgress');
       // 仅当视口已在底部附近时才跟随 layout 变化轻轻贴底，
       // 不消费 _pendingForcedScrollToBottom —— 该 flag 留给
       // 用户主动滚回底部或点击"跳到最新"时的一次性强制定位。
@@ -5289,8 +5277,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (position == null) return;
       final d2b = position.maxScrollExtent - position.pixels;
       if (d2b > _autoFollowDistanceThreshold) return;
-      debugPrint('[OHHome#layoutChg→schedule] d2b=$d2b '
-          'px=${position.pixels.toStringAsFixed(2)} max=${position.maxScrollExtent.toStringAsFixed(2)}');
       _scheduleScrollToBottom(allowSettlePasses: false);
     });
   }

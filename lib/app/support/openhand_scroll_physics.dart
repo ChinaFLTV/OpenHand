@@ -71,14 +71,6 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
   @override
   Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
     final Tolerance tolerance = toleranceFor(position);
-    // DEBUG 2026-06-06：每次 createBallisticSimulation 都打点，定位是否被反复重建
-    debugPrint(
-      '[OHPhysics#createBS] px=${position.pixels.toStringAsFixed(2)} '
-      'min=${position.minScrollExtent.toStringAsFixed(2)} '
-      'max=${position.maxScrollExtent.toStringAsFixed(2)} '
-      'v=${velocity.toStringAsFixed(2)} '
-      'outOfRange=${position.outOfRange}',
-    );
     if (velocity.abs() < tolerance.velocity && !position.outOfRange) {
       return null;
     }
@@ -156,16 +148,7 @@ class _OpenHandRubberBandSimulation extends Simulation {
     required this.kind,
     this.tau = 0.28,
   })  : assert(tau > 0.0),
-        _initialDeviation = position - target {
-    // DEBUG 2026-06-06：每次 simulation 实例化打点
-    debugPrint(
-      '[OHPhysics#sim-new] kind=$kind '
-      'pos=${position.toStringAsFixed(2)} '
-      'target=${target.toStringAsFixed(2)} '
-      'v_in=${velocity.toStringAsFixed(2)} '
-      'deviation=${_initialDeviation.toStringAsFixed(2)}',
-    );
-  }
+        _initialDeviation = position - target;
 
   final double position;
   final double target;
@@ -247,16 +230,6 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
         maxScrollExtent != this.maxScrollExtent) {
       final double delta = maxScrollExtent - this.maxScrollExtent;
       final double oldMax = this.maxScrollExtent;
-      // DEBUG 2026-06-06：只有当 maxScrollExtent 变化 > 1 px 时打点（忽略浮点抖动）
-      if (delta.abs() > 1.0) {
-        debugPrint(
-          '[OHPhysics#applyCD] oldMax=$oldMax newMax=$maxScrollExtent '
-          'd=${delta.toStringAsFixed(2)} '
-          'px=${pixels.toStringAsFixed(2)} '
-          'act=${activity.runtimeType} '
-          'dir=$userScrollDirection',
-        );
-      }
       // 2026-06-06（线程模板抽搐 bug）：drag 守卫只覆盖 overscroll 跟随
       // 分支（pixels > oldMax），让用户的 drag 意图不被 correctPixels 抢走；
       // 收缩分支（delta < -0.5 && pixels > maxScrollExtent）**必须无条件
