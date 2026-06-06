@@ -293,18 +293,26 @@ abstract final class OpenHandTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: colorScheme.inverseSurface,
+        // 2026-06-07 修复：inverseSurface 在深色主题下是浅灰色（M3 默认），
+        // 与深色主题整体配色不协调。改用 surfaceContainerHigh 在深色主题下
+        // 呈现深色调，保持视觉一致性；亮色主题继续用 inverseSurface。
+        backgroundColor: isDark
+            ? colorScheme.surfaceContainerHigh
+            : colorScheme.inverseSurface,
         contentTextStyle: baseTheme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onInverseSurface,
+          color: isDark ? colorScheme.onSurface : colorScheme.onInverseSurface,
           fontWeight: FontWeight.w500,
         ),
-        actionTextColor: colorScheme.inversePrimary,
-        closeIconColor: colorScheme.onInverseSurface.withValues(alpha: 0.7),
+        actionTextColor: isDark ? colorScheme.primary : colorScheme.inversePrimary,
+        closeIconColor: (isDark
+                ? colorScheme.onSurface
+                : colorScheme.onInverseSurface)
+            .withValues(alpha: 0.7),
         // 禁用框架内置的 close icon（它在 M3 下有不可控的白色背景），
         // 改由 OpenHandSnackBar._ensureMotionWrapped 注入无背景的自定义关闭按钮。
         showCloseIcon: false,
         dismissDirection: DismissDirection.down,
-        elevation: 4,
+        elevation: isDark ? 6 : 4,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

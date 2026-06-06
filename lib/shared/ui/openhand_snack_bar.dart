@@ -633,22 +633,24 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
         snackBar.shape ??
         snackBarTheme.shape ??
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
-    // 2026-06-07 修复：使用 Theme.of(context).snackBarTheme 或 colorScheme
-    // 确保 snackbar 的背景色能正确响应亮/暗主题切换。之前直接读
-    // colorScheme.inverseSurface 在某些主题下可能与全局主题配色不一致。
+    // 2026-06-07 修复：深色主题下 snackbar 背景色与全局主题不一致。
+    // 优先使用 snackBarTheme（已在 openhand_theme.dart 中根据亮/暗主题
+    // 配置了不同的背景色），确保深色主题下呈现深色调而非浅灰色。
+    final isDark = theme.brightness == Brightness.dark;
     final backgroundColor =
         snackBar.backgroundColor ??
         snackBarTheme.backgroundColor ??
-        colorScheme.inverseSurface;
-    final elevation = snackBar.elevation ?? snackBarTheme.elevation ?? 4;
+        (isDark ? colorScheme.surfaceContainerHigh : colorScheme.inverseSurface);
+    final elevation = snackBar.elevation ?? snackBarTheme.elevation ?? (isDark ? 6 : 4);
+    final foregroundColor = isDark ? colorScheme.onSurface : colorScheme.onInverseSurface;
     final textStyle =
         snackBarTheme.contentTextStyle ??
         theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onInverseSurface,
+          color: foregroundColor,
           fontWeight: FontWeight.w500,
         ) ??
         TextStyle(
-          color: colorScheme.onInverseSurface,
+          color: foregroundColor,
           fontWeight: FontWeight.w500,
         );
     final body = DefaultTextStyle(
@@ -841,10 +843,11 @@ class _OpenHandGlobalSnackBarActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final snackBarTheme = SnackBarTheme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final foreground =
         action.textColor ??
         snackBarTheme.actionTextColor ??
-        theme.colorScheme.inversePrimary;
+        (isDark ? theme.colorScheme.primary : theme.colorScheme.inversePrimary);
     final background =
         action.backgroundColor ?? snackBarTheme.actionBackgroundColor;
     return TextButton(
@@ -894,9 +897,12 @@ class _SnackBarCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(
-      context,
-    ).colorScheme.onInverseSurface.withValues(alpha: 0.7);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final color = (isDark
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onInverseSurface)
+        .withValues(alpha: 0.7);
     final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
     return Tooltip(
       message: tooltip,
@@ -927,9 +933,12 @@ class _OpenHandGlobalSnackBarCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(
-      context,
-    ).colorScheme.onInverseSurface.withValues(alpha: 0.7);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final color = (isDark
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onInverseSurface)
+        .withValues(alpha: 0.7);
     final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
     return Semantics(
       button: true,
