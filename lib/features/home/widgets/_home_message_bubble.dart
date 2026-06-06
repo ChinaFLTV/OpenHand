@@ -713,7 +713,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 children: [
                   Wrap(
                     spacing: 8,
-                    runSpacing: 8,
+                    runSpacing: 6,
                     children: [
                       _MessageActionButton(
                         onPressed: widget.onCopy,
@@ -804,7 +804,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   _SelectedMessageContextRow(
                     message: message,
                     textColor: textColor,
@@ -3282,17 +3282,17 @@ class _SelectedMessageContextRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final capsules = <Widget>[
-      _MessageContextCapsule(
-        icon: Icons.schedule_rounded,
-        label: _formatDateTime(message.createdAt),
-        textColor: textColor,
-      ),
       if (message.modelLabel != null && message.modelLabel!.trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.memory_rounded,
           label: message.modelLabel!.trim(),
           textColor: textColor,
         ),
+      _MessageContextCapsule(
+        icon: Icons.schedule_rounded,
+        label: _formatDateTime(message.createdAt),
+        textColor: textColor,
+      ),
     ];
     if (capsules.isEmpty) {
       return const SizedBox.shrink();
@@ -3301,7 +3301,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
       alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
       child: Wrap(
         spacing: 6,
-        runSpacing: 6,
+        runSpacing: 4,
         children: capsules,
       ),
     );
