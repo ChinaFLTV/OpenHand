@@ -956,6 +956,19 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
       oldWidget.state != state;
 }
 
+ButtonStyle _messageActionChipStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return OutlinedButton.styleFrom(
+    minimumSize: const Size(0, 34),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    textStyle: theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    ),
+    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+}
+
 class _MessageActionButton extends StatelessWidget {
   const _MessageActionButton({
     required this.onPressed,
@@ -969,18 +982,9 @@ class _MessageActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return OutlinedButton.icon(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 34),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        textStyle: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        ),
-        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      style: _messageActionChipStyle(context),
       icon: Icon(icon, size: 16),
       label: Text(
         label,
@@ -3379,48 +3383,17 @@ class _MessageContextCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = OutlinedButton.styleFrom(
-      minimumSize: const Size(0, 34),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      textStyle: theme.textTheme.labelMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
-      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-    final foregroundColor = style.foregroundColor?.resolve({}) ??
-        theme.colorScheme.primary;
-    final borderSide = style.side?.resolve({}) ??
-        BorderSide(color: theme.colorScheme.outlineVariant);
-    final backgroundColor = style.backgroundColor?.resolve({}) ??
-        theme.colorScheme.surface;
-    final shape = style.shape?.resolve({});
-    final borderRadius = shape is RoundedRectangleBorder
-        ? shape.borderRadius
-        : BorderRadius.circular(999);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: borderRadius is BorderRadius
-            ? borderRadius
-            : BorderRadius.circular(999),
-        border: Border.fromBorderSide(borderSide),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          leading ?? Icon(icon, size: 16, color: foregroundColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: foregroundColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+    final style = _messageActionChipStyle(context);
+    final iconColor = style.iconColor?.resolve({});
+    return OutlinedButton.icon(
+      onPressed: null,
+      style: style,
+      icon: leading ?? Icon(icon, size: 16, color: iconColor),
+      label: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.fade,
       ),
     );
   }
