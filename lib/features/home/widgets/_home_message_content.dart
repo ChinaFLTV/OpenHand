@@ -2294,14 +2294,25 @@ final RegExp _htmlTagScanPattern = RegExp(
   r'<\s*(/?)\s*([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(/?)\s*>',
 );
 
-/// 粗粒度结构平衡检查：未匹配的开标签或残缺尖括号会让流式 HTML 在 wfh
-/// layout 阶段崩溃（`RenderBox was not laid out`）。这里只校验「无残缺
-/// `<` 且开闭标签栈最终为空」，避免阻塞绝大多数完整 HTML 片段。
-bool _isHtmlStructurallyBalanced(String value) {
-  if (value.isEmpty) return true;
+/// 轻量 HTML 自愈：扫描 `_htmlTagScanPattern`，按栈补齐末尾未匹配的开
+/// 标签；尾部出现的残缺 `<tag...`（无对应 `>`）如果看起来是开标签，也
+/// 入栈并补齐。
+///
+/// 触发场景：AI 回复因 `finish_reason: max_tokens` 被截断，留下未闭合
+/// 的 `<div>` / `<table>` 等。直接交给 WebView 时浏览器虽然会自动闭合，
+/// 但 flutter_widget_from_html_core 旧版回退路径会因此崩溃或渲染出 0
+/// 高度的占位 widget，导致消息卡片出现"空白"或"展开后空"的假死。
+///
+/// 设计原则：只追加闭合标签、不删除/重排原有字符，保持用户可见内容
+/// 原貌；平衡时（栈空）返回原值（共享字符串避免无谓分配）。
+final RegExp _htmlPartialOpenTagPattern = RegExp(
+  r'<\s*([a-zA-Z][a-zA-Z0-9-]*)',
+);
+
+String _healUnbalancedHtml(String value) {
+  if (value.isEmpty) return value;
   final lastLt = value.lastIndexOf('<');
   final lastGt = value.lastIndexOf('>');
-  if (lastLt > lastGt) return false; // 末尾有残缺 `<...` 未闭合。
   final stack = <String>[];
   for (final match in _htmlTagScanPattern.allMatches(value)) {
     final isClosing = (match.group(1) ?? '').isNotEmpty;
@@ -2309,16 +2320,34 @@ bool _isHtmlStructurallyBalanced(String value) {
     final selfClose = (match.group(3) ?? '').isNotEmpty;
     if (_htmlVoidTags.contains(tag) || selfClose) continue;
     if (isClosing) {
-      if (stack.isEmpty) return false;
-      // 容忍轻量错位：弹出到最近匹配。
       final idx = stack.lastIndexOf(tag);
-      if (idx < 0) return false;
+      if (idx < 0) continue; // 容忍错位，不阻断
       stack.removeRange(idx, stack.length);
     } else {
       stack.add(tag);
     }
   }
-  return stack.isEmpty;
+  // 末尾残缺 `<tag...`（无 `>`）：若 tagName 合法且非自闭合，仍入栈并
+  // 在尾部补齐闭合。这一步是关键——AI 输出被 max_tokens 截断时，最常
+  // 见的就是「最后一个 `<table ... 属性没写完」就停了。
+  if (lastLt > lastGt) {
+    final tail = value.substring(lastLt);
+    final partial = _htmlPartialOpenTagPattern.firstMatch(tail);
+    if (partial != null) {
+      final tag = partial.group(1)!.toLowerCase();
+      if (!_htmlVoidTags.contains(tag)) {
+        stack.add(tag);
+      }
+    }
+  }
+  if (stack.isEmpty) return value;
+  final buffer = StringBuffer(value);
+  for (var i = stack.length - 1; i >= 0; i--) {
+    buffer.write('</');
+    buffer.write(stack[i]);
+    buffer.write('>');
+  }
+  return buffer.toString();
 }
 
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
@@ -2327,7 +2356,7 @@ bool _isHtmlStructurallyBalanced(String value) {
 /// flutter_widget_from_html_core 0.16.x 对 `flex-wrap` / CSS grid 支持有限。
 /// 这里不再剥离 `display:flex`，而是在自定义 factory 里为常见卡片行布局补
 /// Wrap/Grid 兜底，保证消息卡片尽量接近浏览器预览，同时避免窄气泡溢出。
-String _prepareStreamingHtml(String value) => value;
+String _prepareStreamingHtml(String value) => _healUnbalancedHtml(value);
 
 class _OpenHandHtmlWidgetFactory extends WidgetFactory {
   static const String _cssDisplayGrid = 'grid';
@@ -2895,9 +2924,11 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
   }
 
   Widget _dot(int index) {
-    final phase = (index - _dotAnim.value).clamp(0.0, 1.0);
-    final scale = 0.6 + 0.4 * (1.0 - phase);
-    final alpha = 0.35 + 0.65 * (1.0 - phase);
+    // 错相位波浪：每个点在自己 [0, 1] 窗口内从亮到暗，循环周期内
+    // 三个点都"亮起→暗下去"，不再有永远亮/永远暗的端点。
+    final phase = (_dotAnim.value - index * 0.33).clamp(0.0, 1.0);
+    final scale = 0.55 + 0.45 * (1.0 - phase);
+    final alpha = 0.30 + 0.70 * (1.0 - phase);
     return Transform.scale(
       scale: scale,
       child: Container(
@@ -2972,6 +3003,11 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
 
 /// 首次加载 HTML 气泡时的骨架屏占位，与 [_AuditShimmerPlaceholder]
 /// 同款扫光动画，避免 WebView 加载期间显示一个 ~25px 的空盒子。
+///
+/// 容器底色固定为 `Colors.transparent`：占位只会出现在消息卡片内部
+///（assistant = surfaceContainerHigh / 工具结果 = surfaceContainerHighest），
+/// 不应再叠一层"更深一档"色块，否则会与卡片背景产生肉眼可见的色差。
+/// 高亮感由 shimmer 条带本身的 surfaceContainerLow 渐变承担。
 class _HtmlBubbleShimmer extends StatefulWidget {
   const _HtmlBubbleShimmer();
 
@@ -3001,8 +3037,8 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final baseColor = cs.surfaceContainerHighest;
-    final highlightColor = cs.surfaceContainerLow;
+    final baseColor = cs.onSurface.withValues(alpha: 0.08);
+    final highlightColor = cs.onSurface.withValues(alpha: 0.18);
     final animationsEnabled =
         TickerMode.valuesOf(context).enabled &&
         !MediaQuery.disableAnimationsOf(context);
@@ -3042,9 +3078,10 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   }
 
   Widget _buildContent(Color base, Color highlight, double progress) {
-    return Container(
-      color: base,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    // 容器底色透明：避免在 assistant 卡片（surfaceContainerHigh）等
+    // 任意底色之上再叠一块"更深一档"的色块导致色差。
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3670,10 +3707,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         : '"$fontFamily", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     final textHex = hex(widget.textColor);
     final bgHex = hex(widget.backgroundColor);
-    final source = widget.data.trimLeft();
+    // 先做轻量自愈：补齐 AI 侧因 `max_tokens` 截断后未闭合的 `<div>` /
+    // `<table>` 等，避免浏览器 parser 与 wfh fallback 路径把未闭合
+    // 标签解释成 0 高度占位（用户视觉上就是"空消息卡 / 展开后空"）。
+    final healed = _healUnbalancedHtml(widget.data);
+    final source = healed.trimLeft();
 
     if (_documentShellPattern.hasMatch(source)) {
-      return _injectEmbeddedDocumentReset(widget.data);
+      return _injectEmbeddedDocumentReset(healed);
     }
 
     return '<!DOCTYPE html>'
@@ -3703,7 +3744,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         'table{border-collapse:collapse;}'
         'a{color:inherit;}'
         '</style></head>'
-        '<body><div id="oh-root">${widget.data}</div></body></html>';
+        '<body><div id="oh-root">$healed</div></body></html>';
   }
 
   String _injectEmbeddedDocumentReset(String html) {
@@ -3912,11 +3953,13 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildHtmlOrFallback() {
-    if (!_isHtmlStructurallyBalanced(data)) {
-      return htmlFallback == AiHtmlRenderFallback.plainText
-          ? _buildPlainText()
-          : _buildMarkdown();
-    }
+    // 「数据像 HTML」就直接交给 WebView 渲染，不再因结构不平衡
+    // （AI 输出被 max_tokens 截断、未闭合 `<div>` / `<table>` 等）而
+    // fallback 到 markdown / 纯文本。WebView 内置 HTML 解析器对未闭
+    // 合标签有原生容错，且 `_HtmlBubbleWebView._buildDocument` 会先
+    // 走 `_healUnbalancedHtml` 轻量自愈，进一步降低 layout 阶段崩溃
+    // 的概率；旧版本走 markdown fallback 时，未闭合的 `<table>` 经常
+    // 渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
     if (_looksLikeHtml(data)) {
       return SizedBox(
         width: double.infinity,
