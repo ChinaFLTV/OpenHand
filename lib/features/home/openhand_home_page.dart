@@ -3538,6 +3538,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final instructionsController = context.read<InstructionsController>();
     final appInfo = context.read<AppInfo>();
     final sessionController = context.read<AiSessionController>();
+    final effectiveBrightness = _resolveEffectiveBrightness(context);
     sessionController.updateAvailableModelsForWebSearch(
       settingsController.aiModels,
     );
@@ -3586,7 +3587,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       messageContentFormat: settingsController.aiMessageContentFormat,
       htmlRenderFallback: settingsController.aiHtmlRenderFallback,
       htmlContentRichness: settingsController.aiHtmlContentRichness,
-      appThemeBrightness: _resolveEffectiveBrightness(context).name,
+      appThemeBrightness: effectiveBrightness.name,
       appThemePresetName: settingsController.themePreset.storageValue,
       appThemePrimaryColor:
           '#${settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
@@ -3786,6 +3787,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
+      context: context,
       settingsController: settingsController,
       skillsController: skillsController,
       mcpController: mcpController,
@@ -3818,6 +3820,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   AiSessionRuntimeContext _buildRuntimeCatalogPreviewContext({
+    required BuildContext context,
     required SettingsController settingsController,
     required SkillsController skillsController,
     required McpController mcpController,
