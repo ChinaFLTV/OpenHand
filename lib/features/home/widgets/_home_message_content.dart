@@ -2272,13 +2272,26 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
 /// 简单的 HTML 嗅探：判断字符串是否大概率为 HTML 文档。
 /// 用于消息内容格式 = HTML 时的"内容不像 HTML 就走回退"路径。
 final RegExp _htmlLikelyTagPattern = RegExp(
-  r'<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|tr|td|th|a|img|br|hr|pre|code|strong|em|b|i|u|section|article|header|footer|nav|main|button|form|input|label|style|script|iframe|video|audio|svg)\b',
+  r'<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|caption|col|colgroup|a|img|br|hr|pre|code|strong|em|b|i|u|s|del|ins|mark|small|sub|sup|abbr|cite|q|blockquote|section|article|header|footer|nav|main|aside|button|form|input|textarea|select|option|label|fieldset|legend|details|summary|figure|figcaption|time|progress|meter|style|script|link|meta|iframe|video|audio|canvas|svg|path|rect|circle|ellipse|line|polyline|polygon|text|g|defs|use|symbol)\b',
   caseSensitive: false,
 );
 
 bool _looksLikeHtml(String value) {
   if (value.isEmpty) return false;
   return _htmlLikelyTagPattern.hasMatch(value);
+}
+
+/// 宽松的 HTML 标签结构检测：识别任意 `<标签名>` 或 `</标签名>` 形式，
+/// 用于捕获白名单外的有效 HTML 标签（如 `<del>`、`<kbd>`、`<dfn>` 等）。
+/// 配合 `_looksLikeHtml` 使用，避免 AI 输出的非常见标签被误判为纯文本。
+final RegExp _htmlAnyTagPattern = RegExp(
+  r'<\s*/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>',
+);
+
+bool _hasHtmlTagStructure(String value) {
+  if (value.isEmpty) return false;
+  // 至少包含 1 个完整的 HTML 标签（开/闭/自闭合均可）。
+  return _htmlAnyTagPattern.hasMatch(value);
 }
 
 // 自闭合标签，不参与开/闭配平。
@@ -3992,6 +4005,30 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     return SelectionArea(child: child);
   }
 
+  Widget _buildMarkdownOrFallback() {
+    // Markdown 格式智能回退：如果内容看起来是 HTML（而非 Markdown），
+    // 优先尝试 HTML 渲染，失败再走 Markdown → plainText 降级链。
+    // 这避免了 AI 在 Markdown 模式下输出 HTML 标签时，标签被原样显示。
+    final bool hasHtmlLikeTags = _looksLikeHtml(data);
+    final bool hasTagStructure = !hasHtmlLikeTags && _hasHtmlTagStructure(data);
+
+    if (hasHtmlLikeTags || hasTagStructure) {
+      // 内容更像 HTML，优先用 WebView 渲染。
+      return SizedBox(
+        width: double.infinity,
+        child: _HtmlBubbleWebView(
+          key: ValueKey(Object.hash(data, textColor)),
+          data: data,
+          textColor: textColor,
+          backgroundColor: backgroundColor,
+          baseTextStyle: markdownStyleSheet.p,
+        ),
+      );
+    }
+    // 否则走正常 Markdown 渲染。
+    return _buildMarkdown();
+  }
+
   Widget _buildMarkdown() {
     return _CollapsibleMessageMarkdownBody(
       data: data.isEmpty ? ' ' : data,
@@ -4018,14 +4055,21 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildHtmlOrFallback() {
-    // 「数据像 HTML」就直接交给 WebView 渲染，不再因结构不平衡
-    // （AI 输出被 max_tokens 截断、未闭合 `<div>` / `<table>` 等）而
-    // fallback 到 markdown / 纯文本。WebView 内置 HTML 解析器对未闭
-    // 合标签有原生容错，且 `_HtmlBubbleWebView._buildDocument` 会先
-    // 走 `_healUnbalancedHtml` 轻量自愈，进一步降低 layout 阶段崩溃
-    // 的概率；旧版本走 markdown fallback 时，未闭合的 `<table>` 经常
-    // 渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
-    if (_looksLikeHtml(data)) {
+    // 优先尝试 HTML 渲染：
+    // 1. 首先用 `_looksLikeHtml` 检查是否包含常见 HTML 标签（白名单）；
+    // 2. 如果不在白名单但内容含有「<标签名>」形式的结构（宽松启发式），
+    //    也尝试 HTML 渲染——这能捕获 AI 输出中 `<del>` / `<kbd>` 等白名单外
+    //    的有效标签，避免它们被误判为纯文本而显示原生标签字符。
+    // 3. HTML 渲染失败时再走 `htmlFallback` 降级链：markdown → plainText。
+    //
+    // WebView 内置 HTML 解析器对未闭合标签有原生容错，且 `_HtmlBubbleWebView
+    // ._buildDocument` 会先走 `_healUnbalancedHtml` 轻量自愈，进一步降低
+    // layout 阶段崩溃的概率；旧版本走 markdown fallback 时，未闭合的
+    // `<table>` 经常渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
+    final bool hasHtmlLikeTags = _looksLikeHtml(data);
+    final bool hasTagStructure = !hasHtmlLikeTags && _hasHtmlTagStructure(data);
+
+    if (hasHtmlLikeTags || hasTagStructure) {
       return SizedBox(
         width: double.infinity,
         child: _HtmlBubbleWebView(
@@ -4037,6 +4081,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         ),
       );
     }
+    // 不像 HTML 时走 fallback 降级链。
     return htmlFallback == AiHtmlRenderFallback.plainText
         ? _buildPlainText()
         : _buildMarkdown();
@@ -4044,7 +4089,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   /// 把内部渲染产物按"是否处于流式阶段"做 Q 弹切换：
   /// - 流式中且格式为 HTML → 骨架屏占位；
-  /// - 流式结束 → 真正的格式分支。
+  /// - 流式结束 → 真正的格式分支（带智能回退）。
   /// 外层 `AnimatedSwitcher` 走 fade + size，曲线 `kCardMotionCurve`（轻微
   /// overshoot 的 Q 弹回弹），与全局卡片动效保持一致。
   Widget _buildDispatchedBody() {
@@ -4057,7 +4102,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     return switch (format) {
       AiMessageContentFormat.plainText => _buildPlainText(),
       AiMessageContentFormat.html => _buildHtmlOrFallback(),
-      AiMessageContentFormat.markdown => _buildMarkdown(),
+      AiMessageContentFormat.markdown => _buildMarkdownOrFallback(),
     };
   }
 

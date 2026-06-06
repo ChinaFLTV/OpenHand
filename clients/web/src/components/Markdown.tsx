@@ -160,7 +160,17 @@ export interface MarkdownProps {
   htmlFallback?: 'markdown' | 'plain_text';
 }
 
-const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|tr|td|th|a|img|br|hr|pre|code|strong|em|b|i|u|section|article|header|footer|nav|main|button|form|input|label|style|script|iframe|video|audio|svg)\b/i;
+const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|caption|col|colgroup|a|img|br|hr|pre|code|strong|em|b|i|u|s|del|ins|mark|small|sub|sup|abbr|cite|q|blockquote|section|article|header|footer|nav|main|aside|button|form|input|textarea|select|option|label|fieldset|legend|details|summary|figure|figcaption|time|progress|meter|style|script|link|meta|iframe|video|audio|canvas|svg|path|rect|circle|ellipse|line|polyline|polygon|text|g|defs|use|symbol)\b/i;
+
+/// 宽松的 HTML 标签结构检测：识别任意 `<标签名>` 或 `</标签名>` 形式，
+/// 用于捕获白名单外的有效 HTML 标签（如 `<del>`、`<kbd>`、`<dfn>` 等）。
+/// 配合 `looksLikeHtml` 使用，避免 AI 输出的非常见标签被误判为纯文本。
+const HTML_ANY_TAG_RE = /<\s*\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/;
+
+function hasHtmlTagStructure(value: string): boolean {
+  if (!value) return false;
+  return HTML_ANY_TAG_RE.test(value);
+}
 
 function looksLikeHtml(value: string): boolean {
   if (!value) return false;
@@ -212,6 +222,11 @@ export function openHtmlInNewTab(html: string): void {
 /// unmount/mount 一次 → 消息卡片视觉上 "突然显示突然隐藏" 抖一下。
 /// 这里改用 sticky hook：一旦某条消息内容判定为 HTML，本组件生命周期内
 /// 保持 HTML 渲染，避免流式增量再翻转。新消息 (source 长度回到 0) 重置。
+///
+/// 优先用白名单（`looksLikeHtml`）识别常见 HTML 标签；如果不在白名单但
+/// 内容包含「<标签名>」形式的结构（宽松启发式 `hasHtmlTagStructure`），
+/// 也视为 HTML。这能捕获 AI 输出中 `<del>` / `<kbd>` 等白名单外的有效标签，
+/// 避免它们被误判为纯文本而显示原生标签字符。
 function useStickyLooksLikeHtml(value: string): boolean {
   const stickyRef = useRef(false);
   if (!value) {
@@ -219,7 +234,9 @@ function useStickyLooksLikeHtml(value: string): boolean {
     return false;
   }
   if (stickyRef.current) return true;
-  if (looksLikeHtml(value)) {
+  const hasHtmlLikeTags = looksLikeHtml(value);
+  const hasTagStructure = !hasHtmlLikeTags && hasHtmlTagStructure(value);
+  if (hasHtmlLikeTags || hasTagStructure) {
     stickyRef.current = true;
     return true;
   }
