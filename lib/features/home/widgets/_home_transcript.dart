@@ -287,7 +287,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
-  bool _initialBuildDone = false;
   // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
   // 长会话下不便宜。displayMessages 是 AiSession 内部缓存（identity 稳定），
   // 因此可以用 (引用, windowStart, length) 作为缓存键。父级 watch 在流式
@@ -356,7 +355,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // ListView 自身的 cacheExtent: 1800 + 懒挂载足以平滑首屏渲染。
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
-      _initialBuildDone = false;
       // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -418,14 +416,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return displayMessages.sublist(clampedWindowStartIndex);
   }
 
-  int _fullVisibleTailCount() {
-    final displayMessages = widget.session.displayMessages;
-    final clampedWindowStartIndex = _windowStartIndex
-        .clamp(0, displayMessages.length)
-        .toInt();
-    return displayMessages.length - clampedWindowStartIndex;
-  }
-
   void _replaceRenderEntries(
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
@@ -437,30 +427,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages) _TranscriptRenderEntry(message: message),
     ];
-    _initialBuildDone = true;
     developer.Timeline.finishSync();
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
-    if (!forceReset && _renderEntries.isNotEmpty) {
-      final fullDisplayMessages = widget.session.displayMessages;
-      final clampedStart = _windowStartIndex
-          .clamp(0, fullDisplayMessages.length)
-          .toInt();
-      final fullTailLength = fullDisplayMessages.length - clampedStart;
-      final activeIdSet = <String>{
-        for (final entry in _renderEntries)
-          if (!entry.exiting) entry.id,
-      };
-      var newAdditions = 0;
-      for (var i = clampedStart; i < fullDisplayMessages.length; i++) {
-        if (!activeIdSet.contains(fullDisplayMessages[i].id)) {
-          newAdditions++;
-        }
-      }
-      // 2026-05-23 (修复)：drip 串行 materialization 已下线，
-      // drip 串行 materialization 已下线，全量物化无需任何 drip 路径。
-    }
     final visibleMessages = _visibleMessagesForWindow();
     if (forceReset || _renderEntries.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
@@ -521,15 +491,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _replaceRenderEntries(visibleMessages);
       return;
     }
-    _renderEntries = <_TranscriptRenderEntry>[
+    _renderEntries = [
       for (final entry in _renderEntries)
         if (entry.exiting)
           entry
         else if (visibleMessagesById.containsKey(entry.id))
-          entry.copyWith(message: visibleMessagesById[entry.id])
-        else
-          null,
-    ].whereType<_TranscriptRenderEntry>().toList(growable: false);
+          entry.copyWith(message: visibleMessagesById[entry.id]),
+    ];
   }
 
   bool _isOrderedSubsequence(List<String> candidate, List<String> source) {

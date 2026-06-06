@@ -43,7 +43,7 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
       // 守卫同时覆盖两个纠偏分支（overscroll 跟随 + 读顶部 content 收缩
       // 比例缩放）。drag 结束后下一帧守卫自动放行，super 仍走，行为完全保持。
       final bool userDragging = activity is DragScrollActivity ||
-          userScrollDirection != ScrollDirection.idle;
+          (activity is! IdleScrollActivity && activity is! BallisticScrollActivity);
 
       if (!userDragging) {
         if (pixels > oldMax) {
