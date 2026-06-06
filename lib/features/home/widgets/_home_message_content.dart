@@ -173,10 +173,9 @@ class _ReasoningBody extends StatelessWidget {
     // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
     // 给用户「开始阅读」的锚点，与 WEB 端 ReasoningCollapsibleBody 对齐。
     //
-    // 注意：这里刻意不再额外套一层 AnimatedSize。外层 _MessageBubble 已经
-    // 给 Column 套了 AnimatedSize(200ms)，再嵌一层内部动画会让两个
-    // AnimatedSize 互相竞争、时长不同步，肉眼呈「抽搐鬼畜」。仅用
-    // KeyedSubtree 做内容切换，把高度动画交给外层单独负责。
+    // 注意：这里继续不再额外套内部 AnimatedSize。当前外层 `_MessageBubble`
+    // 已恢复为单一尺寸动画壳，内部只保留 keyed 内容切换，把高度插值统一交给
+    // 外层，避免再次出现多层尺寸动画竞争。
     return expanded
         ? KeyedSubtree(
             key: const ValueKey<String>('reasoning-expanded'),
@@ -235,8 +234,8 @@ class _StreamingReasoningBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
     // 流式期间若用户主动折叠（expanded=false），也展示前 5-6 行预览。
-    // 同样不再嵌内部 AnimatedSize：外层 bubble 已经负责高度动画，
-    // 这里只做内容 keyed 切换，避免双动画抖动。
+    // 这里继续不嵌内部 AnimatedSize：外层 bubble 已统一承接语义边界上的
+    // 高度变化，内部只保留内容切换，避免双动画抖动。
     //
     // 2026-06-04 修复：流失追加阶段不再走 `_SafeMarkdownBody` 完整 markdown
     // 渲染路径。`_SafeMarkdownBody` 内部对 >400 字符内容走 deferred 解析,
@@ -2964,8 +2963,8 @@ class _HtmlMessageBody extends StatelessWidget {
 /// 流式 HTML 卡片占位：AI 仍在持续流式追加 HTML 时，UI 不直接展示
 /// 原始 HTML 字符（避免大量 `<div>...</div>` 给用户带来困惑），改为
 /// 呈现一个 Q 弹的"正在生成"骨架屏 + 闪动光点 + 右下角实时字符计数。
-/// 流式结束后由 `_AssistantMessageBodyDispatcher` 用 AnimatedSwitcher
-/// 一次性切换到 `_HtmlBubbleWebView`，并附 Q 弹 fade+scale 进场动画。
+/// 流式结束后由 `_AssistantMessageBodyDispatcher` 做一次性 body 模式切换，
+/// 并附带轻量 fade+scale 落位动画。
 class _StreamingHtmlPlaceholder extends StatefulWidget {
   const _StreamingHtmlPlaceholder({
     required this.textColor,
@@ -4010,8 +4009,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 /// - 不直接渲染 AI 侧流式追加的原始 HTML 字符（避免大量 `<div>...</div>`
 ///   给用户带来困惑与迷失感）；
 /// - 改为渲染 `_StreamingHtmlPlaceholder` 骨架屏 + 状态提示；
-/// - 流式结束后通过 `AnimatedSwitcher`（fade + size）一次性切换到真正的
-///   `_HtmlBubbleWebView`，并给 WebView 加 Q 弹 fade+scale 进场动画。
+/// - 流式结束后通过一次性 body 模式切换进入真正的 `_HtmlBubbleWebView`，
+///   并给最终 body 一个轻量 fade+scale 落位。
 class _AssistantMessageBodyDispatcher extends StatelessWidget {
   const _AssistantMessageBodyDispatcher({
     required this.data,
@@ -4139,11 +4138,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         : _buildMarkdown();
   }
 
-  /// 把内部渲染产物按"是否处于流式阶段"做 Q 弹切换：
+  /// 把内部渲染产物按"是否处于流式阶段"做一次性模式切换：
   /// - 流式中且格式为 HTML → 骨架屏占位；
   /// - 流式结束 → 真正的格式分支（带智能回退）。
-  /// 外层 `AnimatedSwitcher` 走 fade + size，曲线 `kCardMotionCurve`（轻微
-  /// overshoot 的 Q 弹回弹），与全局卡片动效保持一致。
+  /// 这里的 AnimatedSwitcher 只负责 body 级别的 fade+scale 落位，不承担
+  /// 尺寸插值；高度动画统一交给外层消息气泡。
   Widget _buildDispatchedBody() {
     if (isStreaming && format == AiMessageContentFormat.html) {
       return _StreamingHtmlPlaceholder(

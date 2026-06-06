@@ -422,17 +422,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
-            // 2026-05-02: Smoothly interpolate bubble height as the
-            // assistant streams in tokens / metadata grows. Without this
-            // AnimatedSize wrapper, every chunk that lengthens the
-            // markdown body bumps the bubble's intrinsic height in a
-            // single frame, which feels rigid against the rest of the
-            // app's motion design. Duration/curve 跟随全局弹窗动画设置
-            // （与 reasoning / tool_call 折叠胶囊同一节奏），避免内外层
-            // 动画相互竞争引发的「抽搐鬼畜」。
-            // 2026-05-17 (Bug 5) — 时长 / 曲线全部走
-            // `_home_motion_tokens.dart` 的 motion token，跨卡片节奏
-            // 统一；不再在调用点写裸 milliseconds。
+            // 消息卡片的单一外层尺寸动画壳：只承接“有明确语义边界”的高度变化
+            //（如展开/收起、body 模式切换、action row 显隐），而不是对每个
+            // streaming chunk 做逐帧高度插值。时长/曲线统一复用
+            // `_home_motion_tokens.dart`，避免多层尺寸动画再次互相竞争。
             child: Builder(
               builder: (context) {
                 final bubbleContent = Column(

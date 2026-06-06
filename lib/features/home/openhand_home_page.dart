@@ -6426,6 +6426,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       return _buildWorkspaceSidebarTransition(
                         child: child,
                         animation: animation,
+                        settings: panelSettings,
                       );
                     },
                     child: showFileExplorer
@@ -6477,6 +6478,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       return _buildWorkspaceContentTransition(
                         child: child,
                         animation: animation,
+                        settings: pageSettings,
                       );
                     },
                     child: showEditor

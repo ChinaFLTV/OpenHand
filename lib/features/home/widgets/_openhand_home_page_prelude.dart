@@ -37,7 +37,6 @@ const double _composerMaxHeight = 440;
 // is small enough to require a deliberate scroll-to-bottom gesture but large
 // enough to absorb sub-pixel rounding from animated layout settles.
 const double _autoFollowDistanceThreshold = 32;
-const double _autoFollowAnimatedDistanceThreshold = 8;
 // 2026-05-24 引入「暂停判定」滞回阈值：用户加载更多历史消息后，被
 // prepend 的旧消息会在随后多帧里继续异步解析 markdown / 代码高亮，
 // `maxScrollExtent` 会在数十像素范围内反复抖动。若仍沿用 32 px 的
@@ -69,7 +68,6 @@ const int _transcriptWindowIncrement = 25;
 // 阶段㉒ — 20 → 12：让任何超过一屏的会话都启用 windowing，避免小会话
 // 也因 displayMessages.length ≥ 20 才触发缓存策略。
 const int _transcriptWindowingThreshold = 12;
-const int _transcriptInitialBottomSettleFrameCount = 40;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Number of post-layout frames to wait before revealing the freshly switched
 // transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock
@@ -87,22 +85,6 @@ const int _transcriptPreparationFrameBudget = 6;
 // has not finished within this window we reveal the transcript anyway.
 // 阶段㉒ — 320 → 480 ms：与 6 帧预算相匹配，给慢机器留出更多 buffer。
 const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 480);
-const Duration _transcriptMessageDeleteAnimationDuration = Duration(
-  // 2026-05-01: Bumped 220 → 320 ms so the collapse + fade can use the
-  // Material 3 emphasized curve without feeling clipped. Pairs with the
-  // softer scale-shrink + larger upward translate inside the exit
-  // builder for a cohesive "settle out" feel.
-  // 2026-05-04: 320 → 440 ms to give the new Q弹 anticipation phase
-  // (brief scale-up before collapse) the runway it needs without
-  // feeling rushed.
-  milliseconds: 440,
-);
-const Duration _sessionTitleRevealAnimationDuration = Duration(
-  milliseconds: 720,
-);
-const Duration _planTimelineRevealAnimationDuration = Duration(
-  milliseconds: 260,
-);
 const Duration _hardnessSessionPersistenceDebounce = Duration(
   milliseconds: 320,
 );
@@ -134,6 +116,7 @@ const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 Widget _buildWorkspaceSidebarTransition({
   required Widget child,
   required Animation<double> animation,
+  DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
   final safeAnimation = _ClampedDoubleAnimation(animation);
   final isFileExplorerPane =
@@ -145,28 +128,19 @@ Widget _buildWorkspaceSidebarTransition({
       : isNavigationPane
       ? -32.0
       : 0.0;
-  return FadeTransition(
-    opacity: CurvedAnimation(
-      parent: safeAnimation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    ),
-    child: _PaintOffsetTransition(
-      animation: CurvedAnimation(
-        parent: safeAnimation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInCubic,
-      ),
-      maxXOffset: horizontalOffset,
-      maxYOffset: 10,
-      child: child,
-    ),
+  return _buildWorkspaceSettingsAwareTransition(
+    child: child,
+    animation: safeAnimation,
+    settings: settings,
+    slideX: horizontalOffset,
+    slideY: 10.0,
   );
 }
 
 Widget _buildWorkspaceContentTransition({
   required Widget child,
   required Animation<double> animation,
+  DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
   final safeAnimation = _ClampedDoubleAnimation(animation);
   final childKey = switch (child.key) {
@@ -181,23 +155,128 @@ Widget _buildWorkspaceContentTransition({
       ? -18.0
       : 0.0;
   final verticalOffset = isEditorPane ? 12.0 : 8.0;
-  return FadeTransition(
-    opacity: CurvedAnimation(
-      parent: safeAnimation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    ),
-    child: _PaintOffsetTransition(
-      animation: CurvedAnimation(
-        parent: safeAnimation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInCubic,
-      ),
-      maxXOffset: horizontalOffset,
-      maxYOffset: verticalOffset,
-      child: child,
-    ),
+  return _buildWorkspaceSettingsAwareTransition(
+    child: child,
+    animation: safeAnimation,
+    settings: settings,
+    slideX: horizontalOffset,
+    slideY: verticalOffset,
   );
+}
+
+Widget _buildWorkspaceSettingsAwareTransition({
+  required Widget child,
+  required Animation<double> animation,
+  required DialogAnimationSettings settings,
+  required double slideX,
+  required double slideY,
+}) {
+  final forward =
+      animation.status == AnimationStatus.forward ||
+      animation.status == AnimationStatus.completed;
+  final style = forward ? settings.entranceStyle : settings.exitStyle;
+  final curveData = settings.curve;
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: curveData.curve,
+    reverseCurve: curveData.reverseCurve,
+  );
+
+  Widget fadeChild(Widget child) => FadeTransition(opacity: curved, child: child);
+  Widget slideChild({required double dx, required double dy}) {
+    return FadeTransition(
+      opacity: curved,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxXOffset: dx,
+        maxYOffset: dy,
+        child: child,
+      ),
+    );
+  }
+
+  return switch (style) {
+    DialogAnimationStyle.none => child,
+    DialogAnimationStyle.fade => fadeChild(child),
+    DialogAnimationStyle.fadeScale => FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
+        alignment: Alignment.topCenter,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideUp => slideChild(dx: 0.0, dy: slideY.abs()),
+    DialogAnimationStyle.slideDown =>
+      slideChild(dx: 0.0, dy: -slideY.abs()),
+    DialogAnimationStyle.slideLeft => slideChild(dx: -slideX.abs(), dy: 0.0),
+    DialogAnimationStyle.slideRight => slideChild(dx: slideX.abs(), dy: 0.0),
+    DialogAnimationStyle.expand => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: curved,
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        alignment: Alignment.topCenter,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.rotateScale => FadeTransition(
+      opacity: curved,
+      child: RotationTransition(
+        turns: Tween<double>(begin: -0.015, end: 0.0).animate(curved),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+      ),
+    ),
+    DialogAnimationStyle.elastic || DialogAnimationStyle.springScale =>
+      FadeTransition(
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+        ),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeInBack,
+            ),
+          ),
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+      ),
+    DialogAnimationStyle.flipX => FadeTransition(
+      opacity: curved,
+      child: AnimatedBuilder(
+        animation: curved,
+        child: child,
+        builder: (context, child) {
+          final t = curved.value.clamp(0.0, 1.0);
+          final tilt = (1.0 - t) * 0.015;
+          final angle = (1.0 - t) * 0.25;
+          final matrix = Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateX(angle)
+            ..rotateZ(tilt);
+          return Transform(
+            alignment: Alignment.topCenter,
+            transform: matrix,
+            child: child,
+          );
+        },
+      ),
+    ),
+  };
 }
 
 Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
