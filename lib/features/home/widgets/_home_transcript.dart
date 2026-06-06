@@ -113,21 +113,13 @@ class _TranscriptScrollDispatcher {
     }
   }
 
-  /// 立即把 [sessionId] 对应 transcript 的「分批 drip」全部落地，等价于
-  /// 取消 timer + 把 `_materializedTailLimit` 置 null + 一次性物化全部
-  /// tail 消息。用于：(1) 应用从后台切回前台后，避免 drip 残留导致
-  /// auto-follow 跳到的是被截断的尾部；(2) 用户主动点击「跳到最新」时
-  /// 也应立刻看到所有消息而非按 400 ms 步长漫长展开。
+  /// drip 串行 materialization 已下线，flushDripFor 无操作直接返回 false。
   bool flushDripFor(String sessionId) {
-    final state = _statesBySession[sessionId];
-    if (state == null) return false;
-    return state.flushIncrementalDrip();
+    return false;
   }
 
   void flushAllDrips() {
-    for (final state in _statesBySession.values) {
-      state.flushIncrementalDrip();
-    }
+    // drip 串行 materialization 已下线，空实现。
   }
 
   Future<bool> scrollToMessage(
@@ -222,38 +214,15 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
 }
 
 class _TranscriptRenderEntry {
-  const _TranscriptRenderEntry({
-    required this.message,
-    this.exiting = false,
-    this.entering = false,
-    this.entranceDelay = Duration.zero,
-  });
+  const _TranscriptRenderEntry({required this.message});
 
   final AiSessionMessage message;
-  final bool exiting;
-  final bool entering;
-  // 2026-05-02: When several new bubbles arrive in the same frame
-  // (e.g. multi-tool plan dispatch streaming back several tool_call /
-  // tool_result / reasoning messages at once), running every entrance
-  // animation in parallel made the transcript feel chaotic and dropped
-  // frames. Each new entering entry now carries an incremental delay
-  // so neighbours visibly stagger in instead of erupting simultaneously.
-  final Duration entranceDelay;
+  final bool exiting = false;
 
   String get id => message.id;
 
-  _TranscriptRenderEntry copyWith({
-    AiSessionMessage? message,
-    bool? exiting,
-    bool? entering,
-    Duration? entranceDelay,
-  }) {
-    return _TranscriptRenderEntry(
-      message: message ?? this.message,
-      exiting: exiting ?? this.exiting,
-      entering: entering ?? this.entering,
-      entranceDelay: entranceDelay ?? this.entranceDelay,
-    );
+  _TranscriptRenderEntry copyWith({AiSessionMessage? message}) {
+    return _TranscriptRenderEntry(message: message ?? this.message);
   }
 }
 
@@ -311,7 +280,6 @@ class _SessionTranscript extends StatefulWidget {
 class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
   String? _highlightedMessageId;
-  Timer? _highlightTimer;
   String? _visibleErrorId;
   String? _pendingPresentedErrorId;
   final Set<String> _dismissedErrorIds = <String>{};
@@ -332,39 +300,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
-
-  // 2026-05-04: Incremental tail materialization.
-  //
-  // When several new tail messages arrive in the same frame (typical for
-  // multi-tool plans where 5–15 cards stream in within ~100 ms) building
-  // every `_MessageBubble` synchronously inside one frame is the dominant
-  // ANR source: each card may parse markdown, code-highlight, attach
-  // image previews, etc. Spreading materialization over multiple frames
-  // breaks that single-frame budget into bite-sized chunks the raster
-  // thread can absorb without dropping past the 60 fps line.
-  //
-  // Mechanics: `_materializedTailLimit` caps how many display messages
-  // (counted from `_windowStartIndex`) `_visibleMessagesForWindow` will
-  // expose. `_dripTimer` ticks every `_dripStepInterval`, increments
-  // the limit by 1 and re-syncs render entries. Once the limit reaches
-  // the visible tail's true length the limit clears and the timer
-  // stops. New messages that arrive mid-drip are picked up
-  // automatically because each tick re-reads
-  // `widget.session.displayMessages.length`.
-  int? _materializedTailLimit;
-  Timer? _dripTimer;
-  // 2026-05-04 → 2026-05-08 节奏校准：阈值锁定 2（任何"同帧 ≥2 张
-  // 新卡片"都进入串行 materialization，覆盖并行工具调用、AI 一次性
-  // 吐多张混合卡、撤销恢复批量回灌等所有"同时填装"场景）；
-  // 首批 chunk = 1 让首张卡片即刻到位避免"先空 400ms 再开始漏"
-  // 的迟滞感，剩余按 step 串行登场；步长 70→120→150→**400 ms** 再
-  // 放慢一大档：用户明确要求"绝不允许同帧塞多张消息卡片"，并以
-  // 400 ms 作为感官上"一张一张缓缓落子"的最小可感知间隔。配合
-  // 110 ms 入场 stagger（drip 模式下每 tick 仅 1 张 entering，
-  // stagger 自然失活），呈现"卡片→稳定→下一张"的 Q 弹节拍。
-  static const int _dripStartChunkSize = 1;
-  static const int _dripActivationThreshold = 2;
-  static const Duration _dripStepInterval = Duration(milliseconds: 400);
 
   @override
   void initState() {
@@ -396,113 +331,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
     // 第 N 个 bubble 解析完成、高度从纯文本占位扩张到富文本时，贴底
     // 状态会被打破而无法恢复（因为父级 settle 通常 8 帧内已耗尽）。
-    // 改为「多帧滚动停留循环」：每一帧都重新 read maxScrollExtent
-    // 并 jumpTo，命中真正稳定的底部之后立即终止。期间任何一次距离 ≤ 0.5 px
-    // 即视为已稳定，提前退出循环避免无意义重排。
-    if (widget.jumpToBottomOnInit) {
-      _settleJumpToBottom(maxFrames: _transcriptInitialBottomSettleFrameCount);
-    }
-  }
-
-  /// 通过逐帧重读 `maxScrollExtent + jumpTo` 的方式贴底，覆盖 ListView 在
-  /// markdown 异步解析、图片解码等导致后续帧布局抖动场景。最长 [maxFrames]
-  /// 帧内寻底；若连续两帧 maxScrollExtent 与当前 pixels 距离 < 0.5 px，
-  /// 视为已稳定提前结束。
-  /// 阶段㉓b：循环对「用户主动滚动」让位 —— 若上一次循环 jumpTo 后下一帧
-  /// 读到 pixels 已被外力（用户拖拽）改变，立即中止后续 jumpTo，避免与
-  /// 用户操作互相打架。
-  ///
-  /// 2026-05-26：主线循环结束后追加一次 350ms 延迟 settle，捕获 HTML
-  /// WebView 延迟高度测量（JS setTimeout 100ms/300ms）引发的 maxScrollExtent
-  /// 变化，避免 settle 提前收工后视口被 HTML 气泡的 AnimatedSize 撑开而
-  /// 悬在"假底部"上方。
-  void _settleJumpToBottom({required int maxFrames}) {
-    if (maxFrames <= 0) return;
-    var stableFrames = 0;
-    var mainLoopFinished = false;
-
-    void scheduleLateSettle() {
-      if (mainLoopFinished) return;
-      mainLoopFinished = true;
-      // 两段延迟 settle：600ms 覆盖 JS 100ms+300ms 测量 → AnimatedSize 280ms
-      // 动画的完整链路；1000ms 作为二次兜底，捕获更晚的异步排版（图片加载等）。
-      for (final delayMs in [600, 1000]) {
-        Future.delayed(Duration(milliseconds: delayMs), () {
-          if (!mounted) return;
-          final controller = widget.controller;
-          if (!controller.hasClients) return;
-          final position = controller.positions.isNotEmpty
-              ? controller.positions.last
-              : null;
-          if (position == null) return;
-          if (position.userScrollDirection != ScrollDirection.idle) return;
-          final target = position.maxScrollExtent;
-          if (target <= 0) return;
-          final distance = (target - position.pixels).abs();
-          if (distance >= 0.5 && distance < 1200) {
-            position.jumpTo(target);
-          }
-        });
-      }
-    }
-
-    void scheduleNext(int remaining) {
-      if (remaining <= 0) {
-        scheduleLateSettle();
-        return;
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final controller = widget.controller;
-        if (!controller.hasClients) {
-          scheduleNext(remaining - 1);
-          return;
-        }
-        final position = controller.positions.isNotEmpty
-            ? controller.positions.last
-            : null;
-        if (position == null) {
-          scheduleNext(remaining - 1);
-          return;
-        }
-        if (position.userScrollDirection != ScrollDirection.idle) {
-          scheduleLateSettle();
-          return;
-        }
-        // 不再因 pixels 偏离上次 jumpTo 目标而中止循环。
-        // maxScrollExtent 收缩时 _StableMaxExtentScrollPosition 会按比例
-        // 修正 pixels，修正后的 pixels 必然偏离 lastJumpedTo；若因此退出
-        // 循环，后续 HTML 高度变化就无法被跟踪贴底。
-        // 用户手势已由 userScrollDirection 检查覆盖，无需此二次校验。
-        if (position.pixels > position.maxScrollExtent + 0.5) {
-          scheduleNext(remaining - 1);
-          return;
-        }
-        final target = position.maxScrollExtent;
-        if (target <= 0) {
-          scheduleNext(remaining - 1);
-          return;
-        }
-        final distance = (target - position.pixels).abs();
-        if (distance < 0.5) {
-          stableFrames += 1;
-          if (stableFrames >= 2) {
-            scheduleLateSettle();
-            return;
-          }
-        } else {
-          stableFrames = 0;
-          if (controller.positions.length > 1) {
-            scheduleNext(remaining - 1);
-            return;
-          }
-          position.jumpTo(target);
-        }
-        scheduleNext(remaining - 1);
-      });
-    }
-
-    scheduleNext(maxFrames);
+    // 线程会话窗口已下线所有 settle 循环（弹跳源头），首屏贴底由调用方
+    // jumpToBottomOnInit 路径在 ListView 挂载后做单帧 jumpTo，不再走
+    // 多帧 addPostFrameCallback 链 + lastAdjustedOffset 比较。
   }
 
   @override
@@ -521,14 +352,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // visible window on the next frame; the markdown / highlight work
       // is throttled by [_MarkdownFrameScheduler] / [_HighlightFrameScheduler]
       // and the ListView's `cacheExtent: 120` keeps off-viewport mounts cheap.
-      // 阶段㉒c (回滚 drip)：drip-based first-open materialisation 会在
-      // `_visibleMessagesForWindow()` 处把窗口截断成「头部若干条」，
-      // 与 transcript 应当落底到最新一条的语义直接冲突。回滚到「next
-      // frame 全量物化 + ListView 自然懒挂载」策略。
+      // 全量物化首屏的可见窗口：drip 串行 materialization 已下线，
+      // ListView 自身的 cacheExtent: 1800 + 懒挂载足以平滑首屏渲染。
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialBuildDone = false;
-      _stopIncrementalDrip();
       // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -548,16 +376,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
       });
-      // 阶段㉓c：edge case 兜底 —— 极少数情况下 widget 实例会在不重建 key
-      // 的前提下被赋予新 session（例如父级 KeyedSubtree 被复用），此时
-      // initState 不会重跑，而 jumpToBottomOnInit 也不会再读到 true。
-      // 显式驱动一次 settle 循环把视口拉到底部，避免与「session 切换默认
-      // 应贴底」语义冲突。
-      if (widget.jumpToBottomOnInit) {
-        _settleJumpToBottom(
-          maxFrames: _transcriptInitialBottomSettleFrameCount,
-        );
-      }
+      // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
@@ -593,16 +412,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         .toInt();
     // 阶段⑧ — 避免为了“全量访问”多一份卷复制：窗口从 0 开始
     // 且无位限制时，直接返回底层 List 的不可变视图。
-    final cap = _materializedTailLimit;
-    if (clampedWindowStartIndex == 0 &&
-        (cap == null || cap >= displayMessages.length)) {
+    if (clampedWindowStartIndex == 0) {
       return displayMessages;
     }
-    final tail = displayMessages.sublist(clampedWindowStartIndex);
-    if (cap != null && cap < tail.length) {
-      return tail.sublist(0, cap);
-    }
-    return tail;
+    return displayMessages.sublist(clampedWindowStartIndex);
   }
 
   int _fullVisibleTailCount() {
@@ -613,77 +426,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return displayMessages.length - clampedWindowStartIndex;
   }
 
-  /// Begins (or refreshes) an incremental drip that grows
-  /// `_materializedTailLimit` from [initialLimit] one step at a time
-  /// every [_dripStepInterval] until it reaches the full visible tail
-  /// length. Safe to call repeatedly — re-arms the timer rather than
-  /// stacking timers.
-  void _beginIncrementalDrip(int initialLimit) {
-    final fullCount = _fullVisibleTailCount();
-    if (initialLimit >= fullCount) {
-      _stopIncrementalDrip();
-      return;
-    }
-    _materializedTailLimit = math.max(0, initialLimit);
-    _dripTimer?.cancel();
-    _dripTimer = Timer.periodic(_dripStepInterval, (timer) {
-      if (!mounted) {
-        timer.cancel();
-        _dripTimer = null;
-        _materializedTailLimit = null;
-        return;
-      }
-      final latestFull = _fullVisibleTailCount();
-      final current = _materializedTailLimit ?? latestFull;
-      final next = current + 1;
-      if (next >= latestFull) {
-        _materializedTailLimit = null;
-        timer.cancel();
-        _dripTimer = null;
-      } else {
-        _materializedTailLimit = next;
-      }
-      setState(() {
-        _replaceRenderEntries(_visibleMessagesForWindow());
-      });
-    });
-  }
-
-  void _stopIncrementalDrip() {
-    _dripTimer?.cancel();
-    _dripTimer = null;
-    _materializedTailLimit = null;
-  }
-
-  /// 立即把 drip 截断的尾部一次性物化为完整 tail。返回 true 表示当前
-  /// 确实存在一个进行中的 drip 并已被冲刷；false 表示无需操作。安全在
-  /// 任意帧阶段调用：若处于 layout / paint / persistent callbacks 中，
-  /// `setState` 会被推迟到 post-frame，避免触发 build-during-frame 断言。
-  bool flushIncrementalDrip() {
-    if (!mounted) return false;
-    final wasDripping = _dripTimer != null || _materializedTailLimit != null;
-    if (!wasDripping) return false;
-    _stopIncrementalDrip();
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    final inFrame =
-        phase == SchedulerPhase.persistentCallbacks ||
-        phase == SchedulerPhase.midFrameMicrotasks ||
-        phase == SchedulerPhase.transientCallbacks;
-    void apply() {
-      if (!mounted) return;
-      setState(() {
-        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-      });
-    }
-
-    if (inFrame) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => apply());
-    } else {
-      apply();
-    }
-    return true;
-  }
-
   void _replaceRenderEntries(
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
@@ -692,54 +434,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       'openhand.session.materialize',
       arguments: <String, Object?>{'count': visibleMessages.length},
     );
-    final previousIds = animate && _initialBuildDone
-        ? _renderEntries.where((e) => !e.exiting).map((e) => e.id).toSet()
-        : null;
-    // Per-batch stagger: when multiple new entries appear in a single
-    // frame, drip them in 110 ms apart (capped at 1650 ms total) so the
-    // entrance animations cascade rather than explode in parallel.
-    // 2026-05-04: 80→110 ms / 360→1650 ms — user feedback that batches
-    // of >5 new messages (typical for tool-call chains) still piled up
-    // visually under the previous 360 ms cap. With the new cap up to
-    // ~15 sibling entries each get a distinct entrance slot, matching
-    // the "一条一条地有序添加" expectation.
-    const staggerStep = Duration(milliseconds: 110);
-    const staggerCap = Duration(milliseconds: 1650);
-    var newEntryOrdinal = 0;
     _renderEntries = <_TranscriptRenderEntry>[
-      for (final message in visibleMessages)
-        () {
-          final entering =
-              previousIds != null && !previousIds.contains(message.id);
-          final delay = entering
-              ? Duration(
-                  milliseconds: math.min(
-                    staggerCap.inMilliseconds,
-                    staggerStep.inMilliseconds * newEntryOrdinal++,
-                  ),
-                )
-              : Duration.zero;
-          return _TranscriptRenderEntry(
-            message: message,
-            entering: entering,
-            entranceDelay: delay,
-          );
-        }(),
+      for (final message in visibleMessages) _TranscriptRenderEntry(message: message),
     ];
     _initialBuildDone = true;
     developer.Timeline.finishSync();
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
-    // 2026-05-04: Bulk-arrival drip — when the diff is about to materialize
-    // many new bubbles in one shot (typical for tool-call plans where
-    // 5–15 cards stream back within a single frame) we shrink
-    // `_visibleMessagesForWindow` via `_materializedTailLimit` and let
-    // a 70 ms-per-step periodic timer grow the cap one message at a
-    // time. Each tick re-invokes `_replaceRenderEntries`, so new
-    // entries flow in one-by-one and the markdown / code-highlight /
-    // image-decode work is spread across frames instead of piling up
-    // in one synchronous build pass.
     if (!forceReset && _renderEntries.isNotEmpty) {
       final fullDisplayMessages = widget.session.displayMessages;
       final clampedStart = _windowStartIndex
@@ -756,40 +458,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newAdditions++;
         }
       }
-      final dripInProgress =
-          _dripTimer != null && _materializedTailLimit != null;
-      // 2026-05-23 (修复)：应用进入后台 / 非 resumed 生命周期时，drip 的
-      // 「分帧动效」毫无意义（UI 根本没在绘制），反而会让消息持续被截断；
-      // 一旦回到前台，截断的尾部会让 auto-follow 把视口拉到「假底部」，
-      // 之后还要逐 400ms 漫长展开。此处直接放弃 drip 改为同步全量物化，
-      // 让后续 lifecycle-resume 钩子拿到真实的 maxScrollExtent。
-      final lifecycle = WidgetsBinding.instance.lifecycleState;
-      final lifecycleSuspended =
-          lifecycle != null && lifecycle != AppLifecycleState.resumed;
-      final shouldDrip =
-          !lifecycleSuspended &&
-          (newAdditions >= _dripActivationThreshold ||
-              (dripInProgress && newAdditions > 0));
-      if (lifecycleSuspended && dripInProgress) {
-        _stopIncrementalDrip();
-      }
-      if (shouldDrip) {
-        // Drip 进行中时不要重启 timer：流式 token 更新会高频触发
-        // _syncRenderEntries，若每次都取消并重建 400 ms timer，后续卡片
-        // 会在模型持续输出时被无限延后。现有 timer 每拍都会重读 tail 长度，
-        // 新到的消息自然会被下一拍吸收。
-        if (!dripInProgress) {
-          final initialLimit = math.min(
-            activeIdSet.length + _dripStartChunkSize,
-            fullTailLength,
-          );
-          _beginIncrementalDrip(initialLimit);
-        }
-      } else {
-        _stopIncrementalDrip();
-      }
-    } else {
-      _stopIncrementalDrip();
+      // 2026-05-23 (修复)：drip 串行 materialization 已下线，
+      // drip 串行 materialization 已下线，全量物化无需任何 drip 路径。
     }
     final visibleMessages = _visibleMessagesForWindow();
     if (forceReset || _renderEntries.isEmpty) {
@@ -858,8 +528,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         else if (visibleMessagesById.containsKey(entry.id))
           entry.copyWith(message: visibleMessagesById[entry.id])
         else
-          entry.copyWith(exiting: true),
-    ];
+          null,
+    ].whereType<_TranscriptRenderEntry>().toList(growable: false);
   }
 
   bool _isOrderedSubsequence(List<String> candidate, List<String> source) {
@@ -887,10 +557,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   void dispose() {
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
-    _dripTimer?.cancel();
-    _dripTimer = null;
-    _highlightTimer?.cancel();
-    _highlightTimer = null;
     _bubbleRegistry.clear();
     super.dispose();
   }
@@ -941,12 +607,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     void flashTarget() {
       if (!highlight || !mounted) return;
-      _highlightTimer?.cancel();
       setState(() => _highlightedMessageId = messageId);
-      _highlightTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (!mounted || _highlightedMessageId != messageId) return;
-        setState(() => _highlightedMessageId = null);
-      });
     }
 
     Future<bool> tryEnsureVisible() async {
@@ -962,34 +623,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return true;
     }
 
-    // 抑制并发 drip → setState 与滚动动画互相打架是"上下抽搐"的根因；
-    // 一次性停掉 drip，并让 render entries 与最新可见集对齐，但仅在
-    // 当前 entries 与最新可见集**不一致**时才 setState，避免无意义
-    // 重建带来的二次重排。
-    if (_dripTimer != null || _materializedTailLimit != null) {
-      _stopIncrementalDrip();
-      final fullVisible = _visibleMessagesForWindow();
-      final activeEntryIds = _renderEntries
-          .where((entry) => !entry.exiting)
-          .map((entry) => entry.id)
-          .toList(growable: false);
-      final fullIds = fullVisible.map((m) => m.id).toList(growable: false);
-      var needsRebuild = activeEntryIds.length != fullIds.length;
-      if (!needsRebuild) {
-        for (var i = 0; i < fullIds.length; i++) {
-          if (activeEntryIds[i] != fullIds[i]) {
-            needsRebuild = true;
-            break;
-          }
-        }
-      }
-      if (needsRebuild) {
-        setState(() {
-          _replaceRenderEntries(fullVisible, animate: false);
-        });
-        await WidgetsBinding.instance.endOfFrame;
-      }
-    }
+    // drip 串行 materialization 已下线，无需抑制并发 drip 冲突。
     if (await tryEnsureVisible()) return true;
 
     // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。
@@ -1121,33 +755,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final goal = (currentOffset + rawDelta * dampening).clamp(0.0, maxExtent);
     if ((goal - currentOffset).abs() < 8.0) return false;
     if (scrollController.positions.length > 1) return false;
-    if (duration == Duration.zero) {
-      scrollController.jumpTo(goal);
-      return true;
-    }
-    await scrollController.animateTo(goal, duration: duration, curve: curve);
+    // 线程会话窗口已下线所有滚动动画（用户明确要求），统一用 jumpTo。
+    scrollController.jumpTo(goal);
     return true;
   }
 
   Future<bool>? _activeScrollFuture;
   String? _activeScrollTargetId;
 
-  void _handleRenderEntryExitCompleted(String messageId) {
-    if (!mounted) {
-      return;
-    }
-    final shouldRemove = _renderEntries.any(
-      (entry) => entry.id == messageId && entry.exiting,
-    );
-    if (!shouldRemove) {
-      return;
-    }
-    setState(() {
-      _renderEntries = _renderEntries
-          .where((entry) => !(entry.id == messageId && entry.exiting))
-          .toList(growable: false);
-    });
-  }
+  /// 删除消息后无需回调 —— 顶层 _runDeleteAction 已直接从
+  /// `widget.session.messages` 移除，watch 触发 _syncRenderEntries
+  /// 重建本 list 时被自然剔除。保留空函数防止上游调用残留。
 
   int _initialWindowStartIndex(int messageCount) {
     if (messageCount <= _transcriptWindowingThreshold) {
@@ -1182,74 +800,28 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         0,
         _windowStartIndex - _transcriptWindowIncrement,
       );
-      _stopIncrementalDrip();
       _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
       _loadingOlderMessages = false;
     });
 
-    // After the frame rebuilds with new items at the top, adjust scroll offset
-    // so the user sees the same content as before (the "Load earlier" button's
-    // position just replaced by older messages, but the later messages stay
-    // in view). Deferred markdown/code highlighting can keep increasing the
-    // prepended content height for a few frames, so settle repeatedly and stop
-    // as soon as an external scroll (usually the user) takes over.
+    // 单帧 jumpTo 一次性把视口拉到"插入前内容"位置。线程会话窗口
+    // 不再走多帧 settle 循环（弹跳源头），scroll physics 已改为
+    // ClampingScrollPhysics（无 overscroll 弹簧共振），单次 jumpTo
+    // 足以保证"加载更早后用户视觉锚点不漂移"。
     if (hadClients) {
-      var previousMaxExtent = currentMaxExtent;
-      double? lastAdjustedOffset;
-      var stableFrames = 0;
-      void settlePrependedHeight(int remainingFrames) {
-        if (remainingFrames <= 0) {
-          return;
+      final position =
+          scrollController.positions.isNotEmpty ? scrollController.positions.last : null;
+      if (position != null) {
+        final newMaxExtent = position.maxScrollExtent;
+        final delta = newMaxExtent - currentMaxExtent;
+        if (delta > 0) {
+          final target = (position.pixels + delta).clamp(
+            position.minScrollExtent,
+            newMaxExtent,
+          );
+          position.jumpTo(target);
         }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !scrollController.hasClients) return;
-          final position = scrollController.positions.isNotEmpty
-              ? scrollController.positions.last
-              : null;
-          if (position == null) return;
-          // 用户手势硬阻断：settle 期间如果检测到用户正在拖拽 / 滚动，
-          // 立即放弃后续 jumpTo，避免与 BouncingScrollPhysics 弹簧共振
-          // 造成贴底抽搐。
-          if (position.userScrollDirection != ScrollDirection.idle) {
-            return;
-          }
-          if (lastAdjustedOffset != null &&
-              (position.pixels - lastAdjustedOffset!).abs() > 1) {
-            return;
-          }
-
-          final newMaxExtent = position.maxScrollExtent;
-          final delta = newMaxExtent - previousMaxExtent;
-          previousMaxExtent = newMaxExtent;
-          if (delta.abs() <= 0.5) {
-            stableFrames += 1;
-            if (stableFrames >= 2) return;
-          } else {
-            stableFrames = 0;
-            if (scrollController.positions.length > 1) {
-              settlePrependedHeight(remainingFrames - 1);
-              return;
-            }
-            // 弹簧让步：若上一帧 jumpTo 后 maxExtent 萎缩导致像素越界，
-            // BouncingScrollPhysics 弹簧正在回拉，此时不抢 jumpTo，
-            // 让弹簧自然沉降后再做下一帧调整，避免 settle 循环与弹簧共振。
-            if (position.pixels > position.maxScrollExtent + 0.5) {
-              lastAdjustedOffset = position.pixels;
-              settlePrependedHeight(remainingFrames - 1);
-              return;
-            }
-            final targetOffset = (position.pixels + delta).clamp(
-              position.minScrollExtent,
-              newMaxExtent,
-            );
-            position.jumpTo(targetOffset);
-            lastAdjustedOffset = targetOffset;
-          }
-          settlePrependedHeight(remainingFrames - 1);
-        });
       }
-
-      settlePrependedHeight(10);
     }
   }
 
@@ -1522,7 +1094,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // _MarkdownFrameScheduler + drip 物化 + _SafeMarkdownBody
               // 阈值联同缓解。
               cacheExtent: 1800,
-              physics: const OpenHandBouncingScrollPhysics(
+              physics: const ClampingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               itemCount: listItemCount,
@@ -1631,93 +1203,83 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 final hasLaterVisibleMessages =
                     visibleMessageIndex != null &&
                     visibleMessageIndex < visibleMessages.length - 1;
-                return _TranscriptAnimatedMessageEntry(
+                return Padding(
                   key: ValueKey<String>('transcript-entry-${message.id}'),
-                  entering: entry.entering,
-                  exiting: entry.exiting,
-                  entranceDelay: entry.entranceDelay,
-                  bottomSpacing: messageIndex == _renderEntries.length - 1
-                      ? 0
-                      : 14,
-                  onExitCompleted: () =>
-                      _handleRenderEntryExitCompleted(message.id),
-                  child: IgnorePointer(
-                    ignoring: entry.exiting,
-                    child: RepaintBoundary(
-                      child: _TranscriptBubbleRegistrar(
-                        messageId: message.id,
-                        registry: _bubbleRegistry,
-                        child: _MessageBubble(
-                          key: ValueKey<String>(message.id),
-                          message: message,
-                          sessionTitle: session.title,
-                          sessionEnvironment: session.environment,
-                          showReasoningSweep:
-                              !entry.exiting &&
-                              widget.sendPhase == AiSendPhase.responding &&
-                              _isStreamingReasoningMessage(message),
-                          trackLayoutChanges:
-                              !entry.exiting &&
-                              _shouldTrackMessageLayout(
-                                message: message,
-                                sendPhase: widget.sendPhase,
-                                isLastVisibleMessage: isLastVisibleMessage,
-                              ),
-                          onLayoutChanged: widget.onLayoutChanged,
-                          isSelected: isSelected,
-                          isScrollHighlighted:
-                              _highlightedMessageId == message.id,
-                          onSelect: () {
-                            if (_selectedMessageId == message.id) {
-                              return;
-                            }
-                            setState(() {
-                              _selectedMessageId = message.id;
-                            });
-                          },
-                          onDeselect: () {
-                            if (_selectedMessageId != message.id) {
-                              return;
-                            }
-                            setState(() {
-                              _selectedMessageId = null;
-                            });
-                          },
-                          onEdit:
-                              !entry.exiting &&
-                                  message.kind == AiSessionMessageKind.user
-                              ? () => widget.onEditMessage(message)
-                              : null,
-                          onCopy: () => widget.onCopyMessage(message),
-                          onDelete: () async {
-                            if (entry.exiting) {
-                              return;
-                            }
-                            await _runDeleteAction(
+                  padding: EdgeInsets.only(
+                    bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+                  ),
+                  child: _TranscriptBubbleRegistrar(
+                    messageId: message.id,
+                    registry: _bubbleRegistry,
+                    child: _MessageBubble(
+                      key: ValueKey<String>(message.id),
+                      message: message,
+                      sessionTitle: session.title,
+                      sessionEnvironment: session.environment,
+                      showReasoningSweep:
+                          !entry.exiting &&
+                          widget.sendPhase == AiSendPhase.responding &&
+                          _isStreamingReasoningMessage(message),
+                      trackLayoutChanges:
+                          !entry.exiting &&
+                          _shouldTrackMessageLayout(
+                            message: message,
+                            sendPhase: widget.sendPhase,
+                            isLastVisibleMessage: isLastVisibleMessage,
+                          ),
+                      onLayoutChanged: widget.onLayoutChanged,
+                      isSelected: isSelected,
+                      isScrollHighlighted:
+                          _highlightedMessageId == message.id,
+                      onSelect: () {
+                        if (_selectedMessageId == message.id) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedMessageId = message.id;
+                        });
+                      },
+                      onDeselect: () {
+                        if (_selectedMessageId != message.id) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedMessageId = null;
+                        });
+                      },
+                      onEdit:
+                          !entry.exiting &&
+                              message.kind == AiSessionMessageKind.user
+                          ? () => widget.onEditMessage(message)
+                          : null,
+                      onCopy: () => widget.onCopyMessage(message),
+                      onDelete: () async {
+                        if (entry.exiting) {
+                          return;
+                        }
+                        await _runDeleteAction(
+                          message,
+                          widget.onDeleteMessage,
+                        );
+                      },
+                      onDeleteFromHere:
+                          !entry.exiting && hasLaterVisibleMessages
+                          ? () => _runDeleteAction(
                               message,
-                              widget.onDeleteMessage,
-                            );
-                          },
-                          onDeleteFromHere:
-                              !entry.exiting && hasLaterVisibleMessages
-                              ? () => _runDeleteAction(
-                                  message,
-                                  widget.onDeleteMessageFromHere,
-                                )
-                              : null,
-                          onAudit: telemetryDebugEnabled
-                              ? () {
-                                  _showMessageAuditDialog(
-                                    context,
-                                    message: message,
-                                    session: session,
-                                    controller: aiSessionController,
-                                    claudeStyle: widget.claudeStyle,
-                                  );
-                                }
-                              : null,
-                        ),
-                      ),
+                              widget.onDeleteMessageFromHere,
+                            )
+                          : null,
+                      onAudit: telemetryDebugEnabled
+                          ? () {
+                              _showMessageAuditDialog(
+                                context,
+                                message: message,
+                                session: session,
+                                controller: aiSessionController,
+                                claudeStyle: widget.claudeStyle,
+                              );
+                            }
+                          : null,
                     ),
                   ),
                 );
@@ -1727,233 +1289,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ),
       ],
     );
-  }
-}
-
-class _TranscriptAnimatedMessageEntry extends StatefulWidget {
-  const _TranscriptAnimatedMessageEntry({
-    super.key,
-    required this.entering,
-    required this.exiting,
-    required this.bottomSpacing,
-    required this.onExitCompleted,
-    required this.child,
-    this.entranceDelay = Duration.zero,
-  });
-
-  final bool entering;
-  final bool exiting;
-  final double bottomSpacing;
-  final VoidCallback onExitCompleted;
-  final Widget child;
-  final Duration entranceDelay;
-
-  @override
-  State<_TranscriptAnimatedMessageEntry> createState() =>
-      _TranscriptAnimatedMessageEntryState();
-}
-
-class _TranscriptAnimatedMessageEntryState
-    extends State<_TranscriptAnimatedMessageEntry>
-    with SingleTickerProviderStateMixin {
-  // 2026-05-01: Bumped 420→520 ms so the entrance has room to breathe;
-  // pairs with a softer overshoot curve below for a more "Q弹" feel
-  // without straying into wobble territory.
-  // 2026-05-03: 520→620 ms to give Curves.elasticOut the runway it needs
-  // to settle without feeling rushed; pairs with the wider stagger.
-  static const _entranceDuration = Duration(milliseconds: 620);
-
-  AnimationController? _entranceCtrl;
-  Animation<double>? _opacity;
-  Animation<double>? _scale;
-  Animation<Offset>? _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.entering) {
-      _entranceCtrl = AnimationController(
-        duration: _entranceDuration,
-        vsync: this,
-      );
-      // Opacity: front-loaded so the bubble materializes ~halfway through
-      // the entrance, then dwells fully visible while the elastic scale
-      // settles. easeOutQuint lands the alpha sooner than easeOut, which
-      // makes the subsequent overshoot feel like polish rather than
-      // "still arriving".
-      _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(
-          parent: _entranceCtrl!,
-          curve: const Interval(0.0, 0.45, curve: Curves.easeOutQuint),
-        ),
-      );
-      // Scale: Curves.elasticOut for the most pronounced Q弹 spring —
-      // explicitly user-requested ("最拉风格"). Starting at 0.92 (was
-      // 0.96) makes the contraction more visible before the elastic
-      // recoil. Alignment is set to .topCenter at the consumer site so
-      // the bounce reads as growth from the top edge rather than a
-      // recentre.
-      _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
-        CurvedAnimation(parent: _entranceCtrl!, curve: Curves.elasticOut),
-      );
-      // Slide: a touch deeper (0.04 → 0.06 fractional height) and uses
-      // `easeInOutCubicEmphasized` (the Material 3 emphasized curve) so the
-      // upward glide decelerates with the same characteristic feel as
-      // panel transitions elsewhere in OpenHand.
-      _slide = Tween<Offset>(begin: const Offset(0.0, 0.10), end: Offset.zero)
-          .animate(
-            CurvedAnimation(
-              parent: _entranceCtrl!,
-              curve: Curves.easeInOutCubicEmphasized,
-            ),
-          );
-      // Tear down the entrance animation as soon as it finishes so the
-      // ticker stops driving rebuilds for every still-mounted entry.
-      // With long sessions (1k+ messages) and a `cacheExtent` that keeps
-      // the most recently scrolled tiles alive, leaving the controller
-      // ticking after the one-shot reveal contributes a measurable
-      // baseline cost to subsequent frames.
-      _entranceCtrl!.addStatusListener(_onEntranceStatus);
-      if (widget.entranceDelay == Duration.zero) {
-        _entranceCtrl!.forward();
-      } else {
-        // Fire-and-forget: by the time the delay elapses we may already
-        // have been disposed (rapid scroll / session switch), so guard
-        // both the controller and `mounted`.
-        Future<void>.delayed(widget.entranceDelay, () {
-          if (!mounted) return;
-          _entranceCtrl?.forward();
-        });
-      }
-    }
-  }
-
-  void _onEntranceStatus(AnimationStatus status) {
-    if (status != AnimationStatus.completed) {
-      return;
-    }
-    final ctrl = _entranceCtrl;
-    if (ctrl == null) {
-      return;
-    }
-    ctrl.removeStatusListener(_onEntranceStatus);
-    ctrl.dispose();
-    _entranceCtrl = null;
-    _opacity = null;
-    _scale = null;
-    _slide = null;
-    if (mounted) {
-      // Switch to the static fast-path build that does not wrap with
-      // FadeTransition/ScaleTransition/SlideTransition.
-      setState(() {});
-    }
-  }
-
-  @override
-  void dispose() {
-    _entranceCtrl?.removeStatusListener(_onEntranceStatus);
-    _entranceCtrl?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Padding(
-      padding: EdgeInsets.only(bottom: widget.bottomSpacing),
-      child: widget.child,
-    );
-
-    // Exit animation takes priority.
-    if (widget.exiting) {
-      if (MediaQuery.disableAnimationsOf(context)) {
-        // Reduce-motion: skip the elastic exit, fire onExitCompleted on
-        // the next microtask so the parent prunes us as if the animation
-        // had finished instantly.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) widget.onExitCompleted();
-        });
-        return const SizedBox.shrink();
-      }
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 1, end: 0),
-        duration: _transcriptMessageDeleteAnimationDuration,
-        // 2026-05-04: Q弹退场 — 前 18% 阶段保留 1.0 高度并轻微"鼓"出
-        // (1.0 → 1.06)，其后 82% 才真正开始 height/opacity 折叠 +
-        // 收缩到 0.86。这种 "anticipation → release" 的两段式节奏让
-        // 退场读起来像气球泄气而非生硬截断。曲线在 builder 内部
-        // 分阶段计算，TweenAnimationBuilder 走线性即可。
-        onEnd: widget.onExitCompleted,
-        builder: (context, value, child) {
-          final clampedValue = value.clamp(0.0, 1.0);
-          final exitProgress = 1 - clampedValue;
-          // Anticipation 阶段（前 18%）：高度保持，仅放大 1.0 → 1.06；
-          // Collapse 阶段（后 82%）：高度从 1 → 0、缩放从 1.06 → 0.86、
-          // 透明度从 1 → 0。
-          const anticipateEnd = 0.18;
-          double heightFactor;
-          double opacity;
-          double scale;
-          double translateY;
-          if (exitProgress < anticipateEnd) {
-            final t = exitProgress / anticipateEnd; // 0 → 1
-            final eased = Curves.easeOutCubic.transform(t);
-            heightFactor = 1.0;
-            opacity = 1.0;
-            scale = 1.0 + 0.06 * eased;
-            translateY = -3 * eased;
-          } else {
-            final t = (exitProgress - anticipateEnd) / (1 - anticipateEnd);
-            final easedFold = Curves.easeInOutCubicEmphasized.transform(
-              t.clamp(0.0, 1.0),
-            );
-            heightFactor = (1.0 - easedFold).clamp(0.0, 1.0);
-            opacity = (1.0 - easedFold).clamp(0.0, 1.0);
-            scale = 1.06 - 0.20 * easedFold;
-            translateY = -3 - 14 * Curves.easeOutCubic.transform(t);
-          }
-          return ClipRect(
-            child: Align(
-              alignment: Alignment.topCenter,
-              heightFactor: heightFactor,
-              child: Opacity(
-                opacity: opacity,
-                child: Transform.translate(
-                  offset: Offset(0, translateY),
-                  child: Transform.scale(
-                    scale: scale,
-                    alignment: Alignment.topCenter,
-                    child: child,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-        child: child,
-      );
-    }
-
-    // Entrance animation (plays once on mount for newly added messages).
-    if (_entranceCtrl != null) {
-      if (MediaQuery.disableAnimationsOf(context)) {
-        // Reduce-motion: snap to the resting state. Settling the
-        // controller to value=1.0 lets _onEntranceStatus run on the next
-        // tick which disposes it and switches us to the fast path.
-        _entranceCtrl!.value = 1.0;
-        return child;
-      }
-      return FadeTransition(
-        opacity: _opacity!,
-        child: ScaleTransition(
-          scale: _scale!,
-          alignment: Alignment.topCenter,
-          child: SlideTransition(position: _slide!, child: child),
-        ),
-      );
-    }
-
-    // Fast path: no animation.
-    return child;
   }
 }
 
@@ -2058,83 +1393,19 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
   }
 }
 
-class _SessionErrorBanner extends StatefulWidget {
+class _SessionErrorBanner extends StatelessWidget {
   const _SessionErrorBanner({required this.error, required this.onDismiss});
 
   final AiSessionErrorRecord error;
   final VoidCallback onDismiss;
 
   @override
-  State<_SessionErrorBanner> createState() => _SessionErrorBannerState();
-}
-
-class _SessionErrorBannerState extends State<_SessionErrorBanner>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-      reverseDuration: const Duration(milliseconds: 250),
-    );
-    final entry = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
-    );
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -0.15),
-      end: Offset.zero,
-    ).animate(entry);
-    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(entry);
-  }
-
-  bool _hasPlayedEntrance = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_hasPlayedEntrance) {
-      _hasPlayedEntrance = true;
-      if (!MediaQuery.disableAnimationsOf(context)) {
-        _controller.forward();
-      } else {
-        _controller.value = 1.0;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleDismiss() async {
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      await _controller.reverse();
-    }
-    widget.onDismiss();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final presentation = _presentSessionError(context, widget.error);
-    final rawMessage = widget.error.message.trim();
+    final presentation = _presentSessionError(context, error);
+    final rawMessage = error.message.trim();
     final hasFullDetails = rawMessage.split('\n').length > 2;
 
     final banner = Container(
@@ -2184,7 +1455,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
               ),
               const SizedBox(width: 4),
               GestureDetector(
-                onTap: _handleDismiss,
+                onTap: onDismiss,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.all(4),
@@ -2235,129 +1506,25 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
         ],
       ),
     );
-
-    if (MediaQuery.disableAnimationsOf(context)) return banner;
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _slide,
-        child: ScaleTransition(scale: _scale, child: banner),
-      ),
-    );
+    return banner;
   }
 }
 
-class _AnimatedSessionTitleText extends StatefulWidget {
+class _AnimatedSessionTitleText extends StatelessWidget {
   const _AnimatedSessionTitleText({required this.text, required this.style});
 
   final String text;
   final TextStyle? style;
 
   @override
-  State<_AnimatedSessionTitleText> createState() =>
-      _AnimatedSessionTitleTextState();
-}
-
-/// Pool of glyphs sampled during the scramble phase. Mixes Latin / digit /
-/// CJK fragments so a Chinese title still looks like it is "decoding" rather
-/// than briefly turning into a row of `XYZ`.
-const String _kSessionTitleScramblePool =
-    '①②③◆◇◎◉☆★✦✧✪✺❖✿❃❀❄❅❆⌘⌥⌦⏣⌬⎔⏃⏄⏅⏆⏇⏈⏉⏊⏋⏌⏍⏎⏏⏐⏑⏒⏓⏔⏕⏖⏗⏘⏙⏚⏛⏜⏝⏞⏟⏠⏡⏢';
-const String _kSessionTitleScrambleAscii =
-    'abcdefghijklmnopqrstuvwxyz0123456789#@*+~?<>/\\|';
-
-class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
-    with SingleTickerProviderStateMixin {
-  // On initial mount we render a plain [Text] to avoid spinning up an
-  // AnimationController for every sidebar tile when the list first paints.
-  // Real animation only engages after the title actually changes (auto-title
-  // generation, explicit rename, etc.), which is the scenario the user wants
-  // to feel "magical".
-  bool _animatedOnce = false;
-  AnimationController? _controller;
-  // Keeps the final settled glyphs so each repaint stays cheap once the
-  // scramble phase has completed (no more setState ticks needed).
-  String? _settledText;
-  // Stable random salt per animation run so glyph noise doesn't visibly
-  // flicker between adjacent frames in the same reveal.
-  int _scrambleSalt = 0;
-
-  @override
-  void didUpdateWidget(covariant _AnimatedSessionTitleText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) {
-      _animatedOnce = true;
-      _settledText = null;
-      _scrambleSalt = DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
-      _controller ??=
-          AnimationController(
-            vsync: this,
-            duration: _sessionTitleRevealAnimationDuration,
-          )..addStatusListener((status) {
-            if (status == AnimationStatus.completed && mounted) {
-              setState(() {
-                _settledText = widget.text;
-              });
-            }
-          });
-      _controller!
-        ..stop()
-        ..forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final Widget body;
-    if (!_animatedOnce || _controller == null) {
-      body = Text(
-        widget.text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: widget.style,
-      );
-    } else {
-      body = AnimatedBuilder(
-        animation: _controller!,
-        builder: (context, _) {
-          final t = Curves.easeOutCubic.transform(
-            _controller!.value.clamp(0.0, 1.0),
-          );
-          final settled = _settledText;
-          final displayText = settled ?? _composeScrambledText(t);
-          // Light scale + fade for a Q-bouncy reveal. ElasticOut overshoot
-          // is intentionally gentle (1.04 → 1.0) to avoid layout jitter on
-          // narrow sidebar tiles.
-          final scale = 1.0 + (1.0 - t) * 0.06;
-          final fade = (0.55 + 0.45 * t).clamp(0.0, 1.0);
-          return Opacity(
-            opacity: fade,
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                displayText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: widget.style,
-              ),
-            ),
-          );
-        },
-      );
-    }
-    // Hover-tooltip exposes the full title when it's truncated by ellipsis.
-    // We always wrap (even short titles) — Flutter's Tooltip suppresses the
-    // popup when the trigger has no overflow only on web; on desktop we
-    // accept the rare no-op tooltip on short titles in exchange for never
-    // hiding a long title behind ellipsis.
-    final trimmed = widget.text.trim();
+    final body = Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    final trimmed = text.trim();
     if (trimmed.isEmpty) {
       return body;
     }
@@ -2367,58 +1534,8 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
       child: body,
     );
   }
-
-  /// Builds an interpolated string where each codepoint of [widget.text] is
-  /// either revealed (target glyph) or replaced by a random glyph from the
-  /// scramble pool. Reveal order is left-to-right, lock-in time per index
-  /// = `index / length` of the target, so longer titles still settle by the
-  /// end of the animation while short ones snap quickly.
-  String _composeScrambledText(double t) {
-    final target = widget.text;
-    if (target.isEmpty) {
-      return '';
-    }
-    final runes = target.runes.toList(growable: false);
-    final length = runes.length;
-    final buffer = StringBuffer();
-    for (var i = 0; i < length; i++) {
-      final revealAt = (i + 1) / length;
-      // Each position locks in slightly before its proportional slot so the
-      // last char doesn't dangle scrambled at t=0.99.
-      if (t >= revealAt - 0.05) {
-        buffer.writeCharCode(runes[i]);
-        continue;
-      }
-      buffer.write(_glyphForScramble(i, t, runes[i]));
-    }
-    return buffer.toString();
-  }
-
-  String _glyphForScramble(int index, double t, int targetRune) {
-    // Choose pool by target rune category so a CJK title scrambles with
-    // CJK-compatible glyphs (avoid jarring Latin during a Chinese reveal).
-    final pool = (targetRune >= 0x4E00 && targetRune <= 0x9FFF)
-        ? _kSessionTitleScramblePool
-        : _kSessionTitleScrambleAscii;
-    // Cheap deterministic shuffle keyed by salt + index + frame band so the
-    // glyph changes ~10 times per second without expensive Random.
-    final frameBand = (t * 18).floor();
-    final hash =
-        (_scrambleSalt ^ (index * 2654435761) ^ (frameBand * 40503)) &
-        0x7fffffff;
-    final pick = hash % pool.length;
-    return pool[pick];
-  }
 }
 
-/// Resolves the creation request that should be shown as a pending placeholder
-/// directly beneath the latest user message while the assistant works, or
-/// surfaced as a failure card when generation finished with an error and the
-/// assistant never managed to produce any visible content.
-///
-/// Returns null when no placeholder / failure card is needed: the latest user
-/// message either was not a creation request, or the assistant has already
-/// begun producing a visible response for the turn.
 AiCreationRequest? _resolvePendingCreationPlaceholder({
   required AiSession session,
   required List<AiSessionMessage> visibleMessages,
@@ -2453,53 +1570,23 @@ AiCreationRequest? _resolvePendingCreationPlaceholder({
   return request;
 }
 
-/// Shimmering placeholder card shown beneath the user message while an image
-/// (or video / audio) is being generated. Picks colours from the active theme
-/// so it looks at home in both dark and light palettes.
-class _PendingCreationPlaceholderCard extends StatefulWidget {
+class _PendingCreationPlaceholderCard extends StatelessWidget {
   const _PendingCreationPlaceholderCard({required this.request});
 
   final AiCreationRequest request;
-
-  @override
-  State<_PendingCreationPlaceholderCard> createState() =>
-      _PendingCreationPlaceholderCardState();
-}
-
-class _PendingCreationPlaceholderCardState
-    extends State<_PendingCreationPlaceholderCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    // Tune tones to the current theme so the sweep reads well everywhere.
     final baseColor = isDark
         ? cs.surfaceContainer
         : cs.surfaceContainerHighest.withValues(alpha: 0.6);
-    final highlightColor = isDark ? cs.surfaceContainerHighest : cs.surface;
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.25 : 0.18,
     );
-    final (icon, labelZh, labelEn) = switch (widget.request.mode) {
+    final (icon, labelZh, labelEn) = switch (request.mode) {
       AiCreationMode.image => (
         Icons.image_outlined,
         '正在生成图片…',
@@ -2523,18 +1610,15 @@ class _PendingCreationPlaceholderCardState
       AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
     };
     final label = _localizedText(context, zh: labelZh, en: labelEn);
-    Widget buildCard(double t) {
-      return Container(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
         width: 280,
         height: 220,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26),
           border: Border.all(color: borderColor),
-          gradient: LinearGradient(
-            begin: Alignment(-1.0 + 2.0 * t, -0.4),
-            end: Alignment(-1.0 + 2.0 * t + 0.9, 0.4),
-            colors: [baseColor, highlightColor, baseColor],
-          ),
+          color: baseColor,
         ),
         child: Center(
           child: Column(
@@ -2555,26 +1639,6 @@ class _PendingCreationPlaceholderCardState
             ],
           ),
         ),
-      );
-    }
-
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
-    if (!animationsEnabled) {
-      _ctrl.stop();
-      return Align(alignment: Alignment.centerLeft, child: buildCard(0.5));
-    }
-    if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, child) {
-          return buildCard(_ctrl.value);
-        },
       ),
     );
   }

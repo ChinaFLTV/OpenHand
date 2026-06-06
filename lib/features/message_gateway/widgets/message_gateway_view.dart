@@ -676,9 +676,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
               Expanded(
                 child: SingleChildScrollView(
                   primary: false,
-                  physics: const OpenHandBouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
+                  physics: kOpenHandClampingPhysics,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
@@ -1449,9 +1447,7 @@ class _ConnectivityResultView extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return SingleChildScrollView(
       primary: false,
-      physics: const OpenHandBouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
+      physics: kOpenHandClampingPhysics,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2290,9 +2286,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                   child: SingleChildScrollView(
                     controller: _scrollController,
                     primary: false,
-                    physics: const OpenHandBouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
+                    physics: kOpenHandClampingPhysics,
                     padding: const EdgeInsets.all(18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
