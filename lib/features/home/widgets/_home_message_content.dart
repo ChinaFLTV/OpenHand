@@ -401,11 +401,12 @@ class _CollapsibleMessageMarkdownBodyState
     final label = _collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detail = _localizedText(
-      context,
-      zh: '${data.length} 字符',
-      en: '${data.length} chars',
-    );
+    final detailStyle = (theme.textTheme.labelLarge?.copyWith(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w700,
+    )) ??
+        const TextStyle();
+    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,13 +438,17 @@ class _CollapsibleMessageMarkdownBodyState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '$label · $detail',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      label,
+                      style: detailStyle,
                     ),
                   ),
+                  Text(' · ', style: detailStyle),
+                  // 字符计数翻牌：与 Token 胶囊共享同一 RollingText。
+                  RollingText(
+                    text: '${data.length}',
+                    style: detailStyle,
+                  ),
+                  Text(unitText, style: detailStyle),
                 ],
               ),
             ),
@@ -2131,11 +2136,12 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     final label = _collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detail = _localizedText(
-      context,
-      zh: '${data.length} 字符',
-      en: '${data.length} chars',
-    );
+    final detailStyle = (theme.textTheme.labelLarge?.copyWith(
+      color: widget.textColor.withValues(alpha: 0.82),
+      fontWeight: FontWeight.w700,
+    )) ??
+        const TextStyle();
+    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2177,13 +2183,16 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '$label · $detail',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: widget.textColor.withValues(alpha: 0.82),
-                        fontWeight: FontWeight.w700,
-                      ),
+                      label,
+                      style: detailStyle,
                     ),
                   ),
+                  Text(' · ', style: detailStyle),
+                  RollingText(
+                    text: '${data.length}',
+                    style: detailStyle,
+                  ),
+                  Text(unitText, style: detailStyle),
                 ],
               ),
             ),
@@ -3007,162 +3016,30 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                   ],
                 ),
               ),
-              // 右下角：实时字符计数。每个数字位独立翻牌，曲线
-              // easeOutBack 让新数字"弹"到位，与全局 Q 弹动效一致。
-              _AnimatedRollingNumber(
-                value: widget.contentLength,
-                style: captionStyle.copyWith(
-                  color: widget.textColor.withValues(alpha: 0.62),
-                ),
-                suffix: _localizedText(context, zh: ' 字符', en: ' chars'),
+              // 右下角：实时字符计数。与 Token 胶囊 / 消息卡左上角字符数共享
+              // 同一 `RollingText`，Q 弹 easeOutBack 翻牌，多位独立动画。
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  RollingText(
+                    text: '${widget.contentLength}',
+                    style: captionStyle.copyWith(
+                      color: widget.textColor.withValues(alpha: 0.62),
+                    ),
+                  ),
+                  Text(
+                    _localizedText(context, zh: ' 字符', en: ' chars'),
+                    style: captionStyle.copyWith(
+                      color: widget.textColor.withValues(alpha: 0.62),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// 单数字位翻牌：宽度固定，新数字从下方滑入、旧数字向上滑出。曲线
-/// `easeOutCubic` 让动画"前快后稳"，配合 ClipRect 防止越位。
-class _AnimatedDigit extends StatefulWidget {
-  const _AnimatedDigit({required this.digit, required this.style});
-
-  final int digit;
-  final TextStyle style;
-
-  @override
-  State<_AnimatedDigit> createState() => _AnimatedDigitState();
-}
-
-class _AnimatedDigitState extends State<_AnimatedDigit>
-    with SingleTickerProviderStateMixin {
-  late int _displayed;
-  late int _previous;
-  late final AnimationController _ctrl;
-  bool _isFirstFrame = true;
-  static const double _slotHeight = 18;
-  static const double _digitWidth = 8.5;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayed = widget.digit;
-    _previous = widget.digit;
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedDigit oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _isFirstFrame = false;
-    if (oldWidget.digit != widget.digit) {
-      _previous = _displayed;
-      _displayed = widget.digit;
-      _ctrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final style = widget.style;
-    if (reduceMotion) {
-      return SizedBox(
-        width: _digitWidth,
-        height: _slotHeight,
-        child: Center(child: Text('$_displayed', style: style)),
-      );
-    }
-    return SizedBox(
-      width: _digitWidth,
-      height: _slotHeight,
-      child: ClipRect(
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            // 首帧直接显示终态，避免首次挂载时新数字"淡入=0→1"造成空白。
-            final t = _isFirstFrame
-                ? 1.0
-                : Curves.easeOutCubic.transform(_ctrl.value);
-            final hasOld = _previous != _displayed;
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                if (hasOld)
-                  Transform.translate(
-                    offset: Offset(0, -_slotHeight * t),
-                    child: Opacity(
-                      opacity: (1.0 - t).clamp(0.0, 1.0),
-                      child: Text('$_previous', style: style),
-                    ),
-                  ),
-                Transform.translate(
-                  offset: Offset(0, _slotHeight * (1.0 - t)),
-                  child: Opacity(
-                    opacity: t.clamp(0.0, 1.0),
-                    child: Text('$_displayed', style: style),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// 多位"老虎机式"翻牌数字：按位拆分渲染，长度自适应。
-///
-/// 使用场景：实时字符计数需要随流式 chunk 频繁更新数字。直接 `setText`
-/// 跳变会让用户对"AI 正在输出"完全无感；按位翻牌则让每次 delta 都有一
-/// 段 ~320ms 的 Q 弹动画，把"还有在生成"的进展感给到用户。
-class _AnimatedRollingNumber extends StatelessWidget {
-  const _AnimatedRollingNumber({
-    required this.value,
-    required this.style,
-    this.suffix = '',
-  });
-
-  final int value;
-  final TextStyle style;
-  final String suffix;
-
-  static List<int> _digitsOf(int n) {
-    if (n <= 0) return [0];
-    final out = <int>[];
-    var v = n;
-    while (v > 0) {
-      out.insert(0, v % 10);
-      v ~/= 10;
-    }
-    return out;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final digits = _digitsOf(value);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        for (final d in digits) _AnimatedDigit(digit: d, style: style),
-        if (suffix.isNotEmpty) ...[
-          const SizedBox(width: 2),
-          Text(suffix, style: style),
-        ],
       ],
     );
   }

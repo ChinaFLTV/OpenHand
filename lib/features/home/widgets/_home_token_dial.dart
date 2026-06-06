@@ -232,8 +232,8 @@ class _TokenDialState extends State<_TokenDial>
                       color: colorScheme.outlineVariant,
                     ),
                   ],
-                  _RollingNumber(
-                    value: widget.totalTokens,
+                  RollingText(
+                    text: _formatThousands(widget.totalTokens),
                     style: numberStyle ?? const TextStyle(),
                   ),
                   const SizedBox(width: 6),
@@ -249,6 +249,22 @@ class _TokenDialState extends State<_TokenDial>
       ),
     );
   }
+}
+
+/// 千位分隔符格式化。TopBar Token 胶囊需要带 `,` 的可读数字（17,075），
+/// 而缓存收益百分比 / 浮窗行项都不需要分隔符，所以这里只暴露给一个
+/// 显式调用点，避免给不需要的场景强加视觉差异。
+String _formatThousands(int value) {
+  final raw = value.abs().toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < raw.length; i += 1) {
+    final remaining = raw.length - i;
+    if (i != 0 && remaining % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(raw[i]);
+  }
+  return value < 0 ? '-${buffer.toString()}' : buffer.toString();
 }
 
 /// 悬浮在 `_TokenDial` 下方的结构化 token 详情浮窗。
@@ -663,8 +679,8 @@ class _CacheSavingsBadge extends StatelessWidget {
         children: [
           Icon(Icons.savings_rounded, size: 11, color: fg),
           const SizedBox(width: 3),
-          _RollingNumber(
-            value: percentInt,
+          RollingText(
+            text: '$percentInt',
             style: theme.textTheme.labelSmall!.copyWith(
               fontWeight: FontWeight.w800,
               color: fg.withValues(alpha: intensity),
@@ -848,8 +864,8 @@ class _PopupRowState extends State<_PopupRow> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _RollingNumber(
-                  value: widget.value,
+                RollingText(
+                  text: '${widget.value}',
                   style: widget.valueStyle ?? const TextStyle(),
                 ),
                 if (widget.suffix != null) ...[
@@ -859,96 +875,6 @@ class _PopupRowState extends State<_PopupRow> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Odometer-style rolling number: each digit slot slides vertically when
-/// it changes, giving a Q-elastic 数字滚轮 feel without rebuilding the
-/// surrounding capsule. Comma thousand-separators are inserted between
-/// digit slots and remain static. Whole-number transitions feel snappier
-/// than rebuilding the entire `Text` with a fade because each slot's
-/// motion is independent and bounded to a single character cell.
-class _RollingNumber extends StatelessWidget {
-  const _RollingNumber({required this.value, required this.style});
-
-  final int value;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final formatted = _formatWithSeparators(value);
-    final children = <Widget>[];
-    for (var i = 0; i < formatted.length; i += 1) {
-      final ch = formatted[i];
-      if (ch == ',') {
-        children.add(Text(ch, style: style));
-      } else {
-        children.add(_RollingDigit(digit: ch, style: style));
-      }
-    }
-    return Row(mainAxisSize: MainAxisSize.min, children: children);
-  }
-
-  static String _formatWithSeparators(int value) {
-    final raw = value.abs().toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < raw.length; i += 1) {
-      final remaining = raw.length - i;
-      if (i != 0 && remaining % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(raw[i]);
-    }
-    return value < 0 ? '-${buffer.toString()}' : buffer.toString();
-  }
-}
-
-class _RollingDigit extends StatelessWidget {
-  const _RollingDigit({required this.digit, required this.style});
-
-  final String digit;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    // Reserve a fixed cell width using a tabular '0' to prevent layout
-    // jitter as the digit changes (some font glyphs are slightly narrower).
-    return AnimatedSwitcher(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 360),
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        final outgoing = animation.status == AnimationStatus.reverse;
-        final slide = Tween<Offset>(
-          begin: Offset(0, outgoing ? -0.6 : 0.6),
-          end: Offset.zero,
-        ).animate(animation);
-        return ClipRect(
-          child: SlideTransition(
-            position: slide,
-            child: FadeTransition(opacity: animation, child: child),
-          ),
-        );
-      },
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
-      child: Text(
-        digit,
-        key: ValueKey<String>(digit),
-        style: style.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );

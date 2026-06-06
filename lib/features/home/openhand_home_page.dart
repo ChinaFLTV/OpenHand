@@ -61,6 +61,7 @@ import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/rolling_text.dart';
 import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
