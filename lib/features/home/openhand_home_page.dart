@@ -6399,21 +6399,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _fileExplorerVisible &&
                     projectRoot != null &&
                     _selectedSection == AppSection.workspace;
+                final panelSettings = context
+                    .read<SettingsController>()
+                    .panelAnimationSettings;
+                final leftPaneDuration = Duration(
+                  milliseconds: math.max(
+                    _effectiveSwitchDuration(panelSettings).inMilliseconds,
+                    240,
+                  ),
+                );
                 final Widget leftPane = ClipRect(
-                  child: showFileExplorer
-                      ? _ContentPane(
-                          key: const ValueKey<String>('file-explorer-pane'),
-                          child: _FileExplorerPanel(
-                            rootPath: projectRoot,
-                            onFileSelected: _openFileInEditor,
-                            activeFilePath: _activeFilePath,
-                            onCloseRequested: _toggleFileExplorer,
+                  child: AnimatedSwitcher(
+                    duration: leftPaneDuration,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    transitionBuilder: (child, animation) {
+                      return _buildWorkspaceSidebarTransition(
+                        child: child,
+                        animation: animation,
+                      );
+                    },
+                    child: showFileExplorer
+                        ? _ContentPane(
+                            key: const ValueKey<String>('file-explorer-pane'),
+                            child: _FileExplorerPanel(
+                              rootPath: projectRoot,
+                              onFileSelected: _openFileInEditor,
+                              activeFilePath: _activeFilePath,
+                              onCloseRequested: _toggleFileExplorer,
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey<String>('navigation-pane'),
+                            child: navigationPane,
                           ),
-                        )
-                      : KeyedSubtree(
-                          key: const ValueKey<String>('navigation-pane'),
-                          child: navigationPane,
-                        ),
+                  ),
                 );
 
                 // Swap right pane to code editor when files are open.
@@ -6421,38 +6450,67 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _selectedSection == AppSection.workspace &&
                     _activeFilePath != null &&
                     _openFilePaths.isNotEmpty;
+                final pageSettings = context
+                    .read<SettingsController>()
+                    .pageAnimationSettings;
+                final rightPaneDuration = Duration(
+                  milliseconds: math.max(
+                    _effectiveSwitchDuration(pageSettings).inMilliseconds,
+                    280,
+                  ),
+                );
                 final Widget rightPane = ClipRect(
-                  child: showEditor
-                      ? Padding(
-                          key: const ValueKey<String>('editor-pane'),
-                          padding: const EdgeInsets.all(4),
-                          child: _CodeEditorView(
-                            openFiles: _openFilePaths,
-                            activeFilePath: _activeFilePath!,
-                            projectLanguage: _programmingExpertLanguage(
-                              currentSession,
+                  child: AnimatedSwitcher(
+                    duration: rightPaneDuration,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    transitionBuilder: (child, animation) {
+                      return _buildWorkspaceContentTransition(
+                        child: child,
+                        animation: animation,
+                      );
+                    },
+                    child: showEditor
+                        ? Padding(
+                            key: const ValueKey<String>('editor-pane'),
+                            padding: const EdgeInsets.all(4),
+                            child: _CodeEditorView(
+                              openFiles: _openFilePaths,
+                              activeFilePath: _activeFilePath!,
+                              projectLanguage: _programmingExpertLanguage(
+                                currentSession,
+                              ),
+                              projectSdkPath: _programmingExpertSdkPath(
+                                currentSession,
+                              ),
+                              projectLspPath: _programmingExpertLspPath(
+                                currentSession,
+                              ),
+                              onOpenFile: _openFileInEditor,
+                              onTabSelected: _selectFileTab,
+                              onTabClosed: _closeFileTab,
+                              onCloseAll: _closeAllFileTabs,
+                              onReorderTabs: _reorderFileTabs,
+                              fileExplorerVisible: _fileExplorerVisible,
+                              onToggleFileExplorer: _toggleFileExplorer,
                             ),
-                            projectSdkPath: _programmingExpertSdkPath(
-                              currentSession,
+                          )
+                        : _ContentPane(
+                            key: ValueKey<String>(
+                              'section-${_selectedSection.name}',
                             ),
-                            projectLspPath: _programmingExpertLspPath(
-                              currentSession,
-                            ),
-                            onOpenFile: _openFileInEditor,
-                            onTabSelected: _selectFileTab,
-                            onTabClosed: _closeFileTab,
-                            onCloseAll: _closeAllFileTabs,
-                            onReorderTabs: _reorderFileTabs,
-                            fileExplorerVisible: _fileExplorerVisible,
-                            onToggleFileExplorer: _toggleFileExplorer,
+                            child: _buildSectionContent(context),
                           ),
-                        )
-                      : _ContentPane(
-                          key: ValueKey<String>(
-                            'section-${_selectedSection.name}',
-                          ),
-                          child: _buildSectionContent(context),
-                        ),
+                  ),
                 );
 
                 if (stackedLayout) {
