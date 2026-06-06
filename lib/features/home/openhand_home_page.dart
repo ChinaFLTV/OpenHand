@@ -5062,31 +5062,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         });
       }
 
-      if (distance >= 1 &&
-          shouldAnimate &&
-          distance > _autoFollowAnimatedDistanceThreshold) {
-        _programmaticAutoFollowScrollInProgress = true;
-        // Animate on the specific active `ScrollPosition` rather than the
-        // controller so a transient second attached position (e.g. during a
-        // session swap's AnimatedOpacity cross-fade) does not trip the
-        // `Scrollbar` assertion that its `ScrollController` has a single
-        // `ScrollPosition`.  `ScrollController.animateTo` fans out to every
-        // attached position, which emits scroll notifications from the stale
-        // position as well and surfaces as `RawScrollbar` validation crashes.
-        unawaited(
-          activePosition
-              .animateTo(
-                targetOffset,
-                duration: _scrollToBottomAnimationDuration(distance),
-                curve: Curves.easeOutCubic,
-              )
-              .whenComplete(() {
-                clearProgrammaticScrollFlag();
-                scheduleSettlePass();
-              }),
-        );
-        return;
-      }
       if (distance >= 1) {
         _programmaticAutoFollowScrollInProgress = true;
         activePosition.jumpTo(targetOffset);
@@ -5102,12 +5077,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
     _programmaticAutoFollowScrollInProgress = false;
-  }
-
-  Duration _scrollToBottomAnimationDuration(double distance) {
-    final clampedDistance = distance.clamp(24, 520).toDouble();
-    final milliseconds = (110 + clampedDistance * 0.24).round().clamp(110, 280);
-    return Duration(milliseconds: milliseconds);
   }
 
   void _maybeAutoFollowSession(AiSession? session) {
@@ -6363,15 +6332,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final theme = Theme.of(context);
     final palette = theme.extension<OpenHandPalette>()!;
     final sessionController = context.watch<AiSessionController>();
-    final panelAnimationSettings = context
-        .select<SettingsController, DialogAnimationSettings>((controller) {
-          return controller.panelAnimationSettings;
-        });
-    final pageAnimationSettings = context
-        .select<SettingsController, DialogAnimationSettings>((controller) {
-          return controller.pageAnimationSettings;
-        });
-
     return Focus(
       focusNode: _globalShortcutFocusNode,
       autofocus: true,
@@ -6439,45 +6399,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _fileExplorerVisible &&
                     projectRoot != null &&
                     _selectedSection == AppSection.workspace;
-                final panelAnim = panelAnimationSettings;
-                final panelDuration = _effectiveSwitchDuration(panelAnim);
-                final leftPaneDuration = Duration(
-                  milliseconds: math.max(panelDuration.inMilliseconds, 260),
-                );
-                final Widget leftPaneContent = showFileExplorer
-                    ? _ContentPane(
-                        key: const ValueKey<String>('file-explorer-pane'),
-                        child: _FileExplorerPanel(
-                          rootPath: projectRoot,
-                          onFileSelected: _openFileInEditor,
-                          activeFilePath: _activeFilePath,
-                          onCloseRequested: _toggleFileExplorer,
-                        ),
-                      )
-                    : KeyedSubtree(
-                        key: const ValueKey<String>('navigation-pane'),
-                        child: navigationPane,
-                      );
                 final Widget leftPane = ClipRect(
-                  child: AnimatedSwitcher(
-                    duration: leftPaneDuration,
-                    transitionBuilder: (child, animation) {
-                      return _buildWorkspaceSidebarTransition(
-                        child: child,
-                        animation: animation,
-                      );
-                    },
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    child: leftPaneContent,
-                  ),
+                  child: showFileExplorer
+                      ? _ContentPane(
+                          key: const ValueKey<String>('file-explorer-pane'),
+                          child: _FileExplorerPanel(
+                            rootPath: projectRoot,
+                            onFileSelected: _openFileInEditor,
+                            activeFilePath: _activeFilePath,
+                            onCloseRequested: _toggleFileExplorer,
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey<String>('navigation-pane'),
+                          child: navigationPane,
+                        ),
                 );
 
                 // Swap right pane to code editor when files are open.
@@ -6485,90 +6421,38 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _selectedSection == AppSection.workspace &&
                     _activeFilePath != null &&
                     _openFilePaths.isNotEmpty;
-                // Fallback: if the user explicitly set page animation to
-                // none/none we still want section→section to feel alive when
-                // panel animation is enabled, so use panel settings as a
-                // backstop. This keeps Settings/MCP/Memory/Hooks/Crons/Skills
-                // switches visibly animated even with a misconfigured page
-                // animation preset.
-                final effectiveSectionAnim =
-                    (pageAnimationSettings.entranceStyle ==
-                            DialogAnimationStyle.none &&
-                        pageAnimationSettings.exitStyle ==
-                            DialogAnimationStyle.none &&
-                        !(panelAnim.entranceStyle ==
-                                DialogAnimationStyle.none &&
-                            panelAnim.exitStyle == DialogAnimationStyle.none))
-                    ? panelAnim
-                    : pageAnimationSettings;
-                // Single right-pane AnimatedSwitcher keyed by full identity
-                // (`editor-pane` vs `section-<name>`). This guarantees every
-                // page-level swap — both editor↔section and section↔section
-                // — is detected as a child change and triggers the configured
-                // page transition. Previously a nested inner switcher was
-                // used, but the outer switcher saw the wrapper widget as
-                // unchanged and the inner one's state could be elided,
-                // making the cross-fade invisible in some rebuild paths.
-                final Widget rightPaneContent = showEditor
-                    ? Padding(
-                        key: const ValueKey<String>('editor-pane'),
-                        padding: const EdgeInsets.all(4),
-                        child: _CodeEditorView(
-                          openFiles: _openFilePaths,
-                          activeFilePath: _activeFilePath!,
-                          projectLanguage: _programmingExpertLanguage(
-                            currentSession,
-                          ),
-                          projectSdkPath: _programmingExpertSdkPath(
-                            currentSession,
-                          ),
-                          projectLspPath: _programmingExpertLspPath(
-                            currentSession,
-                          ),
-                          onOpenFile: _openFileInEditor,
-                          onTabSelected: _selectFileTab,
-                          onTabClosed: _closeFileTab,
-                          onCloseAll: _closeAllFileTabs,
-                          onReorderTabs: _reorderFileTabs,
-                          fileExplorerVisible: _fileExplorerVisible,
-                          onToggleFileExplorer: _toggleFileExplorer,
-                        ),
-                      )
-                    : _ContentPane(
-                        key: ValueKey<String>(
-                          'section-${_selectedSection.name}',
-                        ),
-                        child: _buildSectionContent(context),
-                      );
-                final rightPaneBaseDuration = _effectiveSwitchDuration(
-                  effectiveSectionAnim,
-                );
-                final rightPaneDuration = Duration(
-                  milliseconds: math.max(
-                    rightPaneBaseDuration.inMilliseconds,
-                    280,
-                  ),
-                );
                 final Widget rightPane = ClipRect(
-                  child: AnimatedSwitcher(
-                    duration: rightPaneDuration,
-                    transitionBuilder: (child, animation) {
-                      return _buildWorkspaceContentTransition(
-                        child: child,
-                        animation: animation,
-                      );
-                    },
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    child: rightPaneContent,
-                  ),
+                  child: showEditor
+                      ? Padding(
+                          key: const ValueKey<String>('editor-pane'),
+                          padding: const EdgeInsets.all(4),
+                          child: _CodeEditorView(
+                            openFiles: _openFilePaths,
+                            activeFilePath: _activeFilePath!,
+                            projectLanguage: _programmingExpertLanguage(
+                              currentSession,
+                            ),
+                            projectSdkPath: _programmingExpertSdkPath(
+                              currentSession,
+                            ),
+                            projectLspPath: _programmingExpertLspPath(
+                              currentSession,
+                            ),
+                            onOpenFile: _openFileInEditor,
+                            onTabSelected: _selectFileTab,
+                            onTabClosed: _closeFileTab,
+                            onCloseAll: _closeAllFileTabs,
+                            onReorderTabs: _reorderFileTabs,
+                            fileExplorerVisible: _fileExplorerVisible,
+                            onToggleFileExplorer: _toggleFileExplorer,
+                          ),
+                        )
+                      : _ContentPane(
+                          key: ValueKey<String>(
+                            'section-${_selectedSection.name}',
+                          ),
+                          child: _buildSectionContent(context),
+                        ),
                 );
 
                 if (stackedLayout) {

@@ -92,12 +92,8 @@ class _CompressionCheckpointBody extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               ClipRect(
-                child: AnimatedSize(
-                  duration: cardMotionDurationFor(context, expanding: expanded),
-                  curve: kCardMotionCurve,
-                  alignment: Alignment.topLeft,
-                  child: expanded
-                      ? KeyedSubtree(
+                child: expanded
+                    ? KeyedSubtree(
                           key: const ValueKey<String>('compression-expanded'),
                           child: _SafeMarkdownBody(
                             data: content.isEmpty ? ' ' : content,
@@ -122,7 +118,6 @@ class _CompressionCheckpointBody extends StatelessWidget {
                             fadeColor: fadeColor,
                           ),
                         ),
-                ),
               ),
             ],
           ),
@@ -456,13 +451,8 @@ class _CollapsibleMessageMarkdownBodyState
         ),
         const SizedBox(height: 8),
         ClipRect(
-          child: AnimatedSize(
-            duration: cardMotionDurationFor(context, expanding: !_collapsed),
-            curve: kCardMotionCurve,
-            alignment: Alignment.topLeft,
-            clipBehavior: Clip.none,
-            child: _collapsed
-                ? KeyedSubtree(
+          child: _collapsed
+              ? KeyedSubtree(
                     key: const ValueKey<String>('message-markdown-preview'),
                     child: _MarkdownPreviewBody(
                       data: data,
@@ -487,7 +477,6 @@ class _CollapsibleMessageMarkdownBodyState
                       parseKey: '${widget.parseKey}|message-expanded',
                     ),
                   ),
-          ),
         ),
       ],
     );
@@ -1241,11 +1230,74 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   String _sanitizeMarkdownSource(String source) {
     final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final stripped = _stripToolScaffolding(normalized);
+    final normalizedFences = _normalizeInlineFencedCodeBlocks(normalized);
+    final stripped = _stripToolScaffolding(normalizedFences);
     return _closeUnterminatedFencedCodeBlock(stripped).replaceAllMapped(
       _setextEscapePattern,
       (match) => '${match[1]}${match[2]}\\${match[3]}',
     );
+  }
+
+  static final RegExp _inlineFencedBlockLinePattern = RegExp(
+    r'^( {0,3})(`{3,}|~{3,})([^\n]*)$',
+  );
+  static final RegExp _fenceInfoTokenPattern = RegExp(r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)');
+
+  String _normalizeInlineFencedCodeBlocks(String source) {
+    if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
+      return source;
+    }
+    final lines = source.split('\n');
+    var changed = false;
+    final normalizedLines = <String>[];
+    for (final line in lines) {
+      final match = _inlineFencedBlockLinePattern.firstMatch(line);
+      if (match == null) {
+        normalizedLines.add(line);
+        continue;
+      }
+      final indent = match.group(1)!;
+      final fence = match.group(2)!;
+      final afterFence = match.group(3)!;
+      final closingIndex = afterFence.lastIndexOf(fence);
+      if (closingIndex <= 0) {
+        normalizedLines.add(line);
+        continue;
+      }
+      final inlineSegment = afterFence.substring(0, closingIndex).trimLeft();
+      final trailingSegment = afterFence.substring(closingIndex + fence.length);
+      if (inlineSegment.isEmpty) {
+        normalizedLines.add(line);
+        continue;
+      }
+      String openingFence = '$indent$fence';
+      var codeBody = inlineSegment;
+      final infoMatch = _fenceInfoTokenPattern.firstMatch(inlineSegment);
+      if (infoMatch != null) {
+        final infoToken = infoMatch.group(1)!;
+        final remainder = inlineSegment.substring(infoMatch.end).trimLeft();
+        if (remainder.isNotEmpty) {
+          openingFence = '$openingFence$infoToken';
+          codeBody = remainder;
+        }
+      }
+      if (codeBody.trim().isEmpty) {
+        normalizedLines.add(line);
+        continue;
+      }
+      changed = true;
+      normalizedLines.add(openingFence);
+      normalizedLines.add(codeBody.trimRight());
+      normalizedLines.add('$indent$fence');
+      final trailing = trailingSegment.trimLeft();
+      if (trailing.isNotEmpty) {
+        normalizedLines.add(trailing);
+      }
+    }
+    if (!changed) {
+      return source;
+    }
+    return normalizedLines.join('\n');
   }
 
   /// Removes scaffolding-only lines while **preserving** any line inside a
@@ -2200,13 +2252,8 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
         ),
         const SizedBox(height: 8),
         ClipRect(
-          child: AnimatedSize(
-            duration: cardMotionDurationFor(context, expanding: !_collapsed),
-            curve: kCardMotionCurve,
-            alignment: Alignment.topLeft,
-            clipBehavior: Clip.none,
-            child: _collapsed
-                ? SizedBox(
+          child: _collapsed
+              ? SizedBox(
                     height: 240,
                     child: Stack(
                       children: [
@@ -2262,7 +2309,6 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                     ),
                   )
                 : SelectableText(data, style: effectiveStyle),
-          ),
         ),
       ],
     );
@@ -2292,6 +2338,12 @@ bool _hasHtmlTagStructure(String value) {
   if (value.isEmpty) return false;
   // 至少包含 1 个完整的 HTML 标签（开/闭/自闭合均可）。
   return _htmlAnyTagPattern.hasMatch(value);
+}
+
+bool _startsWithFencedMermaidBlock(String source) {
+  final normalized = source.trimLeft();
+  return normalized.startsWith('```mermaid') ||
+      normalized.startsWith('~~~mermaid');
 }
 
 // 自闭合标签，不参与开/闭配平。
@@ -3927,27 +3979,22 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ),
         );
       },
-      child: AnimatedSize(
-        duration: reduceMotion ? Duration.zero : kCardMotionDurationExpand,
-        curve: reduceMotion ? Curves.linear : kCardMotionCurve,
-        alignment: Alignment.topCenter,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showShimmer)
-              const SizedBox(
-                width: double.infinity,
-                height: shimmerHeight,
-                child: _HtmlBubbleShimmer(),
-              ),
-            SizedBox(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showShimmer)
+            const SizedBox(
               width: double.infinity,
-              height: showShimmer ? 1.0 : displayHeight,
-              child: webViewChild,
+              height: shimmerHeight,
+              child: _HtmlBubbleShimmer(),
             ),
-          ],
-        ),
+          SizedBox(
+            width: double.infinity,
+            height: showShimmer ? 1.0 : displayHeight,
+            child: webViewChild,
+          ),
+        ],
       ),
     );
     return entrance;
@@ -4006,14 +4053,20 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildMarkdownOrFallback() {
-    // Markdown 格式智能回退：如果内容看起来是 HTML（而非 Markdown），
-    // 优先尝试 HTML 渲染，失败再走 Markdown → plainText 降级链。
-    // 这避免了 AI 在 Markdown 模式下输出 HTML 标签时，标签被原样显示。
+    // Markdown 格式智能回退：仅当内容整体看起来像 HTML 文档时，才优先尝试
+    // HTML 渲染。若消息里已经出现 fenced code block，则必须坚持走 Markdown
+    // 路径 —— 代码块正文可能合法包含 `<br/>` / `<div>` / `<table>` 等字样
+    //（典型如 mermaid、HTML 示例代码），此时回退到 WebView 会把整个 fenced
+    // block 当普通文本吃掉，导致代码块/mermaid 完全失效。
+    final normalized = data.trim();
+    if (_startsWithFencedMermaidBlock(normalized) ||
+        _containsMarkdownCodeFence(normalized)) {
+      return _buildMarkdown();
+    }
     final bool hasHtmlLikeTags = _looksLikeHtml(data);
     final bool hasTagStructure = !hasHtmlLikeTags && _hasHtmlTagStructure(data);
 
     if (hasHtmlLikeTags || hasTagStructure) {
-      // 内容更像 HTML，优先用 WebView 渲染。
       return SizedBox(
         width: double.infinity,
         child: _HtmlBubbleWebView(
@@ -4025,7 +4078,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         ),
       );
     }
-    // 否则走正常 Markdown 渲染。
     return _buildMarkdown();
   }
 
@@ -4108,38 +4160,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isStreaming && format == AiMessageContentFormat.html) {
-      return _wrapSelection(
-        AnimatedSwitcher(
-          duration: cardMotionDurationFor(context, expanding: !isStreaming),
-          switchInCurve: kCardMotionCurve,
-          switchOutCurve: Curves.easeOutCubic,
-          layoutBuilder: (currentChild, previousChildren) {
-            return Stack(
-              alignment: Alignment.topLeft,
-              children: [
-                ...previousChildren,
-                if (currentChild != null) currentChild,
-              ],
-            );
-          },
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: -1.0,
-                child: child,
-              ),
-            );
-          },
-          child: KeyedSubtree(
-            key: ValueKey<bool>(isStreaming),
-            child: _buildDispatchedBody(),
-          ),
-        ),
-      );
-    }
     return _wrapSelection(_buildDispatchedBody());
   }
 }
