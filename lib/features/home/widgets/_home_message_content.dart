@@ -2889,13 +2889,17 @@ class _HtmlMessageBody extends StatelessWidget {
 
 /// 流式 HTML 卡片占位：AI 仍在持续流式追加 HTML 时，UI 不直接展示
 /// 原始 HTML 字符（避免大量 `<div>...</div>` 给用户带来困惑），改为
-/// 呈现一个 Q 弹的"正在生成"骨架屏 + 闪动光点。流式结束后由
-/// `_AssistantMessageBodyDispatcher` 用 AnimatedSwitcher 一次性切换到
-/// `_HtmlBubbleWebView`，并附 Q 弹 fade+scale 进场动画。
+/// 呈现一个 Q 弹的"正在生成"骨架屏 + 闪动光点 + 右下角实时字符计数。
+/// 流式结束后由 `_AssistantMessageBodyDispatcher` 用 AnimatedSwitcher
+/// 一次性切换到 `_HtmlBubbleWebView`，并附 Q 弹 fade+scale 进场动画。
 class _StreamingHtmlPlaceholder extends StatefulWidget {
-  const _StreamingHtmlPlaceholder({required this.textColor});
+  const _StreamingHtmlPlaceholder({
+    required this.textColor,
+    required this.contentLength,
+  });
 
   final Color textColor;
+  final int contentLength;
 
   @override
   State<_StreamingHtmlPlaceholder> createState() =>
@@ -2953,6 +2957,11 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
     } else if (!_dotCtrl.isAnimating) {
       _dotCtrl.repeat();
     }
+    final captionStyle = TextStyle(
+      fontSize: 12,
+      color: widget.textColor.withValues(alpha: 0.78),
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -2961,41 +2970,199 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.auto_awesome_outlined,
-                size: 14,
-                color: cs.primary.withValues(alpha: 0.85),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _localizedText(
-                  context,
-                  zh: '正在生成 HTML 卡片',
-                  en: 'Generating HTML card',
-                ),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: widget.textColor.withValues(alpha: 0.78),
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(width: 4),
-              AnimatedBuilder(
-                animation: _dotAnim,
-                builder: (context, _) => Row(
+              Expanded(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _dot(0),
-                    _dot(1),
-                    _dot(2),
+                    Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 14,
+                      color: cs.primary.withValues(alpha: 0.85),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _localizedText(
+                          context,
+                          zh: '正在生成 HTML 卡片',
+                          en: 'Generating HTML card',
+                        ),
+                        style: captionStyle,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    AnimatedBuilder(
+                      animation: _dotAnim,
+                      builder: (context, _) => Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _dot(0),
+                          _dot(1),
+                          _dot(2),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
+              ),
+              // 右下角：实时字符计数。每个数字位独立翻牌，曲线
+              // easeOutBack 让新数字"弹"到位，与全局 Q 弹动效一致。
+              _AnimatedRollingNumber(
+                value: widget.contentLength,
+                style: captionStyle.copyWith(
+                  color: widget.textColor.withValues(alpha: 0.62),
+                ),
+                suffix: _localizedText(context, zh: ' 字符', en: ' chars'),
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// 单数字位翻牌：宽度固定，新数字从下方滑入、旧数字向上滑出。曲线
+/// `easeOutCubic` 让动画"前快后稳"，配合 ClipRect 防止越位。
+class _AnimatedDigit extends StatefulWidget {
+  const _AnimatedDigit({required this.digit, required this.style});
+
+  final int digit;
+  final TextStyle style;
+
+  @override
+  State<_AnimatedDigit> createState() => _AnimatedDigitState();
+}
+
+class _AnimatedDigitState extends State<_AnimatedDigit>
+    with SingleTickerProviderStateMixin {
+  late int _displayed;
+  late int _previous;
+  late final AnimationController _ctrl;
+  bool _isFirstFrame = true;
+  static const double _slotHeight = 18;
+  static const double _digitWidth = 8.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayed = widget.digit;
+    _previous = widget.digit;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedDigit oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _isFirstFrame = false;
+    if (oldWidget.digit != widget.digit) {
+      _previous = _displayed;
+      _displayed = widget.digit;
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final style = widget.style;
+    if (reduceMotion) {
+      return SizedBox(
+        width: _digitWidth,
+        height: _slotHeight,
+        child: Center(child: Text('$_displayed', style: style)),
+      );
+    }
+    return SizedBox(
+      width: _digitWidth,
+      height: _slotHeight,
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, _) {
+            // 首帧直接显示终态，避免首次挂载时新数字"淡入=0→1"造成空白。
+            final t = _isFirstFrame
+                ? 1.0
+                : Curves.easeOutCubic.transform(_ctrl.value);
+            final hasOld = _previous != _displayed;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                if (hasOld)
+                  Transform.translate(
+                    offset: Offset(0, -_slotHeight * t),
+                    child: Opacity(
+                      opacity: (1.0 - t).clamp(0.0, 1.0),
+                      child: Text('$_previous', style: style),
+                    ),
+                  ),
+                Transform.translate(
+                  offset: Offset(0, _slotHeight * (1.0 - t)),
+                  child: Opacity(
+                    opacity: t.clamp(0.0, 1.0),
+                    child: Text('$_displayed', style: style),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// 多位"老虎机式"翻牌数字：按位拆分渲染，长度自适应。
+///
+/// 使用场景：实时字符计数需要随流式 chunk 频繁更新数字。直接 `setText`
+/// 跳变会让用户对"AI 正在输出"完全无感；按位翻牌则让每次 delta 都有一
+/// 段 ~320ms 的 Q 弹动画，把"还有在生成"的进展感给到用户。
+class _AnimatedRollingNumber extends StatelessWidget {
+  const _AnimatedRollingNumber({
+    required this.value,
+    required this.style,
+    this.suffix = '',
+  });
+
+  final int value;
+  final TextStyle style;
+  final String suffix;
+
+  static List<int> _digitsOf(int n) {
+    if (n <= 0) return [0];
+    final out = <int>[];
+    var v = n;
+    while (v > 0) {
+      out.insert(0, v % 10);
+      v ~/= 10;
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = _digitsOf(value);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        for (final d in digits) _AnimatedDigit(digit: d, style: style),
+        if (suffix.isNotEmpty) ...[
+          const SizedBox(width: 2),
+          Text(suffix, style: style),
+        ],
       ],
     );
   }
@@ -3984,7 +4151,10 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   /// overshoot 的 Q 弹回弹），与全局卡片动效保持一致。
   Widget _buildDispatchedBody() {
     if (isStreaming && format == AiMessageContentFormat.html) {
-      return _StreamingHtmlPlaceholder(textColor: textColor);
+      return _StreamingHtmlPlaceholder(
+        textColor: textColor,
+        contentLength: data.length,
+      );
     }
     return switch (format) {
       AiMessageContentFormat.plainText => _buildPlainText(),
