@@ -78,41 +78,48 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
 
   /// 连续拒绝瞬态近零 extent 更新的次数，防止无限拒绝。
   int _transientRejectCount = 0;
+  // DEBUG 2026-06-06：抽搐根因临时诊断，定位完成后删除
+  bool _loggedZero = false;
+  int _applyCdSeq = 0;
+  int _pointerScrollSeq = 0;
 
   @override
   bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
     if (hasPixels &&
         hasContentDimensions &&
         maxScrollExtent != this.maxScrollExtent) {
+      final int seq = ++_applyCdSeq;
       final double delta = maxScrollExtent - this.maxScrollExtent;
       final double oldMax = this.maxScrollExtent;
-      // 2026-06-06（线程模板抽搐 bug）：drag 守卫只覆盖 overscroll 跟随
-      // 分支（pixels > oldMax），让用户的 drag 意图不被 correctPixels 抢走；
-      // 收缩分支（delta < -0.5 && pixels > maxScrollExtent）**必须无条件
-      // 执行**，否则 pixels 会留在 > newMax 状态，super 内部的
-      // applyNewDimensions → IdleScrollActivity.goBallistic(0) 看到
-      // outOfRange=true 就反复启动 BouncingScrollSimulation 拉回 pixels，
-      // 与用户慢速上滑形成 ~50ms 正反馈，肉眼呈"快速小幅上下弹跳"。
       final bool userDragging = activity is DragScrollActivity ||
           userScrollDirection != ScrollDirection.idle;
+      // DEBUG 2026-06-06：每次 applyContentDimensions 都打点
+      debugPrint(
+        '[OHScroller#applyCD#$seq] oldMax=$oldMax newMax=$maxScrollExtent '
+        'd=${delta.toStringAsFixed(2)} px=${pixels.toStringAsFixed(2)} '
+        'act=${activity.runtimeType} dir=$userScrollDirection '
+        'dragging=$userDragging '
+        'outOfRange=${pixels > maxScrollExtent || pixels < minScrollExtent}',
+      );
       if (pixels > oldMax) {
-        // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
-        // "目标突然移动" 而产生抽搐。drag 期间不干扰用户 overscroll 手势。
         if (!userDragging) {
           correctPixels(pixels + delta);
+        } else {
+          // DEBUG：drag 期间 overscroll 跟随被守卫挡住时记录
+          debugPrint(
+            '[OHScroller#applyCD#$seq] ⚠️ drag-skip overscroll-follow: '
+            'px=${pixels.toStringAsFixed(2)} oldMax=$oldMax '
+            'willStayOver=${(pixels > maxScrollExtent)}',
+          );
         }
       } else if (delta < -0.5 && pixels > maxScrollExtent) {
-        // maxScrollExtent 收缩到当前 pixels 之下（例如 HTML 气泡高度
-        // 测量值变小）：按比例缩放 pixels，维持用户的相对阅读位置，
-        // 避免被 Flutter 框架 clamp 到底部造成"突然滑回最新消息"。
-        //
-        // 瞬态近零 extent（如 576→8）是布局中间态产物，不是真实内容
-        // 收缩。放行会导致 pixels 被 clamp 到 ~0，扩展回 576 后用户
-        // 位置已丢失，被迫重新滚到底 → 再次 overscroll → 循环振荡。
-        // 连续拒绝超过 3 帧则放行，防止真实清空内容时死循环。
         if (maxScrollExtent < 50.0 && oldMax > 100.0) {
           _transientRejectCount++;
           if (_transientRejectCount <= 3) {
+            debugPrint(
+              '[OHScroller#applyCD#$seq] ⏸ reject-transient '
+              '(count=$_transientRejectCount) oldMax=$oldMax newMax=$maxScrollExtent',
+            );
             return false;
           }
         }
@@ -121,6 +128,12 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
           final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
           final double newPixels =
               (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
+          debugPrint(
+            '[OHScroller#applyCD#$seq] shrink-scale: '
+            'oldMax=$oldMax newMax=$maxScrollExtent '
+            'px=${pixels.toStringAsFixed(2)}→${newPixels.toStringAsFixed(2)} '
+            'ratio=${ratio.toStringAsFixed(3)}',
+          );
           correctPixels(newPixels);
         }
       } else {
@@ -128,6 +141,69 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
       }
     }
     return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
+  }
+
+  @override
+  void pointerScroll(double delta) {
+    final int seq = ++_pointerScrollSeq;
+    if (delta.abs() >= 0.1) {
+      debugPrint(
+        '[OHScroller#ptr#$seq] delta=${delta.toStringAsFixed(2)} '
+        'pxBefore=${pixels.toStringAsFixed(2)} max=${this.maxScrollExtent.toStringAsFixed(2)} '
+        'act=${activity.runtimeType} dir=$userScrollDirection',
+      );
+    }
+    super.pointerScroll(delta);
+    if (delta.abs() >= 0.1) {
+      debugPrint(
+        '[OHScroller#ptr#$seq] → pxAfter=${pixels.toStringAsFixed(2)} '
+        'actAfter=${activity.runtimeType}',
+      );
+    }
+  }
+
+  @override
+  void goBallistic(double velocity) {
+    final bool outOfRange = hasContentDimensions &&
+        (pixels < minScrollExtent || pixels > maxScrollExtent);
+    if (outOfRange || velocity.abs() > 1.0) {
+      debugPrint(
+        '[OHScroller#goBallistic] v=${velocity.toStringAsFixed(2)} '
+        'px=${pixels.toStringAsFixed(2)} '
+        'min=${minScrollExtent.toStringAsFixed(2)} '
+        'max=${maxScrollExtent.toStringAsFixed(2)} '
+        'outOfRange=$outOfRange '
+        'actBefore=${activity.runtimeType} dir=$userScrollDirection',
+      );
+    }
+    super.goBallistic(velocity);
+    if (outOfRange || velocity.abs() > 1.0) {
+      debugPrint(
+        '[OHScroller#goBallistic] → actAfter=${activity.runtimeType}',
+      );
+    }
+    // DEBUG：捕一次零速(outOfRange=true)启动就足够说明问题
+    if (outOfRange && velocity.abs() < 0.5 && !_loggedZero) {
+      _loggedZero = true;
+      debugPrint(
+        '[OHScroller#goBallistic] ★ zero-velocity with outOfRange detected — '
+        'this is the spring restart path suspected to cause thread-template jitter',
+      );
+    }
+  }
+
+  @override
+  void correctPixels(double value) {
+    final double before = pixels;
+    super.correctPixels(value);
+    if ((pixels - before).abs() >= 0.5) {
+      debugPrint(
+        '[OHScroller#correctPixels] ${before.toStringAsFixed(2)}'
+        '→${pixels.toStringAsFixed(2)} '
+        'value=${value.toStringAsFixed(2)} '
+        'max=${this.maxScrollExtent.toStringAsFixed(2)}',
+      );
+    }
   }
 }
 
