@@ -86,46 +86,45 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
         maxScrollExtent != this.maxScrollExtent) {
       final double delta = maxScrollExtent - this.maxScrollExtent;
       final double oldMax = this.maxScrollExtent;
-      // 2026-06-06（线程模板抽搐 bug）：用户主动 drag 期间绝对不能让
-      // correctPixels 干扰视口位置 —— contentDimensions 变化是异步回流
-      // 产物（HTML 气泡 re-measure / markdown 高亮 / cacheExtent 扫过
-      // 新条目），而 drag 时 ScrollController 的 overscroll 弹簧正按
-      // 用户意图驱动 pixels；此刻 correctPixels 会让 drag 看到"目标
-      // 突然移动"，与 drag 形成 ~50ms 周期正反馈，肉眼呈"小幅上下弹跳"。
-      // 守卫同时覆盖两个纠偏分支（overscroll 跟随 + 读顶部 content 收缩
-      // 比例缩放）。drag 结束后下一帧守卫自动放行，super 仍走，行为完全保持。
+      // 2026-06-06（线程模板抽搐 bug）：drag 守卫只覆盖 overscroll 跟随
+      // 分支（pixels > oldMax），让用户的 drag 意图不被 correctPixels 抢走；
+      // 收缩分支（delta < -0.5 && pixels > maxScrollExtent）**必须无条件
+      // 执行**，否则 pixels 会留在 > newMax 状态，super 内部的
+      // applyNewDimensions → IdleScrollActivity.goBallistic(0) 看到
+      // outOfRange=true 就反复启动 BouncingScrollSimulation 拉回 pixels，
+      // 与用户慢速上滑形成 ~50ms 正反馈，肉眼呈"快速小幅上下弹跳"。
       final bool userDragging = activity is DragScrollActivity ||
           userScrollDirection != ScrollDirection.idle;
-      if (!userDragging) {
-        if (pixels > oldMax) {
-          // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
-          // "目标突然移动" 而产生抽搐。
+      if (pixels > oldMax) {
+        // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
+        // "目标突然移动" 而产生抽搐。drag 期间不干扰用户 overscroll 手势。
+        if (!userDragging) {
           correctPixels(pixels + delta);
-        } else if (delta < -0.5 && pixels > maxScrollExtent) {
-          // maxScrollExtent 收缩到当前 pixels 之下（例如 HTML 气泡高度
-          // 测量值变小）：按比例缩放 pixels，维持用户的相对阅读位置，
-          // 避免被 Flutter 框架 clamp 到底部造成"突然滑回最新消息"。
-          //
-          // 瞬态近零 extent（如 576→8）是布局中间态产物，不是真实内容
-          // 收缩。放行会导致 pixels 被 clamp 到 ~0，扩展回 576 后用户
-          // 位置已丢失，被迫重新滚到底 → 再次 overscroll → 循环振荡。
-          // 连续拒绝超过 3 帧则放行，防止真实清空内容时死循环。
-          if (maxScrollExtent < 50.0 && oldMax > 100.0) {
-            _transientRejectCount++;
-            if (_transientRejectCount <= 3) {
-              return false;
-            }
-          }
-          _transientRejectCount = 0;
-          if (oldMax > 0) {
-            final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
-            final double newPixels =
-                (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
-            correctPixels(newPixels);
-          }
-        } else {
-          _transientRejectCount = 0;
         }
+      } else if (delta < -0.5 && pixels > maxScrollExtent) {
+        // maxScrollExtent 收缩到当前 pixels 之下（例如 HTML 气泡高度
+        // 测量值变小）：按比例缩放 pixels，维持用户的相对阅读位置，
+        // 避免被 Flutter 框架 clamp 到底部造成"突然滑回最新消息"。
+        //
+        // 瞬态近零 extent（如 576→8）是布局中间态产物，不是真实内容
+        // 收缩。放行会导致 pixels 被 clamp 到 ~0，扩展回 576 后用户
+        // 位置已丢失，被迫重新滚到底 → 再次 overscroll → 循环振荡。
+        // 连续拒绝超过 3 帧则放行，防止真实清空内容时死循环。
+        if (maxScrollExtent < 50.0 && oldMax > 100.0) {
+          _transientRejectCount++;
+          if (_transientRejectCount <= 3) {
+            return false;
+          }
+        }
+        _transientRejectCount = 0;
+        if (oldMax > 0) {
+          final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
+          final double newPixels =
+              (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
+          correctPixels(newPixels);
+        }
+      } else {
+        _transientRejectCount = 0;
       }
     }
     return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
