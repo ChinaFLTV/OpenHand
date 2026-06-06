@@ -516,6 +516,10 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   double? _contentHeight;
   final ScrollController _scrollController = ScrollController();
   bool _atBottom = false;
+  // 2026-06-07 修复：防抖标志，避免 _MeasureSize 在用户滚动预览区时
+  // 频繁触发外层 SizeChangedLayoutNotifier → _scheduleScrollToBottom，
+  // 导致整个外层视口被拉回底部产生"抽搐/鬼畜"现象。
+  bool _userScrollingPreview = false;
 
   String get _effectiveData {
     final data = widget.data;
@@ -542,6 +546,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    // 2026-06-07 修复：滚动活动开始时标记 _userScrollingPreview=true，
+    // 让 _MeasureSize.onChange 暂时跳过触发外层高度变化通知。
+    if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
+      _userScrollingPreview = true;
+    }
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
 
@@ -551,6 +560,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (oldWidget.parseKey != widget.parseKey) {
       _contentHeight = null;
       _atBottom = false;
+      _userScrollingPreview = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scrollController.hasClients) {
           _scrollController.jumpTo(0);
@@ -600,6 +610,25 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                         child: _MeasureSize(
                           onChange: (size) {
                             if (!mounted) return;
+                            // 2026-06-07 修复：用户正在滚动预览区时，跳过高度
+                            // 变化通知，避免触发外层 SizeChangedLayoutNotifier
+                            // → _scheduleScrollToBottom 把整个视口拉回底部。
+                            // 等滚动结束后的 600ms 宽限期过后再恢复通知。
+                            if (_userScrollingPreview) {
+                              final pos = _scrollController.position;
+                              if (!pos.isScrollingNotifier.value) {
+                                // 滚动已停止，启动 600ms 宽限期后重置标志
+                                Future.delayed(
+                                  const Duration(milliseconds: 600),
+                                  () {
+                                    if (mounted) {
+                                      setState(() => _userScrollingPreview = false);
+                                    }
+                                  },
+                                );
+                              }
+                              return;
+                            }
                             final nextHeight = size.height;
                             final currentHeight = _contentHeight;
                             if (currentHeight != null &&
@@ -2130,6 +2159,8 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   bool _userToggled = false;
   final ScrollController _scrollController = ScrollController();
   bool _atBottom = false;
+  // 2026-06-07 修复：防抖标志，避免用户滚动预览区时触发外层视口抽搐。
+  bool _userScrollingPreview = false;
 
   @override
   void initState() {
@@ -2148,6 +2179,10 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    // 2026-06-07 修复：滚动活动开始时标记 _userScrollingPreview=true。
+    if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
+      _userScrollingPreview = true;
+    }
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
 

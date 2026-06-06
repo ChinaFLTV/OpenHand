@@ -633,6 +633,9 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
         snackBar.shape ??
         snackBarTheme.shape ??
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+    // 2026-06-07 修复：使用 Theme.of(context).snackBarTheme 或 colorScheme
+    // 确保 snackbar 的背景色能正确响应亮/暗主题切换。之前直接读
+    // colorScheme.inverseSurface 在某些主题下可能与全局主题配色不一致。
     final backgroundColor =
         snackBar.backgroundColor ??
         snackBarTheme.backgroundColor ??
