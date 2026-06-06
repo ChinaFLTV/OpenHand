@@ -2858,6 +2858,118 @@ class _HtmlMessageBody extends StatelessWidget {
   }
 }
 
+/// 流式 HTML 卡片占位：AI 仍在持续流式追加 HTML 时，UI 不直接展示
+/// 原始 HTML 字符（避免大量 `<div>...</div>` 给用户带来困惑），改为
+/// 呈现一个 Q 弹的"正在生成"骨架屏 + 闪动光点。流式结束后由
+/// `_AssistantMessageBodyDispatcher` 用 AnimatedSwitcher 一次性切换到
+/// `_HtmlBubbleWebView`，并附 Q 弹 fade+scale 进场动画。
+class _StreamingHtmlPlaceholder extends StatefulWidget {
+  const _StreamingHtmlPlaceholder({required this.textColor});
+
+  final Color textColor;
+
+  @override
+  State<_StreamingHtmlPlaceholder> createState() =>
+      _StreamingHtmlPlaceholderState();
+}
+
+class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
+    with TickerProviderStateMixin {
+  late final AnimationController _dotCtrl;
+  late final Animation<double> _dotAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _dotCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+    _dotAnim = CurvedAnimation(parent: _dotCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _dotCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _dot(int index) {
+    final phase = (index - _dotAnim.value).clamp(0.0, 1.0);
+    final scale = 0.6 + 0.4 * (1.0 - phase);
+    final alpha = 0.35 + 0.65 * (1.0 - phase);
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        width: 7,
+        height: 7,
+        margin: EdgeInsets.symmetric(horizontal: index == 1 ? 4 : 2),
+        decoration: BoxDecoration(
+          color: widget.textColor.withValues(alpha: alpha),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final animationsEnabled = TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animationsEnabled) {
+      _dotCtrl.stop();
+    } else if (!_dotCtrl.isAnimating) {
+      _dotCtrl.repeat();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _HtmlBubbleShimmer(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.auto_awesome_outlined,
+                size: 14,
+                color: cs.primary.withValues(alpha: 0.85),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '正在生成 HTML 卡片',
+                  en: 'Generating HTML card',
+                ),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: widget.textColor.withValues(alpha: 0.78),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 4),
+              AnimatedBuilder(
+                animation: _dotAnim,
+                builder: (context, _) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _dot(0),
+                    _dot(1),
+                    _dot(2),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// 首次加载 HTML 气泡时的骨架屏占位，与 [_AuditShimmerPlaceholder]
 /// 同款扫光动画，避免 WebView 加载期间显示一个 ~25px 的空盒子。
 class _HtmlBubbleShimmer extends StatefulWidget {
@@ -3679,28 +3791,47 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    return AnimatedSize(
+    // Q 弹进场：流式结束 → 一次性渲染 HTML 时，给 WebView 加一次 fade+scale
+    // 进场动画。曲线与全局卡片动效一致（轻微 overshoot 的回弹）。
+    final entrance = TweenAnimationBuilder<double>(
+      key: const ValueKey<String>('openhand.htmlBubble.entrance'),
+      tween: Tween<double>(begin: 0.0, end: 1.0),
       duration: reduceMotion ? Duration.zero : kCardMotionDurationExpand,
       curve: reduceMotion ? Curves.linear : kCardMotionCurve,
-      alignment: Alignment.topCenter,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showShimmer)
-            const SizedBox(
-              width: double.infinity,
-              height: shimmerHeight,
-              child: _HtmlBubbleShimmer(),
-            ),
-          SizedBox(
-            width: double.infinity,
-            height: showShimmer ? 1.0 : displayHeight,
-            child: webViewChild,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value.clamp(0.0, 1.0),
+          child: Transform.scale(
+            scale: 0.985 + 0.015 * value,
+            alignment: Alignment.topCenter,
+            child: child,
           ),
-        ],
+        );
+      },
+      child: AnimatedSize(
+        duration: reduceMotion ? Duration.zero : kCardMotionDurationExpand,
+        curve: reduceMotion ? Curves.linear : kCardMotionCurve,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showShimmer)
+              const SizedBox(
+                width: double.infinity,
+                height: shimmerHeight,
+                child: _HtmlBubbleShimmer(),
+              ),
+            SizedBox(
+              width: double.infinity,
+              height: showShimmer ? 1.0 : displayHeight,
+              child: webViewChild,
+            ),
+          ],
+        ),
       ),
     );
+    return entrance;
   }
 }
 
@@ -3708,6 +3839,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 /// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
 /// - 纯文本：`_PlainTextMessageBody`
 /// - HTML：内容像 HTML → `_HtmlBubbleWebView`（WebView 高保真渲染 + 手动文本选择桥）；否则按回退链跳到 Markdown 或纯文本
+///
+/// 当 `isStreaming` 为 true 且格式为 HTML 时：
+/// - 不直接渲染 AI 侧流式追加的原始 HTML 字符（避免大量 `<div>...</div>`
+///   给用户带来困惑与迷失感）；
+/// - 改为渲染 `_StreamingHtmlPlaceholder` 骨架屏 + 状态提示；
+/// - 流式结束后通过 `AnimatedSwitcher`（fade + size）一次性切换到真正的
+///   `_HtmlBubbleWebView`，并给 WebView 加 Q 弹 fade+scale 进场动画。
 class _AssistantMessageBodyDispatcher extends StatelessWidget {
   const _AssistantMessageBodyDispatcher({
     required this.data,
@@ -3724,6 +3862,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     required this.collapseLineThreshold,
     required this.previewMaxHeight,
     this.wrapInSelectionArea = true,
+    this.isStreaming = false,
   });
 
   final String data;
@@ -3740,6 +3879,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final int collapseLineThreshold;
   final double previewMaxHeight;
   final bool wrapInSelectionArea;
+  final bool isStreaming;
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
@@ -3794,13 +3934,56 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         : _buildMarkdown();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final body = switch (format) {
+  /// 把内部渲染产物按"是否处于流式阶段"做 Q 弹切换：
+  /// - 流式中且格式为 HTML → 骨架屏占位；
+  /// - 流式结束 → 真正的格式分支。
+  /// 外层 `AnimatedSwitcher` 走 fade + size，曲线 `kCardMotionCurve`（轻微
+  /// overshoot 的 Q 弹回弹），与全局卡片动效保持一致。
+  Widget _buildDispatchedBody() {
+    if (isStreaming && format == AiMessageContentFormat.html) {
+      return _StreamingHtmlPlaceholder(textColor: textColor);
+    }
+    return switch (format) {
       AiMessageContentFormat.plainText => _buildPlainText(),
       AiMessageContentFormat.html => _buildHtmlOrFallback(),
       AiMessageContentFormat.markdown => _buildMarkdown(),
     };
-    return _wrapSelection(body);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isStreaming && format == AiMessageContentFormat.html) {
+      return _wrapSelection(
+        AnimatedSwitcher(
+          duration: cardMotionDurationFor(context, expanding: !isStreaming),
+          switchInCurve: kCardMotionCurve,
+          switchOutCurve: Curves.easeOutCubic,
+          layoutBuilder: (currentChild, previousChildren) {
+            return Stack(
+              alignment: Alignment.topLeft,
+              children: [
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            );
+          },
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0,
+                child: child,
+              ),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey<bool>(isStreaming),
+            child: _buildDispatchedBody(),
+          ),
+        ),
+      );
+    }
+    return _wrapSelection(_buildDispatchedBody());
   }
 }
