@@ -819,6 +819,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     message: message,
                     textColor: textColor,
                     alignEnd: isUser,
+                    showModelLabel: !isUser,
                   ),
                 ],
               ),
@@ -3287,16 +3288,20 @@ class _SelectedMessageContextRow extends StatelessWidget {
     required this.message,
     required this.textColor,
     required this.alignEnd,
+    required this.showModelLabel,
   });
 
   final AiSessionMessage message;
   final Color textColor;
   final bool alignEnd;
+  final bool showModelLabel;
 
   @override
   Widget build(BuildContext context) {
     final capsules = <Widget>[
-      if (message.modelLabel != null && message.modelLabel!.trim().isNotEmpty)
+      if (showModelLabel &&
+          message.modelLabel != null &&
+          message.modelLabel!.trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.memory_rounded,
           label: message.modelLabel!.trim(),
