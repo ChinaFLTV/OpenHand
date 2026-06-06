@@ -270,7 +270,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : isUser
         ? Alignment.centerRight
         : Alignment.centerLeft;
-    final borderRadius = BorderRadius.circular(isReasoning ? 18 : 26);
+    final borderRadius = BorderRadius.circular(18);
     final backgroundColor = isCompressionPoint
         ? colorScheme.tertiaryContainer
         : isUser
@@ -711,10 +711,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
+                  AnimatedSize(
+                    duration: cardMotionDurationFor(
+                      context,
+                      expanding: true,
+                    ),
+                    curve: kCardMotionCurve,
+                    alignment: isUser
+                        ? Alignment.topRight
+                        : Alignment.topLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
                       _MessageActionButton(
                         onPressed: widget.onCopy,
                         icon: Icons.content_copy_outlined,
@@ -803,6 +812,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ),
                         ),
                     ],
+                    ),
                   ),
                   const SizedBox(height: 6),
                   _SelectedMessageContextRow(
@@ -3370,23 +3380,44 @@ class _MessageContextCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final style = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 34),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      textStyle: theme.textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    final foregroundColor = style.foregroundColor?.resolve({}) ??
+        theme.colorScheme.primary;
+    final borderSide = style.side?.resolve({}) ??
+        BorderSide(color: theme.colorScheme.outlineVariant);
+    final backgroundColor = style.backgroundColor?.resolve({}) ??
+        theme.colorScheme.surface;
+    final shape = style.shape?.resolve({});
+    final borderRadius = shape is RoundedRectangleBorder
+        ? shape.borderRadius
+        : BorderRadius.circular(999);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: textColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: textColor.withValues(alpha: 0.22)),
+        color: backgroundColor,
+        borderRadius: borderRadius is BorderRadius
+            ? borderRadius
+            : BorderRadius.circular(999),
+        border: Border.fromBorderSide(borderSide),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          leading ??
-              Icon(icon, size: 12, color: textColor.withValues(alpha: 0.9)),
-          const SizedBox(width: 4),
+          leading ?? Icon(icon, size: 16, color: foregroundColor),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: textColor.withValues(alpha: 0.9),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

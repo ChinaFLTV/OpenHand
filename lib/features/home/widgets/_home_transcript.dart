@@ -1276,12 +1276,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ),
                       )
                     : bubble;
-                return Padding(
-                  key: ValueKey<String>('transcript-entry-${message.id}'),
-                  padding: EdgeInsets.only(
-                    bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+                return AnimatedSize(
+                  duration: cardMotionDurationFor(
+                    context,
+                    expanding: isSelected,
                   ),
-                  child: content,
+                  curve: kCardMotionCurve,
+                  alignment: isSelected
+                      ? Alignment.topLeft
+                      : Alignment.bottomLeft,
+                  child: Padding(
+                    key: ValueKey<String>('transcript-entry-${message.id}'),
+                    padding: EdgeInsets.only(
+                      bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+                    ),
+                    child: content,
+                  ),
                 );
               },
             ),
