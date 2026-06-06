@@ -87,32 +87,65 @@ class AiOutputFormatPrompts {
   }
 }
 
-const String _fallbackHtmlBalanced =
-    '<output_format mode="html">\n'
-    '  <directive>本轮回复必须是一段自包含 HTML 片段。禁止任何 Markdown 语法。</directive>\n'
-    '  <forbid-markdown>禁止 #、**、*、`、```、-、+、1.、&gt; 等所有 Markdown 标记</forbid-markdown>\n'
-    '  <required-tags>标题用 &lt;h2&gt;/&lt;h3&gt;；段落 &lt;p&gt;；列表 &lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;；代码 &lt;pre&gt;&lt;code&gt;；表格 &lt;table&gt;；折叠 &lt;details&gt;</required-tags>\n'
-    '  <style-rules>仅允许内联 style；禁止 &lt;style&gt;/class/外链 CSS；布局以 Flexbox + 基础盒模型为主；默认黑白灰主色调，克制使用彩色</style-rules>\n'
-    '  <boundary>禁止 &lt;!DOCTYPE&gt;/&lt;html&gt;/&lt;head&gt;/&lt;body&gt; 整页骨架；禁止 &lt;script&gt;/&lt;iframe&gt;</boundary>\n'
-    '</output_format>';
+const String _fallbackHtmlBalanced = '''
+<output_format mode="html">
+  <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
+  <hard-rules>
+    <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
+    <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
+    <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
+    <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
+  </hard-rules>
+  <layout>
+    <item>对比/决策：优先表格或双列卡片</item>
+    <item>流程/步骤：优先时间线或步骤卡片</item>
+    <item>指标/数据：优先指标卡片 + 紧凑表格</item>
+    <item>长内容：先摘要，再用 &lt;details&gt; 折叠次要信息</item>
+  </layout>
+  <visual>
+    <item>balanced 档位保持浅色、克制、企业风格；主色 #3182ce，推荐 #38a169，风险 #e53e3e</item>
+  </visual>
+</output_format>''';
 
-const String _fallbackHtmlRich =
-    '<output_format mode="html">\n'
-    '  <directive>本轮回复必须是一段自包含 HTML 片段。禁止任何 Markdown 语法。主动使用色彩、卡片、徽章、流程图等视觉块。</directive>\n'
-    '  <required-tags>标题 &lt;h2&gt;/&lt;h3&gt;；段落 &lt;p&gt;；列表 &lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;；代码 &lt;pre&gt;&lt;code&gt;；表格 &lt;table&gt;；折叠 &lt;details&gt;</required-tags>\n'
-    '  <css>仅内联 style；可用 Flexbox/Grid/border-radius/box-shadow/linear-gradient/transform/filter</css>\n'
-    '  <visual>关键数据用彩色徽章/卡片/进度条；流程用 Flex + 箭头节点；多维对比用 &lt;table&gt; 或 Grid</visual>\n'
-    '  <boundary>禁止整页骨架/&lt;script&gt;/&lt;iframe&gt;</boundary>\n'
-    '</output_format>';
+const String _fallbackHtmlRich = '''
+<output_format mode="html">
+  <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
+  <hard-rules>
+    <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
+    <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
+    <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
+    <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
+  </hard-rules>
+  <layout>
+    <item>对比/决策：优先矩阵表格或对比卡片</item>
+    <item>流程/步骤：优先时间线、步骤卡片或节点流</item>
+    <item>指标/数据：优先指标卡片、徽章、进度条和紧凑表格</item>
+    <item>长内容：先摘要，再用 &lt;details&gt; 折叠次要信息</item>
+  </layout>
+  <visual>
+    <item>rich 档位允许更明显的色彩、卡片、徽章、轻渐变和流程节点，但仍以可读性和信息密度为先</item>
+  </visual>
+</output_format>''';
 
-const String _fallbackHtmlVivid =
-    '<output_format mode="html">\n'
-    '  <directive>本轮回复必须是 HTML 片段。视觉表达推到极致：封面渐变块、指标卡片网格、彩色徽章、进度条、流程图全部必备。</directive>\n'
-    '  <required-tags>标题 &lt;h2&gt;/&lt;h3&gt;；段落 &lt;p&gt;；列表 &lt;ul&gt;/&lt;ol&gt;/&lt;li&gt;；代码 &lt;pre&gt;&lt;code&gt;；表格 &lt;table&gt;；折叠 &lt;details&gt;</required-tags>\n'
-    '  <css>仅内联 style；放开 Flexbox/Grid/linear-gradient/radial-gradient/backdrop-filter/box-shadow/transform/filter</css>\n'
-    '  <mandatory>开篇渐变封面块；核心指标卡片网格；分类用彩色胶囊徽章；占比用渐变进度条；流程用 Flex 节点 + 箭头</mandatory>\n'
-    '  <boundary>禁止整页骨架/&lt;script&gt;/&lt;iframe&gt;；文字对比度满足 WCAG AA</boundary>\n'
-    '</output_format>';
+const String _fallbackHtmlVivid = '''
+<output_format mode="html">
+  <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
+  <hard-rules>
+    <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
+    <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
+    <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
+    <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
+  </hard-rules>
+  <layout>
+    <item>对比/决策：优先矩阵表格、对比卡片和节点流</item>
+    <item>流程/步骤：优先节点流、时间线或步骤卡片</item>
+    <item>指标/数据：优先指标卡片网格、徽章、进度条和紧凑表格</item>
+    <item>长内容：先摘要，再用 &lt;details&gt; 折叠次要信息</item>
+  </layout>
+  <visual>
+    <item>vivid 档位允许大胆渐变、强对比、玻璃感、彩色徽章和节点式流程，但所有视觉块都必须服务于信息表达并保持可读性</item>
+  </visual>
+</output_format>''';
 
 const String _fallbackPlainText =
     '<output_format mode="plain-text">\n'
