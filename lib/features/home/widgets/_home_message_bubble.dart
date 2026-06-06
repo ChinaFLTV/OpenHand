@@ -470,25 +470,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           en: 'Tool Result',
                         ),
                         color: textColor,
-                      )
-                    else if (!isUser &&
-                        !isSelfLearning &&
-                        message.modelLabel != null)
-                      Text(
-                        message.modelLabel!,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: isUser
-                              ? textColor.withValues(alpha: 0.86)
-                              : colorScheme.onSurfaceVariant,
-                        ),
                       ),
                     if (isCompressionPoint ||
                         isReasoning ||
                         isToolCall ||
-                        isToolResult ||
-                        (!isUser &&
-                            !isSelfLearning &&
-                            message.modelLabel != null))
+                        isToolResult)
                       const SizedBox(height: 10),
                     if (isCompressionPoint)
                       _CompressionCheckpointBody(
@@ -677,13 +663,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ],
                         ],
                       ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _formatDateTime(message.createdAt),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: textColor.withValues(alpha: 0.78),
-                      ),
-                    ),
                     if (isUser)
                       _UserMessageCapsuleRow(
                         creationRequest: AiCreationRequest.fromMetadata(
@@ -727,96 +706,110 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 );
               },
-              child: Wrap(
-                spacing: 8,
+              child: Column(
+                crossAxisAlignment: isUser
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: [
-                  _MessageActionButton(
-                    onPressed: widget.onCopy,
-                    icon: Icons.content_copy_outlined,
-                    label: _localizedText(context, zh: '复制', en: 'Copy'),
-                  ),
-                  if (widget.onEdit != null)
-                    _MessageActionButton(
-                      onPressed: widget.onEdit,
-                      icon: Icons.edit_outlined,
-                      label: AppLocalizations.of(context)!.commonEdit,
-                    ),
-                  _MessageActionButton(
-                    onPressed: widget.onDelete,
-                    icon: Icons.delete_outline_rounded,
-                    label: AppLocalizations.of(context)!.commonDelete,
-                  ),
-                  if (widget.onDeleteFromHere != null)
-                    _MessageActionButton(
-                      onPressed: widget.onDeleteFromHere,
-                      icon: Icons.delete_sweep_outlined,
-                      label: _localizedText(
-                        context,
-                        zh: '删除此条及后续',
-                        en: 'Delete From Here',
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _MessageActionButton(
+                        onPressed: widget.onCopy,
+                        icon: Icons.content_copy_outlined,
+                        label: _localizedText(context, zh: '复制', en: 'Copy'),
                       ),
-                    ),
-                  if (widget.onAudit != null)
-                    _MessageActionButton(
-                      onPressed: () async => widget.onAudit!.call(),
-                      icon: Icons.fact_check_outlined,
-                      label: _localizedText(
-                        context,
-                        zh: '审计',
-                        en: 'Audit',
+                      if (widget.onEdit != null)
+                        _MessageActionButton(
+                          onPressed: widget.onEdit,
+                          icon: Icons.edit_outlined,
+                          label: AppLocalizations.of(context)!.commonEdit,
+                        ),
+                      _MessageActionButton(
+                        onPressed: widget.onDelete,
+                        icon: Icons.delete_outline_rounded,
+                        label: AppLocalizations.of(context)!.commonDelete,
                       ),
-                    ),
-                  if (!isUser &&
-                      !isToolCall &&
-                      !isReasoning &&
-                      !isSelfLearning &&
-                      !isCompressionPoint &&
-                      !isStatus)
-                    _MessageActionButton(
-                      onPressed: () async => setState(
-                        () => _showRawContent = !_showRawContent,
-                      ),
-                      icon: _showRawContent
-                          ? Icons.code_off_outlined
-                          : Icons.code_outlined,
-                      label: _showRawContent
-                          ? _localizedText(
-                              context,
-                              zh: '显示渲染',
-                              en: 'Show Rendered',
-                            )
-                          : _localizedText(
-                              context,
-                              zh: '显示原始',
-                              en: 'Show Raw',
-                            ),
-                    ),
-                  if (!isUser &&
-                      !isToolCall &&
-                      !isReasoning &&
-                      !isSelfLearning &&
-                      !isCompressionPoint &&
-                      !isStatus &&
-                      resolvedMessageContentFormat ==
-                          AiMessageContentFormat.html &&
-                      _looksLikeHtml(effectiveContent))
-                    _MessageActionButton(
-                      onPressed: () async {
-                        await showAnimatedDialog<void>(
-                          context: context,
-                          builder: (dialogContext) => _HtmlPreviewDialog(
-                            htmlContent: effectiveContent,
-                            theme: Theme.of(context),
+                      if (widget.onDeleteFromHere != null)
+                        _MessageActionButton(
+                          onPressed: widget.onDeleteFromHere,
+                          icon: Icons.delete_sweep_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '删除此条及后续',
+                            en: 'Delete From Here',
                           ),
-                        );
-                      },
-                      icon: Icons.open_in_browser_rounded,
-                      label: _localizedText(
-                        context,
-                        zh: '浏览器打开',
-                        en: 'Open in Browser',
-                      ),
-                    ),
+                        ),
+                      if (widget.onAudit != null)
+                        _MessageActionButton(
+                          onPressed: () async => widget.onAudit!.call(),
+                          icon: Icons.fact_check_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '审计',
+                            en: 'Audit',
+                          ),
+                        ),
+                      if (!isUser &&
+                          !isToolCall &&
+                          !isReasoning &&
+                          !isSelfLearning &&
+                          !isCompressionPoint &&
+                          !isStatus)
+                        _MessageActionButton(
+                          onPressed: () async => setState(
+                            () => _showRawContent = !_showRawContent,
+                          ),
+                          icon: _showRawContent
+                              ? Icons.code_off_outlined
+                              : Icons.code_outlined,
+                          label: _showRawContent
+                              ? _localizedText(
+                                  context,
+                                  zh: '显示渲染',
+                                  en: 'Show Rendered',
+                                )
+                              : _localizedText(
+                                  context,
+                                  zh: '显示原始',
+                                  en: 'Show Raw',
+                                ),
+                        ),
+                      if (!isUser &&
+                          !isToolCall &&
+                          !isReasoning &&
+                          !isSelfLearning &&
+                          !isCompressionPoint &&
+                          !isStatus &&
+                          resolvedMessageContentFormat ==
+                              AiMessageContentFormat.html &&
+                          _looksLikeHtml(effectiveContent))
+                        _MessageActionButton(
+                          onPressed: () async {
+                            await showAnimatedDialog<void>(
+                              context: context,
+                              builder: (dialogContext) => _HtmlPreviewDialog(
+                                htmlContent: effectiveContent,
+                                theme: Theme.of(context),
+                              ),
+                            );
+                          },
+                          icon: Icons.open_in_browser_rounded,
+                          label: _localizedText(
+                            context,
+                            zh: '浏览器打开',
+                            en: 'Open in Browser',
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _SelectedMessageContextRow(
+                    message: message,
+                    textColor: textColor,
+                    alignEnd: isUser,
+                  ),
                 ],
               ),
             ),
@@ -3275,6 +3268,46 @@ const Set<String> _audioMediaExtensions = <String>{
 /// message was sent with a non-text creation mode (image / video / audio / deep
 /// research). Lets the reader tell at a glance what action the message is
 /// asking for even after the composer chip is gone.
+class _SelectedMessageContextRow extends StatelessWidget {
+  const _SelectedMessageContextRow({
+    required this.message,
+    required this.textColor,
+    required this.alignEnd,
+  });
+
+  final AiSessionMessage message;
+  final Color textColor;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final capsules = <Widget>[
+      _MessageContextCapsule(
+        icon: Icons.schedule_rounded,
+        label: _formatDateTime(message.createdAt),
+        textColor: textColor,
+      ),
+      if (message.modelLabel != null && message.modelLabel!.trim().isNotEmpty)
+        _MessageContextCapsule(
+          icon: Icons.memory_rounded,
+          label: message.modelLabel!.trim(),
+          textColor: textColor,
+        ),
+    ];
+    if (capsules.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Align(
+      alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: capsules,
+      ),
+    );
+  }
+}
+
 class _UserMessageCapsuleRow extends StatelessWidget {
   const _UserMessageCapsuleRow({
     required this.creationRequest,
