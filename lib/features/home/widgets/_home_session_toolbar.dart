@@ -212,8 +212,11 @@ class _SessionToolbar extends StatelessWidget {
             ],
           ),
           AnimatedSwitcher(
-            duration: _planTimelineRevealAnimationDuration,
-            switchInCurve: Curves.easeOutCubic,
+            duration: cardMotionDurationFor(
+              context,
+              expanding: !planTimelineCollapsed,
+            ),
+            switchInCurve: kCardMotionCurve,
             switchOutCurve: Curves.easeInCubic,
             layoutBuilder: (currentChild, previousChildren) {
               return Column(
