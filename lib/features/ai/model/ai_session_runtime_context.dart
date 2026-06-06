@@ -98,6 +98,9 @@ class AiSessionRuntimeContext {
     this.messageContentFormat = defaultAiMessageContentFormat,
     this.htmlRenderFallback = defaultAiHtmlRenderFallback,
     this.htmlContentRichness = defaultAiHtmlContentRichness,
+    this.appThemeBrightness = 'dark',
+    this.appThemePresetName = 'deepSeaBlue',
+    this.appThemePrimaryColor = '#2D63B8',
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
@@ -230,6 +233,20 @@ class AiSessionRuntimeContext {
   /// 2026-05-25 — HTML 内容丰富度。仅在 [messageContentFormat] 为 HTML 时生效；
   /// `AiPromptBuilder` 根据该值选择不同强度的 `output_format` reminder。
   final AiHtmlContentRichness htmlContentRichness;
+
+  /// 2026-06-06 — 当前应用界面的亮度模式（light / dark）。
+  /// 在 HTML 模式下通过 theme_context 告知模型，避免生成与当前主题基调冲突的内容。
+  final String appThemeBrightness;
+
+  /// 2026-06-06 — 当前应用主题预设的名称（如 deepSeaBlue / frostMorningBlue）。
+  /// 在 HTML 模式下通过 theme_context 告知模型，让其在保持基调的前提下
+  /// 结合主题配色做更丰富的视觉表达。
+  final String appThemePresetName;
+
+  /// 2026-06-06 — 当前应用主题预设的主色 seed color（如 #2D63B8）。
+  /// 在 HTML 模式下通过 theme_context 告知模型，引导其在需要强调色时
+  /// 优先使用与当前主题协调的色彩。
+  final String appThemePrimaryColor;
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
   final int toolResultCompressionHeadTailWindowChars;
@@ -462,6 +479,9 @@ class AiSessionRuntimeContext {
       'message_content_format': messageContentFormat.storageKey,
       'html_render_fallback': htmlRenderFallback.storageKey,
       'html_content_richness': htmlContentRichness.storageKey,
+      'app_theme_brightness': appThemeBrightness,
+      'app_theme_preset_name': appThemePresetName,
+      'app_theme_primary_color': appThemePrimaryColor,
       'tool_result_compression_head_tail_window_chars':
           toolResultCompressionHeadTailWindowChars,
       'tool_result_compression_max_path_hits': toolResultCompressionMaxPathHits,

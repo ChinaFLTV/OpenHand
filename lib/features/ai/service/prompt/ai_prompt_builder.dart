@@ -601,6 +601,23 @@ class AiPromptBuilder {
           content:
               '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
         ),
+      // 2026-06-06 — HTML 模式下注入当前应用主题上下文，避免模型生成与
+      // 当前界面亮度/配色冲突的内容，同时引导其结合主题色做更丰富表达。
+      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
+          AiOutputFormatPrompts.themeContextFor(
+            brightness: runtimeContext.appThemeBrightness,
+            presetName: runtimeContext.appThemePresetName,
+            primaryColor: runtimeContext.appThemePrimaryColor,
+          ).isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content:
+              '${AiPromptSectionHeaders.themeContextReminder}\n\n${AiOutputFormatPrompts.themeContextFor(
+            brightness: runtimeContext.appThemeBrightness,
+            presetName: runtimeContext.appThemePresetName,
+            primaryColor: runtimeContext.appThemePrimaryColor,
+          )}',
+        ),
       // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
       if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
           _isGptSeriesModel(model.modelId) &&

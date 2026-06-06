@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart' as shelf;
@@ -4312,6 +4313,14 @@ class WebMessagePlatformService {
     };
   }
 
+  String _resolveEffectiveBrightness() {
+    final themeMode = _settingsController.themeMode;
+    if (themeMode == ThemeMode.light) return 'light';
+    if (themeMode == ThemeMode.dark) return 'dark';
+    // Web 平台无法可靠读取系统亮度偏好，默认回落 dark。
+    return 'dark';
+  }
+
   AiSessionRuntimeContext _buildRuntimeContext({
     required String templateId,
     Set<String> skippedInstructionIds = const <String>{},
@@ -4334,6 +4343,10 @@ class WebMessagePlatformService {
       messageContentFormat: _settingsController.aiMessageContentFormat,
       htmlRenderFallback: _settingsController.aiHtmlRenderFallback,
       htmlContentRichness: _settingsController.aiHtmlContentRichness,
+      appThemeBrightness: _resolveEffectiveBrightness(),
+      appThemePresetName: _settingsController.themePreset.storageValue,
+      appThemePrimaryColor:
+          '#${_settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
       fallbackTitleMaxCharacters:
           _settingsController.aiFallbackTitleMaxCharacters,
       generatedTitleMaxCharacters:

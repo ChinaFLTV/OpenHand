@@ -3519,6 +3519,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
+  Brightness _resolveEffectiveBrightness(BuildContext context) {
+    final settingsController = context.read<SettingsController>();
+    final themeMode = settingsController.themeMode;
+    if (themeMode == ThemeMode.light) return Brightness.light;
+    if (themeMode == ThemeMode.dark) return Brightness.dark;
+    return MediaQuery.platformBrightnessOf(context);
+  }
+
   Future<AiSessionRuntimeContext> _buildRuntimeContext({
     String? workingDirectory,
     Set<String> skippedInstructionIds = const <String>{},
@@ -3578,6 +3586,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       messageContentFormat: settingsController.aiMessageContentFormat,
       htmlRenderFallback: settingsController.aiHtmlRenderFallback,
       htmlContentRichness: settingsController.aiHtmlContentRichness,
+      appThemeBrightness: _resolveEffectiveBrightness(context).name,
+      appThemePresetName: settingsController.themePreset.storageValue,
+      appThemePrimaryColor:
+          '#${settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
@@ -3839,6 +3851,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       messageContentFormat: settingsController.aiMessageContentFormat,
       htmlRenderFallback: settingsController.aiHtmlRenderFallback,
       htmlContentRichness: settingsController.aiHtmlContentRichness,
+      appThemeBrightness: _resolveEffectiveBrightness(context).name,
+      appThemePresetName: settingsController.themePreset.storageValue,
+      appThemePrimaryColor:
+          '#${settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
       aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,

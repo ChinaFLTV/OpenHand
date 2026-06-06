@@ -34,6 +34,7 @@ class AiPromptSectionHeaders {
   static const String compressionTaskPayload = '# Compression Task Payload';
   static const String outputFormatReminder = '# Output Format Reminder';
   static const String gptChatRulesReminder = '# GPT Chat Rules Reminder';
+  static const String themeContextReminder = '# Theme Context Reminder';
 }
 
 const Set<String> aiInternalPromptLeakHeaders = <String>{
@@ -65,4 +66,5 @@ const Set<String> aiInternalPromptLeakHeaders = <String>{
   AiPromptSectionHeaders.compressionTaskPayload,
   AiPromptSectionHeaders.outputFormatReminder,
   AiPromptSectionHeaders.gptChatRulesReminder,
+  AiPromptSectionHeaders.themeContextReminder,
 };
