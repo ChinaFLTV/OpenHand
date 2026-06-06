@@ -192,19 +192,12 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
     }
   }
 
-  @override
-  void correctPixels(double value) {
-    final double before = pixels;
-    super.correctPixels(value);
-    if ((pixels - before).abs() >= 0.5) {
-      debugPrint(
-        '[OHScroller#correctPixels] ${before.toStringAsFixed(2)}'
-        '→${pixels.toStringAsFixed(2)} '
-        'value=${value.toStringAsFixed(2)} '
-        'max=${this.maxScrollExtent.toStringAsFixed(2)}',
-      );
-    }
-  }
+  // 注意：不能 override correctPixels —— ScrollPositionWithSingleContext
+  // 构造期（scroll_position_with_single_context.dart:69）会先调
+  // correctPixels(initialPixels) 而此时 _pixels 尚未初始化，触
+  // 发 `Null check operator used on a null value` 红屏。如要追踪
+  // correctPixels 路径，改在 applyCD / ptr / goBallistic 三个埋点
+  // 上间接观察。
 }
 
 /// 与 [OpenHandBouncingScrollPhysics] 搭配的 ScrollController，
