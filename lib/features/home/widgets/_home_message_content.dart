@@ -3528,6 +3528,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static final Map<int, double> _heightCache = <int, double>{};
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
+  // 2026-06-06（线程模板抽搐 bug 真凶）：HTML WebView 通过 ResizeObserver
+  // + rAF 在 macOS focus/blur、JS 二次布局、scrollIntoView 触发时都会重新
+  // 测高，每帧 16-30ms 一次。原来的 100ms 防抖每次都被新一轮测量重置、
+  // 永远不触发，结果 maxScrollExtent 在 7544 ↔ 4971 之间反复回流，用户实测
+  // 日志里 applyCD#N d=+28/-31/-72/-26/-15/... 持续几十帧，整张消息列表跟
+  // 着上下抖。改用「累积最新测量 + 500ms 一次性定时器」：后续新测量只更新
+  // _pendingHeight，**不重置**定时器，确保 500ms 后必然触发、应用终值。
+  double? _pendingHeight;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -3603,23 +3611,36 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (_measurementCount == 1 && next > 5000) {
       return;
     }
+    if (_height != null && (next - _height!).abs() < 1.0) {
+      return;
+    }
     if (_height != null) {
-      if ((next - _height!).abs() < 1.0) return;
-      // 小幅波动（< 20%）很可能是窗口焦点切换等测量假象（如 onWindowFocus
-      // / onWindowBlur 触发的 2631↔2943 振荡），通过 100ms 防抖吸收。
-      // 大幅变化（内容真实增长）不受防抖影响，直接应用。
       final changeRatio = (next - _height!).abs() / _height!;
-      if (changeRatio < 0.20) {
+      // 大幅变化（≥ 30%，通常对应真内容更新）：立即应用，不防抖。
+      if (changeRatio >= 0.30) {
         _heightDebounceTimer?.cancel();
-        _heightDebounceTimer = Timer(const Duration(milliseconds: 100), () {
-          if (!mounted) return;
-          if ((next - _height!).abs() < 1.0) return;
-          _applyHeight(next);
-        });
+        _heightDebounceTimer = null;
+        _pendingHeight = null;
+        _applyHeight(next);
         return;
       }
     }
-    _applyHeight(next);
+    // 小幅变化：累积最新测量值，启动/沿用 500ms 一次性稳定定时器；
+    // **不在每次新测量时重置定时器**，确保在 WebView 持续以 16-30ms 频率
+    // 回流的情况下定时器也必然在 500ms 后触发，应用累积终值。
+    _pendingHeight = next;
+    final timer = _heightDebounceTimer;
+    if (timer == null || !timer.isActive) {
+      _heightDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        final pending = _pendingHeight;
+        _heightDebounceTimer = null;
+        _pendingHeight = null;
+        if (pending == null) return;
+        if (_height != null && (pending - _height!).abs() < 1.0) return;
+        _applyHeight(pending);
+      });
+    }
   }
 
   void _applyHeight(double next) {
