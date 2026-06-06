@@ -46,6 +46,7 @@ import { ApiError, UnauthorizedError, apiRequest } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
+import { RollingText } from '../../../components/RollingText';
 import { t } from '../../../i18n';
 import { useAuth } from '../../../state/auth';
 import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
@@ -4145,7 +4146,7 @@ export function SessionDetailPage() {
             ) : null}
             <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
               {composerText.length > 0
-                ? `${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`
+                ? <RollingText text={`${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`} />
                 : ''}
             </span>
             {composerAttachments.length > 0 ? (
@@ -5218,7 +5219,7 @@ function TokenStatsRow({
         class={emphasized ? 'text-base font-bold tabular-nums' : 'font-semibold tabular-nums'}
         style={{ color }}
       >
-        {value.toLocaleString()}{suffix}
+        <RollingText text={`${value.toLocaleString()}${suffix}`} />
       </span>
     </div>
   );

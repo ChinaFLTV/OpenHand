@@ -11,6 +11,7 @@ import { useRafScheduler } from '../hooks/useRafScheduler';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
+import { RollingText } from './RollingText';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -488,7 +489,7 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       <span class="oh-session-capsule-icon" aria-hidden>
         <TopBarIcon name={capsule.icon} size={13.5} />
       </span>
-      <span class="truncate">{capsule.label}</span>
+      <span class="truncate"><RollingText text={capsule.label} /></span>
       {capsule.badge ? <CapsuleBadge badge={capsule.badge} /> : null}
     </>
   );

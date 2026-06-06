@@ -173,8 +173,51 @@ html, body, #root {
   34%  { text-shadow: 0 0 18px color-mix(in srgb, var(--m3-primary) 34%, transparent); }
   100% { text-shadow: 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent); }
 }
+/// 数字翻牌：旧字符向上滑出（easeInCubic），新字符从下方滑入
+/// (easeOutBack, 带轻微 overshoot)。与 App 端 _RollingDigit 1:1 对齐。
+@keyframes oh-rolling-digit-out {
+  0%   { transform: translate3d(0, 0, 0); opacity: 1; }
+  100% { transform: translate3d(0, -100%, 0); opacity: 0; }
+}
+@keyframes oh-rolling-digit-in {
+  0%   { transform: translate3d(0, 100%, 0); opacity: 0; }
+  60%  { transform: translate3d(0, -8%, 0); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
 .oh-pulse-soft {
   animation: oh-pulse-soft 1.1s ease-in-out infinite;
+}
+/// 数字翻牌容器：inline-block + 相对定位，让 absolute 的旧字符
+/// 仍能与新字符在同一基线对齐而不挤出流式布局。
+.oh-rolling-digit {
+  position: relative;
+  display: inline-block;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+.oh-rolling-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: baseline;
+  line-height: inherit;
+}
+.oh-rolling-digit-sep {
+  display: inline-block;
+  vertical-align: baseline;
+}
+.oh-rolling-digit-old {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  display: inline-block;
+  animation: oh-rolling-digit-out 360ms var(--oh-motion-emphasized) forwards;
+  will-change: transform, opacity;
+}
+.oh-rolling-digit-in {
+  display: inline-block;
+  animation: oh-rolling-digit-in 360ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
 }
 .oh-title-spring {
   animation:
