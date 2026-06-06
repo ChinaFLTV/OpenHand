@@ -1,21 +1,29 @@
 import 'dart:math' as math;
 
+import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// A refined bouncing scroll physics that preserves the premium elastic feel
-/// while preventing the content from overscrolling too far.
+/// while preventing the visible "messages bounce up then snap back" jitter on
+/// thread-template sessions.
 ///
 /// Key differences from stock [BouncingScrollPhysics]:
-/// - **Higher friction**: Overscroll resistance is ~40 % stronger so the
-///   content cannot travel as far past the edges, even on fast flings.
-/// - **Heavily-damped spring**: Damping ratio raised to 4.24 (the same
-///   figure BouncingScrollPhysics historically used internally for its
-///   overscroll spring on older Flutter) so a single fast fling into
-///   overscroll produces at most a ~20 px peak instead of the ~50 px peak
-///   a 1.265-ratio spring would allow. This kills the "messages bounce up
-///   then snap back" visual jitter on thread-template sessions without
-///   sacrificing the iOS-like elastic return feel.
+/// - **Tighter friction** (0.52 → 0.32) so the content cannot travel as
+///   far past the edges.
+/// - **Custom monotonic overscroll return** via
+///   [_OpenHandRubberBandSimulation]. The framework's
+///   [BouncingScrollSimulation] uses a heavy-damping
+///   [ScrollSpringSimulation] that still overshoots by 20-50 px whenever
+///   the user releases with non-zero velocity into overscroll (e.g. a
+///   trackpad fling that crosses the edge), and additionally gets rebuilt
+///   via repeated `goBallistic(0)` calls while `position.outOfRange`,
+///   producing non-monotonic intermediate values (the data showed
+///   px=-1.07 → -7.57 → -4.36 inside the top overscroll zone — a
+///   drift that the user perceived as the "messages rapidly bouncing").
+///   Our override returns a [Simulation] that always approaches the
+///   edge monotonically (single exponential decay) so the content can
+///   never drift back into overscroll on its own.
 ///
 /// Usage:
 /// ```dart
@@ -33,15 +41,9 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
     return OpenHandBouncingScrollPhysics(parent: buildParent(ancestor));
   }
 
-  /// 2026-06-06（线程模板抽搐 bug）：damping 24（ratio 1.265）虽然名义上
-  /// over-damped，但配合用户的 trackpad 高初速度（v≈3700 px/s）会让位置从
-  /// 1857.96 单调峰值冲到 1909.76（+52 px）再回落，呈现"先弹起再落下"的
-  /// 抽搐。把 damping 提到 80（ratio 4.24，与老版本 Flutter
-  /// BouncingScrollPhysics 内部 _overscrollSpring 一致），overshoot 峰值
-  /// 收缩到 ~20 px，弹簧仍 over-damped 不振荡，回弹手感保留。
   @override
   SpringDescription get spring =>
-      const SpringDescription(mass: 0.5, stiffness: 180.0, damping: 80.0);
+      const SpringDescription(mass: 0.5, stiffness: 180.0, damping: 24.0);
 
   /// More aggressive friction than the default (0.52 → 0.32).
   ///
@@ -53,6 +55,145 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
   @override
   double frictionFactor(double overscrollFraction) =>
       0.32 * math.pow(1 - overscrollFraction, 2);
+
+  /// 2026-06-06（线程模板抽搐 bug 真凶）：替换 framework 的
+  /// [BouncingScrollSimulation]（内部串联 FrictionSimulation +
+  /// [ScrollSpringSimulation]，在 outOfRange 区间会被反复 `goBallistic(0)`
+  /// 重建，重建时把当前 px 当作新 simulation 的 position、velocity 锁 0，
+  /// 导致橡皮筋阶段在 px ≈ 0 附近出现非单调的"先往反方向滑再回弹"——即用户
+  /// 看到的"消息快速上下小幅弹跳"。这里直接返回一个纯指数衰减的
+  /// [_OpenHandRubberBandSimulation]，position 严格单调逼近 leadingExtent /
+  /// trailingExtent，没有过冲、没有重建、没有第二次振荡。
+  ///
+  /// 仍保留 BouncingScrollPhysics 的 friction 行为（拖拽期间 `frictionFactor`
+  /// 起作用，把手指输入减弱），所以 iOS 风格的"出 overscroll 区能跟手"
+  /// 手感不变；回弹阶段被替换。
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    final Tolerance tolerance = toleranceFor(position);
+    if (velocity.abs() < tolerance.velocity && !position.outOfRange) {
+      return null;
+    }
+    final double leading = position.minScrollExtent;
+    final double trailing = position.maxScrollExtent;
+    final double px = position.pixels;
+    if (px < leading) {
+      return _OpenHandRubberBandSimulation(
+        position: px,
+        target: leading,
+        velocity: velocity,
+        kind: _OpenHandRubberBandKind.underscroll,
+      );
+    }
+    if (px > trailing) {
+      return _OpenHandRubberBandSimulation(
+        position: px,
+        target: trailing,
+        velocity: velocity,
+        kind: _OpenHandRubberBandKind.overscroll,
+      );
+    }
+    // In-range with high velocity：先用 framework 自带的 friction 模型把它
+    // 衰减到边界附近，再让 [_OpenHandRubberBandSimulation] 单调接管回弹。
+    // 保留 fling 的"惯性"手感但消除 spring 重建造成的二次振荡。
+    final FrictionSimulation friction = FrictionSimulation(
+      0.135 * (velocity.isNegative ? 1.0 : 1.0),
+      px,
+      velocity,
+    );
+    final double finalX = friction.finalX;
+    if (finalX < leading) {
+      final double tAtEdge = friction.timeAtX(leading);
+      return _OpenHandFrictionToRubberBand(
+        friction: friction,
+        rubber: _OpenHandRubberBandSimulation(
+          position: leading,
+          target: leading,
+          velocity: friction.dx(tAtEdge).clamp(-5000.0, 5000.0),
+          kind: _OpenHandRubberBandKind.underscroll,
+        ),
+        switchTime: tAtEdge,
+      );
+    }
+    if (finalX > trailing) {
+      final double tAtEdge = friction.timeAtX(trailing);
+      return _OpenHandFrictionToRubberBand(
+        friction: friction,
+        rubber: _OpenHandRubberBandSimulation(
+          position: trailing,
+          target: trailing,
+          velocity: friction.dx(tAtEdge).clamp(-5000.0, 5000.0),
+          kind: _OpenHandRubberBandKind.overscroll,
+        ),
+        switchTime: tAtEdge,
+      );
+    }
+    return friction;
+  }
+}
+
+enum _OpenHandRubberBandKind { underscroll, overscroll }
+
+/// 单调指数衰减的橡皮筋 Simulation。
+///
+/// x(t) = target + (position - target) * exp(-t / tau) * cos(0)
+///
+/// 严格单调向 [target] 逼近（无过冲、无振荡），回弹时间常数 [tau] 选
+/// 280 ms —— 与项目内 [kCardMotionDurationExpand] 保持同一档 Q 弹节奏。
+class _OpenHandRubberBandSimulation extends Simulation {
+  _OpenHandRubberBandSimulation({
+    required this.position,
+    required this.target,
+    required double velocity,
+    required this.kind,
+    this.tau = 0.28,
+  })  : assert(tau > 0.0),
+        _initialDeviation = position - target;
+
+  final double position;
+  final double target;
+  // 仅用于调试 / 日志扩展位，不影响 x(t)。
+  final _OpenHandRubberBandKind kind;
+  final double tau;
+  final double _initialDeviation;
+
+  @override
+  double x(double time) =>
+      target + _initialDeviation * math.exp(-time / tau);
+
+  @override
+  double dx(double time) =>
+      -_initialDeviation / tau * math.exp(-time / tau);
+
+  @override
+  bool isDone(double time) =>
+      (x(time) - target).abs() < 0.5 && dx(time).abs() < 0.5;
+}
+
+/// 串联 FrictionSimulation（fling 惯性阶段）+ 指数衰减橡胶筋（回弹阶段）。
+/// 严格遵守 [_OpenHandRubberBandSimulation] 的单调性质，回弹阶段零过冲。
+class _OpenHandFrictionToRubberBand extends Simulation {
+  _OpenHandFrictionToRubberBand({
+    required this.friction,
+    required this.rubber,
+    required this.switchTime,
+  })  : assert(switchTime >= 0.0);
+
+  final FrictionSimulation friction;
+  final _OpenHandRubberBandSimulation rubber;
+  final double switchTime;
+
+  @override
+  double x(double time) =>
+      time < switchTime ? friction.x(time) : rubber.x(time - switchTime);
+
+  @override
+  double dx(double time) =>
+      time < switchTime ? friction.dx(time) : rubber.dx(time - switchTime);
+
+  @override
+  bool isDone(double time) =>
+      time < switchTime ? friction.isDone(time) : rubber.isDone(time - switchTime);
 }
 
 /// 稳定 maxScrollExtent 收缩的 ScrollPosition。
