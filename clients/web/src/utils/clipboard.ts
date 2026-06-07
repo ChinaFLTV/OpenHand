@@ -9,20 +9,41 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
       if (typeof navigator.clipboard?.readText === 'function') {
         try {
           const readBack = await navigator.clipboard.readText();
+          // 读回严格相等 → 写成功。
           if (readBack === text) return true;
+          // 读回是空串或与原文不匹配 → 写静默失败（permissions
+          // policy、focus 丢失等）。直接返 false 让上层出"复制失败"提示。
+          console.warn(
+            '[clipboard] write 读回不一致：readBack=' +
+              JSON.stringify(readBack.slice(0, 64)) +
+              ', expected=' +
+              JSON.stringify(text.slice(0, 64)) +
+              ' (lengths: ' +
+              readBack.length +
+              ' vs ' +
+              text.length +
+              ')',
+          );
+          return false;
         } catch {
-          // read 权限被拒不代表 write 失败，继续信任 write 成功信号。
+          // read 权限被拒 → 无法校验，但 write resolve 了。
+          // 保守信任 write 信号，但需要 execCommand 兜底再尝试一次
+          // （read 拒权常常伴随 write 也被静默吞，必须用 textarea 兜）。
         }
+      } else {
+        // 浏览器没有 readText API（极少数隐私模式），走兜底。
+        return false;
       }
-      // 不可读回时保守：把 write 当作成功（浏览器拒绝重复授权是常见情况）。
-      return true;
     } catch (err) {
       console.warn('[clipboard] navigator.writeText 失败，降级 execCommand', err);
+      // writeText 直接抛错：降级到 execCommand。
     }
   }
   if (typeof document === 'undefined') return false;
   // 兜底：textarea + execCommand('copy')。execCommand 在新浏览器里
   // 仍能 work（虽然 deprecated），且不会因 focus 丢失静默失败。
+  // 关键：之前 navigator.clipboard.writeText 失败或读回不一致时，必须
+  // 走这条路径才有机会真正写入剪贴板。
   try {
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -43,6 +64,23 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     }
     textarea.remove();
     previousFocus?.focus?.();
+    if (ok) {
+      // 再次校验 execCommand 是否真的写入了（macOS 偶发 execCommand
+      // 返 true 但剪贴板仍是空）。
+      try {
+        if (typeof navigator.clipboard?.readText === 'function') {
+          const readBack2 = await navigator.clipboard.readText();
+          if (readBack2 === text) return true;
+          console.warn(
+            '[clipboard] execCommand 读回不一致：readBack=' +
+              JSON.stringify(readBack2.slice(0, 64)),
+          );
+          return false;
+        }
+      } catch {
+        // read 拒权时无法校验，保守返 true（execCommand 自身返 true）。
+      }
+    }
     return ok;
   } catch (err) {
     console.error('[clipboard] execCommand 兜底也失败', err);

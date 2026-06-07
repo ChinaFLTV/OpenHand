@@ -2276,9 +2276,24 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
         final jsFile = File(p.join(tempDir.path, 'mermaid.min.js'));
-        await jsFile.writeAsString(mermaidJs, flush: false);
-        await tempFile.writeAsString(html);
+        // 关键：flush: true 强制把 3.3MB JS 真正 flush 到磁盘，
+        // 否则 flush:false 仅在 Dart 层 buffer，WebView 立刻 loadFile
+        // 读到的可能是 0 字节空文件，rendered/ready 永远收不到、
+        // 60s 看门狗照样报超时。
+        await jsFile.writeAsString(mermaidJs, flush: true);
+        await tempFile.writeAsString(html, flush: true);
         _tempHtmlPath = tempFile.path;
+        final jsSize = await jsFile.length();
+        final htmlSize = await tempFile.length();
+        // 2026-06-08 临时诊断日志：精确定位 mermaid 加载链路上每一段
+        // （asset 读出 / 写盘 / loadFile 触发）是否到位。问题修复后清理。
+        developer.log(
+          '[mermaid] bootstrap: '
+          'html=${tempFile.path} (${htmlSize}B), '
+          'js=${jsFile.path} (${jsSize}B, expected ${mermaidJs.length}B), '
+          'controller=$controller',
+          name: 'openhand.mermaid',
+        );
         await controller.loadFile(tempFile.path);
       } else {
         // 移动端：把 mermaid.js 序列化成 data: URL 内联到 <script src>，
@@ -2294,6 +2309,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             : html.substring(0, idx) +
                 replacement +
                 html.substring(idx + needle.length);
+        developer.log(
+          '[mermaid] bootstrap: dataUrl(${mermaidJs.length}B) inline, '
+          'htmlSize=${htmlWithDataUrl.length}B',
+          name: 'openhand.mermaid',
+        );
         await controller.loadHtmlString(htmlWithDataUrl);
       }
       _controller = controller;
@@ -3003,15 +3023,20 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // loadFile 之前把 mermaid.min.js 写到与 index.html 同目录。
     // 避开 WKWebView inline JS 体积限制，根治"加载超时"。
   </script>
-  <script src="mermaid.min.js"></script>
+  <script src="mermaid.min.js"
+    onload="(function(){try{console.log('[openhand-mermaid] script.onload fired, mermaid typeof =', typeof window.mermaid, 'keys =', window.mermaid ? Object.keys(window.mermaid).slice(0,8) : null);}catch(_){}})()"
+    onerror="(function(){try{console.error('[openhand-mermaid] script.onerror fired, src =', this.src, 'readyState =', this.readyState);}catch(_){}})()"></script>
   <script>
-    // IIFE #1: 渲染 Mermaid SVG，并通过 postMessage 报告 ready / error / svg / png。
+    // 2026-06-08 临时诊断日志：mermaid 解析+初始化+渲染每一段
+    // 节点都打点，宿主 developer.log 通过 webview console 桥接拿到。
+    // 问题修复后清理。
     (function () {
       var post = function (value) {
         if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
           window.OpenHandMermaid.postMessage(value);
         }
       };
+      console.log('[openhand-mermaid] script body entered, t0 =', Date.now());
       var formatError = function (err) {
         if (err && typeof err === 'object') {
           if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
@@ -3064,11 +3089,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       }
       var sourceEl = document.getElementById('mermaid-source');
       var source = (sourceEl && sourceEl.textContent) || '';
+      console.log('[openhand-mermaid] initialize done, source length =', source.length, 't1 =', Date.now());
       Promise.resolve()
         .then(function () {
+          console.log('[openhand-mermaid] render start, t2 =', Date.now());
           return window.mermaid.render('mermaid-svg', source);
         })
         .then(function (result) {
+          console.log('[openhand-mermaid] render resolved, t3 =', Date.now(), 'hasSvg =', !!(result && (result.svg || typeof result === 'string')));
           var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
           if (!svg || svg.indexOf('<svg') === -1) {
             throw new Error(formatError(result));
