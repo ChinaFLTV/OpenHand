@@ -3792,14 +3792,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(_kMinHeightClamp, _kMaxHeightClamp).toDouble();
     if (!mounted) return;
     _measurementCount++;
-    // 临时调试日志：追踪所有 JS 高度回调的真实数据，定位"rendered →
-    // raw → rendered"快速跳变路径（特别是 scroll-active 缓存路径
-    // 此前绕过 outlier 检查导致卡片重进 viewport 时偶发被错误大值
-    // 覆盖 _height 的 BUG）。
-    debugPrint(
-        '[DBG-HBV:onSize] data.length=${widget.data.length} '
-        'next=$next _height=$_height _pendingHeight=$_pendingHeight '
-        '_scrollActive=$_scrollActive cnt=$_measurementCount');
     // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致
     // 卡片闪变和缓存错误值。仅跳过此类不合理超大值，正常高度立即应用。
     // 否则 JS 端已记录 __lastReportedHeight，Flutter 端跳过首个测量后
@@ -3907,11 +3899,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (refHeight != null && refHeight > 0) {
       final refRatio = next / refHeight;
       if (refRatio > _kReferenceOutlierRatio) {
-        // 临时调试日志：追踪被拒收的高度值。
-        debugPrint(
-            '[DBG-HBV:apply] REJECTED data.length=${widget.data.length} '
-            'next=$next ref=$refHeight ratio=${refRatio.toStringAsFixed(2)} '
-            '_scrollActive=$_scrollActive');
         return;
       }
     }
