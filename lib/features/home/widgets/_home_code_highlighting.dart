@@ -2262,26 +2262,47 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
-      // 关键：mermaid.js 已离线内联到 HTML，无需再走远程 `<script src>`，
-      // 杜绝 cdn.jsdelivr.net 网络抖动 / 防火墙拦截导致的"加载超时"。
-      // macOS / Linux / Windows 上仍然 loadFile 走磁盘，避免 WKWebView
-      // 拒绝本地 `file://` 父文档下的某些 inline 行为；其它平台 loadHtmlString。
-      final html = await _buildMermaidHtml();
+      // 关键：mermaid.js 不再内联（WKWebView inline JS 体积上限约 2MB，
+      // 3.3MB min.js 会被静默截断成"加载超时"），改为写到与 HTML 同目录
+      // 的 mermaid.min.js，HTML 用相对路径 <script src> 引用。
+      // macOS / Linux / Windows 用 loadFile 走磁盘；其它平台用
+      // loadHtmlString 但同样把 mermaid.js base64 内嵌 data: URL，
+      // 保证 file:// / 自定义 scheme 都不影响 JS 加载。
+      final mermaidJs = await _loadMermaidJs();
+      final html = _buildMermaidHtml();
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
         final tempDir = Directory.systemTemp.createTempSync(
           'openhand_mermaid_',
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
+        final jsFile = File(p.join(tempDir.path, 'mermaid.min.js'));
+        await jsFile.writeAsString(mermaidJs, flush: false);
         await tempFile.writeAsString(html);
         _tempHtmlPath = tempFile.path;
         await controller.loadFile(tempFile.path);
       } else {
-        await controller.loadHtmlString(html);
+        // 移动端：把 mermaid.js 序列化成 data: URL 内联到 <script src>，
+        // 避免 webview_flutter 在 loadHtmlString 下使用 file:// 协议的
+        // 限制 / Android WebView asset loader 跨域拦截。
+        final dataUrl =
+            'data:application/javascript;charset=utf-8,${Uri.encodeComponent(mermaidJs)}';
+        final needle = '<script src="mermaid.min.js"></script>';
+        final replacement = '<script src="$dataUrl"></script>';
+        final idx = html.indexOf(needle);
+        final htmlWithDataUrl = idx < 0
+            ? html
+            : html.substring(0, idx) +
+                replacement +
+                html.substring(idx + needle.length);
+        await controller.loadHtmlString(htmlWithDataUrl);
       }
       _controller = controller;
-      _loadWatchdog = Timer(const Duration(seconds: 18), () {
+      // 关键：Mermaid 11.x min.js ~3.3MB 解析 + 初始化在慢机器上可能 > 18s，
+      // 把看门狗延长到 60s；同时引入 _MermaidLoadPhase 阶段反馈，用户
+      // 至少能看到"解析中 / 渲染中"提示而不是直接黑屏 18s。
+      _loadWatchdog = Timer(const Duration(seconds: 60), () {
         if (!mounted) return;
-        // 2026-06-04: 只有当 rendered 与 bridge ready 都还没到时，才判为超时。
+        // 只有当 rendered 与 bridge ready 都还没到时，才判为超时。
         // 单一信号到达意味着 WebView 至少部分可用，再写超时会把可用链路标坏。
         if (!_isReady && !_bridgeReady) {
           setState(() {
@@ -2895,7 +2916,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     } catch (_) {}
   }
 
-  Future<String> _buildMermaidHtml() async {
+  String _buildMermaidHtml() {
     final rawSource = widget.source;
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
@@ -2914,9 +2935,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final bgRgb = argbToRgbHex(palette.containerColor);
     final fgRgb = argbToRgbHex(palette.actionTextColor);
     final borderRgb = argbToRgbHex(palette.borderColor);
-    // 关键：mermaid.js 从进程级缓存同步取出并内联到 HTML 模板，
-    // 避免每次重新打包 ~3.3MB 字符串。
-    final mermaidJs = await _loadMermaidJs();
+    // 关键：mermaid.js 不内联，改用 <script src="mermaid.min.js"> 让
+    // WebView 走 file:// 协议异步加载。规避 WKWebView inline JS ~2MB 体积
+    // 上限（3.3MB min.js 会被静默截断）导致的"加载超时"。
+    // 调用方在 loadFile 之前已经把 mermaid.min.js 写到与 HTML 同目录，
+    // 相对路径自动 resolve。
     return '''
 <!doctype html>
 <html>
@@ -2976,10 +2999,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     </div>
   </div>
   <script>
-    // 关键：mermaid.js 从 assets/tooling/mermaid.min.js 离线内联，
-    // 不再依赖 cdn.jsdelivr.net 网络，根治"加载超时"。
-    $mermaidJs
+    // 关键：mermaid.js 走 file:// 相对路径加载，由调用方在
+    // loadFile 之前把 mermaid.min.js 写到与 index.html 同目录。
+    // 避开 WKWebView inline JS 体积限制，根治"加载超时"。
   </script>
+  <script src="mermaid.min.js"></script>
   <script>
     // IIFE #1: 渲染 Mermaid SVG，并通过 postMessage 报告 ready / error / svg / png。
     (function () {
