@@ -194,13 +194,14 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
 function styleForKind(kind: string, role: string): KindStyle {
   switch (kind) {
     case 'reasoning':
-      // 思考卡：使用 tertiary-container 弱饱和色 + on-surface 文本，
-      // 不再走 --m3-inverse-surface（M3 inverse-surface 在 dark mode 是浅色，
-      // 与全局深色主题强对比割裂）。与 skill / hook 等其他弱强调卡片对齐。
+      // 思考卡：用户实测 tertiary-container 弱饱和在 dark mode 仍带蓝调，
+      // 与全局深色灰主题强对比割裂。改用 surface-container-high 微弱提亮
+      // （比 assistant 卡略亮一档以保持类型区分）+ 细描边，与全局
+      // 灰黑主题完全融合。
       return {
-        background: 'color-mix(in srgb, var(--m3-tertiary-container) 58%, var(--m3-surface-container))',
-        color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, var(--m3-tertiary) 32%, transparent)',
+        background: 'var(--m3-surface-container-high, rgba(255,255,255,0.05))',
+        color: 'var(--m3-on-surface-variant, #888)',
+        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.25))',
         label: t('detail.kind.reasoning', '思考'),
         icon: 'reasoning',
         badge: true,
