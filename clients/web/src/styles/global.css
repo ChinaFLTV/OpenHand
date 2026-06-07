@@ -4506,12 +4506,13 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-code-block-header {
   display: flex;
   align-items: center;
-  /* 关键：左右 padding 由 12px → 6px，按钮 gap 8px → 4px，让首尾按钮
-     离代码块圆角边沿收紧，整体更紧凑不"散"。 */
-  padding: 5px 6px;
+  /* 关键：padding 上下左右统一 6px，按钮 gap 也设 6px，让"代码 / 复制"
+     按钮之间的间距与它们到上/右边沿的间距完全一致，整排看上去整齐
+     规整、不再有"按钮间比按钮到边沿大一截"的违和感。 */
+  padding: 6px;
   background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
   border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
-  gap: 4px;
+  gap: 6px;
 }
 .oh-code-block-lang {
   font-size: 0.78em;
