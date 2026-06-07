@@ -3683,15 +3683,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
-  // 2026-06-07：单调 floor——首次拿到真实测量值（_height 或 cachedHeight）
-  // 时记录下来作为下界，此后的 Stack 高度 = max(_height, _initialFloor)，
-  // 永远不让父级空间收缩。若后续 JS 测量值上下震荡或比初始值小（罕见，
-  // HTML 实际高度比字符估算短），Stack 不会缩小 → maxScrollExtent 不会
-  // 减小 → 用户不会被强制滚动。代价：偶有底部 50-200px 空白（Stack 略高于
-  // WebView 实际内容时，WebView 在 Stack 顶部，下方 Container 底色透出），
-  // 与"被强制滚动"对比是可接受权衡。
-  double? _initialFloor;
-
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
@@ -3758,6 +3749,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
+    // 内容/样式变化时清除旧高度缓存，避免新内容被旧大值撑出空白。
+    _heightCache.remove(_heightCacheKey);
     setState(() {
       _height = null;
       _hasError = false;
@@ -3869,7 +3862,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _applyHeight(double next) {
-    _heightCache[_heightCacheKey] = next;
+    final existing = _heightCache[_heightCacheKey];
+    // cache 保存历史最大高度，作为跨 State 生命周期的单调 floor。
+    // State 被 ListView 回收重建后，cachedHeight 不会小于此前见过的最大值，
+    // 从而杜绝 estimatedHeight → actualHeight 的收缩-膨胀震荡。
+    _heightCache[_heightCacheKey] =
+        existing != null && existing > next ? existing : next;
     if (_heightCache.length > _kHeightCacheMaxSize) {
       _heightCache.remove(_heightCache.keys.first);
     }
@@ -4106,17 +4104,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
     final showShimmer = _height == null && cachedHeight == null;
     final estimatedHeight = _estimateHeight();
-    // 2026-06-07：单调 floor 逻辑——首次拿到稳定参考高度（cachedHeight
-    // 命中或 _height 首次被应用）时记录为下界；后续若 JS 测量上下震荡
-    // 或低于初始 floor，Stack 高度不会收缩，杜绝"Shimmer 阶段缩小
-    // → maxScrollExtent 减小 → 用户被强制滚动"的 BUG 路径。
-    final rawDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
-    if (_initialFloor == null && (_height != null || cachedHeight != null)) {
-      _initialFloor = rawDisplayHeight;
-    }
-    final displayHeight = _initialFloor != null && rawDisplayHeight < _initialFloor!
-        ? _initialFloor!
-        : rawDisplayHeight;
+    // 2026-06-07：cache 单调 floor——_heightCache 保存历史最大高度，
+    // 跨 State 生命周期持久化。ListView 回收重建后即使 _height 丢失，
+    // cachedHeight 也不会低于此前见过的最大值，Stack 高度不会收缩，
+    // 从而杜绝 maxScrollExtent 减小导致的强制滚动。
+    final baseDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
+    final displayHeight = cachedHeight != null && baseDisplayHeight < cachedHeight
+        ? cachedHeight
+        : baseDisplayHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
     // 2026-06-07：改用 Stack 叠加（shimmer 在 WebView 之上），让 shimmer
@@ -4214,8 +4209,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
           // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
           if (showShimmer)
-            Positioned.fill(
-              child: const _HtmlBubbleShimmer(),
+            const Positioned.fill(
+              child: _HtmlBubbleShimmer(),
             ),
         ],
       ),
