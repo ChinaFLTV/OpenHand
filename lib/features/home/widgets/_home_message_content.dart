@@ -516,9 +516,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   double? _contentHeight;
   final ScrollController _scrollController = ScrollController();
   bool _atBottom = false;
-  // 2026-06-07 修复：防抖标志，避免 _MeasureSize 在用户滚动预览区时
-  // 频繁触发外层 SizeChangedLayoutNotifier → _scheduleScrollToBottom，
-  // 导致整个外层视口被拉回底部产生"抽搐/鬼畜"现象。
+  // 用户滚动 Markdown 预览区期间跳过高度变化通知，防止外层视口被拽回底部。
   bool _userScrollingPreview = false;
 
   String get _effectiveData {
@@ -546,8 +544,6 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
-    // 2026-06-07 修复：滚动活动开始时标记 _userScrollingPreview=true，
-    // 让 _MeasureSize.onChange 暂时跳过触发外层高度变化通知。
     if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
       _userScrollingPreview = true;
     }
@@ -610,20 +606,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                         child: _MeasureSize(
                           onChange: (size) {
                             if (!mounted) return;
-                            // 2026-06-07 修复：预览区正在滚动时直接跳过高度
-                            // 变化通知，作为 _userScrollingPreview 的双重保险。
-                            // isScrollingNotifier 比 _userScrollingPreview 状态
-                            // 更可靠，能覆盖快速滑动后 isScrollingNotifier 已变
-                            // false 但 _MeasureSize 回调才抵达的竞态窗口。
                             if (_scrollController.hasClients &&
                                 _scrollController.position.isScrollingNotifier
                                     .value) {
                               return;
                             }
-                            // 2026-06-07 修复：用户正在滚动预览区时，跳过高度
-                            // 变化通知，避免触发外层 SizeChangedLayoutNotifier
-                            // → _scheduleScrollToBottom 把整个视口拉回底部。
-                            // 等滚动结束后的 600ms 宽限期过后再恢复通知。
                             if (_userScrollingPreview) {
                               final pos = _scrollController.position;
                               if (!pos.isScrollingNotifier.value) {
@@ -3650,10 +3637,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 着上下抖。改用「累积最新测量 + 500ms 一次性定时器」：后续新测量只更新
   // _pendingHeight，**不重置**定时器，确保 500ms 后必然触发、应用终值。
   double? _pendingHeight;
-  // 2026-06-07 修复：限制高度应用的最小间隔，避免 WebView resize →
-  // Flutter setState → WebView 再次 resize 的闭环振荡。即使变化比例 ≥ 30%
-  // 的「立即应用」路径，在 250ms 内也最多触发一次；超限后回退到 500ms
-  // 防抖队列，给布局一帧稳定时间。
+  // 限制高度应用间隔，阻断 WebView resize → setState → 再次 resize 闭环振荡。
   DateTime? _lastHeightApplyTime;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
@@ -3735,11 +3719,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     if (_height != null) {
       final changeRatio = (next - _height!).abs() / _height!;
-      // 大幅变化（≥ 30%，通常对应真内容更新）：优先立即应用，不防抖。
-      // 2026-06-07 修复：增加 250ms 最小应用间隔，阻断 resize 闭环振荡。
-      // WebView 在 Flutter setState 后可能因平台视图重排再次触发
-      // ResizeObserver，若仍走「立即应用」会形成逐帧抖动。250ms 足以让
-      // 绝大多数布局稳定，同时不损害正常首次加载的响应速度。
+      // 大幅变化优先立即应用，但 250ms 内最多一次，阻断 resize 闭环振荡。
       if (changeRatio >= _kLargeChangeRatio) {
         final lastApply = _lastHeightApplyTime;
         if (lastApply != null &&

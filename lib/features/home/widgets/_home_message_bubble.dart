@@ -72,12 +72,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
   final Set<GlobalKey> _embeddedInteractiveRegions = <GlobalKey>{};
   _HtmlBubbleWebViewState? _htmlPointerDownState;
   bool _htmlSelectionDragActive = false;
-  // 2026-06-07 修复：限制 SizeChangedLayoutNotifier 通知频率。
-  // AnimatedSize 动画期间（如 HTML WebView 首次加载、展开/收起）
-  // 每帧都会触发通知，若全部透传给外层 _handleTranscriptLayoutChanged，
-  // 会导致在距离底部 ≤ 32 px 时视口被逐帧 jumpTo 底部，表现为
-  // 「上下抽搐/鬼畜」。200 ms throttle 足以让 300 ms 的 AnimatedSize
-  // 动画期间最多触发 2 次，彻底消除逐帧拉扯。
+  // 限制 AnimatedSize 期间每帧触发的外层 layout-change 通知频率，
+  // 避免逐帧 jumpTo 底部导致上下抽搐。
   Timer? _layoutChangeThrottleTimer;
 
   void registerHtmlInteractiveRegion(

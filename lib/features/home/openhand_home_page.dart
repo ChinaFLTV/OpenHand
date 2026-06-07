@@ -1841,12 +1841,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5;
-    // 2026-06-07 修复：拖拽（drag）向上滑动时同样暂停 auto-follow。
-    // 此前仅 UserScrollNotification 与 trackpad ScrollUpdate 被检测为
-    // 「向上滑动」，手指/触控板拖拽产生的 ScrollUpdateNotification（
-    // dragDetails != null）在距离底部 ≤ 96 px 时不会暂停跟随，导致
-    // 用户轻微上滑后仍被 HTML 气泡高度变化触发的 layout-change 拽回
-    // 底部，形成「抽搐/鬼畜」。
     final explicitUserScrollUpward =
         explicitUserScrollUpdate &&
         (notification.scrollDelta ?? 0) < -0.5;
@@ -5273,10 +5267,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!_autoFollowEnabled || !_shouldAutoFollowMessages) return;
       final position = _activeMessageScrollPosition();
       if (position == null) return;
-      // 2026-06-07 修复：滚动惯性（ballistic / fling 减速）期间
-      // `pixels` 仍在变化，此时若 HTML 气泡高度测量回调触发
-      // layout-change，跟进的 jumpTo 会与惯性位置产生对抗，
-      // 表现为视口被突然拽回后又弹起的「抽搐/鬼畜」。
+      // 避免滚动惯性期间 jumpTo 与弹道位置对抗产生弹跳。
       if (position.isScrollingNotifier.value) return;
       final d2b = position.maxScrollExtent - position.pixels;
       if (d2b > _autoFollowDistanceThreshold) return;
