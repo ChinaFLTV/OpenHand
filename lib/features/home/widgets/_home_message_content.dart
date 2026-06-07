@@ -557,11 +557,12 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
       _contentHeight = null;
       _atBottom = false;
       _userScrollingPreview = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollController.jumpTo(0);
-        }
-      });
+      // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   if (mounted && _scrollController.hasClients) {
+      //     _scrollController.jumpTo(0);
+      //   }
+      // });
     }
   }
 
@@ -2240,13 +2241,14 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                 if (nextCollapsed) _atBottom = false;
               });
               // 重新折叠时将预览滚回顶部，保证每次折叠都从头开始浏览。
-              if (nextCollapsed) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _scrollController.hasClients) {
-                    _scrollController.jumpTo(0);
-                  }
-                });
-              }
+              // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
+              // if (nextCollapsed) {
+              //   WidgetsBinding.instance.addPostFrameCallback((_) {
+              //     if (mounted && _scrollController.hasClients) {
+              //       _scrollController.jumpTo(0);
+              //     }
+              //   });
+              // }
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),

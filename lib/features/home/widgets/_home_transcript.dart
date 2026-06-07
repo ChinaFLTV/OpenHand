@@ -738,8 +738,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if ((goal - currentOffset).abs() < 8.0) return false;
     if (scrollController.positions.length > 1) return false;
     // 线程会话窗口已下线所有滚动动画（用户明确要求），统一用 jumpTo。
-    scrollController.jumpTo(goal);
-    return true;
+    // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
+    // scrollController.jumpTo(goal);
+    return false;
   }
 
   Future<bool>? _activeScrollFuture;
@@ -797,11 +798,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final newMaxExtent = position.maxScrollExtent;
         final delta = newMaxExtent - currentMaxExtent;
         if (delta > 0) {
-          final target = (position.pixels + delta).clamp(
-            position.minScrollExtent,
-            newMaxExtent,
-          );
-          position.jumpTo(target);
+          // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
+          // final target = (position.pixels + delta).clamp(
+          //   position.minScrollExtent,
+          //   newMaxExtent,
+          // );
+          // position.jumpTo(target);
         }
       }
     }

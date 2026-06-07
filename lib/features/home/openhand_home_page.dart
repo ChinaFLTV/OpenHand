@@ -5117,7 +5117,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
       if (distance >= 1) {
         _programmaticAutoFollowScrollInProgress = true;
-        activePosition.jumpTo(targetOffset);
+        // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
+        // activePosition.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
           scheduleSettlePass();
