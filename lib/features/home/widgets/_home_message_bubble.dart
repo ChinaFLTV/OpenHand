@@ -18,6 +18,8 @@ class _MessageBubble extends StatefulWidget {
     this.onDeleteFromHere,
     this.onEdit,
     this.onAudit,
+    this.initiallyShowRawContent = false,
+    this.onShowRawContentChanged,
   });
 
   final AiSessionMessage message;
@@ -35,6 +37,8 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
   final VoidCallback? onAudit;
+  final bool initiallyShowRawContent;
+  final ValueChanged<bool>? onShowRawContentChanged;
 
   @override
   State<_MessageBubble> createState() => _MessageBubbleState();
@@ -43,7 +47,7 @@ class _MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<_MessageBubble> {
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
-  bool _showRawContent = false;
+  late bool _showRawContent = widget.initiallyShowRawContent;
 
   // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -136,7 +140,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
       _reasoningExpandedOverride = null;
-      _showRawContent = false;
+      _showRawContent = widget.initiallyShowRawContent;
       _invalidateCache();
     }
   }
@@ -772,9 +776,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           !isCompressionPoint &&
                           !isStatus)
                         _MessageActionButton(
-                          onPressed: () async => setState(
-                            () => _showRawContent = !_showRawContent,
-                          ),
+                          onPressed: () async {
+                            setState(() => _showRawContent = !_showRawContent);
+                            widget.onShowRawContentChanged?.call(_showRawContent);
+                          },
                           icon: _showRawContent
                               ? Icons.code_off_outlined
                               : Icons.code_outlined,

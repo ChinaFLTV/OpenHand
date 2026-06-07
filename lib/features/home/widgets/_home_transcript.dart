@@ -300,6 +300,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
   final Set<String> _animatedMessageIds = <String>{};
+  // 2026-06-07: 保存每条消息的【显示原始】状态，避免 ListView.builder
+  // 回收重建后状态丢失。
+  final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
 
   @override
   void initState() {
@@ -738,9 +741,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if ((goal - currentOffset).abs() < 8.0) return false;
     if (scrollController.positions.length > 1) return false;
     // 线程会话窗口已下线所有滚动动画（用户明确要求），统一用 jumpTo。
-    // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
-    // scrollController.jumpTo(goal);
-    return false;
+    scrollController.jumpTo(goal);
+    return true;
   }
 
   Future<bool>? _activeScrollFuture;
@@ -798,12 +800,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final newMaxExtent = position.maxScrollExtent;
         final delta = newMaxExtent - currentMaxExtent;
         if (delta > 0) {
-          // 2026-06-07 临时禁用：排查 HTML 卡片上滑抽搐是否由 jumpTo 引起。
-          // final target = (position.pixels + delta).clamp(
-          //   position.minScrollExtent,
-          //   newMaxExtent,
-          // );
-          // position.jumpTo(target);
+          final target = (position.pixels + delta).clamp(
+            position.minScrollExtent,
+            newMaxExtent,
+          );
+          position.jumpTo(target);
         }
       }
     }
@@ -1264,6 +1265,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             );
                           }
                         : null,
+                    initiallyShowRawContent:
+                        _rawContentVisibleByMessageId[message.id] ?? false,
+                    onShowRawContentChanged: (visible) {
+                      _rawContentVisibleByMessageId[message.id] = visible;
+                    },
                   ),
                 );
                 final content = shouldAnimateAppearance
