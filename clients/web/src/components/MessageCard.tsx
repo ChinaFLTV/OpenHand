@@ -194,9 +194,13 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
 function styleForKind(kind: string, role: string): KindStyle {
   switch (kind) {
     case 'reasoning':
+      // 思考卡：使用 tertiary-container 弱饱和色 + on-surface 文本，
+      // 不再走 --m3-inverse-surface（M3 inverse-surface 在 dark mode 是浅色，
+      // 与全局深色主题强对比割裂）。与 skill / hook 等其他弱强调卡片对齐。
       return {
-        background: 'var(--m3-inverse-surface)',
-        color: 'var(--m3-inverse-on-surface)',
+        background: 'color-mix(in srgb, var(--m3-tertiary-container) 58%, var(--m3-surface-container))',
+        color: 'var(--m3-on-surface)',
+        border: '1px solid color-mix(in srgb, var(--m3-tertiary) 32%, transparent)',
         label: t('detail.kind.reasoning', '思考'),
         icon: 'reasoning',
         badge: true,
@@ -1146,7 +1150,6 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const usePlainTextStreamingReveal = activelyStreaming && isAssistantResponseMessage(message);
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 流式期间禁用高度动画：WAAPI 在 260-420ms 内对高度做 overshoot 关键帧并
   // 同时 `overflow: clip`。流式每 ~48 字符 / 换行就重算 signal 触发新一轮动画，
@@ -1314,7 +1317,14 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : (
-          usePlainTextStreamingReveal ? (
+          // 关键：流式期间也必须尊重用户全局设置的内容格式。
+          // 旧逻辑 `usePlainTextStreamingReveal` 在 activelyStreaming 期间
+          // 强制走纯文本，导致用户设置 markdown 时也看到裸源码（mermaid
+          // 代码块、markdown 标题、列表全部显示为字符）。改为：仅当用户
+          // 显式选了 plain_text 才走打字机型纯文本流；其余一律按 format
+          // 走 markdown / html 渲染，markdown 组件内部的 deferred parse
+          // + 帧节流已经能扛住 SSE 80ms 一 tick 的解析开销。
+          activelyStreaming && contentFormat === 'plain_text' ? (
             <StreamingPlainTextReveal
               content={visibleContent}
               streaming
