@@ -3792,6 +3792,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final next = newSize.height.clamp(_kMinHeightClamp, _kMaxHeightClamp).toDouble();
     if (!mounted) return;
     _measurementCount++;
+    // 临时调试日志：追踪所有 JS 高度回调的真实数据，定位"rendered →
+    // raw → rendered"快速跳变路径（特别是 scroll-active 缓存路径
+    // 此前绕过 outlier 检查导致卡片重进 viewport 时偶发被错误大值
+    // 覆盖 _height 的 BUG）。
+    debugPrint(
+        '[DBG-HBV:onSize] data.length=${widget.data.length} '
+        'next=$next _height=$_height _pendingHeight=$_pendingHeight '
+        '_scrollActive=$_scrollActive cnt=$_measurementCount');
     // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致
     // 卡片闪变和缓存错误值。仅跳过此类不合理超大值，正常高度立即应用。
     // 否则 JS 端已记录 __lastReportedHeight，Flutter 端跳过首个测量后
@@ -3826,22 +3834,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         return;
       }
     }
-    // 2026-06-07：基于参考高度的 outlier 检查，对**所有测量**生效。
-    // 旧版只对首测做 outlier 检查，但用户复现确认 BUG 仍偶发——根因是
-    // CSS reset 注入/字体回退/图片懒加载等瞬态会把已正确渲染的卡片
-    // 临时测出"原始 HTML 文本高度"（≈ 把 `<div>...</div>` 当纯文本
-    // 逐行排版的高度）。新测量若 > 参考高度 × ratio，视为瞬态噪声，
-    // 保留旧值，让后续稳定测量修正。参考高度优先级：
-    //   floor（dispose 时写入的真实高度）> current _height > cached。
-    final refHeight = _heightFloorCache[_heightCacheKey] ??
-        _height ??
-        _heightCache[_heightCacheKey];
-    if (refHeight != null && refHeight > 0) {
-      final refRatio = next / refHeight;
-      if (refRatio > _kReferenceOutlierRatio) {
-        return;
-      }
-    }
+    // 注：参考高度 outlier 检查已**下沉到 _applyHeight**，覆盖所有
+    // 上游路径（scroll-active 缓存、pending apply、debounce timer）。
     if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
       return;
     }
@@ -3899,6 +3893,28 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _applyHeight(double next) {
+    // 2026-06-07：outlier 检查**集中**在 apply 入口——所有上游路径
+    //（scroll-active 缓存、pending apply、debounce timer、immediate
+    // apply）都通过本方法落地，确保"rendered → raw → rendered"跳变
+    // 在任何路径下都被拒收。参考高度优先级：floor（dispose 时写入的
+    // 真实高度）> current _height > cached。瞬态测量（CSS reset 注
+    // 入/字体回退/图片懒加载/卡片重进 viewport 触发的二次 layout）
+    // 返回的"原始 HTML 文本高度"通常 > 1.5× 真实渲染高度，直接判
+    // 为噪声保留旧值。
+    final refHeight = _heightFloorCache[_heightCacheKey] ??
+        _height ??
+        _heightCache[_heightCacheKey];
+    if (refHeight != null && refHeight > 0) {
+      final refRatio = next / refHeight;
+      if (refRatio > _kReferenceOutlierRatio) {
+        // 临时调试日志：追踪被拒收的高度值。
+        debugPrint(
+            '[DBG-HBV:apply] REJECTED data.length=${widget.data.length} '
+            'next=$next ref=$refHeight ratio=${refRatio.toStringAsFixed(2)} '
+            '_scrollActive=$_scrollActive');
+        return;
+      }
+    }
     _heightCache[_heightCacheKey] = next;
     if (_heightCache.length > _kHeightCacheMaxSize) {
       _heightCache.remove(_heightCache.keys.first);
@@ -3907,17 +3923,16 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     setState(() => _height = next);
   }
 
-  /// 滚动停止后应用滚动期间累积的最近一次高度测量。若无 pending 或差值
-  /// 过小则忽略。与正常路径共用 `_kMinHeightDelta` 阈值，确保不会与
-  /// 滚动期间已部分应用的过渡状态产生冲突。
+  /// 滚动停止后应用滚动期间累积的最近一次高度测量。统一走 `_applyHeight`
+  /// 走 outlier 检查，避免 scroll-active 缓存路径绕过校验。差值过小则
+  /// 忽略，与原语义一致。
   void _applyPendingHeightIfAny() {
     final pending = _pendingHeight;
     if (pending == null) return;
+    _pendingHeight = null;
     if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) {
-      _pendingHeight = null;
       return;
     }
-    _pendingHeight = null;
     _applyHeight(pending);
   }
 
