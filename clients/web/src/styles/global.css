@@ -4506,19 +4506,19 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-code-block-header {
   display: flex;
   align-items: center;
-  /* 关键：padding 上下左右统一 6px，按钮 gap 也设 6px，让"代码 / 复制"
-     按钮之间的间距与它们到上/右边沿的间距完全一致，整排看上去整齐
-     规整、不再有"按钮间比按钮到边沿大一截"的违和感。 */
+  /* 关键：padding 6px / gap 0 + 按钮水平 padding 6px：让"代码 / 复制"
+     按钮之间"胶囊外缘到胶囊外缘"的视觉间隙 = 6+0+6 = 12px，与到
+     右边沿的 6+6 = 12px 严格相等，整排看上去整齐规整。 */
   padding: 6px;
   background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
   border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
-  gap: 6px;
+  gap: 0;
 }
 .oh-code-block-lang {
   font-size: 0.78em;
   font-weight: 700;
   color: var(--m3-on-surface-variant, #666);
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   background: var(--m3-primary-container, rgba(0,100,200,0.08));
 }
@@ -4526,7 +4526,9 @@ button.oh-composer-pill:not(:disabled):hover {
   font-size: 0.78em;
   font-weight: 700;
   color: var(--m3-on-surface-variant, #666);
-  padding: 2px 8px;
+  /* 水平 padding 由 8px → 6px，让代码块 header 内的"代码 / 复制"
+     按钮之间与到边沿的视觉间隙严格相等。 */
+  padding: 2px 6px;
   border-radius: 999px;
   background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
   border: none;
