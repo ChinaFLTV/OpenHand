@@ -56,20 +56,19 @@ class AiOutputFormatPrompts {
 
   /// 2026-06-06 — 根据当前应用主题生成 theme_context 提示词片段。
   /// 在 HTML 模式下注入到 prompt，引导模型生成与当前界面亮度/配色一致的内容。
+  /// 2026-06-08 — 主题元数据已同时写入 [3s] Static Session State (theme 字段)，
+  /// 此处仅保留 HTML 专属的视觉指令，避免信息重复。
   static String themeContextFor({
     required String brightness,
     required String presetName,
     required String primaryColor,
   }) {
-    final brightnessChinese = brightness == 'light' ? '浅色' : '深色';
-    final directive = brightness == 'light'
-        ? '当前应用界面为浅色主题。生成 HTML 时必须使用浅色背景、深色正文与浅色卡片体系；不要输出大面积黑底深色主题内容，除非用户明确要求。'
-        : '当前应用界面为深色主题。生成 HTML 时必须使用深色背景、浅色正文与深色卡片体系；不要输出大面积白底浅色主题内容，除非用户明确要求。';
-    return '''
-<theme_context mode="$brightness">
-  <directive>$directive</directive>
-  <theme_preset name="$presetName" primary="$primaryColor">当前主题预设为"$presetName"（$brightnessChinese基调，主色 $primaryColor）。生成 HTML 时可在保持 $brightnessChinese 基调的前提下，适当结合该主题色或其协调色做更丰富的视觉表达，避免纯黑白单调配色。</theme_preset>
-</theme_context>''';
+    final isDark = brightness == 'dark';
+    final directive = isDark
+        ? '深色主题：使用深色背景、浅色正文、深色卡片体系；禁止大面积白底/浅色内容。'
+        : '浅色主题：使用浅色背景、深色正文、浅色卡片体系；禁止大面积黑底/深色内容。';
+    return '<theme_context mode="$brightness" preset="$presetName" primary="$primaryColor">'
+        '$directive 可结合主题色 $primaryColor 做视觉表达，避免纯黑白单调。</theme_context>';
   }
 
   static Future<void> ensureLoaded([AssetBundle? bundle]) {
