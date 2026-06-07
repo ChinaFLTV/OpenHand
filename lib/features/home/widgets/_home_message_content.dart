@@ -3688,26 +3688,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   );
 
   @override
-  void initState() {
-    super.initState();
-    // 2026-06-07：临时调试日志——追踪 WebView state 创建/重建时机。
-    debugPrint(
-        '[DBG-HBV:initState] data.length=${widget.data.length} '
-        'cachedHeight=${_heightCache[_heightCacheKey]}');
-  }
-
-  @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 2026-06-07：临时调试日志——追踪"rendered → raw → rendered"快速跳变
-    // 是否来自 WebView 的 _reload 链路（_reload 会重置 _height=null →
-    // shimmer 出现 → setState 引发 SliverList 重新布局 → maxScrollExtent
-    // 抖动 → 用户被强制滚动）。
-    debugPrint(
-        '[DBG-HBV:didUpdate] data-changed=${oldWidget.data != widget.data} '
-        'textColor-changed=${oldWidget.textColor != widget.textColor} '
-        'bgColor-changed=${oldWidget.backgroundColor != widget.backgroundColor} '
-        '_height=$_height _firstMeasurementHandled=$_firstMeasurementHandled');
     if (oldWidget.data != widget.data ||
         oldWidget.textColor != widget.textColor ||
         oldWidget.backgroundColor != widget.backgroundColor) {
@@ -3754,8 +3736,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   @override
   void dispose() {
-    // 2026-06-07：临时调试日志。
-    debugPrint('[DBG-HBV:dispose] data.length=${widget.data.length} _height=$_height');
     _heightDebounceTimer?.cancel();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
@@ -3767,10 +3747,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
-    // 2026-06-07：临时调试日志——_reload 会重置 _height=null 让 shimmer
-    // 重新出现，触发 maxScrollExtent 抖动。
-    debugPrint(
-        '[DBG-HBV:_reload] data.length=${widget.data.length} old._height=$_height → null');
     setState(() {
       _height = null;
       _hasError = false;
@@ -3887,11 +3863,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
-    // 2026-06-07：临时调试日志——追踪 _height 应用时的实际值。
-    debugPrint(
-        '[DBG-HBV:_applyHeight] data.length=${widget.data.length} '
-        'old=${_heightCache[_heightCacheKey] == next ? "same" : "new"} '
-        'next=$next _scrollActive=$_scrollActive');
     setState(() => _height = next);
   }
 
@@ -4115,12 +4086,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final cachedHeight = _heightCache[_heightCacheKey];
-    // 2026-06-07：临时调试日志——追踪 displayHeight 在 build 时的来源。
-    debugPrint(
-        '[DBG-HBV:build] data.length=${widget.data.length} '
-        '_height=$_height cachedHeight=$cachedHeight → '
-        'showShimmer=${_height == null && cachedHeight == null} '
-        'displayHeight=${_height ?? cachedHeight ?? _estimateHeight()}');
     // 2026-06-07：仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
     // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
     // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
@@ -4133,8 +4098,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final displayHeight = _height ?? cachedHeight ?? estimatedHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
-    // 使用 Column 线性排列（骨架屏在上、WebView 在下），任何布局模式下都
-    // 不会重叠，避免 Flutter widget 阻断 macOS 平台视图的触摸事件转发。
+    // 2026-06-07：改用 Stack 叠加（shimmer 在 WebView 之上），让 shimmer
+    // 阶段与 WebView 阶段占父级空间完全一致（仅 WebView 撑起 Stack
+    // 高度 = displayHeight），消除旧 Column 模式 shimmer 阶段
+    // `displayHeight + 1.0` 与 WebView 阶段 `displayHeight` 之间的
+    // 1px 跳变——该跳变在用户处于"距 maxScrollExtent 较近"位置时
+    // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动"的偶发
+    // UI 异常。Stack 模式从根上消除该高度差。
     final webViewChild = KeyedSubtree(
       key: _webViewRegionKey,
       child: iaw.InAppWebView(
@@ -4199,37 +4169,33 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ),
         );
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
         children: [
-          if (showShimmer)
-            // 2026-06-07：shimmer 高度改为 displayHeight（之前用
-            // estimatedHeight）。shimmer 与 WebView 共用同一高度，让
-            // shimmer 消失瞬间 Column 总高度不发生 1px 跳变；唯一高度
-            // 变化来自 displayHeight 自身（estimated → actual 修正），
-            // 由外层 AnimatedSize 平滑过渡，不再叠加 shimmer 显隐跳变。
-            SizedBox(
-              width: double.infinity,
-              height: displayHeight,
-              child: const _HtmlBubbleShimmer(),
-            ),
-          // 2026-06-07：包一层 Container(color: widget.backgroundColor)。
-          // macOS WKWebView 默认白底（`setBackgroundColor` 在
-          // flutter_inappwebview 未实现），HTML 加载完成前会闪一下
-          // 白屏，与气泡底色形成强烈对比，被用户感知为"闪屏"。
-          // 容器用气泡底色作 fallback：HTML 未加载时容器色显示，HTML
-          // 加载完成后由 HTML 自身背景覆盖（如果有）。其他平台
-          // `transparentBackground: true` 时同样受益——容器色透出，
-          // HTML 没设背景时与气泡自然衔接。
+          // 2026-06-07：Container(color: widget.backgroundColor) 作为
+          // macOS WKWebView 默认白底的 fallback——HTML 加载完成前避免
+          // 闪一下白屏与气泡底色形成强烈对比。其他平台
+          // transparentBackground: true 时同样受益，HTML 没设背景时
+          // 容器色自然透出与气泡衔接。
           Container(
             color: widget.backgroundColor,
             child: SizedBox(
               width: double.infinity,
-              height: showShimmer ? 1.0 : displayHeight,
+              height: displayHeight,
               child: webViewChild,
             ),
           ),
+          // 2026-06-07：用 Stack 叠加替代 Column 堆叠——shimmer 永远
+          // 覆盖在 WebView 之上，**两个阶段 Column/Stretch 占的父级空间
+          // 始终一致**（仅 WebView 撑起 Stack 高度 = displayHeight）。
+          // 旧 Column 模式 shimmer 阶段 = `displayHeight + 1.0`（shimmer
+          // + 1px WebView）、WebView 阶段 = `displayHeight`，切换瞬间存在
+          // 1px 高度跳变 → 在用户处于"距 maxScrollExtent 较近"的位置时
+          // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
+          // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
+          if (showShimmer)
+            Positioned.fill(
+              child: const _HtmlBubbleShimmer(),
+            ),
         ],
       ),
     );
@@ -4356,12 +4322,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     // `<table>` 经常渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
     final bool hasHtmlLikeTags = _looksLikeHtml(data);
     final bool hasTagStructure = !hasHtmlLikeTags && _hasHtmlTagStructure(data);
-
-    // 2026-06-07：临时调试日志。
-    debugPrint(
-        '[DBG-DISP:_buildHtmlOrFallback] data.length=${data.length} '
-        'hasHtmlLikeTags=$hasHtmlLikeTags hasTagStructure=$hasTagStructure '
-        '→ ${(hasHtmlLikeTags || hasTagStructure) ? "_HtmlBubbleWebView" : "fallback"}');
 
     if (hasHtmlLikeTags || hasTagStructure) {
       return SizedBox(
