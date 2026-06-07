@@ -2055,8 +2055,21 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   }
 }
 
+/// 进程级 mermaid.js 字符串缓存。asset 文件 ~3.3 MB，第一次读完后
+/// 后续所有 mermaid 视图共享同一份内存，避免每个 WebView 重复 IO + 解析。
+String? _cachedMermaidJs;
+Future<String> _loadMermaidJs() async {
+  final cached = _cachedMermaidJs;
+  if (cached != null) return cached;
+  final loaded = await rootBundle.loadString(
+    'assets/tooling/mermaid.min.js',
+  );
+  _cachedMermaidJs = loaded;
+  return loaded;
+}
+
 /// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
-/// 按钮切到视图时启用：用 [WebView] + mermaid.js (CDN) 渲染 SVG,
+/// 按钮切到视图时启用：用 [WebView] + 内联 mermaid.js (assets 离线) 渲染 SVG,
 /// 配合 CSS `transform: scale/translate` + `touch-action: none` 让
 /// JS 完全接管双指放缩与长按拖动平移；mermaid 原生 `interaction: true`
 /// 还能让用户点击图元悬浮 tooltip、点击边/节点触发回调。
@@ -2249,10 +2262,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
-      // WKWebView on macOS 通过 loadHtmlString 加载时拒绝拉取远程
-      // `<script src>`，必须写到磁盘再 loadFile 才能 grant 网络访问。
-      // 沿用项目内 `_MediaPreviewDialog` 的 loadFile 套路。
-      final html = _buildMermaidHtml();
+      // 关键：mermaid.js 已离线内联到 HTML，无需再走远程 `<script src>`，
+      // 杜绝 cdn.jsdelivr.net 网络抖动 / 防火墙拦截导致的"加载超时"。
+      // macOS / Linux / Windows 上仍然 loadFile 走磁盘，避免 WKWebView
+      // 拒绝本地 `file://` 父文档下的某些 inline 行为；其它平台 loadHtmlString。
+      final html = await _buildMermaidHtml();
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
         final tempDir = Directory.systemTemp.createTempSync(
           'openhand_mermaid_',
@@ -2881,7 +2895,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     } catch (_) {}
   }
 
-  String _buildMermaidHtml() {
+  Future<String> _buildMermaidHtml() async {
     final rawSource = widget.source;
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
@@ -2900,6 +2914,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final bgRgb = argbToRgbHex(palette.containerColor);
     final fgRgb = argbToRgbHex(palette.actionTextColor);
     final borderRgb = argbToRgbHex(palette.borderColor);
+    // 关键：mermaid.js 从进程级缓存同步取出并内联到 HTML 模板，
+    // 避免每次重新打包 ~3.3MB 字符串。
+    final mermaidJs = await _loadMermaidJs();
     return '''
 <!doctype html>
 <html>
@@ -2958,7 +2975,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       <pre class="mermaid" id="mermaid-source">$escaped</pre>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script>
+    // 关键：mermaid.js 从 assets/tooling/mermaid.min.js 离线内联，
+    // 不再依赖 cdn.jsdelivr.net 网络，根治"加载超时"。
+    $mermaidJs
+  </script>
   <script>
     // IIFE #1: 渲染 Mermaid SVG，并通过 postMessage 报告 ready / error / svg / png。
     (function () {
