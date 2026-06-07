@@ -1849,7 +1849,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 底部，形成「抽搐/鬼畜」。
     final explicitUserScrollUpward =
         explicitUserScrollUpdate &&
-        notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5;
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
