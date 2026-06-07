@@ -137,11 +137,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // 2026-06-07：临时调试日志——追踪 _showRawContent 状态变化路径。
+    debugPrint(
+        '[DBG-MB:didUpdate] mid=${oldWidget.message.id.hashCode.toRadixString(16).substring(0, 8)}→${widget.message.id.hashCode.toRadixString(16).substring(0, 8)} '
+        'old.initiallyRaw=${oldWidget.initiallyShowRawContent} '
+        'new.initiallyRaw=${widget.initiallyShowRawContent} '
+        'current._showRawContent=$_showRawContent '
+        'same_id=${oldWidget.message.id == widget.message.id}');
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
       _reasoningExpandedOverride = null;
       _showRawContent = widget.initiallyShowRawContent;
       _invalidateCache();
+      debugPrint(
+          '[DBG-MB:didUpdate] RESET mid=${widget.message.id.hashCode.toRadixString(16).substring(0, 8)} '
+          '_showRawContent=$_showRawContent (message.id changed)');
     }
   }
 
@@ -787,7 +797,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           !isStatus)
                         _MessageActionButton(
                           onPressed: () async {
-                            setState(() => _showRawContent = !_showRawContent);
+                            // 2026-06-07：临时调试日志。
+                            final old = _showRawContent;
+                            final newValue = !old;
+                            debugPrint(
+                                '[DBG-MB:toggle] mid=${widget.message.id.hashCode.toRadixString(16).substring(0, 8)} '
+                                'old=$old → new=$newValue');
+                            setState(() => _showRawContent = newValue);
                             widget.onShowRawContentChanged?.call(_showRawContent);
                           },
                           icon: _showRawContent

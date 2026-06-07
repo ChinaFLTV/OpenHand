@@ -3690,9 +3690,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data ||
-        oldWidget.textColor != widget.textColor ||
-        oldWidget.backgroundColor != widget.backgroundColor) {
+    // 2026-06-07：临时调试日志。
+    final dataChanged = oldWidget.data != widget.data;
+    final textColorChanged = oldWidget.textColor != widget.textColor;
+    final bgColorChanged = oldWidget.backgroundColor != widget.backgroundColor;
+    if (dataChanged || textColorChanged || bgColorChanged) {
+      debugPrint(
+          '[DBG-HBV:didUpdate] data-changed=$dataChanged '
+          'textColor-changed=$textColorChanged bgColor-changed=$bgColorChanged '
+          '_height=$_height _firstMeasurementHandled=$_firstMeasurementHandled → _reload()');
       _reload();
     }
   }
@@ -3747,6 +3753,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
+    // 2026-06-07：临时调试日志。
+    debugPrint(
+        '[DBG-HBV:_reload] data.length=${widget.data.length} old._height=$_height → null');
     setState(() {
       _height = null;
       _hasError = false;
@@ -3863,6 +3872,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
+    // 2026-06-07：临时调试日志——追踪 _height 应用时的实际值。
+    debugPrint(
+        '[DBG-HBV:_applyHeight] data.length=${widget.data.length} '
+        'next=$next _scrollActive=$_scrollActive');
     setState(() => _height = next);
   }
 
@@ -4078,7 +4091,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-06-07：临时调试日志——build 入口。
+    debugPrint(
+        '[DBG-HBV:build] data.length=${widget.data.length} _hasError=$_hasError');
     if (_hasError) {
+      debugPrint('[DBG-HBV:build] → _HtmlMessageBody (fallback)');
       return _HtmlMessageBody(
         data: widget.data,
         textColor: widget.textColor,
@@ -4407,6 +4424,13 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         child: _buildDispatchedBody(),
       ),
     );
+    // 2026-06-07：临时调试日志——追踪 dispatcher 选择的子组件类型。
+    final selectedKey = '${format.storageKey}|${isStreaming ? 'streaming' : 'stable'}|${wrapInSelectionArea ? 'select' : 'plain'}';
+    debugPrint(
+        '[DBG-DISP:build] data.length=${data.length} '
+        'format=$format isStreaming=$isStreaming '
+        'wrapInSelectionArea=$wrapInSelectionArea '
+        'selected=$selectedKey');
     return _wrapSelection(body);
   }
 }
