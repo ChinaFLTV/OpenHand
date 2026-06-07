@@ -2211,6 +2211,16 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     try {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        // 2026-06-08 临时诊断：把 WebView 内所有 console 输出
+        // (log/warn/error) 桥接到 Dart 端 developer.log，让我们能在
+        // 不打开 WebView devtools 的情况下拿到 mermaid 加载链路上
+        // 每一段精确状态。问题修复后清理。
+        ..setOnConsoleMessage((message) {
+          developer.log(
+            '[js:${message.level.name}] ${message.message}',
+            name: 'openhand.mermaid',
+          );
+        })
         ..addJavaScriptChannel(
           'OpenHandMermaid',
           onMessageReceived: (message) {
@@ -3023,9 +3033,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // loadFile 之前把 mermaid.min.js 写到与 index.html 同目录。
     // 避开 WKWebView inline JS 体积限制，根治"加载超时"。
   </script>
+  <script>
+    // 关键：mermaid.js 走 file:// 相对路径加载，由调用方在
+    // loadFile 之前把 mermaid.min.js 写到与 index.html 同目录。
+    // 避开 WKWebView inline JS 体积限制，根治"加载超时"。
+  </script>
   <script src="mermaid.min.js"
-    onload="(function(){try{console.log('[openhand-mermaid] script.onload fired, mermaid typeof =', typeof window.mermaid, 'keys =', window.mermaid ? Object.keys(window.mermaid).slice(0,8) : null);}catch(_){}})()"
-    onerror="(function(){try{console.error('[openhand-mermaid] script.onerror fired, src =', this.src, 'readyState =', this.readyState);}catch(_){}})()"></script>
+    onload="console.log('[openhand-mermaid] script.onload fired, mermaid typeof =', typeof window.mermaid, 'keys =', window.mermaid ? Object.keys(window.mermaid).slice(0,8) : null)"
+    onerror="console.error('[openhand-mermaid] script.onerror fired, src =', this.src, 'readyState =', this.readyState)"></script>
   <script>
     // 2026-06-08 临时诊断日志：mermaid 解析+初始化+渲染每一段
     // 节点都打点，宿主 developer.log 通过 webview console 桥接拿到。

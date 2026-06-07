@@ -1,16 +1,33 @@
 export async function copyTextToClipboard(text: string): Promise<boolean> {
-  if (!text) return false;
+  if (!text) {
+    console.warn('[clipboard] copyTextToClipboard: text 为空');
+    return false;
+  }
+  // 2026-06-08 临时诊断：每一步写读都打点，问题修复后清理。
+  console.log('[clipboard] copyTextToClipboard start, length=', text.length);
   // 关键：浏览器偶发"navigator.clipboard.writeText 静默失败"（permissions
   // policy、focus 丢失、service worker 后台等）—— API resolve 但剪贴板为空。
   // 这里加一道读回校验，写入后立即 read 一次做证据回放。
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
+      console.log('[clipboard] navigator.writeText resolved');
       if (typeof navigator.clipboard?.readText === 'function') {
         try {
           const readBack = await navigator.clipboard.readText();
+          console.log(
+            '[clipboard] readBack length=',
+            readBack.length,
+            'expected length=',
+            text.length,
+            'match=',
+            readBack === text,
+          );
           // 读回严格相等 → 写成功。
-          if (readBack === text) return true;
+          if (readBack === text) {
+            console.log('[clipboard] navigator.writeText + readBack 一致 → 成功');
+            return true;
+          }
           // 读回是空串或与原文不匹配 → 写静默失败（permissions
           // policy、focus 丢失等）。直接返 false 让上层出"复制失败"提示。
           console.warn(
@@ -25,13 +42,15 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
               ')',
           );
           return false;
-        } catch {
+        } catch (err) {
           // read 权限被拒 → 无法校验，但 write resolve 了。
           // 保守信任 write 信号，但需要 execCommand 兜底再尝试一次
           // （read 拒权常常伴随 write 也被静默吞，必须用 textarea 兜）。
+          console.warn('[clipboard] readText 抛错（可能是 permissions policy）', err);
         }
       } else {
         // 浏览器没有 readText API（极少数隐私模式），走兜底。
+        console.log('[clipboard] 浏览器无 readText API，走兜底');
         return false;
       }
     } catch (err) {

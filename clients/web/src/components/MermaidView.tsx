@@ -221,8 +221,14 @@ export function MermaidView({ source }: MermaidViewProps) {
 
   async function copySvgMarkup(): Promise<void> {
     const svg = svgMarkupRef.current.trim();
-    if (!svg) return;
+    // 2026-06-08 临时诊断：精确锁住"复制按钮 → 剪贴板"链路。
+    console.log('[mermaid] copySvgMarkup clicked, svg length=', svg.length);
+    if (!svg) {
+      console.warn('[mermaid] copySvgMarkup: svg 为空 (mermaid 还没渲染)');
+      return;
+    }
     const ok = await copyTextToClipboard(svg);
+    console.log('[mermaid] copySvgMarkup result=', ok);
     showSnackbar(
       ok ? 'SVG 已复制' : '复制 SVG 失败，请检查浏览器权限',
       { tone: ok ? 'success' : 'error' },
@@ -231,10 +237,16 @@ export function MermaidView({ source }: MermaidViewProps) {
 
   async function copySvgImage(): Promise<void> {
     const svg = svgMarkupRef.current.trim();
-    if (!svg) return;
+    console.log('[mermaid] copySvgImage clicked, svg length=', svg.length);
+    if (!svg) {
+      console.warn('[mermaid] copySvgImage: svg 为空 (mermaid 还没渲染)');
+      return;
+    }
     try {
       const png = await renderPngBlobFromSvg(svg, { scale: 2 });
+      console.log('[mermaid] png rendered, size=', png.size);
       const ok = await copyBlobToClipboard(png);
+      console.log('[mermaid] copyBlobToClipboard(png) result=', ok);
       if (ok) {
         showSnackbar('图像已复制', { tone: 'success' });
         return;
@@ -242,11 +254,13 @@ export function MermaidView({ source }: MermaidViewProps) {
       // 旧浏览器/无 image/png 写入权限 → 退而写 SVG blob，再退到 SVG 文本。
       const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
       const svgOk = await copyBlobToClipboard(svgBlob);
+      console.log('[mermaid] copyBlobToClipboard(svg) fallback result=', svgOk);
       if (svgOk) {
         showSnackbar('当前浏览器不支持图像复制，已复制 SVG 图像', { tone: 'success' });
         return;
       }
       const textOk = await copyTextToClipboard(svg);
+      console.log('[mermaid] copyTextToClipboard(svg) final fallback result=', textOk);
       showSnackbar(
         textOk ? '当前浏览器不支持图像复制，已复制 SVG 文本' : '复制图像失败，请检查浏览器权限',
         { tone: textOk ? 'success' : 'error' },
