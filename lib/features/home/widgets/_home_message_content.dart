@@ -610,6 +610,16 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                         child: _MeasureSize(
                           onChange: (size) {
                             if (!mounted) return;
+                            // 2026-06-07 修复：预览区正在滚动时直接跳过高度
+                            // 变化通知，作为 _userScrollingPreview 的双重保险。
+                            // isScrollingNotifier 比 _userScrollingPreview 状态
+                            // 更可靠，能覆盖快速滑动后 isScrollingNotifier 已变
+                            // false 但 _MeasureSize 回调才抵达的竞态窗口。
+                            if (_scrollController.hasClients &&
+                                _scrollController.position.isScrollingNotifier
+                                    .value) {
+                              return;
+                            }
                             // 2026-06-07 修复：用户正在滚动预览区时，跳过高度
                             // 变化通知，避免触发外层 SizeChangedLayoutNotifier
                             // → _scheduleScrollToBottom 把整个视口拉回底部。
@@ -622,7 +632,9 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                                   const Duration(milliseconds: 600),
                                   () {
                                     if (mounted) {
-                                      setState(() => _userScrollingPreview = false);
+                                      setState(
+                                        () => _userScrollingPreview = false,
+                                      );
                                     }
                                   },
                                 );
@@ -2159,8 +2171,6 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   bool _userToggled = false;
   final ScrollController _scrollController = ScrollController();
   bool _atBottom = false;
-  // 2026-06-07 修复：防抖标志，避免用户滚动预览区时触发外层视口抽搐。
-  bool _userScrollingPreview = false;
 
   @override
   void initState() {
@@ -2179,10 +2189,6 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
-    // 2026-06-07 修复：滚动活动开始时标记 _userScrollingPreview=true。
-    if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
-      _userScrollingPreview = true;
-    }
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
 
@@ -3265,6 +3271,15 @@ class _HtmlBubbleWebView extends StatefulWidget {
 }
 
 class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
+  // 高度测量与防抖常量
+  static const double _kMinHeightClamp = 24.0;
+  static const double _kMaxHeightClamp = 50000.0;
+  static const double _kFirstMeasurementSkipThreshold = 5000.0;
+  static const double _kMinHeightDelta = 1.0;
+  static const double _kLargeChangeRatio = 0.30;
+  static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 250);
+  static const Duration _kHeightDebounceDuration = Duration(milliseconds: 500);
+  static const int _kHeightCacheMaxSize = 96;
   static final RegExp _documentShellPattern = RegExp(
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
@@ -3635,6 +3650,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 着上下抖。改用「累积最新测量 + 500ms 一次性定时器」：后续新测量只更新
   // _pendingHeight，**不重置**定时器，确保 500ms 后必然触发、应用终值。
   double? _pendingHeight;
+  // 2026-06-07 修复：限制高度应用的最小间隔，避免 WebView resize →
+  // Flutter setState → WebView 再次 resize 的闭环振荡。即使变化比例 ≥ 30%
+  // 的「立即应用」路径，在 250ms 内也最多触发一次；超限后回退到 500ms
+  // 防抖队列，给布局一帧稳定时间。
+  DateTime? _lastHeightApplyTime;
   // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -3700,23 +3720,51 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
-    final next = newSize.height.clamp(24.0, 50000.0).toDouble();
+    final next = newSize.height.clamp(_kMinHeightClamp, _kMaxHeightClamp).toDouble();
     if (!mounted) return;
     _measurementCount++;
     // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致
     // 卡片闪变和缓存错误值。仅跳过此类不合理超大值，正常高度立即应用。
     // 否则 JS 端已记录 __lastReportedHeight，Flutter 端跳过首个测量后
     // 再无差值 >0.5px 的回调触发，形成 JS/Flutter 双端死锁。
-    if (_measurementCount == 1 && next > 5000) {
+    if (_measurementCount == 1 && next > _kFirstMeasurementSkipThreshold) {
       return;
     }
-    if (_height != null && (next - _height!).abs() < 1.0) {
+    if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
       return;
     }
     if (_height != null) {
       final changeRatio = (next - _height!).abs() / _height!;
-      // 大幅变化（≥ 30%，通常对应真内容更新）：立即应用，不防抖。
-      if (changeRatio >= 0.30) {
+      // 大幅变化（≥ 30%，通常对应真内容更新）：优先立即应用，不防抖。
+      // 2026-06-07 修复：增加 250ms 最小应用间隔，阻断 resize 闭环振荡。
+      // WebView 在 Flutter setState 后可能因平台视图重排再次触发
+      // ResizeObserver，若仍走「立即应用」会形成逐帧抖动。250ms 足以让
+      // 绝大多数布局稳定，同时不损害正常首次加载的响应速度。
+      if (changeRatio >= _kLargeChangeRatio) {
+        final lastApply = _lastHeightApplyTime;
+        if (lastApply != null &&
+            DateTime.now().difference(lastApply) < _kMinHeightApplyInterval) {
+          _pendingHeight = next;
+          final timer = _heightDebounceTimer;
+          if (timer == null || !timer.isActive) {
+            _heightDebounceTimer = Timer(
+              _kHeightDebounceDuration,
+              () {
+                if (!mounted) return;
+                final pending = _pendingHeight;
+                _heightDebounceTimer = null;
+                _pendingHeight = null;
+                if (pending == null) return;
+                if (_height != null &&
+                    (pending - _height!).abs() < _kMinHeightDelta) {
+                  return;
+                }
+                _applyHeight(pending);
+              },
+            );
+          }
+          return;
+        }
         _heightDebounceTimer?.cancel();
         _heightDebounceTimer = null;
         _pendingHeight = null;
@@ -3730,13 +3778,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _pendingHeight = next;
     final timer = _heightDebounceTimer;
     if (timer == null || !timer.isActive) {
-      _heightDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
         if (!mounted) return;
         final pending = _pendingHeight;
         _heightDebounceTimer = null;
         _pendingHeight = null;
         if (pending == null) return;
-        if (_height != null && (pending - _height!).abs() < 1.0) return;
+        if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) return;
         _applyHeight(pending);
       });
     }
@@ -3744,9 +3792,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   void _applyHeight(double next) {
     _heightCache[_heightCacheKey] = next;
-    if (_heightCache.length > 96) {
+    if (_heightCache.length > _kHeightCacheMaxSize) {
       _heightCache.remove(_heightCache.keys.first);
     }
+    _lastHeightApplyTime = DateTime.now();
     setState(() => _height = next);
   }
 
