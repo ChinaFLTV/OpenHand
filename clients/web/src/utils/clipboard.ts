@@ -20,3 +20,21 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/// 把任意 blob 写到系统剪贴板（image/png / image/svg+xml 等）。
+/// 优先走 navigator.clipboard.write（剪贴板富媒体）；旧浏览器或
+/// 权限拒绝时回退为纯文本提示。
+export async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  try {
+    if ('ClipboardItem' in window && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      return true;
+    }
+  } catch {
+    // permission denied / not allowed — fall through to false so caller can decide.
+  }
+  return false;
+}

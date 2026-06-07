@@ -4542,21 +4542,27 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-mermaid-toolbar {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+  /* 关键：左右各留 2px 让首尾按钮与代码块边沿脱开，避免"贴边粘连"。 */
+  padding: 2px 2px 4px 2px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 2px;
+  scrollbar-width: thin;
 }
 .oh-mermaid-zoom-chip {
+  /* 与 .oh-code-block-copy 保持完全一致 (2px 8px / 0.78em)，
+     视觉上缩放胶囊与左邻按钮高度齐平，不再"高一截"。 */
   flex: 0 0 auto;
-  margin-left: 0;
-  padding: 8px 12px;
+  margin-left: auto;
+  padding: 2px 10px;
   border-radius: 999px;
-  background: var(--m3-surface-container-high, rgba(0,0,0,0.06));
-  color: var(--m3-on-surface-variant, #555);
-  font-size: 0.82em;
+  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
+  color: var(--m3-on-surface-variant, #666);
+  font-size: 0.78em;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 .oh-mermaid-stage {
   position: relative;

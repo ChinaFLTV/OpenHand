@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { saveBlobWithPicker } from '../utils/save_blob';
+import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
 import { showSnackbar } from './Snackbar';
 
 interface MermaidViewProps {
@@ -82,33 +83,113 @@ function formatMermaidError(err: unknown): string {
   return String(err);
 }
 
-async function renderPngBlobFromSvg(svg: string): Promise<Blob> {
-  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  try {
-    const image = new Image();
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error('failed_to_load_svg_image'));
-      image.src = url;
-    });
-    const canvas = document.createElement('canvas');
-    const width = Math.max(1, Math.ceil(image.naturalWidth || 1));
-    const height = Math.max(1, Math.ceil(image.naturalHeight || 1));
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('missing_canvas_context');
-    ctx.drawImage(image, 0, 0, width, height);
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((png) => {
-        if (png) resolve(png);
-        else reject(new Error('failed_to_encode_png'));
-      }, 'image/png');
-    });
-  } finally {
-    URL.revokeObjectURL(url);
+async function renderPngBlobFromSvg(
+  svg: string,
+  options: { background?: string; scale?: number } = {},
+): Promise<Blob> {
+  const scale = options.scale ?? 2;
+  if (typeof document === 'undefined') {
+    throw new Error('png_conversion_requires_browser');
   }
+  if (typeof Image === 'undefined' || typeof HTMLCanvasElement === 'undefined') {
+    throw new Error('png_conversion_unsupported_in_this_runtime');
+  }
+  // 1. 规范化 SVG：补 xmlns / width / height，避免 Mermaid 输出偶发缺属性
+  //    导致 Image.naturalWidth/Height = 0 而画到 1x1 canvas 上。
+  const parser = new DOMParser();
+  const parsed = parser.parseFromString(svg, 'image/svg+xml');
+  const parserError = parsed.querySelector('parsererror');
+  if (parserError) {
+    throw new Error('svg_parse_failed');
+  }
+  const svgElement = parsed.documentElement;
+  if (svgElement == null || svgElement.tagName.toLowerCase() !== 'svg') {
+    throw new Error('svg_root_missing');
+  }
+  if (!svgElement.getAttribute('xmlns')) {
+    svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  if (!svgElement.getAttribute('xmlns:xlink')) {
+    svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  }
+  const viewBox = (svgElement.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number);
+  const fallbackWidth = Number.isFinite(viewBox[2]) && viewBox[2]! > 0 ? viewBox[2]! : 800;
+  const fallbackHeight = Number.isFinite(viewBox[3]) && viewBox[3]! > 0 ? viewBox[3]! : 600;
+  const widthAttr = parseFloat(svgElement.getAttribute('width') ?? '');
+  const heightAttr = parseFloat(svgElement.getAttribute('height') ?? '');
+  const intrinsicWidth = Number.isFinite(widthAttr) && widthAttr > 0 ? widthAttr : fallbackWidth;
+  const intrinsicHeight = Number.isFinite(heightAttr) && heightAttr > 0 ? heightAttr : fallbackHeight;
+  svgElement.setAttribute('width', String(intrinsicWidth));
+  svgElement.setAttribute('height', String(intrinsicHeight));
+  const serialized = new XMLSerializer().serializeToString(svgElement);
+
+  // 2. data URL 而非 Blob URL：避免 Chromium 把 Blob URL 视作跨源，
+  //    drawImage 之后 canvas 被污染，canvas.toBlob 抛 SecurityError。
+  const base64 = (() => {
+    try {
+      return btoa(unescape(encodeURIComponent(serialized)));
+    } catch {
+      // 极端退路：直接用 unencoded data URL（部分旧浏览器会兜底解析）。
+      return null;
+    }
+  })();
+  const dataUrl = base64 != null
+    ? `data:image/svg+xml;base64,${base64}`
+    : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
+
+  // 3. 加载图片：Mermaid 自带 webfont (Inter / 其它) 在 Image 内不会等待，
+  //    必须 await document.fonts.ready 后再 drawImage，否则导出图会出现
+  //    “画好但文字没填上”的半成品。
+  const image = new Image();
+  image.decoding = 'async';
+  const loaded = await new Promise<HTMLImageElement>((resolve, reject) => {
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('failed_to_load_svg_image'));
+    image.src = dataUrl;
+  });
+
+  const fontsReady = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready;
+  if (fontsReady) {
+    try {
+      await fontsReady;
+    } catch {
+      // 字体加载失败不阻塞 PNG 导出，走默认字体回退。
+    }
+  }
+
+  // 4. 画到高分辨率 canvas（默认 2x 让导出的 PNG 在视网膜屏不糊）。
+  const targetWidth = Math.max(1, Math.round(intrinsicWidth * scale));
+  const targetHeight = Math.max(1, Math.round(intrinsicHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  if (ctx == null) {
+    throw new Error('missing_canvas_context');
+  }
+  if (options.background) {
+    ctx.fillStyle = options.background;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  }
+  ctx.drawImage(loaded, 0, 0, targetWidth, targetHeight);
+
+  // 5. toBlob 在高 canvas 上偶尔会回传 null（OOM / 驱动不支持），
+  //    退路走 toDataURL + fetch 重建 blob。
+  const pngBlob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+  if (pngBlob != null) return pngBlob;
+  const dataUrlFallback = canvas.toDataURL('image/png');
+  const match = /^data:image\/png;base64,(.+)$/.exec(dataUrlFallback);
+  if (match == null) {
+    throw new Error('failed_to_encode_png');
+  }
+  const binary = atob(match[1]!);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: 'image/png' });
 }
 
 const isDarkTheme = (): boolean => {
@@ -141,35 +222,37 @@ export function MermaidView({ source }: MermaidViewProps) {
   async function copySvgMarkup(): Promise<void> {
     const svg = svgMarkupRef.current.trim();
     if (!svg) return;
-    try {
-      await navigator.clipboard.writeText(svg);
-      showSnackbar('SVG 已复制', { tone: 'success' });
-    } catch {
-      showSnackbar('复制 SVG 失败，请检查浏览器权限', { tone: 'error' });
-    }
+    const ok = await copyTextToClipboard(svg);
+    showSnackbar(
+      ok ? 'SVG 已复制' : '复制 SVG 失败，请检查浏览器权限',
+      { tone: ok ? 'success' : 'error' },
+    );
   }
 
   async function copySvgImage(): Promise<void> {
     const svg = svgMarkupRef.current.trim();
     if (!svg) return;
     try {
-      if ('ClipboardItem' in window && navigator.clipboard?.write) {
-        const png = await renderPngBlobFromSvg(svg);
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      const png = await renderPngBlobFromSvg(svg, { scale: 2 });
+      const ok = await copyBlobToClipboard(png);
+      if (ok) {
         showSnackbar('图像已复制', { tone: 'success' });
-      } else {
-        await navigator.clipboard.writeText(svg);
-        showSnackbar('浏览器不支持图像复制，已复制 SVG 文本', { tone: 'success' });
+        return;
       }
-    } catch {
-      try {
-        if ('ClipboardItem' in window && navigator.clipboard?.write) {
-          const blob = new Blob([svg], { type: 'image/svg+xml' });
-          await navigator.clipboard.write([new ClipboardItem({ 'image/svg+xml': blob })]);
-          showSnackbar('PNG 复制失败，已复制 SVG 图像', { tone: 'success' });
-          return;
-        }
-      } catch {}
+      // 旧浏览器/无 image/png 写入权限 → 退而写 SVG blob，再退到 SVG 文本。
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const svgOk = await copyBlobToClipboard(svgBlob);
+      if (svgOk) {
+        showSnackbar('当前浏览器不支持图像复制，已复制 SVG 图像', { tone: 'success' });
+        return;
+      }
+      const textOk = await copyTextToClipboard(svg);
+      showSnackbar(
+        textOk ? '当前浏览器不支持图像复制，已复制 SVG 文本' : '复制图像失败，请检查浏览器权限',
+        { tone: textOk ? 'success' : 'error' },
+      );
+    } catch (err) {
+      console.error('[mermaid] copy image failed', err);
       showSnackbar('复制图像失败，请检查浏览器权限', { tone: 'error' });
     }
   }
@@ -187,6 +270,7 @@ export function MermaidView({ source }: MermaidViewProps) {
       showSnackbar('SVG 已导出', { tone: 'success' });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[mermaid] download svg failed', err);
       showSnackbar('导出 SVG 失败', { tone: 'error' });
     }
   }
@@ -195,7 +279,7 @@ export function MermaidView({ source }: MermaidViewProps) {
     const svg = svgMarkupRef.current.trim();
     if (!svg) return;
     try {
-      const blob = await renderPngBlobFromSvg(svg);
+      const blob = await renderPngBlobFromSvg(svg, { scale: 2 });
       await saveBlobWithPicker(
         blob,
         `${suggestedBasename}.png`,
@@ -204,7 +288,9 @@ export function MermaidView({ source }: MermaidViewProps) {
       showSnackbar('PNG 已导出', { tone: 'success' });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      showSnackbar('导出 PNG 失败', { tone: 'error' });
+      console.error('[mermaid] download png failed', err);
+      const message = err instanceof Error ? err.message : String(err);
+      showSnackbar(`导出 PNG 失败 (${message})`, { tone: 'error' });
     }
   }
 
