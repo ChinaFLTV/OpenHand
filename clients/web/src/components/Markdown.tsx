@@ -43,9 +43,12 @@ function loadRehypeHighlight(): Promise<RehypeHighlightPlugin> {
 }
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
-/// 1 KB 以上的内容首次挂载时走帧节流 deferred 路径 (首帧 plain text 占位
-/// + 下一空闲帧补回 markdown), 避免会话打开时多卡片同步 parse 卡顿。
-const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 1024;
+/// 32 KB 以上才走帧节流 deferred 路径 (首帧 plain text 占位 + 下一空闲帧
+/// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
+/// 文本普遍 2-4 KB，会被错误丢进占位符，长时间停留在 <pre> 原文态、永远
+/// 看不到 markdown 渲染结果。32 KB 已是「明显是大段长文」级别，长会话首屏
+/// N 张卡片同时挂载时的同帧 parse 抖动也只在这种规模下才值得节流。
+const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 32 * 1024;
 /// W1 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
 /// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
 /// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。

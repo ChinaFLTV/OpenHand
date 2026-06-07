@@ -2933,6 +2933,18 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     transition: transform 80ms ease-out;
   }
   .mermaid-stage svg { max-width: none; height: auto; }
+  /* 关键：Mermaid 10.x 输出的 SVG 自带一个 <rect class="background"> 节点
+     填满整张画布并使用 fill: var(--background, #1f2020)。当 --background
+     在 10.9.1 的内联 style 里被错算成 #B00020（红色）时，整张画布就会
+     染成与代码块容器色割裂的红色。强制把这个 rect + var(--background)
+     双向 transparent，让 body 的 #$bgHex 直接透出。 */
+  .mermaid-stage svg,
+  .mermaid-stage svg .root,
+  .mermaid-stage svg .root > * { background: transparent !important; }
+  .mermaid-stage svg > rect,
+  .mermaid-stage svg .background,
+  .mermaid-stage svg rect.background { fill: transparent !important; }
+  .mermaid-stage svg { --background: transparent !important; }
   .mermaid-error {
     color: #d93025; padding: 16px; font-size: 13px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -3016,8 +3028,42 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           if (!svg || svg.indexOf('<svg') === -1) {
             throw new Error(formatError(result));
           }
+          // 关键：Mermaid 10.9.1 输出的 SVG 自带 <rect class="background">
+          // 节点填满整张画布（fill 走 var(--background) 或硬编码深色），
+          // 视觉上让 body #$bgHex 透不出来。在 innerHTML 注入前先把
+          // background rect 摘掉、inline style 抹掉，确保 body 容器色
+          // 完全穿透 SVG 呈现。CSS 选择器兜底（见 <style>）覆盖未命中场景。
+          svg = svg
+            // 关键：Dart 字符串里 \\b 才在 JS 解析为正则单词边界（\b 在
+            // Dart 是退格符，会把整条 regex 吃成乱码）。
+            .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
+            .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
+            .replace(/\sstyle=["'][^"']*background[^"']*["']/gi, '')
+            .replace(/--background\s*:\s*[^;!}]+/gi, '--background: transparent');
           var inner = document.getElementById('inner');
-          if (inner) inner.innerHTML = svg;
+          if (inner) {
+            inner.innerHTML = svg;
+            // 二次兜底：DOM 注入后再 sweep 一次，处理 mermaid 偶尔漏掉
+            // 的 inline style / class 命名变体。
+            try {
+              var svgEl = inner.querySelector('svg');
+              if (svgEl) {
+                svgEl.removeAttribute('style');
+                var bgRects = svgEl.querySelectorAll(
+                  'rect.background, rect[class*="background"]'
+                );
+                for (var ri = 0; ri < bgRects.length; ri++) {
+                  var r = bgRects[ri];
+                  r.parentNode && r.parentNode.removeChild(r);
+                }
+                var styleBlocks = svgEl.querySelectorAll('style');
+                for (var si = 0; si < styleBlocks.length; si++) {
+                  styleBlocks[si].textContent = (styleBlocks[si].textContent || '')
+                    .replace(/--background\s*:\s*[^;!}]+/g, '--background: transparent');
+                }
+              }
+            } catch (_) { /* 抹除失败不影响主路径 */ }
+          }
           post('svg:' + svg);
           try {
             if (result && typeof result.bindFunctions === 'function') {

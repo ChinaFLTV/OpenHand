@@ -4506,10 +4506,12 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-code-block-header {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
+  /* 关键：左右 padding 由 12px → 6px，按钮 gap 8px → 4px，让首尾按钮
+     离代码块圆角边沿收紧，整体更紧凑不"散"。 */
+  padding: 5px 6px;
   background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
   border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
-  gap: 8px;
+  gap: 4px;
 }
 .oh-code-block-lang {
   font-size: 0.78em;
@@ -4537,15 +4539,16 @@ button.oh-composer-pill:not(:disabled):hover {
 /* Mermaid diagram stage (MermaidView.tsx) */
 .oh-mermaid-shell {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 .oh-mermaid-toolbar {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
-  /* 关键：左右各留 2px 让首尾按钮与代码块边沿脱开，避免"贴边粘连"。 */
-  padding: 2px 2px 4px 2px;
+  /* 关键：上 8px / 左 8px / 右 8px / 下 6px，让首尾按钮与代码块边沿
+     留出舒适呼吸量，避免"贴边粘连"；水平滚动条 2px 防抖动。 */
+  padding: 8px 8px 6px 8px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
