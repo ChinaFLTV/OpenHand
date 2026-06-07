@@ -2283,59 +2283,34 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       // 保证 file:// / 自定义 scheme 都不影响 JS 加载。
       final mermaidJs = await _loadMermaidJs();
       final themeColors = _computeMermaidThemeColors();
+      // 关键：把 mermaid.js 内联到 HTML 里，走 loadFile 加载单文件。
+      // WKWebView 对 loadFile(file://) 没有 inline script 体积限制
+      // （那只是 loadHtmlString 的坑）。同时把渲染 IIFE 也一并内联在
+      // 同一个 <script> 标签末尾，彻底消除双 script 标签 / runJavaScript
+      // 被抢占的一整类竞态问题。
       final html = _buildMermaidHtml(
         themeColors.bg,
         themeColors.fg,
         themeColors.border,
+        mermaidJs,
       );
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
         final tempDir = Directory.systemTemp.createTempSync(
           'openhand_mermaid_',
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
-        final jsFile = File(p.join(tempDir.path, 'mermaid.min.js'));
-        await jsFile.writeAsString(mermaidJs, flush: true);
         await tempFile.writeAsString(html, flush: true);
         _tempHtmlPath = tempFile.path;
-        final jsSize = await jsFile.length();
         final htmlSize = await tempFile.length();
         developer.log(
           '[mermaid] bootstrap: '
-          'html=${tempFile.path} (${htmlSize}B), '
-          'js=${jsFile.path} (${jsSize}B, expected ${mermaidJs.length}B), '
+          'html=${tempFile.path} (${htmlSize}B, mermaidJs=${mermaidJs.length}B), '
           'controller=$controller',
           name: 'openhand.mermaid',
         );
         await controller.loadFile(tempFile.path);
-        // 关键：WebView loadFile 后通过 runJavaScript 注入渲染 IIFE，
-        // 彻底绕开 WKWebView 内联 <script> 任何不稳定行为。
-        // loadFile resolve 时页面已加载完毕，<script src=mermaid.min.js>
-        // 同步执行完，window.mermaid 必然已就绪。
-        final renderJs = _buildRenderJs(themeColors);
-        await controller.runJavaScript(renderJs);
       } else {
-        // 移动端：把 mermaid.js 序列化成 data: URL 内联到 <script src>，
-        // 避免 webview_flutter 在 loadHtmlString 下使用 file:// 协议的
-        // 限制 / Android WebView asset loader 跨域拦截。
-        final dataUrl =
-            'data:application/javascript;charset=utf-8,${Uri.encodeComponent(mermaidJs)}';
-        final needle = '<script src="mermaid.min.js"></script>';
-        final replacement = '<script src="$dataUrl"></script>';
-        final idx = html.indexOf(needle);
-        final htmlWithDataUrl = idx < 0
-            ? html
-            : html.substring(0, idx) +
-                replacement +
-                html.substring(idx + needle.length);
-        developer.log(
-          '[mermaid] bootstrap: dataUrl(${mermaidJs.length}B) inline, '
-          'htmlSize=${htmlWithDataUrl.length}B',
-          name: 'openhand.mermaid',
-        );
-        await controller.loadHtmlString(htmlWithDataUrl);
-        // 同桌面端：loadHtmlString 后注入渲染 IIFE
-        final renderJs = _buildRenderJs(themeColors);
-        await controller.runJavaScript(renderJs);
+        await controller.loadHtmlString(html);
       }
       _controller = controller;
       // 关键：Mermaid 11.x min.js ~3.3MB 解析 + 初始化在慢机器上可能 > 18s，
@@ -2976,11 +2951,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   /// 不再嵌在 HTML 模板中——WKWebView 对内联 <script> 标签偶发
   /// 不执行，runJavaScript 走 platform channel 注入绕开此问题。
   String _buildRenderJs(
-    ({String bg, String fg, String border}) c,
+    String bg,
+    String fg,
+    String border,
   ) {
-    final bg = c.bg;
-    final fg = c.fg;
-    final border = c.border;
     return '''
 // [openhand-mermaid] Dart-injected render script, t0 injected
 (function () {
@@ -3107,15 +3081,26 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 ''';
   }
 
-  String _buildMermaidHtml(String bgRgb, String fgRgb, String borderRgb) {
+  String _buildMermaidHtml(
+    String bgRgb,
+    String fgRgb,
+    String borderRgb,
+    String mermaidJs,
+  ) {
     final rawSource = widget.source;
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
     final palette = widget.palette;
-    String argbToCss(Color c) =>
-        c.toARGB32().toRadixString(16).padLeft(8, '0');
-    final bgHex = argbToCss(palette.containerColor);
-    final fgHex = argbToCss(palette.actionTextColor);
+    final bgHex = palette.containerColor
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0');
+    final fgHex = palette.actionTextColor
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0');
+    // 把渲染 IIFE 内联到模板末尾，与 mermaid.js 同一个 <script> 标签。
+    final renderJs = _buildRenderJs(bgRgb, fgRgb, borderRgb);
     return '''
 <!doctype html>
 <html>
@@ -3174,8 +3159,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       <pre class="mermaid" id="mermaid-source">$escaped</pre>
     </div>
   </div>
-  <script src="mermaid.min.js"></script>
-  <!-- 渲染 IIFE 已移到 Dart 端 runJavaScript 注入，绕开 WKWebView 对内联脚本的任何限制 -->
+  <script>
+    // 关键：mermaid.js 内联 + 渲染 IIFE 全部走 loadFile(file://)，
+    // WKWebView file:// 下没有 inline script 体积限制（仅 loadHtmlString 有），
+    // 单文件单 script 标签消除一切竞态。
+    $mermaidJs
+    $renderJs
+  </script>
   <script>
     // IIFE #2: 平移/缩放/双击重置手势；fit/reset 通过全局桥接函数暴露。
     (function () {
