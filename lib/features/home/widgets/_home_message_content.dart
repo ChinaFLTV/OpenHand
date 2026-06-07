@@ -3296,6 +3296,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 显示尺寸，后续测量（250ms 防抖）会把高度修正到准确值；视觉上看
   // 是"由小到大"生长，比"由大到小收缩留下大片空白"更可接受。
   static const double _kFirstMeasurementOutlierRatio = 2.0;
+  // 2026-06-07：基于参考高度的 outlier 阈值。WebView 测高在 CSS reset
+  // 注入前/字体回退/图片懒加载等瞬态下可能返回"原始 HTML 文本高度"
+  // ——把标签字符当纯文本逐行排版的高度（远大于渲染后高度）。一旦
+  // 新测量值 > 参考高度 × ratio，视为瞬态噪声，**保留旧值**而不用
+  // 新值——让后续稳定测量来修正，避免"渲染下方空白"的偶发跳变。
+  // 1.5 倍是经验值：合法增长（details 展开、聊天消息展开）通常 <1.3 倍。
+  static const double _kReferenceOutlierRatio = 1.5;
   static final RegExp _documentShellPattern = RegExp(
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
@@ -3819,6 +3826,22 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         return;
       }
     }
+    // 2026-06-07：基于参考高度的 outlier 检查，对**所有测量**生效。
+    // 旧版只对首测做 outlier 检查，但用户复现确认 BUG 仍偶发——根因是
+    // CSS reset 注入/字体回退/图片懒加载等瞬态会把已正确渲染的卡片
+    // 临时测出"原始 HTML 文本高度"（≈ 把 `<div>...</div>` 当纯文本
+    // 逐行排版的高度）。新测量若 > 参考高度 × ratio，视为瞬态噪声，
+    // 保留旧值，让后续稳定测量修正。参考高度优先级：
+    //   floor（dispose 时写入的真实高度）> current _height > cached。
+    final refHeight = _heightFloorCache[_heightCacheKey] ??
+        _height ??
+        _heightCache[_heightCacheKey];
+    if (refHeight != null && refHeight > 0) {
+      final refRatio = next / refHeight;
+      if (refRatio > _kReferenceOutlierRatio) {
+        return;
+      }
+    }
     if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
       return;
     }
@@ -4203,12 +4226,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           // 闪一下白屏与气泡底色形成强烈对比。其他平台
           // transparentBackground: true 时同样受益，HTML 没设背景时
           // 容器色自然透出与气泡衔接。
+          // 2026-06-07：loading 阶段用 Opacity(0) 隐藏 WebView 内容——
+          // 旧版 shimmer 透明叠加在 WebView 之上导致 HTML 渲染字符与骨架
+          // 条同时可见，UI 杂乱。隐藏 WebView 后用户只看到骨架屏，加载
+          // 完成后由 setState 触发 WebView 显示，衔接由外层 entrance
+          // TweenAnimationBuilder 的 fade+scale 落位动画保证自然 Q 弹。
           Container(
             color: widget.backgroundColor,
             child: SizedBox(
               width: double.infinity,
               height: displayHeight,
-              child: webViewChild,
+              child: Opacity(
+                opacity: showShimmer ? 0.0 : 1.0,
+                child: webViewChild,
+              ),
             ),
           ),
           // 2026-06-07：用 Stack 叠加替代 Column 堆叠——shimmer 永远
