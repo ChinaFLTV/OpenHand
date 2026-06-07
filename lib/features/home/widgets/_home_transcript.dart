@@ -1268,12 +1268,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     initiallyShowRawContent:
                         _rawContentVisibleByMessageId[message.id] ?? false,
                     onShowRawContentChanged: (visible) {
-                      // 2026-06-07：临时调试日志——追踪 map 更新。
-                      final before = _rawContentVisibleByMessageId[message.id];
                       _rawContentVisibleByMessageId[message.id] = visible;
-                      debugPrint(
-                          '[DBG-TRANS:mapSet] mid=${message.id.hashCode.toRadixString(16).substring(0, 8)} '
-                          'before=${before ?? "null"} → after=$visible');
                     },
                   ),
                 );

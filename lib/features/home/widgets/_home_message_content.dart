@@ -3268,7 +3268,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
-  static const int _kHeightCacheMaxSize = 96;
+  // 2026-06-07：96 → 512。长会话（>96 条 HTML 消息）下滑回来时，被淘汰
+  // 的旧消息 cachedHeight 丢失，会走 shimmer → actual 路径触发 maxScroll
+  // Extent 抖动。更大的 cache 让绝大多数用户场景下缓存命中，避免重建。
+  static const int _kHeightCacheMaxSize = 512;
   // 2026-06-07：移除 stability 检查 + 5 秒超时兜底。stability 检查
   // 试图用 Flutter 端逻辑去判断 WebView 异步渲染状态根本不可靠——
   // 一旦后续 reflow 触发了大幅变化（图片懒加载、字体回退）导致
@@ -3680,6 +3683,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
+  // 2026-06-07：单调 floor——首次拿到真实测量值（_height 或 cachedHeight）
+  // 时记录下来作为下界，此后的 Stack 高度 = max(_height, _initialFloor)，
+  // 永远不让父级空间收缩。若后续 JS 测量值上下震荡或比初始值小（罕见，
+  // HTML 实际高度比字符估算短），Stack 不会缩小 → maxScrollExtent 不会
+  // 减小 → 用户不会被强制滚动。代价：偶有底部 50-200px 空白（Stack 略高于
+  // WebView 实际内容时，WebView 在 Stack 顶部，下方 Container 底色透出），
+  // 与"被强制滚动"对比是可接受权衡。
+  double? _initialFloor;
 
   int get _heightCacheKey => Object.hash(
     widget.data,
@@ -3690,15 +3701,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 2026-06-07：临时调试日志。
-    final dataChanged = oldWidget.data != widget.data;
-    final textColorChanged = oldWidget.textColor != widget.textColor;
-    final bgColorChanged = oldWidget.backgroundColor != widget.backgroundColor;
-    if (dataChanged || textColorChanged || bgColorChanged) {
-      debugPrint(
-          '[DBG-HBV:didUpdate] data-changed=$dataChanged '
-          'textColor-changed=$textColorChanged bgColor-changed=$bgColorChanged '
-          '_height=$_height _firstMeasurementHandled=$_firstMeasurementHandled → _reload()');
+    if (oldWidget.data != widget.data ||
+        oldWidget.textColor != widget.textColor ||
+        oldWidget.backgroundColor != widget.backgroundColor) {
       _reload();
     }
   }
@@ -3753,9 +3758,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
-    // 2026-06-07：临时调试日志。
-    debugPrint(
-        '[DBG-HBV:_reload] data.length=${widget.data.length} old._height=$_height → null');
     setState(() {
       _height = null;
       _hasError = false;
@@ -3872,10 +3874,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
-    // 2026-06-07：临时调试日志——追踪 _height 应用时的实际值。
-    debugPrint(
-        '[DBG-HBV:_applyHeight] data.length=${widget.data.length} '
-        'next=$next _scrollActive=$_scrollActive');
     setState(() => _height = next);
   }
 
@@ -4091,11 +4089,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   @override
   Widget build(BuildContext context) {
-    // 2026-06-07：临时调试日志——build 入口。
-    debugPrint(
-        '[DBG-HBV:build] data.length=${widget.data.length} _hasError=$_hasError');
     if (_hasError) {
-      debugPrint('[DBG-HBV:build] → _HtmlMessageBody (fallback)');
       return _HtmlMessageBody(
         data: widget.data,
         textColor: widget.textColor,
@@ -4112,7 +4106,17 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
     final showShimmer = _height == null && cachedHeight == null;
     final estimatedHeight = _estimateHeight();
-    final displayHeight = _height ?? cachedHeight ?? estimatedHeight;
+    // 2026-06-07：单调 floor 逻辑——首次拿到稳定参考高度（cachedHeight
+    // 命中或 _height 首次被应用）时记录为下界；后续若 JS 测量上下震荡
+    // 或低于初始 floor，Stack 高度不会收缩，杜绝"Shimmer 阶段缩小
+    // → maxScrollExtent 减小 → 用户被强制滚动"的 BUG 路径。
+    final rawDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
+    if (_initialFloor == null && (_height != null || cachedHeight != null)) {
+      _initialFloor = rawDisplayHeight;
+    }
+    final displayHeight = _initialFloor != null && rawDisplayHeight < _initialFloor!
+        ? _initialFloor!
+        : rawDisplayHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
     // 2026-06-07：改用 Stack 叠加（shimmer 在 WebView 之上），让 shimmer
@@ -4424,13 +4428,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         child: _buildDispatchedBody(),
       ),
     );
-    // 2026-06-07：临时调试日志——追踪 dispatcher 选择的子组件类型。
-    final selectedKey = '${format.storageKey}|${isStreaming ? 'streaming' : 'stable'}|${wrapInSelectionArea ? 'select' : 'plain'}';
-    debugPrint(
-        '[DBG-DISP:build] data.length=${data.length} '
-        'format=$format isStreaming=$isStreaming '
-        'wrapInSelectionArea=$wrapInSelectionArea '
-        'selected=$selectedKey');
     return _wrapSelection(body);
   }
 }
