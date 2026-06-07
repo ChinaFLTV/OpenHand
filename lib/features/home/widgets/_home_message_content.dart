@@ -3268,7 +3268,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
-  static const Duration _kHeightDebounceDuration = Duration(milliseconds: 500);
   static const int _kHeightCacheMaxSize = 96;
   // 2026-06-07：移除 stability 检查 + 5 秒超时兜底。stability 检查
   // 试图用 Flutter 端逻辑去判断 WebView 异步渲染状态根本不可靠——
@@ -3277,6 +3276,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 5 秒超时失效，shimmer 永久卡死。改回简单条件 + 首次测量 outlier
   // 检查：`_height == null && cachedHeight == null` 才显示 shimmer，
   // 几百毫秒内 _height 被设置后即切到 WebView，逻辑可靠。
+  // 2026-06-07：防抖时长 500ms → 250ms。WebView 内部 reflow（图片懒
+  // 加载、字体回退）通常在 200ms 内收敛，500ms 防抖让 shimmer 多停
+  // 留 300ms 显得拖沓；250ms 既能滤掉高频回调、又不让用户等太久。
+  static const Duration _kHeightDebounceDuration = Duration(milliseconds: 250);
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
   // 初始高度，避免 shimmer 96px 与真实 2000+px 之间出现夸张落差。
@@ -3287,7 +3290,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 2026-06-07：首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
   // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
   // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
-  // 显示尺寸，后续测量（500ms 防抖）会把高度修正到准确值；视觉上看
+  // 显示尺寸，后续测量（250ms 防抖）会把高度修正到准确值；视觉上看
   // 是"由小到大"生长，比"由大到小收缩留下大片空白"更可接受。
   static const double _kFirstMeasurementOutlierRatio = 2.0;
   static final RegExp _documentShellPattern = RegExp(
@@ -4166,15 +4169,31 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showShimmer)
+            // 2026-06-07：shimmer 高度改为 displayHeight（之前用
+            // estimatedHeight）。shimmer 与 WebView 共用同一高度，让
+            // shimmer 消失瞬间 Column 总高度不发生 1px 跳变；唯一高度
+            // 变化来自 displayHeight 自身（estimated → actual 修正），
+            // 由外层 AnimatedSize 平滑过渡，不再叠加 shimmer 显隐跳变。
             SizedBox(
               width: double.infinity,
-              height: estimatedHeight,
+              height: displayHeight,
               child: const _HtmlBubbleShimmer(),
             ),
-          SizedBox(
-            width: double.infinity,
-            height: showShimmer ? 1.0 : displayHeight,
-            child: webViewChild,
+          // 2026-06-07：包一层 Container(color: widget.backgroundColor)。
+          // macOS WKWebView 默认白底（`setBackgroundColor` 在
+          // flutter_inappwebview 未实现），HTML 加载完成前会闪一下
+          // 白屏，与气泡底色形成强烈对比，被用户感知为"闪屏"。
+          // 容器用气泡底色作 fallback：HTML 未加载时容器色显示，HTML
+          // 加载完成后由 HTML 自身背景覆盖（如果有）。其他平台
+          // `transparentBackground: true` 时同样受益——容器色透出，
+          // HTML 没设背景时与气泡自然衔接。
+          Container(
+            color: widget.backgroundColor,
+            child: SizedBox(
+              width: double.infinity,
+              height: showShimmer ? 1.0 : displayHeight,
+              child: webViewChild,
+            ),
           ),
         ],
       ),

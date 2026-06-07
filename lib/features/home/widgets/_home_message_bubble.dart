@@ -559,95 +559,113 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          if (_showRawContent)
-                            SelectableText(
-                              effectiveContent.isEmpty ? ' ' : effectiveContent,
-                              style: markdownStyleSheet.styleSheet.p?.copyWith(
-                                color: textColor,
+                          // 2026-06-07：用 IndexedStack 替代 ternary 让
+                          // WebView 始终在 tree 中。当用户处于"显示原始"
+                          // 模式时，渲染分支的 WebView 仍在 background
+                          // 加载、JS 测量、设置 _height；切回"显示渲染"
+                          // 时 WebView 已 ready，无须重新走 500ms 防抖 +
+                          // shimmer 阶段，瞬时显示。StackFit.loose 让
+                          // IndexedStack 高度由当前可见子项决定，不强制
+                          // 拉伸到最高子项，避免原始文字与渲染视图高度
+                          // 不同时的 layout 浪费。
+                          IndexedStack(
+                            index: _showRawContent ? 0 : 1,
+                            children: [
+                              SelectableText(
+                                effectiveContent.isEmpty
+                                    ? ' '
+                                    : effectiveContent,
+                                style: markdownStyleSheet.styleSheet.p
+                                    ?.copyWith(color: textColor),
                               ),
-                            )
-                          else if (isStreamingAssistant &&
-                              resolvedMessageContentFormat ==
-                                  AiMessageContentFormat.html)
-                            // HTML 格式：流式阶段不暴露原始 `<div>...` 字符，
-                            // 改为渲染 `_AssistantMessageBodyDispatcher`
-                            // 内部的 Q 弹骨架屏占位；流式结束后由内部
-                            // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
-                            _AssistantMessageBodyDispatcher(
-                              data: effectiveContent,
-                              format: resolvedMessageContentFormat,
-                              htmlFallback: context
-                                  .watch<SettingsController>()
-                                  .aiHtmlRenderFallback,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              markdownBuilders: markdownBuilders,
-                              markdownStyleSheet: markdownStyleSheet.styleSheet,
-                              inlineSyntaxes: inlineSyntaxes,
-                              filePathRoots: filePathRoots,
-                              filePathParseKey: filePathParseKey,
-                              collapseCharThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseCharThreshold
-                                  : _messageMarkdownCollapseCharThreshold,
-                              collapseLineThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseLineThreshold
-                                  : _messageMarkdownCollapseLineThreshold,
-                              previewMaxHeight: isToolResult ? 176 : 240,
-                              wrapInSelectionArea: !isToolResult,
-                              isStreaming: true,
-                            )
-                          else if (isStreamingAssistant)
-                            TweenAnimationBuilder<double>(
-                              tween: Tween<double>(begin: 0.992, end: 1.0),
-                              duration: cardMotionDurationFor(
-                                context,
-                                expanding: true,
-                              ),
-                              curve: kCardMotionCurve,
-                              child: StreamingTextReveal(
-                                textLength: effectiveContent.length,
-                                streaming: true,
-                                animateSize: false,
-                                child: _StreamingAssistantTextBody(
+                              if (isStreamingAssistant &&
+                                  resolvedMessageContentFormat ==
+                                      AiMessageContentFormat.html)
+                                // HTML 格式：流式阶段不暴露原始 `<div>...` 字符，
+                                // 改为渲染 `_AssistantMessageBodyDispatcher`
+                                // 内部的 Q 弹骨架屏占位；流式结束后由内部
+                                // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
+                                _AssistantMessageBodyDispatcher(
                                   data: effectiveContent,
+                                  format: resolvedMessageContentFormat,
+                                  htmlFallback: context
+                                      .watch<SettingsController>()
+                                      .aiHtmlRenderFallback,
                                   textColor: textColor,
                                   backgroundColor: backgroundColor,
-                                  style: markdownStyleSheet.styleSheet.p,
+                                  markdownBuilders: markdownBuilders,
+                                  markdownStyleSheet:
+                                      markdownStyleSheet.styleSheet,
+                                  inlineSyntaxes: inlineSyntaxes,
+                                  filePathRoots: filePathRoots,
+                                  filePathParseKey: filePathParseKey,
+                                  collapseCharThreshold: isToolResult
+                                      ? _toolResultMarkdownCollapseCharThreshold
+                                      : _messageMarkdownCollapseCharThreshold,
+                                  collapseLineThreshold: isToolResult
+                                      ? _toolResultMarkdownCollapseLineThreshold
+                                      : _messageMarkdownCollapseLineThreshold,
+                                  previewMaxHeight:
+                                      isToolResult ? 176 : 240,
+                                  wrapInSelectionArea: !isToolResult,
+                                  isStreaming: true,
+                                )
+                              else if (isStreamingAssistant)
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(begin: 0.992, end: 1.0),
+                                  duration: cardMotionDurationFor(
+                                    context,
+                                    expanding: true,
+                                  ),
+                                  curve: kCardMotionCurve,
+                                  child: StreamingTextReveal(
+                                    textLength: effectiveContent.length,
+                                    streaming: true,
+                                    animateSize: false,
+                                    child: _StreamingAssistantTextBody(
+                                      data: effectiveContent,
+                                      textColor: textColor,
+                                      backgroundColor: backgroundColor,
+                                      style: markdownStyleSheet.styleSheet.p,
+                                    ),
+                                  ),
+                                  builder: (context, value, child) {
+                                    return Transform.scale(
+                                      scale: value,
+                                      alignment: Alignment.topLeft,
+                                      child: child,
+                                    );
+                                  },
+                                )
+                              else
+                                _AssistantMessageBodyDispatcher(
+                                  data: effectiveContent.isEmpty
+                                      ? ' '
+                                      : effectiveContent,
+                                  format: resolvedMessageContentFormat,
+                                  htmlFallback: context
+                                      .watch<SettingsController>()
+                                      .aiHtmlRenderFallback,
+                                  textColor: textColor,
+                                  backgroundColor: backgroundColor,
+                                  markdownBuilders: markdownBuilders,
+                                  markdownStyleSheet:
+                                      markdownStyleSheet.styleSheet,
+                                  inlineSyntaxes: inlineSyntaxes,
+                                  filePathRoots: filePathRoots,
+                                  filePathParseKey: filePathParseKey,
+                                  collapseCharThreshold: isToolResult
+                                      ? _toolResultMarkdownCollapseCharThreshold
+                                      : _messageMarkdownCollapseCharThreshold,
+                                  collapseLineThreshold: isToolResult
+                                      ? _toolResultMarkdownCollapseLineThreshold
+                                      : _messageMarkdownCollapseLineThreshold,
+                                  previewMaxHeight:
+                                      isToolResult ? 176 : 240,
+                                  wrapInSelectionArea: !isToolResult,
                                 ),
-                              ),
-                              builder: (context, value, child) {
-                                return Transform.scale(
-                                  scale: value,
-                                  alignment: Alignment.topLeft,
-                                  child: child,
-                                );
-                              },
-                            )
-                          else
-                            _AssistantMessageBodyDispatcher(
-                              data: effectiveContent.isEmpty
-                                  ? ' '
-                                  : effectiveContent,
-                              format: resolvedMessageContentFormat,
-                              htmlFallback: context
-                                  .watch<SettingsController>()
-                                  .aiHtmlRenderFallback,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              markdownBuilders: markdownBuilders,
-                              markdownStyleSheet: markdownStyleSheet.styleSheet,
-                              inlineSyntaxes: inlineSyntaxes,
-                              filePathRoots: filePathRoots,
-                              filePathParseKey: filePathParseKey,
-                              collapseCharThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseCharThreshold
-                                  : _messageMarkdownCollapseCharThreshold,
-                              collapseLineThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseLineThreshold
-                                  : _messageMarkdownCollapseLineThreshold,
-                              previewMaxHeight: isToolResult ? 176 : 240,
-                              wrapInSelectionArea: !isToolResult,
-                            ),
+                            ],
+                          ),
                           if (isStreamingAssistant &&
                               resolvedMessageContentFormat !=
                                   AiMessageContentFormat.html) ...[
