@@ -3276,6 +3276,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 来自 DPR 舍入，无视觉影响。
   static const int _kRequiredStableMeasurements = 2;
   static const double _kStabilityDelta = 16.0;
+  // 2026-06-07：稳定性超时兜底。若 WebView 内部持续 reflow（如图片
+  // 懒加载、字体回退）让测量差值始终超阈值、或累计样本不够 2 次连续
+  // 稳定（例如微小变化路径早 return、不调用 _applyHeight），导致
+  // `_heightStabilized` 永远卡在 false，shimmer 占位卡死。超过此时长
+  // 强制切到真实 WebView，至少让用户能看清内容，宁可看到"接近准确"
+  // 的高度也不要永久骨架屏。
+  static const Duration _kStabilizationTimeout = Duration(seconds: 5);
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
   // 初始高度，避免 shimmer 96px 与真实 2000+px 之间出现夸张落差。
@@ -3675,12 +3682,28 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int _stableMeasurementCount = 0;
   bool _heightStabilized = false;
   double? _previousAppliedHeight;
+  // 稳定性超时定时器：超过 `_kStabilizationTimeout` 仍不稳定则强制
+  // 切到真实 WebView，避免永远卡在 shimmer。initState 启动，dispose
+  // 或稳定后取消。
+  Timer? _stabilizationTimeoutTimer;
 
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
     widget.baseTextStyle?.height,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // 启动稳定性超时兜底：避免 `_heightStabilized` 永远卡在 false 导致
+    // shimmer 永久占位。_recordStabilitySample 在 _heightStabilized 变
+    // true 时会取消本 timer，所以正常情况下 5 秒内就会提前结束。
+    _stabilizationTimeoutTimer = Timer(_kStabilizationTimeout, () {
+      if (!mounted || _heightStabilized) return;
+      setState(() => _heightStabilized = true);
+    });
+  }
 
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
@@ -3732,6 +3755,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
+    _stabilizationTimeoutTimer?.cancel();
+    _stabilizationTimeoutTimer = null;
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
@@ -3782,6 +3807,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _hasPendingHeightAfterScroll = true;
       return;
     }
+    // 2026-06-07（shimmer 永久占位 BUG 关键修复）：stability 追踪必须
+    // 在"微小变化早 return"之前完成。原实现把 stability 计算放在
+    // `_applyHeight` 内部，但差值 < 8px 的微小变化会直接 return、永不
+    // 调用 `_applyHeight`，导致 _stableMeasurementCount 永远不增加、
+    // _heightStabilized 永远卡在 false → 用户看到永久骨架屏。把
+    // stability 抽成 `_recordStabilitySample` 并在所有非滚动期 / 非
+    // 首次异常大的有效测量入口执行。
+    _recordStabilitySample(next);
     if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
       return;
     }
@@ -3844,14 +3877,25 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
-    // 测量稳定性追踪：在 setState 之前完成状态计算，确保同一次
-    // rebuild 既能更新 _height 也能更新 _heightStabilized。滚动
-    // 期间不调用本方法（pending 路径见 _applyPendingHeightIfAny），
-    // 因此 prev 只会被"实际应用"过的高度更新，不会被高频回调污染。
+    setState(() => _height = next);
+    // 注意：stability 追踪由调用方在 `_onContentSizeChanged` /
+    // `_applyPendingHeightIfAny` 入口处通过 `_recordStabilitySample` 完成，
+    // 此处不重复，避免同一测量被双重计数。
+  }
+
+  /// 记录一次稳定性样本。连续 `_kRequiredStableMeasurements` 次相邻样
+  /// 本差值小于 `_kStabilityDelta` 才认为稳定；任一次差值超阈值立即
+  /// 清零计数。状态翻转时（稳定 ↔ 不稳定）触发 setState 切 shimmer。
+  /// 滚动期间样本由 `_onContentSizeChanged` 早 return 跳过，避免用户
+  /// 滚动手势的噪声污染稳定序列。
+  void _recordStabilitySample(double next) {
     final prev = _previousAppliedHeight;
     if (prev == null) {
       _previousAppliedHeight = next;
-    } else if ((next - prev).abs() < _kStabilityDelta) {
+      return;
+    }
+    final wasStabilized = _heightStabilized;
+    if ((next - prev).abs() < _kStabilityDelta) {
       _stableMeasurementCount++;
       if (_stableMeasurementCount >= _kRequiredStableMeasurements) {
         _heightStabilized = true;
@@ -3861,12 +3905,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightStabilized = false;
     }
     _previousAppliedHeight = next;
-    setState(() => _height = next);
+    if (_heightStabilized != wasStabilized) {
+      // 稳定后取消超时兜底定时器：避免 5 秒后 setState 覆盖刚稳定的
+      // 状态。重新不稳定时由 `_recordStabilitySample` 自身重新开始
+      // 计数，但不再重启 timer（用 initState 中的一次性 timer 即可，
+      // 超时则强制稳定，宁可"提前结束"也不可"卡死"）。
+      if (_heightStabilized) {
+        _stabilizationTimeoutTimer?.cancel();
+        _stabilizationTimeoutTimer = null;
+      }
+      if (mounted) setState(() {});
+    }
   }
 
   /// 滚动停止后应用滚动期间累积的最近一次高度测量。若无 pending 或差值
   /// 过小则忽略。与正常路径共用 `_kMinHeightDelta` 阈值，确保不会与
   /// 滚动期间已部分应用的过渡状态产生冲突。
+  ///
+  /// 滚动期间 `_onContentSizeChanged` 早 return 跳过了 stability 样本
+  /// 记录，滚动结束后此处补一次 sample，让稳定性序列在跨滚动周期时也
+  /// 能正确收敛。
   void _applyPendingHeightIfAny() {
     final pending = _pendingHeight;
     if (pending == null) return;
@@ -3875,6 +3933,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       return;
     }
     _pendingHeight = null;
+    _recordStabilitySample(pending);
     _applyHeight(pending);
   }
 
