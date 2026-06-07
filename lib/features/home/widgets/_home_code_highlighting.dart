@@ -3088,7 +3088,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       return hex.length >= 7 ? hex.substring(hex.length - 6) : hex;
     }
 
-    final bgHex = cssHex(palette.containerColor);
+    final bgHex = cssHex(palette.bodyColor);
     final fgHex = cssHex(palette.actionTextColor);
     // 把渲染 IIFE 内联到模板末尾，与 mermaid.js 同一个 <script> 标签。
     final renderJs = _buildRenderJs(bgRgb, fgRgb, borderRgb);
