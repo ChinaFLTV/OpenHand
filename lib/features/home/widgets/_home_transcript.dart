@@ -295,6 +295,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   List<AiSessionMessage>? _cachedIndexMapSource;
   int _cachedIndexMapWindowStart = -1;
   Map<String, int>? _cachedVisibleIndexMap;
+  // 2026-06-07：build 路径上的 _resolvePendingCreationPlaceholder 与
+  // _resolveUserVisibleError 在长会话下分别会反向遍历 visibleMessages 与
+  // recentErrors，O(N) per build。父级 watch 流式 token 触发的 rebuild
+  // 中输入（visibleMessages、sendPhase、dismissedErrorIds 等）多数未
+  // 变化时缓存命中可省掉两轮线性扫描。键由 (visibleMessages identity,
+  // sendPhase, dismissedErrorIds size) 组成，identity 命中即复用。
+  List<AiSessionMessage>? _cachedCreationRequestDisplaySource;
+  int? _cachedCreationRequestWindowStart;
+  AiSendPhase? _cachedCreationRequestSendPhase;
+  bool? _cachedCreationRequestAllowWhenIdle;
+  AiCreationRequest? _cachedCreationRequest;
+  bool _cachedCreationRequestComputed = false;
+  List<AiSessionErrorRecord>? _cachedUserVisibleErrorSource;
+  int? _cachedUserVisibleErrorDismissedLength;
+  String? _cachedUserVisibleErrorVisibleId;
+  AiSessionErrorRecord? _cachedUserVisibleError;
   // 阶段⑱：transcript 内 messageId → BuildContext 反查映射，替代
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
@@ -886,6 +902,69 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return null;
   }
 
+  /// 2026-06-07：build 路径上 memoize。按 (session.recentErrors 引用,
+  /// _dismissedErrorIds 大小, _visibleErrorId) 命中复用：recentErrors 引用
+  /// 未变（多数父级 rebuild 不会替换 recentErrors）+ dismissedErrorIds 大小
+  /// 未变 + _visibleErrorId 未变即视为输入相同，避免每次 build 都对
+  /// recentErrors 做两次线性扫描。
+  AiSessionErrorRecord? _resolveUserVisibleErrorCached(AiSession session) {
+    final errors = session.recentErrors;
+    if (identical(_cachedUserVisibleErrorSource, errors) &&
+        _cachedUserVisibleErrorDismissedLength == _dismissedErrorIds.length &&
+        _cachedUserVisibleErrorVisibleId == _visibleErrorId &&
+        _cachedUserVisibleError != null) {
+      // 缓存可能持有「已被新增 dismiss 屏蔽」的 error —— 防御性兜底。
+      final cached = _cachedUserVisibleError!;
+      if (!_dismissedErrorIds.contains(cached.id)) {
+        return cached;
+      }
+    }
+    final result = _resolveUserVisibleError(session);
+    _cachedUserVisibleErrorSource = errors;
+    _cachedUserVisibleErrorDismissedLength = _dismissedErrorIds.length;
+    _cachedUserVisibleErrorVisibleId = _visibleErrorId;
+    _cachedUserVisibleError = result;
+    return result;
+  }
+
+  /// 2026-06-07：build 路径上 memoize。visibleMessages 是 sublist 视图，
+  /// 每次 build 都创建新 List 引用，单纯按引用比对无法命中。改用
+  /// (displayMessages 引用, windowStart) 作 key 命中，sendPhase 与
+  /// allowWhenIdle 作为旁路条件，避免每次 build 都反向遍历
+  /// visibleMessages 找最新 user message + 检 assistant 是否已有内容。
+  AiCreationRequest? _resolvePendingCreationPlaceholderCached({
+    required AiSession session,
+    required List<AiSessionMessage> displayMessages,
+    required int windowStart,
+    required AiSendPhase sendPhase,
+    required bool allowWhenIdle,
+  }) {
+    if (_cachedCreationRequestComputed &&
+        identical(_cachedCreationRequestDisplaySource, displayMessages) &&
+        _cachedCreationRequestWindowStart == windowStart &&
+        _cachedCreationRequestSendPhase == sendPhase &&
+        _cachedCreationRequestAllowWhenIdle == allowWhenIdle) {
+      return _cachedCreationRequest;
+    }
+    // 复用原函数的反向遍历逻辑，但传实际 visibleMessages 切片以保持
+    // 语义不变（不会跨越 windowStart 之前的 hidden 消息）。
+    final clampedWindowStart = windowStart.clamp(0, displayMessages.length).toInt();
+    final visibleMessages = displayMessages.sublist(clampedWindowStart);
+    final result = _resolvePendingCreationPlaceholder(
+      session: session,
+      visibleMessages: visibleMessages,
+      sendPhase: sendPhase,
+      allowWhenIdle: allowWhenIdle,
+    );
+    _cachedCreationRequestDisplaySource = displayMessages;
+    _cachedCreationRequestWindowStart = clampedWindowStart;
+    _cachedCreationRequestSendPhase = sendPhase;
+    _cachedCreationRequestAllowWhenIdle = allowWhenIdle;
+    _cachedCreationRequest = result;
+    _cachedCreationRequestComputed = true;
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -951,7 +1030,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _cachedIndexMapWindowStart = clampedWindowStartIndex;
       _cachedVisibleIndexMap = visibleMessageIndexById;
     }
-    final userVisibleError = _resolveUserVisibleError(session);
+    final userVisibleError = _resolveUserVisibleErrorCached(session);
     if (_renderEntries.isEmpty &&
         visibleMessages.isEmpty &&
         userVisibleError == null) {
@@ -971,10 +1050,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // audio / deep research), we slot in a shimmering placeholder card
     // immediately below the user bubble so there is never a blank gap
     // between the request and the eventual result.
-    final pendingCreationRequest = _resolvePendingCreationPlaceholder(
+    final pendingCreationRequest = _resolvePendingCreationPlaceholderCached(
       session: session,
-      visibleMessages: visibleMessages,
+      displayMessages: displayMessages,
+      windowStart: clampedWindowStartIndex,
       sendPhase: widget.sendPhase,
+      allowWhenIdle: false,
     );
     // When the assistant bailed out before producing any content AND the
     // user had asked for a multimedia creation, we swap the shimmer for an
@@ -985,9 +1066,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         (pendingCreationRequest == null &&
             userVisibleError != null &&
             widget.sendPhase == AiSendPhase.idle)
-        ? _resolvePendingCreationPlaceholder(
+        ? _resolvePendingCreationPlaceholderCached(
             session: session,
-            visibleMessages: visibleMessages,
+            displayMessages: displayMessages,
+            windowStart: clampedWindowStartIndex,
             sendPhase: widget.sendPhase,
             allowWhenIdle: true,
           )
@@ -1061,24 +1143,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // 首屏严格只构建可见气泡，越界滚动时再 lazy 构建；牺牲
               // 一点 fling 期的 buffer 换取首屏帧预算。
               //
-              // 2026-05-17 进一步提升到 1800：600 px 仍偶尔有 bubble 进出
+              // 2026-05-17 提升到 1800：600 px 仍偶尔有 bubble 进出
               // cacheExtent 边界 → dispose/rebuild 后重新解析的 markdown
               // 几何与原值偏差几像素，触发 SliverList correctPixels。
+              //
+              // 2026-06-07 回调到 800：长会话（60+ 消息）首屏在 cacheExtent
+              // 1800 下会一次性 eager 构建 15-20 个 _MessageBubble；每个
+              // bubble 还要叠 Listener + RepaintBoundary + SizeChangedLayoutNotifier
+              // + AnimatedSize + _BubbleHtmlInteractiveScope 等包装，主线
+              // 程单帧 16ms 预算被撑爆、首屏出现 200-500ms 卡顿。800 仍能
+              // 覆盖一个完整 viewport（典型 600-900px）+ 半屏 buffer，对
+              // 绝大多数中等会话（5-15 条消息）而言整段 viewport 内的 bubble
+              // 都被一次性 cache；超长会话边界穿越通过把 placeholder 帧
+              // 预算从 6 提到 10（见 _transcriptPreparationFrameBudget）来
+              // 提前摊开 markdown 帧节流缓解，不依赖 cacheExtent 兜底。
               //
               // 注意：不能走 AutomaticKeepAliveClientMixin 路径——该 mixin
               // 会把离屏 bubble 放进 Offstage 容器，使其 render object 不被
               // layout（hasSize=false），但 SelectableRegion 仍会枚举它们
               // 的 Selectable 并读 paintBounds 排序，触发
               // "RenderBox was not laid out" 断言崩溃（已实测）。
-              //
-              // 改用「大缓冲 cacheExtent」实现同样的几何稳定性：
-              // cacheExtent 内的 bubble 是 *完整 laid out* 的，几何一旦
-              // 稳定便不再变，SelectableRegion 排序访问 paintBounds 不会
-              // 出错。3 个 viewport（3×600≈1800）足以覆盖绝大多数会话的
-              // 全部气泡，边界穿越现象几乎不再发生；首屏 ANR 由
-              // _MarkdownFrameScheduler + drip 物化 + _SafeMarkdownBody
-              // 阈值联同缓解。
-              cacheExtent: 1800,
+              cacheExtent: 800,
               physics: const ClampingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

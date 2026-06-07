@@ -3669,6 +3669,16 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // maxScrollExtent 抖动。与 _heightCache 分离：floor 只写 dispose 时的
   // 真实高度，outlier 占位估计绝不写入，避免污染持久化数据。
   static final Map<int, double> _heightFloorCache = <int, double>{};
+  // 2026-06-07：HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
+  // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
+  // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
+  // 在重复拼装同一份文档上。改为按 (data 引用, textColor 引用,
+  // backgroundColor 引用) 在 State 维度内缓存，引用相同即视为输入未变。
+  // 使用引用比对而非 hash 避免罕见的 hash 冲突错返缓存。
+  String? _documentCacheData;
+  Color? _documentCacheTextColor;
+  Color? _documentCacheBackgroundColor;
+  String? _documentCache;
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
   // 2026-06-06（线程模板抽搐 bug 真凶）：HTML WebView 通过 ResizeObserver
@@ -3770,6 +3780,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 内容/样式变化时清除旧高度缓存与 floor，避免新内容被旧大值撑出空白。
     _heightCache.remove(_heightCacheKey);
     _heightFloorCache.remove(_heightCacheKey);
+    // 文档字符串缓存一并失效，下一次 _buildDocument() 会按新 data/颜色
+    // 重新拼装。
+    _documentCacheData = null;
+    _documentCacheTextColor = null;
+    _documentCacheBackgroundColor = null;
+    _documentCache = null;
     setState(() {
       _height = null;
       _hasError = false;
@@ -4026,6 +4042,17 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   String _buildDocument() {
+    // 2026-06-07：按 (data 引用, textColor 引用, backgroundColor 引用) 命中
+    // 复用已拼装的文档字符串。build 阶段被 WebView reload 路径
+    // （didUpdateWidget 触发 _reload）会主动调用 buildDocument() 刷新
+    // 缓存；普通 rebuild 命中后直接返回缓存，跳过 1-2KB 字符串拼装 +
+    // RegExp 扫描 + healUnbalancedHtml。
+    if (identical(_documentCacheData, widget.data) &&
+        identical(_documentCacheTextColor, widget.textColor) &&
+        identical(_documentCacheBackgroundColor, widget.backgroundColor) &&
+        _documentCache != null) {
+      return _documentCache!;
+    }
     String hex(Color c) {
       final r = (c.r * 255).round() & 0xff;
       final g = (c.g * 255).round() & 0xff;
@@ -4050,11 +4077,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final healed = _healUnbalancedHtml(widget.data);
     final source = healed.trimLeft();
 
+    final String result;
     if (_documentShellPattern.hasMatch(source)) {
-      return _injectEmbeddedDocumentReset(healed);
-    }
-
-    return '<!DOCTYPE html>'
+      result = _injectEmbeddedDocumentReset(healed);
+    } else {
+      result =
+          '<!DOCTYPE html>'
         '<html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<style>'
@@ -4082,6 +4110,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         'a{color:inherit;}'
         '</style></head>'
         '<body><div id="oh-root">$healed</div></body></html>';
+    }
+    _documentCacheData = widget.data;
+    _documentCacheTextColor = widget.textColor;
+    _documentCacheBackgroundColor = widget.backgroundColor;
+    _documentCache = result;
+    return result;
   }
 
   String _injectEmbeddedDocumentReset(String html) {
@@ -4157,7 +4191,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 1px 跳变——该跳变在用户处于"距 maxScrollExtent 较近"位置时
     // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动"的偶发
     // UI 异常。Stack 模式从根上消除该高度差。
-    final webViewChild = KeyedSubtree(
+    final webViewChild = RepaintBoundary(
+      // 2026-06-07：WebView 高度回调 → setState → RepaintBoundary 隔离
+      // 之后只重绘 WebView 自身的 layer，不再让外层消息卡（外层有阴影 /
+      // border / AnimatedSize / ActionButtons 等复杂 layout）跟着整张重
+      // 绘。长会话滚动期间 8-15 个 HTML 气泡同时有 WebView 在跑 ResizeObserver，
+      // 一次 setState 就会拖累整页 paint，RepaintBoundary 阻断这层
+      // repaint 蔓延。
+      child: KeyedSubtree(
       key: _webViewRegionKey,
       child: iaw.InAppWebView(
         initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
@@ -4200,6 +4241,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           }
         },
       ),
+    ),
     );
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
