@@ -172,12 +172,19 @@ const HTML_ANY_TAG_RE = /<\s*\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/;
 
 function hasHtmlTagStructure(value: string): boolean {
   if (!value) return false;
-  return HTML_ANY_TAG_RE.test(value);
+  return HTML_ANY_TAG_RE.test(stripFencedCodeBlocks(value));
+}
+
+/// 剥掉内容中的围栏代码块（```...```），避免代码块内的 <br/>、<div>
+/// 等标签被误判为 HTML 导致整条 Markdown 消息进入 HtmlBody 渲染路径。
+function stripFencedCodeBlocks(value: string): string {
+  // 匹配 ```language\n...content...\n``` 形式的围栏代码块。
+  return value.replace(/(^|\n)```[^\n]*\n[\s\S]*?\n```/g, '');
 }
 
 function looksLikeHtml(value: string): boolean {
   if (!value) return false;
-  return HTML_LIKELY_TAG_RE.test(value);
+  return HTML_LIKELY_TAG_RE.test(stripFencedCodeBlocks(value));
 }
 
 export { looksLikeHtml };

@@ -1122,20 +1122,26 @@ function MessageCardImpl({
 
   const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
   const actionsVisible = hasAnyAction && active;
-  const messageLooksHtml = looksLikeHtml(content);
-  const isWideSystemCard =
-    useToolBody ||
-    message.kind === 'reasoning' ||
-    message.kind === 'system' ||
-    message.role === 'system' ||
-    message.role === 'tool';
+  // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
+  // 优先级：metadata.content_format > global contentFormat。
+  const effectiveFormat = (
+    (typeof message.metadata?.['content_format'] === 'string'
+      ? message.metadata['content_format']
+      : null) ?? contentFormat
+  ) as 'markdown' | 'plain_text' | 'html';
   const isHtmlAssistantCard =
     !isUserBubble &&
     !useToolBody &&
     !useStructuredToolBody &&
     message.kind !== 'reasoning' &&
     message.kind !== 'file_mutation_summary' &&
-    messageLooksHtml;
+    effectiveFormat === 'html';
+  const isWideSystemCard =
+    useToolBody ||
+    message.kind === 'reasoning' ||
+    message.kind === 'system' ||
+    message.role === 'system' ||
+    message.role === 'tool';
   const bubbleMaxWidth = isWideSystemCard
     ? 'min(92%, 820px)'
     : isHtmlAssistantCard
@@ -1325,7 +1331,7 @@ function MessageCardImpl({
           // 显式选了 plain_text 才走打字机型纯文本流；其余一律按 format
           // 走 markdown / html 渲染，markdown 组件内部的 deferred parse
           // + 帧节流已经能扛住 SSE 80ms 一 tick 的解析开销。
-          activelyStreaming && contentFormat === 'plain_text' ? (
+          activelyStreaming && effectiveFormat === 'plain_text' ? (
             <StreamingPlainTextReveal
               content={visibleContent}
               streaming
@@ -1339,7 +1345,7 @@ function MessageCardImpl({
               reduceMotion={reduceMotion}
               raw={showRawContent || style.mono === true}
               mono={style.mono === true}
-              format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : contentFormat}
+              format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : effectiveFormat}
               htmlFallback={contentHtmlFallback}
             />
           )
@@ -1407,7 +1413,7 @@ function MessageCardImpl({
               onClick={() => setShowRawContent((v) => !v)}
             />
           ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && messageLooksHtml ? (
+          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && effectiveFormat === 'html' ? (
             <ActionBtn
               icon="globe"
               label={t('message.openInBrowser', '浏览器打开')}
