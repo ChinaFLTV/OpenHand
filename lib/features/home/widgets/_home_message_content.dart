@@ -3270,6 +3270,19 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 500);
   static const int _kHeightCacheMaxSize = 96;
+  // 2026-06-07：测量稳定性阈值。WebView 首次测量常因图片/CSS 未完成
+  // 偏大（导致"HTML 渲染视图下方存在大量空白"），需要连续 N 次相邻测量
+  // 差值小于此值才切到真实 WebView 渲染。100ms 级别的 16px 差异通常
+  // 来自 DPR 舍入，无视觉影响。
+  static const int _kRequiredStableMeasurements = 2;
+  static const double _kStabilityDelta = 16.0;
+  // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
+  // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
+  // 初始高度，避免 shimmer 96px 与真实 2000+px 之间出现夸张落差。
+  static const double _kEstimatedLineHeight = 24.0;
+  static const int _kEstimatedCharsPerLine = 80;
+  static const double _kEstimatedMinHeight = 96.0;
+  static const double _kEstimatedMaxHeight = 2000.0;
   static final RegExp _documentShellPattern = RegExp(
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
@@ -3653,6 +3666,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   bool _scrollActive = false;
   // 滚动停止后是否有待应用的最新高度。
   bool _hasPendingHeightAfterScroll = false;
+  // 2026-06-07：测量稳定性追踪——见 `_kRequiredStableMeasurements`。
+  // 连续 `_kRequiredStableMeasurements` 次相邻测量差值小于 `_kStabilityDelta`
+  // 才认为稳定。`!_heightStabilized` 时 build 显示 shimmer 占位 +
+  // 内容长度估算高度；稳定后切到真实 WebView 渲染。这一层 pending
+  // 视图既避免"HTML 渲染下方空白"bug，也提示用户卡片尚在渲染、
+  // 不要在此时快速上滑。
+  int _stableMeasurementCount = 0;
+  bool _heightStabilized = false;
+  double? _previousAppliedHeight;
 
   int get _heightCacheKey => Object.hash(
     widget.data,
@@ -3822,6 +3844,23 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
+    // 测量稳定性追踪：在 setState 之前完成状态计算，确保同一次
+    // rebuild 既能更新 _height 也能更新 _heightStabilized。滚动
+    // 期间不调用本方法（pending 路径见 _applyPendingHeightIfAny），
+    // 因此 prev 只会被"实际应用"过的高度更新，不会被高频回调污染。
+    final prev = _previousAppliedHeight;
+    if (prev == null) {
+      _previousAppliedHeight = next;
+    } else if ((next - prev).abs() < _kStabilityDelta) {
+      _stableMeasurementCount++;
+      if (_stableMeasurementCount >= _kRequiredStableMeasurements) {
+        _heightStabilized = true;
+      }
+    } else {
+      _stableMeasurementCount = 0;
+      _heightStabilized = false;
+    }
+    _previousAppliedHeight = next;
     setState(() => _height = next);
   }
 
@@ -4020,6 +4059,21 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     return '$_embeddedDocumentResetStyle$html';
   }
 
+  /// 按内容长度粗略估算 HTML 渲染后占据的高度，用于 shimmer 占位期间
+  /// 给一个"不至于突然伸长/收缩"的初始高度。公式：
+  /// `行数 = ceil(字符数 / 每行字符数)`，`高度 = 行数 * 行高`，clamp
+  /// 到 `_kEstimatedMinHeight` / `_kEstimatedMaxHeight`。
+  /// HTML 标签、图片、表格等会让真实高度偏离估算，但只用作占位期
+  /// 几百毫秒内的视觉占位，精度足够。
+  double _estimateHeight() {
+    final length = widget.data.length;
+    if (length == 0) return _kEstimatedMinHeight;
+    final lines = (length / _kEstimatedCharsPerLine).ceil();
+    return (lines * _kEstimatedLineHeight)
+        .clamp(_kEstimatedMinHeight, _kEstimatedMaxHeight)
+        .toDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
@@ -4030,10 +4084,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final cachedHeight = _heightCache[_heightCacheKey];
-    final showShimmer = _height == null && cachedHeight == null;
-    const shimmerHeight = 96.0;
-    final fallbackHeight = (widget.baseTextStyle?.fontSize ?? 14) * 1.8;
-    final displayHeight = _height ?? cachedHeight ?? fallbackHeight;
+    // 2026-06-07：未稳定时显示 shimmer 占位。WebView 首次测量常因
+    // 图片/CSS 未完成而偏大，若立即用 `_height` 渲染会出现
+    // "HTML 渲染视图下方存在大量空白"问题；显示 shimmer 既能盖住
+    // 异常大高度下未加载的视觉错位，也能向用户传达"正在渲染，
+    // 此刻请勿快速上滑"的明确信号。
+    final showShimmer = !_heightStabilized;
+    final estimatedHeight = _estimateHeight();
+    final displayHeight = _height ?? cachedHeight ?? estimatedHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
     // 使用 Column 线性排列（骨架屏在上、WebView 在下），任何布局模式下都
@@ -4107,10 +4165,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showShimmer)
-            const SizedBox(
+            SizedBox(
               width: double.infinity,
-              height: shimmerHeight,
-              child: _HtmlBubbleShimmer(),
+              height: estimatedHeight,
+              child: const _HtmlBubbleShimmer(),
             ),
           SizedBox(
             width: double.infinity,
