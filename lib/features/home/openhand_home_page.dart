@@ -196,6 +196,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _composerTransitionMeasureQueued = false;
   // 跟踪最近一次 maxScrollExtent，用于检测「底部向上收缩」导致的伪贴底。
   double? _lastMessageScrollMaxExtent;
+  // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
+  // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
+  // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
+  DateTime? _lastScrollActivityAt;
+  static const Duration _scrollActivityWindow = Duration(milliseconds: 250);
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
@@ -750,6 +755,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     return DateTime.now().difference(last) <=
         _pointerSignalScrollActivityWindow;
+  }
+
+  // 2026-06-07 修复：桌面端 WebView 平台视图可能拦截 PointerScrollEvent，
+  // 导致 _userScrollInProgress 和 pointerSignalScroll 检测双双失效。
+  // 此处直接观察外层 ListView 的 ScrollUpdateNotification 作为后备检测源，
+  // 覆盖 trackpad / 滚轮在 HTML 卡片上的滚动场景。
+  bool _hasRecentScrollActivity() {
+    final last = _lastScrollActivityAt;
+    if (last == null) {
+      return false;
+    }
+    return DateTime.now().difference(last) < _scrollActivityWindow;
   }
 
   /// 用户当前 tick 的 scroll-end 已触发，但 trackpad / 滚轮的下一 tick
@@ -1640,7 +1657,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // 2026-05-17：用户正在拖动 transcript 时，禁止任何 layout-change /
         // composer 折叠 / 流式 token 触发的 auto-follow 调度，避免那道
         // "把视口往下拽" 的力与用户上滑手势产生拉锯，造成抽搐 / 鬼畜。
-        _userScrollInProgress;
+        _userScrollInProgress ||
+        // 2026-06-07 修复：桌面端 WebView 平台视图可能拦截 PointerScrollEvent，
+        // 导致 _userScrollInProgress 未被置位。用 _hasRecentScrollActivity 兜底。
+        _hasRecentScrollActivity();
   }
 
   void _scheduleResumeAutoFollowSync() {
@@ -1775,6 +1795,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             notification is OverscrollNotification);
     final userScrollActivity =
         explicitUserScroll || implicitPointerSignalScroll;
+    // 后备检测：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
+    // 导致 implicitPointerSignalScroll 为 false。直接观察外层 ListView
+    // 的 ScrollUpdateNotification（depth == 0）作为兜底，避免用户滚动
+    // HTML 卡片期间因检测失效而被 layout-change 拽回底部。
+    if (notification is ScrollUpdateNotification &&
+        notification.depth == 0 &&
+        !_programmaticAutoFollowScrollInProgress &&
+        (notification.scrollDelta ?? 0).abs() > 0.5) {
+      _lastScrollActivityAt = DateTime.now();
+    }
     if (userScrollActivity) {
       if (!implicitPointerSignalScroll || explicitUserScroll) {
         _markUserScrollInProgress();
@@ -5268,7 +5298,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final position = _activeMessageScrollPosition();
       if (position == null) return;
       // 避免滚动惯性期间 jumpTo 与弹道位置对抗产生弹跳。
-      if (position.isScrollingNotifier.value) return;
+      // 2026-06-07 修复：桌面端 WebView 可能吞掉 PointerScrollEvent，导致
+      // isScrollingNotifier 在两 tick 间短暂为 false 时 layout-change 仍能
+      // 穿透。增加 _hasRecentScrollActivity() 兜底，覆盖 trackpad 滚动的空窗期。
+      if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
+        return;
+      }
       final d2b = position.maxScrollExtent - position.pixels;
       if (d2b > _autoFollowDistanceThreshold) return;
       _scheduleScrollToBottom(allowSettlePasses: false);
