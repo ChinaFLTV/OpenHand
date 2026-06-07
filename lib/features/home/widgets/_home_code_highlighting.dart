@@ -3044,78 +3044,88 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   <script>
     // 2026-06-08 临时诊断日志：mermaid 解析+初始化+渲染每一段
     // 节点都打点，宿主 developer.log 通过 webview console 桥接拿到。
-    // 问题修复后清理。
+    // 问题修复后清理。整体包 try/catch 把任何异常都 post 给 Dart
+    // 端，避免静默 swallow 导致 60s 仍 timeout。
     (function () {
       var post = function (value) {
-        if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
-          window.OpenHandMermaid.postMessage(value);
-        }
-      };
-      console.log('[openhand-mermaid] script body entered, t0 =', Date.now());
-      var formatError = function (err) {
-        if (err && typeof err === 'object') {
-          if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
-          if (typeof err.message === 'string' && err.message.trim()) return err.message.trim();
-          if (typeof err.hash === 'string' && err.hash.trim()) return err.hash.trim();
-          try {
-            var json = JSON.stringify(err, null, 2);
-            if (json && json !== '{}') return json;
-          } catch (_) {}
-        }
-        return String(err);
-      };
-      var svgMarkupOf = function (value) {
-        if (typeof value === 'string') return value;
-        if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
-          return value.outerHTML || '';
-        }
-        return '';
-      };
-      if (!window.mermaid) {
-        post('error:mermaid-js 加载失败,请检查网络');
-        post('ready');
-        return;
-      }
-      try {
-        window.mermaid.initialize({
-          startOnLoad: false,
-          theme: 'base',
-          securityLevel: 'loose',
-          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
-          sequence: { useMaxWidth: false, showSequenceNumbers: true },
-          gantt: { useMaxWidth: false },
-          // 关键：使用 base 主题 + 同 palette 颜色，杜绝 mermaid dark 主题
-          // 自身 #1f2020 节点色与全局调色板割裂的问题。
-          themeVariables: {
-            fontSize: '13px',
-            background: '#$bgRgb',
-            primaryColor: '#$bgRgb',
-            primaryBorderColor: '#$borderRgb',
-            primaryTextColor: '#$fgRgb',
-            secondaryColor: '#$bgRgb',
-            tertiaryColor: '#$bgRgb',
-            lineColor: '#$fgRgb',
-          },
-        });
-      } catch (err) {
-        post('error:init_failed:' + formatError(err));
-        post('ready');
-        return;
-      }
-      var sourceEl = document.getElementById('mermaid-source');
-      var source = (sourceEl && sourceEl.textContent) || '';
-      console.log('[openhand-mermaid] initialize done, source length =', source.length, 't1 =', Date.now());
-      Promise.resolve()
-        .then(function () {
-          console.log('[openhand-mermaid] render start, t2 =', Date.now());
-          return window.mermaid.render('mermaid-svg', source);
-        })
-        .then(function (result) {
-          console.log('[openhand-mermaid] render resolved, t3 =', Date.now(), 'hasSvg =', !!(result && (result.svg || typeof result === 'string')));
-          var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
-          if (!svg || svg.indexOf('<svg') === -1) {
-            throw new Error(formatError(result));
+        try {
+          if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
+            window.OpenHandMermaid.postMessage(value);
           }
+        } catch (e) {
+          console.error('[openhand-mermaid] postMessage failed:', e);
+        }
+      };
+      try {
+        console.log('[openhand-mermaid] script body entered, t0 =', Date.now());
+        var formatError = function (err) {
+          if (err && typeof err === 'object') {
+            if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
+            if (typeof err.message === 'string' && err.message.trim()) return err.message.trim();
+            if (typeof err.hash === 'string' && err.hash.trim()) return err.hash.trim();
+            try {
+              var json = JSON.stringify(err, null, 2);
+              if (json && '{}' !== json) return json;
+            } catch (_) {}
+          }
+          return String(err);
+        };
+        var svgMarkupOf = function (value) {
+          if (typeof value === 'string') return value;
+          if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
+            return value.outerHTML || '';
+          }
+          return '';
+        };
+        if (!window.mermaid) {
+          console.error('[openhand-mermaid] window.mermaid undefined after script load');
+          post('error:mermaid-js 加载失败,请检查网络');
+          post('ready');
+          return;
+        }
+        try {
+          console.log('[openhand-mermaid] initialize start, t_init_start =', Date.now());
+          window.mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+            sequence: { useMaxWidth: false, showSequenceNumbers: true },
+            gantt: { useMaxWidth: false },
+            // 关键：使用 base 主题 + 同 palette 颜色，杜绝 mermaid dark 主题
+            // 自身 #1f2020 节点色与全局调色板割裂的问题。
+            themeVariables: {
+              fontSize: '13px',
+              background: '#$bgRgb',
+              primaryColor: '#$bgRgb',
+              primaryBorderColor: '#$borderRgb',
+              primaryTextColor: '#$fgRgb',
+              secondaryColor: '#$bgRgb',
+              tertiaryColor: '#$bgRgb',
+              lineColor: '#$fgRgb',
+            },
+          });
+          console.log('[openhand-mermaid] initialize done, t_init_end =', Date.now());
+        } catch (err) {
+          console.error('[openhand-mermaid] initialize failed:', err);
+          post('error:init_failed:' + formatError(err));
+          post('ready');
+          return;
+        }
+        var sourceEl = document.getElementById('mermaid-source');
+        var source = (sourceEl && sourceEl.textContent) || '';
+        console.log('[openhand-mermaid] initialize done, source length =', source.length, 't1 =', Date.now());
+        Promise.resolve()
+          .then(function () {
+            console.log('[openhand-mermaid] render start, t2 =', Date.now());
+            return window.mermaid.render('mermaid-svg', source);
+          })
+          .then(function (result) {
+            console.log('[openhand-mermaid] render resolved, t3 =', Date.now(), 'hasSvg =', !!(result && (result.svg || typeof result === 'string')));
+            var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
+            if (!svg || svg.indexOf('<svg') === -1) {
+              throw new Error(formatError(result));
+            }
           // 关键：Mermaid 10.9.1 输出的 SVG 自带 <rect class="background">
           // 节点填满整张画布（fill 走 var(--background) 或硬编码深色），
           // 视觉上让 body #$bgHex 透不出来。在 innerHTML 注入前先把
@@ -3184,6 +3194,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           post('rendered');
         })
         .catch(function (err) {
+          console.error('[openhand-mermaid] render failed:', err);
           var inner = document.getElementById('inner');
           if (inner) {
             inner.innerHTML = '<div class="mermaid-error">' + formatError(err) + '</div>';
@@ -3194,6 +3205,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           // 无论成功或失败，都发 ready，保证 bridge 一定 ready。
           post('ready');
         });
+      } catch (outerErr) {
+        console.error('[openhand-mermaid] IIFE outer crash:', outerErr);
+        try {
+          post('error:outer_crash:' + (outerErr && outerErr.message ? outerErr.message : String(outerErr)));
+          post('ready');
+        } catch (_) {}
+      }
     })();
     // IIFE #2: 平移/缩放/双击重置手势；fit/reset 通过全局桥接函数暴露。
     (function () {

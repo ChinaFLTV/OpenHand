@@ -227,10 +227,20 @@ export function MermaidView({ source }: MermaidViewProps) {
       console.warn('[mermaid] copySvgMarkup: svg 为空 (mermaid 还没渲染)');
       return;
     }
-    const ok = await copyTextToClipboard(svg);
+    // 关键：用户期望"粘贴成图片"（贴到图形编辑器直接看到图像），
+    // 因此优先以 image/svg+xml Blob 写入剪贴板；写不进再降级纯文本。
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    let ok = await copyBlobToClipboard(svgBlob);
+    if (!ok) {
+      const textOk = await copyTextToClipboard(svg);
+      console.log('[mermaid] copyBlob 降级到 copyText result=', textOk);
+      ok = textOk;
+    } else {
+      console.log('[mermaid] copyBlob(svg) 写入成功');
+    }
     console.log('[mermaid] copySvgMarkup result=', ok);
     showSnackbar(
-      ok ? 'SVG 已复制' : '复制 SVG 失败，请检查浏览器权限',
+      ok ? 'SVG 已复制（可粘贴到图形编辑器）' : '复制 SVG 失败，请检查浏览器权限',
       { tone: ok ? 'success' : 'error' },
     );
   }
