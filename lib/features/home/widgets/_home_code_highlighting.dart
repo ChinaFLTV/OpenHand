@@ -2209,20 +2209,23 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   Future<void> _bootstrap() async {
     try {
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        // 2026-06-08 临时诊断：把 WebView 内所有 console 输出
-        // (log/warn/error) 桥接到 Dart 端 developer.log，让我们能在
-        // 不打开 WebView devtools 的情况下拿到 mermaid 加载链路上
-        // 每一段精确状态。问题修复后清理。
-        ..setOnConsoleMessage((message) {
-          developer.log(
-            '[js:${message.level.name}] ${message.message}',
-            name: 'openhand.mermaid',
-          );
-        })
-        ..addJavaScriptChannel(
-          'OpenHandMermaid',
+      final controller = WebViewController();
+      // 关键：之前用 cascade (..) 调 setJavaScriptMode / setOnConsoleMessage /
+      // addJavaScriptChannel，三个方法都返回 Future<void> 但都没 await，
+      // 如果某个 Future 没来得及 resolve 就 loadFile，JS 引擎根本没启动、
+      // console 桥也是空的（用户整个控制台只出一条 bootstrap 行）。
+      // 改为逐行 await，确保三项全部就绪后再 loadFile。
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      // 2026-06-08 临时诊断：把 WebView 内所有 console 输出
+      // (log/warn/error) 桥接到 Dart 端 developer.log。问题修复后清理。
+      await controller.setOnConsoleMessage((message) {
+        developer.log(
+          '[js:${message.level.name}] ${message.message}',
+          name: 'openhand.mermaid',
+        );
+      });
+      await controller.addJavaScriptChannel(
+        'OpenHandMermaid',
           onMessageReceived: (message) {
             final raw = message.message.trim();
             if (raw == 'rendered') {
@@ -2279,24 +2282,23 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       // loadHtmlString 但同样把 mermaid.js base64 内嵌 data: URL，
       // 保证 file:// / 自定义 scheme 都不影响 JS 加载。
       final mermaidJs = await _loadMermaidJs();
-      final html = _buildMermaidHtml();
+      final themeColors = _computeMermaidThemeColors();
+      final html = _buildMermaidHtml(
+        themeColors.bg,
+        themeColors.fg,
+        themeColors.border,
+      );
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
         final tempDir = Directory.systemTemp.createTempSync(
           'openhand_mermaid_',
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
         final jsFile = File(p.join(tempDir.path, 'mermaid.min.js'));
-        // 关键：flush: true 强制把 3.3MB JS 真正 flush 到磁盘，
-        // 否则 flush:false 仅在 Dart 层 buffer，WebView 立刻 loadFile
-        // 读到的可能是 0 字节空文件，rendered/ready 永远收不到、
-        // 60s 看门狗照样报超时。
         await jsFile.writeAsString(mermaidJs, flush: true);
         await tempFile.writeAsString(html, flush: true);
         _tempHtmlPath = tempFile.path;
         final jsSize = await jsFile.length();
         final htmlSize = await tempFile.length();
-        // 2026-06-08 临时诊断日志：精确定位 mermaid 加载链路上每一段
-        // （asset 读出 / 写盘 / loadFile 触发）是否到位。问题修复后清理。
         developer.log(
           '[mermaid] bootstrap: '
           'html=${tempFile.path} (${htmlSize}B), '
@@ -2305,6 +2307,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           name: 'openhand.mermaid',
         );
         await controller.loadFile(tempFile.path);
+        // 关键：WebView loadFile 后通过 runJavaScript 注入渲染 IIFE，
+        // 彻底绕开 WKWebView 内联 <script> 任何不稳定行为。
+        // loadFile resolve 时页面已加载完毕，<script src=mermaid.min.js>
+        // 同步执行完，window.mermaid 必然已就绪。
+        final renderJs = _buildRenderJs(themeColors);
+        await controller.runJavaScript(renderJs);
       } else {
         // 移动端：把 mermaid.js 序列化成 data: URL 内联到 <script src>，
         // 避免 webview_flutter 在 loadHtmlString 下使用 file:// 协议的
@@ -2325,6 +2333,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           name: 'openhand.mermaid',
         );
         await controller.loadHtmlString(htmlWithDataUrl);
+        // 同桌面端：loadHtmlString 后注入渲染 IIFE
+        final renderJs = _buildRenderJs(themeColors);
+        await controller.runJavaScript(renderJs);
       }
       _controller = controller;
       // 关键：Mermaid 11.x min.js ~3.3MB 解析 + 初始化在慢机器上可能 > 18s，
@@ -2946,13 +2957,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     } catch (_) {}
   }
 
-  String _buildMermaidHtml() {
-    final rawSource = widget.source;
-    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
-    final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
-    // 关键：与代码块容器使用同一调色板，让 WebView body / mermaid 节点 /
-    // 边线全部沿用同套主题色，杜绝硬编码 0xFF0F1115 与全局深色主题割裂。
-    final palette = widget.palette;
+  ({String bg, String fg, String border}) _computeMermaidThemeColors() {
     String argbToCss(Color c) =>
         c.toARGB32().toRadixString(16).padLeft(8, '0');
     String argbToRgbHex(Color c) {
@@ -2960,16 +2965,157 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       return hex.length == 8 ? hex.substring(2) : hex;
     }
 
+    return (
+      bg: argbToRgbHex(widget.palette.containerColor),
+      fg: argbToRgbHex(widget.palette.actionTextColor),
+      border: argbToRgbHex(widget.palette.borderColor),
+    );
+  }
+
+  /// 构建由 Dart 端 runJavaScript 注入的 mermaid 渲染脚本。
+  /// 不再嵌在 HTML 模板中——WKWebView 对内联 <script> 标签偶发
+  /// 不执行，runJavaScript 走 platform channel 注入绕开此问题。
+  String _buildRenderJs(
+    ({String bg, String fg, String border}) c,
+  ) {
+    final bg = c.bg;
+    final fg = c.fg;
+    final border = c.border;
+    return '''
+// [openhand-mermaid] Dart-injected render script, t0 injected
+(function () {
+  var post = function (value) {
+    try {
+      if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
+        window.OpenHandMermaid.postMessage(value);
+      }
+    } catch (e) {}
+  };
+  try { post('injected_iife_started'); } catch (_) {}
+  try {
+    if (!window.mermaid) {
+      post('error:mermaid-js 加载失败');
+      post('ready');
+      return;
+    }
+    window.mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      securityLevel: 'loose',
+      flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+      sequence: { useMaxWidth: false, showSequenceNumbers: true },
+      gantt: { useMaxWidth: false },
+      themeVariables: {
+        fontSize: '13px',
+        background: '#$bg',
+        primaryColor: '#$bg',
+        primaryBorderColor: '#$border',
+        primaryTextColor: '#$fg',
+        secondaryColor: '#$bg',
+        tertiaryColor: '#$bg',
+        lineColor: '#$fg',
+      },
+    });
+    var sourceEl = document.getElementById('mermaid-source');
+    var source = (sourceEl && sourceEl.textContent) || '';
+    function svgMarkupOf(value) {
+      if (typeof value === 'string') return value;
+      if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
+        return value.outerHTML || '';
+      }
+      return '';
+    }
+    function stripBackgroundRect(svgStr) {
+      return svgStr
+        .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
+        .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
+        .replace(/\\sstyle=["'][^"']*background[^"']*["']/gi, '')
+        .replace(/--background\\s*:\\s*[^;!}]+/gi, '--background: transparent');
+    }
+    window.mermaid.render('mermaid-svg', source).then(function (result) {
+      var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
+      if (!svg || svg.indexOf('<svg') === -1) {
+        throw new Error('svg_not_found_in_result');
+      }
+      svg = stripBackgroundRect(svg);
+      var inner = document.getElementById('inner');
+      if (inner) {
+        inner.innerHTML = svg;
+        try {
+          var svgEl = inner.querySelector('svg');
+          if (svgEl) {
+            svgEl.removeAttribute('style');
+            var bgRects = svgEl.querySelectorAll('rect.background, rect[class*="background"]');
+            for (var ri = 0; ri < bgRects.length; ri++) {
+              var r = bgRects[ri];
+              r.parentNode && r.parentNode.removeChild(r);
+            }
+            var styleBlocks = svgEl.querySelectorAll('style');
+            for (var si = 0; si < styleBlocks.length; si++) {
+              styleBlocks[si].textContent = (styleBlocks[si].textContent || '')
+                .replace(/--background\\s*:\\s*[^;!}]+/g, '--background: transparent');
+            }
+          }
+        } catch (_) {}
+      }
+      post('svg:' + svg);
+      try {
+        if (result && typeof result.bindFunctions === 'function') {
+          result.bindFunctions(document.getElementById('inner'));
+        }
+      } catch (_) {}
+      try {
+        var svgNode = document.querySelector('#inner svg');
+        if (svgNode) {
+          var box = svgNode.getBBox
+            ? svgNode.getBBox()
+            : { x: 0, y: 0, width: svgNode.clientWidth || 1, height: svgNode.clientHeight || 1 };
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.ceil(box.width || svgNode.clientWidth || 1));
+          canvas.height = Math.max(1, Math.ceil(box.height || svgNode.clientHeight || 1));
+          var ctx = canvas.getContext('2d');
+          if (ctx) {
+            var img = new Image();
+            img.onload = function () {
+              try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                post('png:' + canvas.toDataURL('image/png'));
+              } catch (_) {}
+            };
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+          }
+        }
+      } catch (_) {}
+      post('rendered');
+    }).catch(function (err) {
+      var inner = document.getElementById('inner');
+      if (inner) {
+        inner.innerHTML = '<div class="mermaid-error">' + String(err) + '</div>';
+      }
+      post('error:render_failed:' + String(err));
+    }).then(function () {
+      post('ready');
+    });
+  } catch (outerErr) {
+    try {
+      post('error:outer_crash:' + (outerErr && outerErr.message ? outerErr.message : String(outerErr)));
+      post('ready');
+    } catch (_) {}
+  }
+})();
+''';
+  }
+
+  String _buildMermaidHtml(String bgRgb, String fgRgb, String borderRgb) {
+    final rawSource = widget.source;
+    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
+    final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
+    final palette = widget.palette;
+    String argbToCss(Color c) =>
+        c.toARGB32().toRadixString(16).padLeft(8, '0');
     final bgHex = argbToCss(palette.containerColor);
     final fgHex = argbToCss(palette.actionTextColor);
-    final bgRgb = argbToRgbHex(palette.containerColor);
-    final fgRgb = argbToRgbHex(palette.actionTextColor);
-    final borderRgb = argbToRgbHex(palette.borderColor);
-    // 关键：mermaid.js 不内联，改用 <script src="mermaid.min.js"> 让
-    // WebView 走 file:// 协议异步加载。规避 WKWebView inline JS ~2MB 体积
-    // 上限（3.3MB min.js 会被静默截断）导致的"加载超时"。
-    // 调用方在 loadFile 之前已经把 mermaid.min.js 写到与 HTML 同目录，
-    // 相对路径自动 resolve。
     return '''
 <!doctype html>
 <html>
@@ -3029,162 +3175,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     </div>
   </div>
   <script src="mermaid.min.js"></script>
-  <script>
-    // 关键：放弃 document.createElement('script') 动态方案（WKWebView
-    // file:// 沙箱禁止动态创建的脚本加载本地文件），回到最稳定的静态
-    // <script src="mermaid.min.js">（前文证实 onload 能正常 fire）。
-    // IIFE 内仅做"mermaid 已加载"检查并立即渲染，不交叉任何动态注入。
-    (function () {
-      var post = function (value) {
-        try {
-          if (window.OpenHandMermaid && window.OpenHandMermaid.postMessage) {
-            window.OpenHandMermaid.postMessage(value);
-          }
-        } catch (e) {
-          console.error('[openhand-mermaid] postMessage failed:', e);
-        }
-      };
-      try { post('iife_started'); } catch (_) {}
-      console.log('[openhand-mermaid] IIFE entered, t0 =', Date.now());
-      var formatError = function (err) {
-        if (err && typeof err === 'object') {
-          if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
-          if (typeof err.message === 'string' && err.message.trim()) return err.message.trim();
-          if (typeof err.hash === 'string' && err.hash.trim()) return err.hash.trim();
-          try {
-            var json = JSON.stringify(err, null, 2);
-            if (json && '{}' !== json) return json;
-          } catch (_) {}
-        }
-        return String(err);
-      };
-      var svgMarkupOf = function (value) {
-        if (typeof value === 'string') return value;
-        if (value && value.tagName && String(value.tagName).toLowerCase() === 'svg') {
-          return value.outerHTML || '';
-        }
-        return '';
-      };
-      if (!window.mermaid) {
-        console.error('[openhand-mermaid] window.mermaid undefined after script load');
-        post('error:mermaid-js 加载失败,请检查网络');
-        post('ready');
-        return;
-      }
-      try {
-        console.log('[openhand-mermaid] initialize start, t_init_start =', Date.now());
-        window.mermaid.initialize({
-          startOnLoad: false,
-          theme: 'base',
-          securityLevel: 'loose',
-          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
-          sequence: { useMaxWidth: false, showSequenceNumbers: true },
-          gantt: { useMaxWidth: false },
-          themeVariables: {
-            fontSize: '13px',
-            background: '#$bgRgb',
-            primaryColor: '#$bgRgb',
-            primaryBorderColor: '#$borderRgb',
-            primaryTextColor: '#$fgRgb',
-            secondaryColor: '#$bgRgb',
-            tertiaryColor: '#$bgRgb',
-            lineColor: '#$fgRgb',
-          },
-        });
-        console.log('[openhand-mermaid] initialize done, t_init_end =', Date.now());
-      } catch (err) {
-        console.error('[openhand-mermaid] initialize failed:', err);
-        post('error:init_failed:' + formatError(err));
-        post('ready');
-        return;
-      }
-      var sourceEl = document.getElementById('mermaid-source');
-      var source = (sourceEl && sourceEl.textContent) || '';
-      console.log('[openhand-mermaid] source length =', source.length, 't1 =', Date.now());
-      Promise.resolve()
-        .then(function () {
-          console.log('[openhand-mermaid] render start, t2 =', Date.now());
-          return window.mermaid.render('mermaid-svg', source);
-        })
-        .then(function (result) {
-          console.log('[openhand-mermaid] render resolved, t3 =', Date.now());
-          var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
-          if (!svg || svg.indexOf('<svg') === -1) {
-            throw new Error(formatError(result));
-          }
-          // 关键：Mermaid 输出的 SVG 自带 <rect class="background"> 节点
-          // 填满整张画布（fill 默认深色）。强制摘掉这个 rect 让 body 容器色
-          // 完全穿透 SVG 透出。CSS 选择器兜底覆盖未命中场景。
-          svg = svg
-            // 关键：Dart 字符串里 \\b 才在 JS 解析为正则单词边界。
-            .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
-            .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
-            .replace(/\sstyle=["'][^"']*background[^"']*["']/gi, '')
-            .replace(/--background\s*:\s*[^;!}]+/gi, '--background: transparent');
-          var inner = document.getElementById('inner');
-          if (inner) {
-            inner.innerHTML = svg;
-            try {
-              var svgEl = inner.querySelector('svg');
-              if (svgEl) {
-                svgEl.removeAttribute('style');
-                var bgRects = svgEl.querySelectorAll('rect.background, rect[class*=\\u0022background\\u0022]');
-                for (var ri = 0; ri < bgRects.length; ri++) {
-                  var r = bgRects[ri];
-                  r.parentNode && r.parentNode.removeChild(r);
-                }
-                var styleBlocks = svgEl.querySelectorAll('style');
-                for (var si = 0; si < styleBlocks.length; si++) {
-                  styleBlocks[si].textContent = (styleBlocks[si].textContent || '')
-                    .replace(/--background\s*:\s*[^;!}]+/g, '--background: transparent');
-                }
-              }
-            } catch (_) {}
-          }
-          post('svg:' + svg);
-          try {
-            if (result && typeof result.bindFunctions === 'function') {
-              result.bindFunctions(document.getElementById('inner'));
-            }
-          } catch (_) {}
-          try {
-            var svgNode = document.querySelector('#inner svg');
-            if (svgNode) {
-              var box = svgNode.getBBox
-                ? svgNode.getBBox()
-                : { x: 0, y: 0, width: svgNode.clientWidth || 1, height: svgNode.clientHeight || 1 };
-              var canvas = document.createElement('canvas');
-              canvas.width = Math.max(1, Math.ceil(box.width || svgNode.clientWidth || 1));
-              canvas.height = Math.max(1, Math.ceil(box.height || svgNode.clientHeight || 1));
-              var ctx = canvas.getContext('2d');
-              if (ctx) {
-                var img = new Image();
-                img.onload = function () {
-                  try {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    post('png:' + canvas.toDataURL('image/png'));
-                  } catch (_) {}
-                };
-                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-              }
-            }
-          } catch (_) {}
-          post('rendered');
-        })
-        .catch(function (err) {
-          console.error('[openhand-mermaid] render failed:', err);
-          var inner = document.getElementById('inner');
-          if (inner) {
-            inner.innerHTML = '<div class="mermaid-error">' + formatError(err) + '</div>';
-          }
-          post('error:render_failed:' + formatError(err));
-        })
-        .then(function () {
-          post('ready');
-        });
-    })();
-  </script>
+  <!-- 渲染 IIFE 已移到 Dart 端 runJavaScript 注入，绕开 WKWebView 对内联脚本的任何限制 -->
   <script>
     // IIFE #2: 平移/缩放/双击重置手势；fit/reset 通过全局桥接函数暴露。
     (function () {
