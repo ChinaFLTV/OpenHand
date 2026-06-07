@@ -3262,9 +3262,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightClamp = 24.0;
   static const double _kMaxHeightClamp = 50000.0;
   static const double _kFirstMeasurementSkipThreshold = 5000.0;
-  static const double _kMinHeightDelta = 1.0;
+  // 2026-06-07：1.0 → 8.0。WebView 测高受 DPR/字体子像素/DOM 抖动影响，
+  // 1px 阈值下任何微小 CSS reflow 都会触发 setState。结合滚动期间冻结，
+  // 进一步在稳态下过滤掉测量噪声，避免 maxScrollExtent 持续抖动。
+  static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
-  static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 250);
+  static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 500);
   static const int _kHeightCacheMaxSize = 96;
   static final RegExp _documentShellPattern = RegExp(
@@ -3643,6 +3646,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
+  // 2026-06-07：滚动活动协调信号。active=true 时 JS 测高只缓存、不应用，
+  // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 后才一次性
+  // 应用累积的最新高度。
+  TranscriptScrollActivity? _scrollActivity;
+  bool _scrollActive = false;
+  // 滚动停止后是否有待应用的最新高度。
+  bool _hasPendingHeightAfterScroll = false;
 
   int get _heightCacheKey => Object.hash(
     widget.data,
@@ -3672,11 +3682,36 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         this,
       );
     }
+    // 顶层 _OpenHandHomePageState 注入的滚动活动信号；订阅其 value
+    // 变化以在用户滚动期间冻结高度应用。didChangeDependencies 可能
+    // 多次触发，但 Provider 拿到的是同一个实例，重复 addListener 不会
+    // 出问题——不过为安全起见，先 remove 再 add。
+    final activity = context.read<TranscriptScrollActivity>();
+    if (!identical(activity, _scrollActivity)) {
+      _scrollActivity?.removeListener(_onScrollActivityChanged);
+      _scrollActivity = activity;
+      _scrollActive = activity.value;
+      activity.addListener(_onScrollActivityChanged);
+    }
+  }
+
+  void _onScrollActivityChanged() {
+    final activity = _scrollActivity;
+    if (activity == null || !mounted) return;
+    final isActive = activity.value;
+    if (isActive == _scrollActive) return;
+    setState(() => _scrollActive = isActive);
+    if (!isActive && _hasPendingHeightAfterScroll) {
+      _hasPendingHeightAfterScroll = false;
+      _applyPendingHeightIfAny();
+    }
   }
 
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
+    _scrollActivity?.removeListener(_onScrollActivityChanged);
+    _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
     _bubbleStateForRegion = null;
     super.dispose();
@@ -3712,6 +3747,17 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 否则 JS 端已记录 __lastReportedHeight，Flutter 端跳过首个测量后
     // 再无差值 >0.5px 的回调触发，形成 JS/Flutter 双端死锁。
     if (_measurementCount == 1 && next > _kFirstMeasurementSkipThreshold) {
+      return;
+    }
+    // 2026-06-07（HTML 卡片上滑抽搐 bug 关键修复）：用户正在滚动外层
+    // ListView 时，WebView 的 ResizeObserver / MutationObserver 也会
+    // 持续回测高度。如果立即 apply 触发 setState → SliverList 重新
+    // 布局 → maxScrollExtent 抖动 → Flutter clamp 滚动位置 → 视口被
+    // 拽回底部。此期间只缓存最新值，滚动结束由
+    // `_onScrollActivityChanged` 一次性应用。
+    if (_scrollActive) {
+      _pendingHeight = next;
+      _hasPendingHeightAfterScroll = true;
       return;
     }
     if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
@@ -3777,6 +3823,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     _lastHeightApplyTime = DateTime.now();
     setState(() => _height = next);
+  }
+
+  /// 滚动停止后应用滚动期间累积的最近一次高度测量。若无 pending 或差值
+  /// 过小则忽略。与正常路径共用 `_kMinHeightDelta` 阈值，确保不会与
+  /// 滚动期间已部分应用的过渡状态产生冲突。
+  void _applyPendingHeightIfAny() {
+    final pending = _pendingHeight;
+    if (pending == null) return;
+    if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) {
+      _pendingHeight = null;
+      return;
+    }
+    _pendingHeight = null;
+    _applyHeight(pending);
   }
 
   /// macOS Flutter embedder 不会把鼠标 NSEvent 转发给嵌入的 WKWebView

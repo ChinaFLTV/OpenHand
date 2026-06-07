@@ -110,6 +110,24 @@ part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
 
+/// 2026-06-07：HTML WebView 抽搐 bug 真凶的关键协调信号。
+/// 外层 ListView 检测到"用户正在主动滚动"时标记 active，滚动结束（含
+/// 800 ms 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
+/// active 期间只缓存最新高度、不调用 setState，避免平台视图异步测高
+/// 反复修改 `maxScrollExtent` 把视口拽回底部；inactive 后才一次性应用
+/// 滚动期间累积的最新高度。
+class TranscriptScrollActivity extends ValueNotifier<bool> {
+  TranscriptScrollActivity() : super(false);
+
+  void markActive() {
+    if (!value) value = true;
+  }
+
+  void markInactive() {
+    if (value) value = false;
+  }
+}
+
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
 
@@ -201,6 +219,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
   DateTime? _lastScrollActivityAt;
   static const Duration _scrollActivityWindow = Duration(milliseconds: 250);
+  // HTML WebView 异步测高协调信号——见 [TranscriptScrollActivity] 注释。
+  // 在 ListView build 树顶层用 ListenableProvider 注入，供深层的
+  // `_HtmlBubbleWebView` 订阅，实现"用户滚动期间冻结高度应用"。
+  final TranscriptScrollActivity _transcriptScrollActivity =
+      TranscriptScrollActivity();
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
@@ -722,6 +745,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _navigationWidthNotifier.dispose();
     _userScrollGraceTimer?.cancel();
     _userScrollGraceTimer = null;
+    _transcriptScrollActivity.dispose();
     super.dispose();
   }
 
@@ -737,6 +761,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _userScrollGraceTimer?.cancel();
     _userScrollGraceTimer = null;
     _userScrollInProgress = true;
+    // 2026-06-07：广播给订阅者（如 `_HtmlBubbleWebView`），让其在
+    // 用户滚动期间冻结高度应用，避免异步测高把 viewport 拽回底部。
+    _transcriptScrollActivity.markActive();
   }
 
   void _handleMessagePointerSignal(PointerSignalEvent event) {
@@ -780,6 +807,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       _userScrollInProgress = false;
+      // 同步通知订阅者：宽限期结束，HTML WebView 可应用滚动期间累积的
+      // 最新高度，触发一次性 setState。
+      _transcriptScrollActivity.markInactive();
       if (_autoFollowEnabled &&
           _shouldAutoFollowMessages &&
           (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
@@ -1936,6 +1966,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;
       _userScrollInProgress = false;
+      // 同步广播 inactive：早结束分支不再等宽限定时器，HTML WebView
+      // 应当立即获知滚动已停止。
+      _transcriptScrollActivity.markInactive();
     }
     _syncAutoFollowPausedState();
     return false;
@@ -6392,7 +6425,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final theme = Theme.of(context);
     final palette = theme.extension<OpenHandPalette>()!;
     final sessionController = context.watch<AiSessionController>();
-    return Focus(
+    // 顶层注入滚动活动信号：让 transcript 子树里的 `_HtmlBubbleWebView`
+    // 通过 `context.read<TranscriptScrollActivity>()` 订阅，滚动期间冻结
+    // 高度应用，滚动结束再一次性应用累积的最新值。
+    final homeContent = Focus(
       focusNode: _globalShortcutFocusNode,
       autofocus: true,
       child: Scaffold(
@@ -6631,6 +6667,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           ),
         ),
       ),
+    );
+    return ListenableProvider<TranscriptScrollActivity>.value(
+      value: _transcriptScrollActivity,
+      child: homeContent,
     );
   }
 
