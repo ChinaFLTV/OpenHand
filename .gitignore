@@ -55,4 +55,9 @@ app.*.map.json
 .kiro
 .windsurf
 
+# WEB build output — Vite content-hash chunks 每次构建都变，
+# 不应纳入版本控制。
+assets/web/chunks/
+assets/web/assets/
+
 .vscode
