@@ -3028,17 +3028,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       <pre class="mermaid" id="mermaid-source">$escaped</pre>
     </div>
   </div>
+  <script src="mermaid.min.js"></script>
   <script>
-    // 关键：mermaid.js 走 file:// 相对路径加载，由调用方在
-    // loadFile 之前把 mermaid.min.js 写到与 index.html 同目录。
-    // 避开 WKWebView inline JS 体积限制，根治"加载超时"。
-  </script>
-  <script>
-    // 关键：合并 script 标签 + 动态加载 mermaid.min.js。
-    // 之前用 <script src="mermaid.min.js"> + 第二个 <script> IIFE 的方案
-    // 在 macOS WKWebView 上有概率被 Mach port 异常打断：onload 触发
-    // 后第二个 script 标签的 IIFE 偶发不执行，60s 仍 timeout。
-    // 改为单 script + 内部动态 appendChild + onload 回调，更可控。
+    // 关键：放弃 document.createElement('script') 动态方案（WKWebView
+    // file:// 沙箱禁止动态创建的脚本加载本地文件），回到最稳定的静态
+    // <script src="mermaid.min.js">（前文证实 onload 能正常 fire）。
+    // IIFE 内仅做"mermaid 已加载"检查并立即渲染，不交叉任何动态注入。
     (function () {
       var post = function (value) {
         try {
@@ -3049,10 +3044,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           console.error('[openhand-mermaid] postMessage failed:', e);
         }
       };
-      // 第一时间 post，让 Dart 看门狗能立刻拿到"脚本已执行"信号，
-      // 即便后续 IIFE 全部被 WKWebView 异常吃掉，也能定位到具体断点。
       try { post('iife_started'); } catch (_) {}
-      console.log('[openhand-mermaid] bootstrap IIFE entered, t0 =', Date.now());
+      console.log('[openhand-mermaid] IIFE entered, t0 =', Date.now());
       var formatError = function (err) {
         if (err && typeof err === 'object') {
           if (typeof err.str === 'string' && err.str.trim()) return err.str.trim();
@@ -3072,81 +3065,58 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
         return '';
       };
-      // 动态注入 mermaid.min.js，相对路径与 HTML 同目录。
-      function loadMermaidThenRun() {
-        console.log('[openhand-mermaid] appending <script src=mermaid.min.js>, t1 =', Date.now());
-        var s = document.createElement('script');
-        s.src = 'mermaid.min.js';
-        s.onload = function () {
-          console.log('[openhand-mermaid] script.onload fired, mermaid typeof =', typeof window.mermaid, 'keys =', window.mermaid ? Object.keys(window.mermaid).slice(0, 8) : null);
-          try { post('script_loaded'); } catch (_) {}
-          runRender();
-        };
-        s.onerror = function (e) {
-          console.error('[openhand-mermaid] script.onerror fired, src =', s.src, 'e =', e);
-          post('error:mermaid-js 加载失败,请检查网络');
-          post('ready');
-        };
-        (document.head || document.documentElement).appendChild(s);
+      if (!window.mermaid) {
+        console.error('[openhand-mermaid] window.mermaid undefined after script load');
+        post('error:mermaid-js 加载失败,请检查网络');
+        post('ready');
+        return;
       }
-      function runRender() {
-        try {
-          console.log('[openhand-mermaid] runRender entered, t2 =', Date.now());
-          if (!window.mermaid) {
-            console.error('[openhand-mermaid] window.mermaid undefined after script load');
-            post('error:mermaid-js 加载失败,请检查网络');
-            post('ready');
-            return;
+      try {
+        console.log('[openhand-mermaid] initialize start, t_init_start =', Date.now());
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: 'base',
+          securityLevel: 'loose',
+          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+          sequence: { useMaxWidth: false, showSequenceNumbers: true },
+          gantt: { useMaxWidth: false },
+          themeVariables: {
+            fontSize: '13px',
+            background: '#$bgRgb',
+            primaryColor: '#$bgRgb',
+            primaryBorderColor: '#$borderRgb',
+            primaryTextColor: '#$fgRgb',
+            secondaryColor: '#$bgRgb',
+            tertiaryColor: '#$bgRgb',
+            lineColor: '#$fgRgb',
+          },
+        });
+        console.log('[openhand-mermaid] initialize done, t_init_end =', Date.now());
+      } catch (err) {
+        console.error('[openhand-mermaid] initialize failed:', err);
+        post('error:init_failed:' + formatError(err));
+        post('ready');
+        return;
+      }
+      var sourceEl = document.getElementById('mermaid-source');
+      var source = (sourceEl && sourceEl.textContent) || '';
+      console.log('[openhand-mermaid] source length =', source.length, 't1 =', Date.now());
+      Promise.resolve()
+        .then(function () {
+          console.log('[openhand-mermaid] render start, t2 =', Date.now());
+          return window.mermaid.render('mermaid-svg', source);
+        })
+        .then(function (result) {
+          console.log('[openhand-mermaid] render resolved, t3 =', Date.now());
+          var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
+          if (!svg || svg.indexOf('<svg') === -1) {
+            throw new Error(formatError(result));
           }
-          try {
-            console.log('[openhand-mermaid] initialize start, t_init_start =', Date.now());
-            window.mermaid.initialize({
-              startOnLoad: false,
-              theme: 'base',
-              securityLevel: 'loose',
-              flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
-              sequence: { useMaxWidth: false, showSequenceNumbers: true },
-              gantt: { useMaxWidth: false },
-              themeVariables: {
-                fontSize: '13px',
-                background: '#$bgRgb',
-                primaryColor: '#$bgRgb',
-                primaryBorderColor: '#$borderRgb',
-                primaryTextColor: '#$fgRgb',
-                secondaryColor: '#$bgRgb',
-                tertiaryColor: '#$bgRgb',
-                lineColor: '#$fgRgb',
-              },
-            });
-            console.log('[openhand-mermaid] initialize done, t_init_end =', Date.now());
-          } catch (err) {
-            console.error('[openhand-mermaid] initialize failed:', err);
-            post('error:init_failed:' + formatError(err));
-            post('ready');
-            return;
-          }
-          var sourceEl = document.getElementById('mermaid-source');
-          var source = (sourceEl && sourceEl.textContent) || '';
-          console.log('[openhand-mermaid] source length =', source.length, 't3 =', Date.now());
-          Promise.resolve()
-            .then(function () {
-              console.log('[openhand-mermaid] render start, t4 =', Date.now());
-              return window.mermaid.render('mermaid-svg', source);
-            })
-            .then(function (result) {
-              console.log('[openhand-mermaid] render resolved, t5 =', Date.now(), 'hasSvg =', !!(result && (result.svg || typeof result === 'string')));
-              var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
-              if (!svg || svg.indexOf('<svg') === -1) {
-                throw new Error(formatError(result));
-              }
-          // 关键：Mermaid 10.9.1 输出的 SVG 自带 <rect class="background">
-          // 节点填满整张画布（fill 走 var(--background) 或硬编码深色），
-          // 视觉上让 body #$bgHex 透不出来。在 innerHTML 注入前先把
-          // background rect 摘掉、inline style 抹掉，确保 body 容器色
-          // 完全穿透 SVG 呈现。CSS 选择器兜底（见 <style>）覆盖未命中场景。
+          // 关键：Mermaid 输出的 SVG 自带 <rect class="background"> 节点
+          // 填满整张画布（fill 默认深色）。强制摘掉这个 rect 让 body 容器色
+          // 完全穿透 SVG 透出。CSS 选择器兜底覆盖未命中场景。
           svg = svg
-            // 关键：Dart 字符串里 \\b 才在 JS 解析为正则单词边界（\b 在
-            // Dart 是退格符，会把整条 regex 吃成乱码）。
+            // 关键：Dart 字符串里 \\b 才在 JS 解析为正则单词边界。
             .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
             .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\/?>(?:<\/rect>)?/gi, '')
             .replace(/\sstyle=["'][^"']*background[^"']*["']/gi, '')
@@ -3154,15 +3124,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           var inner = document.getElementById('inner');
           if (inner) {
             inner.innerHTML = svg;
-            // 二次兜底：DOM 注入后再 sweep 一次，处理 mermaid 偶尔漏掉
-            // 的 inline style / class 命名变体。
             try {
               var svgEl = inner.querySelector('svg');
               if (svgEl) {
                 svgEl.removeAttribute('style');
-                var bgRects = svgEl.querySelectorAll(
-                  'rect.background, rect[class*="background"]'
-                );
+                var bgRects = svgEl.querySelectorAll('rect.background, rect[class*=\\u0022background\\u0022]');
                 for (var ri = 0; ri < bgRects.length; ri++) {
                   var r = bgRects[ri];
                   r.parentNode && r.parentNode.removeChild(r);
@@ -3173,7 +3139,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                     .replace(/--background\s*:\s*[^;!}]+/g, '--background: transparent');
                 }
               }
-            } catch (_) { /* 抹除失败不影响主路径 */ }
+            } catch (_) {}
           }
           post('svg:' + svg);
           try {
@@ -3215,20 +3181,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           post('error:render_failed:' + formatError(err));
         })
         .then(function () {
-          // 无论成功或失败，都发 ready，保证 bridge 一定 ready。
           post('ready');
         });
-        } catch (outerErr) {
-          console.error('[openhand-mermaid] IIFE outer crash:', outerErr);
-          try {
-            post('error:outer_crash:' + (outerErr && outerErr.message ? outerErr.message : String(outerErr)));
-            post('ready');
-          } catch (_) {}
-        }
-      } // end runRender()
-      // 发起动态加载：在 document.head 里注入 <script src="mermaid.min.js">，
-      // 加载成功后回调 runRender() 完成 mermaid 初始化 + 渲染。
-      loadMermaidThenRun();
     })();
   </script>
   <script>
