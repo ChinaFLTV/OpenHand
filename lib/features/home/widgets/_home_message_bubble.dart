@@ -137,11 +137,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // 2026-06-07：临时调试日志——追踪"rendered → raw → rendered"快速跳变。
+    debugPrint(
+        '[DBG-MB:didUpdate] mid=${oldWidget.message.id.substring(0, 8)}→${widget.message.id.substring(0, 8)} '
+        'old.initiallyRaw=${oldWidget.initiallyShowRawContent} '
+        'new.initiallyRaw=${widget.initiallyShowRawContent} '
+        'current._showRawContent=$_showRawContent');
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
       _reasoningExpandedOverride = null;
       _showRawContent = widget.initiallyShowRawContent;
       _invalidateCache();
+      debugPrint(
+          '[DBG-MB:didUpdate] RESET mid=${widget.message.id.substring(0, 8)} '
+          '_showRawContent=$_showRawContent (message.id changed)');
     }
   }
 
@@ -569,6 +578,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           // 高度、渲染模式仅 dispatcher 占高度，AnimatedSize
                           // 在两者间平滑过渡；切换的 250ms 防抖是用户可
                           // 接受的代价（与 WebView 加载本身的耗时同一数量级）。
+                          // 2026-06-07：children 列表中不能放 statement；调试日志
+                          // 改在 _HtmlBubbleWebView 的 initState / build / didUpdateWidget
+                          // / _applyHeight / _reload / dispose 等关键点跟踪 _height 变化。
                           if (_showRawContent)
                             SelectableText(
                               effectiveContent.isEmpty ? ' ' : effectiveContent,
@@ -787,6 +799,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           !isStatus)
                         _MessageActionButton(
                           onPressed: () async {
+                            // 2026-06-07：临时调试日志。
+                            debugPrint(
+                                '[DBG-MB:toggle] mid=${widget.message.id.substring(0, 8)} '
+                                'old._showRawContent=$_showRawContent → '
+                                'new._showRawContent=${!_showRawContent}');
                             setState(() => _showRawContent = !_showRawContent);
                             widget.onShowRawContentChanged?.call(_showRawContent);
                           },

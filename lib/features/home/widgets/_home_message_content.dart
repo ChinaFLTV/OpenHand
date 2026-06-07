@@ -3688,8 +3688,26 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    // 2026-06-07：临时调试日志——追踪 WebView state 创建/重建时机。
+    debugPrint(
+        '[DBG-HBV:initState] data.length=${widget.data.length} '
+        'cachedHeight=${_heightCache[_heightCacheKey]}');
+  }
+
+  @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // 2026-06-07：临时调试日志——追踪"rendered → raw → rendered"快速跳变
+    // 是否来自 WebView 的 _reload 链路（_reload 会重置 _height=null →
+    // shimmer 出现 → setState 引发 SliverList 重新布局 → maxScrollExtent
+    // 抖动 → 用户被强制滚动）。
+    debugPrint(
+        '[DBG-HBV:didUpdate] data-changed=${oldWidget.data != widget.data} '
+        'textColor-changed=${oldWidget.textColor != widget.textColor} '
+        'bgColor-changed=${oldWidget.backgroundColor != widget.backgroundColor} '
+        '_height=$_height _firstMeasurementHandled=$_firstMeasurementHandled');
     if (oldWidget.data != widget.data ||
         oldWidget.textColor != widget.textColor ||
         oldWidget.backgroundColor != widget.backgroundColor) {
@@ -3736,6 +3754,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   @override
   void dispose() {
+    // 2026-06-07：临时调试日志。
+    debugPrint('[DBG-HBV:dispose] data.length=${widget.data.length} _height=$_height');
     _heightDebounceTimer?.cancel();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
@@ -3747,6 +3767,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
+    // 2026-06-07：临时调试日志——_reload 会重置 _height=null 让 shimmer
+    // 重新出现，触发 maxScrollExtent 抖动。
+    debugPrint(
+        '[DBG-HBV:_reload] data.length=${widget.data.length} old._height=$_height → null');
     setState(() {
       _height = null;
       _hasError = false;
@@ -3863,6 +3887,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
+    // 2026-06-07：临时调试日志——追踪 _height 应用时的实际值。
+    debugPrint(
+        '[DBG-HBV:_applyHeight] data.length=${widget.data.length} '
+        'old=${_heightCache[_heightCacheKey] == next ? "same" : "new"} '
+        'next=$next _scrollActive=$_scrollActive');
     setState(() => _height = next);
   }
 
@@ -4086,6 +4115,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final cachedHeight = _heightCache[_heightCacheKey];
+    // 2026-06-07：临时调试日志——追踪 displayHeight 在 build 时的来源。
+    debugPrint(
+        '[DBG-HBV:build] data.length=${widget.data.length} '
+        '_height=$_height cachedHeight=$cachedHeight → '
+        'showShimmer=${_height == null && cachedHeight == null} '
+        'displayHeight=${_height ?? cachedHeight ?? _estimateHeight()}');
     // 2026-06-07：仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
     // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
     // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
@@ -4321,6 +4356,12 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     // `<table>` 经常渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
     final bool hasHtmlLikeTags = _looksLikeHtml(data);
     final bool hasTagStructure = !hasHtmlLikeTags && _hasHtmlTagStructure(data);
+
+    // 2026-06-07：临时调试日志。
+    debugPrint(
+        '[DBG-DISP:_buildHtmlOrFallback] data.length=${data.length} '
+        'hasHtmlLikeTags=$hasHtmlLikeTags hasTagStructure=$hasTagStructure '
+        '→ ${(hasHtmlLikeTags || hasTagStructure) ? "_HtmlBubbleWebView" : "fallback"}');
 
     if (hasHtmlLikeTags || hasTagStructure) {
       return SizedBox(
