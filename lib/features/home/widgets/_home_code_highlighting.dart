@@ -2978,7 +2978,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
         .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
         .replace(/\\sstyle=["'][^"']*background[^"']*["']/gi, '')
-        .replace(/--background\\s*:\\s*[^;!}]+/gi, '--background: transparent');
+        .replace(/--background\\s*:\\s*[^;!}]+/gi, '--background: transparent')
+        // 关键：Mermaid base 主题 CSS 里写了 var(--background, #B00020)
+        // 当 --background 不存在时回退到 #B00020（深红），直接全局替换。
+        .replace(/var\\s*\\(\\s*--background\\s*,\\s*[^)]+\\s*\\)/gi, 'transparent');
     }
     window.mermaid.render('mermaid-svg', source).then(function (result) {
       var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
