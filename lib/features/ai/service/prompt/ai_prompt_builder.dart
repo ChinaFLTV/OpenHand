@@ -69,6 +69,7 @@ class AiPromptBuilder {
     'environment',
     'tool_catalog_authoritative',
     'current_file_editing_tool_names',
+    'app_theme',
   };
   static const int _microCompactKeepRecentToolResults = 5;
   static const int _contextBudgetEstimatedCharsPerToken = 4;
@@ -333,6 +334,11 @@ class AiPromptBuilder {
         runtimeContext,
         includeRepositorySnapshot: false,
       ),
+      'app_theme': <String, String>{
+        'brightness': runtimeContext.appThemeBrightness,
+        'preset': runtimeContext.appThemePresetName,
+        'primary_color': runtimeContext.appThemePrimaryColor,
+      },
     };
     final webReverseRuntime = _buildWebReverseRuntimeSnapshot(
       session,
@@ -1067,6 +1073,20 @@ class AiPromptBuilder {
           .toList(growable: false);
     }
 
+    // 2026-06-08 — 当前应用主题配置注入 [3s]，供所有模板的 AI 生成富文本内容
+    //（Mermaid / HTML / 图表等）时保持与当前界面亮度/配色协调一致。
+    final themeBrightness = runtimeContext.appThemeBrightness.trim();
+    final themePreset = runtimeContext.appThemePresetName.trim();
+    final themePrimary = runtimeContext.appThemePrimaryColor.trim();
+    if (themeBrightness.isNotEmpty || themePreset.isNotEmpty) {
+      final theme = <String, Object?>{
+        if (themeBrightness.isNotEmpty) 'b': themeBrightness,
+        if (themePreset.isNotEmpty) 'p': themePreset,
+        if (themePrimary.isNotEmpty) 'c': themePrimary,
+      };
+      if (theme.isNotEmpty) staticState['theme'] = theme;
+    }
+
     // 2026-05-25 — git 信息迁入 [3s] Static（会话开启快照），从 [3d] Dynamic 移除。
     // 原因：每次模型写文件后 git status 改变 → [3d] hash 改变 → prefix-cache 全量
     // 冷启。迁到 [3s] 后 git 信息作为会话开启快照保持字节稳定；模型可随时调用
@@ -1499,7 +1519,25 @@ class AiPromptBuilder {
     List<AiToolCall> toolCalls = const <AiToolCall>[],
     List<AiChatContentPart> parts = const <AiChatContentPart>[],
     String? reasoningContent,
+    bool stripSystemReminders = false,
   }) {
+    if (stripSystemReminders) {
+      final cleaned = content
+          .replaceAll(_systemReminderPattern, '')
+          .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+          .trim();
+      if (cleaned.isEmpty && toolCalls.isEmpty) return const <AiChatTurn>[];
+      return <AiChatTurn>[
+        AiChatTurn(
+          role: role,
+          content: cleaned,
+          toolCallId: toolCallId,
+          toolCalls: toolCalls,
+          parts: parts,
+          reasoningContent: reasoningContent,
+        ),
+      ];
+    }
     final extracted = _extractSystemReminders(content);
     final turns = extracted.reminders
         .map(
@@ -1525,18 +1563,19 @@ class AiPromptBuilder {
     return turns;
   }
 
+  static final RegExp _systemReminderPattern = RegExp(
+    r'<system-reminder>([\s\S]*?)</system-reminder>',
+    caseSensitive: false,
+  );
+
   _ExtractedReminderContent _extractSystemReminders(String content) {
-    final reminderPattern = RegExp(
-      r'<system-reminder>([\s\S]*?)</system-reminder>',
-      caseSensitive: false,
-    );
-    final reminders = reminderPattern
+    final reminders = _systemReminderPattern
         .allMatches(content)
         .map((match) => (match.group(1) ?? '').trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
     final stripped = content
-        .replaceAll(reminderPattern, '')
+        .replaceAll(_systemReminderPattern, '')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
     return _ExtractedReminderContent(content: stripped, reminders: reminders);
@@ -2184,6 +2223,7 @@ $identity''';
           model: model,
           content: promptContent,
           isLatestUserMessage: isLatestUserInline,
+          stripSystemReminders: true,
         );
       case AiSessionMessageKind.assistant:
         return _mapMessageContent(
@@ -2237,6 +2277,7 @@ $identity''';
     required AiModelConfig model,
     required String content,
     bool isLatestUserMessage = false,
+    bool stripSystemReminders = false,
   }) {
     return _mapMessageContent(
       role: AiChatRole.user,
@@ -2247,6 +2288,7 @@ $identity''';
         model,
         isLatestUserMessage: isLatestUserMessage,
       ),
+      stripSystemReminders: stripSystemReminders,
     );
   }
 
