@@ -2885,11 +2885,21 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final rawSource = widget.source;
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
-    final mermaidTheme = isDark ? 'dark' : 'default';
-    final bg = isDark
-        ? const Color(0xFF0F1115).toARGB32().toRadixString(16).padLeft(8, '0')
-        : 'ffffff';
-    final fg = isDark ? 'eeeeee' : '111111';
+    // 关键：与代码块容器使用同一调色板，让 WebView body / mermaid 节点 /
+    // 边线全部沿用同套主题色，杜绝硬编码 0xFF0F1115 与全局深色主题割裂。
+    final palette = widget.palette;
+    String argbToCss(Color c) =>
+        c.toARGB32().toRadixString(16).padLeft(8, '0');
+    String argbToRgbHex(Color c) {
+      final hex = argbToCss(c);
+      return hex.length == 8 ? hex.substring(2) : hex;
+    }
+
+    final bgHex = argbToCss(palette.containerColor);
+    final fgHex = argbToCss(palette.actionTextColor);
+    final bgRgb = argbToRgbHex(palette.containerColor);
+    final fgRgb = argbToRgbHex(palette.actionTextColor);
+    final borderRgb = argbToRgbHex(palette.borderColor);
     return '''
 <!doctype html>
 <html>
@@ -2901,7 +2911,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   :root { color-scheme: ${isDark ? 'dark' : 'light'}; }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    background: #$bg; color: #$fg;
+    background: #$bgHex; color: #$fgHex;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     overflow: hidden;
   }
@@ -2972,12 +2982,23 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       try {
         window.mermaid.initialize({
           startOnLoad: false,
-          theme: '$mermaidTheme',
+          theme: 'base',
           securityLevel: 'loose',
           flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
           sequence: { useMaxWidth: false, showSequenceNumbers: true },
           gantt: { useMaxWidth: false },
-          themeVariables: { fontSize: '13px' },
+          // 关键：使用 base 主题 + 同 palette 颜色，杜绝 mermaid dark 主题
+          // 自身 #1f2020 节点色与全局调色板割裂的问题。
+          themeVariables: {
+            fontSize: '13px',
+            background: '#$bgRgb',
+            primaryColor: '#$bgRgb',
+            primaryBorderColor: '#$borderRgb',
+            primaryTextColor: '#$fgRgb',
+            secondaryColor: '#$bgRgb',
+            tertiaryColor: '#$bgRgb',
+            lineColor: '#$fgRgb',
+          },
         });
       } catch (err) {
         post('error:init_failed:' + formatError(err));
