@@ -2974,14 +2974,18 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       return '';
     }
     function stripBackgroundRect(svgStr) {
+      // 关键：BFS 级去除所有"背景着色"痕迹：
+      // 1. 摘掉所有 rect.background / rect[class*="background"] 节点
+      // 2. 抹掉所有 inline style="background:..." 属性
+      // 3. 把 style 块里 --background:... 炸成 transparent
+      // 4. 把 style 块里所有 var(--background, #RRGGBB) 回退值炸掉
+      // 5. 收尾：所有 fill="var(--..." 也替换 fill 为 transparent
       return svgStr
-        .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
-        .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\\/?>(?:<\\/rect>)?/gi, '')
+        .replace(/<rect[^>]*\\bclass=["'][^"']*\\bbackground\\b[^"']*["'][^>]*\\/?>/gi, '')
+        .replace(/<rect[^>]*class=["'][^"']*background[^"']*["'][^>]*\\/?>/gi, '')
         .replace(/\\sstyle=["'][^"']*background[^"']*["']/gi, '')
         .replace(/--background\\s*:\\s*[^;!}]+/gi, '--background: transparent')
-        // 关键：Mermaid base 主题 CSS 里写了 var(--background, #B00020)
-        // 当 --background 不存在时回退到 #B00020（深红），直接全局替换。
-        .replace(/var\\s*\\(\\s*--background\\s*,\\s*[^)]+\\s*\\)/gi, 'transparent');
+        .replace(/var\\s*\\(\\s*--background\\s*,[^)]*\\)/gi, 'transparent');
     }
     window.mermaid.render('mermaid-svg', source).then(function (result) {
       var svg = svgMarkupOf(result) || svgMarkupOf(result && result.svg);
@@ -2995,6 +2999,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         try {
           var svgEl = inner.querySelector('svg');
           if (svgEl) {
+            // 关键：直接在 DOM 上设 style.background 覆盖 inline/interior
+            // style 里的任何 var(--background, #B00020) 回退值。
+            svgEl.style.setProperty('background', 'transparent', 'important');
+            svgEl.style.setProperty('background-color', 'transparent', 'important');
             svgEl.removeAttribute('style');
             var bgRects = svgEl.querySelectorAll('rect.background, rect[class*="background"]');
             for (var ri = 0; ri < bgRects.length; ri++) {
@@ -3004,7 +3012,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             var styleBlocks = svgEl.querySelectorAll('style');
             for (var si = 0; si < styleBlocks.length; si++) {
               styleBlocks[si].textContent = (styleBlocks[si].textContent || '')
-                .replace(/--background\\s*:\\s*[^;!}]+/g, '--background: transparent');
+                .replace(/--background\\s*:\\s*[^;!}]+/g, '--background: transparent')
+                // 关键：把 style 块里所有 var(--background, *) 回退值也炸掉
+                .replace(/var\\s*\\(\\s*--background\\s*,[^)]*\\)/gi, 'transparent');
             }
           }
         } catch (_) {}
@@ -3068,14 +3078,18 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
     final palette = widget.palette;
-    final bgHex = palette.containerColor
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0');
-    final fgHex = palette.actionTextColor
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0');
+    // 关键：toARGB32() 返回 0xAARRGGBB，CSS 8位 hex 是 #RRGGBBAA，
+    // 直接 toRadixString(16) 会把 alpha(ff) 当 red 用 → #FF1E1E24
+    // 在浏览器里变成 R=FF 亮红，导致整个 Mermaid 视图背景"深红色"。
+    // 修复：只取后 6 位 RRGGBB（颜色必定不透明，alpha 直接丢弃）。
+    String cssHex(Color c) {
+      final hex =
+          c.toARGB32().toRadixString(16).padLeft(8, '0');
+      return hex.length >= 7 ? hex.substring(hex.length - 6) : hex;
+    }
+
+    final bgHex = cssHex(palette.containerColor);
+    final fgHex = cssHex(palette.actionTextColor);
     // 把渲染 IIFE 内联到模板末尾，与 mermaid.js 同一个 <script> 标签。
     final renderJs = _buildRenderJs(bgRgb, fgRgb, borderRgb);
     return '''
@@ -3118,11 +3132,17 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
      双向 transparent，让 body 的 #$bgHex 直接透出。 */
   .mermaid-stage svg,
   .mermaid-stage svg .root,
-  .mermaid-stage svg .root > * { background: transparent !important; }
+  .mermaid-stage svg .root > *,
+  .mermaid-stage svg > g,
+  .mermaid-stage svg > rect { background: transparent !important; }
   .mermaid-stage svg > rect,
   .mermaid-stage svg .background,
-  .mermaid-stage svg rect.background { fill: transparent !important; }
-  .mermaid-stage svg { --background: transparent !important; }
+  .mermaid-stage svg rect.background,
+  .mermaid-stage svg [class*="background"] { fill: transparent !important; }
+  /* 关键：Mermaid base 主题 CSS 用 var(--background, #B00020) 回退值
+     把整张画布染红。这里直接在 svg 元素上把 background 写死 transparent，
+     同时覆盖 --background 变量，双保险不让 var() 的 red fallback 生效。 */
+  .mermaid-stage svg { --background: transparent !important; background: transparent !important; }
   .mermaid-error {
     color: #d93025; padding: 16px; font-size: 13px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
