@@ -3270,19 +3270,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 500);
   static const int _kHeightCacheMaxSize = 96;
-  // 2026-06-07：测量稳定性阈值。WebView 首次测量常因图片/CSS 未完成
-  // 偏大（导致"HTML 渲染视图下方存在大量空白"），需要连续 N 次相邻测量
-  // 差值小于此值才切到真实 WebView 渲染。100ms 级别的 16px 差异通常
-  // 来自 DPR 舍入，无视觉影响。
-  static const int _kRequiredStableMeasurements = 2;
-  static const double _kStabilityDelta = 16.0;
-  // 2026-06-07：稳定性超时兜底。若 WebView 内部持续 reflow（如图片
-  // 懒加载、字体回退）让测量差值始终超阈值、或累计样本不够 2 次连续
-  // 稳定（例如微小变化路径早 return、不调用 _applyHeight），导致
-  // `_heightStabilized` 永远卡在 false，shimmer 占位卡死。超过此时长
-  // 强制切到真实 WebView，至少让用户能看清内容，宁可看到"接近准确"
-  // 的高度也不要永久骨架屏。
-  static const Duration _kStabilizationTimeout = Duration(seconds: 5);
+  // 2026-06-07：移除 stability 检查 + 5 秒超时兜底。stability 检查
+  // 试图用 Flutter 端逻辑去判断 WebView 异步渲染状态根本不可靠——
+  // 一旦后续 reflow 触发了大幅变化（图片懒加载、字体回退）导致
+  // stability 翻转，shimmer 会重新出现；且 timer 取消后从未重启，
+  // 5 秒超时失效，shimmer 永久卡死。改回简单条件 + 首次测量 outlier
+  // 检查：`_height == null && cachedHeight == null` 才显示 shimmer，
+  // 几百毫秒内 _height 被设置后即切到 WebView，逻辑可靠。
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
   // 初始高度，避免 shimmer 96px 与真实 2000+px 之间出现夸张落差。
@@ -3290,6 +3284,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const int _kEstimatedCharsPerLine = 80;
   static const double _kEstimatedMinHeight = 96.0;
   static const double _kEstimatedMaxHeight = 2000.0;
+  // 2026-06-07：首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
+  // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
+  // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
+  // 显示尺寸，后续测量（500ms 防抖）会把高度修正到准确值；视觉上看
+  // 是"由小到大"生长，比"由大到小收缩留下大片空白"更可接受。
+  static const double _kFirstMeasurementOutlierRatio = 2.0;
   static final RegExp _documentShellPattern = RegExp(
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
@@ -3673,37 +3673,16 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   bool _scrollActive = false;
   // 滚动停止后是否有待应用的最新高度。
   bool _hasPendingHeightAfterScroll = false;
-  // 2026-06-07：测量稳定性追踪——见 `_kRequiredStableMeasurements`。
-  // 连续 `_kRequiredStableMeasurements` 次相邻测量差值小于 `_kStabilityDelta`
-  // 才认为稳定。`!_heightStabilized` 时 build 显示 shimmer 占位 +
-  // 内容长度估算高度；稳定后切到真实 WebView 渲染。这一层 pending
-  // 视图既避免"HTML 渲染下方空白"bug，也提示用户卡片尚在渲染、
-  // 不要在此时快速上滑。
-  int _stableMeasurementCount = 0;
-  bool _heightStabilized = false;
-  double? _previousAppliedHeight;
-  // 稳定性超时定时器：超过 `_kStabilizationTimeout` 仍不稳定则强制
-  // 切到真实 WebView，避免永远卡在 shimmer。initState 启动，dispose
-  // 或稳定后取消。
-  Timer? _stabilizationTimeoutTimer;
+  // 2026-06-07：首次测量 outlier 检查状态位。首次非跳过的测量若超
+  // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
+  // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
+  bool _firstMeasurementHandled = false;
 
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
     widget.baseTextStyle?.height,
   );
-
-  @override
-  void initState() {
-    super.initState();
-    // 启动稳定性超时兜底：避免 `_heightStabilized` 永远卡在 false 导致
-    // shimmer 永久占位。_recordStabilitySample 在 _heightStabilized 变
-    // true 时会取消本 timer，所以正常情况下 5 秒内就会提前结束。
-    _stabilizationTimeoutTimer = Timer(_kStabilizationTimeout, () {
-      if (!mounted || _heightStabilized) return;
-      setState(() => _heightStabilized = true);
-    });
-  }
 
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
@@ -3755,8 +3734,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
-    _stabilizationTimeoutTimer?.cancel();
-    _stabilizationTimeoutTimer = null;
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
@@ -3807,14 +3784,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _hasPendingHeightAfterScroll = true;
       return;
     }
-    // 2026-06-07（shimmer 永久占位 BUG 关键修复）：stability 追踪必须
-    // 在"微小变化早 return"之前完成。原实现把 stability 计算放在
-    // `_applyHeight` 内部，但差值 < 8px 的微小变化会直接 return、永不
-    // 调用 `_applyHeight`，导致 _stableMeasurementCount 永远不增加、
-    // _heightStabilized 永远卡在 false → 用户看到永久骨架屏。把
-    // stability 抽成 `_recordStabilitySample` 并在所有非滚动期 / 非
-    // 首次异常大的有效测量入口执行。
-    _recordStabilitySample(next);
+    // 2026-06-07：首次非跳过的测量做 outlier 检查。WebView 首测常因
+    // 图片/CSS 未完成返回异常大值，直接应用会撑出"渲染下方空白"。
+    // 若超出估算高度 × ratio，改用估算高度作初始显示值，后续测量
+    // 经 500ms 防抖会修正到准确值。视觉上是"由小到大"生长，比
+    // "由大到小收缩留下空白"更可接受。仅对首测做一次判定，避免后
+    // 续正常 reflow 持续被当成 outlier 抑制。
+    if (!_firstMeasurementHandled) {
+      _firstMeasurementHandled = true;
+      final estimated = _estimateHeight();
+      if (next > estimated * _kFirstMeasurementOutlierRatio) {
+        _applyHeight(estimated);
+        return;
+      }
+    }
     if (_height != null && (next - _height!).abs() < _kMinHeightDelta) {
       return;
     }
@@ -3878,53 +3861,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     _lastHeightApplyTime = DateTime.now();
     setState(() => _height = next);
-    // 注意：stability 追踪由调用方在 `_onContentSizeChanged` /
-    // `_applyPendingHeightIfAny` 入口处通过 `_recordStabilitySample` 完成，
-    // 此处不重复，避免同一测量被双重计数。
-  }
-
-  /// 记录一次稳定性样本。连续 `_kRequiredStableMeasurements` 次相邻样
-  /// 本差值小于 `_kStabilityDelta` 才认为稳定；任一次差值超阈值立即
-  /// 清零计数。状态翻转时（稳定 ↔ 不稳定）触发 setState 切 shimmer。
-  /// 滚动期间样本由 `_onContentSizeChanged` 早 return 跳过，避免用户
-  /// 滚动手势的噪声污染稳定序列。
-  void _recordStabilitySample(double next) {
-    final prev = _previousAppliedHeight;
-    if (prev == null) {
-      _previousAppliedHeight = next;
-      return;
-    }
-    final wasStabilized = _heightStabilized;
-    if ((next - prev).abs() < _kStabilityDelta) {
-      _stableMeasurementCount++;
-      if (_stableMeasurementCount >= _kRequiredStableMeasurements) {
-        _heightStabilized = true;
-      }
-    } else {
-      _stableMeasurementCount = 0;
-      _heightStabilized = false;
-    }
-    _previousAppliedHeight = next;
-    if (_heightStabilized != wasStabilized) {
-      // 稳定后取消超时兜底定时器：避免 5 秒后 setState 覆盖刚稳定的
-      // 状态。重新不稳定时由 `_recordStabilitySample` 自身重新开始
-      // 计数，但不再重启 timer（用 initState 中的一次性 timer 即可，
-      // 超时则强制稳定，宁可"提前结束"也不可"卡死"）。
-      if (_heightStabilized) {
-        _stabilizationTimeoutTimer?.cancel();
-        _stabilizationTimeoutTimer = null;
-      }
-      if (mounted) setState(() {});
-    }
   }
 
   /// 滚动停止后应用滚动期间累积的最近一次高度测量。若无 pending 或差值
   /// 过小则忽略。与正常路径共用 `_kMinHeightDelta` 阈值，确保不会与
   /// 滚动期间已部分应用的过渡状态产生冲突。
-  ///
-  /// 滚动期间 `_onContentSizeChanged` 早 return 跳过了 stability 样本
-  /// 记录，滚动结束后此处补一次 sample，让稳定性序列在跨滚动周期时也
-  /// 能正确收敛。
   void _applyPendingHeightIfAny() {
     final pending = _pendingHeight;
     if (pending == null) return;
@@ -3933,7 +3874,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       return;
     }
     _pendingHeight = null;
-    _recordStabilitySample(pending);
     _applyHeight(pending);
   }
 
@@ -4143,12 +4083,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final cachedHeight = _heightCache[_heightCacheKey];
-    // 2026-06-07：未稳定时显示 shimmer 占位。WebView 首次测量常因
-    // 图片/CSS 未完成而偏大，若立即用 `_height` 渲染会出现
-    // "HTML 渲染视图下方存在大量空白"问题；显示 shimmer 既能盖住
-    // 异常大高度下未加载的视觉错位，也能向用户传达"正在渲染，
-    // 此刻请勿快速上滑"的明确信号。
-    final showShimmer = !_heightStabilized;
+    // 2026-06-07：仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
+    // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
+    // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
+    // 太久；cachedHeight 处理"下滑后上滑"——用户见过此内容，state
+    // 重建时 cachedHeight 命中，直接显示 WebView，无须等待 JS 测量。
+    // 首次测量的"渲染下方空白"问题由 `_onContentSizeChanged` 中的
+    // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
+    final showShimmer = _height == null && cachedHeight == null;
     final estimatedHeight = _estimateHeight();
     final displayHeight = _height ?? cachedHeight ?? estimatedHeight;
 
