@@ -3656,6 +3656,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
+  // 2026-06-07：跨 State 生命周期的单调 floor。
+  // State dispose 时把真实测量高度写入此 cache，新 State 重建后若 _height
+  // 丢失则用 floor 兜底，防止 Stack 高度收缩到 estimatedHeight 导致
+  // maxScrollExtent 抖动。与 _heightCache 分离：floor 只写 dispose 时的
+  // 真实高度，outlier 占位估计绝不写入，避免污染持久化数据。
+  static final Map<int, double> _heightFloorCache = <int, double>{};
   int _measurementCount = 0;
   Timer? _heightDebounceTimer;
   // 2026-06-06（线程模板抽搐 bug 真凶）：HTML WebView 通过 ResizeObserver
@@ -3743,14 +3749,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
     _bubbleStateForRegion = null;
+    // State 被 ListView 回收前，把当前真实高度保存为 floor。
+    // 新 State 重建后若 _height 丢失，可用此 floor 防止收缩。
+    if (_height != null) {
+      _heightFloorCache[_heightCacheKey] = _height!;
+    }
     super.dispose();
   }
 
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
-    // 内容/样式变化时清除旧高度缓存，避免新内容被旧大值撑出空白。
+    // 内容/样式变化时清除旧高度缓存与 floor，避免新内容被旧大值撑出空白。
     _heightCache.remove(_heightCacheKey);
+    _heightFloorCache.remove(_heightCacheKey);
     setState(() {
       _height = null;
       _hasError = false;
@@ -3801,7 +3813,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _firstMeasurementHandled = true;
       final estimated = _estimateHeight();
       if (next > estimated * _kFirstMeasurementOutlierRatio) {
-        _applyHeight(estimated);
+        // outlier 占位高度只写本地 _height，**绝不写入任何持久化 cache**，
+        // 避免 estimatedHeight 污染 _heightCache / _heightFloorCache。
+        setState(() => _height = estimated);
         return;
       }
     }
@@ -3862,12 +3876,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _applyHeight(double next) {
-    final existing = _heightCache[_heightCacheKey];
-    // cache 保存历史最大高度，作为跨 State 生命周期的单调 floor。
-    // State 被 ListView 回收重建后，cachedHeight 不会小于此前见过的最大值，
-    // 从而杜绝 estimatedHeight → actualHeight 的收缩-膨胀震荡。
-    _heightCache[_heightCacheKey] =
-        existing != null && existing > next ? existing : next;
+    _heightCache[_heightCacheKey] = next;
     if (_heightCache.length > _kHeightCacheMaxSize) {
       _heightCache.remove(_heightCache.keys.first);
     }
@@ -4095,6 +4104,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     final cachedHeight = _heightCache[_heightCacheKey];
+    final floor = _heightFloorCache[_heightCacheKey];
     // 2026-06-07：仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
     // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
     // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
@@ -4104,13 +4114,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
     final showShimmer = _height == null && cachedHeight == null;
     final estimatedHeight = _estimateHeight();
-    // 2026-06-07：cache 单调 floor——_heightCache 保存历史最大高度，
-    // 跨 State 生命周期持久化。ListView 回收重建后即使 _height 丢失，
-    // cachedHeight 也不会低于此前见过的最大值，Stack 高度不会收缩，
-    // 从而杜绝 maxScrollExtent 减小导致的强制滚动。
+    // 2026-06-07：跨 State 单调 floor——State dispose 时把真实高度写入
+    // `_heightFloorCache`，新 State 重建后若 _height 丢失则用 floor
+    // 兜底，防止 Stack 高度收缩到 estimatedHeight 导致 maxScrollExtent
+    // 抖动。floor 与 cache 分离，outlier 占位估计绝不写入，避免污染。
+    // 正常运营期间（同 State 内）允许 _height 自由减小，不受 floor 限制。
     final baseDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
-    final displayHeight = cachedHeight != null && baseDisplayHeight < cachedHeight
-        ? cachedHeight
+    final displayHeight = floor != null && baseDisplayHeight < floor
+        ? floor
         : baseDisplayHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
