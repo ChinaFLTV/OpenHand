@@ -2210,20 +2210,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   Future<void> _bootstrap() async {
     try {
       final controller = WebViewController();
-      // 关键：之前用 cascade (..) 调 setJavaScriptMode / setOnConsoleMessage /
-      // addJavaScriptChannel，三个方法都返回 Future<void> 但都没 await，
-      // 如果某个 Future 没来得及 resolve 就 loadFile，JS 引擎根本没启动、
-      // console 桥也是空的（用户整个控制台只出一条 bootstrap 行）。
-      // 改为逐行 await，确保三项全部就绪后再 loadFile。
+      // 关键：逐行 await，确保 setup 三步全部就绪后再 loadFile。
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-      // 2026-06-08 临时诊断：把 WebView 内所有 console 输出
-      // (log/warn/error) 桥接到 Dart 端 developer.log。问题修复后清理。
-      await controller.setOnConsoleMessage((message) {
-        developer.log(
-          '[js:${message.level.name}] ${message.message}',
-          name: 'openhand.mermaid',
-        );
-      });
       await controller.addJavaScriptChannel(
         'OpenHandMermaid',
           onMessageReceived: (message) {
@@ -2275,12 +2263,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
-      // 关键：mermaid.js 不再内联（WKWebView inline JS 体积上限约 2MB，
-      // 3.3MB min.js 会被静默截断成"加载超时"），改为写到与 HTML 同目录
-      // 的 mermaid.min.js，HTML 用相对路径 <script src> 引用。
-      // macOS / Linux / Windows 用 loadFile 走磁盘；其它平台用
-      // loadHtmlString 但同样把 mermaid.js base64 内嵌 data: URL，
-      // 保证 file:// / 自定义 scheme 都不影响 JS 加载。
+      // 把 mermaid.js 内联到单文件 HTML，loadFile 一次性加载。
       final mermaidJs = await _loadMermaidJs();
       final themeColors = _computeMermaidThemeColors();
       // 关键：把 mermaid.js 内联到 HTML 里，走 loadFile 加载单文件。
@@ -2301,13 +2284,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         final tempFile = File(p.join(tempDir.path, 'index.html'));
         await tempFile.writeAsString(html, flush: true);
         _tempHtmlPath = tempFile.path;
-        final htmlSize = await tempFile.length();
-        developer.log(
-          '[mermaid] bootstrap: '
-          'html=${tempFile.path} (${htmlSize}B, mermaidJs=${mermaidJs.length}B), '
-          'controller=$controller',
-          name: 'openhand.mermaid',
-        );
         await controller.loadFile(tempFile.path);
       } else {
         await controller.loadHtmlString(html);
@@ -2956,7 +2932,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     String border,
   ) {
     return '''
-// [openhand-mermaid] Dart-injected render script, t0 injected
 (function () {
   var post = function (value) {
     try {
@@ -2965,7 +2940,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       }
     } catch (e) {}
   };
-  try { post('injected_iife_started'); } catch (_) {}
   try {
     if (!window.mermaid) {
       post('error:mermaid-js 加载失败');
@@ -3160,9 +3134,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     </div>
   </div>
   <script>
-    // 关键：mermaid.js 内联 + 渲染 IIFE 全部走 loadFile(file://)，
-    // WKWebView file:// 下没有 inline script 体积限制（仅 loadHtmlString 有），
-    // 单文件单 script 标签消除一切竞态。
+    // mermaid.js 内联 + 渲染 IIFE，单文件单 script 标签加载。
     $mermaidJs
     $renderJs
   </script>
