@@ -216,8 +216,6 @@ class _SessionToolbar extends StatelessWidget {
               context,
               expanding: !planTimelineCollapsed,
             ),
-            switchInCurve: kCardMotionCurve,
-            switchOutCurve: Curves.easeInCubic,
             layoutBuilder: (currentChild, previousChildren) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
@@ -228,9 +226,14 @@ class _SessionToolbar extends StatelessWidget {
               );
             },
             transitionBuilder: (child, animation) {
-              final fade = CurvedAnimation(
+              final fade = openHandBoundedCurveAnimation(
                 parent: animation,
                 curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              );
+              final slide = openHandCurveAnimation(
+                parent: animation,
+                curve: kCardMotionCurve,
                 reverseCurve: Curves.easeInCubic,
               );
               return ClipRect(
@@ -243,7 +246,7 @@ class _SessionToolbar extends StatelessWidget {
                       position: Tween<Offset>(
                         begin: const Offset(0, -0.04),
                         end: Offset.zero,
-                      ).animate(fade),
+                      ).animate(slide),
                       child: child,
                     ),
                   ),

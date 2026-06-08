@@ -15,6 +15,8 @@
 //   后续字符都会触发滚动；这正是预期行为：长度跳变也保留视觉连续性。
 import 'package:flutter/material.dart';
 
+import 'bounded_animation.dart';
+
 class RollingText extends StatelessWidget {
   const RollingText({
     super.key,
@@ -57,18 +59,26 @@ class _RollingChar extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {
         final outgoing = animation.status == AnimationStatus.reverse;
+        final opacity = openHandBoundedCurveAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final motion = openHandCurveAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        );
         final slide = Tween<Offset>(
           begin: Offset(0, outgoing ? -0.6 : 0.6),
           end: Offset.zero,
-        ).animate(animation);
+        ).animate(motion);
         return ClipRect(
           child: SlideTransition(
             position: slide,
-            child: FadeTransition(opacity: animation, child: child),
+            child: FadeTransition(opacity: opacity, child: child),
           ),
         );
       },

@@ -28,6 +28,22 @@ void main() {
       );
     });
 
+    test('curves clamp input before transform', () {
+      final opacity = openHandBoundedCurveAnimation(
+        parent: const AlwaysStoppedAnimation<double>(1.0092810608446598),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      expect(opacity.value, 1.0);
+
+      final motion = openHandCurveAnimation(
+        parent: const AlwaysStoppedAnimation<double>(1.0092810608446598),
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      );
+      expect(motion.value.isFinite, isTrue);
+    });
+
     testWidgets('shared dialog transitions tolerate overrange progress', (
       tester,
     ) async {
@@ -80,6 +96,35 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(
         find.byKey(const ValueKey<String>('bounded-list-child')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shared transitions tolerate an already-overshooting parent', (
+      tester,
+    ) async {
+      final overshootingParent = openHandCurveAnimation(
+        parent: const AlwaysStoppedAnimation<double>(0.744),
+        curve: const Cubic(0.22, 1.22, 0.36, 1.0),
+      );
+
+      await tester.pumpWidget(
+        _host(
+          buildAnimationStyleTransition(
+            animation: overshootingParent,
+            settings: const DialogAnimationSettings(),
+            child: const SizedBox(
+              key: ValueKey<String>('overshoot-parent-child'),
+              width: 24,
+              height: 24,
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey<String>('overshoot-parent-child')),
         findsOneWidget,
       );
     });

@@ -3330,18 +3330,21 @@ class _DeferredHtmlBubbleWebViewState
     final duration = cardMotionDurationFor(context, expanding: true);
     return AnimatedSwitcher(
       duration: duration,
-      switchInCurve: kCardMotionCurve,
-      switchOutCurve: Curves.easeOutCubic,
       transitionBuilder: (child, animation) {
-        final curved = CurvedAnimation(
+        final opacity = openHandBoundedCurveAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final motion = openHandCurveAnimation(
           parent: animation,
           curve: kCardMotionCurve,
           reverseCurve: Curves.easeInCubic,
         );
         return FadeTransition(
-          opacity: curved,
+          opacity: opacity,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.985, end: 1.0).animate(motion),
             alignment: Alignment.topCenter,
             child: child,
           ),
@@ -3839,6 +3842,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   bool _scrollActive = false;
   // 滚动停止后是否有待应用的最新高度。
   bool _hasPendingHeightAfterScroll = false;
+  bool _safeSetStateQueued = false;
   // 2026-06-07：首次测量 outlier 检查状态位。首次非跳过的测量若超
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
@@ -3889,7 +3893,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (activity == null || !mounted) return;
     final isActive = activity.value;
     if (isActive == _scrollActive) return;
-    setState(() => _scrollActive = isActive);
+    _safeSetState(() => _scrollActive = isActive);
     if (!isActive && _hasPendingHeightAfterScroll) {
       _hasPendingHeightAfterScroll = false;
       _applyPendingHeightIfAny();
@@ -3911,6 +3915,29 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     super.dispose();
   }
 
+  void _safeSetState(VoidCallback update) {
+    if (!mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final inFrame =
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks ||
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.postFrameCallbacks;
+    if (!inFrame) {
+      setState(update);
+      return;
+    }
+    update();
+    if (_safeSetStateQueued) return;
+    _safeSetStateQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _safeSetStateQueued = false;
+      setState(() {});
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
@@ -3923,7 +3950,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _documentCacheTextColor = null;
     _documentCacheBackgroundColor = null;
     _documentCache = null;
-    setState(() {
+    _safeSetState(() {
       _height = null;
       _hasError = false;
     });
@@ -3977,7 +4004,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       if (next > estimated * _kFirstMeasurementOutlierRatio) {
         // outlier 占位高度只写本地 _height，**绝不写入任何持久化 cache**，
         // 避免 estimatedHeight 污染 _heightCache / _heightFloorCache。
-        setState(() => _height = estimated);
+        _safeSetState(() => _height = estimated);
         return;
       }
     }
@@ -4062,7 +4089,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
-    setState(() => _height = next);
+    _safeSetState(() => _height = next);
   }
 
   /// 滚动停止后应用滚动期间累积的最近一次高度测量。统一走 `_applyHeight`
@@ -4379,7 +4406,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
               error,
             );
             if (mounted) {
-              setState(() => _hasError = true);
+              _safeSetState(() => _hasError = true);
             }
           },
         ),
@@ -4605,8 +4632,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   Widget build(BuildContext context) {
     final body = AnimatedSwitcher(
       duration: cardMotionDurationFor(context, expanding: !isStreaming),
-      switchInCurve: kCardMotionCurve,
-      switchOutCurve: Curves.easeOutCubic,
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.topLeft,
@@ -4617,13 +4642,13 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         );
       },
       transitionBuilder: (child, animation) {
-        final fade = CurvedAnimation(
+        final fade = openHandBoundedCurveAnimation(
           parent: animation,
           curve: Curves.easeOutCubic,
           reverseCurve: Curves.easeInCubic,
         );
         final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
-          CurvedAnimation(
+          openHandCurveAnimation(
             parent: animation,
             curve: kCardMotionCurve,
             reverseCurve: Curves.easeInCubic,

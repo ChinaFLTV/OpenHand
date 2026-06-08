@@ -681,14 +681,18 @@ class _ExpandableToolSection extends StatelessWidget {
                 // never see a null child.
                 AnimatedSwitcher(
                   duration: motionDuration,
-                  switchInCurve: kCardMotionCurve,
-                  switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(
                     alignment: Alignment.topLeft,
                     children: [...previous, if (current != null) current],
                   ),
-                  transitionBuilder: (child, animation) =>
-                      FadeTransition(opacity: animation, child: child),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: openHandBoundedCurveAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    ),
+                    child: child,
+                  ),
                   child: expanded
                       ? Padding(
                           key: const ValueKey<String>('expanded'),

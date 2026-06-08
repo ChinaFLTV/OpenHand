@@ -647,7 +647,7 @@ Widget buildAnimationStyleTransition({
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
-  final motion = CurvedAnimation(
+  final motion = openHandCurveAnimation(
     parent: safeAnimation,
     curve: curveData.curve,
     reverseCurve: curveData.reverseCurve,
@@ -836,7 +836,7 @@ class _ElasticTransition extends StatelessWidget {
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
     final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      CurvedAnimation(
+      openHandCurveAnimation(
         parent: animation,
         curve: curve.curve,
         reverseCurve: curve.reverseCurve,
@@ -864,7 +864,7 @@ class _SpringScaleTransition extends StatelessWidget {
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
     final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      CurvedAnimation(
+      openHandCurveAnimation(
         parent: animation,
         curve: Curves.easeOutBack,
         reverseCurve: Curves.easeInBack,

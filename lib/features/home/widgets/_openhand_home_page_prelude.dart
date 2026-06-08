@@ -176,13 +176,13 @@ Widget _buildWorkspaceSettingsAwareTransition({
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
   final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
-  final motion = CurvedAnimation(
+  final motion = openHandCurveAnimation(
     parent: safeAnimation,
     curve: curveData.curve,
     reverseCurve: curveData.reverseCurve,
   );
   final boundedMotion = OpenHandBoundedDoubleAnimation(motion);
-  final offsetMotion = CurvedAnimation(
+  final offsetMotion = openHandCurveAnimation(
     parent: safeAnimation,
     curve: Curves.easeOutBack,
     reverseCurve: Curves.easeInCubic,
@@ -247,7 +247,7 @@ Widget _buildWorkspaceSettingsAwareTransition({
       ),
       child: ScaleTransition(
         scale: Tween<double>(begin: 0.94, end: 1.0).animate(
-          CurvedAnimation(
+          openHandCurveAnimation(
             parent: safeAnimation,
             curve: Curves.easeOutBack,
             reverseCurve: Curves.easeInBack,
