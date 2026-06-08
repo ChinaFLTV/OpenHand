@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
+import 'bounded_animation.dart';
 
 /// Reusable enter/exit animation wrapper that consumes a
 /// [DialogAnimationSettings] (the same struct that drives dialogs,
@@ -122,7 +123,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     );
     if (widget.collapseSize) {
       content = SizeTransition(
-        sizeFactor: CurvedAnimation(
+        sizeFactor: openHandBoundedCurveAnimation(
           parent: _ctrl,
           curve: widget.settings.curve.curve,
           reverseCurve: widget.settings.curve.reverseCurve,
@@ -187,7 +188,7 @@ class AnimatedListAppearance extends StatelessWidget {
     );
     if (collapseSize) {
       content = SizeTransition(
-        sizeFactor: CurvedAnimation(
+        sizeFactor: openHandBoundedCurveAnimation(
           parent: animation,
           curve: transitionSettings.curve.curve,
           reverseCurve: transitionSettings.curve.reverseCurve,

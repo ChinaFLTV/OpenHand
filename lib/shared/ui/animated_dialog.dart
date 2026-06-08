@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'bounded_animation.dart';
 import 'openhand_dialog_action_button.dart';
 
 const DialogAnimationSettings _kNoDialogAnimationSettings =
@@ -640,63 +641,76 @@ Widget buildAnimationStyleTransition({
   required DialogAnimationSettings settings,
   required Widget child,
 }) {
+  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
   final forward =
       animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
-  final curved = CurvedAnimation(
-    parent: animation,
+  final motion = CurvedAnimation(
+    parent: safeAnimation,
     curve: curveData.curve,
     reverseCurve: curveData.reverseCurve,
   );
+  final boundedMotion = OpenHandBoundedDoubleAnimation(motion);
 
   return switch (style) {
     DialogAnimationStyle.none => child,
-    DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
+    DialogAnimationStyle.fade => FadeTransition(
+      opacity: boundedMotion,
+      child: child,
+    ),
     DialogAnimationStyle.fadeScale => _FadeScaleTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       child: child,
     ),
     DialogAnimationStyle.slideUp => _SlideTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       beginOffset: const Offset(0, 0.15),
       child: child,
     ),
     DialogAnimationStyle.slideDown => _SlideTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       beginOffset: const Offset(0, -0.15),
       child: child,
     ),
     DialogAnimationStyle.slideLeft => _SlideTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       beginOffset: const Offset(-0.25, 0),
       child: child,
     ),
     DialogAnimationStyle.slideRight => _SlideTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       beginOffset: const Offset(0.25, 0),
       child: child,
     ),
     DialogAnimationStyle.expand => _ExpandTransition(
-      animation: curved,
+      parentAnimation: safeAnimation,
+      motion: motion,
       child: child,
     ),
     DialogAnimationStyle.rotateScale => _RotateScaleTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       child: child,
     ),
     DialogAnimationStyle.elastic => _ElasticTransition(
-      animation: animation,
+      animation: safeAnimation,
       curve: curveData,
       child: child,
     ),
     DialogAnimationStyle.springScale => _SpringScaleTransition(
-      animation: animation,
+      animation: safeAnimation,
       child: child,
     ),
     DialogAnimationStyle.flipX => _FlipXTransition(
-      animation: curved,
+      opacity: boundedMotion,
+      motion: motion,
       child: child,
     ),
   };
@@ -707,16 +721,21 @@ Widget buildAnimationStyleTransition({
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FadeScaleTransition extends StatelessWidget {
-  const _FadeScaleTransition({required this.animation, required this.child});
-  final Animation<double> animation;
+  const _FadeScaleTransition({
+    required this.opacity,
+    required this.motion,
+    required this.child,
+  });
+  final Animation<double> opacity;
+  final Animation<double> motion;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: animation,
+      opacity: opacity,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(animation),
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(motion),
         child: child,
       ),
     );
@@ -725,23 +744,25 @@ class _FadeScaleTransition extends StatelessWidget {
 
 class _SlideTransition extends StatelessWidget {
   const _SlideTransition({
-    required this.animation,
+    required this.opacity,
+    required this.motion,
     required this.beginOffset,
     required this.child,
   });
-  final Animation<double> animation;
+  final Animation<double> opacity;
+  final Animation<double> motion;
   final Offset beginOffset;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: animation,
+      opacity: opacity,
       child: SlideTransition(
         position: Tween<Offset>(
           begin: beginOffset,
           end: Offset.zero,
-        ).animate(animation),
+        ).animate(motion),
         child: child,
       ),
     );
@@ -749,24 +770,24 @@ class _SlideTransition extends StatelessWidget {
 }
 
 class _ExpandTransition extends StatelessWidget {
-  const _ExpandTransition({required this.animation, required this.child});
-  final Animation<double> animation;
+  const _ExpandTransition({
+    required this.parentAnimation,
+    required this.motion,
+    required this.child,
+  });
+  final Animation<double> parentAnimation;
+  final Animation<double> motion;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
+      opacity: openHandBoundedCurveAnimation(
+        parent: parentAnimation,
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.88, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
-          ),
-        ),
+        scale: Tween<double>(begin: 0.88, end: 1.0).animate(motion),
         child: child,
       ),
     );
@@ -774,16 +795,21 @@ class _ExpandTransition extends StatelessWidget {
 }
 
 class _RotateScaleTransition extends StatelessWidget {
-  const _RotateScaleTransition({required this.animation, required this.child});
-  final Animation<double> animation;
+  const _RotateScaleTransition({
+    required this.opacity,
+    required this.motion,
+    required this.child,
+  });
+  final Animation<double> opacity;
+  final Animation<double> motion;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(animation);
-    final rotation = Tween<double>(begin: -0.05, end: 0.0).animate(animation);
+    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(motion);
+    final rotation = Tween<double>(begin: -0.05, end: 0.0).animate(motion);
     return FadeTransition(
-      opacity: animation,
+      opacity: opacity,
       child: ScaleTransition(
         scale: scale,
         child: RotationTransition(turns: rotation, child: child),
@@ -804,7 +830,7 @@ class _ElasticTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = CurvedAnimation(
+    final opacity = openHandBoundedCurveAnimation(
       parent: animation,
       curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
@@ -832,7 +858,7 @@ class _SpringScaleTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = CurvedAnimation(
+    final opacity = openHandBoundedCurveAnimation(
       parent: animation,
       curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
@@ -854,31 +880,35 @@ class _SpringScaleTransition extends StatelessWidget {
 /// 3D card-flip on the X axis with fade — useful for chip / list-item
 /// "appear" feels when something switches in/out of place.
 class _FlipXTransition extends StatelessWidget {
-  const _FlipXTransition({required this.animation, required this.child});
-  final Animation<double> animation;
+  const _FlipXTransition({
+    required this.opacity,
+    required this.motion,
+    required this.child,
+  });
+  final Animation<double> opacity;
+  final Animation<double> motion;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, c) {
-        final t = animation.value;
-        // -pi/2 → 0 ; clamp opacity so the back-face moment isn't visible.
-        final angle = (1.0 - t) * 1.5708;
-        final matrix = Matrix4.identity()
-          ..setEntry(3, 2, 0.0015)
-          ..rotateX(angle);
-        return Opacity(
-          opacity: t.clamp(0.0, 1.0),
-          child: Transform(
+    return FadeTransition(
+      opacity: opacity,
+      child: AnimatedBuilder(
+        animation: motion,
+        builder: (context, c) {
+          final t = motion.value.clamp(0.0, 1.0);
+          final angle = (1.0 - t) * 1.5708;
+          final matrix = Matrix4.identity()
+            ..setEntry(3, 2, 0.0015)
+            ..rotateX(angle);
+          return Transform(
             transform: matrix,
             alignment: Alignment.center,
             child: c,
-          ),
-        );
-      },
-      child: child,
+          );
+        },
+        child: child,
+      ),
     );
   }
 }

@@ -50,6 +50,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/animated_overlay.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/appear_tracker.dart';
+import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/choice_input_dialog.dart';
 import '../../shared/ui/error_snackbar.dart';
 import '../../shared/ui/export_config_dialog.dart';

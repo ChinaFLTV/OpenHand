@@ -117,7 +117,7 @@ Widget _buildWorkspaceSidebarTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  final safeAnimation = _ClampedDoubleAnimation(animation);
+  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
   final isFileExplorerPane =
       child.key == const ValueKey<String>('file-explorer-pane');
   final isNavigationPane =
@@ -141,7 +141,7 @@ Widget _buildWorkspaceContentTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  final safeAnimation = _ClampedDoubleAnimation(animation);
+  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
   final childKey = switch (child.key) {
     ValueKey<String>(:final value) => value,
     _ => null,
@@ -175,23 +175,26 @@ Widget _buildWorkspaceSettingsAwareTransition({
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
-  final curved = CurvedAnimation(
-    parent: animation,
+  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
+  final motion = CurvedAnimation(
+    parent: safeAnimation,
     curve: curveData.curve,
     reverseCurve: curveData.reverseCurve,
   );
+  final boundedMotion = OpenHandBoundedDoubleAnimation(motion);
+  final offsetMotion = CurvedAnimation(
+    parent: safeAnimation,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeInCubic,
+  );
 
   Widget fadeChild(Widget child) =>
-      FadeTransition(opacity: curved, child: child);
+      FadeTransition(opacity: boundedMotion, child: child);
   Widget slideChild({required double dx, required double dy}) {
     return FadeTransition(
-      opacity: curved,
+      opacity: boundedMotion,
       child: _PaintOffsetTransition(
-        animation: CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-          reverseCurve: Curves.easeInCubic,
-        ),
+        animation: offsetMotion,
         maxXOffset: dx,
         maxYOffset: dy,
         child: child,
@@ -203,9 +206,9 @@ Widget _buildWorkspaceSettingsAwareTransition({
     DialogAnimationStyle.none => child,
     DialogAnimationStyle.fade => fadeChild(child),
     DialogAnimationStyle.fadeScale => FadeTransition(
-      opacity: curved,
+      opacity: boundedMotion,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.985, end: 1.0).animate(motion),
         alignment: Alignment.topCenter,
         child: child,
       ),
@@ -215,22 +218,22 @@ Widget _buildWorkspaceSettingsAwareTransition({
     DialogAnimationStyle.slideLeft => slideChild(dx: -slideX.abs(), dy: 0.0),
     DialogAnimationStyle.slideRight => slideChild(dx: slideX.abs(), dy: 0.0),
     DialogAnimationStyle.expand => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: curved,
+      opacity: openHandBoundedCurveAnimation(
+        parent: safeAnimation,
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(motion),
         alignment: Alignment.topCenter,
         child: child,
       ),
     ),
     DialogAnimationStyle.rotateScale => FadeTransition(
-      opacity: curved,
+      opacity: boundedMotion,
       child: RotationTransition(
-        turns: Tween<double>(begin: -0.015, end: 0.0).animate(curved),
+        turns: Tween<double>(begin: -0.015, end: 0.0).animate(motion),
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(motion),
           alignment: Alignment.topCenter,
           child: child,
         ),
@@ -238,14 +241,14 @@ Widget _buildWorkspaceSettingsAwareTransition({
     ),
     DialogAnimationStyle.elastic ||
     DialogAnimationStyle.springScale => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
+      opacity: openHandBoundedCurveAnimation(
+        parent: safeAnimation,
         curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
         scale: Tween<double>(begin: 0.94, end: 1.0).animate(
           CurvedAnimation(
-            parent: animation,
+            parent: safeAnimation,
             curve: Curves.easeOutBack,
             reverseCurve: Curves.easeInBack,
           ),
@@ -255,12 +258,12 @@ Widget _buildWorkspaceSettingsAwareTransition({
       ),
     ),
     DialogAnimationStyle.flipX => FadeTransition(
-      opacity: curved,
+      opacity: boundedMotion,
       child: AnimatedBuilder(
-        animation: curved,
+        animation: motion,
         child: child,
         builder: (context, child) {
-          final t = curved.value.clamp(0.0, 1.0);
+          final t = motion.value.clamp(0.0, 1.0);
           final tilt = (1.0 - t) * 0.015;
           final angle = (1.0 - t) * 0.25;
           final matrix = Matrix4.identity()
@@ -279,10 +282,8 @@ Widget _buildWorkspaceSettingsAwareTransition({
 }
 
 Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
-  // Always return a non-zero duration so page / panel switches are visibly
-  // animated even when the user (or stale persisted settings) selected the
-  // `none` style. 在 `_buildWorkspaceSidebarTransition` 里 none 走的是裸
-  // FadeTransition，给它一个最小可感知时长才会出现 subtle 的淡入淡出。
+  // Keep switcher bookkeeping stable while clamping persisted or user-entered
+  // values to a responsive range for page and panel transitions.
   final clamped = settings.durationMs.clamp(80, 800).toInt();
   final minMs =
       (settings.entranceStyle == DialogAnimationStyle.none &&
@@ -290,17 +291,6 @@ Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
       ? 200
       : clamped;
   return Duration(milliseconds: clamped < minMs ? minMs : clamped);
-}
-
-class _ClampedDoubleAnimation extends Animation<double>
-    with AnimationWithParentMixin<double> {
-  const _ClampedDoubleAnimation(this.parent);
-
-  @override
-  final Animation<double> parent;
-
-  @override
-  double get value => parent.value.clamp(0.0, 1.0).toDouble();
 }
 
 /// Layout-safe paint-time vertical translation driven by an [Animation].
@@ -397,9 +387,6 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child == null) return;
-    // NOTE: do NOT clamp the value to [0,1] — elastic / back curves emit
-    // values <0 or >1 to produce overshoot, which is exactly the
-    // “Q弹” feel we want when the style asks for it.
     final value = _animation.value;
     final dy = (1 - value) * _maxYOffset;
     final dx = (1 - value) * _maxXOffset;
