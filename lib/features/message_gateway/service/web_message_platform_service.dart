@@ -4234,14 +4234,6 @@ class WebMessagePlatformService {
     final existingRatio = stats['cache_hit_ratio'];
     final hasExisting = existingRatio is num &&
         (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
-    // 2026-06-08 DEBUG — 临时排障日志，定位后移除
-    silentLog('WebGateway', 'ensureCacheHitStats',
-        'sid=${session.id.substring(0, 8)} '
-        'existingRatio=$existingRatio hasExisting=$hasExisting '
-        'cacheRead=${stats['cache_read_tokens']} '
-        'prompt=${stats['total_prompt_tokens']} '
-        'trendPoints=${(stats['cache_hit_trend_points'] as List?)?.length ?? 0} '
-        'msgCount=${session.messages.length}');
     if (hasExisting) return stats;
     final cacheRead = (stats['cache_read_tokens'] is int)
         ? stats['cache_read_tokens'] as int
@@ -4272,12 +4264,6 @@ class WebMessagePlatformService {
           },
         )
         .toList(growable: false);
-    silentLog('WebGateway', 'ensureCacheHitStats.patch',
-        'sid=${session.id.substring(0, 8)} '
-        'claudeStyle=$claudeStyle '
-        'avgHitRatio=${display.averageHitRatio} '
-        'trendPointCount=${trend.points.length} '
-        'excluded=${trend.points.length - display.trend.points.length}');
     stats['cache_hit_ratio'] = display.averageHitRatio;
     stats['cache_hit_trend_points'] = trendPoints;
     stats['cache_hit_trend_excluded_count'] =

@@ -4664,7 +4664,9 @@ function SessionTokenStatsDialog({
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const stats = session.statistics ?? {};
-  const promptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
+  const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
+  const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
+  const promptTokens = Math.max(0, promptTokensTotal - firstPrompt);
   const completionTokens = readStatNumber(
     stats['total_completion_tokens'],
     session.total_completion_tokens,
@@ -4674,7 +4676,7 @@ function SessionTokenStatsDialog({
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const totalTokens = readStatNumber(
     stats['total_tokens'],
-    session.total_tokens ?? promptTokens + completionTokens,
+    session.total_tokens ?? promptTokensTotal + completionTokens,
   );
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
@@ -4689,13 +4691,6 @@ function SessionTokenStatsDialog({
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as
     | SessionCacheHitTrendPoint[]
     | undefined;
-  // 2026-06-08 DEBUG — 临时排障日志，定位后移除
-  console.debug('[TokenStats] cache_hit_ratio=', backendHitRatio,
-    'percent=', cacheHitRatio,
-    'trendPoints=', backendTrendPoints?.length ?? 0,
-    'cacheRead=', cacheReadTokens,
-    'prompt=', promptTokens,
-    'statsKeys=', Object.keys(stats).filter(k => k.includes('cache') || k.includes('hit')));
   const trendData = useMemo<{
     points: TrendPoint[];
     averageRatio: number;
@@ -4710,15 +4705,18 @@ function SessionTokenStatsDialog({
       averageRatio: backendHitRatio,
     };
   }, [backendTrendPoints, backendHitRatio]);
-  // Stacked-bar weights (read / write / unCached prompt). Sum = 1 when any
-  // cache activity exists.
-  const uncachedPromptTokens = claudeStyle
-    ? promptTokens
-    : Math.max(0, promptTokens - cacheReadTokens);
-  const segmentTotal = uncachedPromptTokens + cacheReadTokens + cacheWriteTokens;
-  const readWeight = segmentTotal > 0 ? cacheReadTokens / segmentTotal : 0;
-  const writeWeight = segmentTotal > 0 ? cacheWriteTokens / segmentTotal : 0;
-  const missWeight = segmentTotal > 0 ? uncachedPromptTokens / segmentTotal : 0;
+  // Stacked-bar weights (read / write / unCached prompt)。与 APP 端
+  // _CacheHitBar 同口径：使用 backend 预计算的 cacheHitRatio（由
+  // SessionCacheHitTrend.displayData 生成），而非客户端聚合公式。
+  const cacheHitFrac = cacheHitRatio / 100;
+  const hasWrite = cacheWriteTokens > 0;
+  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
+      ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens))
+      : cacheHitFrac;
+  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
+      ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens))
+      : 0;
+  const missWeight = 1 - cacheHitFrac;
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
