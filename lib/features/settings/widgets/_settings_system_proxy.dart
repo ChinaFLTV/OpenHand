@@ -560,16 +560,17 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
               if (Platform.isMacOS) {
                 final macSfx = '/Contents/MacOS/${p.basename(exe)}';
                 final bundle = exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
-                debugPrint('[restart] bundle=$bundle');
+                final binary = p.join(bundle, 'Contents', 'MacOS', p.basename(exe));
+                final logPath = '/tmp/oh_new_${DateTime.now().millisecondsSinceEpoch}.log';
                 final script = File(p.join(Directory.systemTemp.path, 'oh_restart.sh'));
-                final safeBundle = bundle.replaceAll("'", "'\\''");
+                final safeBinary = binary.replaceAll("'", "'\\''");
+                final safeLog = logPath.replaceAll("'", "'\\''");
                 script.writeAsStringSync(
                   '#!/bin/sh\n'
-                  'echo "[restart] pid=\$\$ begin" >> /tmp/oh_restart.log\n'
+                  'echo "\$\$ restart begin" >> \'$safeLog\'\n'
                   'sleep 2\n'
-                  'echo "[restart] pid=\$\$ launching" >> /tmp/oh_restart.log\n'
-                  '/usr/bin/open -F -n -a \'$safeBundle\' >> /tmp/oh_restart.log 2>&1\n'
-                  'echo "[restart] pid=\$\$ exit=\$?" >> /tmp/oh_restart.log\n',
+                  'echo "\$\$ exec binary" >> \'$safeLog\'\n'
+                  'exec \'$safeBinary\' >> \'$safeLog\' 2>&1\n',
                 );
                 await Process.run('/bin/chmod', ['+x', script.path]);
                 await Process.start(
@@ -583,7 +584,8 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                   <String>[],
                   mode: ProcessStartMode.detached,
                 );
-              }              exit(0);
+              }
+              exit(0);
             },
           ),
           OpenHandDialogActionButton.primary(
