@@ -560,14 +560,14 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
               if (Platform.isMacOS) {
                 final macSfx = '/Contents/MacOS/${p.basename(exe)}';
                 final bundle = exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
-                final binary = p.join(bundle, 'Contents', 'MacOS', p.basename(exe));
-                final script = File(p.join(Directory.systemTemp.path, 'oh_restart.sh'));
                 final logPath = '/tmp/oh_new_${DateTime.now().millisecondsSinceEpoch}.log';
+                final script = File(p.join(Directory.systemTemp.path, 'oh_restart.sh'));
+                final safeBundle = bundle.replaceAll("'", "'\\''");
+                final safeLog = logPath.replaceAll("'", "'\\''");
                 script.writeAsStringSync(
                   '#!/bin/sh\n'
-                  "sleep 2\n"
-                  "exec '${binary.replaceAll("'", "'\\''")}'"
-                  " >> '${logPath.replaceAll("'", "'\\''")}' 2>&1\n",
+                  'sleep 2\n'
+                  "/usr/bin/open -n -a '$safeBundle' >> '$safeLog' 2>&1\n",
                 );
                 await Process.run('/bin/chmod', ['+x', script.path]);
                 await Process.start(
