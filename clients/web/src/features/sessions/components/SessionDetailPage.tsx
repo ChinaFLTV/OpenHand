@@ -4735,16 +4735,17 @@ function SessionTokenStatsDialog({
       <div
         role="dialog"
         aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5 flex flex-col`}
         style={{
           background: 'var(--m3-surface-container)',
           color: 'var(--m3-on-surface)',
           boxShadow: 'var(--m3-elev-3)',
           border: '1px solid var(--m3-outline-variant)',
+          maxHeight: 'min(720px, calc(100vh - 32px))',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <header class="mb-4 flex items-start justify-between gap-3">
+        <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
             <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -4760,7 +4761,7 @@ function SessionTokenStatsDialog({
             {t('common.close', '关闭')}
           </button>
         </header>
-        <div class="space-y-4">
+        <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           <TokenStatsSection title={t('tokenPopup.input', '输入')}>
             <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
             <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
@@ -4797,7 +4798,7 @@ function SessionTokenStatsDialog({
                         points={trendData.points}
                         averageRatio={trendData.averageRatio}
                         claudeStyle={claudeStyle}
-                        height={156}
+                        height={136}
                         displayMode={trendDisplayMode}
                         onDisplayModeChange={setTrendDisplayMode}
                         t={t}
