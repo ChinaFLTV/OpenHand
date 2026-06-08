@@ -1407,10 +1407,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _shouldPrepareTranscript(AiSession? session) {
-    // Only trigger the elegant transition overlay for medium-to-large transcripts.
-    // For small chats (< 15 messages), the layout jump is non-existent to minimal,
-    // so we skip the overlay entirely to avoid "flash" (一闪而过) effects.
-    return session != null && session.messages.length >= 15;
+    if (session == null) return false;
+    final messageCount = session.messages.isNotEmpty
+        ? session.messages.length
+        : session.statistics.totalMessageCount;
+    return messageCount >= _transcriptPreparationThreshold;
   }
 
   bool _isPreparingTranscriptForSession(AiSession? session) {
@@ -1902,8 +1903,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5;
     final explicitUserScrollUpward =
-        explicitUserScrollUpdate &&
-        (notification.scrollDelta ?? 0) < -0.5;
+        explicitUserScrollUpdate && (notification.scrollDelta ?? 0) < -0.5;
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom ||
@@ -4481,6 +4481,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
     final l10n = AppLocalizations.of(context)!;
+    await sessionController.ensureSessionMessagesHydrated(targetSessionId);
+    if (!mounted) {
+      return;
+    }
     final initialSession = sessionController.sessions
         .cast<AiSession?>()
         .firstWhere((s) => s?.id == targetSessionId, orElse: () => null);
@@ -6695,6 +6699,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController,
       currentSession,
     );
+    final transcriptHydrating =
+        currentSession != null &&
+        sessionController.isSessionMessagesHydrating(currentSession.id);
     final transcriptPreparing = _isPreparingTranscriptForSession(
       currentSession,
     );
@@ -6724,6 +6731,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onMessagePointerSignal: _handleMessagePointerSignal,
         currentSession: currentSession,
         liveRuntimeToolPreview: liveRuntimeToolPreview,
+        transcriptHydrating: transcriptHydrating,
         transcriptPreparing: transcriptPreparing,
         selectedModel: selectedModel,
         availableModels: settingsController.aiModels,

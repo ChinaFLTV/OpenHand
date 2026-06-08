@@ -592,6 +592,9 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
+  final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
+      <String, Future<AiSession?>>{};
+  final Set<String> _hydratingSessionMessageIds = <String>{};
   final Map<String, Future<void> Function()> _sessionCancelHandlers =
       <String, Future<void> Function()>{};
   final Map<String, Completer<void>> _sessionStopSignals =
@@ -728,6 +731,13 @@ class AiSessionController extends ChangeNotifier {
       List<AiSessionPersistenceIssue>.unmodifiable(_persistenceIssues);
   List<AiThreadTemplate> get templates => _templateRepository.templates;
   String get sessionsDirectoryPath => _store.sessionsDirectoryPath;
+
+  bool isSessionMessagesHydrating(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) return false;
+    return _isMessagesHydrating ||
+        _hydratingSessionMessageIds.contains(normalizedSessionId);
+  }
 
   /// 当前会话级节流覆盖（不持久化，仅本进程生效）。命中 sessionId 才返
   /// 回；未配置时为 null。UI 可通过 [streamThrottleOverrideSignal] 监听
@@ -1317,14 +1327,84 @@ class AiSessionController extends ChangeNotifier {
     if (selectedSession == null) {
       return;
     }
-    // 标题重试补偿：如果标题未成功获取且重试次数未超限，则尝试重新生成
-    unawaited(_retryAutoTitleIfNeeded(selectedSession));
     unawaited(
-      _emitSessionStartHook(
-        session: selectedSession,
-        source: 'resume',
-      ).catchError((Object _, StackTrace stackTrace) {}),
+      ensureSessionMessagesHydrated(sessionId).then((hydratedSession) {
+        final sessionForSideEffects = hydratedSession ?? selectedSession;
+        // 标题重试补偿：如果标题未成功获取且重试次数未超限，则尝试重新生成。
+        unawaited(_retryAutoTitleIfNeeded(sessionForSideEffects));
+        unawaited(
+          _emitSessionStartHook(
+            session: sessionForSideEffects,
+            source: 'resume',
+          ).catchError((Object _, StackTrace stackTrace) {}),
+        );
+      }),
     );
+  }
+
+  Future<AiSession?> ensureSessionMessagesHydrated(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) {
+      return Future<AiSession?>.value();
+    }
+    final current = _sessionById(normalizedSessionId);
+    if (current == null || !_sessionNeedsMessageHydration(current)) {
+      return Future<AiSession?>.value(current);
+    }
+    final existingTask = _sessionMessageHydrationTasks[normalizedSessionId];
+    if (existingTask != null) {
+      return existingTask;
+    }
+    _hydratingSessionMessageIds.add(normalizedSessionId);
+    notifyListeners();
+    final task = _hydrateSessionMessages(normalizedSessionId);
+    _sessionMessageHydrationTasks[normalizedSessionId] = task;
+    return task;
+  }
+
+  bool _sessionNeedsMessageHydration(AiSession session) {
+    return session.messages.isEmpty && session.statistics.totalMessageCount > 0;
+  }
+
+  Future<AiSession?> _hydrateSessionMessages(String sessionId) async {
+    try {
+      final loaded = await _store.loadSession(sessionId);
+      if (loaded == null || _deletedSessionIds.contains(sessionId)) {
+        return null;
+      }
+      final normalized = _normalizeStaleCompletedPlanState(
+        loaded,
+        normalizedAt: loaded.updatedAt,
+      );
+      final liveSession = _sessionById(sessionId);
+      if (liveSession != null &&
+          liveSession.messages.isNotEmpty &&
+          liveSession.updatedAt.isAfter(normalized.updatedAt)) {
+        return liveSession;
+      }
+      final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
+      if (replaced) {
+        notifyListeners();
+      }
+      return _sessionById(sessionId) ?? normalized;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'hydrate session messages',
+        error,
+        stack,
+      );
+      _setLastSendErrorMessage(
+        sessionId,
+        _friendlyAiSessionPersistenceError(error, operation: 'load'),
+      );
+      return null;
+    } finally {
+      _sessionMessageHydrationTasks.remove(sessionId);
+      if (_hydratingSessionMessageIds.remove(sessionId)) {
+        notifyListeners();
+      }
+    }
   }
 
   /// 检查会话是否需要重试获取标题，如果需要则发起重试请求。
@@ -2633,11 +2713,21 @@ class AiSessionController extends ChangeNotifier {
     }
 
     return _enqueueSessionOperation(resolvedSessionId, () async {
-      var session = _sessionById(resolvedSessionId);
+      var session =
+          await ensureSessionMessagesHydrated(resolvedSessionId) ??
+          _sessionById(resolvedSessionId);
       if (session == null) {
         _setLastSendErrorMessage(
           resolvedSessionId,
           'No active session selected.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (_sessionNeedsMessageHydration(session)) {
+        _setLastSendErrorMessage(
+          resolvedSessionId,
+          'Session messages are still loading.',
         );
         notifyListeners();
         return false;
@@ -7612,7 +7702,23 @@ $trimmedSummary''';
     if (_deletedSessionIds.contains(session.id)) {
       return true;
     }
-    final normalizedSession = _normalizeStaleCompletedPlanState(session);
+    var normalizedSession = _normalizeStaleCompletedPlanState(session);
+    if (_sessionNeedsMessageHydration(normalizedSession)) {
+      final hydratedSession = await ensureSessionMessagesHydrated(
+        normalizedSession.id,
+      );
+      if (hydratedSession == null || hydratedSession.messages.isEmpty) {
+        _lastErrorMessage = _friendlyAiSessionPersistenceError(
+          'Session messages are still loading.',
+          operation: 'save',
+        );
+        notifyListeners();
+        return false;
+      }
+      normalizedSession = normalizedSession.copyWith(
+        messages: hydratedSession.messages,
+      );
+    }
     final previousSession = _sessionById(normalizedSession.id);
     final effectiveSession = _mergeLiveSessionState(
       normalizedSession,

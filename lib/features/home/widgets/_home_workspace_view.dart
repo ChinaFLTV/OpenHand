@@ -8,6 +8,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onMessagePointerSignal,
     required this.currentSession,
     required this.liveRuntimeToolPreview,
+    required this.transcriptHydrating,
     required this.transcriptPreparing,
     required this.selectedModel,
     required this.availableModels,
@@ -73,6 +74,7 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<PointerSignalEvent> onMessagePointerSignal;
   final AiSession? currentSession;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
+  final bool transcriptHydrating;
   final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
@@ -177,10 +179,16 @@ class _WorkspaceView extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           Expanded(
-                            child: _WorkspaceEmptyState(
-                              key: ValueKey<String>(currentSession!.id),
-                              session: currentSession,
-                            ),
+                            child: transcriptHydrating
+                                ? _TranscriptHydratingPlaceholder(
+                                    key: ValueKey<String>(
+                                      'hydrating-${currentSession!.id}',
+                                    ),
+                                  )
+                                : _WorkspaceEmptyState(
+                                    key: ValueKey<String>(currentSession!.id),
+                                    session: currentSession,
+                                  ),
                           ),
                         ],
                       )

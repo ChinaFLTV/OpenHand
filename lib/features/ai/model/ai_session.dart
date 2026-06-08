@@ -502,26 +502,32 @@ class AiSession {
 
   List<AiSessionMessage> _computeDisplayMessages() {
     final visibleMessages = this.visibleMessages;
-    final toolCallIds = visibleMessages
-        .where((message) => message.kind == AiSessionMessageKind.toolCall)
-        .map((message) => '${message.metadata['tool_call_id'] ?? ''}'.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet();
-    return visibleMessages
-        .where((message) {
-          if (message.metadata['plan_mode_approved'] == true) {
-            return false;
-          }
-          if (message.kind != AiSessionMessageKind.tool &&
-              message.kind != AiSessionMessageKind.mcp &&
-              message.kind != AiSessionMessageKind.skill &&
-              message.kind != AiSessionMessageKind.hook) {
-            return true;
-          }
-          final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
-          return toolCallId.isEmpty || !toolCallIds.contains(toolCallId);
-        })
-        .toList(growable: false);
+    final toolCallIds = <String>{};
+    for (final message in visibleMessages) {
+      if (message.kind != AiSessionMessageKind.toolCall) continue;
+      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      if (toolCallId.isNotEmpty) {
+        toolCallIds.add(toolCallId);
+      }
+    }
+    final displayMessages = <AiSessionMessage>[];
+    for (final message in visibleMessages) {
+      if (message.metadata['plan_mode_approved'] == true) {
+        continue;
+      }
+      if (message.kind != AiSessionMessageKind.tool &&
+          message.kind != AiSessionMessageKind.mcp &&
+          message.kind != AiSessionMessageKind.skill &&
+          message.kind != AiSessionMessageKind.hook) {
+        displayMessages.add(message);
+        continue;
+      }
+      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      if (toolCallId.isEmpty || !toolCallIds.contains(toolCallId)) {
+        displayMessages.add(message);
+      }
+    }
+    return List<AiSessionMessage>.unmodifiable(displayMessages);
   }
 
   Map<String, Object?> toJson() {
@@ -968,7 +974,8 @@ class AiSessionStatistics {
     required int lastPromptSystemMessageCount,
     required int lastPromptHistoryMessageCount,
     double? cacheHitRatio,
-    List<AiSessionCacheHitTrendPoint> cacheHitTrendPoints = const <AiSessionCacheHitTrendPoint>[],
+    List<AiSessionCacheHitTrendPoint> cacheHitTrendPoints =
+        const <AiSessionCacheHitTrendPoint>[],
     int cacheHitTrendExcludedCount = 0,
   }) {
     final visibleMessages = messages
@@ -1087,13 +1094,15 @@ class AiSessionCacheHitTrendPoint {
 
   factory AiSessionCacheHitTrendPoint.fromJson(Map<String, Object?> json) {
     return AiSessionCacheHitTrendPoint(
-      turnIndex:
-          (json['turn_index'] is num) ? (json['turn_index'] as num).toInt() : 0,
+      turnIndex: (json['turn_index'] is num)
+          ? (json['turn_index'] as num).toInt()
+          : 0,
       hitRatio: (json['hit_ratio'] is num)
           ? (json['hit_ratio'] as num).toDouble().clamp(0.0, 1.0)
           : 0.0,
-      promptTokens:
-          (json['prompt_tokens'] is num) ? (json['prompt_tokens'] as num).toInt() : 0,
+      promptTokens: (json['prompt_tokens'] is num)
+          ? (json['prompt_tokens'] as num).toInt()
+          : 0,
       cacheReadTokens: (json['cache_read_tokens'] is num)
           ? (json['cache_read_tokens'] as num).toInt()
           : 0,
@@ -1114,13 +1123,13 @@ class AiSessionCacheHitTrendPoint {
   final int? idleGapSeconds;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'turn_index': turnIndex,
-        'hit_ratio': hitRatio,
-        'prompt_tokens': promptTokens,
-        'cache_read_tokens': cacheReadTokens,
-        'cache_write_tokens': cacheWriteTokens,
-        if (idleGapSeconds != null) 'idle_gap_seconds': idleGapSeconds,
-      };
+    'turn_index': turnIndex,
+    'hit_ratio': hitRatio,
+    'prompt_tokens': promptTokens,
+    'cache_read_tokens': cacheReadTokens,
+    'cache_write_tokens': cacheWriteTokens,
+    if (idleGapSeconds != null) 'idle_gap_seconds': idleGapSeconds,
+  };
 }
 
 class AiSessionErrorRecord {

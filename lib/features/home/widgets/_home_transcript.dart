@@ -448,7 +448,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
     }
     _renderEntries = <_TranscriptRenderEntry>[
-      for (final message in visibleMessages) _TranscriptRenderEntry(message: message),
+      for (final message in visibleMessages)
+        _TranscriptRenderEntry(message: message),
     ];
     developer.Timeline.finishSync();
   }
@@ -810,8 +811,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // ClampingScrollPhysics（无 overscroll 弹簧共振），单次 jumpTo
     // 足以保证"加载更早后用户视觉锚点不漂移"。
     if (hadClients) {
-      final position =
-          scrollController.positions.isNotEmpty ? scrollController.positions.last : null;
+      final position = scrollController.positions.isNotEmpty
+          ? scrollController.positions.last
+          : null;
       if (position != null) {
         final newMaxExtent = position.maxScrollExtent;
         final delta = newMaxExtent - currentMaxExtent;
@@ -948,7 +950,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     // 复用原函数的反向遍历逻辑，但传实际 visibleMessages 切片以保持
     // 语义不变（不会跨越 windowStart 之前的 hidden 消息）。
-    final clampedWindowStart = windowStart.clamp(0, displayMessages.length).toInt();
+    final clampedWindowStart = windowStart
+        .clamp(0, displayMessages.length)
+        .toInt();
     final visibleMessages = displayMessages.sublist(clampedWindowStart);
     final result = _resolvePendingCreationPlaceholder(
       session: session,
@@ -1126,44 +1130,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // (Leaving this at the framework default, which is already
               // `true`, keeps the call site lint-clean and the intent
               // explicit via the comment above.)
-              // Slightly larger cache so quick scrolls reuse already-laid
-              // out bubbles instead of rebuilding them from scratch; tuned
-              // alongside `addAutomaticKeepAlives: true` above.
-              // Lowered from 800 → 320: the previous value pre-built ~5
-              // extra bubble subtrees beyond the viewport on every session
-              // open, each running a synchronous markdown parse on its
-              // first frame and dominating first-open frame budgets on
-              // large sessions. 320 still covers small fling overshoots
-              // without re-laying-out neighbours.
-              // 阶段㉒ — 320 → 120：用户反馈首次打开 60+ 条会话仍 ANR。
-              // 主因是 cacheExtent 320 px 在首屏 mount 时就开始构建 1-2
-              // 个 viewport 之外的气泡，叠加 visible 视窗的 3-5 个气泡，
-              // 一次性 8+ 个 _MessageBubble 同帧 mount + 各自调度
-              // markdown 解析。把 cacheExtent 收缩到 120 px 让 ListView
-              // 首屏严格只构建可见气泡，越界滚动时再 lazy 构建；牺牲
-              // 一点 fling 期的 buffer 换取首屏帧预算。
-              //
-              // 2026-05-17 提升到 1800：600 px 仍偶尔有 bubble 进出
-              // cacheExtent 边界 → dispose/rebuild 后重新解析的 markdown
-              // 几何与原值偏差几像素，触发 SliverList correctPixels。
-              //
-              // 2026-06-07 回调到 800：长会话（60+ 消息）首屏在 cacheExtent
-              // 1800 下会一次性 eager 构建 15-20 个 _MessageBubble；每个
-              // bubble 还要叠 Listener + RepaintBoundary + SizeChangedLayoutNotifier
-              // + AnimatedSize + _BubbleHtmlInteractiveScope 等包装，主线
-              // 程单帧 16ms 预算被撑爆、首屏出现 200-500ms 卡顿。800 仍能
-              // 覆盖一个完整 viewport（典型 600-900px）+ 半屏 buffer，对
-              // 绝大多数中等会话（5-15 条消息）而言整段 viewport 内的 bubble
-              // 都被一次性 cache；超长会话边界穿越通过把 placeholder 帧
-              // 预算从 6 提到 10（见 _transcriptPreparationFrameBudget）来
-              // 提前摊开 markdown 帧节流缓解，不依赖 cacheExtent 兜底。
-              //
-              // 注意：不能走 AutomaticKeepAliveClientMixin 路径——该 mixin
-              // 会把离屏 bubble 放进 Offstage 容器，使其 render object 不被
-              // layout（hasSize=false），但 SelectableRegion 仍会枚举它们
-              // 的 Selectable 并读 paintBounds 排序，触发
-              // "RenderBox was not laid out" 断言崩溃（已实测）。
-              cacheExtent: 800,
+              // Keep the cache band narrow on first open. Extra cached
+              // bubbles still pay wrapper/layout cost even when markdown and
+              // highlighting are deferred, so the initial window should track
+              // the real viewport closely and expand as the user scrolls.
+              cacheExtent: _transcriptListCacheExtent,
               physics: const ClampingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -1299,8 +1270,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ),
                     onLayoutChanged: widget.onLayoutChanged,
                     isSelected: isSelected,
-                    isScrollHighlighted:
-                        _highlightedMessageId == message.id,
+                    isScrollHighlighted: _highlightedMessageId == message.id,
                     onSelect: () {
                       if (_selectedMessageId == message.id) {
                         return;
@@ -1327,13 +1297,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       if (entry.exiting) {
                         return;
                       }
-                      await _runDeleteAction(
-                        message,
-                        widget.onDeleteMessage,
-                      );
+                      await _runDeleteAction(message, widget.onDeleteMessage);
                     },
-                    onDeleteFromHere:
-                        !entry.exiting && hasLaterVisibleMessages
+                    onDeleteFromHere: !entry.exiting && hasLaterVisibleMessages
                         ? () => _runDeleteAction(
                             message,
                             widget.onDeleteMessageFromHere,
@@ -1381,7 +1347,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   child: Padding(
                     key: ValueKey<String>('transcript-entry-${message.id}'),
                     padding: EdgeInsets.only(
-                      bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+                      bottom: messageIndex == _renderEntries.length - 1
+                          ? 0
+                          : 14,
                     ),
                     child: content,
                   ),

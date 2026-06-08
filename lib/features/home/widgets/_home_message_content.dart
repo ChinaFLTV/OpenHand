@@ -94,30 +94,30 @@ class _CompressionCheckpointBody extends StatelessWidget {
               ClipRect(
                 child: expanded
                     ? KeyedSubtree(
-                          key: const ValueKey<String>('compression-expanded'),
-                          child: _SafeMarkdownBody(
-                            data: content.isEmpty ? ' ' : content,
-                            selectable: selectable,
-                            builders: builders,
-                            styleSheet: styleSheet,
-                            inlineSyntaxes: inlineSyntaxes,
-                            pathRoots: pathRoots,
-                            parseKey: parseKey,
-                          ),
-                        )
-                      : KeyedSubtree(
-                          key: const ValueKey<String>('compression-preview'),
-                          child: _MarkdownPreviewBody(
-                            data: content.isEmpty ? ' ' : content,
-                            maxHeight: 122,
-                            styleSheet: styleSheet,
-                            builders: builders,
-                            inlineSyntaxes: inlineSyntaxes,
-                            pathRoots: pathRoots,
-                            parseKey: '$parseKey|compression-preview',
-                            fadeColor: fadeColor,
-                          ),
+                        key: const ValueKey<String>('compression-expanded'),
+                        child: _SafeMarkdownBody(
+                          data: content.isEmpty ? ' ' : content,
+                          selectable: selectable,
+                          builders: builders,
+                          styleSheet: styleSheet,
+                          inlineSyntaxes: inlineSyntaxes,
+                          pathRoots: pathRoots,
+                          parseKey: parseKey,
                         ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey<String>('compression-preview'),
+                        child: _MarkdownPreviewBody(
+                          data: content.isEmpty ? ' ' : content,
+                          maxHeight: 122,
+                          styleSheet: styleSheet,
+                          builders: builders,
+                          inlineSyntaxes: inlineSyntaxes,
+                          pathRoots: pathRoots,
+                          parseKey: '$parseKey|compression-preview',
+                          fadeColor: fadeColor,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -395,10 +395,11 @@ class _CollapsibleMessageMarkdownBodyState
     final label = _collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detailStyle = (theme.textTheme.labelLarge?.copyWith(
-      color: theme.colorScheme.primary,
-      fontWeight: FontWeight.w700,
-    )) ??
+    final detailStyle =
+        (theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w700,
+        )) ??
         const TextStyle();
     final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
@@ -430,18 +431,10 @@ class _CollapsibleMessageMarkdownBodyState
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: detailStyle,
-                    ),
-                  ),
+                  Expanded(child: Text(label, style: detailStyle)),
                   Text(' · ', style: detailStyle),
                   // 字符计数翻牌：与 Token 胶囊共享同一 RollingText。
-                  RollingText(
-                    text: '${data.length}',
-                    style: detailStyle,
-                  ),
+                  RollingText(text: '${data.length}', style: detailStyle),
                   Text(unitText, style: detailStyle),
                 ],
               ),
@@ -452,30 +445,30 @@ class _CollapsibleMessageMarkdownBodyState
         ClipRect(
           child: _collapsed
               ? KeyedSubtree(
-                    key: const ValueKey<String>('message-markdown-preview'),
-                    child: _MarkdownPreviewBody(
-                      data: data,
-                      maxHeight: widget.previewMaxHeight,
-                      styleSheet: widget.styleSheet,
-                      builders: widget.builders,
-                      inlineSyntaxes: widget.inlineSyntaxes,
-                      pathRoots: widget.pathRoots,
-                      parseKey: '${widget.parseKey}|message-preview',
-                      fadeColor: widget.fadeColor,
-                    ),
-                  )
-                : KeyedSubtree(
-                    key: const ValueKey<String>('message-markdown-expanded'),
-                    child: _SafeMarkdownBody(
-                      data: data,
-                      selectable: widget.selectable,
-                      builders: widget.builders,
-                      styleSheet: widget.styleSheet,
-                      inlineSyntaxes: widget.inlineSyntaxes,
-                      pathRoots: widget.pathRoots,
-                      parseKey: '${widget.parseKey}|message-expanded',
-                    ),
+                  key: const ValueKey<String>('message-markdown-preview'),
+                  child: _MarkdownPreviewBody(
+                    data: data,
+                    maxHeight: widget.previewMaxHeight,
+                    styleSheet: widget.styleSheet,
+                    builders: widget.builders,
+                    inlineSyntaxes: widget.inlineSyntaxes,
+                    pathRoots: widget.pathRoots,
+                    parseKey: '${widget.parseKey}|message-preview',
+                    fadeColor: widget.fadeColor,
                   ),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey<String>('message-markdown-expanded'),
+                  child: _SafeMarkdownBody(
+                    data: data,
+                    selectable: widget.selectable,
+                    builders: widget.builders,
+                    styleSheet: widget.styleSheet,
+                    inlineSyntaxes: widget.inlineSyntaxes,
+                    pathRoots: widget.pathRoots,
+                    parseKey: '${widget.parseKey}|message-expanded',
+                  ),
+                ),
         ),
       ],
     );
@@ -607,7 +600,9 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                           onChange: (size) {
                             if (!mounted) return;
                             if (_scrollController.hasClients &&
-                                _scrollController.position.isScrollingNotifier
+                                _scrollController
+                                    .position
+                                    .isScrollingNotifier
                                     .value) {
                               return;
                             }
@@ -1268,7 +1263,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   static final RegExp _inlineFencedBlockLinePattern = RegExp(
     r'^( {0,3})(`{3,}|~{3,})([^\n]*)$',
   );
-  static final RegExp _fenceInfoTokenPattern = RegExp(r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)');
+  static final RegExp _fenceInfoTokenPattern = RegExp(
+    r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)',
+  );
 
   String _normalizeInlineFencedCodeBlocks(String source) {
     if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
@@ -2215,10 +2212,11 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     final label = _collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detailStyle = (theme.textTheme.labelLarge?.copyWith(
-      color: widget.textColor.withValues(alpha: 0.82),
-      fontWeight: FontWeight.w700,
-    )) ??
+    final detailStyle =
+        (theme.textTheme.labelLarge?.copyWith(
+          color: widget.textColor.withValues(alpha: 0.82),
+          fontWeight: FontWeight.w700,
+        )) ??
         const TextStyle();
     final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
@@ -2260,17 +2258,9 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                     color: widget.textColor.withValues(alpha: 0.82),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: detailStyle,
-                    ),
-                  ),
+                  Expanded(child: Text(label, style: detailStyle)),
                   Text(' · ', style: detailStyle),
-                  RollingText(
-                    text: '${data.length}',
-                    style: detailStyle,
-                  ),
+                  RollingText(text: '${data.length}', style: detailStyle),
                   Text(unitText, style: detailStyle),
                 ],
               ),
@@ -2281,61 +2271,57 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
         ClipRect(
           child: _collapsed
               ? SizedBox(
-                    height: 240,
-                    child: Stack(
-                      children: [
-                        // 折叠态改为可滚动：用户无需展开即可浏览长文本。
-                        Positioned.fill(
-                          child: ClipRect(
-                            child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(
-                                context,
-                              ).copyWith(scrollbars: false),
-                              child: SingleChildScrollView(
-                                controller: _scrollController,
-                                physics: const BouncingScrollPhysics(),
-                                child: SelectableText(
-                                  data,
-                                  style: effectiveStyle,
+                  height: 240,
+                  child: Stack(
+                    children: [
+                      // 折叠态改为可滚动：用户无需展开即可浏览长文本。
+                      Positioned.fill(
+                        child: ClipRect(
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(
+                              context,
+                            ).copyWith(scrollbars: false),
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              child: SelectableText(
+                                data,
+                                style: effectiveStyle,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 底部渐隐遮罩：滚到底时平滑淡出，与 _MarkdownPreviewBody 行为一致。
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: IgnorePointer(
+                          child: AnimatedOpacity(
+                            opacity: _atBottom ? 0.0 : 1.0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    widget.backgroundColor.withValues(alpha: 0),
+                                    widget.backgroundColor.withValues(alpha: 1),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        // 底部渐隐遮罩：滚到底时平滑淡出，与 _MarkdownPreviewBody 行为一致。
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: IgnorePointer(
-                            child: AnimatedOpacity(
-                              opacity: _atBottom ? 0.0 : 1.0,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeInOut,
-                              child: Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      widget.backgroundColor.withValues(
-                                        alpha: 0,
-                                      ),
-                                      widget.backgroundColor.withValues(
-                                        alpha: 1,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : SelectableText(data, style: effectiveStyle),
+                      ),
+                    ],
+                  ),
+                )
+              : SelectableText(data, style: effectiveStyle),
         ),
       ],
     );
@@ -3051,7 +3037,8 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animationsEnabled = TickerMode.valuesOf(context).enabled &&
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
         !MediaQuery.disableAnimationsOf(context);
     if (!animationsEnabled) {
       _dotCtrl.stop();
@@ -3098,11 +3085,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                       animation: _dotAnim,
                       builder: (context, _) => Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _dot(0),
-                          _dot(1),
-                          _dot(2),
-                        ],
+                        children: [_dot(0), _dot(1), _dot(2)],
                       ),
                     ),
                   ],
@@ -3230,6 +3213,160 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
           _buildBar(base, highlight, progress, width: 180),
         ],
       ),
+    );
+  }
+}
+
+double _estimateHtmlBubbleHeight(String data) {
+  final length = data.length;
+  if (length == 0) return _HtmlBubbleWebViewState._kEstimatedMinHeight;
+  final lines = (length / _HtmlBubbleWebViewState._kEstimatedCharsPerLine)
+      .ceil();
+  return (lines * _HtmlBubbleWebViewState._kEstimatedLineHeight)
+      .clamp(
+        _HtmlBubbleWebViewState._kEstimatedMinHeight,
+        _HtmlBubbleWebViewState._kEstimatedMaxHeight,
+      )
+      .toDouble();
+}
+
+class _HtmlWebViewFrameScheduler {
+  _HtmlWebViewFrameScheduler._();
+  static final _HtmlWebViewFrameScheduler instance =
+      _HtmlWebViewFrameScheduler._();
+
+  static const int _maxPerFrame = 1;
+  final List<VoidCallback> _pending = <VoidCallback>[];
+  bool _draining = false;
+
+  void schedule(VoidCallback task) {
+    _pending.add(task);
+    if (_draining) return;
+    _draining = true;
+    WidgetsBinding.instance.addPostFrameCallback(_drain);
+  }
+
+  void _drain(Duration _) {
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    final batchSize = math.min(_pending.length, _maxPerFrame);
+    final batch = _pending.sublist(0, batchSize);
+    _pending.removeRange(0, batchSize);
+    for (final task in batch) {
+      task();
+    }
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback(_drain);
+  }
+}
+
+class _DeferredHtmlBubbleWebView extends StatefulWidget {
+  const _DeferredHtmlBubbleWebView({
+    super.key,
+    required this.data,
+    required this.textColor,
+    required this.backgroundColor,
+    this.baseTextStyle,
+  });
+
+  final String data;
+  final Color textColor;
+  final Color backgroundColor;
+  final TextStyle? baseTextStyle;
+
+  @override
+  State<_DeferredHtmlBubbleWebView> createState() =>
+      _DeferredHtmlBubbleWebViewState();
+}
+
+class _DeferredHtmlBubbleWebViewState
+    extends State<_DeferredHtmlBubbleWebView> {
+  bool _mountWebView = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleMount();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeferredHtmlBubbleWebView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data ||
+        oldWidget.textColor != widget.textColor ||
+        oldWidget.backgroundColor != widget.backgroundColor ||
+        oldWidget.baseTextStyle != widget.baseTextStyle) {
+      _mountWebView = false;
+      _scheduleMount();
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    super.dispose();
+  }
+
+  void _scheduleMount() {
+    final generation = ++_generation;
+    _HtmlWebViewFrameScheduler.instance.schedule(() {
+      if (!mounted || generation != _generation || _mountWebView) {
+        return;
+      }
+      setState(() {
+        _mountWebView = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = cardMotionDurationFor(context, expanding: true);
+    return AnimatedSwitcher(
+      duration: duration,
+      switchInCurve: kCardMotionCurve,
+      switchOutCurve: Curves.easeOutCubic,
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: kCardMotionCurve,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        );
+      },
+      child: _mountWebView
+          ? _HtmlBubbleWebView(
+              key: ValueKey<int>(
+                Object.hash(
+                  widget.data,
+                  widget.textColor,
+                  widget.backgroundColor,
+                  widget.baseTextStyle,
+                ),
+              ),
+              data: widget.data,
+              textColor: widget.textColor,
+              backgroundColor: widget.backgroundColor,
+              baseTextStyle: widget.baseTextStyle,
+            )
+          : SizedBox(
+              key: const ValueKey<String>('html-webview-mount-placeholder'),
+              height: _estimateHtmlBubbleHeight(widget.data),
+              child: const _HtmlBubbleShimmer(),
+            ),
     );
   }
 }
@@ -3805,7 +3942,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
-    final next = newSize.height.clamp(_kMinHeightClamp, _kMaxHeightClamp).toDouble();
+    final next = newSize.height
+        .clamp(_kMinHeightClamp, _kMaxHeightClamp)
+        .toDouble();
     if (!mounted) return;
     _measurementCount++;
     // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致
@@ -3857,21 +3996,18 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           _pendingHeight = next;
           final timer = _heightDebounceTimer;
           if (timer == null || !timer.isActive) {
-            _heightDebounceTimer = Timer(
-              _kHeightDebounceDuration,
-              () {
-                if (!mounted) return;
-                final pending = _pendingHeight;
-                _heightDebounceTimer = null;
-                _pendingHeight = null;
-                if (pending == null) return;
-                if (_height != null &&
-                    (pending - _height!).abs() < _kMinHeightDelta) {
-                  return;
-                }
-                _applyHeight(pending);
-              },
-            );
+            _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
+              if (!mounted) return;
+              final pending = _pendingHeight;
+              _heightDebounceTimer = null;
+              _pendingHeight = null;
+              if (pending == null) return;
+              if (_height != null &&
+                  (pending - _height!).abs() < _kMinHeightDelta) {
+                return;
+              }
+              _applyHeight(pending);
+            });
           }
           return;
         }
@@ -3894,7 +4030,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         _heightDebounceTimer = null;
         _pendingHeight = null;
         if (pending == null) return;
-        if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) return;
+        if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) {
+          return;
+        }
         _applyHeight(pending);
       });
     }
@@ -3909,7 +4047,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 入/字体回退/图片懒加载/卡片重进 viewport 触发的二次 layout）
     // 返回的"原始 HTML 文本高度"通常 > 1.5× 真实渲染高度，直接判
     // 为噪声保留旧值。
-    final refHeight = _heightFloorCache[_heightCacheKey] ??
+    final refHeight =
+        _heightFloorCache[_heightCacheKey] ??
         _height ??
         _heightCache[_heightCacheKey];
     if (refHeight != null && refHeight > 0) {
@@ -4083,33 +4222,33 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     } else {
       result =
           '<!DOCTYPE html>'
-        '<html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<style>'
-        'html,body{margin:0;padding:0;background:$bgHex;color:$textHex;'
-        'font-family:$family;font-size:${fontSize}px;line-height:$lineHeight;'
-        '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
-        '-webkit-font-smoothing:antialiased;'
-        '-webkit-user-select:text;user-select:text;cursor:text;}'
-        'body{overflow-x:auto;}'
-        // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
-        // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
-        // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
-        // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，真实
-        // 高度由 JS 动态扫描可见内容底边给出，不再追加固定留白。
-        '#oh-root{display:flow-root;width:100%;min-height:1px;'
-        'height:auto;box-sizing:border-box;padding:2px;'
-        'overflow:visible;}'
-        '#oh-root,#oh-root *{-webkit-user-select:text;user-select:text;}'
-        'a,button,summary,[role="button"]{cursor:pointer;}'
-        'input,textarea,select{cursor:text;}'
-        'img,video,canvas,svg{max-width:100%;height:auto;}'
-        'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
-        'pre{overflow-x:auto;}'
-        'table{border-collapse:collapse;}'
-        'a{color:inherit;}'
-        '</style></head>'
-        '<body><div id="oh-root">$healed</div></body></html>';
+          '<html><head><meta charset="utf-8">'
+          '<meta name="viewport" content="width=device-width, initial-scale=1">'
+          '<style>'
+          'html,body{margin:0;padding:0;background:$bgHex;color:$textHex;'
+          'font-family:$family;font-size:${fontSize}px;line-height:$lineHeight;'
+          '-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;'
+          '-webkit-font-smoothing:antialiased;'
+          '-webkit-user-select:text;user-select:text;cursor:text;}'
+          'body{overflow-x:auto;}'
+          // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
+          // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
+          // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
+          // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，真实
+          // 高度由 JS 动态扫描可见内容底边给出，不再追加固定留白。
+          '#oh-root{display:flow-root;width:100%;min-height:1px;'
+          'height:auto;box-sizing:border-box;padding:2px;'
+          'overflow:visible;}'
+          '#oh-root,#oh-root *{-webkit-user-select:text;user-select:text;}'
+          'a,button,summary,[role="button"]{cursor:pointer;}'
+          'input,textarea,select{cursor:text;}'
+          'img,video,canvas,svg{max-width:100%;height:auto;}'
+          'pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}'
+          'pre{overflow-x:auto;}'
+          'table{border-collapse:collapse;}'
+          'a{color:inherit;}'
+          '</style></head>'
+          '<body><div id="oh-root">$healed</div></body></html>';
     }
     _documentCacheData = widget.data;
     _documentCacheTextColor = widget.textColor;
@@ -4145,12 +4284,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   /// HTML 标签、图片、表格等会让真实高度偏离估算，但只用作占位期
   /// 几百毫秒内的视觉占位，精度足够。
   double _estimateHeight() {
-    final length = widget.data.length;
-    if (length == 0) return _kEstimatedMinHeight;
-    final lines = (length / _kEstimatedCharsPerLine).ceil();
-    return (lines * _kEstimatedLineHeight)
-        .clamp(_kEstimatedMinHeight, _kEstimatedMaxHeight)
-        .toDouble();
+    return _estimateHtmlBubbleHeight(widget.data);
   }
 
   @override
@@ -4199,49 +4333,57 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       // 一次 setState 就会拖累整页 paint，RepaintBoundary 阻断这层
       // repaint 蔓延。
       child: KeyedSubtree(
-      key: _webViewRegionKey,
-      child: iaw.InAppWebView(
-        initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-        initialSettings: iaw.InAppWebViewSettings(
-          transparentBackground: !Platform.isMacOS,
-          disableVerticalScroll: true,
-        ),
-        onWebViewCreated: (controller) {
-          _controller = controller;
-          controller.addJavaScriptHandler(
-            handlerName: 'OpenHandHeight',
-            callback: (args) {
-              if (args.isEmpty) return;
-              final raw = args.first;
-              final value = raw is num
-                  ? raw.toDouble()
-                  : double.tryParse(raw.toString());
-              if (value == null || !value.isFinite) return;
-              _onContentSizeChanged(Size(0, value));
-            },
-          );
-        },
-        onLoadStop: (controller, url) async {
-          try {
-            await controller.evaluateJavascript(source: _heightObserverScript);
-            await controller.evaluateJavascript(source: _selectionBridgeScript);
-          } catch (error, stack) {
+        key: _webViewRegionKey,
+        child: iaw.InAppWebView(
+          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
+          initialSettings: iaw.InAppWebViewSettings(
+            transparentBackground: !Platform.isMacOS,
+            disableVerticalScroll: true,
+          ),
+          onWebViewCreated: (controller) {
+            _controller = controller;
+            controller.addJavaScriptHandler(
+              handlerName: 'OpenHandHeight',
+              callback: (args) {
+                if (args.isEmpty) return;
+                final raw = args.first;
+                final value = raw is num
+                    ? raw.toDouble()
+                    : double.tryParse(raw.toString());
+                if (value == null || !value.isFinite) return;
+                _onContentSizeChanged(Size(0, value));
+              },
+            );
+          },
+          onLoadStop: (controller, url) async {
+            try {
+              await controller.evaluateJavascript(
+                source: _heightObserverScript,
+              );
+              await controller.evaluateJavascript(
+                source: _selectionBridgeScript,
+              );
+            } catch (error, stack) {
+              silentLog(
+                'home_message_content',
+                'html bubble height observer install failed',
+                error,
+                stack,
+              );
+            }
+          },
+          onReceivedError: (controller, request, error) {
             silentLog(
               'home_message_content',
-              'html bubble height observer install failed',
+              'html bubble webview error',
               error,
-              stack,
             );
-          }
-        },
-        onReceivedError: (controller, request, error) {
-          silentLog('home_message_content', 'html bubble webview error', error);
-          if (mounted) {
-            setState(() => _hasError = true);
-          }
-        },
+            if (mounted) {
+              setState(() => _hasError = true);
+            }
+          },
+        ),
       ),
-    ),
     );
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -4294,10 +4436,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           // 1px 高度跳变 → 在用户处于"距 maxScrollExtent 较近"的位置时
           // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
           // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
-          if (showShimmer)
-            const Positioned.fill(
-              child: _HtmlBubbleShimmer(),
-            ),
+          if (showShimmer) const Positioned.fill(child: _HtmlBubbleShimmer()),
         ],
       ),
     );
@@ -4373,7 +4512,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     if (hasHtmlLikeTags || hasTagStructure) {
       return SizedBox(
         width: double.infinity,
-        child: _HtmlBubbleWebView(
+        child: _DeferredHtmlBubbleWebView(
           key: ValueKey(Object.hash(data, textColor)),
           data: data,
           textColor: textColor,
@@ -4428,7 +4567,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     if (hasHtmlLikeTags || hasTagStructure) {
       return SizedBox(
         width: double.infinity,
-        child: _HtmlBubbleWebView(
+        child: _DeferredHtmlBubbleWebView(
           key: ValueKey(Object.hash(data, textColor)),
           data: data,
           textColor: textColor,
@@ -4465,10 +4604,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final body = AnimatedSwitcher(
-      duration: cardMotionDurationFor(
-        context,
-        expanding: !isStreaming,
-      ),
+      duration: cardMotionDurationFor(context, expanding: !isStreaming),
       switchInCurve: kCardMotionCurve,
       switchOutCurve: Curves.easeOutCubic,
       layoutBuilder: (currentChild, previousChildren) {
