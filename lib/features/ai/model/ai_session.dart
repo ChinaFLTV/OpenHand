@@ -1065,18 +1065,32 @@ class AiSessionStatistics {
     var cumulativePrompt = 0;
     var cumulativeCacheRead = 0;
     AiSessionMessage? previousUser;
-    for (final message in messages) {
+    for (var i = 0; i < messages.length; i++) {
+      final message = messages[i];
       if (message.kind != AiSessionMessageKind.user) continue;
-      // 找该 user 之后第一条 assistant 消息（与 Flutter 端
-      // [_cacheHitRelatedTelemetryMessage] 同口径）。
-      AiSessionMessage? assistantMessage;
-      for (final candidate in messages) {
+      // 2026-06-08 — 与 Flutter 端 [_cacheHitRelatedTelemetryMessage] 同口径：
+      // 在当前 user 之后的下一条 user 之前，向前搜索最近的 assistant：
+      //   1) 优先选 usage != null 的 assistant（实际产生 token 统计的那条）；
+      //   2) 否则 fallback 到该范围内第一条 assistant（无 usage 但仍可作 telemetry 兜底）；
+      //   3) 都没有则跳过本 user。
+      // 这一步至关重要：含工具续写的回合会产生多条 assistant 片段（text /
+      // toolCall / tool / text），只有最末那条带 usage —— 错拿中间片段会导致整
+      // 轮 usage=null 进而被 `assistantMessage.usage ?? message.usage` 兜底
+      // 为 null，最终 cache_read=0 → 命中率被错算为 0%。
+      AiSessionMessage? firstAssistant;
+      AiSessionMessage? usageAssistant;
+      for (var j = i + 1; j < messages.length; j++) {
+        final candidate = messages[j];
+        if (candidate.kind == AiSessionMessageKind.user) break;
         if (candidate.isDeleted) continue;
         if (candidate.kind != AiSessionMessageKind.assistant) continue;
-        if (!candidate.createdAt.isAfter(message.createdAt)) continue;
-        assistantMessage = candidate;
-        break;
+        firstAssistant ??= candidate;
+        if (candidate.usage != null) {
+          usageAssistant = candidate;
+          break;
+        }
       }
+      final assistantMessage = usageAssistant ?? firstAssistant;
       if (assistantMessage == null) {
         previousUser = message;
         continue;

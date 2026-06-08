@@ -25,14 +25,13 @@ class _TokenDial extends StatefulWidget {
   /// 与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50% 这种
   /// 口径错位。
   ///
-  /// 协议差异（沿用 [computeCacheHitRatio]）：
-  /// - Claude / Anthropic：prompt_tokens 不包含 cache_read，二者独立。
-  ///   → 分母 = prompt + cache_read（即总输入 token 数）。
-  /// - OpenAI 兼容系（OpenAI / DeepSeek / Qwen / GLM / Kimi / Grok / Seed /
-  ///   StepFun / LongCat / MiniMax 等）及 Gemini：
-  ///   prompt_tokens 已包含 cache_read 子集。
-  ///   → 分母 = prompt（含 cache_read 的总 prompt token 数）。
+  /// 2026-06-08 — 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
+  /// SSE 实时推送、WEB 端也直接消费），缺失时回退到客户端重算，保证同一
+  /// 个会话在 APP 端 TopBar、APP 端浮窗、WEB 端 TopBar、WEB 端浮窗四个位置
+  /// 永远显示同一数字。
   double get cacheHitRatio {
+    final precomputed = session.statistics.cacheHitRatio;
+    if (precomputed != null) return precomputed.clamp(0.0, 1.0);
     final trend = SessionCacheHitTrend.fromSession(
       session,
       claudeStyle: claudeStyle,

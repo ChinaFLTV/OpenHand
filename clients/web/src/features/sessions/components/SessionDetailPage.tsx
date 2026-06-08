@@ -3164,17 +3164,23 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
-    // Permanent cache savings badge. Computes cache_read / (prompt + cache_read).
-    // Hidden when the session has not produced cache data yet.
+    // 2026-06-08 — 优先消费后端预计算的 cache_hit_ratio（SSE 实时推送、
+    // 与 APP 端 TopBar / 浮窗完全同口径），仅在缺失时回退到客户端聚合公式
+    // 兜底。保证同一会话在 APP 端 TopBar、APP 端浮窗、WEB 端 TopBar、WEB
+    // 端浮窗四个位置永远显示同一数字。
     const tokenStats = asRecord(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
+    const backendRatioRaw = readStatNumber(tokenStats['cache_hit_ratio'], -1);
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-    const cacheSavingsPercent = computeCacheHitRatioPercent({
-      promptTokens: sessPrompt,
-      cacheReadTokens: sessCacheRead,
-      claudeStyle,
-    });
+    const cacheSavingsPercent =
+      backendRatioRaw >= 0
+        ? Math.max(0, Math.min(100, Math.round(backendRatioRaw * 100)))
+        : computeCacheHitRatioPercent({
+            promptTokens: sessPrompt,
+            cacheReadTokens: sessCacheRead,
+            claudeStyle,
+          });
     const cacheSavingsBase = claudeStyle
       ? sessPrompt + sessCacheRead
       : sessPrompt;
