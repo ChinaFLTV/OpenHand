@@ -4225,6 +4225,36 @@ class WebMessagePlatformService {
     return null;
   }
 
+  /// 2026-06-08 — 兜底修补 DB 中可能遗留的 stale [cacheHitRatio]==0。
+  /// 若当前统计的累积 cache 数据明确有值，但 [cacheHitRatio] 为 0 或 null，
+  /// 直接用累积值按协议公式重算，保证 `getSession` 加载旧会话时也不返回 0%。
+  Map<String, Object?> _patchedStatistics(
+    Map<String, Object?> stats, {
+    required AiSession session,
+  }) {
+    final cacheRead = (stats['cache_read_tokens'] is int)
+        ? stats['cache_read_tokens'] as int
+        : 0;
+    final prompt = (stats['total_prompt_tokens'] is int)
+        ? stats['total_prompt_tokens'] as int
+        : 0;
+    final existingRatio = stats['cache_hit_ratio'];
+    final hasExistingRatio = existingRatio is num &&
+        (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
+    if (hasExistingRatio || cacheRead <= 0 || prompt <= 0) return stats;
+    final protocol = _lastModelProtocolForSession(session);
+    final claudeStyle = protocol != null &&
+        protocol.trim().toLowerCase() == 'claude';
+    final denominator = claudeStyle ? prompt + cacheRead : prompt;
+    if (denominator <= 0) return stats;
+    final ratio = cacheRead / denominator;
+    if (!ratio.isFinite) return stats;
+    return <String, Object?>{
+      ...stats,
+      'cache_hit_ratio': ratio.clamp(0.0, 1.0),
+    };
+  }
+
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
@@ -4260,7 +4290,10 @@ class WebMessagePlatformService {
           .toIso8601String(),
       'last_model_key': lastModelKey,
       'message_count': displayMessages.length,
-      'statistics': session.statistics.toJson(),
+      'statistics': _patchedStatistics(
+        session.statistics.toJson(),
+        session: session,
+      ),
       'total_tokens': session.statistics.totalTokens,
       'total_prompt_tokens': session.statistics.totalPromptTokens,
       'total_completion_tokens': session.statistics.totalCompletionTokens,

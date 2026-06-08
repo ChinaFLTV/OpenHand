@@ -3164,23 +3164,17 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null
       ? `${session.total_tokens.toLocaleString()} tokens`
       : t('topbar.tokens.empty', 'Token 暂无');
-    // 2026-06-08 — 优先消费后端预计算的 cache_hit_ratio（SSE 实时推送、
-    // 与 APP 端 TopBar / 浮窗完全同口径），仅在缺失时回退到客户端聚合公式
-    // 兜底。保证同一会话在 APP 端 TopBar、APP 端浮窗、WEB 端 TopBar、WEB
-    // 端浮窗四个位置永远显示同一数字。
+    // 2026-06-08 — WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
+    // 不做任何客户端计算。后端 _patchedStatistics + _resolveCacheHitTrend
+    // 已保证任何有 cache 数据的会话都返回非零值。
     const tokenStats = asRecord(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
-    const backendRatioRaw = readStatNumber(tokenStats['cache_hit_ratio'], -1);
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-    const cacheSavingsPercent =
-      backendRatioRaw >= 0
-        ? Math.max(0, Math.min(100, Math.round(backendRatioRaw * 100)))
-        : computeCacheHitRatioPercent({
-            promptTokens: sessPrompt,
-            cacheReadTokens: sessCacheRead,
-            claudeStyle,
-          });
+    const backendHitRatio = readDouble(tokenStats['cache_hit_ratio'], 0);
+    const cacheSavingsPercent = backendHitRatio > 0.0001
+      ? Math.max(0, Math.min(100, Math.round(backendHitRatio * 100)))
+      : 0;
     const cacheSavingsBase = claudeStyle
       ? sessPrompt + sessCacheRead
       : sessPrompt;
@@ -4228,7 +4222,6 @@ export function SessionDetailPage() {
       {tokenStatsOpen && detail ? (
         <SessionTokenStatsDialog
           detail={detail}
-          messages={messages}
           onClose={() => setTokenStatsOpen(false)}
         />
       ) : null}
@@ -4661,11 +4654,9 @@ function MessageAuditDialog({
 
 function SessionTokenStatsDialog({
   detail,
-  messages,
   onClose,
 }: {
   detail: SessionDetailResponse;
-  messages: SessionMessage[];
   onClose: () => void;
 }) {
   const [trendDisplayMode, setTrendDisplayMode] =
@@ -4689,22 +4680,16 @@ function SessionTokenStatsDialog({
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
   const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-  // 2026-06-08 — 缓存命中率与走势数据全部从后端 metadata 实时取得，
-  // 与 APP 端 SessionCacheHitTrend.fromSession / SessionCacheHitDisplayData
-  // 完全同口径，避免跨端计算漂移。当后端未提供时回退到客户端计算以兜底。
-  const backendRatio = readStatNumber(stats['cache_hit_ratio'], -1);
+  // 2026-06-08 — WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
+  // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
+  // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
+  const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
   const cacheHitRatio =
-    backendRatio >= 0
-      ? Math.round(backendRatio * 100)
-      : computeCacheHitRatioPercent({
-          promptTokens,
-          cacheReadTokens,
-          claudeStyle,
-        });
+    backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as
     | SessionCacheHitTrendPoint[]
     | undefined;
-  const backendTrend = useMemo<{
+  const trendData = useMemo<{
     points: TrendPoint[];
     averageRatio: number;
   } | null>(() => {
@@ -4715,14 +4700,9 @@ function SessionTokenStatsDialog({
         hitRatio: p.hit_ratio,
         idleGapSeconds: p.idle_gap_seconds ?? null,
       })),
-      averageRatio: cacheHitRatio / 100,
+      averageRatio: backendHitRatio,
     };
-  }, [backendTrendPoints, cacheHitRatio]);
-  const clientTrend = useMemo(
-    () => (backendTrend ? null : buildCacheTrendPoints(messages, claudeStyle)),
-    [backendTrend, messages, claudeStyle],
-  );
-  const trendData = backendTrend ?? clientTrend;
+  }, [backendTrendPoints, backendHitRatio]);
   // Stacked-bar weights (read / write / unCached prompt). Sum = 1 when any
   // cache activity exists.
   const uncachedPromptTokens = claudeStyle
@@ -5293,6 +5273,16 @@ function TokenStatsRow({
   );
 }
 
+function readDouble(value: unknown, fallback: number): number {
+  const raw = value ?? fallback;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 function readStatNumber(value: unknown, fallback: unknown): number {
   const raw = value ?? fallback;
   if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw));
@@ -5308,87 +5298,14 @@ function usesClaudeStyleCacheMath(protocol: unknown): boolean {
   return normalized === 'claude';
 }
 
-function computeCacheHitRatioPercent({
-  promptTokens,
-  cacheReadTokens,
-  claudeStyle,
-}: {
-  promptTokens: number;
-  cacheReadTokens: number;
-  claudeStyle: boolean;
-}): number {
-  const denominator = claudeStyle
-    ? promptTokens + cacheReadTokens
-    : promptTokens;
-  if (denominator <= 0) return 0;
-  const ratio = cacheReadTokens / denominator;
-  if (!Number.isFinite(ratio)) return 0;
-  return Math.max(0, Math.min(100, Math.round(ratio * 100)));
-}
+// 2026-06-08 — WEB 端纯只读：所有缓存命中率元数据从后端 metadata 实时取得，
+// 此处仅保留 usesClaudeStyleCacheMath（用于 TopBar 分母展示，不参与计算）和
+// TrendPoint 接口（走势图渲染）。
 
 interface TrendPoint {
   turnIndex: number;
   hitRatio: number;
   idleGapSeconds?: number | null;
-}
-
-function buildCacheTrendPoints(
-  messages: SessionMessage[],
-  claudeStyle: boolean,
-): { points: TrendPoint[]; averageRatio: number } {
-  const points: TrendPoint[] = [];
-  let turnIndex = 0;
-  let cumulativePrompt = 0;
-  let cumulativeCacheRead = 0;
-  let lastUserTimestamp: number | null = null;
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (msg.kind !== 'user') continue;
-    const usage =
-      (msg.usage && (msg.usage.prompt_tokens ?? 0) > 0)
-        ? msg.usage
-        : null;
-    const promptTokens = usage?.prompt_tokens ?? 0;
-    const cacheReadTokens = usage?.cache_read_tokens ?? 0;
-    if (promptTokens <= 0) continue;
-    const hitRatio = cacheReadTokens / (claudeStyle ? promptTokens + cacheReadTokens : promptTokens);
-    if (!Number.isFinite(hitRatio)) continue;
-    // 计算与上一条用户消息的时间间隔（秒）
-    let idleGapSeconds: number | null = null;
-    if (lastUserTimestamp !== null) {
-      const cur = Date.parse(msg.created_at);
-      if (Number.isFinite(cur)) {
-        idleGapSeconds = Math.max(0, Math.round((cur - lastUserTimestamp) / 1000));
-      }
-    }
-    const curTs = Date.parse(msg.created_at);
-    if (Number.isFinite(curTs)) {
-      lastUserTimestamp = curTs;
-    }
-    turnIndex += 1;
-    if (turnIndex > 1) {
-      cumulativePrompt += promptTokens;
-      cumulativeCacheRead += cacheReadTokens;
-    }
-    points.push({
-      turnIndex,
-      hitRatio: Math.max(0, Math.min(1, hitRatio)),
-      idleGapSeconds,
-    });
-  }
-  if (points.length === 0) return { points, averageRatio: 0 };
-  const denominator = claudeStyle
-    ? cumulativePrompt + cumulativeCacheRead
-    : cumulativePrompt;
-  const averageRatio = denominator <= 0 ? 0 : cumulativeCacheRead / denominator;
-  return {
-    points,
-    averageRatio: Math.max(
-      0,
-      Math.min(1, Number.isFinite(averageRatio) ? averageRatio : 0),
-    ),
-  };
 }
 
 function formatDialogDate(value?: string | null): string {
