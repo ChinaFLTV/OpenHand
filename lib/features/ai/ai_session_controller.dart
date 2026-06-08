@@ -25,6 +25,7 @@ import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
 import 'model/ai_session_message.dart';
 import 'model/ai_session_runtime_context.dart';
+import '../home/index.dart';
 import 'model/ai_stream_throttle_override.dart';
 import 'model/ai_thread_template.dart';
 import 'model/ai_token_usage.dart';
@@ -8268,12 +8269,18 @@ $trimmedSummary''';
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
         (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);
-    // 2026-06-08 — 缓存命中率计算口径必须使用当前会话生效的模型协议
-    //（Claude vs OpenAI 兼容）。调用方必须显式传入本轮的 model（其决定
-    // [AiSessionStatistics.fromMessages] 的 claudeStyle 参数），保证与
-    // APP 端 TokenPopupCacheHitTrendChart 完全同口径。
+    // 2026-06-08 — 缓存命中率直接从 APP 端 SessionCacheHitTrend.fromSession
+    // 计算（与 TopBar 胶囊 / 浮窗走势图完全同源），传入 fromMessages 作为预制
+    // 字段，不再让 AiSessionStatistics 内部重算。
     final claudeStyle =
         model != null && model.protocolType == AiProtocolType.claude;
+    final cacheTrend = SessionCacheHitTrend.fromSession(
+      trackedSession,
+      claudeStyle: claudeStyle,
+    );
+    final trendDisplay = cacheTrend.displayData(
+      SessionCacheHitDisplayMode.excludeExtremeMisses,
+    );
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,
@@ -8292,7 +8299,21 @@ $trimmedSummary''';
         lastPromptHistoryMessageCount:
             lastPromptHistoryMessageCount ??
             trackedSession.statistics.lastPromptHistoryMessageCount,
-        claudeStyle: claudeStyle,
+        cacheHitRatio: trendDisplay.averageHitRatio,
+        cacheHitTrendPoints: cacheTrend.points
+            .map(
+              (p) => AiSessionCacheHitTrendPoint(
+                turnIndex: p.turnIndex,
+                hitRatio: p.hitRatio,
+                promptTokens: p.promptTokens,
+                cacheReadTokens: p.cacheReadTokens,
+                cacheWriteTokens: p.cacheWriteTokens,
+                idleGapSeconds: p.idleGapSeconds,
+              ),
+            )
+            .toList(growable: false),
+        cacheHitTrendExcludedCount:
+            cacheTrend.points.length - trendDisplay.trend.points.length,
       ),
     );
   }

@@ -156,7 +156,6 @@ export interface SessionStatistics {
 export interface SessionCacheHitTrendPoint {
   turn_index: number;
   hit_ratio: number;
-  cumulative_average_hit_ratio: number;
   prompt_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
