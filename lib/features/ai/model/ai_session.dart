@@ -1022,6 +1022,14 @@ class AiSessionStatistics {
       claudeStyle: claudeStyle,
     );
 
+    // 2026-06-08 兜底：当逐消息 usage 缺失导致 trend.points 为空 但累积
+    // 统计明确有 cache 数据时，直接用累积值计算命中率，避免跨端显示 0%。
+    final effectiveTrend = _resolveCacheHitTrend(
+      trend: trend,
+      totalUsage: totalUsage,
+      claudeStyle: claudeStyle,
+    );
+
     return AiSessionStatistics(
       totalMessageCount: visibleMessages.length,
       userMessageCount: userMessageCount,
@@ -1044,9 +1052,41 @@ class AiSessionStatistics {
       firstPromptTokens: firstPromptTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
-      cacheHitRatio: trend.averageHitRatio,
-      cacheHitTrendPoints: trend.points,
-      cacheHitTrendExcludedCount: trend.excludedPointCount,
+      cacheHitRatio: effectiveTrend.averageHitRatio,
+      cacheHitTrendPoints: effectiveTrend.points,
+      cacheHitTrendExcludedCount: effectiveTrend.excludedPointCount,
+    );
+  }
+
+  /// 当逐消息 usage 数据不足时，退回到累积 token 统计计算命中率，保证
+  /// 任何有 cache 数据的会话都至少显示一个非 0 的合理命中率值。
+  static _CacheHitTrendSummary _resolveCacheHitTrend({
+    required _CacheHitTrendSummary trend,
+    required AiTokenUsage totalUsage,
+    required bool claudeStyle,
+  }) {
+    // 已有逐消息趋势点时直接返回。
+    if (trend.points.isNotEmpty) return trend;
+    final cacheRead = totalUsage.cacheReadTokens ?? 0;
+    final prompt = totalUsage.promptTokens ?? 0;
+    final denominator = claudeStyle ? prompt + cacheRead : prompt;
+    if (denominator <= 0 || cacheRead <= 0) return trend;
+    final ratio = cacheRead / denominator;
+    if (!ratio.isFinite) return trend;
+    // 构造一个合成趋势点，使得 WEB 端走势图在消息级数据缺失时也能展示
+    // 一个合理的均值线。
+    final fallbackPoint = AiSessionCacheHitTrendPoint(
+      turnIndex: 1,
+      hitRatio: ratio.clamp(0.0, 1.0),
+      cumulativeAverageHitRatio: ratio.clamp(0.0, 1.0),
+      promptTokens: prompt,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: totalUsage.cacheCreationTokens ?? 0,
+    );
+    return _CacheHitTrendSummary(
+      points: <AiSessionCacheHitTrendPoint>[fallbackPoint],
+      averageHitRatio: ratio.clamp(0.0, 1.0),
+      excludedPointCount: 0,
     );
   }
 
