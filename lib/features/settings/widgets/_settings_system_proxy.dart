@@ -566,9 +566,9 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                 script.writeAsStringSync(
                   '#!/bin/sh\n'
                   'echo "[restart] pid=\$\$ begin" >> /tmp/oh_restart.log\n'
-                  'sleep 0.6\n'
+                  'sleep 2\n'
                   'echo "[restart] pid=\$\$ launching" >> /tmp/oh_restart.log\n'
-                  '/usr/bin/open -n -a \'$safeBundle\' >> /tmp/oh_restart.log 2>&1\n'
+                  '/usr/bin/open -F -n -a \'$safeBundle\' >> /tmp/oh_restart.log 2>&1\n'
                   'echo "[restart] pid=\$\$ exit=\$?" >> /tmp/oh_restart.log\n',
                 );
                 await Process.run('/bin/chmod', ['+x', script.path]);
