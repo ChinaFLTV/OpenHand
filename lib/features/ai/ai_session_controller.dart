@@ -4443,6 +4443,7 @@ class AiSessionController extends ChangeNotifier {
         totalUsage: totalUsage,
         lastPromptSystemMessageCount: promptResult.systemMessageCount,
         lastPromptHistoryMessageCount: promptResult.historyMessageCount,
+        model: model,
       );
       final committed = await _commitSessionLocked(streamedSession);
       if (!committed) {
@@ -8255,6 +8256,7 @@ $trimmedSummary''';
     AiTokenUsage? totalUsage,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
+    AiModelConfig? model,
   }) {
     final effectiveUsage =
         totalUsage ?? _usageFromStatistics(session.statistics);
@@ -8266,6 +8268,12 @@ $trimmedSummary''';
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
         (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);
+    // 2026-06-08 — 缓存命中率计算口径必须使用当前会话生效的模型协议
+    //（Claude vs OpenAI 兼容）。调用方必须显式传入本轮的 model（其决定
+    // [AiSessionStatistics.fromMessages] 的 claudeStyle 参数），保证与
+    // APP 端 TokenPopupCacheHitTrendChart 完全同口径。
+    final claudeStyle =
+        model != null && model.protocolType == AiProtocolType.claude;
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,
@@ -8284,6 +8292,7 @@ $trimmedSummary''';
         lastPromptHistoryMessageCount:
             lastPromptHistoryMessageCount ??
             trackedSession.statistics.lastPromptHistoryMessageCount,
+        claudeStyle: claudeStyle,
       ),
     );
   }

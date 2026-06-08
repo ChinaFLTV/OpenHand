@@ -767,6 +767,11 @@ class AiSessionStatistics {
       lastPromptHistoryMessageCount: _readInt(
         json['last_prompt_history_message_count'],
       ),
+      cacheHitRatio: _readNullableDouble(json['cache_hit_ratio']),
+      cacheHitTrendPoints: _readTrendPoints(json['cache_hit_trend_points']),
+      cacheHitTrendExcludedCount: _readInt(
+        json['cache_hit_trend_excluded_count'],
+      ),
     );
   }
   const AiSessionStatistics({
@@ -791,6 +796,9 @@ class AiSessionStatistics {
     this.firstPromptTokens,
     this.lastPromptSystemMessageCount = 0,
     this.lastPromptHistoryMessageCount = 0,
+    this.cacheHitRatio,
+    this.cacheHitTrendPoints = const <AiSessionCacheHitTrendPoint>[],
+    this.cacheHitTrendExcludedCount = 0,
   });
 
   const AiSessionStatistics.initial()
@@ -814,7 +822,10 @@ class AiSessionStatistics {
       reasoningTokens = null,
       firstPromptTokens = null,
       lastPromptSystemMessageCount = 0,
-      lastPromptHistoryMessageCount = 0;
+      lastPromptHistoryMessageCount = 0,
+      cacheHitRatio = null,
+      cacheHitTrendPoints = const <AiSessionCacheHitTrendPoint>[],
+      cacheHitTrendExcludedCount = 0;
 
   final int totalMessageCount;
   final int userMessageCount;
@@ -841,6 +852,19 @@ class AiSessionStatistics {
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
+  /// 2026-06-08 — 后端预计算的缓存命中率（已排除极端空闲过期 miss + 首轮
+  /// 必然 miss），供 WEB 端、TopBar 胶囊、浮窗统一读取，避免跨端计算口径
+  /// 漂移。范围 0.0..1.0。无任何 token 数据时为 null。
+  final double? cacheHitRatio;
+
+  /// 2026-06-08 — 后端预计算的逐轮次趋势点（turnIndex, hitRatio,
+  /// idleGapSeconds）。WEB 端不再独立 walk messages 重算，直接消费。
+  final List<AiSessionCacheHitTrendPoint> cacheHitTrendPoints;
+
+  /// 2026-06-08 — 被「排除极端值」模式过滤掉的轮次数（idle_gap>=30min 且
+  /// hit_ratio<1%），用于浮窗内展示「已排除 N 轮」提示。
+  final int cacheHitTrendExcludedCount;
+
   AiSessionStatistics copyWith({
     int? totalMessageCount,
     int? userMessageCount,
@@ -863,6 +887,9 @@ class AiSessionStatistics {
     int? firstPromptTokens,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
+    double? cacheHitRatio,
+    List<AiSessionCacheHitTrendPoint>? cacheHitTrendPoints,
+    int? cacheHitTrendExcludedCount,
   }) {
     return AiSessionStatistics(
       totalMessageCount: totalMessageCount ?? this.totalMessageCount,
@@ -893,6 +920,10 @@ class AiSessionStatistics {
           lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount:
           lastPromptHistoryMessageCount ?? this.lastPromptHistoryMessageCount,
+      cacheHitRatio: cacheHitRatio ?? this.cacheHitRatio,
+      cacheHitTrendPoints: cacheHitTrendPoints ?? this.cacheHitTrendPoints,
+      cacheHitTrendExcludedCount:
+          cacheHitTrendExcludedCount ?? this.cacheHitTrendExcludedCount,
     );
   }
 
@@ -919,6 +950,11 @@ class AiSessionStatistics {
       'first_prompt_tokens': firstPromptTokens,
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
+      'cache_hit_ratio': cacheHitRatio,
+      'cache_hit_trend_points': cacheHitTrendPoints
+          .map((p) => p.toJson())
+          .toList(growable: false),
+      'cache_hit_trend_excluded_count': cacheHitTrendExcludedCount,
     };
   }
 
@@ -931,6 +967,7 @@ class AiSessionStatistics {
     int? firstPromptTokens,
     required int lastPromptSystemMessageCount,
     required int lastPromptHistoryMessageCount,
+    bool claudeStyle = false,
   }) {
     final visibleMessages = messages
         .where((message) => !message.isDeleted)
@@ -980,6 +1017,11 @@ class AiSessionStatistics {
       }
     }
 
+    final trend = _computeCacheHitTrend(
+      messages: visibleMessages,
+      claudeStyle: claudeStyle,
+    );
+
     return AiSessionStatistics(
       totalMessageCount: visibleMessages.length,
       userMessageCount: userMessageCount,
@@ -1002,6 +1044,117 @@ class AiSessionStatistics {
       firstPromptTokens: firstPromptTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
+      cacheHitRatio: trend.averageHitRatio,
+      cacheHitTrendPoints: trend.points,
+      cacheHitTrendExcludedCount: trend.excludedPointCount,
+    );
+  }
+
+  /// 与 [SessionCacheHitTrend] 同口径的后端侧预计算。默认排除极端空闲过期
+  /// miss（idle_gap>=30min 且 hit_ratio<1%），并跳过首轮（turnIndex==1）。
+  /// 端到端口径必须与 [SessionCacheHitTrend.fromSession] + [SessionCacheHitDisplayData]
+  /// 完全一致，避免跨端计算漂移。
+  static _CacheHitTrendSummary _computeCacheHitTrend({
+    required List<AiSessionMessage> messages,
+    required bool claudeStyle,
+  }) {
+    const extremeIdleGapSeconds = 1800; // 30 min
+    const extremeHitRatioThreshold = 0.01; // 1%
+    final rawPoints = <AiSessionCacheHitTrendPoint>[];
+    var turnIndex = 0;
+    var cumulativePrompt = 0;
+    var cumulativeCacheRead = 0;
+    AiSessionMessage? previousUser;
+    for (final message in messages) {
+      if (message.kind != AiSessionMessageKind.user) continue;
+      // 找该 user 之后第一条 assistant 消息（与 Flutter 端
+      // [_cacheHitRelatedTelemetryMessage] 同口径）。
+      AiSessionMessage? assistantMessage;
+      for (final candidate in messages) {
+        if (candidate.isDeleted) continue;
+        if (candidate.kind != AiSessionMessageKind.assistant) continue;
+        if (!candidate.createdAt.isAfter(message.createdAt)) continue;
+        assistantMessage = candidate;
+        break;
+      }
+      if (assistantMessage == null) {
+        previousUser = message;
+        continue;
+      }
+      final usage = assistantMessage.usage ?? message.usage;
+      final promptTokens = usage?.promptTokens ?? 0;
+      final cacheReadTokens = usage?.cacheReadTokens ?? 0;
+      final cacheWriteTokens = usage?.cacheCreationTokens ?? 0;
+      final denominator = claudeStyle
+          ? promptTokens + cacheReadTokens
+          : promptTokens;
+      if (denominator <= 0) {
+        previousUser = message;
+        continue;
+      }
+      final hitRatio = cacheReadTokens / denominator;
+      if (!hitRatio.isFinite) {
+        previousUser = message;
+        continue;
+      }
+      turnIndex += 1;
+      final idleGapSeconds = previousUser == null
+          ? null
+          : message.createdAt.difference(previousUser.createdAt).inSeconds;
+      // 累计平均（与 [SessionCacheHitTrend.fromSession] 同口径，跳过首轮）。
+      if (turnIndex > 1) {
+        cumulativePrompt += promptTokens;
+        cumulativeCacheRead += cacheReadTokens;
+      }
+      final cumulativeDenominator = claudeStyle
+          ? cumulativePrompt + cumulativeCacheRead
+          : cumulativePrompt;
+      final cumulativeAverageHitRatio = cumulativeDenominator <= 0
+          ? 0.0
+          : cumulativeCacheRead / cumulativeDenominator;
+      rawPoints.add(
+        AiSessionCacheHitTrendPoint(
+          turnIndex: turnIndex,
+          hitRatio: hitRatio.clamp(0.0, 1.0).toDouble(),
+          cumulativeAverageHitRatio:
+              cumulativeAverageHitRatio.clamp(0.0, 1.0).toDouble(),
+          idleGapSeconds: idleGapSeconds,
+          promptTokens: promptTokens,
+          cacheReadTokens: cacheReadTokens,
+          cacheWriteTokens: cacheWriteTokens,
+        ),
+      );
+      previousUser = message;
+    }
+    // 计算「排除极端空闲过期 miss + 跳过首轮」后的加权平均命中率（与
+    // [SessionCacheHitDisplayData.averageHitRatio] 同口径）。
+    var sumCacheRead = 0;
+    var sumUncachedPrompt = 0;
+    var excludedCount = 0;
+    for (final p in rawPoints) {
+      if (p.turnIndex == 1) continue;
+      final isExtreme =
+          (p.idleGapSeconds ?? 0) >= extremeIdleGapSeconds &&
+              p.hitRatio < extremeHitRatioThreshold;
+      if (isExtreme) {
+        excludedCount += 1;
+        continue;
+      }
+      sumCacheRead += p.cacheReadTokens;
+      // uncached prompt tokens：
+      //   Claude: promptTokens（cache_read 不算 uncached）
+      //   OpenAI 兼容: max(0, promptTokens - cacheReadTokens)
+      final uncached = claudeStyle
+          ? p.promptTokens
+          : (p.promptTokens - p.cacheReadTokens).clamp(0, p.promptTokens);
+      sumUncachedPrompt += uncached;
+    }
+    final denom = sumCacheRead + sumUncachedPrompt;
+    final averageHitRatio = denom <= 0 ? 0.0 : sumCacheRead / denom;
+    return _CacheHitTrendSummary(
+      points: rawPoints,
+      averageHitRatio: averageHitRatio.clamp(0.0, 1.0).toDouble(),
+      excludedPointCount: excludedCount,
     );
   }
 
@@ -1012,6 +1165,92 @@ class AiSessionStatistics {
   static int? _readNullableInt(Object? value) {
     return value is int ? value : null;
   }
+
+  static double? _readNullableDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {
+    if (value is! List) return const <AiSessionCacheHitTrendPoint>[];
+    return value
+        .whereType<Map<String, Object?>>()
+        .map(AiSessionCacheHitTrendPoint.fromJson)
+        .toList(growable: false);
+  }
+}
+
+class _CacheHitTrendSummary {
+  const _CacheHitTrendSummary({
+    required this.points,
+    required this.averageHitRatio,
+    required this.excludedPointCount,
+  });
+  final List<AiSessionCacheHitTrendPoint> points;
+  final double averageHitRatio;
+  final int excludedPointCount;
+}
+
+/// 2026-06-08 — 后端预计算的逐轮次缓存命中点。WEB 端、APP 端浮窗均直接
+/// 消费此结构，避免跨端重算。
+class AiSessionCacheHitTrendPoint {
+  const AiSessionCacheHitTrendPoint({
+    required this.turnIndex,
+    required this.hitRatio,
+    required this.cumulativeAverageHitRatio,
+    required this.promptTokens,
+    required this.cacheReadTokens,
+    required this.cacheWriteTokens,
+    this.idleGapSeconds,
+  });
+
+  factory AiSessionCacheHitTrendPoint.fromJson(Map<String, Object?> json) {
+    return AiSessionCacheHitTrendPoint(
+      turnIndex:
+          (json['turn_index'] is num) ? (json['turn_index'] as num).toInt() : 0,
+      hitRatio: (json['hit_ratio'] is num)
+          ? (json['hit_ratio'] as num).toDouble().clamp(0.0, 1.0)
+          : 0.0,
+      cumulativeAverageHitRatio: (json['cumulative_average_hit_ratio'] is num)
+          ? (json['cumulative_average_hit_ratio'] as num)
+              .toDouble()
+              .clamp(0.0, 1.0)
+          : 0.0,
+      promptTokens:
+          (json['prompt_tokens'] is num) ? (json['prompt_tokens'] as num).toInt() : 0,
+      cacheReadTokens: (json['cache_read_tokens'] is num)
+          ? (json['cache_read_tokens'] as num).toInt()
+          : 0,
+      cacheWriteTokens: (json['cache_write_tokens'] is num)
+          ? (json['cache_write_tokens'] as num).toInt()
+          : 0,
+      idleGapSeconds: (json['idle_gap_seconds'] is num)
+          ? (json['idle_gap_seconds'] as num).toInt()
+          : null,
+    );
+  }
+
+  final int turnIndex;
+  final double hitRatio;
+  final double cumulativeAverageHitRatio;
+  final int promptTokens;
+  final int cacheReadTokens;
+  final int cacheWriteTokens;
+  final int? idleGapSeconds;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'turn_index': turnIndex,
+        'hit_ratio': hitRatio,
+        'cumulative_average_hit_ratio': cumulativeAverageHitRatio,
+        'prompt_tokens': promptTokens,
+        'cache_read_tokens': cacheReadTokens,
+        'cache_write_tokens': cacheWriteTokens,
+        if (idleGapSeconds != null) 'idle_gap_seconds': idleGapSeconds,
+      };
 }
 
 class AiSessionErrorRecord {

@@ -62,7 +62,7 @@ export interface SessionSummary {
   latest_compression_at?: string | null;
   last_model_key?: string | null;
   message_count: number;
-  statistics?: Record<string, unknown>;
+  statistics?: SessionStatistics;
   total_tokens?: number | null;
   total_prompt_tokens?: number | null;
   total_completion_tokens?: number | null;
@@ -124,6 +124,43 @@ export interface SessionMessageUsage {
   cache_read_tokens?: number | null;
   cache_creation_tokens?: number | null;
   reasoning_tokens?: number | null;
+}
+
+export interface SessionStatistics {
+  total_message_count?: number;
+  user_message_count?: number;
+  assistant_message_count?: number;
+  tool_message_count?: number;
+  mcp_message_count?: number;
+  skill_message_count?: number;
+  compression_point_count?: number;
+  total_input_characters?: number;
+  total_output_characters?: number;
+  total_prompt_characters?: number;
+  prompt_build_count?: number;
+  compression_run_count?: number;
+  total_prompt_tokens?: number | null;
+  total_completion_tokens?: number | null;
+  total_tokens?: number | null;
+  cache_read_tokens?: number | null;
+  cache_creation_tokens?: number | null;
+  reasoning_tokens?: number | null;
+  first_prompt_tokens?: number | null;
+  // 2026-06-08 — 后端预计算字段：避免 WEB 端独立 walk messages 重算导致跨端
+  // 计算口径漂移。`null` 表示无任何 token 数据。
+  cache_hit_ratio?: number | null;
+  cache_hit_trend_points?: SessionCacheHitTrendPoint[];
+  cache_hit_trend_excluded_count?: number;
+}
+
+export interface SessionCacheHitTrendPoint {
+  turn_index: number;
+  hit_ratio: number;
+  cumulative_average_hit_ratio: number;
+  prompt_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  idle_gap_seconds?: number | null;
 }
 
 export interface SessionMessagesResponse {

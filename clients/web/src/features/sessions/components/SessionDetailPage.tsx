@@ -38,6 +38,7 @@ import {
   type CompactSessionResponse,
   type CompactSessionStatus,
   type SendMessageAttachment,
+  type SessionCacheHitTrendPoint,
   type SessionDetailResponse,
   type SessionMessage,
   type SessionSummary,
@@ -2072,10 +2073,19 @@ export function SessionDetailPage() {
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
         const messagesSignature = snap.messages.map(messageFollowSignature).join(';');
+        // 2026-06-08 — 将 token 统计（cache_hit_ratio / cache_hit_trend_points）
+        // 纳入 fingerprint，避免会话侧仅 token 计数器变化时客户端把快照当成
+        // 重复帧丢掉，导致 Token 弹窗不实时刷新。
+        const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
+        const tokenSig =
+          `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${
+            stats['cache_hit_ratio'] ?? 'n'
+          }:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
         const fingerprint =
           `${snap.messages.length}|${messagesSignature}|` +
           `${snap.send_phase}|${snap.last_error?.length ?? 0}|` +
-          `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}`;
+          `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` +
+          `tok=${tokenSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
         const tail = snap.messages.length > 0 ? snap.messages[snap.messages.length - 1] : null;
@@ -4673,11 +4683,40 @@ function SessionTokenStatsDialog({
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
   const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-  const cacheHitRatio = computeCacheHitRatioPercent({
-    promptTokens,
-    cacheReadTokens,
-    claudeStyle,
-  });
+  // 2026-06-08 — 缓存命中率与走势数据全部从后端 metadata 实时取得，
+  // 与 APP 端 SessionCacheHitTrend.fromSession / SessionCacheHitDisplayData
+  // 完全同口径，避免跨端计算漂移。当后端未提供时回退到客户端计算以兜底。
+  const backendRatio = readStatNumber(stats['cache_hit_ratio'], -1);
+  const cacheHitRatio =
+    backendRatio >= 0
+      ? Math.round(backendRatio * 100)
+      : computeCacheHitRatioPercent({
+          promptTokens,
+          cacheReadTokens,
+          claudeStyle,
+        });
+  const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as
+    | SessionCacheHitTrendPoint[]
+    | undefined;
+  const backendTrend = useMemo<{
+    points: TrendPoint[];
+    averageRatio: number;
+  } | null>(() => {
+    if (!backendTrendPoints || backendTrendPoints.length === 0) return null;
+    return {
+      points: backendTrendPoints.map((p) => ({
+        turnIndex: p.turn_index,
+        hitRatio: p.hit_ratio,
+        idleGapSeconds: p.idle_gap_seconds ?? null,
+      })),
+      averageRatio: cacheHitRatio / 100,
+    };
+  }, [backendTrendPoints, cacheHitRatio]);
+  const clientTrend = useMemo(
+    () => (backendTrend ? null : buildCacheTrendPoints(messages, claudeStyle)),
+    [backendTrend, messages, claudeStyle],
+  );
+  const trendData = backendTrend ?? clientTrend;
   // Stacked-bar weights (read / write / unCached prompt). Sum = 1 when any
   // cache activity exists.
   const uncachedPromptTokens = claudeStyle
@@ -4751,23 +4790,20 @@ function SessionTokenStatsDialog({
                   missWeight={missWeight}
                 />
                 {(() => {
-                  const { points: trendPoints, averageRatio: trendAvg } = buildCacheTrendPoints(messages, claudeStyle);
-                  if (trendPoints.length > 0) {
-                    return (
-                      <div style={{ marginTop: '8px' }}>
-                        <CacheHitTrendChart
-                          points={trendPoints}
-                          averageRatio={trendAvg}
-                          claudeStyle={claudeStyle}
-                          height={156}
-                          displayMode={trendDisplayMode}
-                          onDisplayModeChange={setTrendDisplayMode}
-                          t={t}
-                        />
-                      </div>
-                    );
-                  }
-                  return null;
+                  if (!trendData || trendData.points.length === 0) return null;
+                  return (
+                    <div style={{ marginTop: '8px' }}>
+                      <CacheHitTrendChart
+                        points={trendData.points}
+                        averageRatio={trendData.averageRatio}
+                        claudeStyle={claudeStyle}
+                        height={156}
+                        displayMode={trendDisplayMode}
+                        onDisplayModeChange={setTrendDisplayMode}
+                        t={t}
+                      />
+                    </div>
+                  );
                 })()}
               </>
             ) : null}
