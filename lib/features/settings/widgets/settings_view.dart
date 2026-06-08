@@ -22,6 +22,7 @@ import '../../../app/model/editor_shortcut.dart';
 import '../../../app/model/openhand_shortcut.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/state/settings_store.dart';
+import '../../../app/support/app_restart_service.dart';
 import '../../../app/support/input_repair_service.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';

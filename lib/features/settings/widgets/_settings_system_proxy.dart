@@ -530,68 +530,141 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   Future<void> _showRepairReportDialog(InputRepairReport report) {
     return showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: SingleChildScrollView(
-            child: SelectableText(
-              _formatRepairReport(report),
-              style: Theme.of(dialogContext).textTheme.bodyMedium,
+      builder: (dialogContext) {
+        var restarting = false;
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
+            title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  _formatRepairReport(report),
+                  style: Theme.of(dialogContext).textTheme.bodyMedium,
+                ),
+              ),
             ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
+                onPressed: restarting
+                    ? null
+                    : () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: _formatRepairReport(report)),
+                        );
+                      },
+              ),
+              OpenHandDialogActionButton.primary(
+                label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
+                icon: Icons.restart_alt_rounded,
+                busy: restarting,
+                onPressed: restarting
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          restarting = true;
+                        });
+                        AppRelaunchTicket? ticket;
+                        try {
+                          final exitDelay = _resolveDialogExitDelay(
+                            dialogContext,
+                          );
+                          ticket = await AppRestartService.instance
+                              .prepareRelaunch();
+                          if (!dialogContext.mounted) {
+                            await ticket.cancel();
+                            return;
+                          }
+                          Navigator.of(dialogContext).pop();
+                          if (exitDelay > Duration.zero) {
+                            await Future<void>.delayed(exitDelay);
+                          }
+                          await AppRestartService.instance.exitCurrentProcess(
+                            ticket: ticket,
+                          );
+                        } catch (error, stack) {
+                          await ticket?.cancel();
+                          silentLog(
+                            'settings.system',
+                            'restart app',
+                            error,
+                            stack,
+                          );
+                          final message = _formatRestartFailure(
+                            dialogContext.mounted ? dialogContext : context,
+                            error,
+                          );
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              restarting = false;
+                            });
+                            OpenHandSnackBar.showError(dialogContext, message);
+                          } else if (mounted) {
+                            OpenHandSnackBar.showError(context, message);
+                          }
+                        }
+                      },
+              ),
+              OpenHandDialogActionButton.primary(
+                label: AppLocalizations.of(dialogContext)!.commonClose,
+                onPressed: restarting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+              ),
+            ],
           ),
+        );
+      },
+    );
+  }
+
+  Duration _resolveDialogExitDelay(BuildContext context) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true) {
+      return Duration.zero;
+    }
+    try {
+      return context
+              .read<SettingsController>()
+              .dialogAnimationSettings
+              .duration +
+          const Duration(milliseconds: 40);
+    } catch (_) {
+      return const Duration(milliseconds: 400);
+    }
+  }
+
+  String _formatRestartFailure(BuildContext context, Object error) {
+    if (error is AppRestartException) {
+      return switch (error.failure) {
+        AppRestartFailure.missingExecutable => _localizedText(
+          context,
+          zh: '重启失败：无法定位当前应用可执行文件。',
+          en: 'Restart failed: current app executable was not found.',
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
-            onPressed: () async {
-              await Clipboard.setData(
-                ClipboardData(text: _formatRepairReport(report)),
-              );
-            },
-          ),
-          OpenHandDialogActionButton.primary(
-            label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              final exe = Platform.resolvedExecutable;
-              if (Platform.isMacOS) {
-                final macSfx = '/Contents/MacOS/${p.basename(exe)}';
-                final bundle = exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
-                final logPath = '/tmp/oh_new_${DateTime.now().millisecondsSinceEpoch}.log';
-                final script = File(p.join(Directory.systemTemp.path, 'oh_restart.sh'));
-                final safeBundle = bundle.replaceAll("'", "'\\''");
-                final safeLog = logPath.replaceAll("'", "'\\''");
-                script.writeAsStringSync(
-                  '#!/bin/sh\n'
-                  'sleep 5\n'
-                  "/usr/bin/open -n -a '$safeBundle' >> '$safeLog' 2>&1\n",
-                );
-                await Process.run('/bin/chmod', ['+x', script.path]);
-                await Process.start(
-                  '/bin/sh',
-                  ['-c', 'nohup ${script.path} &'],
-                  mode: ProcessStartMode.detached,
-                );
-                exit(0);
-              } else {
-                await Process.start(
-                  exe,
-                  <String>[],
-                  mode: ProcessStartMode.detached,
-                );
-                exit(0);
-              }
-            },
-          ),
-          OpenHandDialogActionButton.primary(
-            label: AppLocalizations.of(dialogContext)!.commonClose,
-            onPressed: () => Navigator.of(dialogContext).pop(),
-          ),
-        ],
-      ),
+        AppRestartFailure.prepareFailed => _localizedText(
+          context,
+          zh: '重启失败：无法准备新的应用实例，请手动退出后重新打开。',
+          en: 'Restart failed: could not prepare a new app instance. Please quit and reopen manually.',
+        ),
+        AppRestartFailure.exitCanceled => _localizedText(
+          context,
+          zh: '重启已取消：当前应用没有退出。',
+          en: 'Restart canceled: the current app did not exit.',
+        ),
+        AppRestartFailure.unsupportedPlatform => _localizedText(
+          context,
+          zh: '当前平台暂不支持应用内重启，请手动退出后重新打开。',
+          en: 'In-app restart is not supported on this platform. Please quit and reopen manually.',
+        ),
+      };
+    }
+    return _localizedText(
+      context,
+      zh: '重启失败，请手动退出后重新打开应用。',
+      en: 'Restart failed. Please quit and reopen the app manually.',
     );
   }
 
