@@ -17,7 +17,7 @@ import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 interface DialogShellProps {
   title: string;
@@ -48,40 +48,27 @@ function DialogCloseIcon() {
 function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
-  // ESC 关闭：在 dialog 挂载时挂全局键监听，卸载时清理。
-  useEffect(() => {
-    const handler = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [requestClose]);
-  const node = (
-    <div
-      class={`fixed inset-0 flex items-center justify-center px-4 ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`}
-      style={{
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center px-4"
+      overlayStyle={{
         background: 'rgba(0,0,0,0.40)',
         backdropFilter: 'blur(2px)',
         zIndex: 2400,
       }}
-      onClick={(ev) => {
-        if (ev.target === ev.currentTarget) requestClose();
+      ariaLabel={title}
+      panelClassName="rounded-m3-xl w-full overflow-hidden flex flex-col"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        maxWidth: `${maxWidth}px`,
+        maxHeight: '88vh',
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
     >
-      <section
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-xl w-full overflow-hidden flex flex-col`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          maxWidth: `${maxWidth}px`,
-          maxHeight: '88vh',
-        }}
-      >
-        <header
+      <header
           class="px-6 py-4 flex items-center justify-between gap-4"
           style={{ borderBottom: '1px solid var(--m3-outline)' }}
         >
@@ -98,13 +85,11 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
             <DialogCloseIcon />
           </button>
         </header>
-        <div class="px-6 py-5 overflow-auto" style={{ flex: 1 }}>
-          {children}
-        </div>
-      </section>
-    </div>
+      <div class="px-6 py-5 overflow-auto" style={{ flex: 1 }}>
+        {children}
+      </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function templateIconGlyph(template: ApiMetaTemplate): string {

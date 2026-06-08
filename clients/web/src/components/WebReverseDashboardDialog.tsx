@@ -11,7 +11,7 @@
 
 import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
 
@@ -47,19 +47,17 @@ export function WebReverseDashboardDialog({
   const config = asConfig((session.metadata ?? {})['web_reverse_config']);
   const [tab, setTab] = useState<WebReverseTab>('overview');
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'var(--m3-scrim-bg)', zIndex: 3000 }}
-      onClick={(ev) => {
-        if (ev.target === ev.currentTarget) requestClose();
-      }}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'var(--m3-scrim-bg)', zIndex: 3000 }}
+      panelClassName="w-full max-w-[720px] rounded-m3-lg shadow-xl overflow-hidden"
+      panelStyle={{ background: 'var(--m3-surface-container)' }}
+      ariaLabel={t('webReverse.dashboard.title', 'Web 逆向调试面板')}
     >
-      <section
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-[720px] rounded-m3-lg shadow-xl overflow-hidden`}
-        style={{ background: 'var(--m3-surface-container)' }}
-      >
-        <header
+      <header
           class="px-6 py-4 flex items-center justify-between border-b"
           style={{ borderColor: 'var(--m3-outline-variant)' }}
         >
@@ -115,11 +113,8 @@ export function WebReverseDashboardDialog({
             <OverviewTab config={config} />
           )}
         </div>
-      </section>
-    </div>
+    </DialogFrame>
   );
-
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function TabPill({

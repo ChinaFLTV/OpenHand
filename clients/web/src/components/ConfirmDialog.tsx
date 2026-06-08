@@ -1,7 +1,6 @@
-import { useEffect } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = {
@@ -62,42 +61,29 @@ export function ConfirmDialog({
   // - 按 Esc：若提供 onDismiss 则走 onDismiss，否则回退到 onCancel
   const cancelMotion = useDialogExitMotion(onCancel, { closeOnEscape: false });
   const dismissMotion = useDialogExitMotion(onDismiss ?? onCancel, {
-    closeOnEscape: false,
+    closeOnEscape: !busy,
   });
   const closing = cancelMotion.closing || dismissMotion.closing;
 
-  useEffect(() => {
-    if (busy || closing) return;
-    const handleKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') dismissMotion.requestClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [busy, closing, dismissMotion]);
-
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
-      onClick={busy || closing || disableBackdropClose
-        ? undefined
-        : cancelMotion.requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={cancelMotion.requestClose}
+      closeOnBackdrop={!busy && !closing && !disableBackdropClose}
+      overlayClassName="oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      panelClassName={`oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline)',
+        maxWidth: wide ? 'min(720px, calc(100vw - 32px))' : 'min(448px, calc(100vw - 32px))',
+        maxHeight: scrollBody ? 'min(86dvh, 760px)' : undefined,
+      }}
+      ariaLabel={title}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline)',
-          maxWidth: wide ? 'min(720px, calc(100vw - 32px))' : 'min(448px, calc(100vw - 32px))',
-          maxHeight: scrollBody ? 'min(86dvh, 760px)' : undefined,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div class="oh-confirm-dialog-head flex items-start gap-3">
+      <div class="oh-confirm-dialog-head flex items-start gap-3">
           <span
             aria-hidden
             class="oh-confirm-dialog-icon inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg"
@@ -120,8 +106,8 @@ export function ConfirmDialog({
               </div>
             ) : null}
           </div>
-        </div>
-        <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
+      </div>
+      <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
           <button
             type="button"
             class="oh-tap-press oh-confirm-dialog-button rounded-m3-sm px-4 py-2 text-sm disabled:opacity-60"
@@ -148,10 +134,7 @@ export function ConfirmDialog({
           >
             {confirmLabel}
           </button>
-        </div>
       </div>
-    </div>
+    </DialogFrame>
   );
-
-  return <OverlayPortal>{node}</OverlayPortal>;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 export interface BusyWaitDialogProps {
   open: boolean;
@@ -51,23 +51,24 @@ export function BusyWaitDialog({
 
   if (phase === 'hidden') return null;
   const closing = phase === 'closing';
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2800 }}
-      aria-live="polite"
-      aria-busy="true"
+  return (
+    <DialogFrame
+      closing={closing}
+      closeOnBackdrop={false}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2800 }}
+      panelClassName="w-full max-w-sm rounded-m3-xl p-5"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
+      ariaLabel={title}
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-sm rounded-m3-xl p-5`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline-variant)',
-        }}
+        aria-live="polite"
+        aria-busy="true"
       >
         <div class="flex items-center gap-4">
           <span
@@ -88,7 +89,6 @@ export function BusyWaitDialog({
           </div>
         </div>
       </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }

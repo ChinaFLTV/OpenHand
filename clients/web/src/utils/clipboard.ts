@@ -1,60 +1,33 @@
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   if (!text) {
-    console.warn('[clipboard] copyTextToClipboard: text 为空');
     return false;
   }
-  // 2026-06-08 临时诊断：每一步写读都打点，问题修复后清理。
-  console.log('[clipboard] copyTextToClipboard start, length=', text.length);
   // 关键：浏览器偶发"navigator.clipboard.writeText 静默失败"（permissions
   // policy、focus 丢失、service worker 后台等）—— API resolve 但剪贴板为空。
   // 这里加一道读回校验，写入后立即 read 一次做证据回放。
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
-      console.log('[clipboard] navigator.writeText resolved');
       if (typeof navigator.clipboard?.readText === 'function') {
         try {
           const readBack = await navigator.clipboard.readText();
-          console.log(
-            '[clipboard] readBack length=',
-            readBack.length,
-            'expected length=',
-            text.length,
-            'match=',
-            readBack === text,
-          );
           // 读回严格相等 → 写成功。
           if (readBack === text) {
-            console.log('[clipboard] navigator.writeText + readBack 一致 → 成功');
             return true;
           }
           // 读回是空串或与原文不匹配 → 写静默失败（permissions
           // policy、focus 丢失等）。直接返 false 让上层出"复制失败"提示。
-          console.warn(
-            '[clipboard] write 读回不一致：readBack=' +
-              JSON.stringify(readBack.slice(0, 64)) +
-              ', expected=' +
-              JSON.stringify(text.slice(0, 64)) +
-              ' (lengths: ' +
-              readBack.length +
-              ' vs ' +
-              text.length +
-              ')',
-          );
           return false;
-        } catch (err) {
+        } catch {
           // read 权限被拒 → 无法校验，但 write resolve 了。
           // 保守信任 write 信号，但需要 execCommand 兜底再尝试一次
           // （read 拒权常常伴随 write 也被静默吞，必须用 textarea 兜）。
-          console.warn('[clipboard] readText 抛错（可能是 permissions policy）', err);
         }
       } else {
         // 浏览器没有 readText API（极少数隐私模式），走兜底。
-        console.log('[clipboard] 浏览器无 readText API，走兜底');
         return false;
       }
-    } catch (err) {
-      console.warn('[clipboard] navigator.writeText 失败，降级 execCommand', err);
+    } catch {
       // writeText 直接抛错：降级到 execCommand。
     }
   }
@@ -90,10 +63,6 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
         if (typeof navigator.clipboard?.readText === 'function') {
           const readBack2 = await navigator.clipboard.readText();
           if (readBack2 === text) return true;
-          console.warn(
-            '[clipboard] execCommand 读回不一致：readBack=' +
-              JSON.stringify(readBack2.slice(0, 64)),
-          );
           return false;
         }
       } catch {
@@ -101,8 +70,7 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
       }
     }
     return ok;
-  } catch (err) {
-    console.error('[clipboard] execCommand 兜底也失败', err);
+  } catch {
     return false;
   }
 }
@@ -115,7 +83,6 @@ export async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
     return false;
   }
   if (!(blob instanceof Blob) || blob.size === 0) {
-    console.warn('[clipboard] copyBlobToClipboard: blob 为空');
     return false;
   }
   if ('ClipboardItem' in window && navigator.clipboard?.write) {
@@ -139,8 +106,8 @@ export async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
         }
       }
       return true;
-    } catch (err) {
-      console.warn('[clipboard] navigator.write 失败', err);
+    } catch {
+      return false;
     }
   }
   return false;

@@ -5,6 +5,7 @@ import { useReducedMotion } from './useReducedMotion';
 export interface DialogExitMotionOptions {
   exitMs?: number;
   closeOnEscape?: boolean;
+  onBeforeClose?: () => void;
 }
 
 export function useDialogExitMotion(
@@ -23,9 +24,16 @@ export function useDialogExitMotion(
     typeof optionsOrExitMs === 'object'
       ? optionsOrExitMs.closeOnEscape !== false
       : true;
+  const onBeforeClose =
+    typeof optionsOrExitMs === 'object' ? optionsOrExitMs.onBeforeClose : undefined;
 
   const requestClose = useCallback(() => {
     if (closingRef.current) return;
+    try {
+      onBeforeClose?.();
+    } catch {
+      // Closing should remain best-effort even if caller cleanup fails.
+    }
     closingRef.current = true;
     setClosing(true);
     const durationMs = exitMs ?? getDialogExitDurationMs();
@@ -37,7 +45,7 @@ export function useDialogExitMotion(
       timeoutRef.current = null;
       onClose();
     }, durationMs);
-  }, [exitMs, onClose, reduceMotion]);
+  }, [exitMs, onBeforeClose, onClose, reduceMotion]);
 
   useEffect(() => {
     return () => {

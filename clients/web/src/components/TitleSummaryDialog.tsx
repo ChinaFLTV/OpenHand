@@ -4,7 +4,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 type Phase = 'config' | 'pending' | 'success' | 'error';
 
@@ -97,23 +97,22 @@ export function TitleSummaryDialog({
   const selectedCount = endIdx - startIdx + 1;
 
   return (
-    <OverlayPortal>
-      <div
-        class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-        style={{ zIndex: 2900, background: 'color-mix(in srgb, black 48%, transparent)', backdropFilter: 'blur(6px)' }}
-        onMouseDown={(e) => { if (e.target === e.currentTarget && phase !== 'pending') requestClose(); }}
-      >
-        <section
-          class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-2xl px-6 py-5`}
-          style={{
-            background: 'var(--m3-surface-container)',
-            color: 'var(--m3-on-surface)',
-            boxShadow: 'var(--m3-elev-4)',
-            animationDuration: `${enterDurationMs}ms`,
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {phase === 'config' ? (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      closeOnBackdrop={phase !== 'pending'}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ zIndex: 2900, background: 'color-mix(in srgb, black 48%, transparent)', backdropFilter: 'blur(6px)' }}
+      panelClassName="w-full max-w-md rounded-2xl px-6 py-5"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-4)',
+        animationDuration: `${enterDurationMs}ms`,
+      }}
+      ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}
+    >
+      {phase === 'config' ? (
             <>
               <h3 class="text-base font-semibold mb-1">
                 {t('titleSummary.title', '获取 AI 摘要标题')}
@@ -268,8 +267,6 @@ export function TitleSummaryDialog({
               </div>
             </div>
           )}
-        </section>
-      </div>
-    </OverlayPortal>
+    </DialogFrame>
   );
 }

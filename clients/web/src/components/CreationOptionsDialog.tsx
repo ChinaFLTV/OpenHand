@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 export interface CreationOptions {
   aspectRatio?: string;
@@ -56,23 +56,22 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
   const durations = mode === 'video' ? VIDEO_DURATIONS : mode === 'audio' ? AUDIO_DURATIONS : [];
 
   return (
-    <OverlayPortal>
-      <div
-        class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-end justify-center`}
-        style={{ zIndex: 2800, background: 'color-mix(in srgb, black 32%, transparent)' }}
-        onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}
-      >
-        <section
-          class={`${closing ? 'oh-dialog-slide-down-out' : 'oh-dialog-slide-up-in'} w-full max-w-2xl rounded-t-2xl px-6 py-5`}
-          style={{
-            background: 'var(--m3-surface-container-low)',
-            color: 'var(--m3-on-surface)',
-            boxShadow: 'var(--m3-elev-3)',
-            animationDuration: `${enterDurationMs}ms`,
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <h3 class="text-base font-semibold mb-4">{modeTitle(mode)}</h3>
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-end justify-center"
+      overlayStyle={{ zIndex: 2800, background: 'color-mix(in srgb, black 32%, transparent)' }}
+      panelAnimation="slideUp"
+      panelClassName="w-full max-w-2xl rounded-t-2xl px-6 py-5"
+      panelStyle={{
+        background: 'var(--m3-surface-container-low)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        animationDuration: `${enterDurationMs}ms`,
+      }}
+      ariaLabel={modeTitle(mode)}
+    >
+      <h3 class="text-base font-semibold mb-4">{modeTitle(mode)}</h3>
 
           {/* 宽高比 */}
           {ratios.length > 0 ? (
@@ -171,8 +170,6 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
               {t('common.confirm', '确认')}
             </button>
           </div>
-        </section>
-      </div>
-    </OverlayPortal>
+    </DialogFrame>
   );
 }

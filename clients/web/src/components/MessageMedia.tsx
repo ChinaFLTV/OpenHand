@@ -10,7 +10,7 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 import { showSnackbar } from './Snackbar';
 
 export type MediaKind = 'image' | 'video' | 'audio' | 'file';
@@ -334,24 +334,14 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
-  const { closing, requestClose } = useDialogExitMotion(onClose);
   const abortSave = useCallback(() => {
     saveAbortRef.current?.abort();
     saveAbortRef.current = null;
   }, []);
-  const requestCloseWithAbort = useCallback(() => {
-    abortSave();
-    requestClose();
-  }, [abortSave, requestClose]);
+  const { closing, requestClose } = useDialogExitMotion(onClose, {
+    onBeforeClose: abortSave,
+  });
   useEffect(() => () => abortSave(), [abortSave]);
-  useEffect(() => {
-    if (closing) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestCloseWithAbort();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closing, requestCloseWithAbort]);
   const requestFullscreen = async () => {
     try {
       await stageRef.current?.requestFullscreen?.();
@@ -385,35 +375,28 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
 
   if (typeof document === 'undefined') return null;
   return (
-    <OverlayPortal>
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{
         zIndex: 3000,
         background: 'color-mix(in srgb, black 58%, transparent)',
         backdropFilter: 'blur(10px)',
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={item.name}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) requestCloseWithAbort();
+      panelClassName="w-full max-w-5xl rounded-m3-lg overflow-hidden"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-4)',
+        border: '1px solid var(--m3-outline)',
+        maxHeight: '92vh',
+        display: 'flex',
+        flexDirection: 'column',
       }}
+      ariaLabel={item.name}
     >
-      <section
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-5xl rounded-m3-lg overflow-hidden`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-4)',
-          border: '1px solid var(--m3-outline)',
-          maxHeight: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
+      <header class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold truncate">{item.name}</p>
             <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -439,7 +422,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
           </button>
           <button
             type="button"
-            onClick={requestCloseWithAbort}
+            onClick={requestClose}
             class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
             style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
           >
@@ -476,9 +459,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
             </div>
           ) : null}
         </div>
-      </section>
-    </div>
-    </OverlayPortal>
+    </DialogFrame>
   );
 }
 

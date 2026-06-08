@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
@@ -91,15 +91,6 @@ export function ModelPickerDialog({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // ESC 关闭
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') requestClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [requestClose]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -212,32 +203,28 @@ export function ModelPickerDialog({
     });
   }
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center`}
-      style={{
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center"
+      overlayStyle={{
         background: 'rgba(0, 0, 0, 0.38)',
         backdropFilter: 'blur(2px)',
         zIndex: 2800,
       }}
-      onClick={(ev) => {
-        if (ev.target === ev.currentTarget) requestClose();
+      panelClassName="flex flex-col"
+      panelStyle={{
+        width: 'min(420px, 92vw)',
+        maxHeight: 'min(520px, 86vh)',
+        background: 'var(--m3-surface-container)',
+        borderRadius: '16px',
+        boxShadow: 'var(--m3-elev-3)',
+        overflow: 'hidden',
       }}
+      ariaLabel={t('modelPicker.search', '搜索模型…')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} flex flex-col`}
-        style={{
-          width: 'min(420px, 92vw)',
-          maxHeight: 'min(520px, 86vh)',
-          background: 'var(--m3-surface-container)',
-          borderRadius: '16px',
-          boxShadow: 'var(--m3-elev-3)',
-          overflow: 'hidden',
-        }}
-      >
-        <div class="px-4 py-4">
+      <div class="px-4 py-4">
           <div class="relative">
             <span
               aria-hidden
@@ -373,11 +360,8 @@ export function ModelPickerDialog({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </DialogFrame>
   );
-
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function Section({

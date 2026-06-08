@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
-import { OverlayPortal } from './OverlayPortal';
+import { DialogFrame } from './DialogFrame';
 
 export interface ImageEditorInput {
   name: string;
@@ -155,13 +155,15 @@ const ASPECTS: { key: CropAspect; label: string }[] = [
 ];
 
 export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialogProps) {
-  const { closing, requestClose } = useDialogExitMotion(onCancel);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const [settings, setSettings] = useState<EditorSettings>(DEFAULT_SETTINGS);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [busy, setBusy] = useState(false);
+  const { closing, requestClose } = useDialogExitMotion(onCancel, {
+    closeOnEscape: !busy,
+  });
   const [showOriginal, setShowOriginal] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -195,15 +197,6 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     });
     return () => cancelAnimationFrame(frame);
   }, [settings, showOriginal, previewSize.width, previewSize.height, naturalSize.width, naturalSize.height]);
-
-  useEffect(() => {
-    if (busy || closing) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [busy, closing, requestClose]);
 
   function pushUndo(): void {
     setUndoStack((prev) => [...prev.slice(-19), settings]);
@@ -279,19 +272,17 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     }
   }
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-3 sm:p-5`}
-      style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2700 }}
-      onClick={busy || closing ? undefined : requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      closeOnBackdrop={!busy && !closing}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-3 sm:p-5"
+      overlayStyle={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2700 }}
+      panelClassName="oh-image-editor-dialog"
+      ariaLabel={t('imageEditor.title', '编辑图片')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} oh-image-editor-dialog`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div class="oh-image-editor-body">
+      <div class="oh-image-editor-body">
           <header class="oh-image-editor-header">
             <h2>{t('imageEditor.title', '编辑图片')}</h2>
             <p>{t('imageEditor.hint', '拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。')}</p>
@@ -428,11 +419,8 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             <button type="button" class="oh-tap-press is-primary" disabled={busy || closing || Boolean(error)} onClick={() => void save()}>{busy ? t('common.processing', '处理中…') : t('common.save', '保存')}</button>
           </footer>
         </div>
-      </div>
-    </div>
+    </DialogFrame>
   );
-
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function EditorSlider({ label, value, min, max, step, onChange }: {

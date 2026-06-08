@@ -70,6 +70,7 @@ import { useEventCallback } from '../../../hooks/useEventCallback';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
+import { DialogFrame } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
@@ -4585,34 +4586,23 @@ function MessageAuditDialog({
 }) {
   const json = JSON.stringify(message, null, 2);
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  useEffect(() => {
-    if (closing) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closing, requestClose]);
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 z-[2600] flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
-      onClick={requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 z-[2600] flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      panelClassName="rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        maxHeight: '80vh',
+        border: '1px solid var(--m3-outline)',
+      }}
+      ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-2xl w-full flex flex-col`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          maxHeight: '80vh',
-          border: '1px solid var(--m3-outline)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 class="text-base font-semibold min-w-0 truncate">{t('common.audit', '审计')} · {message.id}</h2>
           <div class="flex flex-wrap items-center justify-end gap-2">
             <button
@@ -4646,10 +4636,8 @@ function MessageAuditDialog({
         >
           {json}
         </pre>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function SessionTokenStatsDialog({
@@ -4717,26 +4705,23 @@ function SessionTokenStatsDialog({
       ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens))
       : 0;
   const missWeight = 1 - cacheHitFrac;
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
-      onClick={requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      panelClassName="w-full max-w-md rounded-m3-xl p-5 flex flex-col"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline-variant)',
+        maxHeight: 'min(720px, calc(100vh - 32px))',
+      }}
+      ariaLabel={t('topbar.tokens', 'Token 统计')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5 flex flex-col`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline-variant)',
-          maxHeight: 'min(720px, calc(100vh - 32px))',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
+      <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
             <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -4806,10 +4791,8 @@ function SessionTokenStatsDialog({
             <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
           </TokenStatsSection>
         </div>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 interface ContextStatsBreakdown {
@@ -4966,25 +4949,22 @@ function SessionContextStatsDialog({
     { key: 'other', label: t('contextStats.other', '附件 / 其他'), chars: breakdown.otherChars, color: 'var(--m3-outline)' },
   ];
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
-      onClick={requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      panelClassName="w-full max-w-md rounded-m3-xl p-5"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
+      ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} w-full max-w-md rounded-m3-xl p-5`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline-variant)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header class="mb-4 flex items-start justify-between gap-3">
+      <header class="mb-4 flex items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
             <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -5110,10 +5090,8 @@ function SessionContextStatsDialog({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function ContextStatsRow({
@@ -5484,14 +5462,6 @@ function SessionMetadataDialog({
 }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  useEffect(() => {
-    if (closing) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closing, requestClose]);
 
   const stats = asRecord(session.statistics);
   const metadata = asRecord(session.metadata);
@@ -5657,27 +5627,24 @@ function SessionMetadataDialog({
     );
   };
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)', zIndex: 2600 }}
-      onClick={requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)', zIndex: 2600 }}
+      panelClassName="rounded-m3-lg p-5 w-full flex flex-col"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline-variant)',
+        maxWidth: '860px',
+        maxHeight: '84vh',
+      }}
+      ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-lg p-5 w-full flex flex-col`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline-variant)',
-          maxWidth: '860px',
-          maxHeight: '84vh',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div class="min-w-0">
             <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
             <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>{session.title}</p>
@@ -5859,10 +5826,8 @@ function SessionMetadataDialog({
             {t('common.close', '关闭')}
           </button>
         </footer>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 function SessionAuditDialog({
@@ -5876,14 +5841,6 @@ function SessionAuditDialog({
 }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  useEffect(() => {
-    if (closing) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closing, requestClose]);
   const json = JSON.stringify({
     session,
     runtime: detail.runtime,
@@ -5909,26 +5866,23 @@ function SessionAuditDialog({
   if (auditReasoning > 0) {
     stats.push(`reasoning ${auditReasoning.toLocaleString()}`);
   }
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
-      style={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
-      onClick={requestClose}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      panelClassName="rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
+      panelStyle={{
+        background: 'var(--m3-surface-container)',
+        color: 'var(--m3-on-surface)',
+        boxShadow: 'var(--m3-elev-3)',
+        border: '1px solid var(--m3-outline)',
+        maxHeight: '84vh',
+      }}
+      ariaLabel={t('topbar.audit', '会话审计')}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-4 max-w-3xl w-full flex flex-col`}
-        style={{
-          background: 'var(--m3-surface-container)',
-          color: 'var(--m3-on-surface)',
-          boxShadow: 'var(--m3-elev-3)',
-          border: '1px solid var(--m3-outline)',
-          maxHeight: '84vh',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div class="min-w-0">
             <h2 class="text-base font-semibold truncate">{t('topbar.audit', '会话审计')} · {session.title}</h2>
             <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -5981,10 +5935,8 @@ function SessionAuditDialog({
         >
           {json}
         </pre>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 
@@ -6120,18 +6072,18 @@ function SessionThrottleDialog({
   const peak = displayedBuckets.length === 0 ? 0 : Math.max(...displayedBuckets);
   const nowVal = displayedBuckets.length === 0 ? 0 : displayedBuckets[0];
 
-  const node = (
-    <div
-      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4`}
-      onClick={busy || closing ? undefined : requestClose}
-      style={{ background: 'rgba(0,0,0,0.45)' }}
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      closeOnBackdrop={!busy && !closing}
+      overlayClassName="oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
+      overlayStyle={{ background: 'rgba(0,0,0,0.45)' }}
+      panelClassName="rounded-m3-md p-5 w-full max-w-md"
+      panelStyle={{ background: 'var(--m3-surface-container-high)' }}
+      ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
     >
-      <div
-        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-5 w-full max-w-md`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--m3-surface-container-high)' }}
-      >
-        <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+      <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
           {t('topbar.throttle.dialogTitle', '本会话流式节流')}
         </h2>
         <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -6325,10 +6277,8 @@ function SessionThrottleDialog({
             {t('common.apply', '应用')}
           </button>
         </div>
-      </div>
-    </div>
+    </DialogFrame>
   );
-  return <OverlayPortal>{node}</OverlayPortal>;
 }
 
 /// 30 秒字符吞吐曲线图。bucket 0 = 当前秒（最右），越往左越旧。
