@@ -66,6 +66,9 @@ class _TokenDialState extends State<_TokenDial>
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
+  /// WEB 端同时支持悬停预览和点击切换；点击后 pin 住浮窗直到再次点击或光标移出。
+  bool _webClickPinned = false;
+
   DialogAnimationSettings _dialogSettings(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) {
       return const DialogAnimationSettings(
@@ -114,6 +117,7 @@ class _TokenDialState extends State<_TokenDial>
   void _schedulePopupHide() {
     _hideTimer?.cancel();
     _showQueued = false;
+    _webClickPinned = false;
     _hideTimer = Timer(const Duration(milliseconds: 60), () {
       _runAfterFrame(() async {
         await _transitionController.reverse();
@@ -171,7 +175,9 @@ class _TokenDialState extends State<_TokenDial>
               offset: const Offset(0, 8),
               child: MouseRegion(
                 onEnter: (_) => _showPopup(),
-                onExit: (_) => _schedulePopupHide(),
+                onExit: (_) {
+                  if (!_webClickPinned) _schedulePopupHide();
+                },
                 child: buildAnimationStyleTransition(
                   animation: _transitionController,
                   settings: _dialogSettings(context),
@@ -191,11 +197,23 @@ class _TokenDialState extends State<_TokenDial>
             if (!_useTapSheet) _showPopup();
           },
           onExit: (_) {
-            if (!_useTapSheet) _schedulePopupHide();
+            if (!_useTapSheet && !_webClickPinned) _schedulePopupHide();
           },
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _useTapSheet ? _showTouchPopupSheet : null,
+            onTap: _useTapSheet
+                ? _showTouchPopupSheet
+                : kIsWeb
+                ? () {
+                    if (_webClickPinned) {
+                      _webClickPinned = false;
+                      _schedulePopupHide();
+                    } else {
+                      _webClickPinned = true;
+                      _showPopup();
+                    }
+                  }
+                : null,
             child: Container(
               height: 32,
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -441,7 +459,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 cacheWrite: displayData.cacheWriteTokens,
                 prompt: displayData.uncachedPromptTokens,
               ),
-              if (displayData.trend.hasEnoughPoints) ...[
+              if (displayData.trend.points.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 TokenPopupCacheHitTrendChart(
                   trend: trend,

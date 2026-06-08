@@ -3215,9 +3215,7 @@ class AiSessionController extends ChangeNotifier {
         mcpServerInstructionsByName:
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
-        displayCatalogOverride: workingSession.awaitingPlanApproval
-            ? fullCatalogForDisplay.definitions
-            : null,
+        displayCatalogOverride: fullCatalogForDisplay.definitions,
       );
       preRequestTimingsMs['prompt_build'] =
           promptBuildStopwatch.elapsedMilliseconds;
