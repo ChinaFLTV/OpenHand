@@ -31,6 +31,7 @@ const curveValues = new Set([
 ]);
 
 export const DIALOG_MOTION_DEFAULT_DURATION_MS = 320;
+export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
 export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
 
 const defaultSettings = {
@@ -50,14 +51,21 @@ function normalizeCurve(value: string | undefined): string {
   return value && curveValues.has(value) ? value : defaultSettings.curve;
 }
 
-function normalizeDuration(value: number | string | undefined): number {
+function normalizeDuration(
+  value: number | string | undefined,
+  entranceStyle: string,
+  exitStyle: string,
+): number {
   const numericValue =
     typeof value === 'string' ? Number(value.trim()) : value;
   if (typeof numericValue !== 'number' || !Number.isFinite(numericValue)) {
-    return defaultSettings.durationMs;
+    return entranceStyle === 'none' && exitStyle === 'none'
+      ? 0
+      : defaultSettings.durationMs;
   }
+  if (entranceStyle === 'none' && exitStyle === 'none') return 0;
   return Math.max(
-    0,
+    DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
     Math.min(DIALOG_MOTION_MAX_DURATION_MS, Math.round(numericValue)),
   );
 }
@@ -103,10 +111,15 @@ function reverseCurveToCss(curve: string): string {
 export function syncRemoteDialogMotionSettings(
   raw: ApiDialogAnimationSettings | undefined,
 ): void {
+  const entranceStyle = normalizeStyle(
+    raw?.entrance_style,
+    defaultSettings.entranceStyle,
+  );
+  const exitStyle = normalizeStyle(raw?.exit_style, defaultSettings.exitStyle);
   currentSettings = {
-    entranceStyle: normalizeStyle(raw?.entrance_style, defaultSettings.entranceStyle),
-    exitStyle: normalizeStyle(raw?.exit_style, defaultSettings.exitStyle),
-    durationMs: normalizeDuration(raw?.duration_ms),
+    entranceStyle,
+    exitStyle,
+    durationMs: normalizeDuration(raw?.duration_ms, entranceStyle, exitStyle),
     curve: normalizeCurve(raw?.curve),
   };
   if (typeof document === 'undefined') return;

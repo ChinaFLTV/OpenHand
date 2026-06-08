@@ -3,6 +3,19 @@ import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
 
+export const DIALOG_OVERLAY_LOW_Z_INDEX = 2400;
+export const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
+export const DIALOG_OVERLAY_MEDIA_Z_INDEX = 2700;
+export const DIALOG_OVERLAY_PRIORITY_Z_INDEX = 2800;
+export const DIALOG_OVERLAY_FOCUSED_Z_INDEX = 2900;
+export const DIALOG_OVERLAY_TOP_Z_INDEX = 3000;
+export const DIALOG_OVERLAY_DEFAULT_BACKGROUND = 'rgba(0,0,0,0.38)';
+export const DIALOG_OVERLAY_SOFT_BACKGROUND = 'rgba(0,0,0,0.36)';
+export const DIALOG_OVERLAY_STRONG_BACKGROUND = 'rgba(0,0,0,0.40)';
+export const DIALOG_OVERLAY_INTENSE_BACKGROUND = 'rgba(0,0,0,0.45)';
+export const DIALOG_OVERLAY_INVERSE_BACKGROUND =
+  'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)';
+
 export interface DialogOverlayStyleOptions {
   background?: string;
   blurPx?: number;
@@ -24,9 +37,9 @@ export interface DialogFrameProps {
 }
 
 export function createDialogOverlayStyle({
-  background = 'rgba(0,0,0,0.38)',
+  background = DIALOG_OVERLAY_DEFAULT_BACKGROUND,
   blurPx = 2,
-  zIndex,
+  zIndex = DIALOG_OVERLAY_BASE_Z_INDEX,
 }: DialogOverlayStyleOptions = {}): JSX.CSSProperties {
   const style: JSX.CSSProperties = { background };
   if (blurPx > 0) {
@@ -57,7 +70,7 @@ export function DialogFrame({
   closeOnBackdrop = true,
   overlayClassName = 'fixed inset-0 flex items-center justify-center p-4',
   panelClassName = '',
-  overlayStyle,
+  overlayStyle = createDialogOverlayStyle(),
   panelStyle,
   panelAnimation = 'pop',
   ariaLabel,
@@ -65,6 +78,8 @@ export function DialogFrame({
 }: DialogFrameProps) {
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
+  const overlayClass = `${overlayMotionClass} ${overlayClassName}`.trim();
+  const sectionClass = `${panelClass} ${panelClassName}`.trim();
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
     if (!closeOnBackdrop || !onRequestClose || event.target !== event.currentTarget) {
       return;
@@ -75,7 +90,7 @@ export function DialogFrame({
   return (
     <OverlayPortal>
       <div
-        class={`${overlayMotionClass} ${overlayClassName}`}
+        class={overlayClass}
         style={overlayStyle}
         onClick={handleBackdropClick}
       >
@@ -84,7 +99,7 @@ export function DialogFrame({
           aria-modal="true"
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
-          class={`${panelClass} ${panelClassName}`}
+          class={sectionClass}
           style={panelStyle}
           onClick={(event) => event.stopPropagation()}
         >

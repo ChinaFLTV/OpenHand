@@ -10,7 +10,11 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_TOP_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 import { showSnackbar } from './Snackbar';
 
 export type MediaKind = 'image' | 'video' | 'audio' | 'file';
@@ -382,7 +386,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 58%, transparent)',
         blurPx: 10,
-        zIndex: 3000,
+        zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
       })}
       panelClassName="w-full max-w-5xl rounded-m3-lg overflow-hidden"
       panelStyle={{

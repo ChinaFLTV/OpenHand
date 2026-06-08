@@ -14,23 +14,31 @@ export function useDialogExitMotion(
 ) {
   const reduceMotion = useReducedMotion();
   const [closing, setClosing] = useState(false);
+  const options =
+    typeof optionsOrExitMs === 'object' && optionsOrExitMs != null
+      ? optionsOrExitMs
+      : undefined;
+  const onCloseRef = useRef(onClose);
+  const onBeforeCloseRef = useRef<(() => void) | undefined>(options?.onBeforeClose);
   const closingRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
   const exitMs =
-    typeof optionsOrExitMs === 'number'
-      ? optionsOrExitMs
-      : optionsOrExitMs?.exitMs;
-  const closeOnEscape =
-    typeof optionsOrExitMs === 'object'
-      ? optionsOrExitMs.closeOnEscape !== false
-      : true;
-  const onBeforeClose =
-    typeof optionsOrExitMs === 'object' ? optionsOrExitMs.onBeforeClose : undefined;
+    typeof optionsOrExitMs === 'number' ? optionsOrExitMs : options?.exitMs;
+  const closeOnEscape = options?.closeOnEscape !== false;
+  const onBeforeClose = options?.onBeforeClose;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    onBeforeCloseRef.current = onBeforeClose;
+  }, [onBeforeClose]);
 
   const requestClose = useCallback(() => {
     if (closingRef.current) return;
     try {
-      onBeforeClose?.();
+      onBeforeCloseRef.current?.();
     } catch {
       // Closing should remain best-effort even if caller cleanup fails.
     }
@@ -38,14 +46,14 @@ export function useDialogExitMotion(
     setClosing(true);
     const durationMs = exitMs ?? getDialogExitDurationMs();
     if (reduceMotion || durationMs <= 0 || typeof window === 'undefined') {
-      onClose();
+      onCloseRef.current();
       return;
     }
     timeoutRef.current = window.setTimeout(() => {
       timeoutRef.current = null;
-      onClose();
+      onCloseRef.current();
     }, durationMs);
-  }, [exitMs, onBeforeClose, onClose, reduceMotion]);
+  }, [exitMs, reduceMotion]);
 
   const resetClosing = useCallback(() => {
     if (timeoutRef.current != null) {
@@ -67,7 +75,7 @@ export function useDialogExitMotion(
   }, []);
 
   useEffect(() => {
-    if (!closeOnEscape) return undefined;
+    if (!closeOnEscape || typeof window === 'undefined') return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') requestClose();
     };

@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_MEDIA_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 export interface ImageEditorInput {
   name: string;
@@ -278,7 +282,9 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
       overlayClassName="fixed inset-0 flex items-center justify-center p-3 sm:p-5"
-      overlayStyle={createDialogOverlayStyle({ zIndex: 2700 })}
+      overlayStyle={createDialogOverlayStyle({
+        zIndex: DIALOG_OVERLAY_MEDIA_Z_INDEX,
+      })}
       panelClassName="oh-image-editor-dialog"
       ariaLabel={t('imageEditor.title', '编辑图片')}
     >

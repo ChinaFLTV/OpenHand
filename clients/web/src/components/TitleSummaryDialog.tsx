@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_FOCUSED_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 type Phase = 'config' | 'pending' | 'success' | 'error';
 
@@ -103,7 +107,7 @@ export function TitleSummaryDialog({
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 48%, transparent)',
         blurPx: 6,
-        zIndex: 2900,
+        zIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
       })}
       panelClassName="w-full max-w-md rounded-2xl px-6 py-5"
       panelStyle={{

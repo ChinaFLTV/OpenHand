@@ -3,7 +3,11 @@
 import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 export interface CreationOptions {
   aspectRatio?: string;
@@ -61,7 +65,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 32%, transparent)',
         blurPx: 0,
-        zIndex: 2800,
+        zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
       })}
       panelAnimation="slideUp"
       panelClassName="w-full max-w-2xl rounded-t-2xl px-6 py-5"

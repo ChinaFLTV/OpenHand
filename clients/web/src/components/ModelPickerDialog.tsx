@@ -9,7 +9,11 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
@@ -208,7 +212,9 @@ export function ModelPickerDialog({
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center"
-      overlayStyle={createDialogOverlayStyle({ zIndex: 2800 })}
+      overlayStyle={createDialogOverlayStyle({
+        zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+      })}
       panelClassName="flex flex-col"
       panelStyle={{
         width: 'min(420px, 92vw)',

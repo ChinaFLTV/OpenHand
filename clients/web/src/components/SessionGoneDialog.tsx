@@ -2,7 +2,11 @@ import { useEffect, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_INTENSE_BACKGROUND,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 export interface SessionGoneDialogProps {
   open: boolean;
@@ -67,8 +71,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
       closeOnBackdrop={false}
       overlayClassName="fixed inset-0 flex items-center justify-center px-4"
       overlayStyle={createDialogOverlayStyle({
-        background: 'rgba(0,0,0,0.45)',
-        zIndex: 2600,
+        background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
       })}
       panelClassName="rounded-m3-xl w-full max-w-[420px] flex flex-col"
       panelStyle={{

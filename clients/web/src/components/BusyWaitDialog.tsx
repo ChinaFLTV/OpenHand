@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 
 export interface BusyWaitDialogProps {
   open: boolean;
@@ -59,7 +63,9 @@ export function BusyWaitDialog({
       closing={closing}
       closeOnBackdrop={false}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={createDialogOverlayStyle({ zIndex: 2800 })}
+      overlayStyle={createDialogOverlayStyle({
+        zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+      })}
       panelClassName="w-full max-w-sm rounded-m3-xl p-5"
       panelStyle={{
         background: 'var(--m3-surface-container)',

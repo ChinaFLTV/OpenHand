@@ -11,7 +11,11 @@
 
 import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
+import {
+  DIALOG_OVERLAY_TOP_Z_INDEX,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from './DialogFrame';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
 
@@ -55,7 +59,7 @@ export function WebReverseDashboardDialog({
       overlayStyle={createDialogOverlayStyle({
         background: 'var(--m3-scrim-bg)',
         blurPx: 0,
-        zIndex: 3000,
+        zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
       })}
       panelClassName="w-full max-w-[720px] rounded-m3-lg shadow-xl overflow-hidden"
       panelStyle={{ background: 'var(--m3-surface-container)' }}

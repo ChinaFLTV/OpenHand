@@ -70,7 +70,15 @@ import { useEventCallback } from '../../../hooks/useEventCallback';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
-import { DialogFrame } from '../../../components/DialogFrame';
+import {
+  DialogFrame,
+  DIALOG_OVERLAY_INTENSE_BACKGROUND,
+  DIALOG_OVERLAY_INVERSE_BACKGROUND,
+  DIALOG_OVERLAY_LOW_Z_INDEX,
+  DIALOG_OVERLAY_SOFT_BACKGROUND,
+  DIALOG_OVERLAY_STRONG_BACKGROUND,
+  createDialogOverlayStyle,
+} from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
@@ -1034,6 +1042,13 @@ export function SessionDetailPage() {
     { bottomGap: number; left: number; width: number; maxHeight: number } | null
   >(null);
   const skillPickerCloseTimerRef = useRef<number | null>(null);
+  const clearSkillPickerCloseTimer = useCallback(() => {
+    if (skillPickerCloseTimerRef.current == null) return;
+    if (typeof window !== 'undefined') {
+      window.clearTimeout(skillPickerCloseTimerRef.current);
+    }
+    skillPickerCloseTimerRef.current = null;
+  }, []);
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<
     { mime: string; dataUrl: string; size: number }[]
@@ -2584,10 +2599,7 @@ export function SessionDetailPage() {
   // 浮窗 open ↔ visible 同步：尊重全局 dialog 动画设置。
   useEffect(() => {
     if (skillPickerOpen) {
-      if (skillPickerCloseTimerRef.current != null) {
-        window.clearTimeout(skillPickerCloseTimerRef.current);
-        skillPickerCloseTimerRef.current = null;
-      }
+      clearSkillPickerCloseTimer();
       setSkillPickerClosing(false);
       setSkillPickerVisible(true);
       recomputeSkillPickerAnchor();
@@ -2596,7 +2608,7 @@ export function SessionDetailPage() {
     if (!skillPickerVisible) return;
     setSkillPickerClosing(true);
     const exitMs = getDialogExitDurationMs();
-    if (exitMs <= 0) {
+    if (exitMs <= 0 || typeof window === 'undefined') {
       setSkillPickerVisible(false);
       setSkillPickerClosing(false);
       return;
@@ -2606,19 +2618,18 @@ export function SessionDetailPage() {
       setSkillPickerVisible(false);
       setSkillPickerClosing(false);
     }, exitMs);
-  }, [skillPickerOpen, skillPickerVisible, recomputeSkillPickerAnchor]);
+  }, [
+    clearSkillPickerCloseTimer,
+    skillPickerOpen,
+    skillPickerVisible,
+    recomputeSkillPickerAnchor,
+  ]);
 
-  // 卸载时清理动效定时器，避免 leak。
-  useEffect(() => () => {
-    if (skillPickerCloseTimerRef.current != null) {
-      window.clearTimeout(skillPickerCloseTimerRef.current);
-      skillPickerCloseTimerRef.current = null;
-    }
-  }, []);
+  useEffect(() => clearSkillPickerCloseTimer, [clearSkillPickerCloseTimer]);
 
   // 滚动 / resize 时让浮窗锚点跟随 textarea。
   useEffect(() => {
-    if (!skillPickerVisible) return;
+    if (!skillPickerVisible || typeof window === 'undefined') return;
     const handler = () => recomputeSkillPickerAnchor();
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
@@ -4043,7 +4054,7 @@ export function SessionDetailPage() {
                   left: `${skillPickerAnchor.left}px`,
                   width: `${skillPickerAnchor.width}px`,
                   maxHeight: `${skillPickerAnchor.maxHeight}px`,
-                  zIndex: 2400,
+                  zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
                 }}
               >
               <div class="oh-skill-picker-title">
@@ -4590,8 +4601,10 @@ function MessageAuditDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 z-[2600] flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_STRONG_BACKGROUND,
+      })}
       panelClassName="rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
       panelStyle={{
         background: 'var(--m3-surface-container)',
@@ -4710,7 +4723,9 @@ function SessionTokenStatsDialog({
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_SOFT_BACKGROUND,
+      })}
       panelClassName="w-full max-w-md rounded-m3-xl p-5 flex flex-col"
       panelStyle={{
         background: 'var(--m3-surface-container)',
@@ -4954,7 +4969,9 @@ function SessionContextStatsDialog({
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.36)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_SOFT_BACKGROUND,
+      })}
       panelClassName="w-full max-w-md rounded-m3-xl p-5"
       panelStyle={{
         background: 'var(--m3-surface-container)',
@@ -5632,7 +5649,9 @@ function SessionMetadataDialog({
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)', zIndex: 2600 }}
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_INVERSE_BACKGROUND,
+      })}
       panelClassName="rounded-m3-lg p-5 w-full flex flex-col"
       panelStyle={{
         background: 'var(--m3-surface-container)',
@@ -5871,7 +5890,9 @@ function SessionAuditDialog({
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.40)', zIndex: 2600 }}
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_STRONG_BACKGROUND,
+      })}
       panelClassName="rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
       panelStyle={{
         background: 'var(--m3-surface-container)',
@@ -6052,9 +6073,10 @@ function SessionThrottleDialog({
     lastBucketsRef.current = buckets;
   }, [current?.throughputBuckets]);
   useEffect(() => {
+    if (closing || typeof window === 'undefined') return undefined;
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [closing]);
   const displayedBuckets = useMemo(() => {
     void tick;
     const base = lastBucketsRef.current;
@@ -6077,8 +6099,10 @@ function SessionThrottleDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
-      overlayClassName="oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.45)' }}
+      overlayClassName="oh-dialog-backdrop fixed inset-0 flex items-center justify-center p-4"
+      overlayStyle={createDialogOverlayStyle({
+        background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
+      })}
       panelClassName="rounded-m3-md p-5 w-full max-w-md"
       panelStyle={{ background: 'var(--m3-surface-container-high)' }}
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
@@ -6154,21 +6178,25 @@ function SessionThrottleDialog({
             type="button"
             role="switch"
             aria-checked={enabledOverride}
-            disabled={busy}
-            onClick={() => {
+            disabled={busy || closing}
+            onClick={async () => {
+              if (busy || closing) return;
               const next = !enabledOverride;
               setEnabledOverride(next);
-              void setSessionThrottle(sessionId, { enabled: next }).catch(
-                (err: unknown) => {
-                  showSnackbar(
-                    `${t('topbar.throttle.failed', '应用节流失败')}：${
-                      err instanceof Error ? err.message : String(err)
-                    }`,
-                    { tone: 'error' },
-                  );
-                  setEnabledOverride(!next);
-                },
-              );
+              setBusy(true);
+              try {
+                await setSessionThrottle(sessionId, { enabled: next });
+              } catch (err: unknown) {
+                showSnackbar(
+                  `${t('topbar.throttle.failed', '应用节流失败')}：${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                  { tone: 'error' },
+                );
+                setEnabledOverride(!next);
+              } finally {
+                setBusy(false);
+              }
             }}
             class="oh-tap-press"
             style={{
@@ -6182,7 +6210,7 @@ function SessionThrottleDialog({
                 : 'var(--m3-surface)',
               position: 'relative',
               transition: 'background 160ms ease-out',
-              cursor: busy ? 'not-allowed' : 'pointer',
+              cursor: busy || closing ? 'not-allowed' : 'pointer',
             }}
           >
             <span

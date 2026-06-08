@@ -33,6 +33,14 @@ Color resolveAnimatedDialogBarrierColor(
   return Theme.of(context).colorScheme.scrim.withValues(alpha: 0.54);
 }
 
+Widget? _constrainDialogContent(Widget? content, double? maxWidth) {
+  if (content == null || maxWidth == null) return content;
+  return ConstrainedBox(
+    constraints: BoxConstraints(maxWidth: maxWidth),
+    child: content,
+  );
+}
+
 Future<bool> showOpenHandConfirmDialog({
   required BuildContext context,
   required String title,
@@ -56,14 +64,7 @@ Future<bool> showOpenHandConfirmDialog({
       actionsOverflowAlignment: OverflowBarAlignment.center,
       icon: icon,
       title: Text(title),
-      content: dialogContent == null
-          ? null
-          : maxWidth == null
-          ? dialogContent
-          : ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: dialogContent,
-            ),
+      content: _constrainDialogContent(dialogContent, maxWidth),
       actions: <Widget>[
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -268,14 +269,7 @@ Future<void> showOpenHandInfoDialog({
       actionsOverflowAlignment: OverflowBarAlignment.center,
       icon: icon,
       title: Text(title),
-      content: dialogContent == null
-          ? null
-          : maxWidth == null
-          ? dialogContent
-          : ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: dialogContent,
-            ),
+      content: _constrainDialogContent(dialogContent, maxWidth),
       actions: <Widget>[
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(dialogContext).pop(),
