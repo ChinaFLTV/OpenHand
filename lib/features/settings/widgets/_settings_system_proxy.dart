@@ -554,7 +554,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
           ),
           OpenHandDialogActionButton.primary(
             label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(dialogContext).pop();
               final exe = Platform.resolvedExecutable;
               if (Platform.isMacOS) {
@@ -571,14 +571,14 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                   '/usr/bin/open -n -a \'$safeBundle\' >> /tmp/oh_restart.log 2>&1\n'
                   'echo "[restart] pid=\$\$ exit=\$?" >> /tmp/oh_restart.log\n',
                 );
-                Process.runSync('/bin/chmod', ['+x', script.path]);
-                Process.start(
+                await Process.run('/bin/chmod', ['+x', script.path]);
+                await Process.start(
                   '/bin/sh',
                   ['-c', 'nohup ${script.path} &'],
                   mode: ProcessStartMode.detached,
                 );
               } else {
-                Process.start(
+                await Process.start(
                   exe,
                   <String>[],
                   mode: ProcessStartMode.detached,
