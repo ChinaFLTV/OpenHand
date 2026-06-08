@@ -238,6 +238,7 @@ class AppRestartService {
         '  exit 0\n'
         'fi\n'
         'rm -f -- $quotedFlag\n'
+        '${_buildPosixFlutterEngineSwitchCleanup()}'
         '$launch'
         '$cleanupAfterLaunch';
   }
@@ -251,8 +252,23 @@ class AppRestartService {
         'timeout /t $timeoutSeconds /nobreak >nul\r\n'
         'if not exist "${_escapeWindowsPath(pendingFlagPath)}" exit /b 0\r\n'
         'del /f /q "${_escapeWindowsPath(pendingFlagPath)}" >nul 2>nul\r\n'
+        '${_buildWindowsFlutterEngineSwitchCleanup()}'
         'start "" "${_escapeWindowsPath(executablePath)}"\r\n'
         'del /f /q "%~f0" >nul 2>nul\r\n';
+  }
+
+  static String _buildPosixFlutterEngineSwitchCleanup() {
+    return 'unset FLUTTER_ENGINE_SWITCHES\n'
+        'i=1\n'
+        'while [ "\$i" -le 256 ]; do\n'
+        '  unset "FLUTTER_ENGINE_SWITCH_\$i"\n'
+        '  i=\$((i + 1))\n'
+        'done\n';
+  }
+
+  static String _buildWindowsFlutterEngineSwitchCleanup() {
+    return 'set "FLUTTER_ENGINE_SWITCHES="\r\n'
+        'for /L %%I in (1,1,256) do set "FLUTTER_ENGINE_SWITCH_%%I="\r\n';
   }
 
   static String? resolveMacOSAppBundle(String executablePath) {

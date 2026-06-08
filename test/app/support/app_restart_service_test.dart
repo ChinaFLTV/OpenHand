@@ -70,6 +70,8 @@ void main() {
       final script = File(ticket.scriptPath).readAsStringSync();
       expect(script, contains('/usr/bin/open -n -F --'));
       expect(script, contains("'/Applications/OpenHand.app'"));
+      expect(script, contains('unset FLUTTER_ENGINE_SWITCHES'));
+      expect(script, contains(r'unset "FLUTTER_ENGINE_SWITCH_$i"'));
       expect(script, isNot(contains(' -a ')));
       expect(File(ticket.pendingFlagPath).existsSync(), isTrue);
 
