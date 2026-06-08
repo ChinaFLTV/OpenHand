@@ -556,14 +556,18 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              // macOS: `open -n` 拉起新实例；非 macOS: 直接 spawn 可执行文件。
+              final executable = Platform.resolvedExecutable;
               if (Platform.isMacOS) {
-                final bundlePath = Platform.resolvedExecutable
-                    .replaceFirst('/Contents/MacOS/', '/');
+                // macOS 优先用 `open -n` 拉起 .app bundle（处理
+                // Android Studio debug / 归档发布两种场景）。
+                final bundlePath = executable.endsWith('/Contents/MacOS/${p.basename(executable)}')
+                    ? executable.replaceAll(
+                        '/Contents/MacOS/${p.basename(executable)}', '')
+                    : executable;
                 Process.runSync('/usr/bin/open', ['-n', '-a', bundlePath]);
               } else {
                 Process.start(
-                  Platform.resolvedExecutable,
+                  executable,
                   <String>[],
                   mode: ProcessStartMode.detached,
                 );
