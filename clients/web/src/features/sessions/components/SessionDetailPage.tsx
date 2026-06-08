@@ -52,7 +52,7 @@ import { useAuth } from '../../../state/auth';
 import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
 import { MessageCard, markMessagesAsAppeared } from '../../../components/MessageCard';
 import { PlanTimeline } from '../../../components/PlanTimeline';
-import CacheHitTrendChart from './CacheHitTrendChart';
+import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import {
   SessionTopBar,
@@ -4652,6 +4652,9 @@ function SessionTokenStatsDialog({
   messages: SessionMessage[];
   onClose: () => void;
 }) {
+  const [trendDisplayMode, setTrendDisplayMode] =
+    useState<CacheHitDisplayMode>('excludeExtremeMisses');
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const stats = session.statistics ?? {};
   const promptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
@@ -4684,7 +4687,6 @@ function SessionTokenStatsDialog({
   const readWeight = segmentTotal > 0 ? cacheReadTokens / segmentTotal : 0;
   const writeWeight = segmentTotal > 0 ? cacheWriteTokens / segmentTotal : 0;
   const missWeight = segmentTotal > 0 ? uncachedPromptTokens / segmentTotal : 0;
-  const { closing, requestClose } = useDialogExitMotion(onClose);
   const node = (
     <div
       class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} fixed inset-0 flex items-center justify-center p-4`}
@@ -4756,7 +4758,11 @@ function SessionTokenStatsDialog({
                         <CacheHitTrendChart
                           points={trendPoints}
                           averageRatio={trendAvg}
+                          claudeStyle={claudeStyle}
                           height={156}
+                          displayMode={trendDisplayMode}
+                          onDisplayModeChange={setTrendDisplayMode}
+                          t={t}
                         />
                       </div>
                     );
@@ -5280,6 +5286,7 @@ function computeCacheHitRatioPercent({
 interface TrendPoint {
   turnIndex: number;
   hitRatio: number;
+  idleGapSeconds?: number | null;
 }
 
 function buildCacheTrendPoints(
@@ -5290,6 +5297,7 @@ function buildCacheTrendPoints(
   let turnIndex = 0;
   let cumulativePrompt = 0;
   let cumulativeCacheRead = 0;
+  let lastUserTimestamp: number | null = null;
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
@@ -5303,19 +5311,41 @@ function buildCacheTrendPoints(
     if (promptTokens <= 0) continue;
     const hitRatio = cacheReadTokens / (claudeStyle ? promptTokens + cacheReadTokens : promptTokens);
     if (!Number.isFinite(hitRatio)) continue;
+    // 计算与上一条用户消息的时间间隔（秒）
+    let idleGapSeconds: number | null = null;
+    if (lastUserTimestamp !== null) {
+      const cur = Date.parse(msg.created_at);
+      if (Number.isFinite(cur)) {
+        idleGapSeconds = Math.max(0, Math.round((cur - lastUserTimestamp) / 1000));
+      }
+    }
+    const curTs = Date.parse(msg.created_at);
+    if (Number.isFinite(curTs)) {
+      lastUserTimestamp = curTs;
+    }
     turnIndex += 1;
     if (turnIndex > 1) {
       cumulativePrompt += promptTokens;
       cumulativeCacheRead += cacheReadTokens;
     }
-    points.push({ turnIndex, hitRatio: Math.max(0, Math.min(1, hitRatio)) });
+    points.push({
+      turnIndex,
+      hitRatio: Math.max(0, Math.min(1, hitRatio)),
+      idleGapSeconds,
+    });
   }
   if (points.length === 0) return { points, averageRatio: 0 };
   const denominator = claudeStyle
     ? cumulativePrompt + cumulativeCacheRead
     : cumulativePrompt;
   const averageRatio = denominator <= 0 ? 0 : cumulativeCacheRead / denominator;
-  return { points, averageRatio: Math.max(0, Math.min(1, Number.isFinite(averageRatio) ? averageRatio : 0)) };
+  return {
+    points,
+    averageRatio: Math.max(
+      0,
+      Math.min(1, Number.isFinite(averageRatio) ? averageRatio : 0),
+    ),
+  };
 }
 
 function formatDialogDate(value?: string | null): string {
