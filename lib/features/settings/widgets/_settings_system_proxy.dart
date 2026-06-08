@@ -566,7 +566,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                 final safeLog = logPath.replaceAll("'", "'\\''");
                 script.writeAsStringSync(
                   '#!/bin/sh\n'
-                  'sleep 2\n'
+                  'sleep 5\n'
                   "/usr/bin/open -n -a '$safeBundle' >> '$safeLog' 2>&1\n",
                 );
                 await Process.run('/bin/chmod', ['+x', script.path]);
