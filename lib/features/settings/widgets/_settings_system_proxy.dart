@@ -561,14 +561,22 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                 final macSfx = '/Contents/MacOS/${p.basename(exe)}';
                 final bundle =
                     exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
+                // 写临时脚本 → nohup 执行，彻底避开多层 shell 字符串转义。
+                final script = File(
+                  p.join(
+                    Directory.systemTemp.path,
+                    'openhand_restart.sh',
+                  ),
+                );
+                script.writeAsStringSync(
+                  "#!/bin/sh\n"
+                  "sleep 0.6\n"
+                  "open -n -a '${bundle.replaceAll("'", "'\\''")}'\n",
+                );
+                Process.runSync('/bin/chmod', ['+x', script.path]);
                 Process.start(
                   '/bin/sh',
-                  <String>[
-                    '-c',
-                    'sleep 0.6 && open -n -a "\$1"',
-                    '_',
-                    bundle,
-                  ],
+                  ['-c', 'nohup ${script.path} >/dev/null 2>&1 &'],
                   mode: ProcessStartMode.detached,
                 );
               } else {
