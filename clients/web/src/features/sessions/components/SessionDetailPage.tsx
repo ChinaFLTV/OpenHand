@@ -4689,6 +4689,13 @@ function SessionTokenStatsDialog({
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as
     | SessionCacheHitTrendPoint[]
     | undefined;
+  // 2026-06-08 DEBUG — 临时排障日志，定位后移除
+  console.debug('[TokenStats] cache_hit_ratio=', backendHitRatio,
+    'percent=', cacheHitRatio,
+    'trendPoints=', backendTrendPoints?.length ?? 0,
+    'cacheRead=', cacheReadTokens,
+    'prompt=', promptTokens,
+    'statsKeys=', Object.keys(stats).filter(k => k.includes('cache') || k.includes('hit')));
   const trendData = useMemo<{
     points: TrendPoint[];
     averageRatio: number;

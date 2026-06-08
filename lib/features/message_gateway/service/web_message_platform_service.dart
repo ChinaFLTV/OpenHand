@@ -26,6 +26,7 @@ import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
+import '../../home/index.dart' show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -4225,6 +4226,65 @@ class WebMessagePlatformService {
     return null;
   }
 
+  /// 2026-06-08 — 每次序列化会话时，若 statistics.cacheHitRatio 为 0 或 null
+  /// 但累积 cache 数据明确有值，直接用 SessionCacheHitTrend.fromSession（与
+  /// APP 端同源）重算，保证 `getSession` / SSE 快照始终携带正确的缓存命中率。
+  Map<String, Object?> _ensureCacheHitStats(AiSession session) {
+    final stats = Map<String, Object?>.from(session.statistics.toJson());
+    final existingRatio = stats['cache_hit_ratio'];
+    final hasExisting = existingRatio is num &&
+        (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
+    // 2026-06-08 DEBUG — 临时排障日志，定位后移除
+    silentLog('WebGateway', 'ensureCacheHitStats',
+        'sid=${session.id.substring(0, 8)} '
+        'existingRatio=$existingRatio hasExisting=$hasExisting '
+        'cacheRead=${stats['cache_read_tokens']} '
+        'prompt=${stats['total_prompt_tokens']} '
+        'trendPoints=${(stats['cache_hit_trend_points'] as List?)?.length ?? 0} '
+        'msgCount=${session.messages.length}');
+    if (hasExisting) return stats;
+    final cacheRead = (stats['cache_read_tokens'] is int)
+        ? stats['cache_read_tokens'] as int
+        : 0;
+    final prompt = (stats['total_prompt_tokens'] is int)
+        ? stats['total_prompt_tokens'] as int
+        : 0;
+    if (cacheRead <= 0 || prompt <= 0) return stats;
+    final protocol = _lastModelProtocolForSession(session);
+    final claudeStyle = protocol != null &&
+        protocol.trim().toLowerCase() == 'claude';
+    final trend = SessionCacheHitTrend.fromSession(
+      session,
+      claudeStyle: claudeStyle,
+    );
+    final display = trend.displayData(
+      SessionCacheHitDisplayMode.excludeExtremeMisses,
+    );
+    final trendPoints = trend.points
+        .map(
+          (p) => <String, Object?>{
+            'turn_index': p.turnIndex,
+            'hit_ratio': p.hitRatio,
+            'prompt_tokens': p.promptTokens,
+            'cache_read_tokens': p.cacheReadTokens,
+            'cache_write_tokens': p.cacheWriteTokens,
+            if (p.idleGapSeconds != null) 'idle_gap_seconds': p.idleGapSeconds,
+          },
+        )
+        .toList(growable: false);
+    silentLog('WebGateway', 'ensureCacheHitStats.patch',
+        'sid=${session.id.substring(0, 8)} '
+        'claudeStyle=$claudeStyle '
+        'avgHitRatio=${display.averageHitRatio} '
+        'trendPointCount=${trend.points.length} '
+        'excluded=${trend.points.length - display.trend.points.length}');
+    stats['cache_hit_ratio'] = display.averageHitRatio;
+    stats['cache_hit_trend_points'] = trendPoints;
+    stats['cache_hit_trend_excluded_count'] =
+        trend.points.length - display.trend.points.length;
+    return stats;
+  }
+
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
@@ -4260,7 +4320,7 @@ class WebMessagePlatformService {
           .toIso8601String(),
       'last_model_key': lastModelKey,
       'message_count': displayMessages.length,
-      'statistics': session.statistics.toJson(),
+      'statistics': _ensureCacheHitStats(session),
       'total_tokens': session.statistics.totalTokens,
       'total_prompt_tokens': session.statistics.totalPromptTokens,
       'total_completion_tokens': session.statistics.totalCompletionTokens,
