@@ -459,20 +459,28 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 cacheWrite: displayData.cacheWriteTokens,
                 prompt: displayData.uncachedPromptTokens,
               ),
-              if (displayData.trend.points.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                TokenPopupCacheHitTrendChart(
-                  trend: trend,
-                  displayMode: _displayMode,
-                  onDisplayModeChanged: (mode) {
-                    if (_displayMode == mode) return;
-                    setState(() {
-                      _displayMode = mode;
-                    });
-                  },
-                  height: widget.compact ? 176 : 220,
-                ),
-              ],
+            ],
+            if (trend.points.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              TokenPopupCacheHitTrendChart(
+                trend: trend,
+                displayMode: _displayMode,
+                onDisplayModeChanged: (mode) {
+                  if (_displayMode == mode) return;
+                  setState(() {
+                    _displayMode = mode;
+                  });
+                },
+                height: widget.compact ? 176 : 220,
+              ),
+            ] else if (cacheRead > 0) ...[
+              const SizedBox(height: 10),
+              _CompactCacheHitSparkline(
+                cacheHitRatio: cacheHitRatio,
+                cacheRead: cacheRead,
+                cacheWrite: cacheWrite,
+                promptTokens: promptTokens.clamp(0, promptTokensTotal),
+              ),
             ],
             const SizedBox(height: 10),
             Text(
@@ -895,6 +903,132 @@ class _PopupRowState extends State<_PopupRow> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 紧凑型缓存命中率微缩图 — 当逐轮次趋势数据不足（走势图退避）时，
+/// 用作浮窗内缓存可视化的兜底展示，避免缓存区完全空白。
+class _CompactCacheHitSparkline extends StatelessWidget {
+  const _CompactCacheHitSparkline({
+    required this.cacheHitRatio,
+    required this.cacheRead,
+    required this.cacheWrite,
+    required this.promptTokens,
+  });
+
+  final double cacheHitRatio;
+  final int cacheRead;
+  final int cacheWrite;
+  final int promptTokens;
+
+  String _k(int v) {
+    if (v < 1000) return '$v';
+    return '${(v / 1000).toStringAsFixed(1)}k';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hitPercent = (cacheHitRatio * 100).round();
+    final total = cacheRead + cacheWrite + promptTokens;
+    final readFrac = total == 0 ? 0.0 : cacheRead / total;
+    final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
+    final promptFrac = total == 0 ? 1.0 : promptTokens / total;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: Colors.green.shade500,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$hitPercent% 缓存命中',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 8,
+            child: Row(
+              children: [
+                if (readFrac > 0)
+                  Flexible(
+                    flex: (readFrac * 1000).round().clamp(1, 1000),
+                    child: Container(color: Colors.green.shade400),
+                  ),
+                if (writeFrac > 0)
+                  Flexible(
+                    flex: (writeFrac * 1000).round().clamp(1, 1000),
+                    child: Container(color: Colors.amber.shade400),
+                  ),
+                if (promptFrac > 0)
+                  Flexible(
+                    flex: (promptFrac * 1000).round().clamp(1, 1000),
+                    child: Container(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _LegendDot(color: Colors.green.shade400, label: '命中 ${_k(cacheRead)}'),
+            const SizedBox(width: 10),
+            _LegendDot(color: Colors.amber.shade400, label: '写入 ${_k(cacheWrite)}'),
+            const SizedBox(width: 10),
+            _LegendDot(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              label: '未缓存 ${_k(promptTokens)}',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
