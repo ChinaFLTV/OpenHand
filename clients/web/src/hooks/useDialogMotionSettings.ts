@@ -1,7 +1,7 @@
 export interface ApiDialogAnimationSettings {
   entrance_style?: string;
   exit_style?: string;
-  duration_ms?: number;
+  duration_ms?: number | string;
   curve?: string;
 }
 
@@ -30,10 +30,13 @@ const curveValues = new Set([
   'decelerate',
 ]);
 
+export const DIALOG_MOTION_DEFAULT_DURATION_MS = 320;
+export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
+
 const defaultSettings = {
   entranceStyle: 'fade_scale',
   exitStyle: 'fade_scale',
-  durationMs: 320,
+  durationMs: DIALOG_MOTION_DEFAULT_DURATION_MS,
   curve: 'ease_out_cubic',
 };
 
@@ -47,11 +50,16 @@ function normalizeCurve(value: string | undefined): string {
   return value && curveValues.has(value) ? value : defaultSettings.curve;
 }
 
-function normalizeDuration(value: number | undefined): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+function normalizeDuration(value: number | string | undefined): number {
+  const numericValue =
+    typeof value === 'string' ? Number(value.trim()) : value;
+  if (typeof numericValue !== 'number' || !Number.isFinite(numericValue)) {
     return defaultSettings.durationMs;
   }
-  return Math.max(0, Math.min(900, Math.round(value)));
+  return Math.max(
+    0,
+    Math.min(DIALOG_MOTION_MAX_DURATION_MS, Math.round(numericValue)),
+  );
 }
 
 function curveToCss(curve: string): string {

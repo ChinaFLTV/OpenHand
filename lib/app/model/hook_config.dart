@@ -51,8 +51,8 @@ class HookEntry {
       label: '${json['label'] ?? ''}'.trim(),
       scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
       scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
-      timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt() ?? 12,
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
+      timeoutSeconds: intFromValue(json['timeout_seconds'], fallback: 12),
     );
   }
 

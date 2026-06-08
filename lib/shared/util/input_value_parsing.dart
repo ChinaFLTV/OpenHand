@@ -72,6 +72,38 @@ bool boolFromValue(Object? value, {bool defaultValue = false}) {
   return defaultValue;
 }
 
+int intFromValue(Object? value, {required int fallback}) {
+  if (value is int) return value;
+  if (value is num && value.isFinite) return value.toInt();
+  if (value is String) {
+    return int.tryParse(value.trim()) ?? fallback;
+  }
+  return fallback;
+}
+
+int? optionalIntFromValue(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num && value.isFinite) return value.toInt();
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : int.tryParse(trimmed);
+  }
+  return null;
+}
+
+int clampedIntFromValue(
+  Object? value, {
+  required int fallback,
+  required int min,
+  required int max,
+}) {
+  final parsed = intFromValue(value, fallback: fallback);
+  final lower = min <= max ? min : max;
+  final upper = min <= max ? max : min;
+  return parsed.clamp(lower, upper).toInt();
+}
+
 int clampedIntFromText(
   String value, {
   required int fallback,
@@ -85,6 +117,5 @@ int clampedIntFromText(
 }
 
 int? optionalIntFromText(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : int.tryParse(trimmed);
+  return optionalIntFromValue(value);
 }

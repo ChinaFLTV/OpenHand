@@ -3,6 +3,12 @@ import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
 
+export interface DialogOverlayStyleOptions {
+  background?: string;
+  blurPx?: number;
+  zIndex?: number;
+}
+
 export interface DialogFrameProps {
   children: ComponentChildren;
   closing: boolean;
@@ -17,10 +23,25 @@ export interface DialogFrameProps {
   ariaLabelledBy?: string;
 }
 
+export function createDialogOverlayStyle({
+  background = 'rgba(0,0,0,0.38)',
+  blurPx = 2,
+  zIndex,
+}: DialogOverlayStyleOptions = {}): JSX.CSSProperties {
+  const style: JSX.CSSProperties = { background };
+  if (blurPx > 0) {
+    style.backdropFilter = `blur(${blurPx}px)`;
+  }
+  if (zIndex != null) {
+    style.zIndex = zIndex;
+  }
+  return style;
+}
+
 function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): string {
   switch (animation) {
     case 'slideUp':
-      return closing ? 'oh-dialog-slide-down-out' : 'oh-dialog-slide-up-in';
+      return closing ? 'oh-dialog-sheet-out' : 'oh-dialog-sheet-in';
     case 'none':
       return '';
     case 'pop':

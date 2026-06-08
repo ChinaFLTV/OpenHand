@@ -31,6 +31,10 @@ void main() {
       expect(boolFromValue('true'), isTrue);
       expect(boolFromValue(0, defaultValue: true), isFalse);
       expect(dateTimeFromValue('2026-06-09T00:00:00Z')?.isUtc, isTrue);
+      expect(intFromValue(' 42 ', fallback: 0), 42);
+      expect(intFromValue(double.nan, fallback: 7), 7);
+      expect(optionalIntFromValue(''), isNull);
+      expect(optionalIntFromValue(12.8), 12);
       expect(optionalIntFromText(''), isNull);
       expect(optionalIntFromText('42'), 42);
     });
@@ -39,6 +43,7 @@ void main() {
       expect(clampedIntFromText('99', fallback: 5, min: 1, max: 10), 10);
       expect(clampedIntFromText('oops', fallback: 5, min: 1, max: 10), 5);
       expect(clampedIntFromText('-1', fallback: 5, min: 10, max: 1), 1);
+      expect(clampedIntFromValue('99', fallback: 5, min: 1, max: 10), 10);
     });
   });
 }

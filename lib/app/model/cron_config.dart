@@ -159,13 +159,11 @@ class CronEntry {
       scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
       scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
       cronExpression: '${json['cron_expression'] ?? '* * * * *'}'.trim(),
-      retryCount: (json['retry_count'] as num?)?.toInt() ?? 0,
-      timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt() ?? 60,
+      retryCount: intFromValue(json['retry_count'], fallback: 0),
+      timeoutSeconds: intFromValue(json['timeout_seconds'], fallback: 60),
       runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
-      tags: _parseTags(json['tags']),
-      enabled: json['enabled'] is bool
-          ? json['enabled'] as bool
-          : (json['enabled'] as num?)?.toInt() == 1,
+      tags: stringListFromValue(json['tags']),
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
       status: CronJobStatus.fromStorage('${json['status'] ?? ''}'),
       onSuccessNotify: CronNotifyType.fromStorage(
         '${json['on_success_notify'] ?? ''}',
@@ -188,48 +186,53 @@ class CronEntry {
         '${json['on_timeout_severity'] ?? ''}',
         fallback: CronNotifySeverity.warning,
       ),
-      onSuccessPlaySound: _parseBool(json['on_success_play_sound']),
-      onFailurePlaySound: _parseBool(
+      onSuccessPlaySound: boolFromValue(json['on_success_play_sound']),
+      onFailurePlaySound: boolFromValue(
         json['on_failure_play_sound'],
         defaultValue: true,
       ),
-      onTimeoutPlaySound: _parseBool(
+      onTimeoutPlaySound: boolFromValue(
         json['on_timeout_play_sound'],
         defaultValue: true,
       ),
-      onSuccessVibrate: _parseBool(json['on_success_vibrate']),
-      onFailureVibrate: _parseBool(
+      onSuccessVibrate: boolFromValue(json['on_success_vibrate']),
+      onFailureVibrate: boolFromValue(
         json['on_failure_vibrate'],
         defaultValue: true,
       ),
-      onTimeoutVibrate: _parseBool(
+      onTimeoutVibrate: boolFromValue(
         json['on_timeout_vibrate'],
         defaultValue: true,
       ),
       onSuccessMessage: nullIfBlank('${json['on_success_message'] ?? ''}'),
       onFailureMessage: nullIfBlank('${json['on_failure_message'] ?? ''}'),
       onTimeoutMessage: nullIfBlank('${json['on_timeout_message'] ?? ''}'),
-      collectAppMetadata: _parseBool(
+      collectAppMetadata: boolFromValue(
         json['collect_app_metadata'],
         defaultValue: true,
       ),
-      collectHostMetadata: _parseBool(
+      collectHostMetadata: boolFromValue(
         json['collect_host_metadata'],
         defaultValue: true,
       ),
-      collectEnvironmentSnapshot: _parseBool(
+      collectEnvironmentSnapshot: boolFromValue(
         json['collect_environment_snapshot'],
       ),
       workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
-      environment: _parseEnv(json['environment']),
-      maxRetryDelaySeconds:
-          (json['max_retry_delay_seconds'] as num?)?.toInt() ?? 30,
-      lastRunAt: _parseDateTime(json['last_run_at']),
-      nextRunAt: _parseDateTime(json['next_run_at']),
-      lastExitCode: (json['last_exit_code'] as num?)?.toInt(),
-      consecutiveFailures: (json['consecutive_failures'] as num?)?.toInt() ?? 0,
-      createdAt: _parseDateTime(json['created_at']),
-      updatedAt: _parseDateTime(json['updated_at']),
+      environment: keyValueMapFromValue(json['environment']),
+      maxRetryDelaySeconds: intFromValue(
+        json['max_retry_delay_seconds'],
+        fallback: 30,
+      ),
+      lastRunAt: dateTimeFromValue(json['last_run_at']),
+      nextRunAt: dateTimeFromValue(json['next_run_at']),
+      lastExitCode: optionalIntFromValue(json['last_exit_code']),
+      consecutiveFailures: intFromValue(
+        json['consecutive_failures'],
+        fallback: 0,
+      ),
+      createdAt: dateTimeFromValue(json['created_at']),
+      updatedAt: dateTimeFromValue(json['updated_at']),
     );
   }
 
@@ -465,22 +468,21 @@ class CronExecutionRecord {
     return CronExecutionRecord(
       id: '${json['id'] ?? ''}'.trim(),
       cronId: '${json['cron_id'] ?? ''}'.trim(),
-      startedAt:
-          DateTime.tryParse('${json['started_at'] ?? ''}') ?? DateTime.now(),
-      finishedAt: _parseDateTime(json['finished_at']),
+      startedAt: dateTimeFromValue(json['started_at']) ?? DateTime.now(),
+      finishedAt: dateTimeFromValue(json['finished_at']),
       status: '${json['status'] ?? 'unknown'}'.trim(),
-      exitCode: (json['exit_code'] as num?)?.toInt(),
+      exitCode: optionalIntFromValue(json['exit_code']),
       stdout: '${json['stdout'] ?? ''}'.trim(),
       stderr: '${json['stderr'] ?? ''}'.trim(),
       errorMessage: nullIfBlank('${json['error_message'] ?? ''}'),
-      elapsedMs: (json['elapsed_ms'] as num?)?.toInt() ?? 0,
-      retryAttempt: (json['retry_attempt'] as num?)?.toInt() ?? 0,
+      elapsedMs: intFromValue(json['elapsed_ms'], fallback: 0),
+      retryAttempt: intFromValue(json['retry_attempt'], fallback: 0),
       runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
       workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
-      environment: _parseEnv(json['environment']),
-      appContext: _parseEnv(json['app_context']),
-      environmentSnapshot: _parseEnv(json['environment_snapshot']),
-      pid: (json['pid'] as num?)?.toInt(),
+      environment: keyValueMapFromValue(json['environment']),
+      appContext: keyValueMapFromValue(json['app_context']),
+      environmentSnapshot: keyValueMapFromValue(json['environment_snapshot']),
+      pid: optionalIntFromValue(json['pid']),
       triggerType: '${json['trigger_type'] ?? 'scheduled'}'.trim(),
     );
   }
@@ -543,24 +545,4 @@ class CronExecutionRecord {
       'trigger_type': triggerType,
     };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-List<String> _parseTags(Object? raw) {
-  return stringListFromValue(raw);
-}
-
-Map<String, String> _parseEnv(Object? raw) {
-  return keyValueMapFromValue(raw);
-}
-
-DateTime? _parseDateTime(Object? raw) {
-  return dateTimeFromValue(raw);
-}
-
-bool _parseBool(Object? raw, {bool defaultValue = false}) {
-  return boolFromValue(raw, defaultValue: defaultValue);
 }

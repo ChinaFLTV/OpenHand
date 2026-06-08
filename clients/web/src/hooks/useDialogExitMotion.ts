@@ -47,6 +47,17 @@ export function useDialogExitMotion(
     }, durationMs);
   }, [exitMs, onBeforeClose, onClose, reduceMotion]);
 
+  const resetClosing = useCallback(() => {
+    if (timeoutRef.current != null) {
+      if (typeof window !== 'undefined') {
+        window.clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = null;
+    }
+    closingRef.current = false;
+    setClosing(false);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (timeoutRef.current != null) {
@@ -55,8 +66,6 @@ export function useDialogExitMotion(
     };
   }, []);
 
-  // 2026-06-08 — ESC 键统一收进 hook，所有使用 useDialogExitMotion 的弹窗
-  // 自动获得 ESC-to-dismiss 能力，无需各自重复 keydown 监听。
   useEffect(() => {
     if (!closeOnEscape) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -66,5 +75,5 @@ export function useDialogExitMotion(
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeOnEscape, requestClose]);
 
-  return { closing, requestClose };
+  return { closing, requestClose, resetClosing };
 }

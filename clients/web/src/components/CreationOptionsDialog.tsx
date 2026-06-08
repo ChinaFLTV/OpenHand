@@ -3,8 +3,7 @@
 import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
-import { DialogFrame } from './DialogFrame';
+import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
 
 export interface CreationOptions {
   aspectRatio?: string;
@@ -35,7 +34,6 @@ function modeTitle(mode: string): string {
 
 export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: CreationOptionsDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onCancel);
-  const enterDurationMs = getDialogEnterDurationMs() || 320;
   const [aspectRatio, setAspectRatio] = useState(
     initial?.aspectRatio ?? (mode === 'image' ? '1:1' : mode === 'video' ? '16:9' : undefined),
   );
@@ -60,14 +58,17 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-end justify-center"
-      overlayStyle={{ zIndex: 2800, background: 'color-mix(in srgb, black 32%, transparent)' }}
+      overlayStyle={createDialogOverlayStyle({
+        background: 'color-mix(in srgb, black 32%, transparent)',
+        blurPx: 0,
+        zIndex: 2800,
+      })}
       panelAnimation="slideUp"
       panelClassName="w-full max-w-2xl rounded-t-2xl px-6 py-5"
       panelStyle={{
         background: 'var(--m3-surface-container-low)',
         color: 'var(--m3-on-surface)',
         boxShadow: 'var(--m3-elev-3)',
-        animationDuration: `${enterDurationMs}ms`,
       }}
       ariaLabel={modeTitle(mode)}
     >

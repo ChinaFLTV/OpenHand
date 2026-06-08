@@ -3,8 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
-import { DialogFrame } from './DialogFrame';
+import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
 
 type Phase = 'config' | 'pending' | 'success' | 'error';
 
@@ -27,7 +26,6 @@ export function TitleSummaryDialog({
   onTitleUpdated,
 }: TitleSummaryDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  const enterDurationMs = getDialogEnterDurationMs() || 320;
 
   // 仅用户消息参与选择
   const userMessages = useMemo(
@@ -102,13 +100,16 @@ export function TitleSummaryDialog({
       onRequestClose={requestClose}
       closeOnBackdrop={phase !== 'pending'}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ zIndex: 2900, background: 'color-mix(in srgb, black 48%, transparent)', backdropFilter: 'blur(6px)' }}
+      overlayStyle={createDialogOverlayStyle({
+        background: 'color-mix(in srgb, black 48%, transparent)',
+        blurPx: 6,
+        zIndex: 2900,
+      })}
       panelClassName="w-full max-w-md rounded-2xl px-6 py-5"
       panelStyle={{
         background: 'var(--m3-surface-container)',
         color: 'var(--m3-on-surface)',
         boxShadow: 'var(--m3-elev-4)',
-        animationDuration: `${enterDurationMs}ms`,
       }}
       ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}
     >

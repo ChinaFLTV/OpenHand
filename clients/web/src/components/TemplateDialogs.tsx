@@ -17,7 +17,7 @@ import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { DialogFrame } from './DialogFrame';
+import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
 
 interface DialogShellProps {
   title: string;
@@ -53,11 +53,10 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
       closing={closing}
       onRequestClose={requestClose}
       overlayClassName="fixed inset-0 flex items-center justify-center px-4"
-      overlayStyle={{
+      overlayStyle={createDialogOverlayStyle({
         background: 'rgba(0,0,0,0.40)',
-        backdropFilter: 'blur(2px)',
         zIndex: 2400,
-      }}
+      })}
       ariaLabel={title}
       panelClassName="rounded-m3-xl w-full overflow-hidden flex flex-col"
       panelStyle={{

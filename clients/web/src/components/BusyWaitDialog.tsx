@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
-import { DialogFrame } from './DialogFrame';
+import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
 
 export interface BusyWaitDialogProps {
   open: boolean;
@@ -21,6 +21,9 @@ export function BusyWaitDialog({
   const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<BusyDialogPhase>('hidden');
   const phaseRef = useRef<BusyDialogPhase>('hidden');
+  const effectiveDelayMs = Number.isFinite(delayMs)
+    ? Math.max(0, Math.round(delayMs))
+    : 0;
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -32,7 +35,7 @@ export function BusyWaitDialog({
       if (phaseRef.current === 'hidden') {
         timer = window.setTimeout(
           () => setPhase('visible'),
-          reduceMotion ? 0 : delayMs,
+          reduceMotion ? 0 : effectiveDelayMs,
         );
       } else {
         setPhase('visible');
@@ -47,7 +50,7 @@ export function BusyWaitDialog({
     return () => {
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [open, delayMs, reduceMotion]);
+  }, [open, effectiveDelayMs, reduceMotion]);
 
   if (phase === 'hidden') return null;
   const closing = phase === 'closing';
@@ -56,7 +59,7 @@ export function BusyWaitDialog({
       closing={closing}
       closeOnBackdrop={false}
       overlayClassName="fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2800 }}
+      overlayStyle={createDialogOverlayStyle({ zIndex: 2800 })}
       panelClassName="w-full max-w-sm rounded-m3-xl p-5"
       panelStyle={{
         background: 'var(--m3-surface-container)',

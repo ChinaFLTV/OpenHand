@@ -21,6 +21,28 @@ void main() {
       );
     });
 
+    test('accepts string durations from loose persisted payloads', () {
+      final settings = DialogAnimationSettings.fromJson(const <String, dynamic>{
+        'entrance_style': 'fade_scale',
+        'exit_style': 'fade_scale',
+        'duration_ms': '420',
+      });
+
+      expect(settings.durationMs, 420);
+    });
+
+    test('falls back safely for non-string style fields', () {
+      final settings = DialogAnimationSettings.fromJson(const <String, dynamic>{
+        'entrance_style': 1,
+        'exit_style': true,
+        'curve': <String>['bad'],
+      });
+
+      expect(settings.entranceStyle, DialogAnimationStyle.fadeScale);
+      expect(settings.exitStyle, DialogAnimationStyle.fadeScale);
+      expect(settings.curve, DialogAnimationCurve.easeOutCubic);
+    });
+
     test('preserves intentional no-animation settings as zero duration', () {
       final settings = const DialogAnimationSettings(
         entranceStyle: DialogAnimationStyle.none,

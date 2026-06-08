@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { DialogFrame } from './DialogFrame';
+import { createDialogOverlayStyle, DialogFrame } from './DialogFrame';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = {
@@ -71,7 +71,7 @@ export function ConfirmDialog({
       onRequestClose={cancelMotion.requestClose}
       closeOnBackdrop={!busy && !closing && !disableBackdropClose}
       overlayClassName="oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(2px)', zIndex: 2600 }}
+      overlayStyle={createDialogOverlayStyle({ zIndex: 2600 })}
       panelClassName={`oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
       panelStyle={{
         background: 'var(--m3-surface-container)',

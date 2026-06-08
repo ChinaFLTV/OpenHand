@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/util/input_value_parsing.dart';
+
 /// Available dialog entrance / exit animation styles.
 enum DialogAnimationStyle {
   /// No animation — dialogs appear and disappear instantly.
@@ -111,7 +113,7 @@ class DialogAnimationSettings {
   const DialogAnimationSettings({
     this.entranceStyle = DialogAnimationStyle.fadeScale,
     this.exitStyle = DialogAnimationStyle.fadeScale,
-    this.durationMs = 320,
+    this.durationMs = defaultDurationMs,
     this.curve = DialogAnimationCurve.easeOutCubic,
   });
 
@@ -119,16 +121,22 @@ class DialogAnimationSettings {
     if (json == null) return defaults;
     return DialogAnimationSettings(
       entranceStyle: DialogAnimationStyle.fromStorage(
-        json['entrance_style'] as String?,
+        nullIfBlank('${json['entrance_style'] ?? ''}'),
       ),
       exitStyle: DialogAnimationStyle.fromStorage(
-        json['exit_style'] as String?,
+        nullIfBlank('${json['exit_style'] ?? ''}'),
       ),
-      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 320,
-      curve: DialogAnimationCurve.fromStorage(json['curve'] as String?),
+      durationMs: intFromValue(
+        json['duration_ms'],
+        fallback: defaultDurationMs,
+      ),
+      curve: DialogAnimationCurve.fromStorage(
+        nullIfBlank('${json['curve'] ?? ''}'),
+      ),
     ).normalized();
   }
 
+  static const int defaultDurationMs = 320;
   static const int minAnimatedDurationMs = 80;
   static const int maxDurationMs = 1200;
   static const DialogAnimationSettings defaults = DialogAnimationSettings();
