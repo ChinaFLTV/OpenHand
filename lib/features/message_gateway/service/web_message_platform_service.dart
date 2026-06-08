@@ -4300,6 +4300,7 @@ class WebMessagePlatformService {
   }
 
   Map<String, Object?> _messageJson(AiSessionMessage message) {
+    final usage = message.usage;
     return <String, Object?>{
       'id': message.id,
       'kind': message.kind.storageValue,
@@ -4309,6 +4310,7 @@ class WebMessagePlatformService {
       'character_count': message.characterCount,
       'model_id': message.modelId,
       'model_label': message.modelLabel,
+      if (usage != null) 'usage': usage.toJson(),
       'metadata': message.metadata,
     };
   }

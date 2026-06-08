@@ -52,6 +52,7 @@ import { useAuth } from '../../../state/auth';
 import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
 import { MessageCard, markMessagesAsAppeared } from '../../../components/MessageCard';
 import { PlanTimeline } from '../../../components/PlanTimeline';
+import CacheHitTrendChart from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import {
   SessionTopBar,
@@ -4211,6 +4212,7 @@ export function SessionDetailPage() {
       {tokenStatsOpen && detail ? (
         <SessionTokenStatsDialog
           detail={detail}
+          messages={messages}
           onClose={() => setTokenStatsOpen(false)}
         />
       ) : null}
@@ -4643,9 +4645,11 @@ function MessageAuditDialog({
 
 function SessionTokenStatsDialog({
   detail,
+  messages,
   onClose,
 }: {
   detail: SessionDetailResponse;
+  messages: SessionMessage[];
   onClose: () => void;
 }) {
   const session = detail.session;
@@ -4744,6 +4748,21 @@ function SessionTokenStatsDialog({
                   writeWeight={writeWeight}
                   missWeight={missWeight}
                 />
+                {(() => {
+                  const { points: trendPoints, averageRatio: trendAvg } = buildCacheTrendPoints(messages, claudeStyle);
+                  if (trendPoints.length > 0) {
+                    return (
+                      <div style={{ marginTop: '8px' }}>
+                        <CacheHitTrendChart
+                          points={trendPoints}
+                          averageRatio={trendAvg}
+                          height={156}
+                        />
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             ) : null}
           </div>
@@ -5256,6 +5275,47 @@ function computeCacheHitRatioPercent({
   const ratio = cacheReadTokens / denominator;
   if (!Number.isFinite(ratio)) return 0;
   return Math.max(0, Math.min(100, Math.round(ratio * 100)));
+}
+
+interface TrendPoint {
+  turnIndex: number;
+  hitRatio: number;
+}
+
+function buildCacheTrendPoints(
+  messages: SessionMessage[],
+  claudeStyle: boolean,
+): { points: TrendPoint[]; averageRatio: number } {
+  const points: TrendPoint[] = [];
+  let turnIndex = 0;
+  let cumulativePrompt = 0;
+  let cumulativeCacheRead = 0;
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.kind !== 'user') continue;
+    const usage =
+      (msg.usage && (msg.usage.prompt_tokens ?? 0) > 0)
+        ? msg.usage
+        : null;
+    const promptTokens = usage?.prompt_tokens ?? 0;
+    const cacheReadTokens = usage?.cache_read_tokens ?? 0;
+    if (promptTokens <= 0) continue;
+    const hitRatio = cacheReadTokens / (claudeStyle ? promptTokens + cacheReadTokens : promptTokens);
+    if (!Number.isFinite(hitRatio)) continue;
+    turnIndex += 1;
+    if (turnIndex > 1) {
+      cumulativePrompt += promptTokens;
+      cumulativeCacheRead += cacheReadTokens;
+    }
+    points.push({ turnIndex, hitRatio: Math.max(0, Math.min(1, hitRatio)) });
+  }
+  if (points.length === 0) return { points, averageRatio: 0 };
+  const denominator = claudeStyle
+    ? cumulativePrompt + cumulativeCacheRead
+    : cumulativePrompt;
+  const averageRatio = denominator <= 0 ? 0 : cumulativeCacheRead / denominator;
+  return { points, averageRatio: Math.max(0, Math.min(1, Number.isFinite(averageRatio) ? averageRatio : 0)) };
 }
 
 function formatDialogDate(value?: string | null): string {

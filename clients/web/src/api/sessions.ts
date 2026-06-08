@@ -113,7 +113,17 @@ export interface SessionMessage {
   character_count: number;
   model_id?: string;
   model_label?: string;
+  usage?: SessionMessageUsage | null;
   metadata?: Record<string, unknown>;
+}
+
+export interface SessionMessageUsage {
+  prompt_tokens?: number | null;
+  completion_tokens?: number | null;
+  total_tokens?: number | null;
+  cache_read_tokens?: number | null;
+  cache_creation_tokens?: number | null;
+  reasoning_tokens?: number | null;
 }
 
 export interface SessionMessagesResponse {
