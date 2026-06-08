@@ -558,27 +558,34 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
               Navigator.of(dialogContext).pop();
               final exe = Platform.resolvedExecutable;
               if (Platform.isMacOS) {
+                // 直接 exec 二进制，不走 open -n -a（debug build 签名不完整时
+                // LaunchServices 可能拒绝拉起），sleep 等旧进程完全退出再 exec。
                 final macSfx = '/Contents/MacOS/${p.basename(exe)}';
-                final bundle =
-                    exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
-                // 写临时脚本 → nohup 执行，彻底避开多层 shell 字符串转义。
-                final script = File(
-                  p.join(
-                    Directory.systemTemp.path,
-                    'openhand_restart.sh',
-                  ),
-                );
-                script.writeAsStringSync(
-                  "#!/bin/sh\n"
-                  "sleep 0.6\n"
-                  "open -n -a '${bundle.replaceAll("'", "'\\''")}'\n",
-                );
-                Process.runSync('/bin/chmod', ['+x', script.path]);
-                Process.start(
-                  '/bin/sh',
-                  ['-c', 'nohup ${script.path} >/dev/null 2>&1 &'],
-                  mode: ProcessStartMode.detached,
-                );
+                final bundleExe = exe.endsWith(macSfx) ? exe : null;
+                // 2026-06-08 DEBUG — 临时排障日志，定位后移除
+                debugPrint('[restart] resolvedExecutable=$exe');
+                debugPrint('[restart] bundleExe=$bundleExe');
+                if (bundleExe != null) {
+                  final script = File(
+                    p.join(
+                      Directory.systemTemp.path,
+                      'openhand_restart.sh',
+                    ),
+                  );
+                  final safeExe = bundleExe.replaceAll("'", "'\\''");
+                  script.writeAsStringSync(
+                    "#!/bin/sh\n"
+                    "sleep 0.6\n"
+                    "exec '${safeExe}'\n",
+                  );
+                  debugPrint('[restart] script=${script.path}');
+                  Process.runSync('/bin/chmod', ['+x', script.path]);
+                  Process.start(
+                    '/bin/sh',
+                    ['-c', 'nohup ${script.path} >/tmp/oh_restart.log 2>&1 &'],
+                    mode: ProcessStartMode.detached,
+                  );
+                }
               } else {
                 Process.start(
                   exe,
