@@ -553,6 +553,13 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             },
           ),
           OpenHandDialogActionButton.primary(
+            label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              exit(0);
+            },
+          ),
+          OpenHandDialogActionButton.primary(
             label: AppLocalizations.of(dialogContext)!.commonClose,
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
@@ -644,11 +651,10 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       switch (report.result) {
         case InputRepairResult.success:
           OpenHandSnackBar.showSuccessOn(context, messenger, detail);
-          break;
+          unawaited(_showRepairReportDialog(report));
         case InputRepairResult.partialSuccess:
           OpenHandSnackBar.showInfoOn(context, messenger, detail);
           unawaited(_showRepairReportDialog(report));
-          break;
         case InputRepairResult.failure:
           OpenHandSnackBar.showErrorOn(
             context,
@@ -656,7 +662,6 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             l10n.inputRepairDone,
           );
           unawaited(_showRepairReportDialog(report));
-          break;
       }
     }
   }
