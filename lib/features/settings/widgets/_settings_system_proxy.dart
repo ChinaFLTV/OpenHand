@@ -561,16 +561,13 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                 final macSfx = '/Contents/MacOS/${p.basename(exe)}';
                 final bundle = exe.endsWith(macSfx) ? exe.replaceAll(macSfx, '') : exe;
                 final binary = p.join(bundle, 'Contents', 'MacOS', p.basename(exe));
-                final logPath = '/tmp/oh_new_${DateTime.now().millisecondsSinceEpoch}.log';
                 final script = File(p.join(Directory.systemTemp.path, 'oh_restart.sh'));
-                final safeBinary = binary.replaceAll("'", "'\\''");
-                final safeLog = logPath.replaceAll("'", "'\\''");
+                final logPath = '/tmp/oh_new_${DateTime.now().millisecondsSinceEpoch}.log';
                 script.writeAsStringSync(
                   '#!/bin/sh\n'
-                  'echo "\$\$ restart begin" >> \'$safeLog\'\n'
-                  'sleep 2\n'
-                  'echo "\$\$ exec binary" >> \'$safeLog\'\n'
-                  'exec \'$safeBinary\' >> \'$safeLog\' 2>&1\n',
+                  "sleep 2\n"
+                  "exec '${binary.replaceAll("'", "'\\''")}'"
+                  " >> '${logPath.replaceAll("'", "'\\''")}' 2>&1\n",
                 );
                 await Process.run('/bin/chmod', ['+x', script.path]);
                 await Process.start(
@@ -578,14 +575,15 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                   ['-c', 'nohup ${script.path} &'],
                   mode: ProcessStartMode.detached,
                 );
+                exit(0);
               } else {
                 await Process.start(
                   exe,
                   <String>[],
                   mode: ProcessStartMode.detached,
                 );
+                exit(0);
               }
-              exit(0);
             },
           ),
           OpenHandDialogActionButton.primary(
