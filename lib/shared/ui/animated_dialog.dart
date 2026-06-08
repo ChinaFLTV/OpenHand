@@ -151,7 +151,8 @@ Future<String?> showOpenHandTextInputDialog({
                 dialogContext,
               ).pop(normalize(textController.text)),
               label:
-                  confirmLabel ?? MaterialLocalizations.of(context).okButtonLabel,
+                  confirmLabel ??
+                  MaterialLocalizations.of(context).okButtonLabel,
             ),
           ],
         );
@@ -194,9 +195,8 @@ Future<T?> showAnimatedDialog<T>({
   );
   final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
       ? _kNoDialogAnimationSettings
-      : (settings ?? _resolveDialogAnimationSettings(context));
-  if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
-      effectiveSettings.exitStyle == DialogAnimationStyle.none) {
+      : (settings ?? _resolveDialogAnimationSettings(context)).normalized();
+  if (effectiveSettings.disablesAnimation) {
     return showDialog<T>(
       context: context,
       builder: themedBuilder,
@@ -341,7 +341,10 @@ Widget buildOpenHandDialogFooter({
   return Padding(
     padding: padding,
     child: Row(
-      children: [Expanded(child: leading), action],
+      children: [
+        Expanded(child: leading),
+        action,
+      ],
     ),
   );
 }
@@ -359,15 +362,16 @@ Widget buildOpenHandDialogActionsBar({
     children: actions,
   );
   if (leading == null) {
-    return Padding(
-      padding: padding,
-      child: actionsRow,
-    );
+    return Padding(padding: padding, child: actionsRow);
   }
   return Padding(
     padding: padding,
     child: Row(
-      children: [Expanded(child: leading), const SizedBox(width: 8), actionsRow],
+      children: [
+        Expanded(child: leading),
+        const SizedBox(width: 8),
+        actionsRow,
+      ],
     ),
   );
 }
@@ -386,7 +390,9 @@ Widget buildOpenHandDialogFormShell({
   final colorScheme = theme.colorScheme;
   return Dialog(
     backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
-    shape: shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    shape:
+        shape ??
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth ?? 520),
       child: Padding(

@@ -484,8 +484,7 @@ class SettingsController extends ChangeNotifier {
       _aiStreamThrottleCloudSyncProvider;
   String get aiStreamThrottleCloudSyncEndpoint =>
       _aiStreamThrottleCloudSyncEndpoint;
-  String get aiStreamThrottleCloudSyncToken =>
-      _aiStreamThrottleCloudSyncToken;
+  String get aiStreamThrottleCloudSyncToken => _aiStreamThrottleCloudSyncToken;
 
   /// 2026-05-19 — 节流配置最近一次本地修改时间戳（epoch ms）。0 表示
   /// 尚未修改过；自动同步用它和远端 updated_at 比对决定胜负。
@@ -543,6 +542,7 @@ class SettingsController extends ChangeNotifier {
     }
     return base;
   }
+
   bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
   bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
@@ -974,9 +974,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  Future<bool> updateAiHtmlRenderFallback(
-    AiHtmlRenderFallback value,
-  ) async {
+  Future<bool> updateAiHtmlRenderFallback(AiHtmlRenderFallback value) async {
     return _commitMutation(() {
       if (_aiHtmlRenderFallback == value) {
         return _MutationDisposition.successNoChange;
@@ -986,9 +984,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  Future<bool> updateAiHtmlContentRichness(
-    AiHtmlContentRichness value,
-  ) async {
+  Future<bool> updateAiHtmlContentRichness(AiHtmlContentRichness value) async {
     return _commitMutation(() {
       if (_aiHtmlContentRichness == value) {
         return _MutationDisposition.successNoChange;
@@ -1714,10 +1710,7 @@ class SettingsController extends ChangeNotifier {
       'max_chars_per_second': _aiStreamMaxCharsPerSecond,
       'max_message_cards_per_second': _aiStreamMaxMessageCardsPerSecond,
       // 云端同步预留：当前版本不读不写远端，但留下字段方便后续扩展。
-      'cloud_sync': const <String, Object?>{
-        'enabled': false,
-        'endpoint': '',
-      },
+      'cloud_sync': const <String, Object?>{'enabled': false, 'endpoint': ''},
     };
   }
 
@@ -1741,30 +1734,25 @@ class SettingsController extends ChangeNotifier {
     var anyChange = false;
     final enabled = migrated['throttle_enabled'];
     if (enabled is bool) {
-      anyChange =
-          await updateAiStreamThrottleEnabled(enabled) || anyChange;
+      anyChange = await updateAiStreamThrottleEnabled(enabled) || anyChange;
     }
     final auto = migrated['auto_mode'];
     if (auto is bool) {
-      anyChange =
-          await updateAiStreamThrottleAutoMode(auto) || anyChange;
+      anyChange = await updateAiStreamThrottleAutoMode(auto) || anyChange;
     }
     final durationSec = migrated['duration_seconds'];
     if (durationSec is int) {
       anyChange =
-          await updateAiStreamThrottleDurationSeconds(durationSec) ||
-          anyChange;
+          await updateAiStreamThrottleDurationSeconds(durationSec) || anyChange;
     }
     final maxChars = migrated['max_chars_per_second'];
     if (maxChars is int) {
-      anyChange =
-          await updateAiStreamMaxCharsPerSecond(maxChars) || anyChange;
+      anyChange = await updateAiStreamMaxCharsPerSecond(maxChars) || anyChange;
     }
     final maxCards = migrated['max_message_cards_per_second'];
     if (maxCards is int) {
       anyChange =
-          await updateAiStreamMaxMessageCardsPerSecond(maxCards) ||
-          anyChange;
+          await updateAiStreamMaxMessageCardsPerSecond(maxCards) || anyChange;
     }
     if (anyChange && overrideUpdatedAtMs != null && overrideUpdatedAtMs > 0) {
       // 远端 timestamp 直接落盘：用 _commitMutation 走持久化通道。
@@ -2193,71 +2181,74 @@ class SettingsController extends ChangeNotifier {
   Future<bool> updateDialogAnimationSettings(
     DialogAnimationSettings value,
   ) async {
-    return _commitMutation(() {
-      if (_dialogAnimationSettings == value) {
-        return _MutationDisposition.successNoChange;
-      }
-      _dialogAnimationSettings = value;
-      return _MutationDisposition.apply;
-    });
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _dialogAnimationSettings,
+      write: (settings) => _dialogAnimationSettings = settings,
+    );
   }
 
   Future<bool> updateMenuAnimationSettings(
     DialogAnimationSettings value,
   ) async {
-    return _commitMutation(() {
-      if (_menuAnimationSettings == value) {
-        return _MutationDisposition.successNoChange;
-      }
-      _menuAnimationSettings = value;
-      return _MutationDisposition.apply;
-    });
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _menuAnimationSettings,
+      write: (settings) => _menuAnimationSettings = settings,
+    );
   }
 
   Future<bool> updatePageAnimationSettings(
     DialogAnimationSettings value,
   ) async {
-    return _commitMutation(() {
-      if (_pageAnimationSettings == value) {
-        return _MutationDisposition.successNoChange;
-      }
-      _pageAnimationSettings = value;
-      return _MutationDisposition.apply;
-    });
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _pageAnimationSettings,
+      write: (settings) => _pageAnimationSettings = settings,
+    );
   }
 
   Future<bool> updatePanelAnimationSettings(
     DialogAnimationSettings value,
   ) async {
-    return _commitMutation(() {
-      if (_panelAnimationSettings == value) {
-        return _MutationDisposition.successNoChange;
-      }
-      _panelAnimationSettings = value;
-      return _MutationDisposition.apply;
-    });
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _panelAnimationSettings,
+      write: (settings) => _panelAnimationSettings = settings,
+    );
   }
 
   Future<bool> updateChipAnimationSettings(
     DialogAnimationSettings value,
   ) async {
-    return _commitMutation(() {
-      if (_chipAnimationSettings == value) {
-        return _MutationDisposition.successNoChange;
-      }
-      _chipAnimationSettings = value;
-      return _MutationDisposition.apply;
-    });
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _chipAnimationSettings,
+      write: (settings) => _chipAnimationSettings = settings,
+    );
   }
 
   Future<bool> updateListItemAnimationSettings(
     DialogAnimationSettings value,
   ) async {
+    return _updateAnimationSettings(
+      value: value,
+      current: () => _listItemAnimationSettings,
+      write: (settings) => _listItemAnimationSettings = settings,
+    );
+  }
+
+  Future<bool> _updateAnimationSettings({
+    required DialogAnimationSettings value,
+    required DialogAnimationSettings Function() current,
+    required void Function(DialogAnimationSettings settings) write,
+  }) async {
+    final normalized = value.normalized();
     return _commitMutation(() {
-      if (_listItemAnimationSettings == value) {
+      if (current() == normalized) {
         return _MutationDisposition.successNoChange;
       }
-      _listItemAnimationSettings = value;
+      write(normalized);
       return _MutationDisposition.apply;
     });
   }
@@ -2807,8 +2798,7 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiStreamThrottleCloudSyncProvider;
     _aiStreamThrottleCloudSyncEndpoint =
         snapshot.aiStreamThrottleCloudSyncEndpoint;
-    _aiStreamThrottleCloudSyncToken =
-        snapshot.aiStreamThrottleCloudSyncToken;
+    _aiStreamThrottleCloudSyncToken = snapshot.aiStreamThrottleCloudSyncToken;
     _aiStreamThrottleConfigUpdatedAtMs =
         snapshot.aiStreamThrottleConfigUpdatedAtMs;
     _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
@@ -2862,8 +2852,9 @@ class SettingsController extends ChangeNotifier {
     return _commitMutation(() {
       final disposition = mutation();
       if (disposition == _MutationDisposition.apply) {
-        _aiStreamThrottleConfigUpdatedAtMs =
-            DateTime.now().toUtc().millisecondsSinceEpoch;
+        _aiStreamThrottleConfigUpdatedAtMs = DateTime.now()
+            .toUtc()
+            .millisecondsSinceEpoch;
       }
       return disposition;
     });

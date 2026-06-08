@@ -69,6 +69,9 @@ class WebFetchScraplingBridge {
 
   static const String _assetPath =
       'assets/tooling/webfetch_scrapling_bridge.py';
+  static const String _pythonNotFoundCode = 'python_not_found';
+  static const String _pythonNotFoundDetail =
+      'Python 3 not found. Install Python 3.10+ or set a custom executable path.';
 
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
@@ -134,14 +137,7 @@ class WebFetchScraplingBridge {
     return _runExclusive(() async {
       final python = await _resolvePythonExecutable(settings);
       if (python == null) {
-        return _lastProbe = WebFetchScraplingProbeStatus(
-          ready: false,
-          code: 'python_not_found',
-          detail:
-              'Python 3 not found. Install Python 3.10+ or set a custom executable path.',
-          updatedAt: DateTime.now().toUtc(),
-          runtimeInstalled: false,
-        );
+        return _lastProbe = _pythonNotFoundProbeStatus();
       }
       try {
         await _ensureReady(settings: settings, pythonExecutable: python);
@@ -160,7 +156,6 @@ class WebFetchScraplingBridge {
           detail: '$error',
           pythonExecutable: python,
           updatedAt: DateTime.now().toUtc(),
-          runtimeInstalled: false,
         );
       }
     });
@@ -175,14 +170,7 @@ class WebFetchScraplingBridge {
     return _runExclusive(() async {
       final python = await _resolvePythonExecutable(settings);
       if (python == null) {
-        _lastProbe = WebFetchScraplingProbeStatus(
-          ready: false,
-          code: 'python_not_found',
-          detail:
-              'Python 3 not found. Install Python 3.10+ or set a custom executable path.',
-          updatedAt: DateTime.now().toUtc(),
-          runtimeInstalled: false,
-        );
+        _lastProbe = _pythonNotFoundProbeStatus();
         throw WebEngineHttpException(_lastProbe.code);
       }
       await _ensureReady(settings: settings, pythonExecutable: python);
@@ -315,8 +303,7 @@ class WebFetchScraplingBridge {
       pythonExecutable,
       <String>[helperPath],
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      environment: SystemProxyResolver.instance
-          .resolveSubprocessEnvironment(),
+      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
     _process = process;
     _stdoutSubscription = process.stdout
@@ -411,6 +398,15 @@ class WebFetchScraplingBridge {
     );
   }
 
+  WebFetchScraplingProbeStatus _pythonNotFoundProbeStatus() {
+    return WebFetchScraplingProbeStatus(
+      ready: false,
+      code: _pythonNotFoundCode,
+      detail: _pythonNotFoundDetail,
+      updatedAt: DateTime.now().toUtc(),
+    );
+  }
+
   bool _shouldRecycle(String code) {
     return code == 'bridge_exception' ||
         code == 'scrapling_bridge_stopped' ||
@@ -473,14 +469,7 @@ class WebFetchScraplingBridge {
   }) async* {
     final python = await _resolvePythonExecutable(settings);
     if (python == null) {
-      _lastProbe = WebFetchScraplingProbeStatus(
-        ready: false,
-        code: 'python_not_found',
-        detail:
-            'Python 3 not found. Install Python 3.10+ or set a custom executable path.',
-        updatedAt: DateTime.now().toUtc(),
-        runtimeInstalled: false,
-      );
+      _lastProbe = _pythonNotFoundProbeStatus();
       throw WebEngineHttpException(_lastProbe.code);
     }
 
@@ -517,8 +506,7 @@ class WebFetchScraplingBridge {
         timeoutSeconds: settings.installTimeoutSeconds,
         tag: '$tag.ca_retry',
         environment: <String, String>{
-          ...SystemProxyResolver.instance
-              .resolveSubprocessEnvironment(),
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           'PIP_CERT': tlsBundle,
           'SSL_CERT_FILE': tlsBundle,
           'REQUESTS_CA_BUNDLE': tlsBundle,

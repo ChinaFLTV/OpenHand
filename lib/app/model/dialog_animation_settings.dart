@@ -126,9 +126,11 @@ class DialogAnimationSettings {
       ),
       durationMs: (json['duration_ms'] as num?)?.toInt() ?? 320,
       curve: DialogAnimationCurve.fromStorage(json['curve'] as String?),
-    );
+    ).normalized();
   }
 
+  static const int minAnimatedDurationMs = 80;
+  static const int maxDurationMs = 1200;
   static const DialogAnimationSettings defaults = DialogAnimationSettings();
 
   final DialogAnimationStyle entranceStyle;
@@ -136,7 +138,30 @@ class DialogAnimationSettings {
   final int durationMs;
   final DialogAnimationCurve curve;
 
-  Duration get duration => Duration(milliseconds: durationMs);
+  bool get disablesAnimation =>
+      entranceStyle == DialogAnimationStyle.none &&
+      exitStyle == DialogAnimationStyle.none;
+
+  int get effectiveDurationMs => _normalizedDurationMs(
+    entranceStyle: entranceStyle,
+    exitStyle: exitStyle,
+    durationMs: durationMs,
+  );
+
+  Duration get duration => Duration(milliseconds: effectiveDurationMs);
+
+  DialogAnimationSettings normalized() {
+    final normalizedDurationMs = effectiveDurationMs;
+    if (durationMs == normalizedDurationMs) {
+      return this;
+    }
+    return DialogAnimationSettings(
+      entranceStyle: entranceStyle,
+      exitStyle: exitStyle,
+      durationMs: normalizedDurationMs,
+      curve: curve,
+    );
+  }
 
   DialogAnimationSettings copyWith({
     DialogAnimationStyle? entranceStyle,
@@ -149,15 +174,18 @@ class DialogAnimationSettings {
       exitStyle: exitStyle ?? this.exitStyle,
       durationMs: durationMs ?? this.durationMs,
       curve: curve ?? this.curve,
-    );
+    ).normalized();
   }
 
-  Map<String, dynamic> toJson() => {
-    'entrance_style': entranceStyle.storageValue,
-    'exit_style': exitStyle.storageValue,
-    'duration_ms': durationMs,
-    'curve': curve.storageValue,
-  };
+  Map<String, dynamic> toJson() {
+    final normalized = this.normalized();
+    return {
+      'entrance_style': normalized.entranceStyle.storageValue,
+      'exit_style': normalized.exitStyle.storageValue,
+      'duration_ms': normalized.durationMs,
+      'curve': normalized.curve.storageValue,
+    };
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -170,4 +198,18 @@ class DialogAnimationSettings {
 
   @override
   int get hashCode => Object.hash(entranceStyle, exitStyle, durationMs, curve);
+
+  static int _normalizedDurationMs({
+    required DialogAnimationStyle entranceStyle,
+    required DialogAnimationStyle exitStyle,
+    required int durationMs,
+  }) {
+    final disabled =
+        entranceStyle == DialogAnimationStyle.none &&
+        exitStyle == DialogAnimationStyle.none;
+    if (disabled) {
+      return 0;
+    }
+    return durationMs.clamp(minAnimatedDurationMs, maxDurationMs).toInt();
+  }
 }

@@ -13293,7 +13293,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         _diagnosticTooltipEntry = OverlayEntry(
           builder: (overlayContext) => AnimatedOverlayContent(
             useMenuSettings: true,
-            enableScaleAnimation: true,
             child: _buildDiagnosticTooltipOverlay(overlayContext),
           ),
         );

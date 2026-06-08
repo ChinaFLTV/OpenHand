@@ -4501,7 +4501,6 @@ DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
       entranceStyle: DialogAnimationStyle.springScale,
       exitStyle: DialogAnimationStyle.springScale,
       durationMs: 260,
-      curve: DialogAnimationCurve.easeOutCubic,
     );
   }
 }

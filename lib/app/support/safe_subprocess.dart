@@ -22,6 +22,9 @@ int safeSubprocessDefaultGracefulShutdownMs = 500;
 ///   2) `exitCode` 已被组件代码 await 时，我们也能并行听到。
 final Map<int, Process> _trackedChildren = <int, Process>{};
 
+const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
+const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
+
 void _registerTrackedChild(Process process) {
   _trackedChildren[process.pid] = process;
   // 用 block + void 返回值，避免 dart_async 备忘录里的「whenComplete 返回
@@ -112,57 +115,91 @@ Future<int> killAllDirectChildren() async {
   try {
     final myPid = pid;
     if (Platform.isMacOS || Platform.isLinux) {
-      final result = await Process.run('pgrep', ['-P', '$myPid']);
+      final result = await Process.run('pgrep', [
+        '-P',
+        '$myPid',
+      ]).timeout(_directChildEnumerationTimeout);
       if (result.exitCode == 0) {
-        final stdout = (result.stdout as String).trim();
-        if (stdout.isNotEmpty) {
-          for (final line in stdout.split('\n')) {
-            final childPid = int.tryParse(line.trim());
-            if (childPid != null && childPid != myPid) {
-              try {
-                Process.killPid(childPid, ProcessSignal.sigterm);
-                // 不等待——直接补 SIGKILL
-                Process.killPid(childPid, ProcessSignal.sigkill);
-                killed++;
-              } catch (error, stack) {
-                silentLog('safe_subprocess', 'kill direct child pid', error, stack);
-              }
-            }
-          }
-        }
+        killed += await _terminatePidSet(
+          _parseChildPids(result.stdout, parentPid: myPid),
+          tag: 'kill direct child pid',
+        );
       }
-      // 第二遍：pgrep 默认只列直接子进程；为防子进程又 fork 出孙进程，
-      // 额外用 pkill -P 把以本 pid 为根的整棵进程树一次性拔除。
+      // 第二遍补漏：pgrep 与逐个 kill 之间可能又 fork 出新的直接子进程。
       try {
-        final r2 = await Process.run('pkill', ['-P', '$myPid']);
-        if (r2.exitCode == 0) killed = killed + 1; // pkill 本身不报数，保守计 1
+        final r2 = await Process.run('pkill', [
+          '-TERM',
+          '-P',
+          '$myPid',
+        ]).timeout(_directChildEnumerationTimeout);
+        if (r2.exitCode == 0) {
+          await Future<void>.delayed(_directChildTerminateGrace);
+          await Process.run('pkill', [
+            '-KILL',
+            '-P',
+            '$myPid',
+          ]).timeout(_directChildEnumerationTimeout);
+          killed = killed + 1; // pkill 本身不报数，保守计 1。
+        }
       } catch (error, stack) {
         silentLog('safe_subprocess', 'pkill -P fallback', error, stack);
       }
     } else if (Platform.isWindows) {
       final result = await Process.run('wmic', [
-        'process', 'where', '(ParentProcessId=$myPid)', 'get', 'ProcessId',
-      ]);
+        'process',
+        'where',
+        '(ParentProcessId=$myPid)',
+        'get',
+        'ProcessId',
+      ]).timeout(_directChildEnumerationTimeout);
       if (result.exitCode == 0) {
-        final stdout = (result.stdout as String).trim();
-        for (final line in stdout.split('\n')) {
-          final childPid = int.tryParse(line.trim());
-          if (childPid != null && childPid != myPid) {
-            try {
-              Process.killPid(childPid, ProcessSignal.sigterm);
-              Process.killPid(childPid, ProcessSignal.sigkill);
-              killed++;
-            } catch (error, stack) {
-              silentLog('safe_subprocess', 'kill windows child pid', error, stack);
-            }
-          }
-        }
+        killed += await _terminatePidSet(
+          _parseChildPids(result.stdout, parentPid: myPid),
+          tag: 'kill windows child pid',
+        );
       }
     }
   } catch (error, stack) {
     silentLog('safe_subprocess', 'enumerate direct children', error, stack);
   }
   return killed;
+}
+
+Set<int> _parseChildPids(Object? stdout, {required int parentPid}) {
+  return '$stdout'
+      .split(RegExp(r'\s+'))
+      .map((part) => int.tryParse(part.trim()))
+      .whereType<int>()
+      .where((childPid) => childPid > 0 && childPid != parentPid)
+      .toSet();
+}
+
+Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
+  if (pids.isEmpty) {
+    return 0;
+  }
+  final signalled = <int>{};
+  for (final childPid in pids) {
+    try {
+      if (Process.killPid(childPid)) {
+        signalled.add(childPid);
+      }
+    } catch (error, stack) {
+      silentLog('safe_subprocess', tag, error, stack);
+    }
+  }
+  if (signalled.isEmpty) {
+    return 0;
+  }
+  await Future<void>.delayed(_directChildTerminateGrace);
+  for (final childPid in signalled) {
+    try {
+      Process.killPid(childPid, ProcessSignal.sigkill);
+    } catch (error, stack) {
+      silentLog('safe_subprocess', tag, error, stack);
+    }
+  }
+  return signalled.length;
 }
 
 /// Runs an external command with a hard wall-clock timeout that **kills**
@@ -355,12 +392,22 @@ Future<bool> runDetachedSystemOpen(
             try {
               Process.killPid(pid, ProcessSignal.sigkill);
             } catch (error, stack) {
-              silentLog('safe_subprocess', 'sigkill detached watchdog', error, stack);
+              silentLog(
+                'safe_subprocess',
+                'sigkill detached watchdog',
+                error,
+                stack,
+              );
             }
           });
         } catch (error, stack) {
           // 已退出 → killPid 返回 false / 抛错，正常路径，无需处理。
-          silentLog('safe_subprocess', 'sigterm detached watchdog', error, stack);
+          silentLog(
+            'safe_subprocess',
+            'sigterm detached watchdog',
+            error,
+            stack,
+          );
         }
       });
     }

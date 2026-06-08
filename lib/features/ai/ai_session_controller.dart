@@ -13,6 +13,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/structured_error_text.dart';
+import '../home/index.dart';
 import '../hooks/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
@@ -25,7 +26,6 @@ import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
 import 'model/ai_session_message.dart';
 import 'model/ai_session_runtime_context.dart';
-import '../home/index.dart';
 import 'model/ai_stream_throttle_override.dart';
 import 'model/ai_thread_template.dart';
 import 'model/ai_token_usage.dart';
@@ -51,12 +51,12 @@ import 'tools/skill/ai_skill_manager_tool.dart';
 import 'tools/web/ai_web_fetch_tool.dart';
 import 'tools/web/ai_web_search_tool.dart';
 
-part 'state/_ai_session_models.dart';
-part 'state/_ai_session_utils.dart';
-part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_compression_helpers.dart';
 part 'state/_ai_session_manual_compaction.dart';
+part 'state/_ai_session_models.dart';
+part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_stream_throttle.dart';
+part 'state/_ai_session_utils.dart';
 
 typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(
@@ -3651,7 +3651,9 @@ class AiSessionController extends ChangeNotifier {
             modelLabel: model.displayName,
             metadata: <String, Object?>{
               aiSessionMessageMetadataStreamingKey: true,
-              aiSessionMessageContentFormatKey: _latestRuntimeContext?.messageContentFormat.storageKey ?? defaultAiMessageContentFormat.storageKey,
+              aiSessionMessageContentFormatKey:
+                  _latestRuntimeContext?.messageContentFormat.storageKey ??
+                  defaultAiMessageContentFormat.storageKey,
             },
           ),
           update: (message) => message.copyWith(
@@ -3661,7 +3663,9 @@ class AiSessionController extends ChangeNotifier {
             metadata: <String, Object?>{
               ...message.metadata,
               aiSessionMessageMetadataStreamingKey: isStillStreaming,
-              aiSessionMessageContentFormatKey: _latestRuntimeContext?.messageContentFormat.storageKey ?? defaultAiMessageContentFormat.storageKey,
+              aiSessionMessageContentFormatKey:
+                  _latestRuntimeContext?.messageContentFormat.storageKey ??
+                  defaultAiMessageContentFormat.storageKey,
             },
           ),
         );

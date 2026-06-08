@@ -99,7 +99,6 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
           ? DialogAnimationStyle.fadeScale
           : DialogAnimationStyle.fade,
       durationMs: widget.customDuration?.inMilliseconds ?? 150,
-      curve: DialogAnimationCurve.easeOutCubic,
     );
   }
 

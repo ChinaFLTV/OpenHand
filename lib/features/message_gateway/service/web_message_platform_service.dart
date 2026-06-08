@@ -21,12 +21,13 @@ import '../../../app/support/silent_log.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
 import '../../hardness/index.dart';
+import '../../home/index.dart'
+    show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../instructions/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
-import '../../home/index.dart' show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -36,9 +37,9 @@ import 'web_gateway_accessible_urls.dart';
 export '../model/web_gateway_runtime.dart';
 export '../model/web_gateway_session_metadata.dart';
 
+part 'web_message_platform_service_auth.part.dart';
 // 内部子系统 — 通过 part 共享同一 library，保持私有 API 表面不变。
 part 'web_message_platform_service_logger.part.dart';
-part 'web_message_platform_service_auth.part.dart';
 part 'web_message_platform_service_telemetry.part.dart';
 
 class _WebWriteApprovalRequest {
@@ -4232,7 +4233,8 @@ class WebMessagePlatformService {
   Map<String, Object?> _ensureCacheHitStats(AiSession session) {
     final stats = Map<String, Object?>.from(session.statistics.toJson());
     final existingRatio = stats['cache_hit_ratio'];
-    final hasExisting = existingRatio is num &&
+    final hasExisting =
+        existingRatio is num &&
         (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
     if (hasExisting) return stats;
     final cacheRead = (stats['cache_read_tokens'] is int)
@@ -4243,8 +4245,8 @@ class WebMessagePlatformService {
         : 0;
     if (cacheRead <= 0 || prompt <= 0) return stats;
     final protocol = _lastModelProtocolForSession(session);
-    final claudeStyle = protocol != null &&
-        protocol.trim().toLowerCase() == 'claude';
+    final claudeStyle =
+        protocol != null && protocol.trim().toLowerCase() == 'claude';
     final trend = SessionCacheHitTrend.fromSession(
       session,
       claudeStyle: claudeStyle,

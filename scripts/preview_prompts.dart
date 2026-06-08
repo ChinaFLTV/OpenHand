@@ -8,7 +8,7 @@
 
 import 'dart:io';
 
-import '../lib/features/ai/service/prompt/ai_prompt_template_assembly.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 
 const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'default', dir: 'assets/prompts/default'),
@@ -46,10 +46,7 @@ String _appendV4DisciplineIfAbsent(String instructions) {
 }
 
 String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  return appendAiPromptMemoryTonePolicyIfAbsent(
-    instructions,
-    section: aiPromptMemoryTonePolicySection,
-  );
+  return appendAiPromptMemoryTonePolicyIfAbsent(instructions);
 }
 
 String _readOrEmpty(String path) {

@@ -277,10 +277,7 @@ class AiPromptTemplateRepository {
 /// `hermes_talker`) will NOT have it appended twice — see
 /// [_appendMemoryTonePolicyIfAbsent].
 String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  return appendAiPromptMemoryTonePolicyIfAbsent(
-    instructions,
-    section: aiPromptMemoryTonePolicySection,
-  );
+  return appendAiPromptMemoryTonePolicyIfAbsent(instructions);
 }
 
 // ── Emergency fallback prompts ────────────────────────────────────────────────
