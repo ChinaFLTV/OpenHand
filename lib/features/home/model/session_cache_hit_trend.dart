@@ -147,9 +147,10 @@ class SessionCacheHitTrend {
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
     final filteredPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeAll => points,
-      SessionCacheHitDisplayMode.excludeExtremeMisses => points
-          .where((point) => !_isExtremeIdleExpiryMiss(point))
-          .toList(growable: false),
+      SessionCacheHitDisplayMode.excludeExtremeMisses =>
+        points
+            .where((point) => !_isExtremeIdleExpiryMiss(point))
+            .toList(growable: false),
     };
     var cacheReadTokens = 0;
     var cacheWriteTokens = 0;
@@ -167,7 +168,9 @@ class SessionCacheHitTrend {
       );
     }
     final denominator = cacheReadTokens + uncachedPromptTokens;
-    final averageHitRatio = denominator <= 0 ? 0.0 : cacheReadTokens / denominator;
+    final averageHitRatio = denominator <= 0
+        ? 0.0
+        : cacheReadTokens / denominator;
     return SessionCacheHitDisplayData(
       mode: mode,
       trend: SessionCacheHitTrend(
@@ -197,8 +200,12 @@ class SessionCacheHitTrend {
       if (message.kind != AiSessionMessageKind.user) {
         continue;
       }
-      final assistantMessage = _cacheHitRelatedTelemetryMessage(session, message);
-      if (assistantMessage == null || assistantMessage.kind != AiSessionMessageKind.assistant) {
+      final assistantMessage = _cacheHitRelatedTelemetryMessage(
+        session,
+        message,
+      );
+      if (assistantMessage == null ||
+          assistantMessage.kind != AiSessionMessageKind.assistant) {
         continue;
       }
       final usage = assistantMessage.usage ?? message.usage;
@@ -286,7 +293,9 @@ AiSessionMessage? _previousUserMessage(
   AiSession session,
   String currentUserMessageId,
 ) {
-  final startIndex = session.messages.indexWhere((item) => item.id == currentUserMessageId);
+  final startIndex = session.messages.indexWhere(
+    (item) => item.id == currentUserMessageId,
+  );
   if (startIndex <= 0) {
     return null;
   }
@@ -303,7 +312,9 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
   AiSession session,
   AiSessionMessage userMessage,
 ) {
-  final startIndex = session.messages.indexWhere((item) => item.id == userMessage.id);
+  final startIndex = session.messages.indexWhere(
+    (item) => item.id == userMessage.id,
+  );
   if (startIndex == -1) {
     return null;
   }
@@ -412,6 +423,19 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     relatedMetadata['previous_tool_catalog_hash'],
     if (promptMetadata != null) promptMetadata['previous_tool_catalog_hash'],
   ]);
+  final inputCacheEnabled = firstBool([
+    primaryMetadata['cache_enabled'],
+    relatedMetadata['cache_enabled'],
+    if (promptMetadata != null) promptMetadata['cache_enabled'],
+  ]);
+  final cacheControlMarkerCount = firstInt([
+    primaryMetadata['request_cache_control_marker_count'],
+    relatedMetadata['request_cache_control_marker_count'],
+  ]);
+  final cacheControlsMissing =
+      inputCacheEnabled &&
+      cacheControlMarkerCount != null &&
+      cacheControlMarkerCount <= 0;
   final prefixDriftSuspected =
       !ttlSuspected &&
       idleGapSeconds != null &&
@@ -421,7 +445,8 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
               stablePrefixHash != previousStablePrefixHash) ||
           (toolCatalogHash.isNotEmpty &&
               previousToolCatalogHash.isNotEmpty &&
-              toolCatalogHash != previousToolCatalogHash));
+              toolCatalogHash != previousToolCatalogHash) ||
+          cacheControlsMissing);
   return _CacheHitDiagnostics(
     idleGapSeconds: idleGapSeconds,
     ttlSuspected: ttlSuspected,

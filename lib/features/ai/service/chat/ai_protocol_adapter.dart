@@ -773,11 +773,17 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           });
           remainingBreakpoints -= 1;
         } else {
-          blocks.add(<String, Object?>{'type': 'text', 'text': stableSystemContent});
+          blocks.add(<String, Object?>{
+            'type': 'text',
+            'text': stableSystemContent,
+          });
         }
       }
       if (volatileSystemContent.isNotEmpty) {
-        blocks.add(<String, Object?>{'type': 'text', 'text': volatileSystemContent});
+        blocks.add(<String, Object?>{
+          'type': 'text',
+          'text': volatileSystemContent,
+        });
       }
       systemPayload = blocks.length == 1 && !cacheEnabled
           ? blocks.first['text'] as String
@@ -857,6 +863,21 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       return;
     }
     // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
+    //
+    // 2026-06-09 — 不再把剩余断点全部花在滑动尾部。长线程里尾部常常包含
+    // 刚读到的大工具结果、连续“继续”、或失败工具调用；只缓存尾部会让服务端
+    // 在一次尾部形态变化后失去可复用的稳定会话前缀。默认布点改为：
+    // 1. 首个非空消息前缀（稳定锚点）
+    // 2. 当前尾部（最新上下文）
+    // 3. 其余预算再按用户选择的 mode/interval 补充
+    final stablePrefixIndex = _firstCacheableMessageIndex(requestMessages);
+    final selected = <int>{};
+    if (budget == 1) {
+      selected.add(lastIndex);
+    } else {
+      selected.add(stablePrefixIndex);
+      selected.add(lastIndex);
+    }
     final candidates = <int>[];
     final interval = config.updateInterval <= 0 ? 1 : config.updateInterval;
     switch (config.mode) {
@@ -887,10 +908,23 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         }
         break;
     }
-    final selected = candidates.take(budget).toList(growable: false);
-    for (final index in selected) {
+    for (final index in candidates) {
+      if (selected.length >= budget) break;
+      selected.add(index);
+    }
+    final ordered = selected.toList()..sort();
+    for (final index in ordered.take(budget)) {
       _attachCacheControlToMessageTail(requestMessages[index]);
     }
+  }
+
+  int _firstCacheableMessageIndex(List<Map<String, Object?>> requestMessages) {
+    for (var i = 0; i < requestMessages.length; i++) {
+      if (_estimateMessageChars(requestMessages[i]) > 0) {
+        return i;
+      }
+    }
+    return 0;
   }
 
   int _estimateMessageChars(Map<String, Object?> message) {

@@ -102,6 +102,16 @@ class AiPromptBuilder {
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
+  static const Set<String> _continuationOnlySignals = <String>{
+    'continue',
+    'continue.',
+    'go on',
+    'keep going',
+    '继续',
+    '继续吧',
+    '接着做',
+    '接着',
+  };
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -509,22 +519,26 @@ class AiPromptBuilder {
       if (restoredFileContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.restoredFileContext}\n\n$restoredFileContext',
+          content:
+              '${AiPromptSectionHeaders.restoredFileContext}\n\n$restoredFileContext',
         ),
       if (restoredSkillContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.restoredSkillContext}\n\n$restoredSkillContext',
+          content:
+              '${AiPromptSectionHeaders.restoredSkillContext}\n\n$restoredSkillContext',
         ),
       if (restoredPlanContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.restoredPlanContext}\n\n$restoredPlanContext',
+          content:
+              '${AiPromptSectionHeaders.restoredPlanContext}\n\n$restoredPlanContext',
         ),
       if (restoredMcpContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.restoredMcpContext}\n\n$restoredMcpContext',
+          content:
+              '${AiPromptSectionHeaders.restoredMcpContext}\n\n$restoredMcpContext',
         ),
       if (restoredSessionStartHookContext.isNotEmpty)
         AiChatTurn(
@@ -585,7 +599,8 @@ class AiPromptBuilder {
       if (planModeReminder != null && planModeReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.planModeReminder}\n\n$planModeReminder',
+          content:
+              '${AiPromptSectionHeaders.planModeReminder}\n\n$planModeReminder',
         ),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
@@ -618,11 +633,7 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content:
-              '${AiPromptSectionHeaders.themeContextReminder}\n\n${AiOutputFormatPrompts.themeContextFor(
-            brightness: runtimeContext.appThemeBrightness,
-            presetName: runtimeContext.appThemePresetName,
-            primaryColor: runtimeContext.appThemePrimaryColor,
-          )}',
+              '${AiPromptSectionHeaders.themeContextReminder}\n\n${AiOutputFormatPrompts.themeContextFor(brightness: runtimeContext.appThemeBrightness, presetName: runtimeContext.appThemePresetName, primaryColor: runtimeContext.appThemePrimaryColor)}',
         ),
       // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
       if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
@@ -649,11 +660,9 @@ class AiPromptBuilder {
           .map((item) => '${item.roleName}\n${item.content}')
           .join('\n\n'),
     );
-    final toolCatalogHash = _promptFingerprint(
-      availableToolNames.join('\n'),
-    );
-    final previousCapturedAt = '${session.lastPromptMetadata['captured_at'] ?? ''}'
-        .trim();
+    final toolCatalogHash = _promptFingerprint(availableToolNames.join('\n'));
+    final previousCapturedAt =
+        '${session.lastPromptMetadata['captured_at'] ?? ''}'.trim();
     final previousStablePrefixHash =
         '${session.lastPromptMetadata['stable_prefix_hash'] ?? ''}'.trim();
     final currentCapturedAt = DateTime.now().toUtc();
@@ -671,10 +680,15 @@ class AiPromptBuilder {
       ..['tool_catalog_hash'] = toolCatalogHash
       ..['previous_tool_catalog_hash'] =
           '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
+      ..['cache_enabled'] = runtimeContext.aiInputCacheEnabled
+      ..['cache_update_mode'] = runtimeContext.aiInputCacheUpdateMode
+      ..['cache_update_interval'] = runtimeContext.aiInputCacheUpdateInterval
       ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
-      ..['cache_breakpoint_positions'] = runtimeContext.aiInputCacheBreakpointPositions
+      ..['cache_breakpoint_positions'] =
+          runtimeContext.aiInputCacheBreakpointPositions
       ..['idle_gap_seconds'] = idleGapSeconds
-      ..['ttl_suspected'] = idleGapSeconds != null &&
+      ..['ttl_suspected'] =
+          idleGapSeconds != null &&
           idleGapSeconds >= 3600 &&
           previousStablePrefixHash.isNotEmpty &&
           previousStablePrefixHash == stablePrefixHash
@@ -999,7 +1013,8 @@ class AiPromptBuilder {
       'sequential_tool_round_limit': runtimeContext.sequentialToolRoundLimit,
       'write_command_confirmation_enabled':
           runtimeContext.writeCommandConfirmationEnabled,
-      'workspace_instruction_paths': runtimeContext.workspaceInstructionDocuments
+      'workspace_instruction_paths': runtimeContext
+          .workspaceInstructionDocuments
           .map((item) => item.path)
           .toList(growable: false),
     };
@@ -1025,7 +1040,8 @@ class AiPromptBuilder {
       },
     };
     if (includeRepositorySnapshot) {
-      snapshot['repository_snapshot'] = runtimeContext.repositorySnapshot?.toJson();
+      snapshot['repository_snapshot'] = runtimeContext.repositorySnapshot
+          ?.toJson();
     }
     return snapshot;
   }
@@ -1195,15 +1211,21 @@ class AiPromptBuilder {
         builtinTools.add(tool);
       }
     }
-    skillTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
-      a.name,
-    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
-    mcpTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
-      a.name,
-    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
-    builtinTools.sort((a, b) => _normalizeToolNameForPromptCatalog(
-      a.name,
-    ).compareTo(_normalizeToolNameForPromptCatalog(b.name)));
+    skillTools.sort(
+      (a, b) => _normalizeToolNameForPromptCatalog(
+        a.name,
+      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
+    );
+    mcpTools.sort(
+      (a, b) => _normalizeToolNameForPromptCatalog(
+        a.name,
+      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
+    );
+    builtinTools.sort(
+      (a, b) => _normalizeToolNameForPromptCatalog(
+        a.name,
+      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
+    );
     final visibleToolCount =
         skillTools.length + mcpTools.length + builtinTools.length;
     if (visibleToolCount == 0) {
@@ -1954,6 +1976,7 @@ $identity''';
     final turns = <AiChatTurn>[];
     var index = 0;
     String? roundReasoning;
+    var previousMappedUserWasContinuation = false;
     // 2026-04-27 (修复): 找出"已被模型消费"的边界。任何 assistant /
     // toolCall 消息都意味着模型已经基于之前的工具结果产出了下一步动作；
     // 因此 index 大于 `lastConsumerIndex` 的 tool 结果属于尚未被消费的
@@ -1995,6 +2018,14 @@ $identity''';
       if (message.kind == AiSessionMessageKind.user) {
         // User message ends the previous thinking round.
         roundReasoning = null;
+        final isContinuation = _isContinuationOnlyMessage(message.content);
+        if (isContinuation && previousMappedUserWasContinuation) {
+          index += 1;
+          continue;
+        }
+        previousMappedUserWasContinuation = isContinuation;
+      } else if (message.kind != AiSessionMessageKind.reasoning) {
+        previousMappedUserWasContinuation = false;
       }
       if (message.kind == AiSessionMessageKind.toolCall) {
         final mappedGroup = _mapToolExchange(
@@ -4428,17 +4459,7 @@ $content
       (item) => item.status.trim().toLowerCase() != 'completed',
     );
     final normalizedContent = message.content.trim().toLowerCase();
-    const continuationOnlySignals = <String>{
-      'continue',
-      'continue.',
-      'go on',
-      'keep going',
-      '继续',
-      '继续吧',
-      '接着做',
-      '接着',
-    };
-    if (continuationOnlySignals.contains(normalizedContent)) {
+    if (_continuationOnlySignals.contains(normalizedContent)) {
       return null;
     }
     if (hasIncompleteTodo || !_looksLikeNonTrivialTask(message.content)) {
@@ -4566,6 +4587,10 @@ $content
 
   bool _looksLikePlanApproval(String content) =>
       AiPlanApprovalDetector.looksLikePlanApproval(content);
+
+  bool _isContinuationOnlyMessage(String content) {
+    return _continuationOnlySignals.contains(content.trim().toLowerCase());
+  }
 
   bool _looksLikePlanRecoveryContinuation(String content) {
     final normalized = content.trim().toLowerCase();

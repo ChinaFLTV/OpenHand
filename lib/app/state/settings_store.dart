@@ -140,7 +140,7 @@ class SettingsStore {
 
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
-      'version': 2,
+      'version': 3,
       'theme_mode': _themeModeToStorage(snapshot.themeMode),
       'theme_preset': snapshot.themePreset.storageValue,
       'language': snapshot.language.storageValue,
@@ -313,7 +313,22 @@ class SettingsStore {
     };
   }
 
+  static bool _migrateAiInputCacheEnabled({
+    required bool persisted,
+    required int schemaVersion,
+  }) {
+    if (schemaVersion < 3 && !persisted) {
+      // v2 wrote the old false default into DB for many users. Treat that
+      // value as legacy default state once so Claude-compatible threads get
+      // explicit prompt-cache breakpoints after upgrade; v3 false remains a
+      // deliberate opt-out.
+      return AppSettingsSnapshot.defaultAiInputCacheEnabled;
+    }
+    return persisted;
+  }
+
   static AppSettingsSnapshot _snapshotFromJson(Map<String, Object?> json) {
+    final schemaVersion = json['version'] is int ? json['version'] as int : 0;
     final themeMode = _themeModeFromStorage('${json['theme_mode'] ?? ''}');
     final rawThemePreset = '${json['theme_preset'] ?? ''}'.trim();
     final themePreset = OpenHandThemePreset.fromStorage(rawThemePreset);
@@ -483,7 +498,10 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits;
     final aiInputCacheEnabled = json['ai_input_cache_enabled'] is bool
-        ? json['ai_input_cache_enabled'] as bool
+        ? _migrateAiInputCacheEnabled(
+            persisted: json['ai_input_cache_enabled'] as bool,
+            schemaVersion: schemaVersion,
+          )
         : AppSettingsSnapshot.defaultAiInputCacheEnabled;
     final aiInputCacheUpdateMode =
         json['ai_input_cache_update_mode'] is String &&

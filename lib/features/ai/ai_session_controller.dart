@@ -9449,11 +9449,13 @@ $trimmedSummary''';
       if (telemetry.requestHeaders != null &&
           telemetry.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
-      if (telemetry.requestBody != null)
+      if (telemetry.requestBody != null) ...<String, Object?>{
+        ..._cacheControlTelemetry(telemetry.requestBody!),
         'request_payload': _sanitizeTelemetryMap(
           telemetry.requestBody!,
           maxChars,
         ),
+      },
     };
     if (runtimeContext.telemetryCaptureEnvironment) {
       payload['environment'] = _captureRuntimeEnvironmentSnapshot(
@@ -9500,6 +9502,36 @@ $trimmedSummary''';
       messages: updatedMessages,
       updatedAt: _clock().toUtc(),
     );
+  }
+
+  Map<String, Object?> _cacheControlTelemetry(Map<String, Object?> body) {
+    final paths = <String>[];
+    void visit(Object? value, String path) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = '${entry.key}';
+          final childPath = path.isEmpty ? key : '$path.$key';
+          if (key == 'cache_control') {
+            paths.add(path.isEmpty ? key : path);
+            continue;
+          }
+          visit(entry.value, childPath);
+        }
+        return;
+      }
+      if (value is List) {
+        for (var index = 0; index < value.length; index++) {
+          visit(value[index], '$path[$index]');
+        }
+      }
+    }
+
+    visit(body, '');
+    return <String, Object?>{
+      'request_cache_control_marker_count': paths.length,
+      if (paths.isNotEmpty)
+        'request_cache_control_marker_paths': paths.take(8).toList(),
+    };
   }
 
   /// Phase-1 (pre-stream) telemetry: attaches the composed prompt, prompt
