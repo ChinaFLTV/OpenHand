@@ -62,7 +62,9 @@ Future<void> main() async {
 }
 
 Future<void> _bootstrap() async {
+  debugPrint('[bootstrap] step0 ensureInitialized');
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('[bootstrap] step1 binding done');
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 2026-05-18 — 在 binding 初始化之后立刻启动 FPS 监视器，节流自动
   // 模式与 UI 卡顿降级会读它的 recentFps 数值。
@@ -150,8 +152,10 @@ Future<void> _bootstrap() async {
   };
 
   // Initialize database before creating any controllers that depend on it.
+  debugPrint('[bootstrap] step2 before db init');
   try {
     await DatabaseService.initialize();
+    debugPrint('[bootstrap] step3 db init done');
   } catch (error, stackTrace) {
     debugPrint('Fatal: database initialization failed: $error\n$stackTrace');
     runApp(
