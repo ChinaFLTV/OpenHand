@@ -29,6 +29,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   late TextEditingController _summaryMaxController;
   late TextEditingController _cacheTtlController;
   late TextEditingController _cacheMaxBytesController;
+  late TextEditingController _parallelWorkersController;
 
   // 当前磁盘上已经落盘的 WebSearch 缓存字节数，由 [_refreshCacheBytesOnDisk]
   // 异步加载；null 代表尚未读取或读取失败。
@@ -61,6 +62,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     );
     _cacheMaxBytesController = TextEditingController(
       text: _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+    );
+    _parallelWorkersController = TextEditingController(
+      text: '${widget.value.parallelWorkers}',
     );
     _refreshCacheBytesOnDisk();
     _refreshTelemetry();
@@ -219,24 +223,46 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     super.didUpdateWidget(old);
     if (old.value.resultCount != widget.value.resultCount &&
         _resultCountController.text != '${widget.value.resultCount}') {
-      _resultCountController.text = '${widget.value.resultCount}';
+      _syncControllerText(
+        _resultCountController,
+        '${widget.value.resultCount}',
+      );
     }
     if (old.value.summaryMinChars != widget.value.summaryMinChars &&
         _summaryMinController.text != '${widget.value.summaryMinChars}') {
-      _summaryMinController.text = '${widget.value.summaryMinChars}';
+      _syncControllerText(
+        _summaryMinController,
+        '${widget.value.summaryMinChars}',
+      );
     }
     if (old.value.summaryMaxChars != widget.value.summaryMaxChars &&
         _summaryMaxController.text != '${widget.value.summaryMaxChars}') {
-      _summaryMaxController.text = '${widget.value.summaryMaxChars}';
+      _syncControllerText(
+        _summaryMaxController,
+        '${widget.value.summaryMaxChars}',
+      );
     }
     if (old.value.cacheTtlSeconds != widget.value.cacheTtlSeconds &&
         _cacheTtlController.text != '${widget.value.cacheTtlSeconds}') {
-      _cacheTtlController.text = '${widget.value.cacheTtlSeconds}';
+      _syncControllerText(
+        _cacheTtlController,
+        '${widget.value.cacheTtlSeconds}',
+      );
     }
     if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
         _cacheMaxBytesController.text !=
             _formatCacheMegabytesInput(widget.value.cacheMaxBytes)) {
-      _cacheMaxBytesController.text = _formatCacheMegabytesInput(widget.value.cacheMaxBytes);
+      _syncControllerText(
+        _cacheMaxBytesController,
+        _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+      );
+    }
+    if (old.value.parallelWorkers != widget.value.parallelWorkers &&
+        _parallelWorkersController.text != '${widget.value.parallelWorkers}') {
+      _syncControllerText(
+        _parallelWorkersController,
+        '${widget.value.parallelWorkers}',
+      );
     }
   }
 
@@ -247,6 +273,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     _summaryMaxController.dispose();
     _cacheTtlController.dispose();
     _cacheMaxBytesController.dispose();
+    _parallelWorkersController.dispose();
     super.dispose();
   }
 
@@ -504,7 +531,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 enabled: v.parallel,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: TextEditingController(text: '${v.parallelWorkers}'),
+                controller: _parallelWorkersController,
                 decoration: InputDecoration(
                   labelText: _localizedText(
                     context,
@@ -517,14 +544,16 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim());
+                  final parsed = optionalIntFromText(s);
                   if (parsed == null) return;
                   _emit(
                     v.copyWith(
-                      parallelWorkers: parsed.clamp(
-                        AiWebSearchSettings.minParallelWorkers,
-                        AiWebSearchSettings.maxParallelWorkers,
-                      ),
+                      parallelWorkers: parsed
+                          .clamp(
+                            AiWebSearchSettings.minParallelWorkers,
+                            AiWebSearchSettings.maxParallelWorkers,
+                          )
+                          .toInt(),
                     ),
                   );
                 },

@@ -3,6 +3,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/hook_config.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// Persistence layer for hooks configuration using SQLite.
 class HooksStore {
@@ -43,8 +44,8 @@ class HooksStore {
                 HookEvent.fromStorage('${row['event']}') ??
                 HookEvent.sessionStart,
             label: '${row['label'] ?? ''}'.trim(),
-            scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
-            scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
+            scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
+            scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
             enabled: (row['enabled'] as int?) == 1,
             timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
           ),
@@ -96,9 +97,4 @@ class HooksStore {
   Future<void> delete(String id) async {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
   }
-}
-
-String? _nullIfEmpty(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
 }

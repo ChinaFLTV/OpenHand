@@ -6024,6 +6024,9 @@ function SessionThrottleDialog({
     current?.enabled !== false,
   );
   const [busy, setBusy] = useState(false);
+  const { closing, requestClose } = useDialogExitMotion(onClose, {
+    closeOnEscape: !busy,
+  });
 
   const parse = (raw: string): number | null | undefined => {
     const trimmed = raw.trim();
@@ -6054,7 +6057,7 @@ function SessionThrottleDialog({
       patch.enabled = enabledOverride;
       await setSessionThrottle(sessionId, patch);
       showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), { tone: 'success' });
-      onClose();
+      requestClose();
     } catch (err) {
       showSnackbar(
         `${t('topbar.throttle.failed', '应用节流失败')}：${
@@ -6072,7 +6075,7 @@ function SessionThrottleDialog({
     try {
       await clearSessionThrottle(sessionId);
       showSnackbar(t('topbar.throttle.reset', '已恢复模板/全局节流'), { tone: 'success' });
-      onClose();
+      requestClose();
     } catch (err) {
       showSnackbar(
         `${t('topbar.throttle.failed', '应用节流失败')}：${
@@ -6100,13 +6103,6 @@ function SessionThrottleDialog({
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(id);
   }, []);
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
   const displayedBuckets = useMemo(() => {
     void tick;
     const base = lastBucketsRef.current;
@@ -6126,12 +6122,12 @@ function SessionThrottleDialog({
 
   const node = (
     <div
-      class="oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
+      class={`${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'} oh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4`}
+      onClick={busy || closing ? undefined : requestClose}
       style={{ background: 'rgba(0,0,0,0.45)' }}
     >
       <div
-        class="oh-dialog-pop-in rounded-m3-md p-5 w-full max-w-md"
+        class={`${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'} rounded-m3-md p-5 w-full max-w-md`}
         onClick={(e) => e.stopPropagation()}
         style={{ background: 'var(--m3-surface-container-high)' }}
       >
@@ -6295,7 +6291,7 @@ function SessionThrottleDialog({
           <button
             type="button"
             onClick={reset}
-            disabled={busy}
+            disabled={busy || closing}
             class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline-variant)',
@@ -6306,8 +6302,8 @@ function SessionThrottleDialog({
           </button>
           <button
             type="button"
-            onClick={onClose}
-            disabled={busy}
+            onClick={requestClose}
+            disabled={busy || closing}
             class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline-variant)',
@@ -6319,7 +6315,7 @@ function SessionThrottleDialog({
           <button
             type="button"
             onClick={apply}
-            disabled={busy}
+            disabled={busy || closing}
             class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
             style={{
               background: 'var(--m3-primary)',

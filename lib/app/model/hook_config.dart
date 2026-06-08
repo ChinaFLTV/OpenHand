@@ -1,3 +1,5 @@
+import '../../shared/util/input_value_parsing.dart';
+
 /// Hook lifecycle event types matching GitHub Copilot agent lifecycle stages.
 enum HookEvent {
   sessionStart('session_start', 'Session Start', '会话开始'),
@@ -47,8 +49,8 @@ class HookEntry {
           HookEvent.fromStorage('${json['event'] ?? ''}') ??
           HookEvent.sessionStart,
       label: '${json['label'] ?? ''}'.trim(),
-      scriptPath: _nullIfEmpty('${json['script_path'] ?? ''}'),
-      scriptContent: _nullIfEmpty('${json['script_content'] ?? ''}'),
+      scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
+      scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
       enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
       timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt() ?? 12,
     );
@@ -102,9 +104,4 @@ class HookEntry {
       'timeout_seconds': timeoutSeconds,
     };
   }
-}
-
-String? _nullIfEmpty(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
 }

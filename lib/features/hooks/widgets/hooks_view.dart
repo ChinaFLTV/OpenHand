@@ -11,6 +11,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../hooks_controller.dart';
 
 class HooksView extends StatelessWidget {
@@ -546,7 +547,12 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final label = _labelController.text.trim();
     if (label.isEmpty) return;
 
-    final timeout = int.tryParse(_timeoutController.text.trim()) ?? 12;
+    final timeout = clampedIntFromText(
+      _timeoutController.text,
+      fallback: 12,
+      min: 1,
+      max: 60,
+    );
     final entry = HookEntry(
       id: widget.existing?.id ?? _uuid.v4(),
       event: _selectedEvent,
@@ -558,7 +564,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
           ? _scriptContentController.text
           : null,
       enabled: _enabled,
-      timeoutSeconds: timeout.clamp(1, 60),
+      timeoutSeconds: timeout,
     );
 
     final controller = context.read<HooksController>();

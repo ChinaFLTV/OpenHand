@@ -3,6 +3,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/cron_config.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// Persistence layer for cron jobs and execution history using SQLite.
 class CronsStore {
@@ -176,12 +177,12 @@ class CronsStore {
             scriptType:
                 CronScriptType.fromStorage('${row['script_type'] ?? ''}') ??
                 CronScriptType.command,
-            scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
-            scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
+            scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
+            scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
             cronExpression: '${row['cron_expression'] ?? '* * * * *'}'.trim(),
             retryCount: (row['retry_count'] as int?) ?? 0,
             timeoutSeconds: (row['timeout_seconds'] as int?) ?? 60,
-            runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
+            runAsUser: nullIfBlank('${row['run_as_user'] ?? ''}'),
             tags: _parseTags('${row['tags'] ?? ''}'),
             enabled: (row['enabled'] as int?) == 1,
             status: CronJobStatus.fromStorage('${row['status'] ?? ''}'),
@@ -212,20 +213,14 @@ class CronsStore {
             onSuccessVibrate: (row['on_success_vibrate'] as int?) == 1,
             onFailureVibrate: (row['on_failure_vibrate'] as int?) != 0,
             onTimeoutVibrate: (row['on_timeout_vibrate'] as int?) != 0,
-            onSuccessMessage: _nullIfEmpty(
-              '${row['on_success_message'] ?? ''}',
-            ),
-            onFailureMessage: _nullIfEmpty(
-              '${row['on_failure_message'] ?? ''}',
-            ),
-            onTimeoutMessage: _nullIfEmpty(
-              '${row['on_timeout_message'] ?? ''}',
-            ),
+            onSuccessMessage: nullIfBlank('${row['on_success_message'] ?? ''}'),
+            onFailureMessage: nullIfBlank('${row['on_failure_message'] ?? ''}'),
+            onTimeoutMessage: nullIfBlank('${row['on_timeout_message'] ?? ''}'),
             collectAppMetadata: (row['collect_app_metadata'] as int?) != 0,
             collectHostMetadata: (row['collect_host_metadata'] as int?) != 0,
             collectEnvironmentSnapshot:
                 (row['collect_environment_snapshot'] as int?) == 1,
-            workingDirectory: _nullIfEmpty('${row['working_directory'] ?? ''}'),
+            workingDirectory: nullIfBlank('${row['working_directory'] ?? ''}'),
             environment: _parseEnv('${row['environment'] ?? ''}'),
             maxRetryDelaySeconds:
                 (row['max_retry_delay_seconds'] as int?) ?? 30,
@@ -435,11 +430,11 @@ class CronsStore {
             exitCode: row['exit_code'] as int?,
             stdout: '${row['stdout'] ?? ''}'.trim(),
             stderr: '${row['stderr'] ?? ''}'.trim(),
-            errorMessage: _nullIfEmpty('${row['error_message'] ?? ''}'),
+            errorMessage: nullIfBlank('${row['error_message'] ?? ''}'),
             elapsedMs: (row['elapsed_ms'] as int?) ?? 0,
             retryAttempt: (row['retry_attempt'] as int?) ?? 0,
-            runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
-            workingDirectory: _nullIfEmpty('${row['working_directory'] ?? ''}'),
+            runAsUser: nullIfBlank('${row['run_as_user'] ?? ''}'),
+            workingDirectory: nullIfBlank('${row['working_directory'] ?? ''}'),
             environment: _parseEnv('${row['environment'] ?? ''}'),
             appContext: _parseEnv('${row['app_context'] ?? ''}'),
             environmentSnapshot: _parseEnv(
@@ -558,32 +553,14 @@ class CronsStore {
 // Helpers
 // ---------------------------------------------------------------------------
 
-String? _nullIfEmpty(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
-}
-
 List<String> _parseTags(String raw) {
-  return raw
-      .split(',')
-      .map((t) => t.trim())
-      .where((t) => t.isNotEmpty)
-      .toList();
+  return splitTrimmedNonEmpty(raw);
 }
 
 Map<String, String> _parseEnv(String raw) {
-  if (raw.isEmpty) return const <String, String>{};
-  final map = <String, String>{};
-  for (final line in raw.split('\n')) {
-    final idx = line.indexOf('=');
-    if (idx > 0) {
-      map[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-    }
-  }
-  return map;
+  return keyValueMapFromValue(raw);
 }
 
 DateTime? _parseDateTime(String raw) {
-  if (raw.isEmpty) return null;
-  return DateTime.tryParse(raw);
+  return dateTimeFromValue(raw);
 }

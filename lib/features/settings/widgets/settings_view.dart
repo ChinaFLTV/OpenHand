@@ -48,6 +48,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/rolling_text.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/index.dart';
@@ -107,6 +108,15 @@ String _formatBytesHuman(int? bytes) {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+}
+
+void _syncControllerText(TextEditingController controller, String text) {
+  if (controller.text == text) return;
+  controller.value = controller.value.copyWith(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+    composing: TextRange.empty,
+  );
 }
 
 Future<bool> _confirmClearLocalCache({

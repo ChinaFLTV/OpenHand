@@ -16,6 +16,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
@@ -862,25 +863,25 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  // Frozen seconds field
                   SizedBox(
                     width: 56,
-                    child: TextField(
-                      readOnly: true,
-                      enabled: false,
-                      textAlign: TextAlign.center,
+                    child: InputDecorator(
                       decoration: const InputDecoration(
+                        isDense: true,
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 4,
-                          vertical: 8,
+                          vertical: 10,
                         ),
-                        hintText: '0',
                       ),
-                      controller: TextEditingController(text: '0'),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'monospace',
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
+                      child: Center(
+                        child: Text(
+                          '0',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: 'monospace',
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.4,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1488,24 +1489,27 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       return;
     }
 
-    final timeout = int.tryParse(_timeoutController.text.trim()) ?? 60;
-    final retryCount = int.tryParse(_retryController.text.trim()) ?? 0;
-    final maxRetryDelay =
-        int.tryParse(_maxRetryDelayController.text.trim()) ?? 30;
+    final timeout = clampedIntFromText(
+      _timeoutController.text,
+      fallback: 60,
+      min: 1,
+      max: 3600,
+    );
+    final retryCount = clampedIntFromText(
+      _retryController.text,
+      fallback: 0,
+      min: 0,
+      max: 10,
+    );
+    final maxRetryDelay = clampedIntFromText(
+      _maxRetryDelayController.text,
+      fallback: 30,
+      min: 1,
+      max: 300,
+    );
 
-    final tags = _tagsController.text
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toList();
-
-    final env = <String, String>{};
-    for (final line in _envController.text.split('\n')) {
-      final idx = line.indexOf('=');
-      if (idx > 0) {
-        env[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-      }
-    }
+    final tags = splitTrimmedNonEmpty(_tagsController.text);
+    final env = keyValueMapFromValue(_envController.text);
 
     final entry = CronEntry(
       id: widget.existing?.id ?? _uuid.v4(),
@@ -1519,8 +1523,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           ? _scriptContentController.text
           : null,
       cronExpression: cronExpr,
-      retryCount: retryCount.clamp(0, 10),
-      timeoutSeconds: timeout.clamp(1, 3600),
+      retryCount: retryCount,
+      timeoutSeconds: timeout,
       runAsUser: _runAsUser,
       tags: tags,
       enabled: _enabled,
@@ -1537,15 +1541,15 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       onSuccessVibrate: _onSuccessVibration,
       onFailureVibrate: _onFailureVibration,
       onTimeoutVibrate: _onTimeoutVibration,
-      onSuccessMessage: _nullIfEmpty(_onSuccessMsgController.text),
-      onFailureMessage: _nullIfEmpty(_onFailureMsgController.text),
-      onTimeoutMessage: _nullIfEmpty(_onTimeoutMsgController.text),
+      onSuccessMessage: nullIfBlank(_onSuccessMsgController.text),
+      onFailureMessage: nullIfBlank(_onFailureMsgController.text),
+      onTimeoutMessage: nullIfBlank(_onTimeoutMsgController.text),
       collectAppMetadata: _collectAppMetadata,
       collectHostMetadata: _collectHostMetadata,
       collectEnvironmentSnapshot: _collectEnvironmentSnapshot,
-      workingDirectory: _nullIfEmpty(_workingDirController.text),
+      workingDirectory: nullIfBlank(_workingDirController.text),
       environment: env,
-      maxRetryDelaySeconds: maxRetryDelay.clamp(1, 300),
+      maxRetryDelaySeconds: maxRetryDelay,
     );
 
     final controller = context.read<CronsController>();
@@ -1555,11 +1559,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       controller.addCron(entry);
     }
     Navigator.of(context).pop();
-  }
-
-  String? _nullIfEmpty(String text) {
-    final trimmed = text.trim();
-    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _testNotification(_NotificationTestScenario scenario) async {
@@ -1629,7 +1628,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     final defaultBody = isZh
         ? '${config.labelZh}场景通知测试消息。'
         : 'Notification test message for ${config.labelEn.toLowerCase()}.';
-    final body = _nullIfEmpty(config.messageController.text) ?? defaultBody;
+    final body = nullIfBlank(config.messageController.text) ?? defaultBody;
 
     if (config.type == CronNotifyType.none ||
         config.type == CronNotifyType.log) {

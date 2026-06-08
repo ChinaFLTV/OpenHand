@@ -60,8 +60,10 @@ export function ConfirmDialog({
   // 让 Esc / 按钮取消走不同的 close 路径，但共用同一动效 hook：
   // - 点击「取消」按钮：触发 onCancel
   // - 按 Esc：若提供 onDismiss 则走 onDismiss，否则回退到 onCancel
-  const cancelMotion = useDialogExitMotion(onCancel);
-  const dismissMotion = useDialogExitMotion(onDismiss ?? onCancel);
+  const cancelMotion = useDialogExitMotion(onCancel, { closeOnEscape: false });
+  const dismissMotion = useDialogExitMotion(onDismiss ?? onCancel, {
+    closeOnEscape: false,
+  });
   const closing = cancelMotion.closing || dismissMotion.closing;
 
   useEffect(() => {

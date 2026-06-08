@@ -27,6 +27,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   late TextEditingController _resultCountController;
   late TextEditingController _cacheTtlController;
   late TextEditingController _cacheMaxBytesController;
+  late TextEditingController _parallelWorkersController;
 
   // 当前磁盘上已经落盘的 WebFetch 缓存字节数，由 [_refreshCacheBytesOnDisk]
   // 异步加载；null 代表尚未读取或读取失败。
@@ -61,6 +62,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     );
     _cacheMaxBytesController = TextEditingController(
       text: _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+    );
+    _parallelWorkersController = TextEditingController(
+      text: '${widget.value.parallelWorkers}',
     );
     _scraplingProbe = context
         .read<AiSessionController>()
@@ -352,17 +356,31 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     super.didUpdateWidget(old);
     if (old.value.resultCount != widget.value.resultCount &&
         _resultCountController.text != '${widget.value.resultCount}') {
-      _resultCountController.text = '${widget.value.resultCount}';
+      _syncControllerText(
+        _resultCountController,
+        '${widget.value.resultCount}',
+      );
     }
     if (old.value.cacheTtlSeconds != widget.value.cacheTtlSeconds &&
         _cacheTtlController.text != '${widget.value.cacheTtlSeconds}') {
-      _cacheTtlController.text = '${widget.value.cacheTtlSeconds}';
+      _syncControllerText(
+        _cacheTtlController,
+        '${widget.value.cacheTtlSeconds}',
+      );
     }
     if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
         _cacheMaxBytesController.text !=
             _formatCacheMegabytesInput(widget.value.cacheMaxBytes)) {
-      _cacheMaxBytesController.text = _formatCacheMegabytesInput(
-        widget.value.cacheMaxBytes,
+      _syncControllerText(
+        _cacheMaxBytesController,
+        _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+      );
+    }
+    if (old.value.parallelWorkers != widget.value.parallelWorkers &&
+        _parallelWorkersController.text != '${widget.value.parallelWorkers}') {
+      _syncControllerText(
+        _parallelWorkersController,
+        '${widget.value.parallelWorkers}',
       );
     }
   }
@@ -372,6 +390,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     _resultCountController.dispose();
     _cacheTtlController.dispose();
     _cacheMaxBytesController.dispose();
+    _parallelWorkersController.dispose();
     super.dispose();
   }
 
@@ -528,7 +547,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 enabled: v.parallel,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: TextEditingController(text: '${v.parallelWorkers}'),
+                controller: _parallelWorkersController,
                 decoration: InputDecoration(
                   labelText: _localizedText(
                     context,
@@ -541,14 +560,16 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim());
+                  final parsed = optionalIntFromText(s);
                   if (parsed == null) return;
                   _emit(
                     v.copyWith(
-                      parallelWorkers: parsed.clamp(
-                        AiWebFetchSettings.minParallelWorkers,
-                        AiWebFetchSettings.maxParallelWorkers,
-                      ),
+                      parallelWorkers: parsed
+                          .clamp(
+                            AiWebFetchSettings.minParallelWorkers,
+                            AiWebFetchSettings.maxParallelWorkers,
+                          )
+                          .toInt(),
                     ),
                   );
                 },

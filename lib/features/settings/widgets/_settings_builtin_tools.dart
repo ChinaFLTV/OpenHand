@@ -417,27 +417,27 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
         // Invalid JSON — keep null.
       }
     }
-    final priority = int.tryParse(_priorityController.text.trim()) ?? 100;
-    final maxOutputChars = int.tryParse(_maxOutputCharsController.text.trim());
-    final timeoutSeconds = int.tryParse(_timeoutSecondsController.text.trim());
-    final parsedMaxRetries =
-        int.tryParse(_maxRetriesController.text.trim()) ?? 0;
-    final maxRetries = parsedMaxRetries.clamp(
-      0,
-      AiBuiltinToolConfig.maxRetriesUpperBound,
+    final priority = clampedIntFromText(
+      _priorityController.text,
+      fallback: 100,
+      min: 0,
+      max: 9999,
     );
-    final parsedBackoff =
-        int.tryParse(_retryBackoffMsController.text.trim()) ??
-        AiBuiltinToolConfig.defaultRetryBackoffMs;
-    final retryBackoffMs = parsedBackoff.clamp(
-      0,
-      AiBuiltinToolConfig.maxRetryBackoffMs,
+    final maxOutputChars = optionalIntFromText(_maxOutputCharsController.text);
+    final timeoutSeconds = optionalIntFromText(_timeoutSecondsController.text);
+    final maxRetries = clampedIntFromText(
+      _maxRetriesController.text,
+      fallback: 0,
+      min: 0,
+      max: AiBuiltinToolConfig.maxRetriesUpperBound,
     );
-    final rawTags = _tagsController.text
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toList(growable: false);
+    final retryBackoffMs = clampedIntFromText(
+      _retryBackoffMsController.text,
+      fallback: AiBuiltinToolConfig.defaultRetryBackoffMs,
+      min: 0,
+      max: AiBuiltinToolConfig.maxRetryBackoffMs,
+    );
+    final rawTags = splitTrimmedNonEmpty(_tagsController.text);
 
     return widget.initial.copyWith(
       enabled: _enabled,
@@ -445,7 +445,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       summary: summary.isEmpty ? null : summary,
       promptOverride: promptOverride.isEmpty ? null : promptOverride,
       schemaOverride: schemaOverride,
-      priority: priority.clamp(0, 9999),
+      priority: priority,
       loadStrategy: _loadStrategy,
       tags: rawTags,
       maxOutputChars: maxOutputChars,

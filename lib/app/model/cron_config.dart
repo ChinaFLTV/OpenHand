@@ -1,3 +1,5 @@
+import '../../shared/util/input_value_parsing.dart';
+
 /// Type of script source for a cron job.
 enum CronScriptType {
   command('command', 'Command', '命令'),
@@ -154,12 +156,12 @@ class CronEntry {
       scriptType:
           CronScriptType.fromStorage('${json['script_type'] ?? ''}') ??
           CronScriptType.command,
-      scriptPath: _nullIfEmpty('${json['script_path'] ?? ''}'),
-      scriptContent: _nullIfEmpty('${json['script_content'] ?? ''}'),
+      scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
+      scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
       cronExpression: '${json['cron_expression'] ?? '* * * * *'}'.trim(),
       retryCount: (json['retry_count'] as num?)?.toInt() ?? 0,
       timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt() ?? 60,
-      runAsUser: _nullIfEmpty('${json['run_as_user'] ?? ''}'),
+      runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
       tags: _parseTags(json['tags']),
       enabled: json['enabled'] is bool
           ? json['enabled'] as bool
@@ -204,9 +206,9 @@ class CronEntry {
         json['on_timeout_vibrate'],
         defaultValue: true,
       ),
-      onSuccessMessage: _nullIfEmpty('${json['on_success_message'] ?? ''}'),
-      onFailureMessage: _nullIfEmpty('${json['on_failure_message'] ?? ''}'),
-      onTimeoutMessage: _nullIfEmpty('${json['on_timeout_message'] ?? ''}'),
+      onSuccessMessage: nullIfBlank('${json['on_success_message'] ?? ''}'),
+      onFailureMessage: nullIfBlank('${json['on_failure_message'] ?? ''}'),
+      onTimeoutMessage: nullIfBlank('${json['on_timeout_message'] ?? ''}'),
       collectAppMetadata: _parseBool(
         json['collect_app_metadata'],
         defaultValue: true,
@@ -218,7 +220,7 @@ class CronEntry {
       collectEnvironmentSnapshot: _parseBool(
         json['collect_environment_snapshot'],
       ),
-      workingDirectory: _nullIfEmpty('${json['working_directory'] ?? ''}'),
+      workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
       environment: _parseEnv(json['environment']),
       maxRetryDelaySeconds:
           (json['max_retry_delay_seconds'] as num?)?.toInt() ?? 30,
@@ -470,11 +472,11 @@ class CronExecutionRecord {
       exitCode: (json['exit_code'] as num?)?.toInt(),
       stdout: '${json['stdout'] ?? ''}'.trim(),
       stderr: '${json['stderr'] ?? ''}'.trim(),
-      errorMessage: _nullIfEmpty('${json['error_message'] ?? ''}'),
+      errorMessage: nullIfBlank('${json['error_message'] ?? ''}'),
       elapsedMs: (json['elapsed_ms'] as num?)?.toInt() ?? 0,
       retryAttempt: (json['retry_attempt'] as num?)?.toInt() ?? 0,
-      runAsUser: _nullIfEmpty('${json['run_as_user'] ?? ''}'),
-      workingDirectory: _nullIfEmpty('${json['working_directory'] ?? ''}'),
+      runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
+      workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
       environment: _parseEnv(json['environment']),
       appContext: _parseEnv(json['app_context']),
       environmentSnapshot: _parseEnv(json['environment_snapshot']),
@@ -547,53 +549,18 @@ class CronExecutionRecord {
 // Helpers
 // ---------------------------------------------------------------------------
 
-String? _nullIfEmpty(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
-}
-
 List<String> _parseTags(Object? raw) {
-  if (raw is List) return raw.map((e) => '$e').toList();
-  if (raw is String) {
-    return raw
-        .split(',')
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toList();
-  }
-  return const <String>[];
+  return stringListFromValue(raw);
 }
 
 Map<String, String> _parseEnv(Object? raw) {
-  if (raw is Map) {
-    return raw.map((k, v) => MapEntry('$k', '$v'));
-  }
-  if (raw is String && raw.isNotEmpty) {
-    final map = <String, String>{};
-    for (final line in raw.split('\n')) {
-      final idx = line.indexOf('=');
-      if (idx > 0) {
-        map[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-      }
-    }
-    return map;
-  }
-  return const <String, String>{};
+  return keyValueMapFromValue(raw);
 }
 
 DateTime? _parseDateTime(Object? raw) {
-  if (raw is DateTime) return raw;
-  if (raw is String && raw.isNotEmpty) return DateTime.tryParse(raw);
-  return null;
+  return dateTimeFromValue(raw);
 }
 
 bool _parseBool(Object? raw, {bool defaultValue = false}) {
-  if (raw is bool) return raw;
-  if (raw is num) return raw.toInt() == 1;
-  if (raw is String) {
-    final normalized = raw.trim().toLowerCase();
-    if (normalized == '1' || normalized == 'true') return true;
-    if (normalized == '0' || normalized == 'false') return false;
-  }
-  return defaultValue;
+  return boolFromValue(raw, defaultValue: defaultValue);
 }
