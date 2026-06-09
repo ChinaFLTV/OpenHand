@@ -7,12 +7,15 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_tool_execution_registry.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/sandbox/ai_sandbox_proxy_service.dart';
 import '../../service/sandbox/ai_sandbox_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+
+const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
 
 /// 长跑后台 Shell 工具。把 `Process.start` 启动的常驻进程拆解为 5 个 action：
 /// `start` / `write` / `read` / `stop` / `list`。
@@ -31,6 +34,8 @@ class AiBashBackgroundTool extends AiTool {
 
   static const int _maxBufferBytes = 64 * 1024;
   static const int _maxConcurrentSessions = 8;
+  static const int _defaultReadBytes = 8192;
+  static const int _maxRetainedExitedSessions = 4;
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
   final AiSandboxService _sandboxService;
@@ -48,18 +53,8 @@ class AiBashBackgroundTool extends AiTool {
       AiToolInterruptBehavior.cancel;
 
   void dispose() {
-    for (final session in _sessions.values) {
-      try {
-        session.process.kill(ProcessSignal.sigkill);
-      } catch (error, stack) {
-        silentLog(
-          'ai_bash_background',
-          'kill session ${session.handle}',
-          error,
-          stack,
-        );
-      }
-      unawaited(session.closeProxy());
+    for (final session in _sessions.values.toList(growable: false)) {
+      unawaited(session.close(kill: true));
     }
     _sessions.clear();
   }
@@ -80,7 +75,7 @@ class AiBashBackgroundTool extends AiTool {
       case 'write':
         return _write(args);
       case 'read':
-        return _read(args, context.cancelSignal);
+        return _read(args);
       case 'stop':
         return _stop(args);
       case 'list':
@@ -104,7 +99,8 @@ class AiBashBackgroundTool extends AiTool {
         'start requires non-empty cmd.',
       );
     }
-    if (_sessions.length >= _maxConcurrentSessions) {
+    _pruneExitedSessions();
+    if (_activeSessionCount >= _maxConcurrentSessions) {
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Too many active background sessions ($_maxConcurrentSessions). Stop one first.',
@@ -144,7 +140,7 @@ class AiBashBackgroundTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final Process process;
     try {
-      process = await startTrackedProcess(
+      process = await startTrackedProcessInNewGroup(
         launchSpec.executable,
         launchSpec.arguments,
         workingDirectory: launchSpec.workingDirectory,
@@ -171,16 +167,24 @@ class AiBashBackgroundTool extends AiTool {
       proxyLease: launchSpec.proxyLease,
     );
     _sessions[handle] = session;
-    process.stdout
-        .transform(utf8.decoder)
+    final toolCallId = context.toolCall.id.trim();
+    if (toolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(toolCallId, process.pid);
+      AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
+        final removed = _sessions.remove(handle);
+        await (removed ?? session).close(kill: true);
+      });
+    }
+    session.stdoutSubscription = process.stdout
+        .transform(_backgroundOutputDecoder)
         .listen(
           (data) => session.appendStdout(data, _maxBufferBytes),
           onError: (Object error, StackTrace stack) {
             silentLog('ai_bash_background', 'stdout $handle', error, stack);
           },
         );
-    process.stderr
-        .transform(utf8.decoder)
+    session.stderrSubscription = process.stderr
+        .transform(_backgroundOutputDecoder)
         .listen(
           (data) => session.appendStderr(data, _maxBufferBytes),
           onError: (Object error, StackTrace stack) {
@@ -191,7 +195,9 @@ class AiBashBackgroundTool extends AiTool {
       process.exitCode.then((code) {
         session.exitCode = code;
         session.alive = false;
+        session.touch();
         unawaited(session.closeProxy());
+        _pruneExitedSessions();
       }),
     );
     final output = StringBuffer()
@@ -292,12 +298,11 @@ class AiBashBackgroundTool extends AiTool {
     );
   }
 
-  Future<AiToolExecutionResult> _read(
-    Map<String, Object?> args,
-    Future<void>? cancelSignal,
-  ) async {
+  Future<AiToolExecutionResult> _read(Map<String, Object?> args) async {
     final handle = '${args['handle'] ?? ''}'.trim();
-    final maxBytes = AiToolUtils.readInt(args['max_bytes']) ?? 8192;
+    final maxBytes = _normalizeReadBytes(
+      AiToolUtils.readInt(args['max_bytes']),
+    );
     final session = _sessions[handle];
     if (session == null) {
       return AiToolUtils.invalidResult(
@@ -305,6 +310,7 @@ class AiBashBackgroundTool extends AiTool {
         'Unknown handle "$handle".',
       );
     }
+    session.touch();
     final stdout = session.drainStdout(maxBytes);
     final stderr = session.drainStderr(maxBytes);
     final out = StringBuffer()
@@ -339,11 +345,11 @@ class AiBashBackgroundTool extends AiTool {
     }
     bool killed = false;
     try {
-      killed = session.process.kill(ProcessSignal.sigkill);
+      killed = session.alive;
+      await session.close(kill: true);
     } catch (error, stack) {
       silentLog('ai_bash_background', 'stop $handle', error, stack);
     }
-    await session.closeProxy();
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground stop $handle',
       output:
@@ -355,6 +361,7 @@ class AiBashBackgroundTool extends AiTool {
   }
 
   Future<AiToolExecutionResult> _list() async {
+    _pruneExitedSessions();
     if (_sessions.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'BashBackground list',
@@ -385,6 +392,27 @@ class AiBashBackgroundTool extends AiTool {
     }
     return null;
   }
+
+  int get _activeSessionCount =>
+      _sessions.values.where((session) => session.alive).length;
+
+  int _normalizeReadBytes(int? value) {
+    final raw = value ?? _defaultReadBytes;
+    return raw.clamp(0, _maxBufferBytes).toInt();
+  }
+
+  void _pruneExitedSessions() {
+    final exited =
+        _sessions.values
+            .where((session) => !session.alive)
+            .toList(growable: false)
+          ..sort((a, b) => b.lastTouchedAtMs.compareTo(a.lastTouchedAtMs));
+    for (final session in exited.skip(_maxRetainedExitedSessions)) {
+      if (_sessions.remove(session.handle) != null) {
+        unawaited(session.close(kill: false));
+      }
+    }
+  }
 }
 
 class _BgSession {
@@ -405,9 +433,29 @@ class _BgSession {
   final AiSandboxProxyLease? proxyLease;
   final StringBuffer _stdoutPending = StringBuffer();
   final StringBuffer _stderrPending = StringBuffer();
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
   bool alive = true;
   int? exitCode;
   bool _proxyClosed = false;
+  bool _closed = false;
+  late int lastTouchedAtMs = startedAtMs;
+
+  void touch() {
+    lastTouchedAtMs = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  Future<void> close({required bool kill}) async {
+    if (_closed) return;
+    _closed = true;
+    if (kill && alive) {
+      await terminateTrackedProcessTree(process);
+      alive = false;
+    }
+    await stdoutSubscription?.cancel();
+    await stderrSubscription?.cancel();
+    await closeProxy();
+  }
 
   Future<void> closeProxy() async {
     if (_proxyClosed) return;
@@ -416,10 +464,12 @@ class _BgSession {
   }
 
   void appendStdout(String chunk, int maxBytes) {
+    touch();
     _appendInto(_stdoutPending, chunk, maxBytes);
   }
 
   void appendStderr(String chunk, int maxBytes) {
+    touch();
     _appendInto(_stderrPending, chunk, maxBytes);
   }
 
@@ -440,6 +490,7 @@ class _BgSession {
   }
 
   static String _drain(StringBuffer buffer, int maxBytes) {
+    if (maxBytes <= 0) return '';
     final pending = buffer.toString();
     buffer.clear();
     if (pending.length <= maxBytes) return pending;

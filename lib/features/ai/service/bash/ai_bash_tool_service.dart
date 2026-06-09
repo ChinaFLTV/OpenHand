@@ -1237,61 +1237,12 @@ class AiBashToolService {
     required String workingDirectory,
     Map<String, String>? environment,
   }) async {
-    final setsidPath = await _resolveSetsidPath();
-    if (setsidPath != null) {
-      final process = await startTrackedProcess(
-        setsidPath,
-        <String>[executable, ...arguments],
-        workingDirectory: workingDirectory,
-        environment: environment,
-      );
-      _processGroupLeaders.add(process.pid);
-      // 进程退出后及时清理标记，避免长会话下集合无界增长。
-      process.exitCode
-          .whenComplete(() => _processGroupLeaders.remove(process.pid))
-          .ignore();
-      return process;
-    }
-    return startTrackedProcess(
+    return startTrackedProcessInNewGroup(
       executable,
       arguments,
       workingDirectory: workingDirectory,
       environment: environment,
     );
-  }
-
-  /// 缓存 setsid 路径解析结果（一次进程内只探测一次）。
-  static Future<String?>? _setsidProbe;
-  static final Set<int> _processGroupLeaders = <int>{};
-
-  static Future<String?> _resolveSetsidPath() {
-    if (_setsidProbe != null) return _setsidProbe!;
-    _setsidProbe = () async {
-      if (Platform.isWindows) return null;
-      // /usr/bin/setsid 在 GNU/Linux 与较新 macOS 都常见；自定义环境可能在
-      // /usr/local/bin 或 /opt/homebrew/bin。逐一探测，找不到就返回 null。
-      const candidates = <String>[
-        '/usr/bin/setsid',
-        '/usr/local/bin/setsid',
-        '/opt/homebrew/bin/setsid',
-      ];
-      for (final candidate in candidates) {
-        if (File(candidate).existsSync()) return candidate;
-      }
-      // 最后兜底：通过 `command -v setsid` 在 PATH 里找。
-      try {
-        final result = await runTrackedProcessOrFailed(
-          '/bin/sh',
-          <String>['-lc', 'command -v setsid 2>/dev/null'],
-          timeout: const Duration(seconds: 2),
-          tag: 'ai_bash.setsid_probe',
-        );
-        final stdout = (result.stdout as String).trim();
-        if (stdout.isNotEmpty && File(stdout).existsSync()) return stdout;
-      } catch (_) {}
-      return null;
-    }();
-    return _setsidProbe!;
   }
 
   Future<_PersistentBashSession> _ensurePersistentSession({
@@ -1664,65 +1615,7 @@ class AiBashToolService {
   /// Both signals are best-effort; failures are intentionally swallowed
   /// because the process may already have exited.
   static void _killProcess(Process process) {
-    if (Platform.isWindows) {
-      try {
-        process.kill();
-      } catch (_) {
-        // Process already exited; nothing to do.
-      }
-      return;
-    }
-    final pid = process.pid;
-    final isGroupLeader = _processGroupLeaders.contains(pid);
-    var graceful = false;
-    try {
-      // Default signal is SIGTERM on POSIX; spelt out via the default to keep
-      // intent clear without tripping the redundant-argument lint.
-      graceful = process.kill();
-    } catch (_) {
-      graceful = false;
-    }
-    // 对进程组 leader 同步发一次 `kill -TERM -pid`，把 shell 派生出来的子孙
-    // 进程一并通知到，避免子孙残留。
-    if (isGroupLeader) {
-      _sendSignalToProcessGroup(pid, 'TERM');
-    }
-    if (!graceful) {
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {
-        // Process already exited.
-      }
-      if (isGroupLeader) {
-        _sendSignalToProcessGroup(pid, 'KILL');
-      }
-      return;
-    }
-    // Race: if the child hasn't exited within the grace period, escalate.
-    final escalation = Timer(const Duration(milliseconds: 500), () {
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {
-        // Process already exited cleanly after SIGTERM.
-      }
-      if (isGroupLeader) {
-        _sendSignalToProcessGroup(pid, 'KILL');
-      }
-    });
-    // Cancel the escalation if the child exits cleanly first.
-    process.exitCode.then((_) => escalation.cancel()).ignore();
-  }
-
-  /// 通过 `/bin/kill -SIG -PGID` 向进程组发送信号；本身不阻塞，失败静默。
-  static void _sendSignalToProcessGroup(int pid, String signal) {
-    if (Platform.isWindows) return;
-    unawaited(() async {
-      try {
-        await Process.run('/bin/kill', <String>['-$signal', '-$pid']);
-      } catch (error, stack) {
-        silentLog('ai_bash_tool_service', 'kill -$signal -$pid', error, stack);
-      }
-    }());
+    unawaited(terminateTrackedProcessTree(process));
   }
 }
 

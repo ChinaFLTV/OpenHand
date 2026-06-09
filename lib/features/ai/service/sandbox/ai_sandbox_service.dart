@@ -136,6 +136,8 @@ class AiSandboxService {
       'Linux bubblewrap cannot strictly enforce sandbox domain allow/deny rules yet because direct network access cannot be restricted to the OpenHand local proxy without an additional network bridge.';
   static const String _linuxDomainFilterBestEffortWarning =
       'Linux sandbox domain rules are best-effort here: OpenHand injects proxy environment variables, but bubblewrap does not block direct network bypass in this mode.';
+  static const String _unsafeWritableRootReason =
+      'Sandbox refused to grant writable access to an unsafe working directory root.';
 
   AiSandboxSettings settings;
   final AiSandboxProxyService _proxyService = AiSandboxProxyService();
@@ -358,6 +360,35 @@ class AiSandboxService {
       );
     }
 
+    if (!Directory(normalizedWorkingDirectory).existsSync()) {
+      return AiSandboxLaunchSpec.blocked(
+        executable: shellExecutable,
+        arguments: shellArguments,
+        workingDirectory: normalizedWorkingDirectory,
+        reason:
+            'Sandbox working directory does not exist: $normalizedWorkingDirectory',
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          'sandbox_platform': status.platform,
+          'sandbox_backend': status.backend,
+        },
+      );
+    }
+    if (!_isSafeWritableWorkspaceRoot(normalizedWorkingDirectory)) {
+      return AiSandboxLaunchSpec.blocked(
+        executable: shellExecutable,
+        arguments: shellArguments,
+        workingDirectory: normalizedWorkingDirectory,
+        reason: _unsafeWritableRootReason,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          'sandbox_platform': status.platform,
+          'sandbox_backend': status.backend,
+          'sandbox_unsafe_working_directory': normalizedWorkingDirectory,
+        },
+      );
+    }
+
     if (Platform.isLinux &&
         settings.hasDomainRules &&
         settings.failIfUnavailable) {
@@ -434,6 +465,7 @@ class AiSandboxService {
           'sandbox_platform': status.platform,
           'sandbox_backend': status.backend,
           'sandbox_filesystem_rule_count': settings.filesystemRules.length,
+          'sandbox_working_directory_writable': true,
           'sandbox_allowed_domain_count': settings.allowedDomains.length,
           'sandbox_denied_domain_count': settings.deniedDomains.length,
           if (proxyLease != null) ...proxyLease.metadata,
@@ -463,6 +495,7 @@ class AiSandboxService {
           'sandbox_platform': status.platform,
           'sandbox_backend': status.backend,
           'sandbox_filesystem_rule_count': settings.filesystemRules.length,
+          'sandbox_working_directory_writable': true,
           'sandbox_allowed_domain_count': settings.allowedDomains.length,
           'sandbox_denied_domain_count': settings.deniedDomains.length,
           if (proxyLease != null) ...proxyLease.metadata,
@@ -514,6 +547,7 @@ class AiSandboxService {
       _profileSubpath('/tmp'),
       _profileSubpath('/private/tmp'),
       _profileSubpath('/var/folders'),
+      _profileSubpath(workingDirectory),
     };
     final readOnlyDenyFilters = <String>{};
     for (final rule in settings.filesystemRules) {
@@ -546,9 +580,10 @@ class AiSandboxService {
     }
     if (proxyLease != null) {
       buffer.writeln('(deny network*)');
-      buffer.writeln('(allow network*');
+      buffer.writeln('(allow network-outbound');
       for (final port in proxyLease.loopbackPorts) {
-        buffer.writeln('  (remote ip "localhost:$port")');
+        buffer.writeln('  (remote tcp "localhost:$port")');
+        buffer.writeln('  (remote tcp "127.0.0.1:$port")');
       }
       buffer.writeln(')');
     } else if (!settings.allowNetworkWhenNoDomainRules &&
@@ -564,6 +599,7 @@ class AiSandboxService {
     required String workingDirectory,
   }) {
     final args = <String>[
+      '--die-with-parent',
       '--ro-bind',
       '/',
       '/',
@@ -579,13 +615,28 @@ class AiSandboxService {
     if (!settings.allowNetworkWhenNoDomainRules && !settings.hasDomainRules) {
       args.add('--unshare-net');
     }
+    final writableBinds = <String>{workingDirectory};
+    final readOnlyBinds = <String>{};
     for (final rule in settings.filesystemRules) {
-      if (rule.accessMode != AiSandboxFileAccessMode.readWrite) continue;
       if (rule.matchMode == AiDenyCommandMatchMode.regex) continue;
       final resolved = _resolveFilesystemPath(rule.path, workingDirectory);
-      final existing = _existingBindPath(resolved);
-      if (existing == null) continue;
-      args.addAll(<String>['--bind', existing, existing]);
+      if (rule.accessMode == AiSandboxFileAccessMode.readWrite) {
+        final existing = _existingWritableBindPath(resolved);
+        if (existing == null) continue;
+        if (_isSafeWritableWorkspaceRoot(existing)) {
+          writableBinds.add(existing);
+        }
+      } else {
+        final existing = _existingExactPath(resolved);
+        if (existing == null) continue;
+        readOnlyBinds.add(existing);
+      }
+    }
+    for (final writable in writableBinds) {
+      args.addAll(<String>['--bind', writable, writable]);
+    }
+    for (final readOnly in readOnlyBinds) {
+      args.addAll(<String>['--ro-bind', readOnly, readOnly]);
     }
     args.addAll(<String>[shellExecutable, ...shellArguments]);
     return args;
@@ -613,7 +664,7 @@ class AiSandboxService {
     return p.normalize(p.join(workingDirectory, trimmed));
   }
 
-  String? _existingBindPath(String resolved) {
+  String? _existingWritableBindPath(String resolved) {
     try {
       final type = FileSystemEntity.typeSync(resolved, followLinks: false);
       if (type != FileSystemEntityType.notFound) return resolved;
@@ -628,6 +679,31 @@ class AiSandboxService {
       );
     }
     return null;
+  }
+
+  String? _existingExactPath(String resolved) {
+    try {
+      final type = FileSystemEntity.typeSync(resolved, followLinks: false);
+      if (type != FileSystemEntityType.notFound) return resolved;
+    } catch (error, stack) {
+      silentLog(
+        'ai_sandbox_service',
+        'resolve exact path $resolved',
+        error,
+        stack,
+      );
+    }
+    return null;
+  }
+
+  bool _isSafeWritableWorkspaceRoot(String value) {
+    final normalized = p.normalize(value.trim());
+    if (normalized.isEmpty) return false;
+    final root = p.normalize(p.rootPrefix(normalized));
+    if (root.isNotEmpty && normalized == root) return false;
+    final home = p.normalize(OpenHandPaths.homeDirectoryPath());
+    if (home.isNotEmpty && normalized == home) return false;
+    return true;
   }
 
   String _profileSubpath(String value) {

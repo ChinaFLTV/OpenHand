@@ -56,6 +56,8 @@ class AiSandboxProxyService {
 class _SandboxProxyInstance {
   _SandboxProxyInstance(this.settings);
 
+  static const int _maxOpenSockets = 256;
+
   final AiSandboxSettings settings;
   final List<ServerSocket> _servers = <ServerSocket>[];
   final Set<Socket> _openSockets = <Socket>{};
@@ -165,7 +167,7 @@ class _SandboxProxyInstance {
   }
 
   Future<void> _handleHttpClient(Socket client) async {
-    _trackSocket(client);
+    if (!_trackSocket(client)) return;
     final reader = _SocketReadBuffer(client);
     try {
       final rawHeader = await reader.readHeader();
@@ -204,7 +206,10 @@ class _SandboxProxyInstance {
       request.port,
       timeout: const Duration(seconds: 20),
     );
-    _trackSocket(remote);
+    if (!_trackSocket(remote)) {
+      client.destroy();
+      return;
+    }
     client.add(
       latin1.encode(
         'HTTP/1.1 200 Connection Established\r\n'
@@ -226,14 +231,17 @@ class _SandboxProxyInstance {
       request.port,
       timeout: const Duration(seconds: 20),
     );
-    _trackSocket(remote);
+    if (!_trackSocket(remote)) {
+      client.destroy();
+      return;
+    }
     remote.add(latin1.encode(request.forwardHeader));
     _pipeBufferedClientToRemote(reader, remote);
     _pipeRemoteToClient(remote, client);
   }
 
   Future<void> _handleSocksClient(Socket client) async {
-    _trackSocket(client);
+    if (!_trackSocket(client)) return;
     final reader = _SocketReadBuffer(client);
     try {
       final greeting = await reader.readExactly(2);
@@ -274,7 +282,10 @@ class _SandboxProxyInstance {
         port,
         timeout: const Duration(seconds: 20),
       );
-      _trackSocket(remote);
+      if (!_trackSocket(remote)) {
+        client.destroy();
+        return;
+      }
       _writeSocksReply(client, 0x00);
       _pipeBufferedClientToRemote(reader, remote);
       _pipeRemoteToClient(remote, client);
@@ -426,11 +437,22 @@ class _SandboxProxyInstance {
     );
   }
 
-  void _trackSocket(Socket socket) {
+  bool _trackSocket(Socket socket) {
+    if (_openSockets.length >= _maxOpenSockets) {
+      socket.destroy();
+      return false;
+    }
     _openSockets.add(socket);
-    socket.done.whenComplete(() {
-      _openSockets.remove(socket);
-    });
+    unawaited(
+      socket.done
+          .catchError((Object error, StackTrace stack) {
+            silentLog('ai_sandbox_proxy', 'socket done', error, stack);
+          })
+          .whenComplete(() {
+            _openSockets.remove(socket);
+          }),
+    );
+    return true;
   }
 
   String _rulePatterns(List<AiSandboxPatternRule> rules) {

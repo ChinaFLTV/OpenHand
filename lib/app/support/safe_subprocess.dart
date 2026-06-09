@@ -21,9 +21,12 @@ int safeSubprocessDefaultGracefulShutdownMs = 500;
 ///   1) `Process.kill(SIGKILL)` 不需要再 lookup，无 pid 复用风险；
 ///   2) `exitCode` 已被组件代码 await 时，我们也能并行听到。
 final Map<int, Process> _trackedChildren = <int, Process>{};
+final Set<int> _trackedProcessGroupLeaders = <int>{};
+Future<String?>? _processGroupLauncherProbe;
 
 const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
+const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 
 void _registerTrackedChild(Process process) {
   _trackedChildren[process.pid] = process;
@@ -70,6 +73,117 @@ Future<Process> startTrackedProcess(
   return process;
 }
 
+/// Starts a tracked process in a fresh POSIX process group when the platform
+/// provides `setsid`, then records the wrapper pid as the group leader.
+///
+/// This lets callers stop the whole command tree with
+/// [terminateTrackedProcessTree] instead of killing only the shell process.
+/// On Windows, detached modes, or systems without `setsid`, it falls back to
+/// [startTrackedProcess] and still receives normal app-exit cleanup.
+Future<Process> startTrackedProcessInNewGroup(
+  String executable,
+  List<String> arguments, {
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+  ProcessStartMode mode = ProcessStartMode.normal,
+}) async {
+  if (Platform.isWindows ||
+      runInShell ||
+      (mode != ProcessStartMode.normal &&
+          mode != ProcessStartMode.inheritStdio)) {
+    return startTrackedProcess(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+      environment: environment,
+      runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
+      mode: mode,
+    );
+  }
+  final launcher = await _resolveProcessGroupLauncher();
+  if (launcher == null) {
+    return startTrackedProcess(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+      environment: environment,
+      includeParentEnvironment: includeParentEnvironment,
+      mode: mode,
+    );
+  }
+  final process = await startTrackedProcess(
+    launcher,
+    <String>[executable, ...arguments],
+    workingDirectory: workingDirectory,
+    environment: environment,
+    includeParentEnvironment: includeParentEnvironment,
+    mode: mode,
+  );
+  _trackedProcessGroupLeaders.add(process.pid);
+  unawaited(
+    process.exitCode.whenComplete(() {
+      _trackedProcessGroupLeaders.remove(process.pid);
+    }),
+  );
+  return process;
+}
+
+/// Terminates a process plus its POSIX process group when the process was
+/// launched through [startTrackedProcessInNewGroup].
+Future<void> terminateTrackedProcessTree(
+  Process process, {
+  Duration? gracefulTimeout,
+}) async {
+  if (Platform.isWindows) {
+    try {
+      process.kill();
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'terminate windows child', error, stack);
+    }
+    return;
+  }
+
+  final pid = process.pid;
+  final isGroupLeader = _trackedProcessGroupLeaders.contains(pid);
+  try {
+    process.kill();
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'sigterm child', error, stack);
+  }
+  if (isGroupLeader) {
+    await _sendSignalToProcessGroup(pid, 'TERM');
+  }
+
+  try {
+    await process.exitCode.timeout(
+      gracefulTimeout ??
+          Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
+    );
+    return;
+  } on TimeoutException {
+    // Escalate below.
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'wait child after sigterm', error, stack);
+  }
+
+  try {
+    process.kill(ProcessSignal.sigkill);
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'sigkill child', error, stack);
+  }
+  if (isGroupLeader) {
+    await _sendSignalToProcessGroup(pid, 'KILL');
+  }
+  try {
+    await process.exitCode.timeout(_processTreeFinalWait);
+  } catch (_) {
+    // Final best-effort path; no caller should block indefinitely here.
+  }
+}
+
 /// 关闭所有登记在册的子进程：先 SIGTERM 让对方有机会 flush，等待
 /// [gracefulTimeout]，仍未退出则 SIGKILL。所有失败都 swallow，因为这是
 /// 退出兜底路径，不能再抛新异常。
@@ -87,6 +201,9 @@ Future<void> killAllTrackedChildren({
       // 已退出会抛，忽略即可。
       silentLog('safe_subprocess', 'sigterm tracked child', error, stack);
     }
+    if (_trackedProcessGroupLeaders.contains(p.pid)) {
+      unawaited(_sendSignalToProcessGroup(p.pid, 'TERM'));
+    }
   }
   // 给整个批次一次性 grace，而不是每个进程 400ms 串行等。
   await Future<void>.delayed(gracefulTimeout);
@@ -96,12 +213,60 @@ Future<void> killAllTrackedChildren({
     } catch (error, stack) {
       silentLog('safe_subprocess', 'sigkill on graceful exit', error, stack);
     }
+    if (_trackedProcessGroupLeaders.contains(p.pid)) {
+      unawaited(_sendSignalToProcessGroup(p.pid, 'KILL'));
+    }
   }
 }
 
 /// 仅供测试 / 诊断使用：当前未退出的子进程 pid 列表。
 List<int> debugTrackedChildPids() =>
     List<int>.unmodifiable(_trackedChildren.keys);
+
+/// 仅供测试 / 诊断使用：由 [startTrackedProcessInNewGroup] 启动的进程组
+/// leader pid。
+List<int> debugTrackedProcessGroupLeaderPids() =>
+    List<int>.unmodifiable(_trackedProcessGroupLeaders);
+
+Future<String?> _resolveProcessGroupLauncher() {
+  if (_processGroupLauncherProbe != null) return _processGroupLauncherProbe!;
+  _processGroupLauncherProbe = () async {
+    const candidates = <String>[
+      '/usr/bin/setsid',
+      '/usr/local/bin/setsid',
+      '/opt/homebrew/bin/setsid',
+    ];
+    for (final candidate in candidates) {
+      if (File(candidate).existsSync()) return candidate;
+    }
+    try {
+      final result = await runTrackedProcessOrFailed(
+        '/bin/sh',
+        <String>['-lc', 'command -v setsid 2>/dev/null'],
+        timeout: const Duration(seconds: 2),
+        tag: 'safe_subprocess.setsid_probe',
+      );
+      final path = (result.stdout as String).trim();
+      if (path.isNotEmpty && File(path).existsSync()) return path;
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'resolve setsid', error, stack);
+    }
+    return null;
+  }();
+  return _processGroupLauncherProbe!;
+}
+
+Future<void> _sendSignalToProcessGroup(int pid, String signal) async {
+  if (Platform.isWindows) return;
+  try {
+    await Process.run('/bin/kill', <String>[
+      '-$signal',
+      '-$pid',
+    ]).timeout(const Duration(seconds: 2));
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'kill -$signal -$pid', error, stack);
+  }
+}
 
 /// 扫出本进程下所有直接子进程并 SIGKILL，返回杀死的进程数。
 ///
