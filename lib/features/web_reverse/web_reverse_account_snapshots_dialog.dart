@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseAccountSnapshotsDialog(
@@ -22,16 +23,12 @@ Future<void> showWebReverseAccountSnapshotsDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _AccountSnapshotsDialog(
-      controller: controller,
-    ),
+    builder: (_) => _AccountSnapshotsDialog(controller: controller),
   );
 }
 
 class _AccountSnapshotsDialog extends StatefulWidget {
-  const _AccountSnapshotsDialog({
-    required this.controller,
-  });
+  const _AccountSnapshotsDialog({required this.controller});
   final WebReverseSessionController controller;
   @override
   State<_AccountSnapshotsDialog> createState() =>
@@ -65,7 +62,9 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
             context,
             messenger,
             loc?.webReverseAccountSnapSavedSnapshot(
-                    snap.name, snap.cookies.length) ??
+                  snap.name,
+                  snap.cookies.length,
+                ) ??
                 'Saved "${snap.name}" (${snap.cookies.length} cookies)',
           );
         }
@@ -145,9 +144,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         ...widget.controller.accountSnapshots,
         for (final raw in parsed)
           if (raw is Map)
-            WebReverseAccountSnapshot.fromJson(
-              Map<String, Object?>.from(raw),
-            ),
+            WebReverseAccountSnapshot.fromJson(Map<String, Object?>.from(raw)),
       ];
       widget.controller.setAccountSnapshots(merged);
       if (!mounted) return;
@@ -202,9 +199,11 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                         child: TextField(
                           controller: _nameCtrl,
                           decoration: InputDecoration(
-                            labelText: loc?.webReverseAccountSnapNameLabel ??
+                            labelText:
+                                loc?.webReverseAccountSnapNameLabel ??
                                 'Name for current account',
-                            hintText: loc?.webReverseAccountSnapNameHint ??
+                            hintText:
+                                loc?.webReverseAccountSnapNameHint ??
                                 'e.g. main / test-001',
                             border: const OutlineInputBorder(),
                             isDense: true,
@@ -216,7 +215,9 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                       FilledButton.icon(
                         onPressed: _busy ? null : _capture,
                         icon: const Icon(Icons.bookmark_add_rounded, size: 18),
-                        label: Text(loc?.webReverseAccountSnapCapture ?? 'Capture'),
+                        label: Text(
+                          loc?.webReverseAccountSnapCapture ?? 'Capture',
+                        ),
                       ),
                     ],
                   ),
@@ -228,19 +229,26 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                       TextButton.icon(
                         onPressed: snaps.isEmpty ? null : _export,
                         icon: const Icon(Icons.upload_rounded, size: 16),
-                        label: Text(loc?.webReverseAccountSnapExportAll ?? 'Export all'),
+                        label: Text(
+                          loc?.webReverseAccountSnapExportAll ?? 'Export all',
+                        ),
                       ),
                       TextButton.icon(
                         onPressed: _import,
                         icon: const Icon(Icons.download_rounded, size: 16),
-                        label: Text(loc?.webReverseAccountSnapImport ?? 'Import'),
+                        label: Text(
+                          loc?.webReverseAccountSnapImport ?? 'Import',
+                        ),
                       ),
                       const Spacer(),
                       Text(
-                        loc?.webReverseAccountSnapSnapshotsCount(snaps.length) ??
+                        loc?.webReverseAccountSnapSnapshotsCount(
+                              snaps.length,
+                            ) ??
                             '${snaps.length} total',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -294,14 +302,16 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
               children: [
                 Text(
                   loc?.webReverseAccountSnapTitle ?? 'Account Snapshots',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   loc?.webReverseAccountSnapSubtitle ??
                       'Save cookies + localStorage/sessionStorage; one-click switch between accounts',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -322,14 +332,18 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.account_circle_outlined,
-                size: 48, color: cs.onSurfaceVariant),
+            Icon(
+              Icons.account_circle_outlined,
+              size: 48,
+              color: cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 10),
             Text(
               loc?.webReverseAccountSnapEmptyHint ??
                   'No snapshots yet. Type a name above → click "Capture".',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -344,10 +358,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     AppLocalizations? loc,
     WebReverseAccountSnapshot snap,
   ) {
-    final ts = snap.capturedAt;
-    final stamp =
-        '${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} '
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
+    final stamp = formatMonthDayHm(snap.capturedAt);
     return Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
@@ -363,17 +374,16 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
               children: [
                 Text(
                   snap.name,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  [
-                    if (snap.origin.isNotEmpty) snap.origin,
-                    stamp,
-                  ].join(' · '),
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  [if (snap.origin.isNotEmpty) snap.origin, stamp].join(' · '),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Wrap(
@@ -403,19 +413,19 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   }
 
   Widget _badge(ThemeData theme, ColorScheme cs, String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: cs.secondaryContainer,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: cs.onSecondaryContainer,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'monospace',
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: cs.secondaryContainer,
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: cs.onSecondaryContainer,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        fontFamily: 'monospace',
+      ),
+    ),
+  );
 }

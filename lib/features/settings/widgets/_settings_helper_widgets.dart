@@ -375,10 +375,7 @@ String _settingsFormatRemainingUntilMs(int? untilMs) {
 }
 
 String _settingsFormatMonthDayHmsFromEpochMs(int timestampMs) {
-  final ts = DateTime.fromMillisecondsSinceEpoch(timestampMs);
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${two(ts.month)}-${two(ts.day)} '
-      '${two(ts.hour)}:${two(ts.minute)}:${two(ts.second)}';
+  return formatMonthDayHms(DateTime.fromMillisecondsSinceEpoch(timestampMs));
 }
 
 class _ReadonlySettingRow extends StatelessWidget {

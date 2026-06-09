@@ -24,6 +24,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
 import '../model/mcp_server.dart';
@@ -457,11 +458,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       // 1. 卸载全局包
       final result = await runTrackedProcessOrFailed(
         'npm',
-        [
-          'uninstall',
-          '-g',
-          packageName,
-        ],
+        ['uninstall', '-g', packageName],
         timeout: const Duration(seconds: 30),
         environment: SystemProxyResolver.instance
             .resolveSubprocessEnvironment(),
@@ -5727,13 +5724,8 @@ String _truncateMiddle(String input, {int max = 36}) {
 }
 
 String _formatStatusTime(BuildContext context, DateTime timestamp) {
-  final localTime = timestamp.toLocal();
-  String twoDigits(int value) => value.toString().padLeft(2, '0');
-  return _localizedText(
-    context,
-    zh: '${twoDigits(localTime.month)}-${twoDigits(localTime.day)} ${twoDigits(localTime.hour)}:${twoDigits(localTime.minute)}',
-    en: '${twoDigits(localTime.month)}-${twoDigits(localTime.day)} ${twoDigits(localTime.hour)}:${twoDigits(localTime.minute)}',
-  );
+  final formatted = formatMonthDayHm(timestamp.toLocal());
+  return _localizedText(context, zh: formatted, en: formatted);
 }
 
 IconData _healthStatusActionIcon(McpServerHealth healthStatus) {

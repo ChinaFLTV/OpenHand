@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -653,10 +654,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   static String _timestamp() {
-    final now = DateTime.now();
-    return '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}:'
-        '${now.second.toString().padLeft(2, '0')}';
+    return formatHourMinuteSecond(DateTime.now());
   }
 
   static String _formatDuration(Duration d) {

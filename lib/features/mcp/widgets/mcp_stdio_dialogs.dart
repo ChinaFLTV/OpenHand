@@ -10,6 +10,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -175,9 +176,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                                     );
                                     OpenHandSnackBar.showSuccess(
                                       context,
-                                      isZh
-                                          ? '已复制到剪贴板'
-                                          : 'Copied to clipboard',
+                                      isZh ? '已复制到剪贴板' : 'Copied to clipboard',
                                     );
                                   },
                             icon: const Icon(Icons.copy_rounded, size: 18),
@@ -838,12 +837,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         // npm 全局安装状态检查：用清理后的包名查询
         final listResult = await runTrackedProcessOrFailed(
           'npm',
-          [
-            'list',
-            '-g',
-            cleanPkg,
-            '--depth=0',
-          ],
+          ['list', '-g', cleanPkg, '--depth=0'],
           timeout: const Duration(seconds: 10),
           environment: SystemProxyResolver.instance
               .resolveSubprocessEnvironment(),
@@ -863,11 +857,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         try {
           final viewResult = await runTrackedProcessOrFailed(
             'npm',
-            [
-              'view',
-              cleanPkg,
-              'version',
-            ],
+            ['view', cleanPkg, 'version'],
             timeout: const Duration(seconds: 10),
             environment: SystemProxyResolver.instance
                 .resolveSubprocessEnvironment(),
@@ -964,8 +954,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           'npm',
           ['cache', 'add', cleanPkg],
           environment: <String, String>{
-            ...SystemProxyResolver.instance
-                .resolveSubprocessEnvironment(),
+            ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
             'npm_config_cache': '$cacheRoot/npm',
           },
           timeout: const Duration(seconds: 30),
@@ -1000,10 +989,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   }
 
   static String _ts() {
-    final now = DateTime.now();
-    return '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}:'
-        '${now.second.toString().padLeft(2, '0')}';
+    return formatHourMinuteSecond(DateTime.now());
   }
 
   @override

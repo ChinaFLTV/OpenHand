@@ -16,6 +16,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
@@ -483,13 +484,7 @@ class _CronEntryCard extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime dt) {
-    return '${dt.month.toString().padLeft(2, '0')}-'
-        '${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:'
-        '${dt.minute.toString().padLeft(2, '0')}:'
-        '${dt.second.toString().padLeft(2, '0')}';
-  }
+  String _formatTime(DateTime dt) => formatMonthDayHms(dt);
 }
 
 // ---------------------------------------------------------------------------
@@ -2622,14 +2617,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    return '${dt.year}-'
-        '${dt.month.toString().padLeft(2, '0')}-'
-        '${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:'
-        '${dt.minute.toString().padLeft(2, '0')}:'
-        '${dt.second.toString().padLeft(2, '0')}';
-  }
+  String _formatDateTime(DateTime dt) => formatYearMonthDayHms(dt);
 }
 
 // ---------------------------------------------------------------------------

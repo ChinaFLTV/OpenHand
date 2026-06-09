@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import 'web_reverse_session_controller.dart';
 
 const String _kInstallScript = r'''
@@ -179,7 +180,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ?? 'Recording DOM mutations',
+          AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ??
+              'Recording DOM mutations',
         );
       }
     } catch (e, st) {
@@ -194,7 +196,10 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          AppLocalizations.of(context)?.webReverseDomMutInstallFailed(e.toString()) ?? 'Install failed: $e',
+          AppLocalizations.of(
+                context,
+              )?.webReverseDomMutInstallFailed(e.toString()) ??
+              'Install failed: $e',
         );
       }
     }
@@ -213,7 +218,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
         paramsJson: jsonEncode({
-          'expression': 'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
+          'expression':
+              'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
         }),
       );
     } catch (e, st) {
@@ -265,9 +271,9 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    await Clipboard.setData(ClipboardData(
-      text: const JsonEncoder.withIndent('  ').convert(_records),
-    ));
+    await Clipboard.setData(
+      ClipboardData(text: const JsonEncoder.withIndent('  ').convert(_records)),
+    );
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
@@ -317,13 +323,16 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                       children: [
                         Text(
                           loc?.webReverseDomMutTitle ?? 'DOM Mutation Recorder',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
-                          loc?.webReverseDomMutSubtitle ?? 'Injects MutationObserver → live timeline',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          loc?.webReverseDomMutSubtitle ??
+                              'Injects MutationObserver → live timeline',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -349,14 +358,17 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   FilledButton.tonalIcon(
-                    onPressed:
-                        (_installing || _recording) ? null : _install,
-                    icon: Icon(_recording
-                        ? Icons.fiber_manual_record
-                        : Icons.play_arrow_rounded),
-                    label: Text(_recording
-                        ? (loc?.webReverseDomMutRecording ?? 'Recording')
-                        : (loc?.webReverseDomMutStart ?? 'Start')),
+                    onPressed: (_installing || _recording) ? null : _install,
+                    icon: Icon(
+                      _recording
+                          ? Icons.fiber_manual_record
+                          : Icons.play_arrow_rounded,
+                    ),
+                    label: Text(
+                      _recording
+                          ? (loc?.webReverseDomMutRecording ?? 'Recording')
+                          : (loc?.webReverseDomMutStart ?? 'Start'),
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: _recording ? _stop : null,
@@ -370,7 +382,12 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                     icon: const Icon(Icons.cleaning_services_rounded, size: 16),
                     label: Text(loc?.webReverseDomMutClear ?? 'Clear'),
                   ),
-                  for (final k in const ['all', 'childList', 'attributes', 'characterData'])
+                  for (final k in const [
+                    'all',
+                    'childList',
+                    'attributes',
+                    'characterData',
+                  ])
                     ChoiceChip(
                       label: Text(k),
                       selected: _kindFilter == k,
@@ -381,9 +398,13 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                     child: TextField(
                       onChanged: (v) => setState(() => _filter = v),
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.filter_alt_outlined,
-                            size: 16),
-                        labelText: loc?.webReverseDomMutFilterHint ?? 'Filter (substring)',
+                        prefixIcon: const Icon(
+                          Icons.filter_alt_outlined,
+                          size: 16,
+                        ),
+                        labelText:
+                            loc?.webReverseDomMutFilterHint ??
+                            'Filter (substring)',
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -392,13 +413,19 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                   FilterChip(
                     selected: _autoFollow,
                     onSelected: (v) => setState(() => _autoFollow = v),
-                    label: Text(loc?.webReverseDomMutAutoFollow ?? 'Auto-follow'),
+                    label: Text(
+                      loc?.webReverseDomMutAutoFollow ?? 'Auto-follow',
+                    ),
                   ),
                   Text(
-                    loc?.webReverseDomMutCounter(filtered.length, _records.length) ??
+                    loc?.webReverseDomMutCounter(
+                          filtered.length,
+                          _records.length,
+                        ) ??
                         '${filtered.length} / ${_records.length}',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -409,8 +436,10 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                   ? Center(
                       child: Text(
                         _recording
-                            ? (loc?.webReverseDomMutWaiting ?? 'Waiting for mutations…')
-                            : (loc?.webReverseDomMutPressStart ?? 'Press Start'),
+                            ? (loc?.webReverseDomMutWaiting ??
+                                  'Waiting for mutations…')
+                            : (loc?.webReverseDomMutPressStart ??
+                                  'Press Start'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -465,9 +494,7 @@ class _MutRow extends StatelessWidget {
     final t = rec['t'];
     String ts = '';
     if (t is int) {
-      final d = DateTime.fromMillisecondsSinceEpoch(t);
-      ts =
-          '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}.${d.millisecond.toString().padLeft(3, '0')}';
+      ts = formatHourMinuteSecondMillis(DateTime.fromMillisecondsSinceEpoch(t));
     }
     String detail;
     if (kind == 'attributes') {
@@ -497,9 +524,10 @@ class _MutRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 86,
-            child: Text(ts,
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 11)),
+            child: Text(
+              ts,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            ),
           ),
           SizedBox(
             width: 92,
@@ -519,15 +547,13 @@ class _MutRow extends StatelessWidget {
               '${rec['target'] ?? ''}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
             ),
           ),
           Expanded(
             child: SelectableText(
               detail,
-              style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
               maxLines: 2,
             ),
           ),

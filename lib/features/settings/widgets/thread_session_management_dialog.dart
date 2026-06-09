@@ -16,6 +16,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../ai/index.dart';
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
@@ -165,10 +166,7 @@ class _ThreadSessionManagementDialogState
   // ------------------------------------------------------------------
 
   String _formatDateTime(BuildContext context, DateTime dt) {
-    final local = dt.toLocal();
-    String pad(int n) => n.toString().padLeft(2, '0');
-    return '${local.year}-${pad(local.month)}-${pad(local.day)} '
-        '${pad(local.hour)}:${pad(local.minute)}';
+    return formatYearMonthDayHm(dt.toLocal());
   }
 
   /// Approximate on-disk size based on the session statistics already

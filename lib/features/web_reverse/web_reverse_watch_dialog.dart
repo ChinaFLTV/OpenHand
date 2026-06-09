@@ -18,6 +18,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseWatchDialog(
@@ -42,7 +43,11 @@ class _WatchExpr {
 }
 
 class _WatchSample {
-  const _WatchSample({required this.at, required this.value, required this.isError});
+  const _WatchSample({
+    required this.at,
+    required this.value,
+    required this.isError,
+  });
   final DateTime at;
   final String value;
   final bool isError;
@@ -166,11 +171,13 @@ class _WatchDialogState extends State<_WatchDialog> {
     if (code.isEmpty) return;
     final name = _newName.text.trim().isEmpty ? code : _newName.text.trim();
     setState(() {
-      _exprs.add(_WatchExpr(
-        id: 'w_${DateTime.now().microsecondsSinceEpoch}',
-        name: name,
-        code: code,
-      ));
+      _exprs.add(
+        _WatchExpr(
+          id: 'w_${DateTime.now().microsecondsSinceEpoch}',
+          name: name,
+          code: code,
+        ),
+      );
       _selected = _exprs.length - 1;
       _newCode.clear();
       _newName.clear();
@@ -186,19 +193,25 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    final out = const JsonEncoder.withIndent('  ').convert(_exprs
-        .map((e) => {
+    final out = const JsonEncoder.withIndent('  ').convert(
+      _exprs
+          .map(
+            (e) => {
               'name': e.name,
               'code': e.code,
               'samples': e.samples
-                  .map((s) => {
-                        'at': s.at.toIso8601String(),
-                        'value': s.value,
-                        'error': s.isError,
-                      })
+                  .map(
+                    (s) => {
+                      'at': s.at.toIso8601String(),
+                      'value': s.value,
+                      'error': s.isError,
+                    },
+                  )
                   .toList(),
-            })
-        .toList());
+            },
+          )
+          .toList(),
+    );
     await Clipboard.setData(ClipboardData(text: out));
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
@@ -239,15 +252,19 @@ class _WatchDialogState extends State<_WatchDialog> {
                       children: [
                         Text(
                           loc?.webReverseWatchTitle ?? 'Watch Expressions',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseWatchSubtitleHint(
-                                  _interval.inMilliseconds, _maxSamples) ??
+                                _interval.inMilliseconds,
+                                _maxSamples,
+                              ) ??
                               'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_maxSamples samples',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -262,9 +279,11 @@ class _WatchDialogState extends State<_WatchDialog> {
                         ? (loc?.webReverseWatchPause ?? 'Pause')
                         : (loc?.webReverseWatchResume ?? 'Resume'),
                     onPressed: _running ? _stop : _start,
-                    icon: Icon(_running
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_filled_rounded),
+                    icon: Icon(
+                      _running
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_filled_rounded,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -292,7 +311,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                           child: _exprs.isEmpty
                               ? Center(
                                   child: Text(
-                                    loc?.webReverseWatchNoExpressions ?? 'No expressions',
+                                    loc?.webReverseWatchNoExpressions ??
+                                        'No expressions',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant,
                                     ),
@@ -308,8 +328,9 @@ class _WatchDialogState extends State<_WatchDialog> {
                                     final sel = i == _selected;
                                     return Material(
                                       color: sel
-                                          ? cs.primaryContainer
-                                              .withValues(alpha: 0.4)
+                                          ? cs.primaryContainer.withValues(
+                                              alpha: 0.4,
+                                            )
                                           : cs.surfaceContainerHigh,
                                       borderRadius: BorderRadius.circular(8),
                                       child: InkWell(
@@ -317,16 +338,19 @@ class _WatchDialogState extends State<_WatchDialog> {
                                         onTap: () =>
                                             setState(() => _selected = i),
                                         child: Padding(
-                                          padding:
-                                              const EdgeInsets.fromLTRB(
-                                                  10, 6, 4, 6),
+                                          padding: const EdgeInsets.fromLTRB(
+                                            10,
+                                            6,
+                                            4,
+                                            6,
+                                          ),
                                           child: Row(
                                             children: [
                                               Icon(
                                                 e.error
                                                     ? Icons.error_outline
                                                     : Icons
-                                                        .check_circle_outline,
+                                                          .check_circle_outline,
                                                 size: 16,
                                                 color: e.error
                                                     ? cs.error
@@ -336,46 +360,48 @@ class _WatchDialogState extends State<_WatchDialog> {
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
                                                       e.name,
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
-                                                      style: theme.textTheme
+                                                      style: theme
+                                                          .textTheme
                                                           .labelMedium,
                                                     ),
                                                     Text(
                                                       e.last.isEmpty
                                                           ? (loc?.webReverseWatchAwaiting ??
-                                                              'awaiting…')
+                                                                'awaiting…')
                                                           : e.last,
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
-                                                      style: theme.textTheme
+                                                      style: theme
+                                                          .textTheme
                                                           .labelSmall
                                                           ?.copyWith(
-                                                        color: e.error
-                                                            ? cs.error
-                                                            : cs
-                                                                .onSurfaceVariant,
-                                                        fontFamily:
-                                                            'monospace',
-                                                      ),
+                                                            color: e.error
+                                                                ? cs.error
+                                                                : cs.onSurfaceVariant,
+                                                            fontFamily:
+                                                                'monospace',
+                                                          ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                               IconButton(
                                                 tooltip:
-                                                    loc?.webReverseWatchDelete ?? 'Delete',
+                                                    loc?.webReverseWatchDelete ??
+                                                    'Delete',
                                                 onPressed: () => _removeAt(i),
                                                 icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    size: 16),
+                                                  Icons.delete_outline,
+                                                  size: 16,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -393,7 +419,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                               TextField(
                                 controller: _newName,
                                 decoration: InputDecoration(
-                                  labelText: loc?.webReverseWatchNameLabel ??
+                                  labelText:
+                                      loc?.webReverseWatchNameLabel ??
                                       'Name (optional)',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
@@ -405,9 +432,12 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 minLines: 2,
                                 maxLines: 4,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 12),
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
                                 decoration: InputDecoration(
-                                  labelText: loc?.webReverseWatchExpressionLabel ??
+                                  labelText:
+                                      loc?.webReverseWatchExpressionLabel ??
                                       'JS expression',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
@@ -419,7 +449,9 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 child: FilledButton.tonalIcon(
                                   onPressed: _addExpr,
                                   icon: const Icon(Icons.add_rounded, size: 16),
-                                  label: Text(loc?.webReverseWatchAddWatch ?? 'Add watch'),
+                                  label: Text(
+                                    loc?.webReverseWatchAddWatch ?? 'Add watch',
+                                  ),
                                 ),
                               ),
                             ],
@@ -458,10 +490,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 }
 
 class _IntervalRow extends StatelessWidget {
-  const _IntervalRow({
-    required this.interval,
-    required this.onChanged,
-  });
+  const _IntervalRow({required this.interval, required this.onChanged});
   final Duration interval;
   final ValueChanged<Duration> onChanged;
   @override
@@ -479,9 +508,12 @@ class _IntervalRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
       child: Row(
         children: [
-          Text(loc?.webReverseWatchInterval ?? 'Interval',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
+          Text(
+            loc?.webReverseWatchInterval ?? 'Interval',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(width: 8),
           Wrap(
             spacing: 6,
@@ -516,14 +548,16 @@ class _HistoryPane extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(expr.name,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                expr.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 2),
               SelectableText(
                 expr.code,
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
             ],
           ),
@@ -542,8 +576,9 @@ class _HistoryPane extends StatelessWidget {
               if (expr.samples.isNotEmpty)
                 Text(
                   loc?.webReverseWatchNewestFirst ?? 'newest first',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),
@@ -553,8 +588,9 @@ class _HistoryPane extends StatelessWidget {
               ? Center(
                   child: Text(
                     loc?.webReverseWatchAwaitingFirst ?? 'awaiting first eval…',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -577,7 +613,9 @@ class _HistoryPane extends StatelessWidget {
                           Text(
                             _fmt(s.at),
                             style: const TextStyle(
-                                fontFamily: 'monospace', fontSize: 11),
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -600,6 +638,5 @@ class _HistoryPane extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}.${t.millisecond.toString().padLeft(3, '0')}';
+  String _fmt(DateTime t) => formatHourMinuteSecondMillis(t);
 }
