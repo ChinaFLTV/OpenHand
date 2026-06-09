@@ -1,6 +1,7 @@
 part of 'settings_view.dart';
 
 const int _aiModelChipPreviewLimit = 8;
+const String _settingsZeroDurationLabel = '0s';
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -358,6 +359,26 @@ class _SettingsStatusChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String _settingsFormatRemainingUntilMs(int? untilMs) {
+  if (untilMs == null) return _settingsZeroDurationLabel;
+  final remainingMs = untilMs - DateTime.now().millisecondsSinceEpoch;
+  if (remainingMs <= 0) return _settingsZeroDurationLabel;
+  if (remainingMs < Duration.millisecondsPerMinute) {
+    return '${(remainingMs / Duration.millisecondsPerSecond).round()}s';
+  }
+  if (remainingMs < Duration.millisecondsPerHour) {
+    return '${(remainingMs / Duration.millisecondsPerMinute).round()}m';
+  }
+  return '${(remainingMs / Duration.millisecondsPerHour).round()}h';
+}
+
+String _settingsFormatMonthDayHmsFromEpochMs(int timestampMs) {
+  final ts = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${two(ts.month)}-${two(ts.day)} '
+      '${two(ts.hour)}:${two(ts.minute)}:${two(ts.second)}';
 }
 
 class _ReadonlySettingRow extends StatelessWidget {

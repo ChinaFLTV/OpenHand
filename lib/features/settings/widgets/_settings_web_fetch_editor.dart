@@ -1195,8 +1195,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                       icon: Icons.pause_circle_outline,
                       label: _localizedText(
                         context,
-                        zh: '降级中 · 剩余 ${_formatRemaining(stat.cooldownUntilMs)}',
-                        en: 'cooldown · ${_formatRemaining(stat.cooldownUntilMs)} left',
+                        zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)}',
+                        en: 'cooldown · ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)} left',
                       ),
                       backgroundColor: colorScheme.errorContainer,
                       foregroundColor: colorScheme.onErrorContainer,
@@ -1260,25 +1260,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     );
   }
 
-  String _formatRemaining(int? untilMs) {
-    if (untilMs == null) return '0s';
-    final remain = untilMs - DateTime.now().millisecondsSinceEpoch;
-    if (remain <= 0) return '0s';
-    if (remain < 60 * 1000) return '${(remain / 1000).round()}s';
-    if (remain < 60 * 60 * 1000) return '${(remain / 60000).round()}m';
-    return '${(remain / 3600000).round()}h';
-  }
-
   Widget _buildCallLogRow(
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
     WebFetchCallLog call,
   ) {
-    final ts = DateTime.fromMillisecondsSinceEpoch(call.timestampMs);
-    final timeStr =
-        '${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} '
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final timeStr = _settingsFormatMonthDayHmsFromEpochMs(call.timestampMs);
     final (chipBg, chipFg, chipLabel) = switch (call.cacheStatus) {
       'hit' => (
         colorScheme.primaryContainer,
