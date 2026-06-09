@@ -269,6 +269,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   late final TextEditingController _timeoutController;
   late _HookScriptSource _scriptSource;
   late bool _enabled;
+  String? _formError;
 
   @override
   void initState() {
@@ -326,6 +327,11 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              buildOpenHandDialogValidationMessage(
+                context,
+                message: _formError,
+              ),
+              if (_formError != null) const SizedBox(height: 12),
               // Label
               TextField(
                 controller: _labelController,
@@ -536,6 +542,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       ];
     }
     final file = await openFile(acceptedTypeGroups: typeGroups);
+    if (!mounted) return;
     if (file != null) {
       setState(() {
         _scriptPathController.text = file.path;
@@ -545,7 +552,11 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
 
   void _save() {
     final label = _labelController.text.trim();
-    if (label.isEmpty) return;
+    final validationError = _validateForm(label);
+    if (validationError != null) {
+      setState(() => _formError = validationError);
+      return;
+    }
 
     final timeout = clampedIntFromText(
       _timeoutController.text,
@@ -574,5 +585,20 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       controller.addHook(entry);
     }
     Navigator.of(context).pop();
+  }
+
+  String? _validateForm(String label) {
+    if (label.isEmpty) {
+      return isZh ? '请填写 Hook 名称。' : 'Enter a hook label.';
+    }
+    if (_scriptSource == _HookScriptSource.file &&
+        nullIfBlank(_scriptPathController.text) == null) {
+      return isZh ? '请选择脚本文件。' : 'Select a script file.';
+    }
+    if (_scriptSource == _HookScriptSource.inline &&
+        nullIfBlank(_scriptContentController.text) == null) {
+      return isZh ? '请填写内联脚本内容。' : 'Enter inline script content.';
+    }
+    return null;
   }
 }

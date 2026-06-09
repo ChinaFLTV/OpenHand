@@ -364,7 +364,24 @@ class _CronEntryCard extends StatelessWidget {
                   const SizedBox(width: 8),
                 ],
                 // Toggle switch
-                // 2026-05-04 \u2014 MCP \u5173\u952e\u8bcd\u5012\u6392\u7d22\u5f15\u91cd\u5efa\u4efb\u52a1\u7684\u542f\u7528\u72b6\u6001\u5b8c\u5168\u7531\u300c\u5168\u5c40\u8bbe\u7f6e \u2192\n                // MCP \u2192 \u66f4\u65b0\u5173\u952e\u8bcd\u6620\u5c04\u6a21\u5f0f\u300d\u9a71\u52a8\uff0c\u5728\u8be5\u9875\u9501\u5b9a\uff0c\u907f\u514d\u4e0e\u8bbe\u7f6e\u9879\u8131\u540c\u3002\n                Builder(\n                  builder: (context) {\n                    final locked = entry.tags.contains(\n                      CronsController.mcpKeywordIndexTag,\n                    );\n                    final toggle = Switch(\n                      value: entry.enabled,\n                      onChanged: locked ? null : onToggle,\n                    );\n                    if (!locked) return toggle;\n                    return Tooltip(\n                      message: isZh\n                          ? '\u7531\u300c\u5168\u5c40\u8bbe\u7f6e \u2192 MCP \u2192 \u66f4\u65b0\u5173\u952e\u8bcd\u6620\u5c04\u6a21\u5f0f\u300d\u63a7\u5236\uff0c\u4e0d\u53ef\u624b\u52a8\u5f00\u5173'\n                          : 'Controlled by Settings \u2192 MCP \u2192 Keyword index update mode',\n                      child: toggle,\n                    );\n                  },\n                ),
+                Builder(
+                  builder: (context) {
+                    final locked = entry.tags.contains(
+                      CronsController.mcpKeywordIndexTag,
+                    );
+                    final toggle = Switch(
+                      value: entry.enabled,
+                      onChanged: locked ? null : onToggle,
+                    );
+                    if (!locked) return toggle;
+                    return Tooltip(
+                      message: isZh
+                          ? '由「全局设置 → MCP → 更新关键词映射模式」控制，不可手动开关'
+                          : 'Controlled by Settings → MCP → Keyword index update mode',
+                      child: toggle,
+                    );
+                  },
+                ),
                 const SizedBox(width: 8),
                 // 2026-04-25 — system entries (e.g. Hermes Talker self-
                 // learning) no longer show a lock icon. Toggle stays
@@ -625,6 +642,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   late bool _collectEnvironmentSnapshot;
 
   String? _cronError;
+  String? _formError;
 
   @override
   void initState() {
@@ -759,6 +777,11 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              buildOpenHandDialogValidationMessage(
+                context,
+                message: _formError,
+              ),
+              if (_formError != null) const SizedBox(height: 12),
               // Name
               TextField(
                 controller: _nameController,
@@ -1465,6 +1488,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       ];
     }
     final file = await openFile(acceptedTypeGroups: typeGroups);
+    if (!mounted) return;
     if (file != null) {
       setState(() {
         _scriptPathController.text = file.path;
@@ -1474,13 +1498,20 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
   void _save() {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    final validationError = _validateForm(name);
+    if (validationError != null) {
+      setState(() => _formError = validationError);
+      return;
+    }
 
     // Validate cron expression.
     final cronExpr = _cronExpression;
     final cronErr = CronParser.validate(cronExpr, isZh: isZh);
     if (cronErr != null) {
-      setState(() => _cronError = cronErr);
+      setState(() {
+        _cronError = cronErr;
+        _formError = null;
+      });
       return;
     }
 
@@ -1554,6 +1585,30 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       controller.addCron(entry);
     }
     Navigator.of(context).pop();
+  }
+
+  String? _validateForm(String name) {
+    if (name.isEmpty) {
+      return isZh ? '请填写任务名称。' : 'Enter a cron job name.';
+    }
+    if (_scriptType == CronScriptType.script &&
+        nullIfBlank(_scriptPathController.text) == null) {
+      return isZh ? '请选择脚本文件。' : 'Select a script file.';
+    }
+    if (_scriptType == CronScriptType.command &&
+        nullIfBlank(_scriptContentController.text) == null) {
+      return isZh ? '请填写命令内容。' : 'Enter a command.';
+    }
+    final invalidEnvLines = invalidKeyValueLineNumbersFromText(
+      _envController.text,
+    );
+    if (invalidEnvLines.isNotEmpty) {
+      final lines = invalidEnvLines.join(', ');
+      return isZh
+          ? '环境变量格式错误，请检查第 $lines 行。格式应为 KEY=VALUE。'
+          : 'Invalid environment variable format on line(s) $lines. Use KEY=VALUE.';
+    }
+    return null;
   }
 
   Future<void> _testNotification(_NotificationTestScenario scenario) async {

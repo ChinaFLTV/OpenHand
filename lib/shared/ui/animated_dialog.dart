@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -415,6 +416,74 @@ Widget buildOpenHandDialogFormShell({
   );
 }
 
+Widget buildOpenHandDialogValidationMessage(
+  BuildContext context, {
+  required String? message,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final duration = MediaQuery.disableAnimationsOf(context)
+      ? Duration.zero
+      : const Duration(milliseconds: 180);
+  final content = message == null
+      ? const SizedBox.shrink(key: ValueKey<String>('empty'))
+      : DecoratedBox(
+          key: ValueKey<String>(message),
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colorScheme.error.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 18,
+                  color: colorScheme.onErrorContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onErrorContainer,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+  return AnimatedSwitcher(
+    duration: duration,
+    reverseDuration: duration,
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    transitionBuilder: (child, animation) {
+      final curved = openHandBoundedCurveAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SizeTransition(
+          sizeFactor: curved,
+          axisAlignment: -1,
+          child: child,
+        ),
+      );
+    },
+    child: content,
+  );
+}
+
 Future<T?> showAnimatedModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -629,6 +698,8 @@ Widget _buildTransition({
 Widget buildAnimationStyleTransition({
   required Animation<double> animation,
   required DialogAnimationSettings settings,
+  OpenHandAnimationTransitionProfile profile =
+      const OpenHandAnimationTransitionProfile(),
   Curve? curveOverride,
   Curve? reverseCurveOverride,
   required Widget child,
@@ -657,58 +728,121 @@ Widget buildAnimationStyleTransition({
     DialogAnimationStyle.fadeScale => _FadeScaleTransition(
       opacity: boundedMotion,
       motion: motion,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.slideUp => _SlideTransition(
       opacity: boundedMotion,
       motion: motion,
-      beginOffset: const Offset(0, 0.15),
+      beginOffset: profile.slideUpOffset,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.slideDown => _SlideTransition(
       opacity: boundedMotion,
       motion: motion,
-      beginOffset: const Offset(0, -0.15),
+      beginOffset: profile.slideDownOffset,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.slideLeft => _SlideTransition(
       opacity: boundedMotion,
       motion: motion,
-      beginOffset: const Offset(-0.25, 0),
+      beginOffset: profile.slideLeftOffset,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.slideRight => _SlideTransition(
       opacity: boundedMotion,
       motion: motion,
-      beginOffset: const Offset(0.25, 0),
+      beginOffset: profile.slideRightOffset,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.expand => _ExpandTransition(
       parentAnimation: safeAnimation,
       motion: motion,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.rotateScale => _RotateScaleTransition(
       opacity: boundedMotion,
       motion: motion,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.elastic => _ElasticTransition(
       animation: safeAnimation,
       curve: curve,
       reverseCurve: reverseCurve,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.springScale => _SpringScaleTransition(
       animation: safeAnimation,
+      profile: profile,
       child: child,
     ),
     DialogAnimationStyle.flipX => _FlipXTransition(
       opacity: boundedMotion,
       motion: motion,
+      profile: profile,
       child: child,
     ),
   };
+}
+
+enum OpenHandSlideTransitionMode { fractional, paintOffset }
+
+@immutable
+class OpenHandAnimationTransitionProfile {
+  const OpenHandAnimationTransitionProfile({
+    this.alignment = Alignment.center,
+    this.fadeScaleBegin = 0.94,
+    this.expandScaleBegin = 0.88,
+    this.rotateScaleBegin = 0.9,
+    this.rotateTurnsBegin = -0.05,
+    this.elasticScaleBegin = 0.94,
+    this.springScaleBegin = 0.94,
+    this.flipMaxAngle = 1.5708,
+    this.flipMaxTilt = 0.0,
+    this.flipPerspective = 0.0015,
+    this.slideMode = OpenHandSlideTransitionMode.fractional,
+    this.slideUpOffset = const Offset(0, 0.15),
+    this.slideDownOffset = const Offset(0, -0.15),
+    this.slideLeftOffset = const Offset(-0.25, 0),
+    this.slideRightOffset = const Offset(0.25, 0),
+  });
+
+  final Alignment alignment;
+  final double fadeScaleBegin;
+  final double expandScaleBegin;
+  final double rotateScaleBegin;
+  final double rotateTurnsBegin;
+  final double elasticScaleBegin;
+  final double springScaleBegin;
+  final double flipMaxAngle;
+  final double flipMaxTilt;
+  final double flipPerspective;
+  final OpenHandSlideTransitionMode slideMode;
+  final Offset slideUpOffset;
+  final Offset slideDownOffset;
+  final Offset slideLeftOffset;
+  final Offset slideRightOffset;
+}
+
+double _finiteDouble(double value, double fallback) {
+  return value.isFinite ? value : fallback;
+}
+
+double _positiveFiniteDouble(double value, double fallback) {
+  if (!value.isFinite || value <= 0) return fallback;
+  return value;
+}
+
+Offset _finiteOffset(Offset value, Offset fallback) {
+  if (value.dx.isFinite && value.dy.isFinite) return value;
+  return fallback;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -719,10 +853,12 @@ class _FadeScaleTransition extends StatelessWidget {
   const _FadeScaleTransition({
     required this.opacity,
     required this.motion,
+    required this.profile,
     required this.child,
   });
   final Animation<double> opacity;
   final Animation<double> motion;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
@@ -730,7 +866,11 @@ class _FadeScaleTransition extends StatelessWidget {
     return FadeTransition(
       opacity: opacity,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(motion),
+        scale: Tween<double>(
+          begin: _positiveFiniteDouble(profile.fadeScaleBegin, 0.94),
+          end: 1.0,
+        ).animate(motion),
+        alignment: profile.alignment,
         child: child,
       ),
     );
@@ -742,25 +882,34 @@ class _SlideTransition extends StatelessWidget {
     required this.opacity,
     required this.motion,
     required this.beginOffset,
+    required this.profile,
     required this.child,
   });
   final Animation<double> opacity;
   final Animation<double> motion;
   final Offset beginOffset;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: opacity,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: beginOffset,
-          end: Offset.zero,
-        ).animate(motion),
-        child: child,
-      ),
-    );
+    final effectiveOffset = _finiteOffset(beginOffset, Offset.zero);
+    final slidingChild =
+        profile.slideMode == OpenHandSlideTransitionMode.paintOffset
+        ? _PaintOffsetTransition(
+            animation: motion,
+            maxXOffset: effectiveOffset.dx,
+            maxYOffset: effectiveOffset.dy,
+            child: child,
+          )
+        : SlideTransition(
+            position: Tween<Offset>(
+              begin: effectiveOffset,
+              end: Offset.zero,
+            ).animate(motion),
+            child: child,
+          );
+    return FadeTransition(opacity: opacity, child: slidingChild);
   }
 }
 
@@ -768,10 +917,12 @@ class _ExpandTransition extends StatelessWidget {
   const _ExpandTransition({
     required this.parentAnimation,
     required this.motion,
+    required this.profile,
     required this.child,
   });
   final Animation<double> parentAnimation;
   final Animation<double> motion;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
@@ -782,7 +933,11 @@ class _ExpandTransition extends StatelessWidget {
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.88, end: 1.0).animate(motion),
+        scale: Tween<double>(
+          begin: _positiveFiniteDouble(profile.expandScaleBegin, 0.88),
+          end: 1.0,
+        ).animate(motion),
+        alignment: profile.alignment,
         child: child,
       ),
     );
@@ -793,21 +948,34 @@ class _RotateScaleTransition extends StatelessWidget {
   const _RotateScaleTransition({
     required this.opacity,
     required this.motion,
+    required this.profile,
     required this.child,
   });
   final Animation<double> opacity;
   final Animation<double> motion;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(motion);
-    final rotation = Tween<double>(begin: -0.05, end: 0.0).animate(motion);
+    final scale = Tween<double>(
+      begin: _positiveFiniteDouble(profile.rotateScaleBegin, 0.9),
+      end: 1.0,
+    ).animate(motion);
+    final rotation = Tween<double>(
+      begin: _finiteDouble(profile.rotateTurnsBegin, -0.05),
+      end: 0.0,
+    ).animate(motion);
     return FadeTransition(
       opacity: opacity,
       child: ScaleTransition(
         scale: scale,
-        child: RotationTransition(turns: rotation, child: child),
+        alignment: profile.alignment,
+        child: RotationTransition(
+          turns: rotation,
+          alignment: profile.alignment,
+          child: child,
+        ),
       ),
     );
   }
@@ -818,11 +986,13 @@ class _ElasticTransition extends StatelessWidget {
     required this.animation,
     required this.curve,
     required this.reverseCurve,
+    required this.profile,
     required this.child,
   });
   final Animation<double> animation;
   final Curve curve;
   final Curve reverseCurve;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
@@ -832,16 +1002,21 @@ class _ElasticTransition extends StatelessWidget {
       curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
-    final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      openHandCurveAnimation(
-        parent: animation,
-        curve: curve,
-        reverseCurve: reverseCurve,
-      ),
+    final scaleMotion = openHandCurveAnimation(
+      parent: animation,
+      curve: curve,
+      reverseCurve: reverseCurve,
     );
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(scale: scale, child: child),
+      child: ScaleTransition(
+        scale: Tween<double>(
+          begin: _positiveFiniteDouble(profile.elasticScaleBegin, 0.94),
+          end: 1.0,
+        ).animate(scaleMotion),
+        alignment: profile.alignment,
+        child: child,
+      ),
     );
   }
 }
@@ -849,8 +1024,13 @@ class _ElasticTransition extends StatelessWidget {
 /// Q-bouncy spring scale: easeOutBack overshoot on entrance + slight
 /// fade window. Reverse uses easeInBack so exit also feels springy.
 class _SpringScaleTransition extends StatelessWidget {
-  const _SpringScaleTransition({required this.animation, required this.child});
+  const _SpringScaleTransition({
+    required this.animation,
+    required this.profile,
+    required this.child,
+  });
   final Animation<double> animation;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
@@ -860,16 +1040,21 @@ class _SpringScaleTransition extends StatelessWidget {
       curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
       reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
     );
-    final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      openHandCurveAnimation(
-        parent: animation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInBack,
-      ),
+    final scaleMotion = openHandCurveAnimation(
+      parent: animation,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInBack,
     );
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(scale: scale, child: child),
+      child: ScaleTransition(
+        scale: Tween<double>(
+          begin: _positiveFiniteDouble(profile.springScaleBegin, 0.94),
+          end: 1.0,
+        ).animate(scaleMotion),
+        alignment: profile.alignment,
+        child: child,
+      ),
     );
   }
 }
@@ -880,10 +1065,12 @@ class _FlipXTransition extends StatelessWidget {
   const _FlipXTransition({
     required this.opacity,
     required this.motion,
+    required this.profile,
     required this.child,
   });
   final Animation<double> opacity;
   final Animation<double> motion;
+  final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
   @override
@@ -893,19 +1080,117 @@ class _FlipXTransition extends StatelessWidget {
       child: AnimatedBuilder(
         animation: motion,
         builder: (context, c) {
-          final t = motion.value.clamp(0.0, 1.0);
-          final angle = (1.0 - t) * 1.5708;
+          final t = openHandBoundedProgress(motion.value);
+          final angle = (1.0 - t) * _finiteDouble(profile.flipMaxAngle, 1.5708);
+          final tilt = (1.0 - t) * _finiteDouble(profile.flipMaxTilt, 0.0);
           final matrix = Matrix4.identity()
-            ..setEntry(3, 2, 0.0015)
-            ..rotateX(angle);
+            ..setEntry(3, 2, _finiteDouble(profile.flipPerspective, 0.0015))
+            ..rotateX(angle)
+            ..rotateZ(tilt);
           return Transform(
             transform: matrix,
-            alignment: Alignment.center,
+            alignment: profile.alignment,
             child: c,
           );
         },
         child: child,
       ),
     );
+  }
+}
+
+class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
+  const _PaintOffsetTransition({
+    required this.animation,
+    required this.maxYOffset,
+    this.maxXOffset = 0,
+    required Widget super.child,
+  });
+
+  final Animation<double> animation;
+  final double maxYOffset;
+  final double maxXOffset;
+
+  @override
+  _PaintOffsetRenderObject createRenderObject(BuildContext context) {
+    final disable = MediaQuery.disableAnimationsOf(context);
+    return _PaintOffsetRenderObject(
+      animation: animation,
+      maxYOffset: disable ? 0.0 : maxYOffset,
+      maxXOffset: disable ? 0.0 : maxXOffset,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _PaintOffsetRenderObject renderObject,
+  ) {
+    final disable = MediaQuery.disableAnimationsOf(context);
+    renderObject
+      ..animation = animation
+      ..maxYOffset = disable ? 0.0 : maxYOffset
+      ..maxXOffset = disable ? 0.0 : maxXOffset;
+  }
+}
+
+/// Layout-safe paint-time translation driven by an [Animation].
+///
+/// The render object only shifts the paint offset via [markNeedsPaint], so
+/// pixel-based slide transitions can be reused without changing layout size.
+class _PaintOffsetRenderObject extends RenderProxyBox {
+  _PaintOffsetRenderObject({
+    required Animation<double> animation,
+    required double maxYOffset,
+    double maxXOffset = 0,
+  }) : _animation = animation,
+       _maxYOffset = maxYOffset,
+       _maxXOffset = maxXOffset;
+
+  Animation<double> _animation;
+  double _maxYOffset;
+  double _maxXOffset;
+
+  set animation(Animation<double> value) {
+    if (identical(_animation, value)) return;
+    if (attached) {
+      _animation.removeListener(markNeedsPaint);
+      value.addListener(markNeedsPaint);
+    }
+    _animation = value;
+    markNeedsPaint();
+  }
+
+  set maxYOffset(double value) {
+    if (_maxYOffset == value) return;
+    _maxYOffset = value;
+    markNeedsPaint();
+  }
+
+  set maxXOffset(double value) {
+    if (_maxXOffset == value) return;
+    _maxXOffset = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _animation.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _animation.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    final value = _finiteDouble(_animation.value, 1.0);
+    final dy = (1 - value) * _finiteDouble(_maxYOffset, 0.0);
+    final dx = (1 - value) * _finiteDouble(_maxXOffset, 0.0);
+    super.paint(context, offset + Offset(dx, dy));
   }
 }

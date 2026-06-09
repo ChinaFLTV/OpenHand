@@ -53,6 +53,28 @@ Map<String, String> keyValueMapFromValue(
   return map;
 }
 
+List<int> invalidKeyValueLineNumbersFromText(
+  String value, {
+  Pattern lineSeparator = '\n',
+  String keyValueSeparator = '=',
+}) {
+  if (value.trim().isEmpty) return const <int>[];
+  final invalidLines = <int>[];
+  final lines = value.split(lineSeparator);
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line.isEmpty) continue;
+    final index = line.indexOf(keyValueSeparator);
+    if (index <= 0) {
+      invalidLines.add(i + 1);
+      continue;
+    }
+    final key = line.substring(0, index).trim();
+    if (key.isEmpty) invalidLines.add(i + 1);
+  }
+  return invalidLines;
+}
+
 DateTime? dateTimeFromValue(Object? value) {
   if (value is DateTime) return value;
   if (value is String && value.trim().isNotEmpty) {

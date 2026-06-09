@@ -49,6 +49,13 @@ const Duration _hardnessSessionPersistenceDebounce = Duration(
 );
 const int _workspaceSwitchMaxDurationMs = 800;
 const int _disabledSwitchBookkeepingDurationMs = 200;
+const double _workspacePaneFadeScaleBegin = 0.985;
+const double _workspacePaneExpandScaleBegin = 0.96;
+const double _workspacePaneRotateScaleBegin = 0.96;
+const double _workspacePaneRotateTurnsBegin = -0.015;
+const double _workspacePaneFlipMaxAngle = 0.25;
+const double _workspacePaneFlipMaxTilt = 0.015;
+const double _workspacePaneFlipPerspective = 0.001;
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -79,7 +86,6 @@ Widget _buildWorkspaceSidebarTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
   final isFileExplorerPane =
       child.key == const ValueKey<String>('file-explorer-pane');
   final isNavigationPane =
@@ -91,7 +97,7 @@ Widget _buildWorkspaceSidebarTransition({
       : 0.0;
   return _buildWorkspaceSettingsAwareTransition(
     child: child,
-    animation: safeAnimation,
+    animation: animation,
     settings: settings,
     slideX: horizontalOffset,
     slideY: 10.0,
@@ -103,7 +109,6 @@ Widget _buildWorkspaceContentTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
   final childKey = switch (child.key) {
     ValueKey<String>(:final value) => value,
     _ => null,
@@ -118,7 +123,7 @@ Widget _buildWorkspaceContentTransition({
   final verticalOffset = isEditorPane ? 12.0 : 8.0;
   return _buildWorkspaceSettingsAwareTransition(
     child: child,
-    animation: safeAnimation,
+    animation: animation,
     settings: settings,
     slideX: horizontalOffset,
     slideY: verticalOffset,
@@ -132,115 +137,28 @@ Widget _buildWorkspaceSettingsAwareTransition({
   required double slideX,
   required double slideY,
 }) {
-  final forward =
-      animation.status == AnimationStatus.forward ||
-      animation.status == AnimationStatus.completed;
-  final style = forward ? settings.entranceStyle : settings.exitStyle;
-  final curveData = settings.curve;
-  final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
-  final motion = openHandCurveAnimation(
-    parent: safeAnimation,
-    curve: curveData.curve,
-    reverseCurve: curveData.reverseCurve,
+  final slideDistanceX = slideX.abs();
+  final slideDistanceY = slideY.abs();
+  return buildAnimationStyleTransition(
+    animation: animation,
+    settings: settings,
+    profile: OpenHandAnimationTransitionProfile(
+      alignment: Alignment.topCenter,
+      fadeScaleBegin: _workspacePaneFadeScaleBegin,
+      expandScaleBegin: _workspacePaneExpandScaleBegin,
+      rotateScaleBegin: _workspacePaneRotateScaleBegin,
+      rotateTurnsBegin: _workspacePaneRotateTurnsBegin,
+      flipMaxAngle: _workspacePaneFlipMaxAngle,
+      flipMaxTilt: _workspacePaneFlipMaxTilt,
+      flipPerspective: _workspacePaneFlipPerspective,
+      slideMode: OpenHandSlideTransitionMode.paintOffset,
+      slideUpOffset: Offset(0, slideDistanceY),
+      slideDownOffset: Offset(0, -slideDistanceY),
+      slideLeftOffset: Offset(-slideDistanceX, 0),
+      slideRightOffset: Offset(slideDistanceX, 0),
+    ),
+    child: child,
   );
-  final boundedMotion = OpenHandBoundedDoubleAnimation(motion);
-  final offsetMotion = openHandCurveAnimation(
-    parent: safeAnimation,
-    curve: Curves.easeOutBack,
-    reverseCurve: Curves.easeInCubic,
-  );
-
-  Widget fadeChild(Widget child) =>
-      FadeTransition(opacity: boundedMotion, child: child);
-  Widget slideChild({required double dx, required double dy}) {
-    return FadeTransition(
-      opacity: boundedMotion,
-      child: _PaintOffsetTransition(
-        animation: offsetMotion,
-        maxXOffset: dx,
-        maxYOffset: dy,
-        child: child,
-      ),
-    );
-  }
-
-  return switch (style) {
-    DialogAnimationStyle.none => child,
-    DialogAnimationStyle.fade => fadeChild(child),
-    DialogAnimationStyle.fadeScale => FadeTransition(
-      opacity: boundedMotion,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.985, end: 1.0).animate(motion),
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.slideUp => slideChild(dx: 0.0, dy: slideY.abs()),
-    DialogAnimationStyle.slideDown => slideChild(dx: 0.0, dy: -slideY.abs()),
-    DialogAnimationStyle.slideLeft => slideChild(dx: -slideX.abs(), dy: 0.0),
-    DialogAnimationStyle.slideRight => slideChild(dx: slideX.abs(), dy: 0.0),
-    DialogAnimationStyle.expand => FadeTransition(
-      opacity: openHandBoundedCurveAnimation(
-        parent: safeAnimation,
-        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.96, end: 1.0).animate(motion),
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.rotateScale => FadeTransition(
-      opacity: boundedMotion,
-      child: RotationTransition(
-        turns: Tween<double>(begin: -0.015, end: 0.0).animate(motion),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1.0).animate(motion),
-          alignment: Alignment.topCenter,
-          child: child,
-        ),
-      ),
-    ),
-    DialogAnimationStyle.elastic ||
-    DialogAnimationStyle.springScale => FadeTransition(
-      opacity: openHandBoundedCurveAnimation(
-        parent: safeAnimation,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.94, end: 1.0).animate(
-          openHandCurveAnimation(
-            parent: safeAnimation,
-            curve: Curves.easeOutBack,
-            reverseCurve: Curves.easeInBack,
-          ),
-        ),
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    ),
-    DialogAnimationStyle.flipX => FadeTransition(
-      opacity: boundedMotion,
-      child: AnimatedBuilder(
-        animation: motion,
-        child: child,
-        builder: (context, child) {
-          final t = motion.value.clamp(0.0, 1.0);
-          final tilt = (1.0 - t) * 0.015;
-          final angle = (1.0 - t) * 0.25;
-          final matrix = Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateX(angle)
-            ..rotateZ(tilt);
-          return Transform(
-            alignment: Alignment.topCenter,
-            transform: matrix,
-            child: child,
-          );
-        },
-      ),
-    ),
-  };
 }
 
 Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
@@ -258,107 +176,6 @@ Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
       ? _disabledSwitchBookkeepingDurationMs
       : clamped;
   return Duration(milliseconds: clamped < minMs ? minMs : clamped);
-}
-
-/// Layout-safe paint-time vertical translation driven by an [Animation].
-///
-/// Implemented as a [SingleChildRenderObjectWidget] whose render object only
-/// shifts the paint offset on each animation tick via [markNeedsPaint] — it
-/// never allocates or holds onto any [Layer], so it cannot run into the
-/// "disposed layer" assertions that handwritten `pushOpacity` paths can
-/// trigger. Pair it with a [FadeTransition] (which manages its own
-/// [OpacityLayer] correctly through [RenderAnimatedOpacity]) when you also
-/// need an opacity animation.
-class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
-  const _PaintOffsetTransition({
-    required this.animation,
-    required this.maxYOffset,
-    this.maxXOffset = 0,
-    required Widget super.child,
-  });
-
-  final Animation<double> animation;
-  final double maxYOffset;
-  final double maxXOffset;
-
-  @override
-  _PaintOffsetRenderObject createRenderObject(BuildContext context) {
-    final disable = MediaQuery.disableAnimationsOf(context);
-    return _PaintOffsetRenderObject(
-      animation: animation,
-      maxYOffset: disable ? 0.0 : maxYOffset,
-      maxXOffset: disable ? 0.0 : maxXOffset,
-    );
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _PaintOffsetRenderObject renderObject,
-  ) {
-    final disable = MediaQuery.disableAnimationsOf(context);
-    renderObject
-      ..animation = animation
-      ..maxYOffset = disable ? 0.0 : maxYOffset
-      ..maxXOffset = disable ? 0.0 : maxXOffset;
-  }
-}
-
-class _PaintOffsetRenderObject extends RenderProxyBox {
-  _PaintOffsetRenderObject({
-    required Animation<double> animation,
-    required double maxYOffset,
-    double maxXOffset = 0,
-  }) : _animation = animation,
-       _maxYOffset = maxYOffset,
-       _maxXOffset = maxXOffset;
-
-  Animation<double> _animation;
-  double _maxYOffset;
-  double _maxXOffset;
-
-  set animation(Animation<double> value) {
-    if (identical(_animation, value)) return;
-    if (attached) {
-      _animation.removeListener(markNeedsPaint);
-      value.addListener(markNeedsPaint);
-    }
-    _animation = value;
-    markNeedsPaint();
-  }
-
-  set maxYOffset(double value) {
-    if (_maxYOffset == value) return;
-    _maxYOffset = value;
-    markNeedsPaint();
-  }
-
-  set maxXOffset(double value) {
-    if (_maxXOffset == value) return;
-    _maxXOffset = value;
-    markNeedsPaint();
-  }
-
-  @override
-  void attach(PipelineOwner owner) {
-    super.attach(owner);
-    _animation.addListener(markNeedsPaint);
-  }
-
-  @override
-  void detach() {
-    _animation.removeListener(markNeedsPaint);
-    super.detach();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child == null) return;
-    final value = _animation.value;
-    final dy = (1 - value) * _maxYOffset;
-    final dx = (1 - value) * _maxXOffset;
-    super.paint(context, offset + Offset(dx, dy));
-  }
 }
 
 void _scheduleOverlayActionAfterMenuDismissal(
