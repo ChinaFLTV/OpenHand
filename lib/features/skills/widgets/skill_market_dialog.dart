@@ -15,6 +15,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
@@ -1541,17 +1542,7 @@ String _formatCount(int value) {
   return '$value';
 }
 
-String _formatBytes(int bytes) {
-  if (bytes >= 1024 * 1024) {
-    final value = bytes / (1024 * 1024);
-    return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} MB';
-  }
-  if (bytes >= 1024) {
-    final value = bytes / 1024;
-    return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} KB';
-  }
-  return '$bytes B';
-}
+String _formatBytes(int bytes) => formatByteSize(bytes);
 
 String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   if (markdown.length <= maxChars) {

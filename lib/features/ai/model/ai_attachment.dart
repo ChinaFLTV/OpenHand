@@ -1,5 +1,7 @@
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/byte_size_format.dart';
+
 enum AiAttachmentKind {
   image('image'),
   text('text'),
@@ -26,7 +28,7 @@ const int aiMessageAttachmentLimit = 20;
 /// composer (paste / file picker). 10 MB matches the user-facing contract
 /// "每个附件的尺寸不超过 10MB". The cap is enforced at pick time so
 /// oversize files never reach the per-protocol encoding pipeline.
-const int aiMessageAttachmentMaxFileBytes = 10 * 1024 * 1024;
+const int aiMessageAttachmentMaxFileBytes = 10 * kBytesPerMiB;
 
 List<String> aiAttachmentPickerExtensions() {
   final extensions = <String>{
@@ -269,15 +271,7 @@ String aiMimeTypeForPath(String path) {
   };
 }
 
-String aiFormatBytes(int sizeBytes) {
-  if (sizeBytes < 1024) {
-    return '$sizeBytes B';
-  }
-  if (sizeBytes < 1024 * 1024) {
-    return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
-  }
-  return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-}
+String aiFormatBytes(int sizeBytes) => formatByteSize(sizeBytes);
 
 const Set<String> _imageExtensions = <String>{
   '.png',

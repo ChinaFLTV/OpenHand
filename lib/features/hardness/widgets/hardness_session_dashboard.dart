@@ -28,6 +28,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../ai/index.dart';
 import '../../home/index.dart';
 import '../model/hardness_phase.dart';
