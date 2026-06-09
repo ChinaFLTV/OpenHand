@@ -614,16 +614,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 expanding: true,
                               ),
                               curve: kCardMotionCurve,
-                              child: StreamingTextReveal(
-                                textLength: effectiveContent.length,
+                              child: StreamingTextRevealText(
+                                text: effectiveContent.isEmpty
+                                    ? ' '
+                                    : effectiveContent,
                                 streaming: true,
                                 animateSize: false,
-                                child: _StreamingAssistantTextBody(
-                                  data: effectiveContent,
-                                  textColor: textColor,
-                                  backgroundColor: backgroundColor,
-                                  style: markdownStyleSheet.styleSheet.p,
-                                ),
+                                builder: (context, visibleContent) =>
+                                    _StreamingAssistantTextBody(
+                                      data: visibleContent.isEmpty
+                                          ? ' '
+                                          : visibleContent,
+                                      textColor: textColor,
+                                      backgroundColor: backgroundColor,
+                                      style: markdownStyleSheet.styleSheet.p,
+                                    ),
                               ),
                               builder: (context, value, child) {
                                 return Transform.scale(
@@ -731,107 +736,106 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     : CrossAxisAlignment.start,
                 children: [
                   AnimatedSize(
-                    duration: cardMotionDurationFor(
-                      context,
-                      expanding: true,
-                    ),
+                    duration: cardMotionDurationFor(context, expanding: true),
                     curve: kCardMotionCurve,
-                    alignment: isUser
-                        ? Alignment.topRight
-                        : Alignment.topLeft,
+                    alignment: isUser ? Alignment.topRight : Alignment.topLeft,
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 6,
                       children: [
-                      _MessageActionButton(
-                        onPressed: widget.onCopy,
-                        icon: Icons.content_copy_outlined,
-                        label: _localizedText(context, zh: '复制', en: 'Copy'),
-                      ),
-                      if (widget.onEdit != null)
                         _MessageActionButton(
-                          onPressed: widget.onEdit,
-                          icon: Icons.edit_outlined,
-                          label: AppLocalizations.of(context)!.commonEdit,
+                          onPressed: widget.onCopy,
+                          icon: Icons.content_copy_outlined,
+                          label: _localizedText(context, zh: '复制', en: 'Copy'),
                         ),
-                      _MessageActionButton(
-                        onPressed: widget.onDelete,
-                        icon: Icons.delete_outline_rounded,
-                        label: AppLocalizations.of(context)!.commonDelete,
-                      ),
-                      if (widget.onDeleteFromHere != null)
-                        _MessageActionButton(
-                          onPressed: widget.onDeleteFromHere,
-                          icon: Icons.delete_sweep_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '删除此条及后续',
-                            en: 'Delete From Here',
+                        if (widget.onEdit != null)
+                          _MessageActionButton(
+                            onPressed: widget.onEdit,
+                            icon: Icons.edit_outlined,
+                            label: AppLocalizations.of(context)!.commonEdit,
                           ),
-                        ),
-                      if (widget.onAudit != null)
                         _MessageActionButton(
-                          onPressed: () async => widget.onAudit!.call(),
-                          icon: Icons.fact_check_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '审计',
-                            en: 'Audit',
+                          onPressed: widget.onDelete,
+                          icon: Icons.delete_outline_rounded,
+                          label: AppLocalizations.of(context)!.commonDelete,
+                        ),
+                        if (widget.onDeleteFromHere != null)
+                          _MessageActionButton(
+                            onPressed: widget.onDeleteFromHere,
+                            icon: Icons.delete_sweep_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '删除此条及后续',
+                              en: 'Delete From Here',
+                            ),
                           ),
-                        ),
-                      if (!isUser &&
-                          !isToolCall &&
-                          !isReasoning &&
-                          !isSelfLearning &&
-                          !isCompressionPoint &&
-                          !isStatus)
-                        _MessageActionButton(
-                          onPressed: () async {
-                            setState(() => _showRawContent = !_showRawContent);
-                            widget.onShowRawContentChanged?.call(_showRawContent);
-                          },
-                          icon: _showRawContent
-                              ? Icons.code_off_outlined
-                              : Icons.code_outlined,
-                          label: _showRawContent
-                              ? _localizedText(
-                                  context,
-                                  zh: '显示渲染',
-                                  en: 'Show Rendered',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '显示原始',
-                                  en: 'Show Raw',
+                        if (widget.onAudit != null)
+                          _MessageActionButton(
+                            onPressed: () async => widget.onAudit!.call(),
+                            icon: Icons.fact_check_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '审计',
+                              en: 'Audit',
+                            ),
+                          ),
+                        if (!isUser &&
+                            !isToolCall &&
+                            !isReasoning &&
+                            !isSelfLearning &&
+                            !isCompressionPoint &&
+                            !isStatus)
+                          _MessageActionButton(
+                            onPressed: () async {
+                              setState(
+                                () => _showRawContent = !_showRawContent,
+                              );
+                              widget.onShowRawContentChanged?.call(
+                                _showRawContent,
+                              );
+                            },
+                            icon: _showRawContent
+                                ? Icons.code_off_outlined
+                                : Icons.code_outlined,
+                            label: _showRawContent
+                                ? _localizedText(
+                                    context,
+                                    zh: '显示渲染',
+                                    en: 'Show Rendered',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '显示原始',
+                                    en: 'Show Raw',
+                                  ),
+                          ),
+                        if (!isUser &&
+                            !isToolCall &&
+                            !isReasoning &&
+                            !isSelfLearning &&
+                            !isCompressionPoint &&
+                            !isStatus &&
+                            resolvedMessageContentFormat ==
+                                AiMessageContentFormat.html &&
+                            _looksLikeHtml(effectiveContent))
+                          _MessageActionButton(
+                            onPressed: () async {
+                              await showAnimatedDialog<void>(
+                                context: context,
+                                builder: (dialogContext) => _HtmlPreviewDialog(
+                                  htmlContent: effectiveContent,
+                                  theme: Theme.of(context),
                                 ),
-                        ),
-                      if (!isUser &&
-                          !isToolCall &&
-                          !isReasoning &&
-                          !isSelfLearning &&
-                          !isCompressionPoint &&
-                          !isStatus &&
-                          resolvedMessageContentFormat ==
-                              AiMessageContentFormat.html &&
-                          _looksLikeHtml(effectiveContent))
-                        _MessageActionButton(
-                          onPressed: () async {
-                            await showAnimatedDialog<void>(
-                              context: context,
-                              builder: (dialogContext) => _HtmlPreviewDialog(
-                                htmlContent: effectiveContent,
-                                theme: Theme.of(context),
-                              ),
-                            );
-                          },
-                          icon: Icons.open_in_browser_rounded,
-                          label: _localizedText(
-                            context,
-                            zh: '浏览器打开',
-                            en: 'Open in Browser',
+                              );
+                            },
+                            icon: Icons.open_in_browser_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '浏览器打开',
+                              en: 'Open in Browser',
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1486,77 +1490,77 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                  // 头部标题栏。
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium,
-                          ),
+                // 头部标题栏。
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium,
                         ),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.open_in_new_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            tooltip: _localizedText(
-                              context,
-                              zh: '使用系统应用打开',
-                              en: 'Open with System App',
-                            ),
-                            onPressed: () => _openInSystemApp(context),
+                      ),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.open_in_new_rounded,
+                            color: colorScheme.onSurfaceVariant,
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.download_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            tooltip: _localizedText(
-                              context,
-                              zh: '保存到本地',
-                              en: 'Save to disk',
-                            ),
-                            onPressed: () => _saveImageAs(context),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '使用系统应用打开',
+                            en: 'Open with System App',
                           ),
+                          onPressed: () => _openInSystemApp(context),
                         ),
-                        const SizedBox(width: 4),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 4),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.download_rounded,
+                            color: colorScheme.onSurfaceVariant,
                           ),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '保存到本地',
+                            en: 'Save to disk',
+                          ),
+                          onPressed: () => _saveImageAs(context),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 4),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Divider(height: 1),
-                  // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
-                  // 由于 SizedBox 的尺寸已经精确等于 BoxFit.contain 后的图片尺寸,
-                  // Image 控件内部不会再产生 letterbox 白边。
-                  Padding(
-                    padding: const EdgeInsets.all(_kPadding),
-                    child: SizedBox(
-                      width: bodyW,
-                      height: bodyH,
-                      child: _buildPreviewImage(context),
-                    ),
+                ),
+                const Divider(height: 1),
+                // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
+                // 由于 SizedBox 的尺寸已经精确等于 BoxFit.contain 后的图片尺寸,
+                // Image 控件内部不会再产生 letterbox 白边。
+                Padding(
+                  padding: const EdgeInsets.all(_kPadding),
+                  child: SizedBox(
+                    width: bodyW,
+                    height: bodyH,
+                    child: _buildPreviewImage(context),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -3326,11 +3330,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
     }
     return Align(
       alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        children: capsules,
-      ),
+      child: Wrap(spacing: 6, runSpacing: 4, children: capsules),
     );
   }
 }

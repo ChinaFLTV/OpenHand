@@ -168,8 +168,10 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     final stops = <double>[];
     final colors = <Color>[];
 
-    final stableFraction = (_stablePrefixLength.clamp(0, total) / total)
-        .clamp(0.0, 1.0);
+    final stableFraction = (_stablePrefixLength.clamp(0, total) / total).clamp(
+      0.0,
+      1.0,
+    );
     stops.add(0.0);
     colors.add(Colors.white);
     if (stableFraction > 0.0) {
@@ -212,3 +214,177 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     );
   }
 }
+
+typedef StreamingTextRevealBuilder =
+    Widget Function(BuildContext context, String visibleText);
+
+/// Text-driven streaming reveal.
+///
+/// The legacy [StreamingTextReveal] only fades the latest already-rendered
+/// diff. This wrapper first stages the visible text by grapheme cluster, then
+/// lets [StreamingTextReveal] fade each staged increment. Small deltas appear
+/// character-by-character; large backlogs automatically catch up in bounded
+/// batches so streaming cannot leave an unbounded animation queue behind.
+class StreamingTextRevealText extends StatefulWidget {
+  const StreamingTextRevealText({
+    super.key,
+    required this.text,
+    required this.streaming,
+    required this.builder,
+    this.animateSize = true,
+  });
+
+  final String text;
+  final bool streaming;
+  final StreamingTextRevealBuilder builder;
+  final bool animateSize;
+
+  @override
+  State<StreamingTextRevealText> createState() =>
+      _StreamingTextRevealTextState();
+}
+
+class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
+    with SingleTickerProviderStateMixin {
+  static const int _kRevealMaxLength = 32 * 1024;
+  static const int _kSmallBacklogThreshold = 24;
+  static const int _kMediumBacklogThreshold = 120;
+  static const int _kLargeBacklogThreshold = 480;
+  static const int _kMaxGraphemesPerTick = 24;
+  static const int _kFrameBudgetMs = 16;
+  static const int _kCatchUpFrameBudgetMs = 8;
+
+  late final Ticker _ticker;
+  List<int> _graphemeEnds = const <int>[];
+  int _visibleGraphemes = 0;
+  int _lastRevealMs = 0;
+
+  int get _targetGraphemes => _graphemeEnds.length;
+  bool get _bypassReveal =>
+      !widget.streaming || widget.text.length > _kRevealMaxLength;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick);
+    _rebuildGraphemeEnds();
+    _visibleGraphemes = _bypassReveal ? _targetGraphemes : 0;
+    _startTickerIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _visibleGraphemes = _targetGraphemes;
+      _stopTicker();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant StreamingTextRevealText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previousText = oldWidget.text;
+    _rebuildGraphemeEnds();
+    if (_bypassReveal) {
+      _visibleGraphemes = _targetGraphemes;
+      _stopTicker();
+      return;
+    }
+    if (widget.text.length < previousText.length) {
+      _visibleGraphemes = _visibleGraphemes.clamp(0, _targetGraphemes);
+    } else if (!widget.text.startsWith(previousText)) {
+      _visibleGraphemes = 0;
+    }
+    _startTickerIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _rebuildGraphemeEnds() {
+    if (widget.text.isEmpty) {
+      _graphemeEnds = const <int>[];
+      return;
+    }
+    var offset = 0;
+    final ends = <int>[];
+    for (final cluster in widget.text.characters) {
+      offset += cluster.length;
+      ends.add(offset);
+    }
+    _graphemeEnds = ends;
+  }
+
+  void _startTickerIfNeeded() {
+    if (_visibleGraphemes >= _targetGraphemes || _ticker.isActive) return;
+    _lastRevealMs = 0;
+    _ticker.start();
+  }
+
+  void _stopTicker() {
+    if (_ticker.isActive) {
+      _ticker.stop();
+    }
+    _lastRevealMs = 0;
+  }
+
+  void _onTick(Duration elapsed) {
+    if (!mounted) return;
+    if (_bypassReveal || _visibleGraphemes >= _targetGraphemes) {
+      _stopTicker();
+      return;
+    }
+
+    final backlog = _targetGraphemes - _visibleGraphemes;
+    final frameBudgetMs = backlog > _kLargeBacklogThreshold
+        ? _kCatchUpFrameBudgetMs
+        : _kFrameBudgetMs;
+    final nowMs = elapsed.inMilliseconds;
+    if (nowMs - _lastRevealMs < frameBudgetMs) return;
+    _lastRevealMs = nowMs;
+
+    final step = _stepForBacklog(backlog);
+    setState(() {
+      _visibleGraphemes = _minInt(_targetGraphemes, _visibleGraphemes + step);
+    });
+    if (_visibleGraphemes >= _targetGraphemes) {
+      _stopTicker();
+    }
+  }
+
+  int _stepForBacklog(int backlog) {
+    if (backlog <= _kSmallBacklogThreshold) return 1;
+    if (backlog <= _kMediumBacklogThreshold) return 2;
+    if (backlog <= _kLargeBacklogThreshold) return 6;
+    return _kMaxGraphemesPerTick;
+  }
+
+  String _visibleText(bool disableAnimations) {
+    if (disableAnimations || _bypassReveal) return widget.text;
+    if (_visibleGraphemes <= 0) return '';
+    if (_visibleGraphemes >= _targetGraphemes) return widget.text;
+    return widget.text.substring(0, _graphemeEnds[_visibleGraphemes - 1]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final visibleText = _visibleText(disableAnimations);
+    if (disableAnimations || _bypassReveal) {
+      return widget.builder(context, visibleText);
+    }
+    return StreamingTextReveal(
+      textLength: visibleText.length,
+      streaming: widget.streaming,
+      animateSize: widget.animateSize,
+      child: widget.builder(context, visibleText),
+    );
+  }
+}
+
+int _minInt(int a, int b) => a < b ? a : b;

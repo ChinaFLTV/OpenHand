@@ -24,7 +24,10 @@ import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
-import { useStreamingReveal } from '../hooks/useStreamingReveal';
+import {
+  useStreamingReveal,
+  useStreamingStagedText,
+} from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { streamDebugLog } from '../utils/stream_debug';
@@ -515,6 +518,7 @@ const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
 const RESPONSE_PREVIEW_MAX_HEIGHT_PX = 240;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
+const STREAMING_SIZE_MOTION_BUCKET_CHARS = 16;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
 const STREAMING_DIFF_UNDERLAY_MARKDOWN_MAX_CHARS = 4096;
 const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
@@ -643,12 +647,15 @@ function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolea
   ].join('|');
 }
 
-function textLayoutMotionSignal(value: string): string {
+function textLayoutMotionSignal(
+  value: string,
+  bucketChars = SIZE_MOTION_TEXT_BUCKET_CHARS,
+): string {
   let lineBreaks = 0;
   for (let index = 0; index < value.length; index += 1) {
     if (value.charCodeAt(index) === 10) lineBreaks += 1;
   }
-  return `${lineBreaks}:${Math.floor(value.length / SIZE_MOTION_TEXT_BUCKET_CHARS)}`;
+  return `${lineBreaks}:${Math.floor(value.length / bucketChars)}`;
 }
 
 function numberLayoutMotionSignal(value: number | undefined): string {
@@ -817,32 +824,46 @@ function StreamingPlainTextReveal({
   reduceMotion: boolean;
   mono: boolean;
 }) {
-  const revealAllowed = content.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
+  const { visibleContent, staging } = useStreamingStagedText(
+    content,
+    streaming,
+    reduceMotion,
+  );
+  const sizeMotionRef = useMessageSizeMotion(
+    textLayoutMotionSignal(
+      visibleContent,
+      STREAMING_SIZE_MOTION_BUCKET_CHARS,
+    ),
+    !reduceMotion && (streaming || staging),
+  );
+  const revealAllowed = visibleContent.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
   const { containerRef: streamingMaskRef, streamingClass } = useStreamingReveal(
     streaming && revealAllowed,
-    content.length,
-    content,
+    visibleContent.length,
+    visibleContent,
     reduceMotion,
   );
 
   return (
-    <div
-      ref={streamingMaskRef}
-      class={streamingClass ? 'oh-streaming-reveal' : undefined}
-    >
-      <pre
-        class="whitespace-pre-wrap break-words text-sm"
-        style={{
-          margin: 0,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          font: 'inherit',
-          lineHeight: 'inherit',
-          fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
-        }}
+    <div ref={sizeMotionRef}>
+      <div
+        ref={streamingMaskRef}
+        class={streamingClass ? 'oh-streaming-reveal' : undefined}
       >
-        {content}
-      </pre>
+        <pre
+          class="whitespace-pre-wrap break-words text-sm"
+          style={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            font: 'inherit',
+            lineHeight: 'inherit',
+            fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+          }}
+        >
+          {visibleContent}
+        </pre>
+      </div>
     </div>
   );
 }
@@ -864,7 +885,23 @@ function StreamingMarkdownReveal({
   format?: 'markdown' | 'plain_text' | 'html';
   htmlFallback?: 'markdown' | 'plain_text';
 }) {
-  const previousRef = useRef({ content, raw, mono });
+  const contentIsHtml = looksLikeHtml(content);
+  const supportsDiffAnimation =
+    format !== 'html' && format !== 'plain_text' && !contentIsHtml;
+  const canStageContent = streaming && format !== 'html' && !contentIsHtml;
+  const { visibleContent: renderContent, staging } = useStreamingStagedText(
+    content,
+    canStageContent,
+    reduceMotion,
+  );
+  const sizeMotionRef = useMessageSizeMotion(
+    textLayoutMotionSignal(
+      renderContent,
+      STREAMING_SIZE_MOTION_BUCKET_CHARS,
+    ),
+    !reduceMotion && (streaming || staging),
+  );
+  const previousRef = useRef({ content: renderContent, raw, mono });
   const serialRef = useRef(0);
   const [outgoing, setOutgoing] = useState<StreamingContentSnapshot | null>(null);
 
@@ -880,7 +917,7 @@ function StreamingMarkdownReveal({
   }, []);
 
   const previous = previousRef.current;
-  const revealAllowed = content.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
+  const revealAllowed = renderContent.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
   // HTML / plain_text 模式禁用 diff underlay：
   // 1. HTML 模式：上下层都会触发 DOMPurify 解析 + dangerouslySetInnerHTML 渲染，
   //    两份相似 DOM 叠加产生肉眼可见的"重影"；
@@ -890,12 +927,18 @@ function StreamingMarkdownReveal({
   //    HtmlBody 叠加同样产生肉眼可见的"重影"（这是用户截图里仍能看到重影的
   //    根因）。直接基于 content 判断更可靠。
   // 仅 markdown 流式走 diff underlay 平滑过渡。
-  const contentIsHtml = looksLikeHtml(content);
-  const supportsDiffAnimation = format !== 'html' && format !== 'plain_text' && !contentIsHtml;
-  const canAnimateDiff = !reduceMotion && streaming && revealAllowed && previous.content.length > 0 && supportsDiffAnimation;
+  const canAnimateDiff =
+    !reduceMotion &&
+    streaming &&
+    revealAllowed &&
+    previous.content.length > 0 &&
+    supportsDiffAnimation;
   let immediateOutgoing: StreamingContentSnapshot | null = null;
-  if (canAnimateDiff && previous.content !== content) {
-    if (content.length > previous.content.length && content.startsWith(previous.content)) {
+  if (canAnimateDiff && previous.content !== renderContent) {
+    if (
+      renderContent.length > previous.content.length &&
+      renderContent.startsWith(previous.content)
+    ) {
       immediateOutgoing = {
         key: `${serialRef.current + 1}:append`,
         content: previous.content,
@@ -903,7 +946,10 @@ function StreamingMarkdownReveal({
         mono: previous.mono,
         mode: 'append',
       };
-    } else if (content.length < previous.content.length && previous.content.startsWith(content)) {
+    } else if (
+      renderContent.length < previous.content.length &&
+      previous.content.startsWith(renderContent)
+    ) {
       immediateOutgoing = {
         key: `${serialRef.current + 1}:remove`,
         content: previous.content,
@@ -917,7 +963,7 @@ function StreamingMarkdownReveal({
   useLayoutEffect(() => {
     const previousValue = previousRef.current;
     if (
-      previousValue.content === content &&
+      previousValue.content === renderContent &&
       previousValue.raw === raw &&
       previousValue.mono === mono
     ) {
@@ -925,17 +971,28 @@ function StreamingMarkdownReveal({
     }
 
     let nextOutgoing: StreamingContentSnapshot | null = null;
-    const shouldAnimate = !reduceMotion && streaming && revealAllowed && previousValue.content.length > 0 && supportsDiffAnimation;
+    const shouldAnimate =
+      !reduceMotion &&
+      streaming &&
+      revealAllowed &&
+      previousValue.content.length > 0 &&
+      supportsDiffAnimation;
     if (shouldAnimate) {
-      if (content.length > previousValue.content.length && content.startsWith(previousValue.content)) {
+      if (
+        renderContent.length > previousValue.content.length &&
+        renderContent.startsWith(previousValue.content)
+      ) {
         nextOutgoing = buildSnapshot('append', previousValue);
-      } else if (content.length < previousValue.content.length && previousValue.content.startsWith(content)) {
+      } else if (
+        renderContent.length < previousValue.content.length &&
+        previousValue.content.startsWith(renderContent)
+      ) {
         nextOutgoing = buildSnapshot('remove', previousValue);
       }
     }
-    previousRef.current = { content, raw, mono };
+    previousRef.current = { content: renderContent, raw, mono };
     setOutgoing(nextOutgoing);
-  }, [buildSnapshot, content, mono, raw, reduceMotion, streaming, supportsDiffAnimation, revealAllowed]);
+  }, [buildSnapshot, mono, raw, reduceMotion, renderContent, streaming, supportsDiffAnimation, revealAllowed]);
 
   useEffect(() => {
     if (outgoing?.mode !== 'remove') return;
@@ -953,8 +1010,8 @@ function StreamingMarkdownReveal({
   const { containerRef: streamingMaskRef, streamingClass } =
     useStreamingReveal(
       streaming && revealAllowed,
-      content.length,
-      content,
+      renderContent.length,
+      renderContent,
       reduceMotion,
       handleRevealRest,
     );
@@ -969,7 +1026,10 @@ function StreamingMarkdownReveal({
   ].filter(Boolean).join(' ') || undefined;
 
   return (
-    <div class={`oh-streaming-diff-shell${visibleOutgoing ? ' has-underlay' : ''}`}>
+    <div
+      ref={sizeMotionRef}
+      class={`oh-streaming-diff-shell${visibleOutgoing ? ' has-underlay' : ''}`}
+    >
       {visibleOutgoing ? (
         <div
           key={visibleOutgoing.key}
@@ -986,7 +1046,13 @@ function StreamingMarkdownReveal({
         </div>
       ) : null}
       <div ref={streamingMaskRef} class={currentClass}>
-        <Markdown source={content} raw={raw} mono={mono} format={format} htmlFallback={htmlFallback} />
+        <Markdown
+          source={renderContent}
+          raw={raw}
+          mono={mono}
+          format={format}
+          htmlFallback={htmlFallback}
+        />
       </div>
     </div>
   );
@@ -1211,12 +1277,9 @@ function MessageCardImpl({
     />
   ) : null;
   const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
-  // 流式期间禁用高度动画：WAAPI 在 260-420ms 内对高度做 overshoot 关键帧并
-  // 同时 `overflow: clip`。流式每 ~48 字符 / 换行就重算 signal 触发新一轮动画，
-  // 期间新到达的内容超出当前动画高度会被 clip 截断，直到动画 settle 才露出，
-  // 视觉上就是「卡片每隔几秒突然消失再立刻显示」并伴随因 overshoot 反弹的
-  // 高度抖动→剧烈上下滚动。流式状态下让卡片自然撑高，停流后再启用 WAAPI
-  // 用于折叠/展开/操作栏出现等"步进式"高度变化的丝滑过渡。
+  // 外层卡片只承接折叠 / 展开 / 操作栏显隐这类语义级尺寸变化。
+  // 流式正文自身在 StreamingMarkdownReveal / StreamingPlainTextReveal 内
+  // 用可见文本信号做局部高度 FLIP，避免整张卡被高频 WAAPI 裁剪。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
     !reduceMotion && !streamingContent && !keepExpandedDuringTurn,

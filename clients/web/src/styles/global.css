@@ -4359,12 +4359,12 @@ button.oh-composer-pill:not(:disabled):hover {
   animation: oh-spin 840ms linear infinite;
 }
 
-/* 流式追加文本的 Q 弹软淡入遮罩：
+/* 流式追加文本的逐字 Q 弹软淡入：
    - mask-image 由 JS（useStreamingReveal hook）以 rAF 驱动动态生成，
      不再依赖 CSS static gradient + transition（后者在主流浏览器中无法
      插值 gradient 值，实际不生效）。
-   - 动画参数与 Flutter StreamingTextReveal 对齐：旧内容垫底，当前
-    内容从旧/新边界向尾部以 520ms easeOutBack 波前淡入。
+   - useStreamingStagedText 先把大块 SSE chunk 拆成可追赶的逐字可见文本，
+     再由 mask 从旧/新边界向尾部以 520ms easeOutBack 波前淡入。
    - .oh-streaming-reveal 保留为语义标记，实际遮罩效果由内联 style 承载。 */
 .oh-streaming-reveal {
   /* mask-image 由 JS 内联 style 驱动 */

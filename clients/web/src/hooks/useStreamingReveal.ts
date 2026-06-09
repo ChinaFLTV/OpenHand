@@ -11,10 +11,24 @@
 // - reduceMotion 为 true 时跳过动画，直接清空 mask。
 // - 动画全程零 state 变更，仅通过 rAF → el.style 直写，避免重渲染。
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'preact/hooks';
 
 const DURATION_MS = 520;
 const MAX_SEGMENTS = 24;
+const STAGED_REVEAL_MAX_CHARS = 32 * 1024;
+const SMALL_BACKLOG_CHARS = 24;
+const MEDIUM_BACKLOG_CHARS = 120;
+const LARGE_BACKLOG_CHARS = 480;
+const MAX_CHARS_PER_FRAME = 24;
+const FRAME_BUDGET_MS = 16;
+const CATCH_UP_FRAME_BUDGET_MS = 8;
 
 interface FadeSegment {
   boundary: number;
@@ -73,6 +87,118 @@ function applyMask(el: HTMLElement, mask: string) {
 function clearMask(el: HTMLElement) {
   el.style.webkitMaskImage = '';
   el.style.maskImage = '';
+}
+
+function codePointEnds(text: string): number[] {
+  const ends: number[] = [];
+  let offset = 0;
+  for (const point of text) {
+    offset += point.length;
+    ends.push(offset);
+  }
+  return ends;
+}
+
+function stepForBacklog(backlog: number): number {
+  if (backlog <= SMALL_BACKLOG_CHARS) return 1;
+  if (backlog <= MEDIUM_BACKLOG_CHARS) return 2;
+  if (backlog <= LARGE_BACKLOG_CHARS) return 6;
+  return MAX_CHARS_PER_FRAME;
+}
+
+export function useStreamingStagedText(
+  content: string,
+  streaming: boolean,
+  reduceMotion: boolean,
+): {
+  visibleContent: string;
+  staging: boolean;
+} {
+  const revealAllowed = content.length <= STAGED_REVEAL_MAX_CHARS;
+  const ends = useMemo(() => (
+    revealAllowed ? codePointEnds(content) : []
+  ), [content, revealAllowed]);
+  const targetUnits = ends.length;
+  const shouldStage = streaming && !reduceMotion && revealAllowed;
+  const [visibleUnits, setVisibleUnits] = useState(() => (
+    shouldStage ? 0 : targetUnits
+  ));
+  const visibleUnitsRef = useRef(visibleUnits);
+  const targetUnitsRef = useRef(targetUnits);
+  const previousContentRef = useRef(content);
+  const rafRef = useRef<number | null>(null);
+  const lastFrameRef = useRef(0);
+
+  const stop = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    lastFrameRef.current = 0;
+  }, []);
+
+  const tick = useCallback((now: number) => {
+    const backlog = targetUnitsRef.current - visibleUnitsRef.current;
+    if (backlog <= 0) {
+      stop();
+      return;
+    }
+    const frameBudget = backlog > LARGE_BACKLOG_CHARS
+      ? CATCH_UP_FRAME_BUDGET_MS
+      : FRAME_BUDGET_MS;
+    if (now - lastFrameRef.current >= frameBudget) {
+      lastFrameRef.current = now;
+      const next = Math.min(
+        targetUnitsRef.current,
+        visibleUnitsRef.current + stepForBacklog(backlog),
+      );
+      visibleUnitsRef.current = next;
+      setVisibleUnits(next);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  }, [stop]);
+
+  const start = useCallback(() => {
+    if (rafRef.current != null) return;
+    lastFrameRef.current = 0;
+    rafRef.current = requestAnimationFrame(tick);
+  }, [tick]);
+
+  useEffect(() => {
+    targetUnitsRef.current = targetUnits;
+    if (!shouldStage) {
+      stop();
+      visibleUnitsRef.current = targetUnits;
+      setVisibleUnits(targetUnits);
+      previousContentRef.current = content;
+      return;
+    }
+
+    const previous = previousContentRef.current;
+    if (content.length < previous.length) {
+      const next = Math.min(visibleUnitsRef.current, targetUnits);
+      visibleUnitsRef.current = next;
+      setVisibleUnits(next);
+    } else if (!content.startsWith(previous)) {
+      visibleUnitsRef.current = 0;
+      setVisibleUnits(0);
+    }
+    previousContentRef.current = content;
+    if (visibleUnitsRef.current < targetUnits) start();
+  }, [content, shouldStage, start, stop, targetUnits]);
+
+  useEffect(() => () => stop(), [stop]);
+
+  const visibleContent = useMemo(() => {
+    if (!shouldStage || visibleUnits >= targetUnits) return content;
+    if (visibleUnits <= 0) return '';
+    return content.slice(0, ends[visibleUnits - 1] ?? 0);
+  }, [content, ends, shouldStage, targetUnits, visibleUnits]);
+
+  return {
+    visibleContent,
+    staging: shouldStage && visibleUnits < targetUnits,
+  };
 }
 
 /**

@@ -252,14 +252,15 @@ class _StreamingReasoningBody extends StatelessWidget {
     return expanded
         ? KeyedSubtree(
             key: const ValueKey<String>('streaming-reasoning-plain-expanded'),
-            child: StreamingTextReveal(
-              textLength: effectiveContent.length,
+            child: StreamingTextRevealText(
+              text: effectiveContent,
               streaming: true,
               animateSize: false,
-              child: _StreamingReasoningPlainBody(
-                data: effectiveContent,
-                textStyle: textStyle,
-              ),
+              builder: (context, visibleContent) =>
+                  _StreamingReasoningPlainBody(
+                    data: visibleContent.isEmpty ? ' ' : visibleContent,
+                    textStyle: textStyle,
+                  ),
             ),
           )
         : KeyedSubtree(

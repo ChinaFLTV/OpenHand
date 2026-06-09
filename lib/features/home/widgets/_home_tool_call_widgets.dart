@@ -3639,12 +3639,12 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               });
             },
             expandedBuilder: (context) => isStreaming
-                ? StreamingTextReveal(
-                    textLength: aiReasoning.length,
+                ? StreamingTextRevealText(
+                    text: aiReasoning,
                     streaming: true,
                     animateSize: false,
-                    child: _SelfLearningMarkdown(
-                      data: aiReasoning,
+                    builder: (context, visibleText) => _SelfLearningMarkdown(
+                      data: visibleText.isEmpty ? ' ' : visibleText,
                       muted: true,
                     ),
                   )
@@ -3665,12 +3665,12 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               });
             },
             expandedBuilder: (context) => isStreaming
-                ? StreamingTextReveal(
-                    textLength: aiResponse.length,
+                ? StreamingTextRevealText(
+                    text: aiResponse,
                     streaming: true,
                     animateSize: false,
-                    child: _SelfLearningMarkdown(
-                      data: aiResponse,
+                    builder: (context, visibleText) => _SelfLearningMarkdown(
+                      data: visibleText.isEmpty ? ' ' : visibleText,
                       muted: false,
                     ),
                   )
