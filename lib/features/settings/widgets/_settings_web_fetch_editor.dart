@@ -2068,6 +2068,8 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
   late TextEditingController _apiKeyController;
   late TextEditingController _retryController;
   late TextEditingController _truncationController;
+  late TextEditingController _jinaConnectionTimeoutController;
+  late TextEditingController _jinaResponseTimeoutController;
   late TextEditingController _endpointController;
   bool _expanded = false;
   bool _apiKeyVisible = false;
@@ -2081,6 +2083,12 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
     );
     _truncationController = TextEditingController(
       text: '${widget.config.truncationChars}',
+    );
+    _jinaConnectionTimeoutController = TextEditingController(
+      text: '${widget.config.connectionTimeoutSeconds}',
+    );
+    _jinaResponseTimeoutController = TextEditingController(
+      text: '${widget.config.responseTimeoutSeconds}',
     );
     _endpointController = TextEditingController(
       text: widget.config.endpointOverride ?? '',
@@ -2102,6 +2110,20 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
         _truncationController.text != '${widget.config.truncationChars}') {
       _truncationController.text = '${widget.config.truncationChars}';
     }
+    if (old.config.connectionTimeoutSeconds !=
+            widget.config.connectionTimeoutSeconds &&
+        _jinaConnectionTimeoutController.text !=
+            '${widget.config.connectionTimeoutSeconds}') {
+      _jinaConnectionTimeoutController.text =
+          '${widget.config.connectionTimeoutSeconds}';
+    }
+    if (old.config.responseTimeoutSeconds !=
+            widget.config.responseTimeoutSeconds &&
+        _jinaResponseTimeoutController.text !=
+            '${widget.config.responseTimeoutSeconds}') {
+      _jinaResponseTimeoutController.text =
+          '${widget.config.responseTimeoutSeconds}';
+    }
     if (old.config.endpointOverride != widget.config.endpointOverride &&
         _endpointController.text != (widget.config.endpointOverride ?? '')) {
       _endpointController.text = widget.config.endpointOverride ?? '';
@@ -2113,6 +2135,8 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
     _apiKeyController.dispose();
     _retryController.dispose();
     _truncationController.dispose();
+    _jinaConnectionTimeoutController.dispose();
+    _jinaResponseTimeoutController.dispose();
     _endpointController.dispose();
     super.dispose();
   }
@@ -2272,6 +2296,84 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                         ),
                       ],
                     ),
+                    if (cfg.kind == AiWebFetchEngineKind.jina) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _jinaConnectionTimeoutController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: '连接超时 (秒)',
+                                  en: 'Connect Timeout (s)',
+                                ),
+                                helperText:
+                                    '${AiWebFetchEngineConfig.minConnectionTimeoutSeconds}-'
+                                    '${AiWebFetchEngineConfig.maxConnectionTimeoutSeconds}',
+                              ),
+                              onChanged: (s) {
+                                final parsed =
+                                    int.tryParse(s.trim()) ??
+                                    AiWebFetchEngineConfig
+                                        .defaultConnectionTimeoutSeconds;
+                                widget.onChanged(
+                                  cfg.copyWith(
+                                    connectionTimeoutSeconds: parsed.clamp(
+                                      AiWebFetchEngineConfig
+                                          .minConnectionTimeoutSeconds,
+                                      AiWebFetchEngineConfig
+                                          .maxConnectionTimeoutSeconds,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _jinaResponseTimeoutController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: '响应超时 (秒)',
+                                  en: 'Response Timeout (s)',
+                                ),
+                                helperText:
+                                    '${AiWebFetchEngineConfig.minResponseTimeoutSeconds}-'
+                                    '${AiWebFetchEngineConfig.maxResponseTimeoutSeconds}',
+                              ),
+                              onChanged: (s) {
+                                final parsed =
+                                    int.tryParse(s.trim()) ??
+                                    AiWebFetchEngineConfig
+                                        .defaultResponseTimeoutSeconds;
+                                widget.onChanged(
+                                  cfg.copyWith(
+                                    responseTimeoutSeconds: parsed.clamp(
+                                      AiWebFetchEngineConfig
+                                          .minResponseTimeoutSeconds,
+                                      AiWebFetchEngineConfig
+                                          .maxResponseTimeoutSeconds,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (cfg.kind.requiresApiKey) ...[
                       const SizedBox(height: 8),
                       TextField(

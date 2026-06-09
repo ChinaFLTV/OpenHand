@@ -71,6 +71,8 @@ class AiWebFetchEngineConfig {
     this.weight = defaultWeight,
     this.maxRetries = defaultMaxRetries,
     this.truncationChars = defaultTruncationChars,
+    this.connectionTimeoutSeconds = defaultConnectionTimeoutSeconds,
+    this.responseTimeoutSeconds = defaultResponseTimeoutSeconds,
     this.apiKey,
     this.providerConfigId,
     this.endpointOverride,
@@ -86,12 +88,20 @@ class AiWebFetchEngineConfig {
   static const int defaultTruncationChars = 100000;
   static const int minTruncationChars = 1000;
   static const int maxTruncationChars = 400000;
+  static const int defaultConnectionTimeoutSeconds = 10;
+  static const int minConnectionTimeoutSeconds = 1;
+  static const int maxConnectionTimeoutSeconds = 120;
+  static const int defaultResponseTimeoutSeconds = 30;
+  static const int minResponseTimeoutSeconds = 5;
+  static const int maxResponseTimeoutSeconds = 300;
 
   final AiWebFetchEngineKind kind;
   final bool enabled;
   final int weight;
   final int maxRetries;
   final int truncationChars;
+  final int connectionTimeoutSeconds;
+  final int responseTimeoutSeconds;
   final String? apiKey;
   final String? providerConfigId;
   final String? endpointOverride;
@@ -101,6 +111,8 @@ class AiWebFetchEngineConfig {
     int? weight,
     int? maxRetries,
     int? truncationChars,
+    int? connectionTimeoutSeconds,
+    int? responseTimeoutSeconds,
     String? apiKey,
     String? providerConfigId,
     String? endpointOverride,
@@ -114,6 +126,10 @@ class AiWebFetchEngineConfig {
       weight: weight ?? this.weight,
       maxRetries: maxRetries ?? this.maxRetries,
       truncationChars: truncationChars ?? this.truncationChars,
+      connectionTimeoutSeconds:
+          connectionTimeoutSeconds ?? this.connectionTimeoutSeconds,
+      responseTimeoutSeconds:
+          responseTimeoutSeconds ?? this.responseTimeoutSeconds,
       apiKey: clearApiKey ? null : (apiKey ?? this.apiKey),
       providerConfigId: clearProviderConfigId
           ? null
@@ -131,6 +147,8 @@ class AiWebFetchEngineConfig {
       'weight': weight,
       'max_retries': maxRetries,
       'truncation_chars': truncationChars,
+      'connection_timeout_seconds': connectionTimeoutSeconds,
+      'response_timeout_seconds': responseTimeoutSeconds,
       if (apiKey != null && apiKey!.isNotEmpty) 'api_key': apiKey,
       if (providerConfigId != null && providerConfigId!.isNotEmpty)
         'provider_config_id': providerConfigId,
@@ -164,6 +182,18 @@ class AiWebFetchEngineConfig {
         (json['truncation_chars'] as num?)?.toInt() ?? defaultTruncationChars,
         minTruncationChars,
         maxTruncationChars,
+      ),
+      connectionTimeoutSeconds: clamp(
+        (json['connection_timeout_seconds'] as num?)?.toInt() ??
+            defaultConnectionTimeoutSeconds,
+        minConnectionTimeoutSeconds,
+        maxConnectionTimeoutSeconds,
+      ),
+      responseTimeoutSeconds: clamp(
+        (json['response_timeout_seconds'] as num?)?.toInt() ??
+            defaultResponseTimeoutSeconds,
+        minResponseTimeoutSeconds,
+        maxResponseTimeoutSeconds,
       ),
       apiKey: json['api_key'] is String ? json['api_key'] as String : null,
       providerConfigId: json['provider_config_id'] is String

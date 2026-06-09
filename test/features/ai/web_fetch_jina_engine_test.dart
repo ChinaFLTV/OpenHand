@@ -19,10 +19,43 @@ void main() {
         settings.engines[kinds.indexOf(AiWebFetchEngineKind.jina)].enabled,
         isFalse,
       );
+      expect(
+        settings
+            .engines[kinds.indexOf(AiWebFetchEngineKind.jina)]
+            .connectionTimeoutSeconds,
+        AiWebFetchEngineConfig.defaultConnectionTimeoutSeconds,
+      );
+      expect(
+        settings
+            .engines[kinds.indexOf(AiWebFetchEngineKind.jina)]
+            .responseTimeoutSeconds,
+        AiWebFetchEngineConfig.defaultResponseTimeoutSeconds,
+      );
       expect(AiWebFetchEngineKind.jina.requiresApiKey, isFalse);
       expect(AiWebFetchEngineKind.jina.isFallback, isFalse);
     },
   );
+
+  test('Jina Reader timeout settings survive JSON roundtrip', () {
+    final config = AiWebFetchEngineConfig.fromJson(const <String, Object?>{
+      'kind': 'jina',
+      'enabled': true,
+      'connection_timeout_seconds': 12,
+      'response_timeout_seconds': 45,
+    });
+
+    expect(config, isNotNull);
+    expect(config!.connectionTimeoutSeconds, 12);
+    expect(config.responseTimeoutSeconds, 45);
+    expect(config.toJson()['connection_timeout_seconds'], 12);
+    expect(config.toJson()['response_timeout_seconds'], 45);
+
+    final engine = WebFetchJinaReaderEngine(
+      config: config,
+      httpClient: MockClient((_) async => http.Response('', 200)),
+    );
+    expect(engine.fetchTimeout, const Duration(seconds: 59));
+  });
 
   test('Jina Reader fetches markdown through r.jina.ai path form', () async {
     late Uri requestedUri;

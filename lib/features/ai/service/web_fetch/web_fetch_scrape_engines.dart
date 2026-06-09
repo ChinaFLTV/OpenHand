@@ -121,16 +121,42 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
   bool get isReady => true;
 
   @override
+  Duration get fetchTimeout =>
+      Duration(
+        seconds:
+            config.connectionTimeoutSeconds + config.responseTimeoutSeconds,
+      ) +
+      const Duration(seconds: 2);
+
+  @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final targetUri = _normalizeTargetUri(req.url);
     final readerUri = Uri.parse(
       'https://$_readerHost/${_readerPath(targetUri)}',
     );
-    final response = await httpClient.get(
-      readerUri,
-      headers: const {
+    final request = http.Request('GET', readerUri)
+      ..headers.addAll(const {
         'accept': 'text/markdown,text/plain,*/*;q=0.8',
         'user-agent': 'OpenHand-WebFetch/1.0',
+      });
+    final stream = await httpClient
+        .send(request)
+        .timeout(
+          Duration(seconds: config.connectionTimeoutSeconds),
+          onTimeout: () {
+            throw TimeoutException(
+              'Jina Reader connection timed out after '
+              '${config.connectionTimeoutSeconds}s.',
+            );
+          },
+        );
+    final response = await http.Response.fromStream(stream).timeout(
+      Duration(seconds: config.responseTimeoutSeconds),
+      onTimeout: () {
+        throw TimeoutException(
+          'Jina Reader response timed out after '
+          '${config.responseTimeoutSeconds}s.',
+        );
       },
     );
     final status = response.statusCode;
