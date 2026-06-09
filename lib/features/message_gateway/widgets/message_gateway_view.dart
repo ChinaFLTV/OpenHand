@@ -20,6 +20,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -5474,9 +5475,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
 }
 
 Duration _motionDuration(BuildContext context, int milliseconds) {
-  return MediaQuery.disableAnimationsOf(context)
-      ? Duration.zero
-      : Duration(milliseconds: milliseconds);
+  return openHandMotionDurationMs(context, milliseconds);
 }
 
 List<double> _series(

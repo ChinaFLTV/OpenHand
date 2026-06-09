@@ -3,7 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+
+const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
+const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
+const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
+const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
+const Duration _pluginLifecycleTerminateGrace = Duration(milliseconds: 500);
+const int _pluginLifecycleMaxCapturedLines = 500;
+const int _pluginLifecycleMaxProgressLineChars = 4000;
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -39,6 +48,16 @@ class PluginLifecycleService {
   /// 透明代理环境下 install / update 会因 TCP 握手失败而超时。
   static Map<String, String> _proxyEnv() {
     return SystemProxyResolver.instance.resolveSubprocessEnvironment();
+  }
+
+  Future<bool> _isExecutableAvailable(String executable) async {
+    final result = await runTrackedProcessOrFailed(
+      'which',
+      [executable],
+      timeout: _pluginLifecycleProbeTimeout,
+      tag: 'plugin_lifecycle.which.$executable',
+    );
+    return result.exitCode == 0;
   }
 
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
@@ -118,7 +137,7 @@ fi
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
       ['-c', '${_pythonShellPrefix()}command -v pyenv'],
-      timeout: const Duration(seconds: 5),
+      timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_check',
     );
     return result.exitCode == 0;
@@ -145,7 +164,7 @@ fi
     final versionNameResult = await runTrackedProcessOrFailed(
       _pickShell(),
       ['-c', '${_pythonShellPrefix()}pyenv version-name'],
-      timeout: const Duration(seconds: 5),
+      timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_version_name',
     );
     final selected = versionNameResult.exitCode == 0
@@ -182,7 +201,7 @@ fi
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
       ['-c', '${_pythonShellPrefix()}command -v python3 || command -v python'],
-      timeout: const Duration(seconds: 5),
+      timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.python_path',
     );
     if (result.exitCode != 0) return null;
@@ -198,7 +217,7 @@ fi
       final result = await runTrackedProcessOrFailed(
         _pickShell(),
         ['-c', '${_pythonShellPrefix()}pyenv which $command'],
-        timeout: const Duration(seconds: 5),
+        timeout: _pluginLifecycleProbeTimeout,
         tag: 'plugin_lifecycle.pyenv_which',
       );
       if (result.exitCode != 0) continue;
@@ -214,7 +233,7 @@ fi
     final result = await runTrackedProcessOrFailed(
       executable,
       ['--version'],
-      timeout: const Duration(seconds: 5),
+      timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.python_version',
     );
     if (result.exitCode != 0) return null;
@@ -225,7 +244,7 @@ fi
     final result = await runTrackedProcessOrFailed(
       executable,
       ['-m', 'pip', '--version'],
-      timeout: const Duration(seconds: 8),
+      timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pip_version',
     );
     if (result.exitCode != 0) return null;
@@ -262,7 +281,7 @@ fi
         '-c',
         '${_pythonShellPrefix()}pyenv latest -k $majorMinor 2>/dev/null || true',
       ],
-      timeout: const Duration(seconds: 8),
+      timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pyenv_latest',
       environment: proxyEnv,
     );
@@ -327,15 +346,8 @@ fi
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
-        final lines = result.stdout
-            .split('\n')
-            .map((l) => l.trim())
-            .where(
-              (l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l),
-            )
-            .toList();
-        final version = lines.isNotEmpty ? lines.last : '';
-        if (version.isNotEmpty) {
+        final version = _extractNodeVersion(result.stdout);
+        if (version != null) {
           onProgress?.call('Node.js $version 安装成功');
           return PluginOperationResult(
             success: true,
@@ -354,10 +366,7 @@ fi
       );
     }
 
-    final fnmCheck = await runTrackedProcessOrFailed('which', [
-      'fnm',
-    ], timeout: const Duration(seconds: 5));
-    if (fnmCheck.exitCode == 0) {
+    if (await _isExecutableAvailable('fnm')) {
       onProgress?.call('使用 fnm 安装 Node.js LTS…');
       final result = await _runWithProgress(
         'fnm',
@@ -372,7 +381,7 @@ fi
         ], timeout: const Duration(seconds: 10));
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -389,10 +398,7 @@ fi
       );
     }
 
-    final brewCheck = await runTrackedProcessOrFailed('which', [
-      'brew',
-    ], timeout: const Duration(seconds: 5));
-    if (brewCheck.exitCode == 0) {
+    if (await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew 安装 Node.js…');
       final result = await _runWithProgress(
         'brew',
@@ -403,7 +409,7 @@ fi
       if (result.exitCode == 0) {
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -455,10 +461,7 @@ fi
       );
     }
 
-    final brewCheck = await runTrackedProcessOrFailed('which', [
-      'brew',
-    ], timeout: const Duration(seconds: 5));
-    if (brewCheck.exitCode == 0) {
+    if (await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew 安装 Python…');
       final result = await _runWithProgress(
         'brew',
@@ -470,7 +473,7 @@ fi
         final versionResult = await runTrackedProcessOrFailed(
           _pickShell(),
           ['-c', '${_pythonShellPrefix()}python3 --version'],
-          timeout: const Duration(seconds: 8),
+          timeout: _pluginLifecycleVerifyTimeout,
           tag: 'plugin_lifecycle.python_install_verify',
         );
         final version = _extractPythonVersion(
@@ -593,7 +596,7 @@ fi
   }) async {
     final nodeCheck = await runTrackedProcessOrFailed('node', [
       '--version',
-    ], timeout: const Duration(seconds: 8));
+    ], timeout: _pluginLifecycleVerifyTimeout);
     if (nodeCheck.exitCode != 0) {
       return const PluginOperationResult(
         success: false,
@@ -614,21 +617,24 @@ fi
       );
     }
     onProgress?.call('正在安装 Playwright 浏览器…');
-    await _runWithProgress(
+    final browserInstall = await _runWithProgress(
       'npx',
       ['playwright', 'install'],
       onProgress: onProgress,
       timeout: const Duration(minutes: 10),
     );
+    if (browserInstall.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Playwright 浏览器安装失败: ${_processErrorMessage(browserInstall)}',
+      );
+    }
     final verify = await runTrackedProcessOrFailed('npx', [
       'playwright',
       '--version',
     ], timeout: const Duration(seconds: 15));
     if (verify.exitCode == 0) {
-      final version = verify.stdout.toString().trim().replaceFirst(
-        RegExp(r'^Version\s+', caseSensitive: false),
-        '',
-      );
+      final version = _normalizePlaywrightVersion(verify.stdout);
       onProgress?.call('Playwright $version 安装成功');
       return PluginOperationResult(
         success: true,
@@ -648,7 +654,7 @@ fi
     onProgress?.call('正在检测 Node.js 安装方式…');
     final whichResult = await runTrackedProcessOrFailed('which', [
       'node',
-    ], timeout: const Duration(seconds: 5));
+    ], timeout: _pluginLifecycleProbeTimeout);
     final nodePath = whichResult.exitCode == 0
         ? whichResult.stdout.toString().trim()
         : '';
@@ -669,15 +675,8 @@ fi
         onProgress: onProgress,
       );
       if (result.exitCode == 0) {
-        final lines = result.stdout
-            .split('\n')
-            .map((l) => l.trim())
-            .where(
-              (l) => l.startsWith('v') && RegExp(r'^v\d+\.\d+').hasMatch(l),
-            )
-            .toList();
-        final version = lines.isNotEmpty ? lines.last : '';
-        if (version.isNotEmpty) {
+        final version = _extractNodeVersion(result.stdout);
+        if (version != null) {
           onProgress?.call('Node.js 已更新到 $version');
           return PluginOperationResult(
             success: true,
@@ -712,7 +711,7 @@ fi
         ], timeout: const Duration(seconds: 10));
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -740,7 +739,7 @@ fi
       if (result.exitCode == 0) {
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -768,7 +767,7 @@ fi
       if (result.exitCode == 0) {
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -786,10 +785,7 @@ fi
     }
 
     onProgress?.call('未能确定安装方式，尝试可用的包管理器…');
-    final fnmCheck = await runTrackedProcessOrFailed('which', [
-      'fnm',
-    ], timeout: const Duration(seconds: 5));
-    if (fnmCheck.exitCode == 0) {
+    if (await _isExecutableAvailable('fnm')) {
       final result = await _runWithProgress(
         'fnm',
         ['install', '--lts'],
@@ -803,7 +799,7 @@ fi
         ], timeout: const Duration(seconds: 10));
         final verify = await runTrackedProcessOrFailed('node', [
           '--version',
-        ], timeout: const Duration(seconds: 8));
+        ], timeout: _pluginLifecycleVerifyTimeout);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           return PluginOperationResult(
@@ -1007,21 +1003,24 @@ fi
       );
     }
     onProgress?.call('正在更新 Playwright 浏览器…');
-    await _runWithProgress(
+    final browserInstall = await _runWithProgress(
       'npx',
       ['playwright', 'install'],
       onProgress: onProgress,
       timeout: const Duration(minutes: 10),
     );
+    if (browserInstall.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Playwright 浏览器更新失败: ${_processErrorMessage(browserInstall)}',
+      );
+    }
     final verify = await runTrackedProcessOrFailed('npx', [
       'playwright',
       '--version',
     ], timeout: const Duration(seconds: 15));
     if (verify.exitCode == 0) {
-      final version = verify.stdout.toString().trim().replaceFirst(
-        RegExp(r'^Version\s+', caseSensitive: false),
-        '',
-      );
+      final version = _normalizePlaywrightVersion(verify.stdout);
       return PluginOperationResult(
         success: true,
         message: 'Playwright 已更新到 $version',
@@ -1045,10 +1044,7 @@ fi
       );
     }
     onProgress?.call('正在卸载 Node.js…');
-    final brewCheck = await runTrackedProcessOrFailed('which', [
-      'brew',
-    ], timeout: const Duration(seconds: 5));
-    if (brewCheck.exitCode == 0) {
+    if (await _isExecutableAvailable('brew')) {
       final result = await _runWithProgress('brew', [
         'uninstall',
         'node',
@@ -1188,7 +1184,7 @@ fi
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
       ['-c', '${_pythonShellPrefix()}pyenv versions --bare'],
-      timeout: const Duration(seconds: 8),
+      timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pyenv_versions',
     );
     if (result.exitCode != 0) return const [];
@@ -1205,53 +1201,162 @@ fi
     String executable,
     List<String> arguments, {
     void Function(String line)? onProgress,
-    Duration timeout = const Duration(minutes: 3),
+    Duration timeout = _pluginLifecycleDefaultTimeout,
     Map<String, String>? environment,
   }) async {
+    StreamSubscription<String>? stdoutSub;
+    StreamSubscription<String>? stderrSub;
     try {
-      final mergedEnv = <String, String>{
-        ...?environment,
-        ..._proxyEnv(),
-      };
-      final process = await startTrackedProcess(
+      final mergedEnv = <String, String>{...?environment, ..._proxyEnv()};
+      final process = await startTrackedProcessInNewGroup(
         executable,
         arguments,
         environment: mergedEnv,
       );
-      final stdoutLines = <String>[];
-      final stderrLines = <String>[];
-      process.stdout.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) {
-            stdoutLines.add(line);
-            onProgress?.call(line.trim());
-          }
-        }
-      });
-      process.stderr.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) {
-            stderrLines.add(line);
-            onProgress?.call(line.trim());
-          }
-        }
-      });
+      final stdoutLines = _ProgressLineCollector(onProgress: onProgress);
+      final stderrLines = _ProgressLineCollector(onProgress: onProgress);
+      final stdoutDone = Completer<void>();
+      final stderrDone = Completer<void>();
+
+      void complete(Completer<void> completer) {
+        if (!completer.isCompleted) completer.complete();
+      }
+
+      stdoutSub = process.stdout
+          .transform(const SystemEncoding().decoder)
+          .listen(
+            stdoutLines.addChunk,
+            onError: (Object error, StackTrace stack) {
+              silentLog('plugin_lifecycle', 'stdout $executable', error, stack);
+              stdoutLines.close();
+              complete(stdoutDone);
+            },
+            onDone: () {
+              stdoutLines.close();
+              complete(stdoutDone);
+            },
+          );
+      stderrSub = process.stderr
+          .transform(const SystemEncoding().decoder)
+          .listen(
+            stderrLines.addChunk,
+            onError: (Object error, StackTrace stack) {
+              silentLog('plugin_lifecycle', 'stderr $executable', error, stack);
+              stderrLines.close();
+              complete(stderrDone);
+            },
+            onDone: () {
+              stderrLines.close();
+              complete(stderrDone);
+            },
+          );
+
+      final effectiveTimeout = timeout <= Duration.zero
+          ? _pluginLifecycleDefaultTimeout
+          : timeout;
+      var didTimeout = false;
       final exitCode = await process.exitCode.timeout(
-        timeout,
-        onTimeout: () {
-          process.kill();
+        effectiveTimeout,
+        onTimeout: () async {
+          didTimeout = true;
+          await terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: _pluginLifecycleTerminateGrace,
+          );
           return -1;
         },
       );
+      try {
+        await Future.wait<void>([
+          stdoutDone.future,
+          stderrDone.future,
+        ]).timeout(_pluginLifecycleStreamDrainTimeout);
+      } on TimeoutException {
+        silentLog(
+          'plugin_lifecycle',
+          'drain output $executable',
+          TimeoutException('output stream drain timed out'),
+        );
+      }
+
       return _SimpleProcessResult(
         exitCode: exitCode,
-        stdout: stdoutLines.join('\n'),
-        stderr: stderrLines.join('\n'),
+        stdout: stdoutLines.text,
+        stderr: didTimeout && stderrLines.isEmpty
+            ? _timeoutMessage(effectiveTimeout)
+            : stderrLines.text,
       );
-    } catch (e) {
-      return _SimpleProcessResult(exitCode: -1, stdout: '', stderr: '$e');
+    } catch (error, stack) {
+      silentLog(
+        'plugin_lifecycle',
+        'run $executable ${arguments.take(1).join(' ')}',
+        error,
+        stack,
+      );
+      return _SimpleProcessResult(exitCode: -1, stdout: '', stderr: '$error');
+    } finally {
+      await stdoutSub?.cancel();
+      await stderrSub?.cancel();
     }
   }
+}
+
+class _ProgressLineCollector {
+  _ProgressLineCollector({this.onProgress});
+
+  final void Function(String line)? onProgress;
+  final List<String> _lines = <String>[];
+  String _pending = '';
+
+  bool get isEmpty => _lines.isEmpty && _pending.trim().isEmpty;
+
+  String get text => _lines.join('\n');
+
+  void addChunk(String chunk) {
+    if (chunk.isEmpty) return;
+    final parts = (_pending + chunk).split('\n');
+    _pending = parts.last;
+    for (var index = 0; index < parts.length - 1; index++) {
+      _addLine(parts[index]);
+    }
+  }
+
+  void close() {
+    if (_pending.isNotEmpty) {
+      _addLine(_pending);
+      _pending = '';
+    }
+  }
+
+  void _addLine(String rawLine) {
+    final trimmed = rawLine.trim();
+    if (trimmed.isEmpty) return;
+    final line = _truncateProgressLine(trimmed);
+    if (_lines.length >= _pluginLifecycleMaxCapturedLines) {
+      _lines.removeAt(0);
+    }
+    _lines.add(line);
+    onProgress?.call(line);
+  }
+}
+
+String _truncateProgressLine(String line) {
+  if (line.length <= _pluginLifecycleMaxProgressLineChars) return line;
+  return '${line.substring(0, _pluginLifecycleMaxProgressLineChars)}…';
+}
+
+String _timeoutMessage(Duration timeout) {
+  final seconds = timeout.inSeconds;
+  if (seconds > 0) {
+    return '命令在 $seconds 秒内未完成，已终止子进程树。';
+  }
+  return '命令超时，已终止子进程树。';
+}
+
+String _processErrorMessage(_SimpleProcessResult result) {
+  if (result.stderr.trim().isNotEmpty) return result.stderr.trim();
+  if (result.stdout.trim().isNotEmpty) return result.stdout.trim();
+  return '进程退出码 ${result.exitCode}';
 }
 
 class _SimpleProcessResult {
@@ -1307,6 +1412,22 @@ String? _extractPythonVersion(String output) {
 String? _extractPipVersion(String output) {
   final match = RegExp(r'pip\s+(\d+(?:\.\d+)+)').firstMatch(output);
   return match?.group(1);
+}
+
+String? _extractNodeVersion(String output) {
+  final matches = RegExp(r'(v\d+\.\d+(?:\.\d+)?)').allMatches(output);
+  String? version;
+  for (final match in matches) {
+    version = match.group(1);
+  }
+  return version;
+}
+
+String _normalizePlaywrightVersion(Object? output) {
+  return '$output'.trim().replaceFirst(
+    RegExp(r'^Version\s+', caseSensitive: false),
+    '',
+  );
 }
 
 String? _extractFirstSemver(String output, {String? prefix}) {

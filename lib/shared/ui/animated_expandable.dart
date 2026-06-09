@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// Reusable expand/collapse container with the same Q-elastic feel as
 /// `_ExpandableToolSection` in the tool-call card:
 /// - chevron rotates 0° → 90° on expand (`AnimatedRotation`, 240ms);
@@ -45,9 +47,7 @@ class AnimatedExpandable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveDuration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : duration;
+    final effectiveDuration = openHandMotionDuration(context, duration);
     return AnimatedSize(
       duration: effectiveDuration,
       curve: Curves.easeOutCubic,
@@ -115,9 +115,7 @@ class AnimatedExpandChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : duration,
+      duration: openHandMotionDuration(context, duration),
       curve: Curves.easeOutCubic,
       child: Icon(Icons.keyboard_arrow_right_rounded, size: size, color: color),
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// Wraps a tappable child (typically an [IconButton] or small action
 /// affordance) and provides an 80 ms press-down scale + 140 ms ease-out
 /// rebound on pointer events. The wrapper does NOT consume the tap —
@@ -54,7 +56,7 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
 
   void _onDown() {
     if (!widget.enabled) return;
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return;
+    if (openHandReduceMotionOf(context)) return;
     _ctrl.forward();
   }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
+import 'motion_preference.dart';
 
 /// Provides animated entrance effects for overlay content (hover popups,
 /// tooltips, autocomplete panels, etc.).
@@ -100,8 +101,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   void _syncAnimationPreference() {
     final resolved = _resolveSettings();
     final disabled =
-        MediaQuery.disableAnimationsOf(context) ||
-        !TickerMode.valuesOf(context).enabled ||
+        !openHandTickerMotionEnabled(context) ||
         (resolved.entranceStyle == DialogAnimationStyle.none &&
             resolved.exitStyle == DialogAnimationStyle.none);
     _settings = resolved;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// Wraps a child with a subtle pointer-hover lift: on hover, the child
 /// translates upwards by [liftDistance] pixels and gains a slightly
 /// stronger shadow. Designed for list/grid cards where a faint
@@ -37,7 +39,7 @@ class _HoverLiftState extends State<HoverLift> {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = openHandReduceMotionOf(context);
     final lift = (_hovered && !reduceMotion) ? -widget.liftDistance : 0.0;
     return MouseRegion(
       onEnter: (_) {
@@ -56,7 +58,7 @@ class _HoverLiftState extends State<HoverLift> {
       },
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: lift),
-        duration: reduceMotion ? Duration.zero : widget.duration,
+        duration: openHandMotionDuration(context, widget.duration),
         curve: widget.curve,
         builder: (context, value, child) {
           return Transform.translate(offset: Offset(0, value), child: child);

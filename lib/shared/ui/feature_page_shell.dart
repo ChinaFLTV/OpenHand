@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'highlight_pulse.dart';
+import 'motion_preference.dart';
 
 class FeaturePageShell extends StatelessWidget {
   const FeaturePageShell({
@@ -34,9 +35,10 @@ class FeaturePageShell extends StatelessWidget {
     final bodyWidget = Expanded(
       child: animateBody
           ? AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
               child: body,
             )
           : body,
