@@ -457,11 +457,11 @@ html, body, #root {
 }
 
 .oh-message-selected-panel {
-  margin-top: 8px;
+  margin-top: 7px;
   color: var(--m3-on-surface);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .oh-message-selected-panel.is-user {
@@ -476,7 +476,7 @@ html, body, #root {
 .oh-message-selected-info-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   max-width: 100%;
 }
 
@@ -490,7 +490,29 @@ html, body, #root {
 }
 
 .oh-message-selected-info-row {
-  gap: 8px;
+  gap: 6px;
+}
+
+.oh-message-selected-panel .oh-message-action-button {
+  min-height: 24px;
+  gap: 4px;
+  max-width: min(100%, 168px);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.oh-message-selected-panel .oh-message-action-button > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.oh-message-selected-panel .oh-message-context-emoji {
+  width: 12px;
+  height: 12px;
+  font-size: 11px;
 }
 
 .oh-user-attachment-list {
