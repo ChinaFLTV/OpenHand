@@ -485,8 +485,12 @@ html, body, #root {
   justify-content: flex-end;
 }
 
+.oh-message-info-button {
+  cursor: default;
+}
+
 .oh-message-selected-info-row {
-  gap: 6px;
+  gap: 8px;
 }
 
 .oh-user-attachment-list {

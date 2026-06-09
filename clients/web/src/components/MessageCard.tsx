@@ -497,6 +497,12 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
   );
 }
 
+const messageActionSurfaceStyle = {
+  color: 'currentColor',
+  border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
+  background: 'transparent',
+};
+
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 // reasoning（思考）专用：超过 5-6 行文本即默认折叠到预览态。
@@ -1486,7 +1492,7 @@ function MessageCardImpl({
         </div>
         {selectedInfoChips.length > 0 ? (
           <div class="oh-message-selected-info-row">
-            {selectedInfoChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+            {selectedInfoChips.map((chip) => <SelectedInfoChip key={chip.key} chip={chip} />)}
           </div>
         ) : null}
       </div>
@@ -1500,6 +1506,23 @@ function MessageCardImpl({
       />
     ) : null}
     </>
+  );
+}
+
+function SelectedInfoChip({ chip }: { chip: MessageContextChip }) {
+  return (
+    <span
+      class="oh-message-action-button oh-message-info-button oh-soft-replace"
+      style={messageActionSurfaceStyle}
+      title={chip.label}
+    >
+      {chip.emoji ? (
+        <span class="oh-message-context-emoji" aria-hidden>{chip.emoji}</span>
+      ) : chip.icon ? (
+        <MessageIcon name={chip.icon} size={14} />
+      ) : null}
+      <span>{chip.label}</span>
+    </span>
   );
 }
 
@@ -1520,11 +1543,7 @@ function ActionBtn({
         onClick();
       }}
       class="oh-tap-press oh-message-action-button"
-      style={{
-        color: 'currentColor',
-        border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
-        background: 'transparent',
-      }}
+      style={messageActionSurfaceStyle}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background =
           'color-mix(in srgb, currentColor 8%, transparent)';
