@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/hook_config.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
@@ -50,13 +50,13 @@ class HooksStore {
             timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
           ),
         );
-      } catch (error) {
-        assert(() {
-          debugPrint(
-            '[hooks_store] skipped malformed row id=${row['id']}: $error',
-          );
-          return true;
-        }());
+      } catch (error, stack) {
+        silentLog(
+          'hooks_store',
+          'skipped malformed row id=${row['id']}',
+          error,
+          stack,
+        );
       }
     }
     return entries;
