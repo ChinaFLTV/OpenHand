@@ -134,6 +134,17 @@ class _GatewayBindResult {
   bool get usedFallbackPort => server.port != requestedPort;
 }
 
+typedef _WebSessionMessageWindow = ({
+  List<AiSessionMessage> messages,
+  int offset,
+  int limit,
+  int total,
+  bool hasMore,
+  bool hasOlder,
+  bool hasNewer,
+  String window,
+});
+
 class WebMessagePlatformService {
   WebMessagePlatformService({
     required AiSessionController sessionController,
@@ -216,7 +227,10 @@ class WebMessagePlatformService {
   static const int _maxLatencyBuffer = 256;
   static const int _maxTimestampBuffer = 600;
   static const int _maxObservationBuffer = 600;
+  static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 80;
+  static const int _sessionSummaryMessageWindowSize = 10;
+  static const int _maxStoredDisplayScanMessages = 10000;
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -2135,12 +2149,12 @@ class WebMessagePlatformService {
           });
     final start = (page - 1) * pageSize;
     final end = math.min(filtered.length, start + pageSize);
-    final items = start >= filtered.length
-        ? const <Map<String, Object?>>[]
-        : filtered
-              .sublist(start, end)
-              .map(_sessionSummary)
-              .toList(growable: false);
+    final items = <Map<String, Object?>>[];
+    if (start < filtered.length) {
+      for (final session in filtered.sublist(start, end)) {
+        items.add(await _sessionSummaryWithStoredMessages(session));
+      }
+    }
     return _json(HttpStatus.ok, <String, Object?>{
       'items': items,
       'page': page,
@@ -2244,7 +2258,10 @@ class WebMessagePlatformService {
       });
     }
     return _json(HttpStatus.ok, <String, Object?>{
-      'session': _sessionSummary(session, includeDetails: true),
+      'session': await _sessionSummaryWithStoredMessages(
+        session,
+        includeDetails: true,
+      ),
       'runtime': <String, Object?>{
         'send_phase': _sessionController.sendPhaseForSession(session.id).name,
         'can_stop': _sessionController.canStopResponding(session.id),
@@ -2346,7 +2363,7 @@ class WebMessagePlatformService {
     );
     return _json(ok ? HttpStatus.ok : HttpStatus.conflict, <String, Object?>{
       'ok': ok,
-      'session': _sessionSummary(updated),
+      'session': await _sessionSummaryWithStoredMessages(updated),
     });
   }
 
@@ -2413,32 +2430,27 @@ class WebMessagePlatformService {
     final tail =
         _truthy(request.requestedUri.queryParameters['tail']) ||
         request.requestedUri.queryParameters['window'] == 'tail';
-    var offset = rawOffset;
-    if (tail) {
-      final probe = await _sessionController.store.loadMessages(
-        session.id,
-        limit: 1,
-      );
-      offset = math.max(0, probe.totalCount - limit);
-    }
-    final page = await _sessionController.store.loadMessages(
-      session.id,
+    final window = await _loadStoredMessageWindow(
+      session,
       limit: limit,
-      offset: offset,
+      offset: rawOffset,
+      tail: tail,
     );
+    final lastMessage = window.messages.isEmpty ? null : window.messages.last;
     return _json(HttpStatus.ok, <String, Object?>{
-      'session': _sessionSummary(session),
-      'items': page.messages
-          .where((message) => !message.isDeleted)
-          .map(_messageJson)
-          .toList(growable: false),
-      'offset': offset,
-      'limit': limit,
-      'total': page.totalCount,
-      'has_more': tail ? offset > 0 : page.hasMore,
-      'has_older': offset > 0,
-      'has_newer': offset + page.messages.length < page.totalCount,
-      'window': tail ? 'tail' : 'offset',
+      'session': _sessionSummary(
+        session,
+        messageCountOverride: window.total,
+        lastMessageOverride: lastMessage,
+      ),
+      'items': window.messages.map(_messageJson).toList(growable: false),
+      'offset': window.offset,
+      'limit': window.limit,
+      'total': window.total,
+      'has_more': window.hasMore,
+      'has_older': window.hasOlder,
+      'has_newer': window.hasNewer,
+      'window': window.window,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
       'pending_write_approval': _pendingWriteApprovalJson(session.id),
@@ -2576,7 +2588,16 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    if (session.displayMessages.length >= _config.maxMessagesPerSession) {
+    final messageLimitWindow = await _loadStoredMessageWindow(
+      session,
+      limit: 1,
+      tail: true,
+    );
+    final existingMessageCount = math.max(
+      messageLimitWindow.total,
+      session.displayMessages.length,
+    );
+    if (existingMessageCount >= _config.maxMessagesPerSession) {
       return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'session_message_limit_reached',
       });
@@ -2935,7 +2956,10 @@ class WebMessagePlatformService {
       'rejection_reason': result.message,
       if (result.retryAfter != null)
         'retry_after_ms': result.retryAfter!.inMilliseconds,
-      'session': _sessionSummary(updated, includeDetails: true),
+      'session': await _sessionSummaryWithStoredMessages(
+        updated,
+        includeDetails: true,
+      ),
     });
   }
 
@@ -3146,14 +3170,31 @@ class WebMessagePlatformService {
     Timer? throttleTimer;
     Timer? keepaliveTimer;
     var disposed = false;
+    var snapshotInFlight = false;
+    var snapshotQueued = false;
 
-    Map<String, Object?> buildSnapshot(AiSession live) {
-      final allMessages = live.displayMessages;
-      final offset = math.max(0, allMessages.length - _sseMessageWindowSize);
-      final messages = allMessages
-          .skip(offset)
-          .map(_messageJson)
-          .toList(growable: false);
+    Future<Map<String, Object?>> buildSnapshot(AiSession live) async {
+      final liveMessages = live.displayMessages;
+      final _WebSessionMessageWindow messageWindow;
+      final liveLooksComplete =
+          liveMessages.isNotEmpty &&
+          live.messages.length >= live.statistics.totalMessageCount;
+      if (liveLooksComplete) {
+        messageWindow = _messageWindowFromDisplayMessages(
+          liveMessages,
+          limit: _sseMessageWindowSize,
+          tail: true,
+        );
+      } else {
+        messageWindow = await _loadStoredMessageWindow(
+          live,
+          limit: _sseMessageWindowSize,
+          tail: true,
+        );
+      }
+      final lastMessage = messageWindow.messages.isEmpty
+          ? null
+          : messageWindow.messages.last;
       // 2026-05-17 — 把当前会话生效的字符 / 卡片节流速率推给前端，让 Web
       // 端的 TopBar 节流指示器可以无需额外接口直接展示绿/灰状态。
       final throttleOverride = _sessionController.sessionStreamThrottleOverride(
@@ -3168,14 +3209,20 @@ class WebMessagePlatformService {
             live.templateId,
           );
       return <String, Object?>{
-        'session': _sessionSummary(live),
-        'messages': messages,
+        'session': _sessionSummary(
+          live,
+          messageCountOverride: messageWindow.total,
+          lastMessageOverride: lastMessage,
+        ),
+        'messages': messageWindow.messages
+            .map(_messageJson)
+            .toList(growable: false),
         'message_window': <String, Object?>{
-          'offset': offset,
-          'limit': _sseMessageWindowSize,
-          'total': allMessages.length,
-          'has_older': offset > 0,
-          'has_newer': false,
+          'offset': messageWindow.offset,
+          'limit': messageWindow.limit,
+          'total': messageWindow.total,
+          'has_older': messageWindow.hasOlder,
+          'has_newer': messageWindow.hasNewer,
         },
         'send_phase': _sessionController.sendPhaseForSession(sessionId).name,
         'last_error': _sessionController.lastErrorMessageForSession(sessionId),
@@ -3222,8 +3269,13 @@ class WebMessagePlatformService {
     void scheduleSnapshot() {
       if (disposed) return;
       throttleTimer?.cancel();
-      throttleTimer = Timer(const Duration(milliseconds: 80), () {
+      throttleTimer = Timer(const Duration(milliseconds: 80), () async {
         if (disposed) return;
+        if (snapshotInFlight) {
+          snapshotQueued = true;
+          return;
+        }
+        snapshotInFlight = true;
         try {
           final live = _findAuthorizedSession(auth, sessionId);
           if (live == null) {
@@ -3235,7 +3287,8 @@ class WebMessagePlatformService {
             Future<void>.microtask(dispose);
             return;
           }
-          final snapshot = buildSnapshot(live);
+          final snapshot = await buildSnapshot(live);
+          if (disposed) return;
           final sessionPayload = snapshot['session'] as Map<String, Object?>;
           final throttlePayload =
               snapshot['effective_stream_throttle'] as Map<String, Object?>?;
@@ -3257,6 +3310,12 @@ class WebMessagePlatformService {
           emit('snapshot', snapshot);
         } catch (error, stack) {
           silentLog('WebGateway', 'sse.snapshot', error, stack);
+        } finally {
+          snapshotInFlight = false;
+          if (!disposed && snapshotQueued) {
+            snapshotQueued = false;
+            scheduleSnapshot();
+          }
         }
       });
     }
@@ -4273,13 +4332,177 @@ class WebMessagePlatformService {
     return stats;
   }
 
+  _WebSessionMessageWindow _messageWindowFromDisplayMessages(
+    List<AiSessionMessage> displayMessages, {
+    required int limit,
+    int offset = 0,
+    bool tail = false,
+  }) {
+    final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
+    final total = displayMessages.length;
+    final resolvedOffset = tail
+        ? math.max(0, total - safeLimit)
+        : math.min(math.max(0, offset), total);
+    final messages = displayMessages
+        .skip(resolvedOffset)
+        .take(safeLimit)
+        .toList(growable: false);
+    return (
+      messages: messages,
+      offset: resolvedOffset,
+      limit: safeLimit,
+      total: total,
+      hasMore: tail
+          ? resolvedOffset > 0
+          : resolvedOffset + messages.length < total,
+      hasOlder: resolvedOffset > 0,
+      hasNewer: resolvedOffset + messages.length < total,
+      window: tail ? 'tail' : 'offset',
+    );
+  }
+
+  List<AiSessionMessage> _mergeStoredAndLiveMessages(
+    List<AiSessionMessage> storedMessages,
+    List<AiSessionMessage> liveMessages,
+  ) {
+    if (storedMessages.isEmpty) return liveMessages;
+    if (liveMessages.isEmpty) return storedMessages;
+    final merged = storedMessages.toList(growable: true);
+    final indexById = <String, int>{};
+    for (var index = 0; index < merged.length; index += 1) {
+      final id = merged[index].id.trim();
+      if (id.isNotEmpty) indexById[id] = index;
+    }
+    for (final message in liveMessages) {
+      final id = message.id.trim();
+      final existingIndex = id.isEmpty ? null : indexById[id];
+      if (existingIndex == null) {
+        if (id.isNotEmpty) indexById[id] = merged.length;
+        merged.add(message);
+      } else {
+        merged[existingIndex] = message;
+      }
+    }
+    return merged;
+  }
+
+  Future<_WebSessionMessageWindow> _loadStoredMessageWindow(
+    AiSession session, {
+    required int limit,
+    int offset = 0,
+    bool tail = false,
+  }) async {
+    final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
+    try {
+      final probe = await _sessionController.store.loadMessages(
+        session.id,
+        limit: 1,
+      );
+      final rawTotal = probe.totalCount;
+      if (session.messages.isNotEmpty && session.messages.length >= rawTotal) {
+        return _messageWindowFromDisplayMessages(
+          session.displayMessages,
+          limit: safeLimit,
+          offset: offset,
+          tail: tail,
+        );
+      }
+      if (rawTotal <= _maxStoredDisplayScanMessages) {
+        final page = await _sessionController.store.loadMessages(
+          session.id,
+          limit: -1,
+        );
+        final mergedMessages = _mergeStoredAndLiveMessages(
+          page.messages,
+          session.messages,
+        );
+        final displayMessages = session
+            .copyWith(messages: mergedMessages)
+            .displayMessages;
+        return _messageWindowFromDisplayMessages(
+          displayMessages,
+          limit: safeLimit,
+          offset: offset,
+          tail: tail,
+        );
+      }
+
+      final rawOffset = tail ? math.max(0, rawTotal - safeLimit) : offset;
+      final page = await _sessionController.store.loadMessages(
+        session.id,
+        limit: safeLimit,
+        offset: math.max(0, rawOffset),
+      );
+      final mergedMessages = _mergeStoredAndLiveMessages(
+        page.messages,
+        session.messages,
+      );
+      final messages = session
+          .copyWith(messages: mergedMessages)
+          .displayMessages;
+      final totalHint = math.max(
+        session.statistics.totalMessageCount,
+        session.displayMessages.length,
+      );
+      final total = math.max(totalHint, messages.length);
+      final resolvedOffset = tail
+          ? math.max(0, total - messages.length)
+          : math.min(math.max(0, offset), total);
+      return (
+        messages: messages,
+        offset: resolvedOffset,
+        limit: safeLimit,
+        total: total,
+        hasMore: tail
+            ? resolvedOffset > 0
+            : resolvedOffset + messages.length < total,
+        hasOlder: resolvedOffset > 0,
+        hasNewer: resolvedOffset + messages.length < total,
+        window: tail ? 'tail' : 'offset',
+      );
+    } catch (error, stack) {
+      silentLog('WebGateway', 'load stored message window', error, stack);
+      return _messageWindowFromDisplayMessages(
+        session.displayMessages,
+        limit: safeLimit,
+        offset: offset,
+        tail: tail,
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _sessionSummaryWithStoredMessages(
+    AiSession session, {
+    bool includeDetails = false,
+  }) async {
+    final window = await _loadStoredMessageWindow(
+      session,
+      limit: _sessionSummaryMessageWindowSize,
+      tail: true,
+    );
+    final liveDisplayMessages = session.displayMessages;
+    final lastMessage = liveDisplayMessages.isNotEmpty
+        ? liveDisplayMessages.last
+        : (window.messages.isEmpty ? null : window.messages.last);
+    return _sessionSummary(
+      session,
+      includeDetails: includeDetails,
+      messageCountOverride: math.max(window.total, liveDisplayMessages.length),
+      lastMessageOverride: lastMessage,
+    );
+  }
+
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
+    int? messageCountOverride,
+    AiSessionMessage? lastMessageOverride,
   }) {
     final context = _webContext(session.metadata);
     final displayMessages = session.displayMessages;
-    final last = displayMessages.isEmpty ? null : displayMessages.last;
+    final last =
+        lastMessageOverride ??
+        (displayMessages.isEmpty ? null : displayMessages.last);
     final lastModelKey = _lastModelKeyForSession(session);
     final summary = <String, Object?>{
       'id': session.id,
@@ -4307,7 +4530,7 @@ class WebMessagePlatformService {
           ?.toUtc()
           .toIso8601String(),
       'last_model_key': lastModelKey,
-      'message_count': displayMessages.length,
+      'message_count': messageCountOverride ?? displayMessages.length,
       'statistics': _ensureCacheHitStats(session),
       'total_tokens': session.statistics.totalTokens,
       'total_prompt_tokens': session.statistics.totalPromptTokens,

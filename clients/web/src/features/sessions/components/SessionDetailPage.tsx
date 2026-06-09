@@ -2206,12 +2206,17 @@ export function SessionDetailPage() {
           0,
           (snap.session.message_count ?? snap.messages.length) - snap.messages.length,
         );
-        applyServerMessageWindow(
-          snap.messages,
-          snapOffset,
-          { preserveLocalStreamingTail: isRunningPhase(snap.send_phase) },
-        );
-        setTotalKnown(snap.session.message_count ?? snap.messages.length);
+        const snapTotal = snap.message_window?.total ?? snap.session.message_count ?? snap.messages.length;
+        const emptyWindowWouldHideLoadedHistory =
+          snap.messages.length === 0 && snapTotal > 0 && messagesRef.current.length > 0;
+        if (!emptyWindowWouldHideLoadedHistory) {
+          applyServerMessageWindow(
+            snap.messages,
+            snapOffset,
+            { preserveLocalStreamingTail: isRunningPhase(snap.send_phase) },
+          );
+        }
+        setTotalKnown(snapTotal);
         setDetail((prev) => {
           const runtime = {
             send_phase: snap.send_phase,
