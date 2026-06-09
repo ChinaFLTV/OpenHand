@@ -1,7 +1,7 @@
 // Toolbox 相关 API: MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务
 // 一律只读, 与服务端 _listMcpServersHandler 等一一对齐。
 
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 export interface McpServerSummary {
   name: string;
@@ -49,15 +49,23 @@ export interface CronEntrySummary {
   consecutive_failures: number;
 }
 
-export function listMcpServers(): Promise<{ items: McpServerSummary[] }> {
-  return apiRequest<{ items: McpServerSummary[] }>('/api/mcp/servers');
+export function listMcpServers(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: McpServerSummary[] }> {
+  return apiRequest<{ items: McpServerSummary[] }>('/api/mcp/servers', options);
 }
-export function listSkills(): Promise<{ items: SkillSummary[]; storage_path: string }> {
-  return apiRequest<{ items: SkillSummary[]; storage_path: string }>('/api/skills');
+export function listSkills(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: SkillSummary[]; storage_path: string }> {
+  return apiRequest<{ items: SkillSummary[]; storage_path: string }>('/api/skills', options);
 }
-export function listMemories(): Promise<{ items: MemoryEntrySummary[] }> {
-  return apiRequest<{ items: MemoryEntrySummary[] }>('/api/memories');
+export function listMemories(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: MemoryEntrySummary[] }> {
+  return apiRequest<{ items: MemoryEntrySummary[] }>('/api/memories', options);
 }
-export function listCrons(): Promise<{ items: CronEntrySummary[] }> {
-  return apiRequest<{ items: CronEntrySummary[] }>('/api/crons');
+export function listCrons(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: CronEntrySummary[] }> {
+  return apiRequest<{ items: CronEntrySummary[] }>('/api/crons', options);
 }

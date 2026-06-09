@@ -1,7 +1,7 @@
 // Hardness 持久化会话 API: 拉取本机最近一次 hardness engineering 会话的快照。
 // App 同时只跑一个会话, 故服务端简单返回 `{record: HardnessRecord | null}`。
 
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 export type HardnessPhaseValue =
   | 'meta_collection'
@@ -61,6 +61,11 @@ export interface HardnessSessionRecord {
   queued_manual_phase_input_phase: string | null;
 }
 
-export function fetchHardnessSession(): Promise<{ record: HardnessSessionRecord | null }> {
-  return apiRequest<{ record: HardnessSessionRecord | null }>('/api/hardness/session');
+export function fetchHardnessSession(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ record: HardnessSessionRecord | null }> {
+  return apiRequest<{ record: HardnessSessionRecord | null }>(
+    '/api/hardness/session',
+    options,
+  );
 }

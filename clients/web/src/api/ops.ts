@@ -5,7 +5,7 @@
 //
 // 注意：runtime snapshot 字段 process.* 是嵌套对象，前端按 `OpsRuntimeProcess` 解构。
 
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 export interface OpsRuntimeProcess {
   pid: number;
@@ -121,12 +121,19 @@ export interface RunCleanupInput {
   expired_only?: boolean;
 }
 
-export function getOpsSnapshot(): Promise<OpsRuntimeSnapshot> {
-  return apiRequest<OpsRuntimeSnapshot>('/api/ops');
+export function getOpsSnapshot(
+  options: ApiRequestSignalOptions = {},
+): Promise<OpsRuntimeSnapshot> {
+  return apiRequest<OpsRuntimeSnapshot>('/api/ops', options);
 }
 
-export function getCleanupHistory(): Promise<CleanupHistoryResponse> {
-  return apiRequest<CleanupHistoryResponse>('/api/ops/cleanup/history');
+export function getCleanupHistory(
+  options: ApiRequestSignalOptions = {},
+): Promise<CleanupHistoryResponse> {
+  return apiRequest<CleanupHistoryResponse>(
+    '/api/ops/cleanup/history',
+    options,
+  );
 }
 
 export function runCleanup(input: RunCleanupInput): Promise<CleanupHistoryEntry> {

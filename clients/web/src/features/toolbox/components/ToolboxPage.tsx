@@ -58,13 +58,13 @@ export function ToolboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useAsyncPolling(async (isActive) => {
+  useAsyncPolling(async (isActive, signal) => {
     try {
       const [m, s, mem, c] = await Promise.all([
-        listMcpServers(),
-        listSkills(),
-        listMemories(),
-        listCrons(),
+        listMcpServers({ signal }),
+        listSkills({ signal }),
+        listMemories({ signal }),
+        listCrons({ signal }),
       ]);
       if (!isActive()) return;
       setMcp(m.items);
@@ -78,7 +78,13 @@ export function ToolboxPage() {
     } finally {
       if (isActive()) setLoading(false);
     }
-  }, { intervalMs: TOOLBOX_POLL_INTERVAL_MS });
+  }, {
+    intervalMs: TOOLBOX_POLL_INTERVAL_MS,
+    onError: (err) => {
+      setError(describeApiError(err));
+      setLoading(false);
+    },
+  });
 
   const tabs: TabSpec[] = useMemo(
     () => [

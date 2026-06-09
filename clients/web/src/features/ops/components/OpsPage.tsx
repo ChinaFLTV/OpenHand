@@ -153,11 +153,14 @@ export function OpsPage() {
   const [cleanupError, setCleanupError] = useState<string | null>(null);
   const [cleanupOk, setCleanupOk] = useState<string | null>(null);
 
-  const refreshSnapshot = async (isActive: () => boolean = () => true) => {
+  const refreshSnapshot = async (
+    isActive: () => boolean = () => true,
+    signal?: AbortSignal,
+  ) => {
     setSnapLoading(true);
     setSnapError(null);
     try {
-      const s = await getOpsSnapshot();
+      const s = await getOpsSnapshot({ signal });
       if (!isActive()) return;
       setSnapshot(s);
     } catch (err) {
@@ -167,10 +170,13 @@ export function OpsPage() {
     }
   };
 
-  const refreshHistory = async (isActive: () => boolean = () => true) => {
+  const refreshHistory = async (
+    isActive: () => boolean = () => true,
+    signal?: AbortSignal,
+  ) => {
     setHistoryError(null);
     try {
-      const h = await getCleanupHistory();
+      const h = await getCleanupHistory({ signal });
       if (!isActive()) return;
       setHistory(h.items);
     } catch (err) {
@@ -189,10 +195,14 @@ export function OpsPage() {
     };
   }, []);
 
-  useAsyncPolling((isActive) => refreshSnapshot(isActive), {
+  useAsyncPolling((isActive, signal) => refreshSnapshot(isActive, signal), {
     enabled: autoRefresh,
     immediate: false,
     intervalMs: REFRESH_INTERVAL_MS,
+    onError: (err) => {
+      setSnapError(describeApiError(err));
+      setSnapLoading(false);
+    },
   });
 
   const handleCleanup = async () => {

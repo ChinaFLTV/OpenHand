@@ -1,7 +1,7 @@
 // Plugin Service API: 查询插件状态、触发安装/更新/卸载操作。
 // 与服务端 _listPluginsHandler / _pluginActionHandler 对齐。
 
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 export type PluginStatus =
   | 'notInstalled'
@@ -38,8 +38,10 @@ export interface PluginCheckUpdateResult {
   item: PluginSummary;
 }
 
-export function listPlugins(): Promise<{ items: PluginSummary[] }> {
-  return apiRequest<{ items: PluginSummary[] }>('/api/plugins');
+export function listPlugins(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: PluginSummary[] }> {
+  return apiRequest<{ items: PluginSummary[] }>('/api/plugins', options);
 }
 
 export function installPlugin(pluginId: string): Promise<PluginActionResult> {

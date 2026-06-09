@@ -63,6 +63,7 @@ import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPic
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { getDialogExitDurationMs } from '../../../hooks/useDialogMotionSettings';
@@ -105,6 +106,9 @@ const POLL_INTERVAL_MS = 1500;
 
 /// SSE 正常时仍保留一个低频 phase guard，专门兜底最后一次 idle 状态丢失。
 const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
+
+/// 单次 phase guard 请求的硬超时，避免网络层异常导致兜底轮询永久挂起。
+const SESSION_PHASE_POLL_TIMEOUT_MS = 15_000;
 
 /// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
@@ -1169,7 +1173,6 @@ export function SessionDetailPage() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const messagesAbortRef = useRef<AbortController | null>(null);
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
-  const pollTimerRef = useRef<number | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
@@ -1877,10 +1880,6 @@ export function SessionDetailPage() {
         // 主动断开 SSE / 终止轮询，避免后续噪声错误覆盖弹窗
         sseCloseRef.current?.();
         sseCloseRef.current = null;
-        if (pollTimerRef.current != null) {
-          window.clearTimeout(pollTimerRef.current);
-          pollTimerRef.current = null;
-        }
         clearAutoTitleRefreshTimers();
         setSessionGone(true);
         return true;
@@ -2124,10 +2123,6 @@ export function SessionDetailPage() {
       messagesAbortRef.current = null;
       olderMessagesAbortRef.current?.abort();
       olderMessagesAbortRef.current = null;
-      if (pollTimerRef.current != null) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
       sseCloseRef.current?.();
       sseCloseRef.current = null;
       clearAutoTitleRefreshTimers();
@@ -2251,10 +2246,6 @@ export function SessionDetailPage() {
         if (sseCloseRef.current === close) {
           sseCloseRef.current?.();
           sseCloseRef.current = null;
-        }
-        if (pollTimerRef.current != null) {
-          window.clearTimeout(pollTimerRef.current);
-          pollTimerRef.current = null;
         }
         setSseLive(false);
         setSessionGone(true);
@@ -2542,70 +2533,57 @@ export function SessionDetailPage() {
 
   // 轮询：SSE 故障时 1.5s 拉一次；SSE 存活时也保留低频 phase guard，
   // 兜底最后一帧 idle 丢失导致按钮一直停在「等待响应中」。
-  // 用 setTimeout 自驱动而非 setInterval，避免漂移与未完成请求叠加。
-  useEffect(() => {
-    if (auth.loading || !sessionId) return;
-    const isRunning = sendPhase !== 'idle' && sendPhase !== '';
-    if (!isRunning) {
-      if (pollTimerRef.current != null) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      return;
-    }
-    let cancelled = false;
+  // 公共轮询 hook 内部仍用 setTimeout 自驱动，避免 setInterval 叠加；
+  // 同时提供 AbortSignal + 单次超时，防止异常网络导致无限等待。
+  const phasePollEnabled =
+    !auth.loading &&
+    !sessionGone &&
+    Boolean(sessionId) &&
+    sendPhase !== 'idle' &&
+    sendPhase !== '';
+  const phasePollIntervalMs = sseLive
+    ? SSE_PHASE_GUARD_INTERVAL_MS
+    : POLL_INTERVAL_MS;
+  useAsyncPolling(async (isActive, signal) => {
     const pollSessionId = sessionId;
-    let ctrl: AbortController | null = null;
-    async function tick(): Promise<void> {
-      ctrl?.abort();
-      ctrl = new AbortController();
-      try {
-        const m = await listMessages(pollSessionId, {
-          limit: PAGE_SIZE,
-          tail: true,
-          signal: ctrl.signal,
-        });
-        if (cancelled || ctrl.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
-        const offset = m.offset ?? Math.max(0, m.total - m.items.length);
-        if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
-          // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-          applyServerMessageWindow(
-            m.items,
-            offset,
-            { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
-          );
-          setTotalKnown(m.total);
-          setSendPhase(m.send_phase);
-          setLastError(m.last_error);
-          setPendingWriteApproval(m.pending_write_approval ?? null);
-          if (m.session) mergeSessionSummaryFromPolling(m.session);
-        }
-      } catch (e: unknown) {
-        if (cancelled || ctrl?.signal.aborted || !ownsSessionAsyncResult(pollSessionId)) return;
-        if (handleAuthError(e)) return;
-        if (handleSessionGoneError(e)) return;
-        setLastError(e instanceof Error ? e.message : String(e));
-      }
-      if (!cancelled) {
-        pollTimerRef.current = window.setTimeout(
-          tick,
-          sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS,
+    if (!pollSessionId) return;
+    try {
+      const m = await listMessages(pollSessionId, {
+        limit: PAGE_SIZE,
+        tail: true,
+        signal,
+      });
+      if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
+      const offset = m.offset ?? Math.max(0, m.total - m.items.length);
+      if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
+        // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
+        applyServerMessageWindow(
+          m.items,
+          offset,
+          {
+            preserveLocalStreamingTail:
+              isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
+          },
         );
+        setTotalKnown(m.total);
+        setSendPhase(m.send_phase);
+        setLastError(m.last_error);
+        setPendingWriteApproval(m.pending_write_approval ?? null);
+        if (m.session) mergeSessionSummaryFromPolling(m.session);
       }
+    } catch (e: unknown) {
+      if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      setLastError(e instanceof Error ? e.message : String(e));
     }
-    pollTimerRef.current = window.setTimeout(
-      tick,
-      sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS,
-    );
-    return () => {
-      cancelled = true;
-      ctrl?.abort();
-      if (pollTimerRef.current != null) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-  }, [auth.loading, sessionId, sendPhase, sseLive]);
+  }, {
+    enabled: phasePollEnabled,
+    immediate: false,
+    intervalMs: phasePollIntervalMs,
+    taskTimeoutMs: SESSION_PHASE_POLL_TIMEOUT_MS,
+    onError: (e) => setLastError(e instanceof Error ? e.message : String(e)),
+  });
 
   // 桌面通知: 当窗口隐藏时, 若收到新的 assistant 消息 (id 与上次不同),
   // 通过 Service Worker / Notification API 弹一个通知。

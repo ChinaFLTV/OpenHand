@@ -70,16 +70,19 @@ export function HardnessPage() {
   const [record, setRecord] = useState<HardnessSessionRecord | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
-  useAsyncPolling(async (isActive) => {
+  useAsyncPolling(async (isActive, signal) => {
     try {
-      const res = await fetchHardnessSession();
+      const res = await fetchHardnessSession({ signal });
       if (!isActive()) return;
       setRecord(res.record);
       setError(null);
     } catch (err) {
       if (isActive()) setError(describeApiError(err));
     }
-  }, { intervalMs: HARDNESS_POLL_INTERVAL_MS });
+  }, {
+    intervalMs: HARDNESS_POLL_INTERVAL_MS,
+    onError: (err) => setError(describeApiError(err)),
+  });
 
   return (
     <main

@@ -25,6 +25,8 @@ export interface ApiOptions {
   anonymous?: boolean;
 }
 
+export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal'>;
+
 export async function apiRequest<T = unknown>(
   path: string,
   opts: ApiOptions = {},

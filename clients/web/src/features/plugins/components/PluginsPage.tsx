@@ -65,9 +65,12 @@ export function PluginsPage() {
     action: 'install' | 'update' | 'uninstall';
   } | null>(null);
 
-  const fetchPlugins = async (isActive: () => boolean = () => true) => {
+  const fetchPlugins = async (
+    isActive: () => boolean = () => true,
+    signal?: AbortSignal,
+  ) => {
     try {
-      const result = await listPlugins();
+      const result = await listPlugins({ signal });
       if (!isActive()) return;
       setPlugins(result.items);
       setError(null);
@@ -78,7 +81,13 @@ export function PluginsPage() {
     }
   };
 
-  useAsyncPolling(fetchPlugins, { intervalMs: PLUGINS_POLL_INTERVAL_MS });
+  useAsyncPolling(fetchPlugins, {
+    intervalMs: PLUGINS_POLL_INTERVAL_MS,
+    onError: (err) => {
+      setError(describeApiError(err));
+      setLoading(false);
+    },
+  });
 
   const handleAction = async (pluginId: string, action: 'install' | 'update' | 'uninstall') => {
     setOperating(pluginId);

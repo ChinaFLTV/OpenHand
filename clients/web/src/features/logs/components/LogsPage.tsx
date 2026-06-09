@@ -14,6 +14,7 @@ import { t, tTime } from '../../../i18n';
 import { MenuSelect } from '../../../components/MenuSelect';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { describeApiError, isAbortError } from '../../../utils/api_error';
 
 const PAGE_SIZE = 200;
@@ -48,9 +49,7 @@ export function LogsPage() {
   const [tagFilter, setTagFilter] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const tailTimerRef = useRef<number | null>(null);
   const pageRequestAbortRef = useRef<AbortController | null>(null);
-  const tailRequestAbortRef = useRef<AbortController | null>(null);
 
   const loadAt = useCallback(async (newOffset: number) => {
     pageRequestAbortRef.current?.abort();
@@ -98,45 +97,21 @@ export function LogsPage() {
 
   useEffect(() => () => {
     pageRequestAbortRef.current?.abort();
-    tailRequestAbortRef.current?.abort();
   }, []);
 
+  useAsyncPolling(async (_isActive, signal) => {
+    await loadTail(signal);
+  }, {
+    enabled: tail,
+    intervalMs: TAIL_INTERVAL_MS,
+    onError: (err) => setError(describeApiError(err)),
+  });
+
   useEffect(() => {
-    if (tail) {
-      let stopped = false;
-      const run = async () => {
-        tailRequestAbortRef.current?.abort();
-        const ctrl = new AbortController();
-        tailRequestAbortRef.current = ctrl;
-        try {
-          await loadTail(ctrl.signal);
-        } finally {
-          if (tailRequestAbortRef.current === ctrl) tailRequestAbortRef.current = null;
-          if (!stopped) {
-            tailTimerRef.current = window.setTimeout(run, TAIL_INTERVAL_MS);
-          }
-        }
-      };
-      void run();
-      return () => {
-        stopped = true;
-        if (tailTimerRef.current != null) {
-          clearTimeout(tailTimerRef.current);
-          tailTimerRef.current = null;
-        }
-        tailRequestAbortRef.current?.abort();
-        tailRequestAbortRef.current = null;
-      };
-    }
-    if (tailTimerRef.current != null) {
-      clearTimeout(tailTimerRef.current);
-      tailTimerRef.current = null;
-    }
-    tailRequestAbortRef.current?.abort();
-    tailRequestAbortRef.current = null;
+    if (tail) return;
     void loadAt(offset);
     // 关闭 tail 时仍以当前 offset 为锚
-  }, [tail, loadAt, loadTail]);
+  }, [tail, loadAt]);
 
   const filtered = useMemo(() => {
     const tag = tagFilter.trim().toLowerCase();
