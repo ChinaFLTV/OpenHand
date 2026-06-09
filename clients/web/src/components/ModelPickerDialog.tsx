@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
@@ -50,7 +51,7 @@ interface RecentEntry {
 
 function readRecent(): RecentEntry[] {
   try {
-    const raw = localStorage.getItem(RECENT_KEY);
+    const raw = readBrowserStorage(RECENT_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw) as RecentEntry[];
     return Array.isArray(arr) ? arr : [];
@@ -65,11 +66,7 @@ export function pushRecentModel(modelKey: string): void {
     { key: modelKey, ts: Date.now() },
     ...readRecent().filter((r) => r.key !== modelKey),
   ].slice(0, RECENT_MAX);
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  } catch {
-    // quota / private mode — ignore
-  }
+  writeBrowserStorage(RECENT_KEY, JSON.stringify(next));
 }
 
 export interface ModelPickerDialogProps {

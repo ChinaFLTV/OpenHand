@@ -56,6 +56,11 @@ import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import {
+  readBrowserStorage,
+  removeBrowserStorage,
+  writeBrowserStorage,
+} from '../../../shared/util/browser_storage';
+import {
   SessionTopBar,
   type SessionToolbarCapsule,
 } from '../../../components/SessionTopBar';
@@ -192,22 +197,14 @@ function skillSummaryFromSelection(
 }
 
 function readPersistedComposerCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(COMPOSER_COLLAPSED_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return readBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY) === '1';
 }
 
 function persistComposerCollapsed(value: boolean): void {
-  try {
-    if (value) {
-      window.localStorage.setItem(COMPOSER_COLLAPSED_STORAGE_KEY, '1');
-    } else {
-      window.localStorage.removeItem(COMPOSER_COLLAPSED_STORAGE_KEY);
-    }
-  } catch {
-    // private mode / quota errors should never block typing.
+  if (value) {
+    writeBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY, '1');
+  } else {
+    removeBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY);
   }
 }
 

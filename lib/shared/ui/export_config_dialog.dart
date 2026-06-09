@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
+import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -41,6 +42,37 @@ Future<HardnessSessionExportConfig?> showHardnessSessionExportConfigDialog({
       initial: initial,
     ),
   );
+}
+
+class _ExportIndexRange {
+  const _ExportIndexRange({required this.startIndex, required this.endIndex});
+
+  final int startIndex;
+  final int endIndex;
+}
+
+_ExportIndexRange? _tryParseExportIndexRange({
+  required String startText,
+  required String endText,
+  required int totalCount,
+}) {
+  if (totalCount < 1) return null;
+  final start = optionalIntFromText(startText);
+  final end = optionalIntFromText(endText);
+  if (start == null || end == null || start < 1 || end < start) {
+    return null;
+  }
+  if (start > totalCount) return null;
+  return _ExportIndexRange(
+    startIndex: start,
+    endIndex: end > totalCount ? totalCount : end,
+  );
+}
+
+String _exportRangeErrorText(bool isZh) {
+  return isZh
+      ? '请输入有效区间 (1 ≤ 起始 ≤ 结束)'
+      : 'Enter a valid range (1 ≤ start ≤ end)';
 }
 
 class _AiSessionExportConfigDialog extends StatefulWidget {
@@ -171,17 +203,19 @@ class _AiSessionExportConfigDialogState
     int? start;
     int? end;
     if (widget.allowRange && _useRange) {
-      start = int.tryParse(_startController.text.trim());
-      end = int.tryParse(_endController.text.trim());
-      if (start == null || end == null || start < 1 || end < start) {
+      final range = _tryParseExportIndexRange(
+        startText: _startController.text,
+        endText: _endController.text,
+        totalCount: widget.totalMessages,
+      );
+      if (range == null) {
         setState(() {
-          _rangeError = _isZh
-              ? '请输入有效区间 (1 ≤ 起始 ≤ 结束)'
-              : 'Enter a valid range (1 ≤ start ≤ end)';
+          _rangeError = _exportRangeErrorText(_isZh);
         });
         return null;
       }
-      if (end > widget.totalMessages) end = widget.totalMessages;
+      start = range.startIndex;
+      end = range.endIndex;
     }
     if (_roles.isEmpty) {
       setState(() {
@@ -435,23 +469,22 @@ class _HardnessSessionExportConfigDialogState
     int? start;
     int? end;
     if (_useRange) {
-      start = int.tryParse(_startController.text.trim());
-      end = int.tryParse(_endController.text.trim());
-      if (start == null || end == null || start < 1 || end < start) {
+      final range = _tryParseExportIndexRange(
+        startText: _startController.text,
+        endText: _endController.text,
+        totalCount: widget.totalPhaseLogs,
+      );
+      if (range == null) {
         setState(() {
-          _rangeError = _isZh
-              ? '请输入有效区间 (1 ≤ 起始 ≤ 结束)'
-              : 'Enter a valid range (1 ≤ start ≤ end)';
+          _rangeError = _exportRangeErrorText(_isZh);
         });
         return null;
       }
-      if (end > widget.totalPhaseLogs) end = widget.totalPhaseLogs;
+      start = range.startIndex;
+      end = range.endIndex;
     }
     setState(() => _rangeError = null);
-    return HardnessSessionExportConfig(
-      startIndex: start,
-      endIndex: end,
-    );
+    return HardnessSessionExportConfig(startIndex: start, endIndex: end);
   }
 
   @override

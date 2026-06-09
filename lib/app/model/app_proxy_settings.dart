@@ -8,6 +8,8 @@
 // secrets, this is the place to plug in.
 import 'dart:convert';
 
+import '../../shared/util/input_value_parsing.dart';
+
 enum AppProxyMode { disabled, automatic, manual }
 
 enum AppProxyProtocol { http, https, socks }
@@ -90,7 +92,7 @@ class AppProxySettings {
       AppProxyProtocol.https,
     },
     host: '',
-    port: 7890,
+    port: defaultPort,
     authEnabled: false,
     username: '',
     password: '',
@@ -122,12 +124,12 @@ class AppProxySettings {
     final host = rawJson['host'] is String
         ? (rawJson['host'] as String).trim()
         : defaults.host;
-    final port = rawJson['port'] is int
-        ? (rawJson['port'] as int).clamp(1, 65535)
-        : (rawJson['port'] is String &&
-                  int.tryParse(rawJson['port'] as String) != null
-              ? int.parse(rawJson['port'] as String).clamp(1, 65535)
-              : defaults.port);
+    final port = clampedIntFromValue(
+      rawJson['port'],
+      fallback: defaults.port,
+      min: minPort,
+      max: maxPort,
+    );
     final authEnabled = rawJson['auth_enabled'] is bool
         ? rawJson['auth_enabled'] as bool
         : false;
@@ -182,6 +184,10 @@ class AppProxySettings {
   /// 代理连通性测试使用的 URL。空字符串同于默认值。
   final String testEndpoint;
 
+  static const int minPort = 1;
+  static const int maxPort = 65535;
+  static const int defaultPort = 7890;
+
   /// 2026-05-04 — 代理连通性测试默认 URL。Google generate_204
   /// 是历史上最稳的 "204 No Content" 探针，响应体 0 字节、
   /// 不会被透明压缩、不会被 UA 鉴权拦截。
@@ -215,7 +221,7 @@ class AppProxySettings {
       mode: mode ?? this.mode,
       protocols: protocols ?? this.protocols,
       host: host ?? this.host,
-      port: port ?? this.port,
+      port: port == null ? this.port : port.clamp(minPort, maxPort).toInt(),
       authEnabled: authEnabled ?? this.authEnabled,
       username: username ?? this.username,
       password: password ?? this.password,

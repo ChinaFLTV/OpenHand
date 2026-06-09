@@ -512,31 +512,19 @@ class SettingsStore {
       }
       final parsed = <double>[];
       for (final entry in raw) {
-        double? v;
-        if (entry is num) {
-          v = entry.toDouble();
-        } else if (entry is String) {
-          v = double.tryParse(entry);
-        }
-        if (v == null || v.isNaN || !v.isFinite) continue;
+        final v = optionalDoubleFromValue(entry);
+        if (v == null) continue;
         parsed.add(v.clamp(0.0, 1.0));
       }
       parsed.sort();
       return List<double>.unmodifiable(parsed);
     }();
-    final aiBudgetUsdPerSession = () {
-      final raw = json['ai_budget_usd_per_session'];
-      double? v;
-      if (raw is num) v = raw.toDouble();
-      if (raw is String) v = double.tryParse(raw);
-      if (v == null || v.isNaN || !v.isFinite) {
-        return AppSettingsSnapshot.defaultAiBudgetUsdPerSession;
-      }
-      return v.clamp(
-        AppSettingsSnapshot.minAiBudgetUsdPerSession,
-        AppSettingsSnapshot.maxAiBudgetUsdPerSession,
-      );
-    }();
+    final aiBudgetUsdPerSession = clampedDoubleFromValue(
+      json['ai_budget_usd_per_session'],
+      fallback: AppSettingsSnapshot.defaultAiBudgetUsdPerSession,
+      min: AppSettingsSnapshot.minAiBudgetUsdPerSession,
+      max: AppSettingsSnapshot.maxAiBudgetUsdPerSession,
+    );
     final aiWriteToolSummaryMaxChars = clampedIntFromValue(
       json['ai_write_tool_summary_max_chars'],
       fallback: AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars,

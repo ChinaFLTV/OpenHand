@@ -4,6 +4,7 @@
 // 由 SettingsPage 修改。其他订阅者 (MessageCard 等) 通过 hook 读取并响应
 // 「storage」事件 / 自定义事件刷新。
 import { useEffect, useState } from 'preact/hooks';
+import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 
 export type MessageContentFormat = 'markdown' | 'plain_text' | 'html';
 export type HtmlRenderFallback = 'markdown' | 'plain_text';
@@ -23,32 +24,24 @@ const FALLBACKS: ReadonlySet<HtmlRenderFallback> = new Set<HtmlRenderFallback>([
 ]);
 
 function readFormat(): MessageContentFormat {
-  try {
-    const v = localStorage.getItem(FORMAT_KEY);
-    if (v && FORMATS.has(v as MessageContentFormat)) return v as MessageContentFormat;
-  } catch {/* SSR / 隐私模式 */}
+  const v = readBrowserStorage(FORMAT_KEY);
+  if (v && FORMATS.has(v as MessageContentFormat)) return v as MessageContentFormat;
   return 'markdown';
 }
 
 function readFallback(): HtmlRenderFallback {
-  try {
-    const v = localStorage.getItem(FALLBACK_KEY);
-    if (v && FALLBACKS.has(v as HtmlRenderFallback)) return v as HtmlRenderFallback;
-  } catch {/* */}
+  const v = readBrowserStorage(FALLBACK_KEY);
+  if (v && FALLBACKS.has(v as HtmlRenderFallback)) return v as HtmlRenderFallback;
   return 'markdown';
 }
 
 export function setMessageContentFormat(value: MessageContentFormat): void {
-  try {
-    localStorage.setItem(FORMAT_KEY, value);
-  } catch {/* */}
+  writeBrowserStorage(FORMAT_KEY, value);
   window.dispatchEvent(new CustomEvent(EVENT_NAME));
 }
 
 export function setHtmlRenderFallback(value: HtmlRenderFallback): void {
-  try {
-    localStorage.setItem(FALLBACK_KEY, value);
-  } catch {/* */}
+  writeBrowserStorage(FALLBACK_KEY, value);
   window.dispatchEvent(new CustomEvent(EVENT_NAME));
 }
 

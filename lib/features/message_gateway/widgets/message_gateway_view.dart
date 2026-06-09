@@ -23,6 +23,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
@@ -5547,8 +5548,7 @@ List<String> _parseExtensions(String raw) {
 }
 
 int _int(String value, int fallback) {
-  final parsed = int.tryParse(value.trim());
-  return parsed == null || parsed <= 0 ? fallback : parsed;
+  return positiveIntFromText(value, fallback: fallback);
 }
 
 String _formatDuration(int ms) {

@@ -1,14 +1,12 @@
+import { readBrowserStorage } from '../shared/util/browser_storage';
+
 const STREAM_DEBUG_STORAGE_KEY = 'openhand.debug.stream';
 const lastLogAtByKey = new Map<string, number>();
 
 export function streamDebugEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem(STREAM_DEBUG_STORAGE_KEY);
-    if (raw == null) return false;
-    return raw === '1' || raw.toLowerCase() === 'true' || raw.toLowerCase() === 'on';
-  } catch {
-    return false;
-  }
+  const raw = readBrowserStorage(STREAM_DEBUG_STORAGE_KEY);
+  if (raw == null) return false;
+  return raw === '1' || raw.toLowerCase() === 'true' || raw.toLowerCase() === 'on';
 }
 
 export function streamDebugLog(

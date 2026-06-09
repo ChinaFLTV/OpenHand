@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import 'silent_log.dart';
 
@@ -87,22 +88,20 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
 
   @override
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 15);
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 15);
       final request = await client.getUrl(Uri.parse(_apiUrl));
       request.headers.set('Accept', 'application/vnd.github.v3+json');
       request.headers.set('User-Agent', 'OpenHand-UpdateChecker');
       final response = await request.close();
       if (response.statusCode != 200) {
         final body = await response.transform(utf8.decoder).join();
-        client.close(force: true);
         return AppUpdateCheckError(
           message: 'HTTP ${response.statusCode}: $body',
         );
       }
       final body = await response.transform(utf8.decoder).join();
-      client.close(force: true);
       final json = jsonDecode(body) as Map<String, Object?>;
       final release = _parseRelease(json);
       if (release == null) {
@@ -115,6 +114,8 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     } catch (error, stack) {
       silentLog('app_update_checker', 'checkForUpdate', error, stack);
       return AppUpdateCheckError(message: '$error');
+    } finally {
+      client.close(force: true);
     }
   }
 
@@ -141,20 +142,29 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       }
       final contentLength = response.contentLength;
       final tempDir = Directory.systemTemp;
-      final fileName = release.downloadUrl.split('/').last;
-      final filePath = '${tempDir.path}/$fileName';
+      final downloadUri = Uri.parse(release.downloadUrl);
+      final parsedFileName = downloadUri.pathSegments.isEmpty
+          ? 'openhand-update'
+          : downloadUri.pathSegments.last.trim();
+      final fileName = parsedFileName.isEmpty
+          ? 'openhand-update'
+          : parsedFileName;
+      final filePath = p.join(tempDir.path, fileName);
       final file = File(filePath);
       final sink = file.openWrite();
-      var received = 0;
-      await for (final chunk in response) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (contentLength > 0) {
-          onProgress(received / contentLength);
+      try {
+        var received = 0;
+        await for (final chunk in response) {
+          sink.add(chunk);
+          received += chunk.length;
+          if (contentLength > 0) {
+            onProgress((received / contentLength).clamp(0.0, 1.0));
+          }
         }
+        await sink.flush();
+      } finally {
+        await sink.close();
       }
-      await sink.flush();
-      await sink.close();
       onFilePath(filePath);
     } finally {
       client.close(force: true);

@@ -31,6 +31,7 @@ import { PopMenu } from '../../../components/PopMenu';
 import { TemplateConfigDialog, TemplatePickerDialog } from '../../../components/TemplateDialogs';
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
+import { writeBrowserStorage } from '../../../shared/util/browser_storage';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
@@ -211,11 +212,7 @@ export function SessionsPage() {
         : prev);
       // 模型偏好仍写一份本地缓存；服务端也会保存到会话 last-used model。
       if (params.modelKey) {
-        try {
-          window.localStorage.setItem('openhand.web.lastModelKey', params.modelKey);
-        } catch {
-          /* 隐私模式或 quota 满 → 忽略 */
-        }
+        writeBrowserStorage('openhand.web.lastModelKey', params.modelKey);
       }
       setConfigTemplate(null);
       showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });

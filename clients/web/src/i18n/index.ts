@@ -16,6 +16,10 @@ import { dict_zh } from './dict_zh';
 import { dict_zhHant } from './dict_zhHant';
 import { dict_en } from './dict_en';
 import { dict_ja } from './dict_ja';
+import {
+  readBrowserStorage,
+  writeBrowserStorage,
+} from '../shared/util/browser_storage';
 
 export type Lang = 'zh' | 'zh-Hant' | 'en' | 'ja';
 export const SUPPORTED_LANGS: readonly Lang[] = ['zh', 'zh-Hant', 'en', 'ja'];
@@ -33,12 +37,8 @@ function isLang(v: unknown): v is Lang {
 }
 
 function detectInitialLang(): Lang {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isLang(stored)) return stored;
-  } catch {
-    // localStorage 不可用（隐私模式 / SSR）：忽略，落入自动检测。
-  }
+  const stored = readBrowserStorage(STORAGE_KEY);
+  if (isLang(stored)) return stored;
   try {
     const navLang = (navigator.language || '').toLowerCase();
     if (navLang.startsWith('ja')) return 'ja';
@@ -123,11 +123,7 @@ function setLangInternal(lang: Lang, persist: boolean): void {
   if (lang === currentLang) return;
   currentLang = lang;
   if (persist) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, lang);
-    } catch {
-      // 持久化失败不影响内存切换。
-    }
+    writeBrowserStorage(STORAGE_KEY, lang);
   }
   // 同步设置 <html lang> 便于浏览器 / 屏幕阅读器识别。
   try {

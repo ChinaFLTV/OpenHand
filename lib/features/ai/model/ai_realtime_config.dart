@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 class AiRealtimeConfig {
   const AiRealtimeConfig({
@@ -109,12 +110,7 @@ class AiRealtimeConfig {
   }
 
   static int? _parseNullableInt(Object? raw) {
-    if (raw is int) return raw > 0 ? raw : null;
-    if (raw is num) {
-      final normalized = raw.toInt();
-      return normalized > 0 ? normalized : null;
-    }
-    final parsed = int.tryParse('${raw ?? ''}'.trim());
+    final parsed = optionalIntFromValue(raw);
     return parsed != null && parsed > 0 ? parsed : null;
   }
 

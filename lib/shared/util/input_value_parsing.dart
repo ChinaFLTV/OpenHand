@@ -90,6 +90,19 @@ double doubleFromValue(Object? value, {required double fallback}) {
   return fallback;
 }
 
+double? optionalDoubleFromValue(Object? value) {
+  if (value == null) return null;
+  if (value is double && value.isFinite) return value;
+  if (value is num && value.isFinite) return value.toDouble();
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = double.tryParse(trimmed);
+    return parsed != null && parsed.isFinite ? parsed : null;
+  }
+  return null;
+}
+
 int? optionalIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -99,6 +112,11 @@ int? optionalIntFromValue(Object? value) {
     return trimmed.isEmpty ? null : int.tryParse(trimmed);
   }
   return null;
+}
+
+int positiveIntFromValue(Object? value, {required int fallback}) {
+  final parsed = optionalIntFromValue(value);
+  return parsed == null || parsed <= 0 ? fallback : parsed;
 }
 
 int clampedIntFromValue(
@@ -113,6 +131,19 @@ int clampedIntFromValue(
   return parsed.clamp(lower, upper).toInt();
 }
 
+double clampedDoubleFromValue(
+  Object? value, {
+  required double fallback,
+  required double min,
+  required double max,
+}) {
+  final parsed = optionalDoubleFromValue(value);
+  final lower = min <= max ? min : max;
+  final upper = min <= max ? max : min;
+  final safeFallback = fallback.isFinite ? fallback : lower;
+  return (parsed ?? safeFallback).clamp(lower, upper).toDouble();
+}
+
 int clampedIntFromText(
   String value, {
   required int fallback,
@@ -125,6 +156,23 @@ int clampedIntFromText(
   return parsed.clamp(lower, upper).toInt();
 }
 
+double clampedDoubleFromText(
+  String value, {
+  required double fallback,
+  required double min,
+  required double max,
+}) {
+  return clampedDoubleFromValue(value, fallback: fallback, min: min, max: max);
+}
+
 int? optionalIntFromText(String value) {
   return optionalIntFromValue(value);
+}
+
+double? optionalDoubleFromText(String value) {
+  return optionalDoubleFromValue(value);
+}
+
+int positiveIntFromText(String value, {required int fallback}) {
+  return positiveIntFromValue(value, fallback: fallback);
 }
