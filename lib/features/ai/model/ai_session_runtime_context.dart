@@ -1,4 +1,5 @@
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../instructions/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
@@ -129,21 +130,21 @@ class AiSessionRuntimeContext {
     this.subprocessGracefulShutdownMs = 500,
     this.bashOutputMaxBytes = 200000,
     this.maxConcurrentTools = 8,
-    this.webFetchMaxResponseBytes = 1024 * 1024,
+    this.webFetchMaxResponseBytes = kBytesPerMiB,
     this.webFetchMaxRedirects = 5,
     this.webFetchMaxCacheEntries = 64,
     this.attachmentMaxInlineImageDimension = 1568,
-    this.attachmentMaxTextRawBytes = 2 * 1024 * 1024,
-    this.attachmentMaxPdfRawBytes = 2 * 1024 * 1024,
-    this.attachmentMaxImageRawBytes = 50 * 1024 * 1024,
-    this.chatMaxStreamLineBufferBytes = 4 * 1024 * 1024,
+    this.attachmentMaxTextRawBytes = 2 * kBytesPerMiB,
+    this.attachmentMaxPdfRawBytes = 2 * kBytesPerMiB,
+    this.attachmentMaxImageRawBytes = 50 * kBytesPerMiB,
+    this.chatMaxStreamLineBufferBytes = 4 * kBytesPerMiB,
     this.fallbackTitleMaxCharacters = 20,
     this.generatedTitleMaxCharacters = 20,
     this.minimumMeaningfulTitleCharacters = 4,
     this.minimumMeaningfulLatinTitleWords = 2,
     this.maxSkillContentLength = 100000,
     this.maxWorkspaceDocumentCharacters = 16000,
-    this.imageSizeLimitBytes = 1024 * 1024,
+    this.imageSizeLimitBytes = kBytesPerMiB,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
     this.responseTimeoutSeconds = 120,

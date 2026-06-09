@@ -18,6 +18,7 @@ import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/dialog_animation_settings.dart';
@@ -483,9 +484,9 @@ class AppSettingsSnapshot {
   static const int maxAiMaxHookTextCharacters = 1000000;
 
   /// 2026-04-29 — Group C: 网络与附件类参数。
-  static const int defaultAiWebFetchMaxResponseBytes = 1024 * 1024;
-  static const int minAiWebFetchMaxResponseBytes = 16 * 1024;
-  static const int maxAiWebFetchMaxResponseBytes = 256 * 1024 * 1024;
+  static const int defaultAiWebFetchMaxResponseBytes = kBytesPerMiB;
+  static const int minAiWebFetchMaxResponseBytes = 16 * kBytesPerKiB;
+  static const int maxAiWebFetchMaxResponseBytes = 256 * kBytesPerMiB;
 
   static const int defaultAiWebFetchMaxRedirects = 5;
   static const int minAiWebFetchMaxRedirects = 0;
@@ -499,21 +500,21 @@ class AppSettingsSnapshot {
   static const int minAiAttachmentMaxInlineImageDimension = 64;
   static const int maxAiAttachmentMaxInlineImageDimension = 16384;
 
-  static const int defaultAiAttachmentMaxTextRawBytes = 2 * 1024 * 1024;
-  static const int minAiAttachmentMaxTextRawBytes = 1024;
-  static const int maxAiAttachmentMaxTextRawBytes = 256 * 1024 * 1024;
+  static const int defaultAiAttachmentMaxTextRawBytes = 2 * kBytesPerMiB;
+  static const int minAiAttachmentMaxTextRawBytes = kBytesPerKiB;
+  static const int maxAiAttachmentMaxTextRawBytes = 256 * kBytesPerMiB;
 
-  static const int defaultAiAttachmentMaxPdfRawBytes = 2 * 1024 * 1024;
-  static const int minAiAttachmentMaxPdfRawBytes = 1024;
-  static const int maxAiAttachmentMaxPdfRawBytes = 256 * 1024 * 1024;
+  static const int defaultAiAttachmentMaxPdfRawBytes = 2 * kBytesPerMiB;
+  static const int minAiAttachmentMaxPdfRawBytes = kBytesPerKiB;
+  static const int maxAiAttachmentMaxPdfRawBytes = 256 * kBytesPerMiB;
 
-  static const int defaultAiAttachmentMaxImageRawBytes = 50 * 1024 * 1024;
-  static const int minAiAttachmentMaxImageRawBytes = 64 * 1024;
-  static const int maxAiAttachmentMaxImageRawBytes = 1024 * 1024 * 1024;
+  static const int defaultAiAttachmentMaxImageRawBytes = 50 * kBytesPerMiB;
+  static const int minAiAttachmentMaxImageRawBytes = 64 * kBytesPerKiB;
+  static const int maxAiAttachmentMaxImageRawBytes = kBytesPerGiB;
 
-  static const int defaultAiChatMaxStreamLineBufferBytes = 4 * 1024 * 1024;
-  static const int minAiChatMaxStreamLineBufferBytes = 4 * 1024;
-  static const int maxAiChatMaxStreamLineBufferBytes = 1024 * 1024 * 1024;
+  static const int defaultAiChatMaxStreamLineBufferBytes = 4 * kBytesPerMiB;
+  static const int minAiChatMaxStreamLineBufferBytes = 4 * kBytesPerKiB;
+  static const int maxAiChatMaxStreamLineBufferBytes = kBytesPerGiB;
   static const int defaultAiFallbackTitleMaxCharacters = 80;
   static const int minAiFallbackTitleMaxCharacters = 4;
   static const int maxAiFallbackTitleMaxCharacters = 200;
@@ -544,13 +545,13 @@ class AppSettingsSnapshot {
   /// When a user attaches an image larger than this threshold, the attachment
   /// pipeline downscales it before the editor opens so that storage, prompt
   /// payload and clipboard handoff remain bounded.
-  static const int defaultAiImageSizeLimitBytes = 1024 * 1024;
+  static const int defaultAiImageSizeLimitBytes = kBytesPerMiB;
 
   /// Hard floor to prevent users from saving an unusable threshold.
-  static const int minAiImageSizeLimitBytes = 64 * 1024;
+  static const int minAiImageSizeLimitBytes = 64 * kBytesPerKiB;
 
   /// Hard ceiling so a misconfigured value cannot blow up memory at runtime.
-  static const int maxAiImageSizeLimitBytes = 64 * 1024 * 1024;
+  static const int maxAiImageSizeLimitBytes = 64 * kBytesPerMiB;
 
   /// Timeout (seconds) for establishing the HTTP connection and receiving
   /// initial response headers from the AI provider.
@@ -1082,8 +1083,7 @@ class AppSettingsSnapshot {
           aiMicroCompressionEnabled ?? this.aiMicroCompressionEnabled,
       aiMessageContentFormat:
           aiMessageContentFormat ?? this.aiMessageContentFormat,
-      aiHtmlRenderFallback:
-          aiHtmlRenderFallback ?? this.aiHtmlRenderFallback,
+      aiHtmlRenderFallback: aiHtmlRenderFallback ?? this.aiHtmlRenderFallback,
       aiHtmlContentRichness:
           aiHtmlContentRichness ?? this.aiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
