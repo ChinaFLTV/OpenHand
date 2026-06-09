@@ -30,13 +30,13 @@ const curveValues = new Set([
   'decelerate',
 ]);
 
-export const DIALOG_MOTION_DEFAULT_DURATION_MS = 320;
+export const DIALOG_MOTION_DEFAULT_DURATION_MS = 360;
 export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
 export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
 
 const defaultSettings = {
-  entranceStyle: 'fade_scale',
-  exitStyle: 'fade_scale',
+  entranceStyle: 'spring_scale',
+  exitStyle: 'spring_scale',
   durationMs: DIALOG_MOTION_DEFAULT_DURATION_MS,
   curve: 'ease_out_cubic',
 };

@@ -1,9 +1,3 @@
-// 2026-05-01: the dialog-animation defaults block in this file mirrors
-// the documentation pattern used in `app_settings_snapshot.dart` — every
-// field is listed for parallel readability even when it equals the
-// constructor default.
-// ignore_for_file: avoid_redundant_argument_values
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -20,6 +14,7 @@ import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/db/database_service.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -350,31 +345,27 @@ class SettingsStore {
     final mcpStdioMirrorMode = McpStdioMirrorMode.fromStorage(
       '${json['mcp_stdio_mirror_mode'] ?? ''}',
     );
-    final mcpLazyLoadingThresholdTokens =
-        json['mcp_lazy_loading_threshold_tokens'] is int &&
-            (json['mcp_lazy_loading_threshold_tokens'] as int) >=
-                AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens
-        ? (json['mcp_lazy_loading_threshold_tokens'] as int).clamp(
-            AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
-            AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
-          )
-        : AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens;
-    final mcpAutoProbeConcurrency = json['mcp_auto_probe_concurrency'] is int
-        ? (json['mcp_auto_probe_concurrency'] as int).clamp(
-            AppSettingsSnapshot.minMcpAutoProbeConcurrency,
-            AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
-          )
-        : AppSettingsSnapshot.defaultMcpAutoProbeConcurrency;
+    final mcpLazyLoadingThresholdTokens = clampedIntFromValue(
+      json['mcp_lazy_loading_threshold_tokens'],
+      fallback: AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens,
+      min: AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
+      max: AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
+    );
+    final mcpAutoProbeConcurrency = clampedIntFromValue(
+      json['mcp_auto_probe_concurrency'],
+      fallback: AppSettingsSnapshot.defaultMcpAutoProbeConcurrency,
+      min: AppSettingsSnapshot.minMcpAutoProbeConcurrency,
+      max: AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
+    );
     final mcpKeywordIndexUpdateMode = McpKeywordIndexUpdateMode.fromStorage(
       '${json['mcp_keyword_index_update_mode'] ?? ''}',
     );
-    final mcpKeywordIndexIntervalValue =
-        json['mcp_keyword_index_interval_value'] is int
-        ? (json['mcp_keyword_index_interval_value'] as int).clamp(
-            AppSettingsSnapshot.minMcpKeywordIndexIntervalValue,
-            AppSettingsSnapshot.maxMcpKeywordIndexIntervalValue,
-          )
-        : AppSettingsSnapshot.defaultMcpKeywordIndexIntervalValue;
+    final mcpKeywordIndexIntervalValue = clampedIntFromValue(
+      json['mcp_keyword_index_interval_value'],
+      fallback: AppSettingsSnapshot.defaultMcpKeywordIndexIntervalValue,
+      min: AppSettingsSnapshot.minMcpKeywordIndexIntervalValue,
+      max: AppSettingsSnapshot.maxMcpKeywordIndexIntervalValue,
+    );
     final mcpKeywordIndexIntervalUnit = McpKeywordIndexIntervalUnit.fromStorage(
       '${json['mcp_keyword_index_interval_unit'] ?? ''}',
     );
@@ -474,29 +465,19 @@ class SettingsStore {
     final aiHtmlContentRichness = AiHtmlContentRichness.fromStorageKey(
       json['ai_html_content_richness'],
     );
-    final aiToolResultCompressionHeadTailWindowChars =
-        json['ai_tool_result_compression_head_tail_window_chars'] is int &&
-            (json['ai_tool_result_compression_head_tail_window_chars']
-                    as int) >=
-                AppSettingsSnapshot
-                    .minAiToolResultCompressionHeadTailWindowChars
-        ? (json['ai_tool_result_compression_head_tail_window_chars'] as int)
-              .clamp(
-                AppSettingsSnapshot
-                    .minAiToolResultCompressionHeadTailWindowChars,
-                AppSettingsSnapshot
-                    .maxAiToolResultCompressionHeadTailWindowChars,
-              )
-        : AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars;
-    final aiToolResultCompressionMaxPathHits =
-        json['ai_tool_result_compression_max_path_hits'] is int &&
-            (json['ai_tool_result_compression_max_path_hits'] as int) >=
-                AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits
-        ? (json['ai_tool_result_compression_max_path_hits'] as int).clamp(
-            AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits,
-            AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
-          )
-        : AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits;
+    final aiToolResultCompressionHeadTailWindowChars = clampedIntFromValue(
+      json['ai_tool_result_compression_head_tail_window_chars'],
+      fallback:
+          AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars,
+      min: AppSettingsSnapshot.minAiToolResultCompressionHeadTailWindowChars,
+      max: AppSettingsSnapshot.maxAiToolResultCompressionHeadTailWindowChars,
+    );
+    final aiToolResultCompressionMaxPathHits = clampedIntFromValue(
+      json['ai_tool_result_compression_max_path_hits'],
+      fallback: AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits,
+      min: AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits,
+      max: AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
+    );
     final aiInputCacheEnabled = json['ai_input_cache_enabled'] is bool
         ? _migrateAiInputCacheEnabled(
             persisted: json['ai_input_cache_enabled'] as bool,
@@ -510,24 +491,18 @@ class SettingsStore {
             )
         ? json['ai_input_cache_update_mode'] as String
         : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
-    final aiInputCacheUpdateInterval =
-        json['ai_input_cache_update_interval'] is int &&
-            (json['ai_input_cache_update_interval'] as int) >=
-                AppSettingsSnapshot.minAiInputCacheUpdateInterval
-        ? (json['ai_input_cache_update_interval'] as int).clamp(
-            AppSettingsSnapshot.minAiInputCacheUpdateInterval,
-            AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
-          )
-        : AppSettingsSnapshot.defaultAiInputCacheUpdateInterval;
-    final aiInputCacheBreakpointCount =
-        json['ai_input_cache_breakpoint_count'] is int &&
-            (json['ai_input_cache_breakpoint_count'] as int) >=
-                AppSettingsSnapshot.minAiInputCacheBreakpointCount
-        ? (json['ai_input_cache_breakpoint_count'] as int).clamp(
-            AppSettingsSnapshot.minAiInputCacheBreakpointCount,
-            AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
-          )
-        : AppSettingsSnapshot.defaultAiInputCacheBreakpointCount;
+    final aiInputCacheUpdateInterval = clampedIntFromValue(
+      json['ai_input_cache_update_interval'],
+      fallback: AppSettingsSnapshot.defaultAiInputCacheUpdateInterval,
+      min: AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+      max: AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+    );
+    final aiInputCacheBreakpointCount = clampedIntFromValue(
+      json['ai_input_cache_breakpoint_count'],
+      fallback: AppSettingsSnapshot.defaultAiInputCacheBreakpointCount,
+      min: AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+      max: AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+    );
     // 2026-05-04 — 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
     // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
     final List<double> aiInputCacheBreakpointPositions = () {
@@ -562,15 +537,12 @@ class SettingsStore {
         AppSettingsSnapshot.maxAiBudgetUsdPerSession,
       );
     }();
-    final aiWriteToolSummaryMaxChars =
-        json['ai_write_tool_summary_max_chars'] is int &&
-            (json['ai_write_tool_summary_max_chars'] as int) >=
-                AppSettingsSnapshot.minAiWriteToolSummaryMaxChars
-        ? (json['ai_write_tool_summary_max_chars'] as int).clamp(
-            AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
-            AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
-          )
-        : AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars;
+    final aiWriteToolSummaryMaxChars = clampedIntFromValue(
+      json['ai_write_tool_summary_max_chars'],
+      fallback: AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars,
+      min: AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
+      max: AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
+    );
     final aiSingleRoundToolCallLimit =
         json['ai_single_round_tool_call_limit'] is int &&
             (json['ai_single_round_tool_call_limit'] as int) > 0
@@ -581,169 +553,150 @@ class SettingsStore {
             (json['ai_sequential_tool_round_limit'] as int) > 0
         ? json['ai_sequential_tool_round_limit'] as int
         : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
-    final aiMaxRecentErrors = json['ai_max_recent_errors'] is int
-        ? (json['ai_max_recent_errors'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxRecentErrors,
-            AppSettingsSnapshot.maxAiMaxRecentErrors,
-          )
-        : AppSettingsSnapshot.defaultAiMaxRecentErrors;
-    final aiMaxPlanHistoryEntries = json['ai_max_plan_history_entries'] is int
-        ? (json['ai_max_plan_history_entries'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxPlanHistoryEntries,
-            AppSettingsSnapshot.maxAiMaxPlanHistoryEntries,
-          )
-        : AppSettingsSnapshot.defaultAiMaxPlanHistoryEntries;
-    final aiMaxTruncationContinuations =
-        json['ai_max_truncation_continuations'] is int
-        ? (json['ai_max_truncation_continuations'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxTruncationContinuations,
-            AppSettingsSnapshot.maxAiMaxTruncationContinuations,
-          )
-        : AppSettingsSnapshot.defaultAiMaxTruncationContinuations;
-    final aiEstimatedCharactersPerToken =
-        json['ai_estimated_characters_per_token'] is int
-        ? (json['ai_estimated_characters_per_token'] as int).clamp(
-            AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
-            AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
-          )
-        : AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
-    final aiMaxToolOutputChars = json['ai_max_tool_output_chars'] is int
-        ? (json['ai_max_tool_output_chars'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxToolOutputChars,
-            AppSettingsSnapshot.maxAiMaxToolOutputChars,
-          )
-        : AppSettingsSnapshot.defaultAiMaxToolOutputChars;
-    final aiWriteConfirmationTimeoutMs =
-        json['ai_write_confirmation_timeout_ms'] is int
-        ? (json['ai_write_confirmation_timeout_ms'] as int).clamp(
-            AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
-            AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
-          )
-        : AppSettingsSnapshot.defaultAiWriteConfirmationTimeoutMs;
-    final aiFastPathWriteAnalysisThreshold =
-        json['ai_fast_path_write_analysis_threshold'] is int
-        ? (json['ai_fast_path_write_analysis_threshold'] as int).clamp(
-            AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
-            AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
-          )
-        : AppSettingsSnapshot.defaultAiFastPathWriteAnalysisThreshold;
-    final aiMaxHookTextCharacters = json['ai_max_hook_text_characters'] is int
-        ? (json['ai_max_hook_text_characters'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxHookTextCharacters,
-            AppSettingsSnapshot.maxAiMaxHookTextCharacters,
-          )
-        : AppSettingsSnapshot.defaultAiMaxHookTextCharacters;
-    final aiWebFetchMaxResponseBytes =
-        json['ai_web_fetch_max_response_bytes'] is int
-        ? (json['ai_web_fetch_max_response_bytes'] as int).clamp(
-            AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
-            AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
-          )
-        : AppSettingsSnapshot.defaultAiWebFetchMaxResponseBytes;
-    final aiWebFetchMaxRedirects = json['ai_web_fetch_max_redirects'] is int
-        ? (json['ai_web_fetch_max_redirects'] as int).clamp(
-            AppSettingsSnapshot.minAiWebFetchMaxRedirects,
-            AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
-          )
-        : AppSettingsSnapshot.defaultAiWebFetchMaxRedirects;
-    final aiWebFetchMaxCacheEntries =
-        json['ai_web_fetch_max_cache_entries'] is int
-        ? (json['ai_web_fetch_max_cache_entries'] as int).clamp(
-            AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
-            AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
-          )
-        : AppSettingsSnapshot.defaultAiWebFetchMaxCacheEntries;
-    final aiAttachmentMaxInlineImageDimension =
-        json['ai_attachment_max_inline_image_dimension'] is int
-        ? (json['ai_attachment_max_inline_image_dimension'] as int).clamp(
-            AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
-            AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
-          )
-        : AppSettingsSnapshot.defaultAiAttachmentMaxInlineImageDimension;
-    final aiAttachmentMaxTextRawBytes =
-        json['ai_attachment_max_text_raw_bytes'] is int
-        ? (json['ai_attachment_max_text_raw_bytes'] as int).clamp(
-            AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
-            AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
-          )
-        : AppSettingsSnapshot.defaultAiAttachmentMaxTextRawBytes;
-    final aiAttachmentMaxPdfRawBytes =
-        json['ai_attachment_max_pdf_raw_bytes'] is int
-        ? (json['ai_attachment_max_pdf_raw_bytes'] as int).clamp(
-            AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
-            AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
-          )
-        : AppSettingsSnapshot.defaultAiAttachmentMaxPdfRawBytes;
-    final aiAttachmentMaxImageRawBytes =
-        json['ai_attachment_max_image_raw_bytes'] is int
-        ? (json['ai_attachment_max_image_raw_bytes'] as int).clamp(
-            AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
-            AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
-          )
-        : AppSettingsSnapshot.defaultAiAttachmentMaxImageRawBytes;
-    final aiChatMaxStreamLineBufferBytes =
-        json['ai_chat_max_stream_line_buffer_bytes'] is int
-        ? (json['ai_chat_max_stream_line_buffer_bytes'] as int).clamp(
-            AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
-            AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
-          )
-        : AppSettingsSnapshot.defaultAiChatMaxStreamLineBufferBytes;
-    final aiFallbackTitleMaxCharacters =
-        json['ai_fallback_title_max_characters'] is int
-        ? (json['ai_fallback_title_max_characters'] as int).clamp(
-            AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
-            AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
-          )
-        : AppSettingsSnapshot.defaultAiFallbackTitleMaxCharacters;
-    final aiGeneratedTitleMaxCharacters =
-        json['ai_generated_title_max_characters'] is int
-        ? (json['ai_generated_title_max_characters'] as int).clamp(
-            AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
-            AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
-          )
-        : AppSettingsSnapshot.defaultAiGeneratedTitleMaxCharacters;
-    final aiAutoTitleMaxRetryCount =
-        json['ai_auto_title_max_retry_count'] is int
-        ? (json['ai_auto_title_max_retry_count'] as int).clamp(
-            AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
-            AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount,
-          )
-        : AppSettingsSnapshot.defaultAiAutoTitleMaxRetryCount;
-    final aiMinimumMeaningfulTitleCharacters =
-        json['ai_minimum_meaningful_title_characters'] is int
-        ? (json['ai_minimum_meaningful_title_characters'] as int).clamp(
-            AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
-            AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
-          )
-        : AppSettingsSnapshot.defaultAiMinimumMeaningfulTitleCharacters;
-    final aiMinimumMeaningfulLatinTitleWords =
-        json['ai_minimum_meaningful_latin_title_words'] is int
-        ? (json['ai_minimum_meaningful_latin_title_words'] as int).clamp(
-            AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
-            AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
-          )
-        : AppSettingsSnapshot.defaultAiMinimumMeaningfulLatinTitleWords;
-    final aiMaxSkillContentLength = json['ai_max_skill_content_length'] is int
-        ? (json['ai_max_skill_content_length'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxSkillContentLength,
-            AppSettingsSnapshot.maxAiMaxSkillContentLength,
-          )
-        : AppSettingsSnapshot.defaultAiMaxSkillContentLength;
-    final aiMaxWorkspaceDocumentCharacters =
-        json['ai_max_workspace_document_characters'] is int
-        ? (json['ai_max_workspace_document_characters'] as int).clamp(
-            AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
-            AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
-          )
-        : AppSettingsSnapshot.defaultAiMaxWorkspaceDocumentCharacters;
-    final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
-    final aiImageSizeLimitBytes =
-        (rawImageSizeLimit is int && rawImageSizeLimit > 0)
-        ? rawImageSizeLimit.clamp(
-            AppSettingsSnapshot.minAiImageSizeLimitBytes,
-            AppSettingsSnapshot.maxAiImageSizeLimitBytes,
-          )
-        : AppSettingsSnapshot.defaultAiImageSizeLimitBytes;
+    final aiMaxRecentErrors = clampedIntFromValue(
+      json['ai_max_recent_errors'],
+      fallback: AppSettingsSnapshot.defaultAiMaxRecentErrors,
+      min: AppSettingsSnapshot.minAiMaxRecentErrors,
+      max: AppSettingsSnapshot.maxAiMaxRecentErrors,
+    );
+    final aiMaxPlanHistoryEntries = clampedIntFromValue(
+      json['ai_max_plan_history_entries'],
+      fallback: AppSettingsSnapshot.defaultAiMaxPlanHistoryEntries,
+      min: AppSettingsSnapshot.minAiMaxPlanHistoryEntries,
+      max: AppSettingsSnapshot.maxAiMaxPlanHistoryEntries,
+    );
+    final aiMaxTruncationContinuations = clampedIntFromValue(
+      json['ai_max_truncation_continuations'],
+      fallback: AppSettingsSnapshot.defaultAiMaxTruncationContinuations,
+      min: AppSettingsSnapshot.minAiMaxTruncationContinuations,
+      max: AppSettingsSnapshot.maxAiMaxTruncationContinuations,
+    );
+    final aiEstimatedCharactersPerToken = clampedIntFromValue(
+      json['ai_estimated_characters_per_token'],
+      fallback: AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken,
+      min: AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
+      max: AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
+    );
+    final aiMaxToolOutputChars = clampedIntFromValue(
+      json['ai_max_tool_output_chars'],
+      fallback: AppSettingsSnapshot.defaultAiMaxToolOutputChars,
+      min: AppSettingsSnapshot.minAiMaxToolOutputChars,
+      max: AppSettingsSnapshot.maxAiMaxToolOutputChars,
+    );
+    final aiWriteConfirmationTimeoutMs = clampedIntFromValue(
+      json['ai_write_confirmation_timeout_ms'],
+      fallback: AppSettingsSnapshot.defaultAiWriteConfirmationTimeoutMs,
+      min: AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
+      max: AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+    );
+    final aiFastPathWriteAnalysisThreshold = clampedIntFromValue(
+      json['ai_fast_path_write_analysis_threshold'],
+      fallback: AppSettingsSnapshot.defaultAiFastPathWriteAnalysisThreshold,
+      min: AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
+      max: AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
+    );
+    final aiMaxHookTextCharacters = clampedIntFromValue(
+      json['ai_max_hook_text_characters'],
+      fallback: AppSettingsSnapshot.defaultAiMaxHookTextCharacters,
+      min: AppSettingsSnapshot.minAiMaxHookTextCharacters,
+      max: AppSettingsSnapshot.maxAiMaxHookTextCharacters,
+    );
+    final aiWebFetchMaxResponseBytes = clampedIntFromValue(
+      json['ai_web_fetch_max_response_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxResponseBytes,
+      min: AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
+      max: AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
+    );
+    final aiWebFetchMaxRedirects = clampedIntFromValue(
+      json['ai_web_fetch_max_redirects'],
+      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxRedirects,
+      min: AppSettingsSnapshot.minAiWebFetchMaxRedirects,
+      max: AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
+    );
+    final aiWebFetchMaxCacheEntries = clampedIntFromValue(
+      json['ai_web_fetch_max_cache_entries'],
+      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxCacheEntries,
+      min: AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
+      max: AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
+    );
+    final aiAttachmentMaxInlineImageDimension = clampedIntFromValue(
+      json['ai_attachment_max_inline_image_dimension'],
+      fallback: AppSettingsSnapshot.defaultAiAttachmentMaxInlineImageDimension,
+      min: AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
+      max: AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
+    );
+    final aiAttachmentMaxTextRawBytes = clampedIntFromValue(
+      json['ai_attachment_max_text_raw_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiAttachmentMaxTextRawBytes,
+      min: AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
+      max: AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
+    );
+    final aiAttachmentMaxPdfRawBytes = clampedIntFromValue(
+      json['ai_attachment_max_pdf_raw_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiAttachmentMaxPdfRawBytes,
+      min: AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
+      max: AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
+    );
+    final aiAttachmentMaxImageRawBytes = clampedIntFromValue(
+      json['ai_attachment_max_image_raw_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiAttachmentMaxImageRawBytes,
+      min: AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
+      max: AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
+    );
+    final aiChatMaxStreamLineBufferBytes = clampedIntFromValue(
+      json['ai_chat_max_stream_line_buffer_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiChatMaxStreamLineBufferBytes,
+      min: AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
+      max: AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
+    );
+    final aiFallbackTitleMaxCharacters = clampedIntFromValue(
+      json['ai_fallback_title_max_characters'],
+      fallback: AppSettingsSnapshot.defaultAiFallbackTitleMaxCharacters,
+      min: AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
+      max: AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
+    );
+    final aiGeneratedTitleMaxCharacters = clampedIntFromValue(
+      json['ai_generated_title_max_characters'],
+      fallback: AppSettingsSnapshot.defaultAiGeneratedTitleMaxCharacters,
+      min: AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
+      max: AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
+    );
+    final aiAutoTitleMaxRetryCount = clampedIntFromValue(
+      json['ai_auto_title_max_retry_count'],
+      fallback: AppSettingsSnapshot.defaultAiAutoTitleMaxRetryCount,
+      min: AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
+      max: AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount,
+    );
+    final aiMinimumMeaningfulTitleCharacters = clampedIntFromValue(
+      json['ai_minimum_meaningful_title_characters'],
+      fallback: AppSettingsSnapshot.defaultAiMinimumMeaningfulTitleCharacters,
+      min: AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
+      max: AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
+    );
+    final aiMinimumMeaningfulLatinTitleWords = clampedIntFromValue(
+      json['ai_minimum_meaningful_latin_title_words'],
+      fallback: AppSettingsSnapshot.defaultAiMinimumMeaningfulLatinTitleWords,
+      min: AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
+      max: AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
+    );
+    final aiMaxSkillContentLength = clampedIntFromValue(
+      json['ai_max_skill_content_length'],
+      fallback: AppSettingsSnapshot.defaultAiMaxSkillContentLength,
+      min: AppSettingsSnapshot.minAiMaxSkillContentLength,
+      max: AppSettingsSnapshot.maxAiMaxSkillContentLength,
+    );
+    final aiMaxWorkspaceDocumentCharacters = clampedIntFromValue(
+      json['ai_max_workspace_document_characters'],
+      fallback: AppSettingsSnapshot.defaultAiMaxWorkspaceDocumentCharacters,
+      min: AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
+      max: AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
+    );
+    final aiImageSizeLimitBytes = clampedIntFromValue(
+      json['ai_image_size_limit_bytes'],
+      fallback: AppSettingsSnapshot.defaultAiImageSizeLimitBytes,
+      min: AppSettingsSnapshot.minAiImageSizeLimitBytes,
+      max: AppSettingsSnapshot.maxAiImageSizeLimitBytes,
+    );
     final aiWriteCommandConfirmationEnabled =
         json['ai_write_command_confirmation_enabled'] is bool
         ? json['ai_write_command_confirmation_enabled'] as bool
@@ -801,56 +754,36 @@ class SettingsStore {
         : AiSandboxSettings.defaults();
 
     // Session timeout settings.
-    final rawConnectTimeout = json['ai_connect_timeout_seconds'];
-    final aiConnectTimeoutSeconds =
-        (rawConnectTimeout is int &&
-            rawConnectTimeout >= AppSettingsSnapshot.minAiConnectTimeoutSeconds)
-        ? rawConnectTimeout.clamp(
-            AppSettingsSnapshot.minAiConnectTimeoutSeconds,
-            AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
-          )
-        : AppSettingsSnapshot.defaultAiConnectTimeoutSeconds;
-    final rawResponseTimeout = json['ai_response_timeout_seconds'];
-    final aiResponseTimeoutSeconds =
-        (rawResponseTimeout is int &&
-            rawResponseTimeout >=
-                AppSettingsSnapshot.minAiResponseTimeoutSeconds)
-        ? rawResponseTimeout.clamp(
-            AppSettingsSnapshot.minAiResponseTimeoutSeconds,
-            AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
-          )
-        : AppSettingsSnapshot.defaultAiResponseTimeoutSeconds;
-    final rawStreamIdleTimeout = json['ai_stream_idle_timeout_seconds'];
-    final aiStreamIdleTimeoutSeconds =
-        (rawStreamIdleTimeout is int &&
-            rawStreamIdleTimeout >=
-                AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds)
-        ? rawStreamIdleTimeout.clamp(
-            AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
-            AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
-          )
-        : AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds;
-    final rawStreamMaxChars = json['ai_stream_max_chars_per_second'];
-    final aiStreamMaxCharsPerSecond =
-        (rawStreamMaxChars is int &&
-            rawStreamMaxChars >=
-                AppSettingsSnapshot.minAiStreamMaxCharsPerSecond)
-        ? rawStreamMaxChars.clamp(
-            AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
-            AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
-          )
-        : AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond;
-    final rawStreamMaxMessageCards =
-        json['ai_stream_max_message_cards_per_second'];
-    final aiStreamMaxMessageCardsPerSecond =
-        (rawStreamMaxMessageCards is int &&
-            rawStreamMaxMessageCards >=
-                AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond)
-        ? rawStreamMaxMessageCards.clamp(
-            AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
-            AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
-          )
-        : AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond;
+    final aiConnectTimeoutSeconds = clampedIntFromValue(
+      json['ai_connect_timeout_seconds'],
+      fallback: AppSettingsSnapshot.defaultAiConnectTimeoutSeconds,
+      min: AppSettingsSnapshot.minAiConnectTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
+    );
+    final aiResponseTimeoutSeconds = clampedIntFromValue(
+      json['ai_response_timeout_seconds'],
+      fallback: AppSettingsSnapshot.defaultAiResponseTimeoutSeconds,
+      min: AppSettingsSnapshot.minAiResponseTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+    );
+    final aiStreamIdleTimeoutSeconds = clampedIntFromValue(
+      json['ai_stream_idle_timeout_seconds'],
+      fallback: AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds,
+      min: AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
+    );
+    final aiStreamMaxCharsPerSecond = clampedIntFromValue(
+      json['ai_stream_max_chars_per_second'],
+      fallback: AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond,
+      min: AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+      max: AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+    );
+    final aiStreamMaxMessageCardsPerSecond = clampedIntFromValue(
+      json['ai_stream_max_message_cards_per_second'],
+      fallback: AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond,
+      min: AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+      max: AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+    );
     // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线。
     // 老 settings.json 上仍可能携带 `ai_stream_throttle_template_overrides`
     // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
@@ -863,13 +796,12 @@ class SettingsStore {
         json['ai_stream_throttle_auto_mode'] is bool
         ? json['ai_stream_throttle_auto_mode'] as bool
         : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
-    final aiStreamThrottleDurationSeconds =
-        json['ai_stream_throttle_duration_seconds'] is int
-        ? (json['ai_stream_throttle_duration_seconds'] as int).clamp(
-            AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
-            AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
-          )
-        : AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
+    final aiStreamThrottleDurationSeconds = clampedIntFromValue(
+      json['ai_stream_throttle_duration_seconds'],
+      fallback: AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds,
+      min: AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
+      max: AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+    );
     final aiStreamThrottleCloudSyncProvider =
         '${json['ai_stream_throttle_cloud_sync_provider'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncProvider}'
             .trim();
@@ -972,147 +904,125 @@ class SettingsStore {
 
     // Animation settings.
     final rawDialogAnim = json['dialog_animation_settings'];
-    const dialogAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-      durationMs: 360,
-    );
+    const dialogAnimationDefault = OpenHandMotionDefaults.dialog;
     var dialogAnimationSettings = dialogAnimationDefault;
-    if (rawDialogAnim is Map<String, dynamic>) {
-      dialogAnimationSettings = DialogAnimationSettings.fromJson(rawDialogAnim);
-      final isLegacyDialogDefault =
-          dialogAnimationSettings.entranceStyle ==
-              DialogAnimationStyle.fadeScale &&
-          dialogAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
-          dialogAnimationSettings.durationMs == 320 &&
-          dialogAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
-      final isPreviousDialogDefault =
-          dialogAnimationSettings.entranceStyle ==
-              DialogAnimationStyle.springScale &&
-          dialogAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
-          dialogAnimationSettings.durationMs == 360 &&
-          dialogAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+    if (rawDialogAnim is Map) {
+      dialogAnimationSettings = _dialogAnimationFromValue(
+        rawDialogAnim,
+        fallback: dialogAnimationDefault,
+      );
+      final isLegacyDialogDefault = _matchesMotionSettings(
+        dialogAnimationSettings,
+        entranceStyle: DialogAnimationStyle.fadeScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 320,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
+      final isPreviousDialogDefault = _matchesMotionSettings(
+        dialogAnimationSettings,
+        entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 360,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
       if (isLegacyDialogDefault || isPreviousDialogDefault) {
         dialogAnimationSettings = dialogAnimationDefault;
       }
     }
     final rawMenuAnim = json['menu_animation_settings'];
-    const menuAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-      durationMs: 260,
-    );
+    const menuAnimationDefault = OpenHandMotionDefaults.menu;
     var menuAnimationSettings = menuAnimationDefault;
-    if (rawMenuAnim is Map<String, dynamic>) {
-      menuAnimationSettings = DialogAnimationSettings.fromJson(rawMenuAnim);
-      final isLegacyMenuDefault =
-          menuAnimationSettings.entranceStyle ==
-              DialogAnimationStyle.fadeScale &&
-          menuAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
-          menuAnimationSettings.durationMs == 320 &&
-          menuAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
-      final isPreviousMenuDefault =
-          menuAnimationSettings.entranceStyle ==
-              DialogAnimationStyle.springScale &&
-          menuAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
-          menuAnimationSettings.durationMs == 260 &&
-          menuAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+    if (rawMenuAnim is Map) {
+      menuAnimationSettings = _dialogAnimationFromValue(
+        rawMenuAnim,
+        fallback: menuAnimationDefault,
+      );
+      final isLegacyMenuDefault = _matchesMotionSettings(
+        menuAnimationSettings,
+        entranceStyle: DialogAnimationStyle.fadeScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 320,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
+      final isPreviousMenuDefault = _matchesMotionSettings(
+        menuAnimationSettings,
+        entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 260,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
       if (isLegacyMenuDefault || isPreviousMenuDefault) {
         menuAnimationSettings = menuAnimationDefault;
       }
     }
     final rawPageAnim = json['page_animation_settings'];
-    const pageAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.fade,
-      exitStyle: DialogAnimationStyle.fade,
-      durationMs: 800,
-      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-    );
+    const pageAnimationDefault = OpenHandMotionDefaults.page;
     var pageAnimationSettings = pageAnimationDefault;
-    if (rawPageAnim is Map<String, dynamic>) {
-      pageAnimationSettings = DialogAnimationSettings.fromJson(rawPageAnim);
-      // Auto-repair legacy / under-tuned persisted snapshots so the page
-      // transition is actually perceptible. Only triggers on the exact
-      // historical default tuples below — anything the user explicitly
-      // customized (any field differs) is left untouched.
-      //
-      // Case 1: both styles `none` → user effectively sees instant cut.
-      // Case 2: original v1 default fade/fade/240ms/easeOutCubic — too
-      //         subtle on similar Material layouts.
-      // Case 3: previous migration target fade/fade/420ms/
-      //         easeInOutCubicEmphasized — emphasized curve front-loads the
-      //         flat portion, making 420ms still hard to see; bump to 800ms.
+    if (rawPageAnim is Map) {
+      pageAnimationSettings = _dialogAnimationFromValue(
+        rawPageAnim,
+        fallback: pageAnimationDefault,
+      );
       final isAllNone =
           pageAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
           pageAnimationSettings.exitStyle == DialogAnimationStyle.none;
-      final isLegacyDefaultV1 =
-          pageAnimationSettings.entranceStyle == DialogAnimationStyle.fade &&
-          pageAnimationSettings.exitStyle == DialogAnimationStyle.fade &&
-          pageAnimationSettings.durationMs == 240 &&
-          pageAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
-      final isLegacyDefaultV2 =
-          pageAnimationSettings.entranceStyle == DialogAnimationStyle.fade &&
-          pageAnimationSettings.exitStyle == DialogAnimationStyle.fade &&
-          pageAnimationSettings.durationMs == 420 &&
-          pageAnimationSettings.curve ==
-              DialogAnimationCurve.easeInOutCubicEmphasized;
+      final isLegacyDefaultV1 = _matchesMotionSettings(
+        pageAnimationSettings,
+        entranceStyle: DialogAnimationStyle.fade,
+        exitStyle: DialogAnimationStyle.fade,
+        durationMs: 240,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
+      final isLegacyDefaultV2 = _matchesMotionSettings(
+        pageAnimationSettings,
+        entranceStyle: DialogAnimationStyle.fade,
+        exitStyle: DialogAnimationStyle.fade,
+        durationMs: 420,
+        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+      );
       if (isAllNone || isLegacyDefaultV1 || isLegacyDefaultV2) {
         pageAnimationSettings = pageAnimationDefault;
       }
     }
     final rawPanelAnim = json['panel_animation_settings'];
-    const panelAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.fade,
-      exitStyle: DialogAnimationStyle.fade,
-      durationMs: 600,
-      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-    );
+    const panelAnimationDefault = OpenHandMotionDefaults.panel;
     var panelAnimationSettings = panelAnimationDefault;
-    if (rawPanelAnim is Map<String, dynamic>) {
-      panelAnimationSettings = DialogAnimationSettings.fromJson(rawPanelAnim);
-      // Repair the legacy/unset panel default (fadeScale/fadeScale/320ms/
-      // easeOutCubic, produced by `const DialogAnimationSettings()`) so the
-      // workspace left/right panel switches share the new emphasized fade
-      // identity. Same protection: only triggers on the exact legacy tuple.
-      // Also auto-recover from both-styles=`none`.
+    if (rawPanelAnim is Map) {
+      panelAnimationSettings = _dialogAnimationFromValue(
+        rawPanelAnim,
+        fallback: panelAnimationDefault,
+      );
       final isAllNonePanel =
           panelAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
           panelAnimationSettings.exitStyle == DialogAnimationStyle.none;
-      final isLegacyPanelDefault =
-          panelAnimationSettings.entranceStyle ==
-              DialogAnimationStyle.fadeScale &&
-          panelAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
-          panelAnimationSettings.durationMs == 320 &&
-          panelAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      final isLegacyPanelDefault = _matchesMotionSettings(
+        panelAnimationSettings,
+        entranceStyle: DialogAnimationStyle.fadeScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 320,
+        curve: DialogAnimationCurve.easeOutCubic,
+      );
       if (isAllNonePanel || isLegacyPanelDefault) {
         panelAnimationSettings = panelAnimationDefault;
       }
     }
 
-    // Chip (capsule) and list-item channels — newer additions, no
-    // legacy migration needed; just read with defaults.
-    const chipAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.fadeScale,
-      durationMs: 320,
-      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-    );
+    const chipAnimationDefault = OpenHandMotionDefaults.chip;
     var chipAnimationSettings = chipAnimationDefault;
     final rawChipAnim = json['chip_animation_settings'];
-    if (rawChipAnim is Map<String, dynamic>) {
-      chipAnimationSettings = DialogAnimationSettings.fromJson(rawChipAnim);
+    if (rawChipAnim is Map) {
+      chipAnimationSettings = _dialogAnimationFromValue(
+        rawChipAnim,
+        fallback: chipAnimationDefault,
+      );
     }
-    const listItemAnimationDefault = DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.slideUp,
-      exitStyle: DialogAnimationStyle.fade,
-      durationMs: 320,
-      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-    );
+    const listItemAnimationDefault = OpenHandMotionDefaults.listItem;
     var listItemAnimationSettings = listItemAnimationDefault;
     final rawListItemAnim = json['list_item_animation_settings'];
-    if (rawListItemAnim is Map<String, dynamic>) {
-      listItemAnimationSettings = DialogAnimationSettings.fromJson(
+    if (rawListItemAnim is Map) {
+      listItemAnimationSettings = _dialogAnimationFromValue(
         rawListItemAnim,
+        fallback: listItemAnimationDefault,
       );
     }
 
@@ -1161,36 +1071,29 @@ class SettingsStore {
         json['telemetry_capture_environment'] is bool
         ? json['telemetry_capture_environment'] as bool
         : false;
-    final rawTelemetryMaxPayload = json['telemetry_max_payload_chars'];
-    final telemetryMaxPayloadChars =
-        (rawTelemetryMaxPayload is int && rawTelemetryMaxPayload > 0)
-        ? rawTelemetryMaxPayload.clamp(
-            AppSettingsSnapshot.minTelemetryMaxPayloadChars,
-            AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
-          )
-        : AppSettingsSnapshot.defaultTelemetryMaxPayloadChars;
+    final telemetryMaxPayloadChars = clampedIntFromValue(
+      json['telemetry_max_payload_chars'],
+      fallback: AppSettingsSnapshot.defaultTelemetryMaxPayloadChars,
+      min: AppSettingsSnapshot.minTelemetryMaxPayloadChars,
+      max: AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
+    );
 
     final selfLearningEnabled = json['self_learning_enabled'] is bool
         ? json['self_learning_enabled'] as bool
         : true;
-    final rawSelfLearningConcurrency = json['self_learning_concurrency'];
-    final selfLearningConcurrency =
-        (rawSelfLearningConcurrency is int && rawSelfLearningConcurrency > 0)
-        ? rawSelfLearningConcurrency.clamp(
-            AppSettingsSnapshot.minSelfLearningConcurrency,
-            AppSettingsSnapshot.maxSelfLearningConcurrency,
-          )
-        : AppSettingsSnapshot.defaultSelfLearningConcurrency;
+    final selfLearningConcurrency = clampedIntFromValue(
+      json['self_learning_concurrency'],
+      fallback: AppSettingsSnapshot.defaultSelfLearningConcurrency,
+      min: AppSettingsSnapshot.minSelfLearningConcurrency,
+      max: AppSettingsSnapshot.maxSelfLearningConcurrency,
+    );
 
-    final rawSelfLearningFlushMs =
-        json['self_learning_stream_flush_interval_ms'];
-    final selfLearningStreamFlushIntervalMs =
-        (rawSelfLearningFlushMs is int && rawSelfLearningFlushMs > 0)
-        ? rawSelfLearningFlushMs.clamp(
-            AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
-            AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
-          )
-        : AppSettingsSnapshot.defaultSelfLearningStreamFlushIntervalMs;
+    final selfLearningStreamFlushIntervalMs = clampedIntFromValue(
+      json['self_learning_stream_flush_interval_ms'],
+      fallback: AppSettingsSnapshot.defaultSelfLearningStreamFlushIntervalMs,
+      min: AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
+      max: AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
+    );
 
     final showSelfLearningMessages = json['show_self_learning_messages'] is bool
         ? json['show_self_learning_messages'] as bool
@@ -1199,34 +1102,26 @@ class SettingsStore {
     final cronAutoCleanupEnabled = json['cron_auto_cleanup_enabled'] is bool
         ? json['cron_auto_cleanup_enabled'] as bool
         : true;
-    final rawCronRetention = json['cron_auto_cleanup_retention_days'];
-    final cronAutoCleanupRetentionDays =
-        (rawCronRetention is int && rawCronRetention > 0)
-        ? rawCronRetention.clamp(
-            AppSettingsSnapshot.minCronAutoCleanupRetentionDays,
-            AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
-          )
-        : AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays;
+    final cronAutoCleanupRetentionDays = clampedIntFromValue(
+      json['cron_auto_cleanup_retention_days'],
+      fallback: AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays,
+      min: AppSettingsSnapshot.minCronAutoCleanupRetentionDays,
+      max: AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
+    );
 
-    final rawHardnessHistoryCap =
-        json['hardness_tool_search_history_max_phases'];
-    final hardnessToolSearchHistoryMaxPhases =
-        (rawHardnessHistoryCap is int && rawHardnessHistoryCap > 0)
-        ? rawHardnessHistoryCap.clamp(
-            AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
-            AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
-          )
-        : AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases;
+    final hardnessToolSearchHistoryMaxPhases = clampedIntFromValue(
+      json['hardness_tool_search_history_max_phases'],
+      fallback: AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases,
+      min: AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
+      max: AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
+    );
 
-    final rawReplayCancelWindow =
-        json['tool_search_replay_cancel_window_seconds'];
-    final toolSearchReplayCancelWindowSeconds =
-        (rawReplayCancelWindow is int && rawReplayCancelWindow > 0)
-        ? rawReplayCancelWindow.clamp(
-            AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
-            AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
-          )
-        : AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds;
+    final toolSearchReplayCancelWindowSeconds = clampedIntFromValue(
+      json['tool_search_replay_cancel_window_seconds'],
+      fallback: AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds,
+      min: AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
+      max: AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
+    );
 
     final reduceMotion = json['reduce_motion'] is bool
         ? json['reduce_motion'] as bool
@@ -1234,25 +1129,24 @@ class SettingsStore {
 
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
 
-    final subprocessGracefulShutdownMs =
-        json['subprocess_graceful_shutdown_ms'] is num
-        ? (json['subprocess_graceful_shutdown_ms'] as num).round().clamp(
-            AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
-            AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
-          )
-        : AppSettingsSnapshot.defaultSubprocessGracefulShutdownMs;
-    final bashOutputMaxBytes = json['bash_output_max_bytes'] is num
-        ? (json['bash_output_max_bytes'] as num).round().clamp(
-            AppSettingsSnapshot.minBashOutputMaxBytes,
-            AppSettingsSnapshot.maxBashOutputMaxBytes,
-          )
-        : AppSettingsSnapshot.defaultBashOutputMaxBytes;
-    final maxConcurrentTools = json['max_concurrent_tools'] is num
-        ? (json['max_concurrent_tools'] as num).round().clamp(
-            AppSettingsSnapshot.minMaxConcurrentTools,
-            AppSettingsSnapshot.maxMaxConcurrentTools,
-          )
-        : AppSettingsSnapshot.defaultMaxConcurrentTools;
+    final subprocessGracefulShutdownMs = clampedIntFromValue(
+      json['subprocess_graceful_shutdown_ms'],
+      fallback: AppSettingsSnapshot.defaultSubprocessGracefulShutdownMs,
+      min: AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+      max: AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
+    );
+    final bashOutputMaxBytes = clampedIntFromValue(
+      json['bash_output_max_bytes'],
+      fallback: AppSettingsSnapshot.defaultBashOutputMaxBytes,
+      min: AppSettingsSnapshot.minBashOutputMaxBytes,
+      max: AppSettingsSnapshot.maxBashOutputMaxBytes,
+    );
+    final maxConcurrentTools = clampedIntFromValue(
+      json['max_concurrent_tools'],
+      fallback: AppSettingsSnapshot.defaultMaxConcurrentTools,
+      min: AppSettingsSnapshot.minMaxConcurrentTools,
+      max: AppSettingsSnapshot.maxMaxConcurrentTools,
+    );
 
     return AppSettingsSnapshot(
       themeMode: themeMode,
@@ -1371,6 +1265,27 @@ class SettingsStore {
       maxConcurrentTools: maxConcurrentTools,
     );
   }
+}
+
+DialogAnimationSettings _dialogAnimationFromValue(
+  Object? value, {
+  required DialogAnimationSettings fallback,
+}) {
+  if (value is! Map) return fallback;
+  return DialogAnimationSettings.fromJson(Map<String, Object?>.from(value));
+}
+
+bool _matchesMotionSettings(
+  DialogAnimationSettings settings, {
+  required DialogAnimationStyle entranceStyle,
+  required DialogAnimationStyle exitStyle,
+  required int durationMs,
+  required DialogAnimationCurve curve,
+}) {
+  return settings.entranceStyle == entranceStyle &&
+      settings.exitStyle == exitStyle &&
+      settings.durationMs == durationMs &&
+      settings.curve == curve;
 }
 
 ThemeMode _themeModeFromStorage(String? value) {

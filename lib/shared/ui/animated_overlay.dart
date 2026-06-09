@@ -79,15 +79,10 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
             .menuAnimationSettings;
         return settings.copyWith(
           durationMs: widget.customDuration?.inMilliseconds,
-          curve: widget.customCurve == null
-              ? null
-              : DialogAnimationCurve.easeOutCubic,
         );
       } catch (_) {
-        return const DialogAnimationSettings(
-          entranceStyle: DialogAnimationStyle.springScale,
-          exitStyle: DialogAnimationStyle.springScale,
-          durationMs: 200,
+        return OpenHandMotionDefaults.menu.copyWith(
+          durationMs: widget.customDuration?.inMilliseconds,
         );
       }
     }
@@ -136,6 +131,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     return buildAnimationStyleTransition(
       animation: _controller,
       settings: _settings,
+      curveOverride: widget.customCurve,
+      reverseCurveOverride: widget.customCurve,
       child: widget.child,
     );
   }

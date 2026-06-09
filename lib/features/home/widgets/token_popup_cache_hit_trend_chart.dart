@@ -106,13 +106,9 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
       _TokenPopupCacheHitTrendChartState();
 }
 
+// Uses two AnimationControllers: the chart entrance and the hover tooltip.
 class _TokenPopupCacheHitTrendChartState
     extends State<TokenPopupCacheHitTrendChart>
-    // 2026-06-01 — 升级为 TickerProviderStateMixin：
-    // 该 State 同时持有主线入场动画 `_controller` 和 hover 浮窗的
-    // `_hoverController` 两个 AnimationController。SingleTickerProvider
-    // 只允许一个 ticker，否则 initState 里会抛 "multiple tickers were
-    // created" 断言并红屏。
     with TickerProviderStateMixin {
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
@@ -176,18 +172,10 @@ class _TokenPopupCacheHitTrendChartState
     });
   }
 
-  /// 2026-06-01 — 给 hover tooltip 专用的进退场设置：
-  /// - 风格锁为 `springScale`（Q 弹微弹），不再沿用全局默认 fadeScale，
-  ///   让 tooltip 的进程退场天然具备"轻拂鼠标入场/退场"丝滑感；
-  /// - 时长 / 曲线沿用全局设置，保留用户在"弹窗动画"里的全局风格选择；
-  /// - 尊重 `MediaQuery.disableAnimationsOf`：0ms + none 风格直出直入。
+  /// Hover tooltip uses spring-scale while inheriting global duration / curve.
   DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) {
-      return const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.none,
-        exitStyle: DialogAnimationStyle.none,
-        durationMs: 0,
-      );
+      return OpenHandMotionDefaults.disabled;
     }
     final global = context.read<SettingsController>().dialogAnimationSettings;
     return global.copyWith(
@@ -327,7 +315,9 @@ class _TokenPopupCacheHitTrendChartState
                   ),
                   _CacheHitModeChip(
                     label: isZh ? '包括全部' : 'Include all',
-                    selected: widget.displayMode == SessionCacheHitDisplayMode.includeAll,
+                    selected:
+                        widget.displayMode ==
+                        SessionCacheHitDisplayMode.includeAll,
                     onTap: () {
                       _viewport = SessionCacheHitViewport.full(
                         widget.trend.points.length,
@@ -381,11 +371,12 @@ class _TokenPopupCacheHitTrendChartState
                     ? chartRect.left +
                           chartRect.width /
                               (visiblePoints.length - 1) *
-                          middleIndex
+                              middleIndex
                     : chartRect.center.dx;
                 // 仅当中间标签与首/尾不重复时才渲染（例如 4 点时显示 1/3/4，
                 // 2 点时只显示首尾避免视觉重复）。
-                final showMiddleLabel = visiblePoints.length > 2 &&
+                final showMiddleLabel =
+                    visiblePoints.length > 2 &&
                     middleTurn != startTurn &&
                     middleTurn != endTurn;
                 return Listener(
@@ -458,8 +449,11 @@ class _TokenPopupCacheHitTrendChartState
                           }
                           return;
                         }
-                        final localDx = (event.localPosition.dx - chartRect.left)
-                            .clamp(0.0, chartRect.width);
+                        final localDx =
+                            (event.localPosition.dx - chartRect.left).clamp(
+                              0.0,
+                              chartRect.width,
+                            );
                         if (localDx < 0 || localDx > chartRect.width) {
                           if (_hoveredPointIndex != null) {
                             setState(() => _hoveredPointIndex = null);
@@ -471,15 +465,12 @@ class _TokenPopupCacheHitTrendChartState
                         final span = visiblePoints.length <= 1
                             ? 0.0
                             : chartRect.width / (visiblePoints.length - 1);
-                        final raw = span <= 0
-                            ? 0.0
-                            : (localDx / span).round();
+                        final raw = span <= 0 ? 0.0 : (localDx / span).round();
                         // 上面已 guard visiblePoints.isEmpty，这里 length-1
-                            // 一定 >= 0，clamp 区间合法。
-                        final idx = raw.clamp(
-                          0,
-                          visiblePoints.length - 1,
-                        ).toInt();
+                        // 一定 >= 0，clamp 区间合法。
+                        final idx = raw
+                            .clamp(0, visiblePoints.length - 1)
+                            .toInt();
                         if (_hoveredPointIndex != idx) {
                           final wasHovering = _hoveredPointIndex != null;
                           setState(() => _hoveredPointIndex = idx);
@@ -499,142 +490,142 @@ class _TokenPopupCacheHitTrendChartState
                         }
                       },
                       child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: RepaintBoundary(
-                            child: CustomPaint(
-                              painter: _TokenPopupCacheHitTrendStaticPainter(
-                                averageHitRatio: displayData.averageHitRatio,
-                                colorScheme: colorScheme,
-                              ),
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: AnimatedBuilder(
-                            animation: _controller,
-                            builder: (context, _) {
-                              return RepaintBoundary(
-                                child: CustomPaint(
-                                  painter:
-                                      _TokenPopupCacheHitTrendDynamicPainter(
-                                        points: visiblePoints,
-                                        progress: reduceMotion
-                                            ? 1
-                                            : _controller.value,
-                                        colorScheme: colorScheme,
-                                      ),
-                                  child: const SizedBox.expand(),
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: RepaintBoundary(
+                              child: CustomPaint(
+                                painter: _TokenPopupCacheHitTrendStaticPainter(
+                                  averageHitRatio: displayData.averageHitRatio,
+                                  colorScheme: colorScheme,
                                 ),
-                              );
-                            },
-                          ),
-                        ),
-                        // 2026-06-01 — hover 高亮 + tooltip：把鼠标位置
-                        // 映射到最近的 visiblePoints 索引，叠一个发光圆点
-                        // + 浮窗，整组走 springScale 的 Q 弹进退场（由
-                        // [_hoverController] 驱动 forward / reverse），与
-                        // 全局 DialogAnimationSettings 的时长 / 曲线保持
-                        // 一致。
-                        if (_hoveredPointIndex != null)
-                          _buildHoverOverlay(
-                            visiblePoints: visiblePoints,
-                            hoveredIndex: _hoveredPointIndex!,
-                            chartRect: chartRect,
-                            colorScheme: colorScheme,
-                            l10n: l10n,
-                            hoverSettings: _hoverSettingsFor(context),
-                          ),
-                        Positioned(
-                          left: 0,
-                          top: chartRect.top - 7,
-                          child: Text('100%', style: valueStyle),
-                        ),
-                        // 2026-06-03 — 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
-                        // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
-                        // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
-                        // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
-                        // （用 surface 浮于 chart 半透明背景之上），既远离
-                        // y 轴区域，又能在平均值贴近最后一个数据点时不被
-                        // 发光圆 / 实心点遮挡。
-                        Positioned(
-                          right: 12,
-                          top: averageY - 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surface,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              l10n.sessMetaCacheHitAvg,
-                              style: valueStyle?.copyWith(
-                                color: Colors.green.shade700,
-                                fontWeight: FontWeight.w700,
+                                child: const SizedBox.expand(),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          left: 8,
-                          bottom: 14,
-                          child: Text('0%', style: valueStyle),
-                        ),
-                        // 2026-06-03 — X 轴刻度改为按数据点真实 x 居中：
-                        // 用 Stack + Positioned(left: dataX - 16, width: 32)
-                        // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
-                        // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: SizedBox(
-                            height: 18,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Positioned(
-                                  left: startX - 16,
-                                  width: 32,
-                                  child: Center(
-                                    child: Text(
-                                      '$startTurn',
-                                      style: valueStyle,
-                                    ),
+                          Positioned.fill(
+                            child: AnimatedBuilder(
+                              animation: _controller,
+                              builder: (context, _) {
+                                return RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter:
+                                        _TokenPopupCacheHitTrendDynamicPainter(
+                                          points: visiblePoints,
+                                          progress: reduceMotion
+                                              ? 1
+                                              : _controller.value,
+                                          colorScheme: colorScheme,
+                                        ),
+                                    child: const SizedBox.expand(),
                                   ),
+                                );
+                              },
+                            ),
+                          ),
+                          // 2026-06-01 — hover 高亮 + tooltip：把鼠标位置
+                          // 映射到最近的 visiblePoints 索引，叠一个发光圆点
+                          // + 浮窗，整组走 springScale 的 Q 弹进退场（由
+                          // [_hoverController] 驱动 forward / reverse），与
+                          // 全局 DialogAnimationSettings 的时长 / 曲线保持
+                          // 一致。
+                          if (_hoveredPointIndex != null)
+                            _buildHoverOverlay(
+                              visiblePoints: visiblePoints,
+                              hoveredIndex: _hoveredPointIndex!,
+                              chartRect: chartRect,
+                              colorScheme: colorScheme,
+                              l10n: l10n,
+                              hoverSettings: _hoverSettingsFor(context),
+                            ),
+                          Positioned(
+                            left: 0,
+                            top: chartRect.top - 7,
+                            child: Text('100%', style: valueStyle),
+                          ),
+                          // 2026-06-03 — 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
+                          // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
+                          // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
+                          // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
+                          // （用 surface 浮于 chart 半透明背景之上），既远离
+                          // y 轴区域，又能在平均值贴近最后一个数据点时不被
+                          // 发光圆 / 实心点遮挡。
+                          Positioned(
+                            right: 12,
+                            top: averageY - 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                l10n.sessMetaCacheHitAvg,
+                                style: valueStyle?.copyWith(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                if (showMiddleLabel)
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            bottom: 14,
+                            child: Text('0%', style: valueStyle),
+                          ),
+                          // 2026-06-03 — X 轴刻度改为按数据点真实 x 居中：
+                          // 用 Stack + Positioned(left: dataX - 16, width: 32)
+                          // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
+                          // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: SizedBox(
+                              height: 18,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
                                   Positioned(
-                                    left: middleX - 16,
+                                    left: startX - 16,
                                     width: 32,
                                     child: Center(
                                       child: Text(
-                                        '$middleTurn',
+                                        '$startTurn',
                                         style: valueStyle,
                                       ),
                                     ),
                                   ),
-                                Positioned(
-                                  left: endX - 16,
-                                  width: 32,
-                                  child: Center(
-                                    child: Text(
-                                      '$endTurn',
-                                      style: valueStyle,
+                                  if (showMiddleLabel)
+                                    Positioned(
+                                      left: middleX - 16,
+                                      width: 32,
+                                      child: Center(
+                                        child: Text(
+                                          '$middleTurn',
+                                          style: valueStyle,
+                                        ),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    left: endX - 16,
+                                    width: 32,
+                                    child: Center(
+                                      child: Text(
+                                        '$endTurn',
+                                        style: valueStyle,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -795,8 +786,8 @@ class _TokenPopupCacheHitTrendChartState
                           color: ratio >= 0.95
                               ? Colors.green.shade700
                               : ratio >= 0.5
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurface,
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
                           fontWeight: FontWeight.w800,
                           fontFeatures: const [FontFeature.tabularFigures()],
                           height: 1.0,

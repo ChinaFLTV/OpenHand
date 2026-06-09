@@ -128,6 +128,35 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('shared transitions consume explicit curve overrides', (
+      tester,
+    ) async {
+      final curve = _CountingCurve();
+
+      await tester.pumpWidget(
+        _host(
+          buildAnimationStyleTransition(
+            animation: const AlwaysStoppedAnimation<double>(0.5),
+            settings: const DialogAnimationSettings(),
+            curveOverride: curve,
+            reverseCurveOverride: curve,
+            child: const SizedBox(
+              key: ValueKey<String>('curve-override-child'),
+              width: 24,
+              height: 24,
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey<String>('curve-override-child')),
+        findsOneWidget,
+      );
+      expect(curve.transformCount, greaterThan(0));
+    });
   });
 }
 
@@ -135,4 +164,22 @@ Widget _host(Widget child) {
   return MaterialApp(
     home: Scaffold(body: Center(child: child)),
   );
+}
+
+class _CountingCurve extends Curve {
+  _CountingCurve() : _counter = _TransformCounter();
+
+  final _TransformCounter _counter;
+
+  int get transformCount => _counter.value;
+
+  @override
+  double transformInternal(double t) {
+    _counter.value++;
+    return t;
+  }
+}
+
+class _TransformCounter {
+  int value = 0;
 }

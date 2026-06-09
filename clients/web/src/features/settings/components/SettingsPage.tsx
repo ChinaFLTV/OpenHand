@@ -24,7 +24,10 @@ import {
   setMessageContentFormat,
   setHtmlRenderFallback,
 } from '../../../hooks/useMessageContentFormat';
-import { syncRemoteDialogMotionSettings } from '../../../hooks/useDialogMotionSettings';
+import {
+  DIALOG_MOTION_DEFAULT_DURATION_MS,
+  syncRemoteDialogMotionSettings,
+} from '../../../hooks/useDialogMotionSettings';
 import { showSnackbar } from '../../../components/Snackbar';
 
 const LANG_LABEL: Record<string, string> = {
@@ -390,7 +393,10 @@ export function SettingsPage() {
                       />
                       <SummaryLine
                         label={t('settings.motion.duration', '时长')}
-                        value={`${prefs.dialog_animation_settings?.duration_ms ?? 320} ms`}
+                        value={`${
+                          prefs.dialog_animation_settings?.duration_ms ??
+                          DIALOG_MOTION_DEFAULT_DURATION_MS
+                        } ms`}
                       />
                       <SummaryLine
                         label={t('settings.motion.curve', '曲线')}

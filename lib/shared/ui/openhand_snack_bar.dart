@@ -86,7 +86,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
 
   DialogAnimationSettings _resolveMotionSettings() {
     if (MediaQuery.maybeDisableAnimationsOf(context) == true) {
-      return OpenHandSnackBar._disabledMotionSettings;
+      return OpenHandMotionDefaults.disabled;
     }
     return OpenHandSnackBar._resolveMotionSettings(context);
   }
@@ -193,20 +193,6 @@ class OpenHandSnackBar {
   static final GlobalKey<ScaffoldMessengerState> rootMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
-  static const DialogAnimationSettings _fallbackMotionSettings =
-      DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.springScale,
-        durationMs: 360,
-      );
-
-  static const DialogAnimationSettings _disabledMotionSettings =
-      DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.none,
-        exitStyle: DialogAnimationStyle.none,
-        durationMs: 0,
-      );
-
   static const Duration _maximumDisplayDuration = Duration(seconds: 8);
 
   static bool _motionDisabled(DialogAnimationSettings settings) {
@@ -218,7 +204,7 @@ class OpenHandSnackBar {
     try {
       return context.read<SettingsController>().dialogAnimationSettings;
     } catch (_) {
-      return _fallbackMotionSettings;
+      return OpenHandMotionDefaults.dialog;
     }
   }
 
@@ -307,7 +293,7 @@ class OpenHandSnackBar {
     final animationsDisabled =
         MediaQuery.maybeDisableAnimationsOf(context) == true;
     final motionSettings = animationsDisabled
-        ? _disabledMotionSettings
+        ? OpenHandMotionDefaults.disabled
         : _resolveMotionSettings(context);
     final wrapped = _ensureMotionWrapped(context, snackBar, motionSettings);
     messenger.showSnackBar(
@@ -640,19 +626,21 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     final backgroundColor =
         snackBar.backgroundColor ??
         snackBarTheme.backgroundColor ??
-        (isDark ? colorScheme.surfaceContainerHigh : colorScheme.inverseSurface);
-    final elevation = snackBar.elevation ?? snackBarTheme.elevation ?? (isDark ? 6 : 4);
-    final foregroundColor = isDark ? colorScheme.onSurface : colorScheme.onInverseSurface;
+        (isDark
+            ? colorScheme.surfaceContainerHigh
+            : colorScheme.inverseSurface);
+    final elevation =
+        snackBar.elevation ?? snackBarTheme.elevation ?? (isDark ? 6 : 4);
+    final foregroundColor = isDark
+        ? colorScheme.onSurface
+        : colorScheme.onInverseSurface;
     final textStyle =
         snackBarTheme.contentTextStyle ??
         theme.textTheme.bodyMedium?.copyWith(
           color: foregroundColor,
           fontWeight: FontWeight.w500,
         ) ??
-        TextStyle(
-          color: foregroundColor,
-          fontWeight: FontWeight.w500,
-        );
+        TextStyle(color: foregroundColor, fontWeight: FontWeight.w500);
     final body = DefaultTextStyle(
       style: textStyle,
       child: _OpenHandGlobalSnackBarContent(
@@ -899,10 +887,11 @@ class _SnackBarCloseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final color = (isDark
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onInverseSurface)
-        .withValues(alpha: 0.7);
+    final color =
+        (isDark
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onInverseSurface)
+            .withValues(alpha: 0.7);
     final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
     return Tooltip(
       message: tooltip,
@@ -935,10 +924,11 @@ class _OpenHandGlobalSnackBarCloseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final color = (isDark
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onInverseSurface)
-        .withValues(alpha: 0.7);
+    final color =
+        (isDark
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onInverseSurface)
+            .withValues(alpha: 0.7);
     final tooltip = MaterialLocalizations.of(context).closeButtonTooltip;
     return Semantics(
       button: true,

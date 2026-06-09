@@ -15,13 +15,7 @@ enum AppSection {
   hardnessSession,
 }
 
-// 2026-05-01: Narrowed the default desktop navigation pane by 25%
-// (352 -> 264). This keeps the pane clearly subordinate to the main
-// workspace while preserving the independent 20 px inter-pane gutter.
 const double _desktopNavigationWidth = 264;
-// Equalised with the SafeArea outer inset (20 px) so the horizontal gutter
-// between the navigation pane and the workspace pane visually matches the
-// padding to the window's top / bottom / left / right edges.
 const double _contentPaneGap = 20;
 const double _sideBySideLayoutMinWidth = 980;
 const double _stackedNavigationMinHeight = 280;
@@ -29,24 +23,10 @@ const double _stackedNavigationMaxHeight = 360;
 const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
-// 2026-05-01: Tightened from 96 → 32 px so the "user is at bottom" detector
-// only fires when the viewport is genuinely pinned to the latest message.
-// 96 px caused subtle resume-on-glance regressions: a single accidental wheel
-// tick that left the user 60 px above bottom would still be treated as "at
-// bottom", silently re-arming auto-follow against the user's intent. 32 px
-// is small enough to require a deliberate scroll-to-bottom gesture but large
-// enough to absorb sub-pixel rounding from animated layout settles.
+// Auto-follow uses hysteresis: resume only when close to bottom, pause only
+// after a clearer user scroll away. This avoids repeated layout jitter when
+// older markdown/code blocks finish measuring after history prepend.
 const double _autoFollowDistanceThreshold = 32;
-// 2026-05-24 引入「暂停判定」滞回阈值：用户加载更多历史消息后，被
-// prepend 的旧消息会在随后多帧里继续异步解析 markdown / 代码高亮，
-// `maxScrollExtent` 会在数十像素范围内反复抖动。若仍沿用 32 px 的
-// `_autoFollowDistanceThreshold` 同时判定「靠近底部」与「已离开底部」，
-// `distanceToBottom` 的微小波动会让 `_shouldAutoFollowMessages` 高频翻
-// 转，进而让 composer 上的「跳到最新」按钮形态、消息列表的边距贴底
-// 决策反复刷新 — 用户在屏幕上看到的就是「消息盒子持续上下抽搐 / 鬼
-// 畜」。把暂停阈值放宽到 96 px 形成滞回：只有真的离开底部 96 px 以
-// 上才算「主动暂停跟随」，恢复时仍走 32 px 紧贴底部，避免抖动 ↔ 暂停
-// 形成闭环。
 const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // First-open jank mitigation: mount only the latest handful of message bubbles
@@ -60,26 +40,15 @@ const int _transcriptPreparationThreshold = 12;
 const int _transcriptStagedMaterializationThreshold = 24;
 const double _transcriptListCacheExtent = 240;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
-// Number of post-layout frames to wait before revealing the freshly switched
-// transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock
-// delay so the overlay only stays up as long as the UI actually needs to
-// finish first layout + scroll-to-bottom — preventing the "long blank"
-// window that was previously forced regardless of how fast the real list
-// rendered.
-// 长会话切换时给底部小窗口、scroll-to-bottom 和 markdown 延迟解析留出
-// 少量帧预算，避免真实 transcript reveal 与首批气泡挂载挤在同一帧。
+// Frame-driven reveal keeps long transcript switches smooth without a fixed
+// blank delay.
 const int _transcriptPreparationFrameBudget = 10;
-// Hard cap so a single problematic session (e.g. huge transcript) never
-// leaves the user staring at the placeholder indefinitely. If real layout
-// has not finished within this window we reveal the transcript anyway.
-// 阶段㉒ — 320 → 480 ms：与 6 帧预算相匹配，给慢机器留出更多 buffer。
-// 2026-06-07 — 480 → 640 ms：与 10 帧预算（160ms）相匹配，给慢机器
-// 留出更多 buffer；480ms 下偶尔出现 reveal 后仍可见 1-2 帧 placeholder
-// 残留闪烁。
 const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 640);
 const Duration _hardnessSessionPersistenceDebounce = Duration(
   milliseconds: 320,
 );
+const int _workspaceSwitchMaxDurationMs = 800;
+const int _disabledSwitchBookkeepingDurationMs = 200;
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -277,11 +246,16 @@ Widget _buildWorkspaceSettingsAwareTransition({
 Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
   // Keep switcher bookkeeping stable while clamping persisted or user-entered
   // values to a responsive range for page and panel transitions.
-  final clamped = settings.durationMs.clamp(80, 800).toInt();
+  final clamped = settings.durationMs
+      .clamp(
+        DialogAnimationSettings.minAnimatedDurationMs,
+        _workspaceSwitchMaxDurationMs,
+      )
+      .toInt();
   final minMs =
       (settings.entranceStyle == DialogAnimationStyle.none &&
           settings.exitStyle == DialogAnimationStyle.none)
-      ? 200
+      ? _disabledSwitchBookkeepingDurationMs
       : clamped;
   return Duration(milliseconds: clamped < minMs ? minMs : clamped);
 }

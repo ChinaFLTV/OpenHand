@@ -84,13 +84,6 @@ part '_settings_active_tool_calls.dart';
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
 
-const DialogAnimationSettings _kNoListItemAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.none,
-      exitStyle: DialogAnimationStyle.none,
-      durationMs: 0,
-    );
-
 void _syncControllerText(TextEditingController controller, String text) {
   if (controller.text == text) return;
   controller.value = controller.value.copyWith(
@@ -476,7 +469,7 @@ class _SettingsViewState extends State<SettingsView> {
     final settingsController = context.read<SettingsController>();
     final l10n = AppLocalizations.of(context)!;
     final settings = MediaQuery.disableAnimationsOf(context)
-        ? _kNoListItemAnimationSettings
+        ? OpenHandMotionDefaults.disabled
         : settingsController.listItemAnimationSettings;
     final index = _indexOfAnimatedAiModel(model.id);
     if (index == -1) {
@@ -532,7 +525,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     final settingsController = context.read<SettingsController>();
     final settings = MediaQuery.disableAnimationsOf(context)
-        ? _kNoListItemAnimationSettings
+        ? OpenHandMotionDefaults.disabled
         : settingsController.listItemAnimationSettings;
     final model = _animatedAiModels[fromIndex];
     setState(() {
@@ -2385,7 +2378,7 @@ class _SettingsViewState extends State<SettingsView> {
                             final model = _animatedAiModels[index];
                             final settings =
                                 MediaQuery.disableAnimationsOf(context)
-                                ? _kNoListItemAnimationSettings
+                                ? OpenHandMotionDefaults.disabled
                                 : settingsController.listItemAnimationSettings;
                             return _buildAnimatedAiModelRow(
                               context,

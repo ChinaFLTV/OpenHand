@@ -7,20 +7,6 @@ import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
 
-const DialogAnimationSettings _kNoMenuAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.none,
-      exitStyle: DialogAnimationStyle.none,
-      durationMs: 0,
-    );
-
-const DialogAnimationSettings _kFallbackMenuAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-      durationMs: 260,
-    );
-
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
 /// When [settings] is null, the configuration is automatically read from the
@@ -38,7 +24,7 @@ Future<T?> showAnimatedMenu<T>({
   bool useRootNavigator = false,
 }) {
   final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
-      ? _kNoMenuAnimationSettings
+      ? OpenHandMotionDefaults.disabled
       : (settings ?? _resolveMenuAnimationSettings(context));
 
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
@@ -81,7 +67,7 @@ DialogAnimationSettings _resolveMenuAnimationSettings(BuildContext context) {
   try {
     return context.read<SettingsController>().menuAnimationSettings;
   } catch (_) {
-    return _kFallbackMenuAnimationSettings;
+    return OpenHandMotionDefaults.menu;
   }
 }
 
@@ -285,17 +271,8 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
     // getPositionForChild() handles clamping the *position* so the menu stays
     // on-screen; this method only constrains the menu's *size*.
     //
-    // The previous two attempts both failed:
-    //   1. `constraints.biggest - EdgeInsets(...).collapsedSize as Size`
-    //      → `Size - Size` returns Offset, so `as Size` cast threw TypeError.
-    //   2. `EdgeInsets(...).deflateSize(constraints.biggest)`
-    //      → deflateSize subtracts (position.top + position.bottom) from the
-    //        screen height.  For a right-click at y=500 on an 834px screen
-    //        position.top=position.bottom=500, total=1000 > 834, yielding
-    //        height=−166.  BoxConstraints.loose with a negative size asserts.
-    //
-    // BoxConstraints.deflate() is the correct API: it subtracts the padding
-    // but clamps each dimension to ≥0, guaranteeing valid constraints.
+    // BoxConstraints.deflate() subtracts safe-area padding and clamps each
+    // dimension to a valid non-negative value.
     return BoxConstraints.loose(constraints.biggest).deflate(padding);
   }
 

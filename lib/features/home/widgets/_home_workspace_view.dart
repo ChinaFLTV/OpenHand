@@ -391,7 +391,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     try {
       return context.read<SettingsController>().dialogAnimationSettings;
     } catch (_) {
-      return const DialogAnimationSettings();
+      return OpenHandMotionDefaults.dialog;
     }
   }
 
@@ -540,7 +540,7 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
     try {
       settings = context.read<SettingsController>().pageAnimationSettings;
     } catch (_) {
-      settings = const DialogAnimationSettings();
+      settings = OpenHandMotionDefaults.page;
     }
     final baseDuration = _effectiveSwitchDuration(settings);
     return AnimatedSwitcher(

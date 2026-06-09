@@ -362,7 +362,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         listen: false,
       ).dialogAnimationSettings;
     } catch (_) {
-      return const DialogAnimationSettings();
+      return OpenHandMotionDefaults.dialog;
     }
   }
 

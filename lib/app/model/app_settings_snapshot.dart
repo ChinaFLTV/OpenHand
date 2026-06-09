@@ -1,11 +1,3 @@
-// 2026-05-01: app_settings_snapshot intentionally lists every field of
-// each `DialogAnimationSettings` literal so the parallel block of
-// `panelAnimationSettings` / `chipAnimationSettings` /
-// `listItemAnimationSettings` reads as self-documenting defaults. A few
-// of those values happen to coincide with the constructor defaults — that
-// equivalence is documentation, not noise.
-// ignore_for_file: avoid_redundant_argument_values
-
 import 'package:flutter/material.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
@@ -59,10 +51,6 @@ class AppSettingsSnapshot {
       aiToolResultCompressionThresholdChars:
           defaultAiToolResultCompressionThresholdChars,
       aiToolResultCompressionEnabled: true,
-      aiMicroCompressionEnabled: false,
-      aiMessageContentFormat: defaultAiMessageContentFormat,
-      aiHtmlRenderFallback: defaultAiHtmlRenderFallback,
-      aiHtmlContentRichness: defaultAiHtmlContentRichness,
       aiToolResultCompressionHeadTailWindowChars:
           defaultAiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits:
@@ -129,57 +117,18 @@ class AppSettingsSnapshot {
       selectedAiModelId: null,
       recentModelSelections: const <RecentModelSelection>[],
       shortcutBindings: defaultOpenHandShortcutBindings(),
-      dialogAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.springScale,
-        durationMs: 360,
-        curve: DialogAnimationCurve.easeOutCubic,
-      ),
-      menuAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.springScale,
-        durationMs: 260,
-        curve: DialogAnimationCurve.easeOutCubic,
-      ),
-      pageAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.fade,
-        exitStyle: DialogAnimationStyle.fade,
-        durationMs: 800,
-        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-      ),
-      panelAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.fade,
-        exitStyle: DialogAnimationStyle.fade,
-        durationMs: 600,
-        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-      ),
-      // 2026-05-01: chip = capsule entrance/exit (composer skill /
-      // attachment / @-reference / queued-message chips). Q-bouncy
-      // spring-scale + emphasized curve so X-close feels delightful.
-      chipAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 320,
-        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-      ),
-      // List-item entrance for sidebar threads, instructions / hooks /
-      // crons / memory / mcp tiles. Defaults map to the existing
-      // `AppearOnce` rhythm (320ms emphasized fade-and-slide).
-      listItemAnimationSettings: const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.slideUp,
-        exitStyle: DialogAnimationStyle.fade,
-        durationMs: 320,
-        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-      ),
+      dialogAnimationSettings: OpenHandMotionDefaults.dialog,
+      menuAnimationSettings: OpenHandMotionDefaults.menu,
+      pageAnimationSettings: OpenHandMotionDefaults.page,
+      panelAnimationSettings: OpenHandMotionDefaults.panel,
+      chipAnimationSettings: OpenHandMotionDefaults.chip,
+      listItemAnimationSettings: OpenHandMotionDefaults.listItem,
       builtinToolConfigs: AiBuiltinToolConfig.defaults(),
       telemetryDebugEnabled: false,
       telemetryCaptureRawPayload: true,
       telemetryCaptureEnvironment: false,
       telemetryMaxPayloadChars: defaultTelemetryMaxPayloadChars,
       proxySettings: AppProxySettings.defaults(),
-      subprocessGracefulShutdownMs: defaultSubprocessGracefulShutdownMs,
-      bashOutputMaxBytes: defaultBashOutputMaxBytes,
-      maxConcurrentTools: defaultMaxConcurrentTools,
     );
   }
   const AppSettingsSnapshot({

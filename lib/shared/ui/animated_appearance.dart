@@ -167,11 +167,7 @@ class AnimatedListAppearance extends StatelessWidget {
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
     final effectiveSettings = disableAnimations
-        ? const DialogAnimationSettings(
-            entranceStyle: DialogAnimationStyle.none,
-            exitStyle: DialogAnimationStyle.none,
-            durationMs: 0,
-          )
+        ? OpenHandMotionDefaults.disabled
         : settings;
     final style = switch (phase) {
       AnimatedAppearancePhase.enter => effectiveSettings.entranceStyle,

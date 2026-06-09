@@ -221,3 +221,51 @@ class DialogAnimationSettings {
     return durationMs.clamp(minAnimatedDurationMs, maxDurationMs).toInt();
   }
 }
+
+/// Centralized motion presets used by settings defaults and runtime fallbacks.
+class OpenHandMotionDefaults {
+  const OpenHandMotionDefaults._();
+
+  static const DialogAnimationSettings disabled = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.none,
+    exitStyle: DialogAnimationStyle.none,
+    durationMs: 0,
+  );
+
+  static const DialogAnimationSettings dialog = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.springScale,
+    exitStyle: DialogAnimationStyle.springScale,
+    durationMs: 360,
+  );
+
+  static const DialogAnimationSettings menu = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.springScale,
+    exitStyle: DialogAnimationStyle.springScale,
+    durationMs: 260,
+  );
+
+  static const DialogAnimationSettings page = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.fade,
+    exitStyle: DialogAnimationStyle.fade,
+    durationMs: 800,
+    curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+  );
+
+  static const DialogAnimationSettings panel = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.fade,
+    exitStyle: DialogAnimationStyle.fade,
+    durationMs: 600,
+    curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+  );
+
+  static const DialogAnimationSettings chip = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.springScale,
+    curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+  );
+
+  static const DialogAnimationSettings listItem = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.slideUp,
+    exitStyle: DialogAnimationStyle.fade,
+    curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+  );
+}

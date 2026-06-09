@@ -67,5 +67,28 @@ void main() {
         DialogAnimationSettings.maxDurationMs,
       );
     });
+
+    test('keeps centralized motion presets normalized', () {
+      expect(OpenHandMotionDefaults.disabled.disablesAnimation, isTrue);
+      expect(OpenHandMotionDefaults.disabled.durationMs, 0);
+      expect(
+        OpenHandMotionDefaults.dialog.entranceStyle,
+        DialogAnimationStyle.springScale,
+      );
+      expect(
+        OpenHandMotionDefaults.dialog.exitStyle,
+        DialogAnimationStyle.springScale,
+      );
+      expect(OpenHandMotionDefaults.dialog.durationMs, 360);
+      expect(OpenHandMotionDefaults.menu.durationMs, 260);
+      expect(
+        OpenHandMotionDefaults.page.curve,
+        DialogAnimationCurve.easeInOutCubicEmphasized,
+      );
+      expect(
+        OpenHandMotionDefaults.panel.curve,
+        DialogAnimationCurve.easeInOutCubicEmphasized,
+      );
+    });
   });
 }

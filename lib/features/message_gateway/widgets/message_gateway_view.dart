@@ -4497,11 +4497,7 @@ DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
   try {
     return context.read<SettingsController>().menuAnimationSettings;
   } catch (_) {
-    return const DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-      durationMs: 260,
-    );
+    return OpenHandMotionDefaults.menu;
   }
 }
 

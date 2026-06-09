@@ -70,11 +70,7 @@ class _TokenDialState extends State<_TokenDial>
 
   DialogAnimationSettings _dialogSettings(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) {
-      return const DialogAnimationSettings(
-        entranceStyle: DialogAnimationStyle.none,
-        exitStyle: DialogAnimationStyle.none,
-        durationMs: 0,
-      );
+      return OpenHandMotionDefaults.disabled;
     }
     return context.read<SettingsController>().dialogAnimationSettings;
   }
@@ -989,9 +985,15 @@ class _CompactCacheHitSparkline extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           children: [
-            _LegendDot(color: Colors.green.shade400, label: '命中 ${_k(cacheRead)}'),
+            _LegendDot(
+              color: Colors.green.shade400,
+              label: '命中 ${_k(cacheRead)}',
+            ),
             const SizedBox(width: 10),
-            _LegendDot(color: Colors.amber.shade400, label: '写入 ${_k(cacheWrite)}'),
+            _LegendDot(
+              color: Colors.amber.shade400,
+              label: '写入 ${_k(cacheWrite)}',
+            ),
             const SizedBox(width: 10),
             _LegendDot(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),

@@ -9,20 +9,6 @@ import '../../app/state/settings_controller.dart';
 import 'bounded_animation.dart';
 import 'openhand_dialog_action_button.dart';
 
-const DialogAnimationSettings _kNoDialogAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.none,
-      exitStyle: DialogAnimationStyle.none,
-      durationMs: 0,
-    );
-
-const DialogAnimationSettings _kFallbackDialogAnimationSettings =
-    DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-      durationMs: 360,
-    );
-
 Color resolveAnimatedDialogBarrierColor(
   BuildContext context, {
   Color? override,
@@ -196,7 +182,7 @@ Future<T?> showAnimatedDialog<T>({
     alignment: alignment,
   );
   final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
-      ? _kNoDialogAnimationSettings
+      ? OpenHandMotionDefaults.disabled
       : (settings ?? _resolveDialogAnimationSettings(context)).normalized();
   if (effectiveSettings.disablesAnimation) {
     return showDialog<T>(
@@ -244,7 +230,7 @@ DialogAnimationSettings _resolveDialogAnimationSettings(BuildContext context) {
   try {
     return context.read<SettingsController>().dialogAnimationSettings;
   } catch (_) {
-    return _kFallbackDialogAnimationSettings;
+    return OpenHandMotionDefaults.dialog;
   }
 }
 
@@ -633,6 +619,8 @@ Widget _buildTransition({
 Widget buildAnimationStyleTransition({
   required Animation<double> animation,
   required DialogAnimationSettings settings,
+  Curve? curveOverride,
+  Curve? reverseCurveOverride,
   required Widget child,
 }) {
   final safeAnimation = OpenHandBoundedDoubleAnimation(animation);
@@ -641,10 +629,12 @@ Widget buildAnimationStyleTransition({
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
+  final curve = curveOverride ?? curveData.curve;
+  final reverseCurve = reverseCurveOverride ?? curveData.reverseCurve;
   final motion = openHandCurveAnimation(
     parent: safeAnimation,
-    curve: curveData.curve,
-    reverseCurve: curveData.reverseCurve,
+    curve: curve,
+    reverseCurve: reverseCurve,
   );
   final boundedMotion = OpenHandBoundedDoubleAnimation(motion);
 
@@ -695,7 +685,8 @@ Widget buildAnimationStyleTransition({
     ),
     DialogAnimationStyle.elastic => _ElasticTransition(
       animation: safeAnimation,
-      curve: curveData,
+      curve: curve,
+      reverseCurve: reverseCurve,
       child: child,
     ),
     DialogAnimationStyle.springScale => _SpringScaleTransition(
@@ -816,10 +807,12 @@ class _ElasticTransition extends StatelessWidget {
   const _ElasticTransition({
     required this.animation,
     required this.curve,
+    required this.reverseCurve,
     required this.child,
   });
   final Animation<double> animation;
-  final DialogAnimationCurve curve;
+  final Curve curve;
+  final Curve reverseCurve;
   final Widget child;
 
   @override
@@ -832,8 +825,8 @@ class _ElasticTransition extends StatelessWidget {
     final scale = Tween<double>(begin: 0.94, end: 1.0).animate(
       openHandCurveAnimation(
         parent: animation,
-        curve: curve.curve,
-        reverseCurve: curve.reverseCurve,
+        curve: curve,
+        reverseCurve: reverseCurve,
       ),
     );
     return FadeTransition(
