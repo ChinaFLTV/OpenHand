@@ -112,6 +112,84 @@ class WebFetchScraplingEngine extends WebFetchEngine {
   }
 }
 
+class WebFetchJinaReaderEngine extends WebFetchEngine {
+  WebFetchJinaReaderEngine({required super.config, required super.httpClient});
+
+  static const String _readerHost = 'r.jina.ai';
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
+    final targetUri = _normalizeTargetUri(req.url);
+    final readerUri = Uri.parse(
+      'https://$_readerHost/${_readerPath(targetUri)}',
+    );
+    final response = await httpClient.get(
+      readerUri,
+      headers: const {
+        'accept': 'text/markdown,text/plain,*/*;q=0.8',
+        'user-agent': 'OpenHand-WebFetch/1.0',
+      },
+    );
+    final status = response.statusCode;
+    if (status < 200 || status >= 400) {
+      throw WebEngineHttpException('Jina Reader HTTP $status');
+    }
+    final content = utf8
+        .decode(response.bodyBytes, allowMalformed: true)
+        .trim();
+    if (content.isEmpty) {
+      return const <WebFetchEngineContent>[];
+    }
+    return [
+      WebFetchEngineContent(
+        url: req.url,
+        title: _extractReaderTitle(content) ?? targetUri.toString(),
+        content: content,
+        contentType: response.headers['content-type'] ?? 'text/markdown',
+        statusCode: status,
+        responseHeaders: Map<String, String>.from(response.headers),
+      ),
+    ];
+  }
+
+  Uri _normalizeTargetUri(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    final withScheme = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final uri = Uri.parse(withScheme);
+    final scheme = uri.scheme.toLowerCase();
+    if ((scheme != 'http' && scheme != 'https') || uri.host.trim().isEmpty) {
+      throw WebEngineHttpException('Jina Reader invalid URL: $rawUrl');
+    }
+    return uri;
+  }
+
+  String _readerPath(Uri uri) {
+    final host = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+    final path = uri.path.isEmpty ? '' : uri.path;
+    final query = uri.hasQuery ? '?${uri.query}' : '';
+    return '$host$path$query';
+  }
+
+  String? _extractReaderTitle(String content) {
+    for (final line in const LineSplitter().convert(content)) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('Title:')) {
+        final title = trimmed.substring('Title:'.length).trim();
+        if (title.isNotEmpty) return title;
+      }
+      if (trimmed.startsWith('# ')) {
+        final title = trimmed.substring(2).trim();
+        if (title.isNotEmpty) return title;
+      }
+      if (trimmed.isNotEmpty) break;
+    }
+    return null;
+  }
+}
+
 class WebFetchTavilyEngine extends WebFetchEngine {
   WebFetchTavilyEngine({required super.config, required super.httpClient});
 
@@ -212,6 +290,8 @@ WebFetchEngine? buildScrapeEngine({
         scraplingBridge: scraplingBridge,
         scraplingSettings: scraplingSettings,
       );
+    case AiWebFetchEngineKind.jina:
+      return WebFetchJinaReaderEngine(config: config, httpClient: httpClient);
     case AiWebFetchEngineKind.tavily:
       return WebFetchTavilyEngine(config: config, httpClient: httpClient);
     case AiWebFetchEngineKind.exa:

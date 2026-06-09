@@ -13,6 +13,9 @@ enum AiWebFetchEngineKind {
   /// Scrapling 本地 Python 抓取桥接。
   scrapling,
 
+  /// Jina Reader `r.jina.ai` —— URL → Markdown，无需 API Key。
+  jina,
+
   /// Tavily `/extract` —— URL → 全文。
   tavily,
 
@@ -46,6 +49,7 @@ enum AiWebFetchEngineKind {
   bool get requiresApiKey {
     return switch (this) {
       AiWebFetchEngineKind.scrapling => false,
+      AiWebFetchEngineKind.jina => false,
       AiWebFetchEngineKind.duckduckgo => false,
       AiWebFetchEngineKind.bing => false,
       _ => true,
@@ -54,7 +58,8 @@ enum AiWebFetchEngineKind {
 
   /// 失败兜底引擎（即使用户全禁也会启用）。
   bool get isFallback {
-    return this == AiWebFetchEngineKind.bing ||
+    return this == AiWebFetchEngineKind.jina ||
+        this == AiWebFetchEngineKind.bing ||
         this == AiWebFetchEngineKind.duckduckgo;
   }
 }

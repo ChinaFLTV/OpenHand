@@ -357,6 +357,7 @@ class WebFetchOrchestrator {
     return switch (kind) {
       AiWebFetchEngineKind.firecrawl ||
       AiWebFetchEngineKind.scrapling ||
+      AiWebFetchEngineKind.jina ||
       AiWebFetchEngineKind.tavily ||
       AiWebFetchEngineKind.exa ||
       AiWebFetchEngineKind.duckduckgo ||
@@ -372,6 +373,7 @@ class WebFetchOrchestrator {
 
   List<AiWebFetchEngineConfig> _fallbackConfigs() {
     return const [
+      AiWebFetchEngineConfig(kind: AiWebFetchEngineKind.jina, enabled: true),
       AiWebFetchEngineConfig(kind: AiWebFetchEngineKind.bing, enabled: true),
       AiWebFetchEngineConfig(
         kind: AiWebFetchEngineKind.duckduckgo,

@@ -1150,6 +1150,15 @@ function MessageCardImpl({
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
+  const plainRoleMeta = isUserBubble
+    ? (message.kind && message.kind !== 'text' && message.kind !== 'user'
+      ? message.kind
+      : '')
+    : `${roleLabel(message.role)}${
+      message.kind && message.kind !== 'text' && message.kind !== 'user' && message.kind !== 'assistant'
+        ? ` · ${message.kind}`
+        : ''
+    }`;
   const media = sessionId ? (
     <MessageMedia
       message={message}
@@ -1289,12 +1298,7 @@ function MessageCardImpl({
               </span>
             )
           ) : (
-            <span class="opacity-90">
-              {roleLabel(message.role)}
-              {message.kind && message.kind !== 'text' && message.kind !== 'user' && message.kind !== 'assistant'
-                ? ` · ${message.kind}`
-                : ''}
-            </span>
+            plainRoleMeta ? <span class="opacity-90">{plainRoleMeta}</span> : null
           )}
           {message.model_label && message.role !== 'user' ? (
             <span class="oh-message-model-label truncate opacity-75">· {message.model_label}</span>
@@ -1929,4 +1933,3 @@ function ToolArgumentsBlock({
     </div>
   );
 }
-

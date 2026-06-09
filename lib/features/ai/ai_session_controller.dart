@@ -2378,7 +2378,13 @@ class AiSessionController extends ChangeNotifier {
     _clearSessionScopedSendState(sessionId);
   }
 
-  Future<({String content, List<AiMessageAttachment> attachments})?>
+  Future<
+    ({
+      String content,
+      List<AiMessageAttachment> attachments,
+      Map<String, Object?>? selectedSkillMetadata,
+    })?
+  >
   beginEditingMessage(String messageId) async {
     return _enqueueOperation(() async {
       final session = currentSession;
@@ -2422,7 +2428,16 @@ class AiSessionController extends ChangeNotifier {
       final attachments = AiMessageAttachment.listFromMetadata(
         editingMessage.metadata[aiSessionMessageAttachmentsMetadataKey],
       );
-      return (content: editingMessage.content, attachments: attachments);
+      final rawSkillMetadata =
+          editingMessage.metadata[aiUserSkillSelectionMetadataKey];
+      final selectedSkillMetadata = rawSkillMetadata is Map
+          ? Map<String, Object?>.from(rawSkillMetadata)
+          : null;
+      return (
+        content: editingMessage.content,
+        attachments: attachments,
+        selectedSkillMetadata: selectedSkillMetadata,
+      );
     });
   }
 

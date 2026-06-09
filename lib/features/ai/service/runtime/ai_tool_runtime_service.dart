@@ -1982,7 +1982,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.webFetch,
       name: 'WebFetch',
       description:
-          'Fetch a URL and answer a prompt against the fetched content.',
+          'Fetch a URL with configured engines, then answer a prompt against the fetched content.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

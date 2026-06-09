@@ -781,6 +781,74 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     };
   }
 
+  Future<void> restoreSelectedSkillFromMetadata(
+    Map<String, Object?>? metadata,
+  ) async {
+    final skill = _skillFromSelectionMetadata(metadata);
+    if (skill == null) {
+      _clearSelectedSkill();
+      return;
+    }
+    String? manifestContent;
+    try {
+      final controller = Provider.of<SkillsController>(context, listen: false);
+      manifestContent = await controller.readSkillManifest(skill);
+    } catch (_) {
+      manifestContent = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedSkill = skill;
+      _selectedSkillManifest = manifestContent;
+    });
+  }
+
+  LocalSkill? _skillFromSelectionMetadata(Map<String, Object?>? metadata) {
+    if (metadata == null || metadata.isEmpty) return null;
+    final name = '${metadata['name'] ?? ''}'.trim();
+    final path = '${metadata['path'] ?? metadata['manifest_path'] ?? ''}'
+        .trim();
+    final relativePath =
+        '${metadata['relative_directory_path'] ?? metadata['relative_path'] ?? ''}'
+            .trim();
+    final normalizedPath = path.isEmpty ? '' : p.normalize(path);
+    final normalizedRelativePath = relativePath.isEmpty
+        ? ''
+        : p.normalize(relativePath);
+    final skills = _readSkillsListSafe();
+    for (final skill in skills) {
+      if (normalizedPath.isNotEmpty &&
+          (p.normalize(skill.manifestPath) == normalizedPath ||
+              p.normalize(skill.directoryPath) == normalizedPath)) {
+        return skill;
+      }
+      if (normalizedRelativePath.isNotEmpty &&
+          p.normalize(skill.relativeDirectoryPath) == normalizedRelativePath) {
+        return skill;
+      }
+      if (name.isNotEmpty && skill.name == name) {
+        return skill;
+      }
+    }
+    if (name.isEmpty) return null;
+    final manifestPath = normalizedPath.endsWith('SKILL.md')
+        ? normalizedPath
+        : '';
+    final directoryPath = manifestPath.isNotEmpty
+        ? p.dirname(manifestPath)
+        : normalizedPath;
+    return LocalSkill(
+      name: name,
+      description: '',
+      directoryPath: directoryPath,
+      manifestPath: manifestPath,
+      relativeDirectoryPath: normalizedRelativePath,
+      emojiIcon: '${metadata['emoji'] ?? ''}'.trim().isEmpty
+          ? null
+          : '${metadata['emoji']}'.trim(),
+    );
+  }
+
   /// Consumes the currently-selected skill (if any) and returns a single
   /// `<system-reminder>` payload string that should be appended to the
   /// outgoing LLM prompt.  The selection chip is cleared as a side effect so

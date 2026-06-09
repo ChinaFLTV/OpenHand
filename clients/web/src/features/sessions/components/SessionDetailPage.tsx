@@ -116,6 +116,76 @@ const COMPOSER_CHIP_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
+const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
+
+interface RestoredSkillSelection {
+  name: string;
+  path: string;
+  relativePath: string;
+  emoji: string | null;
+}
+
+function asObjectRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function extractUserSkillSelection(message: SessionMessage): RestoredSkillSelection | null {
+  const metadata = asObjectRecord(message.metadata);
+  const skill = asObjectRecord(metadata?.[USER_SKILL_SELECTION_METADATA_KEY])
+    ?? asObjectRecord(metadata?.['selected_skill']);
+  if (!skill) return null;
+  const name = trimString(skill['name']);
+  const path = trimString(skill['path']) || trimString(skill['manifest_path']);
+  const relativePath = trimString(skill['relative_directory_path'])
+    || trimString(skill['relative_path']);
+  if (!name && !path && !relativePath) return null;
+  return {
+    name,
+    path,
+    relativePath,
+    emoji: trimString(skill['emoji']) || null,
+  };
+}
+
+function skillMatchesSelection(skill: SkillSummary, selection: RestoredSkillSelection): boolean {
+  if (selection.relativePath && skill.relative_directory_path === selection.relativePath) {
+    return true;
+  }
+  if (selection.path) {
+    const normalized = selection.path.replaceAll('\\', '/');
+    const relative = skill.relative_directory_path.replaceAll('\\', '/');
+    if (
+      normalized.endsWith(`/${relative}`) ||
+      normalized.endsWith(`/${relative}/SKILL.md`)
+    ) {
+      return true;
+    }
+  }
+  return Boolean(selection.name && skill.name === selection.name);
+}
+
+function skillSummaryFromSelection(
+  selection: RestoredSkillSelection,
+  source: SkillSummary[],
+): SkillSummary | null {
+  const found = source.find((skill) => skillMatchesSelection(skill, selection));
+  if (found) return found;
+  if (!selection.name) return null;
+  return {
+    name: selection.name,
+    description: '',
+    directory_path: selection.path,
+    relative_directory_path: selection.relativePath,
+    has_default_prompt: false,
+    emoji_icon: selection.emoji,
+  };
+}
 
 function readPersistedComposerCollapsed(): boolean {
   try {
@@ -1536,6 +1606,7 @@ export function SessionDetailPage() {
     setComposerAttachments([]);
     setComposerAttachmentIds([]);
     setAttachmentPreviews([]);
+    void restoreSelectedSkillForEdit(m);
     void restoreAttachmentsForEdit(m);
     window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
@@ -2653,6 +2724,33 @@ export function SessionDetailPage() {
       skillsLoadedRef.current = true;
       setSkillPickerLoading(false);
     }
+  }
+
+  async function restoreSelectedSkillForEdit(message: SessionMessage): Promise<void> {
+    const selection = extractUserSkillSelection(message);
+    if (!selection) {
+      setSelectedSkill(null);
+      return;
+    }
+    let source = skills;
+    if (!skillsLoadedRef.current) {
+      try {
+        const res = await listSkills();
+        source = res.items;
+        if (!ownsSessionAsyncResult(sessionId) || editingDraftMessageRef.current?.id !== message.id) {
+          return;
+        }
+        setSkills(res.items);
+        skillsLoadedRef.current = true;
+      } catch {
+        source = skills;
+        skillsLoadedRef.current = true;
+      }
+    }
+    if (!ownsSessionAsyncResult(sessionId) || editingDraftMessageRef.current?.id !== message.id) {
+      return;
+    }
+    setSelectedSkill(skillSummaryFromSelection(selection, source));
   }
 
   function computeSlashTrigger(text: string, cursor: number): { tokenEnd: number; query: string; token: string } | null {

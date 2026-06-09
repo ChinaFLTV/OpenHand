@@ -725,10 +725,10 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             context,
             zh:
                 '拖拽卡片调整顺序；启用至少一个引擎；若全部禁用则自动启用 '
-                'Bing/DuckDuckGo 兜底。Scrapling 未就绪时只会跳过该引擎。',
+                'Jina/Bing/DuckDuckGo 兜底。Scrapling 未就绪时只会跳过该引擎。',
             en:
                 'Drag cards to reorder; enable at least one. '
-                'If all are disabled, Bing/DuckDuckGo fallback kicks in. '
+                'If all are disabled, Jina/Bing/DuckDuckGo fallback kicks in. '
                 'If Scrapling is not ready, only that engine is skipped.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
@@ -2032,6 +2032,7 @@ String _fetchEngineDisplayName(AiWebFetchEngineKind kind) {
   return switch (kind) {
     AiWebFetchEngineKind.firecrawl => 'Firecrawl',
     AiWebFetchEngineKind.scrapling => 'Scrapling',
+    AiWebFetchEngineKind.jina => 'Jina Reader',
     AiWebFetchEngineKind.tavily => 'Tavily Extract',
     AiWebFetchEngineKind.exa => 'Exa Contents',
     AiWebFetchEngineKind.kimi => 'Kimi (Moonshot)',
@@ -2396,6 +2397,7 @@ String? _fetchApiKeyHint(AiWebFetchEngineKind kind) {
   return switch (kind) {
     AiWebFetchEngineKind.firecrawl => 'fc-...',
     AiWebFetchEngineKind.scrapling => null,
+    AiWebFetchEngineKind.jina => null,
     AiWebFetchEngineKind.tavily => 'tvly-...',
     AiWebFetchEngineKind.exa => 'exa-...',
     AiWebFetchEngineKind.kimi => 'sk-... (Moonshot)',
@@ -2419,6 +2421,11 @@ String _fetchEngineSubtitle(BuildContext context, AiWebFetchEngineKind kind) {
       context,
       zh: '本地 Python 抓取 · 复杂页面更稳',
       en: 'Local Python scrape · better on complex pages',
+    ),
+    AiWebFetchEngineKind.jina => _localizedText(
+      context,
+      zh: 'r.jina.ai · Markdown 正文',
+      en: 'r.jina.ai · Markdown content',
     ),
     AiWebFetchEngineKind.tavily => _localizedText(
       context,

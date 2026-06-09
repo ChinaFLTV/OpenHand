@@ -6308,6 +6308,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _composerCollapsed = false;
       _pendingAttachments = restoredAttachments;
     });
+    unawaited(
+      _composerPanelState?.restoreSelectedSkillFromMetadata(
+            result.selectedSkillMetadata,
+          ) ??
+          Future<void>.value(),
+    );
     _scheduleScrollToBottom();
   }
 
