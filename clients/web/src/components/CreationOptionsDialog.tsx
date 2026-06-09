@@ -1,6 +1,6 @@
 // 多媒体生成选项弹窗：对齐 APP 端 _CreationOptionsSheet 的功能与视觉。
 // 支持图片（宽高比 + 数量）、视频（宽高比 + 时长 + 数量）、音频（时长 + 数量）。
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
@@ -26,6 +26,16 @@ const IMAGE_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 const VIDEO_RATIOS = ['16:9', '9:16', '1:1', '4:3'];
 const VIDEO_DURATIONS = [3, 5, 8, 10];
 const AUDIO_DURATIONS = [5, 10, 20, 30, 60];
+const MIN_CREATION_COUNT = 1;
+const MAX_CREATION_COUNT = 4;
+
+function clampCreationCount(value: number | undefined): number {
+  if (value == null || !Number.isFinite(value)) return MIN_CREATION_COUNT;
+  return Math.min(
+    MAX_CREATION_COUNT,
+    Math.max(MIN_CREATION_COUNT, Math.round(value)),
+  );
+}
 
 function modeTitle(mode: string): string {
   switch (mode) {
@@ -37,21 +47,41 @@ function modeTitle(mode: string): string {
 }
 
 export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: CreationOptionsDialogProps) {
-  const { closing, requestClose } = useDialogExitMotion(onCancel);
+  const closeActionRef = useRef<'cancel' | 'confirm'>('cancel');
+  const selectedOptionsRef = useRef<CreationOptions>({});
   const [aspectRatio, setAspectRatio] = useState(
     initial?.aspectRatio ?? (mode === 'image' ? '1:1' : mode === 'video' ? '16:9' : undefined),
   );
   const [durationSeconds, setDurationSeconds] = useState(
     initial?.durationSeconds ?? (mode === 'video' ? 5 : mode === 'audio' ? 10 : undefined),
   );
-  const [count, setCount] = useState(initial?.count ?? 1);
+  const [count, setCount] = useState(clampCreationCount(initial?.count));
 
-  const handleConfirm = () => {
-    onConfirm({
-      aspectRatio: mode !== 'audio' ? aspectRatio : undefined,
-      durationSeconds: mode !== 'image' ? durationSeconds : undefined,
-      count,
-    });
+  const selectedOptions = (): CreationOptions => ({
+    aspectRatio: mode !== 'audio' ? aspectRatio : undefined,
+    durationSeconds: mode !== 'image' ? durationSeconds : undefined,
+    count,
+  });
+
+  const { closing, requestClose } = useDialogExitMotion(() => {
+    const action = closeActionRef.current;
+    closeActionRef.current = 'cancel';
+    if (action === 'confirm') {
+      onConfirm(selectedOptionsRef.current);
+      return;
+    }
+    onCancel();
+  });
+
+  const requestCancel = () => {
+    closeActionRef.current = 'cancel';
+    requestClose();
+  };
+
+  const requestConfirm = () => {
+    selectedOptionsRef.current = selectedOptions();
+    closeActionRef.current = 'confirm';
+    requestClose();
   };
 
   const ratios = mode === 'image' ? IMAGE_RATIOS : mode === 'video' ? VIDEO_RATIOS : [];
@@ -60,7 +90,8 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
   return (
     <DialogFrame
       closing={closing}
-      onRequestClose={requestClose}
+      onRequestClose={requestCancel}
+      closeOnBackdrop={!closing}
       overlayClassName="fixed inset-0 flex items-end justify-center"
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 32%, transparent)',
@@ -136,8 +167,8 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
             <div class="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setCount(Math.max(1, count - 1))}
-                disabled={count <= 1}
+                onClick={() => setCount((current) => clampCreationCount(current - 1))}
+                disabled={closing || count <= MIN_CREATION_COUNT}
                 class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-lg disabled:opacity-30"
                 style={{ border: '1px solid var(--m3-outline-variant)' }}
               >
@@ -146,8 +177,8 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
               <span class="text-base font-semibold w-6 text-center">{count}</span>
               <button
                 type="button"
-                onClick={() => setCount(Math.min(4, count + 1))}
-                disabled={count >= 4}
+                onClick={() => setCount((current) => clampCreationCount(current + 1))}
+                disabled={closing || count >= MAX_CREATION_COUNT}
                 class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-lg disabled:opacity-30"
                 style={{ border: '1px solid var(--m3-outline-variant)' }}
               >
@@ -160,7 +191,8 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
           <div class="flex justify-end gap-3">
             <button
               type="button"
-              onClick={requestClose}
+              onClick={requestCancel}
+              disabled={closing}
               class="oh-tap-press px-5 py-2.5 rounded-full text-sm font-medium"
               style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
             >
@@ -168,8 +200,9 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
             </button>
             <button
               type="button"
-              onClick={handleConfirm}
-              class="oh-tap-press px-5 py-2.5 rounded-full text-sm font-medium"
+              onClick={requestConfirm}
+              disabled={closing}
+              class="oh-tap-press px-5 py-2.5 rounded-full text-sm font-medium disabled:opacity-60"
               style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
             >
               {t('common.confirm', '确认')}

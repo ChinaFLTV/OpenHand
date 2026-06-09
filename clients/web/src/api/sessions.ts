@@ -14,7 +14,7 @@ import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
-import { saveBlobWithPicker } from '../utils/save_blob';
+import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
 
 export interface SessionTodoItem {
   id: string;
@@ -504,22 +504,6 @@ export interface ExportDownloadResult {
 
 export const EXPORT_SESSION_TIMEOUT_ERROR = 'EXPORT_SESSION_TIMEOUT';
 const EXPORT_SESSION_TIMEOUT_MS = 15_000;
-
-function filenameFromContentDisposition(value: string | null): string | null {
-  if (!value) return null;
-  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
-  if (encoded?.[1]) {
-    try {
-      return decodeURIComponent(encoded[1]);
-    } catch {
-      return encoded[1];
-    }
-  }
-  const quoted = /filename="([^"]+)"/i.exec(value);
-  if (quoted?.[1]) return quoted[1];
-  const plain = /filename=([^;]+)/i.exec(value);
-  return plain?.[1]?.trim() ?? null;
-}
 
 export async function exportSessionDownload(
   sessionId: string,

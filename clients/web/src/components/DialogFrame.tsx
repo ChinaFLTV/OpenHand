@@ -81,7 +81,7 @@ export function DialogFrame({
   const overlayClass = `${overlayMotionClass} ${overlayClassName}`.trim();
   const sectionClass = `${panelClass} ${panelClassName}`.trim();
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
-    if (!closeOnBackdrop || !onRequestClose || event.target !== event.currentTarget) {
+    if (closing || !closeOnBackdrop || !onRequestClose || event.target !== event.currentTarget) {
       return;
     }
     onRequestClose();

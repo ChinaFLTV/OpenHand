@@ -13,6 +13,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { clampNumber } from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface MenuOption<T extends string = string> {
@@ -51,10 +52,6 @@ interface MenuPosition {
 const VIEWPORT_GAP = 8;
 const MENU_OFFSET = 4;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
 export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>): JSX.Element {
   const reduceMotion = useReducedMotion();
   const {
@@ -83,7 +80,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     const rect = trigger.getBoundingClientRect();
     const minMenuWidth = Math.max(minWidth, rect.width);
     const maxLeft = window.innerWidth - minMenuWidth - VIEWPORT_GAP;
-    const left = clamp(rect.left, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, maxLeft));
+    const left = clampNumber(rect.left, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, maxLeft));
     const below = window.innerHeight - rect.bottom - MENU_OFFSET - VIEWPORT_GAP;
     const above = rect.top - MENU_OFFSET - VIEWPORT_GAP;
     const openUp = below < 128 && above > below;

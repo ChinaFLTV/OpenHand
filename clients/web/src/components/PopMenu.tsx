@@ -13,6 +13,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preac
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import {
+  DEFAULT_FLOATING_ANCHOR_GAP,
+  DEFAULT_FLOATING_VIEWPORT_PADDING,
+  computeAnchoredMenuPosition,
+} from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface PopMenuItem {
@@ -45,8 +50,8 @@ interface MenuPos {
   width: number;
 }
 
-const VIEWPORT_PADDING = 8;
-const MENU_GAP = 4;
+const VIEWPORT_PADDING = DEFAULT_FLOATING_VIEWPORT_PADDING;
+const MENU_GAP = DEFAULT_FLOATING_ANCHOR_GAP;
 
 function PopMenuCheckIcon() {
   return (
@@ -134,23 +139,16 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
     const trig = wrapRef.current;
     if (!trig) return;
     const r = trig.getBoundingClientRect();
-    const menuEl = menuRef.current;
-    const menuRect = menuEl?.getBoundingClientRect();
     const desiredWidth = width ?? Math.max(r.width, 160);
-    const menuWidth = menuRect?.width ?? desiredWidth;
-    const menuHeight = menuRect?.height ?? 160;
-    let left = align === 'right' ? r.right - menuWidth : r.left;
-    let top = r.bottom + MENU_GAP;
-    // 右侧夹紧。
-    const maxLeft = window.innerWidth - menuWidth - VIEWPORT_PADDING;
-    if (left > maxLeft) left = maxLeft;
-    if (left < VIEWPORT_PADDING) left = VIEWPORT_PADDING;
-    // 底部不够时翻到触发器上方。
-    if (top + menuHeight > window.innerHeight - VIEWPORT_PADDING) {
-      const above = r.top - menuHeight - MENU_GAP;
-      if (above >= VIEWPORT_PADDING) top = above;
-    }
-    setPos({ top, left, width: desiredWidth });
+    const position = computeAnchoredMenuPosition({
+      anchor: trig,
+      preferredWidth: desiredWidth,
+      measuredHeight: menuRef.current?.getBoundingClientRect().height,
+      align,
+      viewportPadding: VIEWPORT_PADDING,
+      gap: MENU_GAP,
+    });
+    setPos({ top: position.top, left: position.left, width: position.width });
   }, [align, width]);
   const { schedule: scheduleRecompute, flush: recomputeNow, cancel: cancelRecompute } = useRafScheduler(recompute);
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'motion_preference.dart';
 
 /// One-shot, ticker-self-disposing entrance animation wrapper.
 ///
@@ -49,6 +50,7 @@ class _AppearOnceState extends State<AppearOnce>
   AnimationController? _ctrl;
   Animation<double>? _opacity;
   Animation<double>? _translate;
+  bool _deferredControllerCleanup = false;
 
   @override
   void initState() {
@@ -69,6 +71,10 @@ class _AppearOnceState extends State<AppearOnce>
 
   void _onStatus(AnimationStatus status) {
     if (status != AnimationStatus.completed) return;
+    _disposeCompletedController();
+  }
+
+  void _disposeCompletedController() {
     final ctrl = _ctrl;
     if (ctrl == null) return;
     ctrl.removeStatusListener(_onStatus);
@@ -76,7 +82,17 @@ class _AppearOnceState extends State<AppearOnce>
     _ctrl = null;
     _opacity = null;
     _translate = null;
+    _deferredControllerCleanup = false;
     if (mounted) setState(() {});
+  }
+
+  void _disposeControllerAfterBuild() {
+    if (_deferredControllerCleanup) return;
+    _deferredControllerCleanup = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _disposeCompletedController();
+    });
   }
 
   @override
@@ -95,10 +111,10 @@ class _AppearOnceState extends State<AppearOnce>
       // zero overhead per frame from here on out.
       return widget.child;
     }
-    if (MediaQuery.disableAnimationsOf(context)) {
-      // Honor user / OS reduce-motion: snap to the resting state and let
-      // the controller finish out (it'll dispose itself via _onStatus).
-      _ctrl?.value = 1.0;
+    if (openHandReduceMotionOf(context)) {
+      // Honor user / OS reduce-motion without mutating the controller during
+      // build; cleanup is deferred to avoid build-phase setState hazards.
+      _disposeControllerAfterBuild();
       return widget.child;
     }
     return FadeTransition(

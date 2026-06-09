@@ -24,7 +24,35 @@ interface SaveFilePickerOptions {
 
 type SaveFilePicker = (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>;
 
-function fallbackDownload(blob: Blob, filename: string): void {
+const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 5_000;
+
+function normalizeRevokeDelayMs(value: number | undefined): number {
+  if (value == null) return DEFAULT_OBJECT_URL_REVOKE_DELAY_MS;
+  if (!Number.isFinite(value)) return DEFAULT_OBJECT_URL_REVOKE_DELAY_MS;
+  return Math.max(0, Math.round(value));
+}
+
+export function filenameFromContentDisposition(value: string | null): string | null {
+  if (!value) return null;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (encoded?.[1]) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      return encoded[1];
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(value);
+  if (quoted?.[1]) return quoted[1];
+  const plain = /filename=([^;]+)/i.exec(value);
+  return plain?.[1]?.trim() ?? null;
+}
+
+export function downloadBlobWithAnchor(
+  blob: Blob,
+  filename: string,
+  revokeDelayMs?: number,
+): void {
   const url = URL.createObjectURL(blob);
   try {
     const anchor = document.createElement('a');
@@ -34,7 +62,10 @@ function fallbackDownload(blob: Blob, filename: string): void {
     anchor.click();
     anchor.remove();
   } finally {
-    window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    window.setTimeout(
+      () => URL.revokeObjectURL(url),
+      normalizeRevokeDelayMs(revokeDelayMs),
+    );
   }
 }
 
@@ -60,6 +91,6 @@ export async function saveBlobWithPicker(
       }
     }
   }
-  fallbackDownload(blob, normalizedFilename);
+  downloadBlobWithAnchor(blob, normalizedFilename);
   return { filename: normalizedFilename, picked: false };
 }

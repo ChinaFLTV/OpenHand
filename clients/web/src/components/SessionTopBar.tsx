@@ -9,6 +9,11 @@ import { t } from '../i18n';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import {
+  DEFAULT_FLOATING_ANCHOR_GAP,
+  DEFAULT_FLOATING_VIEWPORT_PADDING,
+  computeAnchoredMenuPosition,
+} from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 import { RollingText } from './RollingText';
@@ -556,8 +561,8 @@ function CapsuleBadge({
 }
 
 const MENU_MIN_WIDTH = 180;
-const MENU_VIEWPORT_GAP = 8;
-const MENU_OFFSET = 4;
+const MENU_VIEWPORT_GAP = DEFAULT_FLOATING_VIEWPORT_PADDING;
+const MENU_OFFSET = DEFAULT_FLOATING_ANCHOR_GAP;
 
 interface TopBarMenuPosition {
   top: number;
@@ -569,27 +574,16 @@ function computeTopBarMenuPosition(
   menuWidth = MENU_MIN_WIDTH,
   menuHeight = 0,
 ): TopBarMenuPosition {
-  if (typeof window === 'undefined' || !anchor) {
-    return { top: MENU_VIEWPORT_GAP, left: MENU_VIEWPORT_GAP };
-  }
-  const rect = anchor.getBoundingClientRect();
-  const usableWidth = Math.max(MENU_MIN_WIDTH, window.innerWidth - MENU_VIEWPORT_GAP * 2);
-  const width = Math.min(Math.max(menuWidth, MENU_MIN_WIDTH), usableWidth);
-  let left = rect.right - width;
-  left = Math.max(MENU_VIEWPORT_GAP, Math.min(left, window.innerWidth - width - MENU_VIEWPORT_GAP));
-
-  let top = rect.bottom + MENU_OFFSET;
-  if (
-    menuHeight > 0 &&
-    top + menuHeight > window.innerHeight - MENU_VIEWPORT_GAP &&
-    rect.top - menuHeight - MENU_OFFSET >= MENU_VIEWPORT_GAP
-  ) {
-    top = rect.top - menuHeight - MENU_OFFSET;
-  } else if (menuHeight > 0) {
-    top = Math.min(top, window.innerHeight - menuHeight - MENU_VIEWPORT_GAP);
-    top = Math.max(MENU_VIEWPORT_GAP, top);
-  }
-  return { top, left };
+  const position = computeAnchoredMenuPosition({
+    anchor,
+    preferredWidth: menuWidth,
+    minWidth: MENU_MIN_WIDTH,
+    measuredHeight: menuHeight,
+    align: 'right',
+    viewportPadding: MENU_VIEWPORT_GAP,
+    gap: MENU_OFFSET,
+  });
+  return { top: position.top, left: position.left };
 }
 
 function Menu({

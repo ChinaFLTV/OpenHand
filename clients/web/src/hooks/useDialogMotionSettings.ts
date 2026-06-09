@@ -108,6 +108,20 @@ function reverseCurveToCss(curve: string): string {
   }
 }
 
+function applyDialogMotionSettingsToDocument(): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.dataset.dialogEnter = currentSettings.entranceStyle;
+  root.dataset.dialogExit = currentSettings.exitStyle;
+  root.style.setProperty('--oh-dialog-duration', `${currentSettings.durationMs}ms`);
+  root.style.setProperty('--oh-dialog-curve', curveToCss(currentSettings.curve));
+  root.style.setProperty('--oh-dialog-exit-curve', reverseCurveToCss(currentSettings.curve));
+}
+
+export function initDialogMotionSettingsAttribute(): void {
+  applyDialogMotionSettingsToDocument();
+}
+
 export function syncRemoteDialogMotionSettings(
   raw: ApiDialogAnimationSettings | undefined,
 ): void {
@@ -122,13 +136,7 @@ export function syncRemoteDialogMotionSettings(
     durationMs: normalizeDuration(raw?.duration_ms, entranceStyle, exitStyle),
     curve: normalizeCurve(raw?.curve),
   };
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-  root.dataset.dialogEnter = currentSettings.entranceStyle;
-  root.dataset.dialogExit = currentSettings.exitStyle;
-  root.style.setProperty('--oh-dialog-duration', `${currentSettings.durationMs}ms`);
-  root.style.setProperty('--oh-dialog-curve', curveToCss(currentSettings.curve));
-  root.style.setProperty('--oh-dialog-exit-curve', reverseCurveToCss(currentSettings.curve));
+  applyDialogMotionSettingsToDocument();
 }
 
 export function getDialogExitDurationMs(): number {

@@ -4,6 +4,7 @@
 
 import { apiRequest } from './client';
 import { readToken, ensureDeviceId } from '../state/storage';
+import { downloadBlobWithAnchor } from '../utils/save_blob';
 
 export interface LogEntry {
   id: number;
@@ -54,15 +55,5 @@ export async function exportLogsBundle(): Promise<void> {
     throw new Error(`HTTP ${res.status}`);
   }
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'openhand-web-gateway-logs.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  downloadBlobWithAnchor(blob, 'openhand-web-gateway-logs.json');
 }
