@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -64,7 +65,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
-  static const int _maxStdioStdoutBufferBytes = 4 * 1024 * 1024;
+  static const int _maxStdioStdoutBufferBytes = 4 * kBytesPerMiB;
   static const int _maxRedirects = 4;
   static const int _maxToolPages = 8;
   static const String _streamableHttpProtocolVersion = '2025-11-25';
@@ -544,8 +545,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         resolved.executable,
         resolved.args,
         environment: <String, String>{
-          ...SystemProxyResolver.instance
-              .resolveSubprocessEnvironment(),
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           ...resolved.environment,
         },
         // Windows .cmd / .bat / .ps1 launchers (e.g. `npx.cmd`) only resolve
@@ -2503,7 +2503,7 @@ class _StdioSession {
     final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
     const maxMiB =
         DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes ~/
-        (1024 * 1024);
+        kBytesPerMiB;
     return 'Tool scan failed because the stdio MCP server wrote more than $maxMiB MiB to stdout without a complete protocol message.$traceSuffix';
   }
 

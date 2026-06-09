@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/byte_size_format.dart';
 
 /// 网络多媒体本地缓存管理器 (单例)。
 class MediaCacheService {
@@ -108,7 +109,7 @@ class MediaCacheService {
           }
         }
         // 限制单文件最大 50MB, 防止恶意/异常响应撑爆磁盘。
-        const maxBytes = 50 * 1024 * 1024;
+        const maxBytes = 50 * kBytesPerMiB;
         final tempFile = File(tempPath);
         final sink = tempFile.openWrite();
         int written = 0;

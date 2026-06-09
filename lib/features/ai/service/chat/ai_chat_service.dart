@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
@@ -238,7 +239,7 @@ class AiChatService implements AiChatClient {
   /// pending buffer instead of letting it grow without bound and OOM the
   /// process. 4 MiB is far above any realistic single-event size while
   /// remaining cheap to retain.
-  int maxStreamLineBufferBytes = 4 * 1024 * 1024;
+  int maxStreamLineBufferBytes = 4 * kBytesPerMiB;
 
   final http.Client _client;
   final AiImageGenerationService _imageService;

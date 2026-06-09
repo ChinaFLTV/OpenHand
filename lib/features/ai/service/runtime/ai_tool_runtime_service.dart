@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
@@ -26,6 +27,8 @@ import '../web_fetch/web_fetch_scrapling_bridge.dart';
 import 'ai_tool_execution_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
+
+const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
 
 class AiResolvedToolCatalog {
   const AiResolvedToolCatalog({
@@ -984,7 +987,7 @@ class AiToolRuntimeService {
         String? after;
         try {
           after = await file.readAsString();
-          if (after.length > 16 * 1024 * 1024) after = null;
+          if (after.length > _maxPostHocLedgerCaptureBytes) after = null;
         } catch (error, stack) {
           silentLog(
             'AiToolRuntimeService',

@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -30,12 +31,12 @@ class AiAttachmentService {
   static const int maxAttachmentPromptCharactersPerMessage = 32000;
   static const int _minAttachmentPromptCharactersPerFile = 512;
   int maxInlineImageDimension = 1568;
-  int maxTextRawBytes = 2 * 1024 * 1024;
+  int maxTextRawBytes = 2 * kBytesPerMiB;
   static const int _maxSpreadsheetSheets = 3;
   static const int _maxSpreadsheetRowsPerSheet = 32;
-  static const int _maxSpreadsheetArchiveBytes = 8 * 1024 * 1024;
-  static const int _maxZipEntryBytes = 4 * 1024 * 1024;
-  int maxPdfRawBytes = 2 * 1024 * 1024;
+  static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
+  static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  int maxPdfRawBytes = 2 * kBytesPerMiB;
 
   final String _attachmentsDirectoryPath;
   final String Function(String sessionId)? _perSessionAttachmentsDirectoryPath;
@@ -312,7 +313,7 @@ class AiAttachmentService {
     };
   }
 
-  int maxImageRawBytes = 50 * 1024 * 1024;
+  int maxImageRawBytes = 50 * kBytesPerMiB;
 
   Future<AiMessageAttachment> _importImageAttachment({
     required File sourceFile,
@@ -1038,7 +1039,7 @@ class _ZipArchiveReader {
   /// Cumulative limit for total decompressed bytes across all entries to
   /// prevent zip-bomb attacks where many small entries decompress to a
   /// very large total size.
-  static const int _maxCumulativeDecompressedBytes = 32 * 1024 * 1024;
+  static const int _maxCumulativeDecompressedBytes = 32 * kBytesPerMiB;
   int _cumulativeDecompressedBytes = 0;
 
   String? readUtf8(String name) {

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/fs/ai_file_history_service.dart';
 import '../service/fs/ai_file_mutation_ledger.dart';
@@ -22,6 +23,7 @@ class AiToolUtils {
   static const int maxReadLineLength = 2000;
   static const int defaultReadLimit = 2000;
   static const int maxBinaryPreviewBytes = 32;
+  static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
 
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
@@ -533,7 +535,7 @@ class AiToolUtils {
       final stat = await f.stat();
       if (stat.type != FileSystemEntityType.file) return null;
       // 限制单文件 16 MB，超过则放弃捕获（避免 OOM）。
-      if (stat.size > 16 * 1024 * 1024) return null;
+      if (stat.size > maxLedgerCaptureBytes) return null;
       return await f.readAsString();
     } catch (error, stack) {
       silentLog('ai_tool_utils', 'readFileContentForLedger', error, stack);

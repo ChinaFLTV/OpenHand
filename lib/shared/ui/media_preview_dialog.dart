@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
 import 'openhand_snack_bar.dart';
 
@@ -396,7 +397,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         src = Uri.file(widget.filePath!).toString();
       } else if (widget.bytes != null) {
         // 大文件走 temp 文件，小文件直接 data:
-        if (widget.bytes!.lengthInBytes <= 8 * 1024 * 1024) {
+        if (widget.bytes!.lengthInBytes <= 8 * kBytesPerMiB) {
           src = 'data:$mime;base64,${base64Encode(widget.bytes!)}';
         } else {
           final dir = Directory.systemTemp;

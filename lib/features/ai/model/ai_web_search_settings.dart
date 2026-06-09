@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/byte_size_format.dart';
 
 /// 受支持的搜索引擎种类。顺序与默认渲染顺序一致；用户可在设置中拖拽改变实际优先级。
 enum AiWebSearchEngineKind {
@@ -260,9 +261,9 @@ class AiWebSearchSettings {
   static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
 
   /// 缓存容量上限（字节）。默认 50 MB；0 表示无上限（不推荐）。
-  static const int defaultCacheMaxBytes = 50 * 1024 * 1024;
+  static const int defaultCacheMaxBytes = 50 * kBytesPerMiB;
   static const int minCacheMaxBytes = 0;
-  static const int maxCacheMaxBytes = 2 * 1024 * 1024 * 1024;
+  static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
   // ===== 失败自动降级（cooldown）阈值，三档可调。=====
   static const int defaultCooldownTier1Failures = 3;

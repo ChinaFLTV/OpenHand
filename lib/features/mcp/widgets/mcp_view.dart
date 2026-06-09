@@ -24,6 +24,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
@@ -5037,11 +5038,13 @@ class _ToolSchemaPanel extends StatelessWidget {
 }
 
 /// 内容超过该阈值时，将格式化工作转移到后台 isolate 执行，避免阻塞 UI。
-const int _kAsyncFormatThreshold = 50 * 1024; // 50 KB
+const int _kAsyncFormatThreshold = 50 * kBytesPerKiB;
+
 /// 展示内容的最大长度，超出部分截断并标注。
-const int _kMaxDisplaySize = 500 * 1024; // 500 KB
+const int _kMaxDisplaySize = 500 * kBytesPerKiB;
+
 /// 超出该大小的原始响应直接放弃格式化，仅展示截断后的原始文本。
-const int _kSkipFormatThreshold = 5 * 1024 * 1024; // 5 MB
+const int _kSkipFormatThreshold = 5 * kBytesPerMiB;
 
 /// 从 MCP tool call 结果中提取实际响应文本，剥离 MCP 协议信封
 /// (`content` / `type` / `text` 包装层)。
@@ -5196,7 +5199,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
   }
 
   static String _kTruncationNote(int fullLength) {
-    final kb = (fullLength / 1024).toStringAsFixed(1);
+    final kb = (fullLength / kBytesPerKiB).toStringAsFixed(1);
     return '（内容已截断，原始大小约 $kb KB）';
   }
 

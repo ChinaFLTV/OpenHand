@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/byte_size_format.dart';
 import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -33,7 +34,7 @@ class AiWriteTool extends AiTool {
     // Guard against excessively large writes that could exhaust memory or
     // disk space.  10 MB is a generous limit for any single text file an AI
     // model would reasonably produce.
-    const maxContentBytes = 10 * 1024 * 1024; // 10 MB
+    const maxContentBytes = 10 * kBytesPerMiB;
     if (content.length > maxContentBytes) {
       return AiToolUtils.invalidResult(
         'Write',
