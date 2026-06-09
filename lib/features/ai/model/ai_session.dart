@@ -501,9 +501,9 @@ class AiSession {
   }
 
   List<AiSessionMessage> _computeDisplayMessages() {
-    final visibleMessages = this.visibleMessages;
     final toolCallIds = <String>{};
-    for (final message in visibleMessages) {
+    for (final message in messages) {
+      if (!message.isVisible) continue;
       if (message.kind != AiSessionMessageKind.toolCall) continue;
       final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
       if (toolCallId.isNotEmpty) {
@@ -511,7 +511,8 @@ class AiSession {
       }
     }
     final displayMessages = <AiSessionMessage>[];
-    for (final message in visibleMessages) {
+    for (final message in messages) {
+      if (!message.isVisible) continue;
       if (message.metadata['plan_mode_approved'] == true) {
         continue;
       }

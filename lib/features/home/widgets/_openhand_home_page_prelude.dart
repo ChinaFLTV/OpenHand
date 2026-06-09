@@ -53,9 +53,11 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // and let older history expand on demand. The transcript stays complete in
 // memory; this only limits initial widget materialisation.
 const int _transcriptInitialWindowSize = 6;
+const int _transcriptFirstFrameWindowSize = 3;
 const int _transcriptWindowIncrement = 18;
 const int _transcriptWindowingThreshold = 8;
 const int _transcriptPreparationThreshold = 12;
+const int _transcriptStagedMaterializationThreshold = 24;
 const double _transcriptListCacheExtent = 240;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Number of post-layout frames to wait before revealing the freshly switched
@@ -64,17 +66,8 @@ const int _resumeAutoFollowStabilizationFrameCount = 2;
 // finish first layout + scroll-to-bottom — preventing the "long blank"
 // window that was previously forced regardless of how fast the real list
 // rendered.
-// 阶段㉒ — 3 → 6：placeholder 多停留几帧让 SizedBox.expand 替换前
-// 「老 transcript dispose + 新 placeholder mount + 首次绘制 + scroll-to-bottom」
-// 全链路有充裕时间收敛；否则 reveal 触发与气泡 mount 撞在同一帧，
-// drip 来不及把 markdown 解析摊开，仍然会触发首帧 jank。
-// 2026-06-07 — 6 → 10：cacheExtent 1800 → 800 后，长会话的 markdown
-// 帧节流（每帧 1 个）需要 ~8-15 帧才能把首屏可见气泡的 deferred parse
-// 摊开；原 6 帧预算（96ms）比 8 帧（128ms）短，reveal 触发时多数气泡
-// 还在占位 plain 文本，切到 transcript 后高度仍会「plain → rich」连续
-// 跳变好几帧才能稳住。10 帧预算（160ms）保证首屏 8 个气泡的 deferred
-// parse 至少完成 6-8 个，剩余 1-2 个也会在 transcript 落位后 1-2 帧内
-// 完成，用户视觉上感受不到「落位后还在跳」。
+// 长会话切换时给底部小窗口、scroll-to-bottom 和 markdown 延迟解析留出
+// 少量帧预算，避免真实 transcript reveal 与首批气泡挂载挤在同一帧。
 const int _transcriptPreparationFrameBudget = 10;
 // Hard cap so a single problematic session (e.g. huge transcript) never
 // leaves the user staring at the placeholder indefinitely. If real layout

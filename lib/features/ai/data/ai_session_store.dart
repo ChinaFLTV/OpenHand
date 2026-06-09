@@ -313,13 +313,11 @@ class AiSessionStore {
     for (final row in sessionRows) {
       try {
         final sessionId = row['id'] as String;
-        final messageRows = messagesBySessionId[sessionId] ??
-            const <Map<String, Object?>>[];
-        sessions.add(
-          await restoreCompressionCheckpointFromSidecar(
-            _sessionFromRow(row, messageRows),
-          ),
-        );
+        final messageRows =
+            messagesBySessionId[sessionId] ?? const <Map<String, Object?>>[];
+        final session = await _sessionFromRowCooperatively(row, messageRows);
+        sessions.add(await restoreCompressionCheckpointFromSidecar(session));
+        await _yieldAfterSessionDecodeIfNeeded(sessions.length);
       } catch (error) {
         issues.add(
           AiSessionPersistenceIssue(
@@ -336,6 +334,8 @@ class AiSessionStore {
 
   /// SQLite 单条语句的参数上限默认 999，保守取 500 以兼顾各平台 ffi 配置。
   static const int _kMessageBatchSize = 500;
+  static const int _kMessageDecodeYieldBatchSize = 96;
+  static const int _kSessionDecodeYieldBatchSize = 8;
 
   /// 按 session id 列表批量拉取 messages，结果按 session_id 分桶；
   /// 每个桶内保持 sort_order ASC 顺序。空列表入参 → 空 map。
@@ -569,9 +569,8 @@ class AiSessionStore {
       whereArgs: <Object?>[normalizedId],
       orderBy: 'sort_order ASC',
     );
-    return restoreCompressionCheckpointFromSidecar(
-      _sessionFromRow(rows.first, messageRows),
-    );
+    final session = await _sessionFromRowCooperatively(rows.first, messageRows);
+    return restoreCompressionCheckpointFromSidecar(session);
   }
 
   /// Loads all sessions (with messages) that belong to the given [templateId]
@@ -601,13 +600,11 @@ class AiSessionStore {
     for (final row in rows) {
       try {
         final sessionId = row['id'] as String;
-        final messageRows = messagesBySessionId[sessionId] ??
-            const <Map<String, Object?>>[];
-        sessions.add(
-          await restoreCompressionCheckpointFromSidecar(
-            _sessionFromRow(row, messageRows),
-          ),
-        );
+        final messageRows =
+            messagesBySessionId[sessionId] ?? const <Map<String, Object?>>[];
+        final session = await _sessionFromRowCooperatively(row, messageRows);
+        sessions.add(await restoreCompressionCheckpointFromSidecar(session));
+        await _yieldAfterSessionDecodeIfNeeded(sessions.length);
       } catch (error, stack) {
         silentLog(
           'ai_session_store',
@@ -646,7 +643,7 @@ class AiSessionStore {
       offset: offset,
     );
 
-    final messages = rows.map(_messageFromRow).toList(growable: false);
+    final messages = await _decodeMessagesCooperatively(rows);
     final hasMore = offset + messages.length < totalCount;
 
     return AiSessionMessagePage(
@@ -659,6 +656,7 @@ class AiSessionStore {
   /// Persists a complete [session] (metadata + all messages) atomically.
   Future<void> save(AiSession session) async {
     _validateSessionForStorage(session);
+    final replaceMessages = !_isMetadataOnlySessionSnapshot(session);
 
     await _db.transaction((txn) async {
       final row = _sessionToRow(session);
@@ -674,13 +672,16 @@ class AiSessionStore {
         whereArgs: <Object?>[session.id],
       );
 
+      if (!replaceMessages) {
+        return;
+      }
+
       // Replace all messages: delete existing, then bulk-insert.
       await txn.delete(
         'messages',
         where: 'session_id = ?',
         whereArgs: <Object?>[session.id],
       );
-
       final batch = txn.batch();
       for (var i = 0; i < session.messages.length; i++) {
         batch.insert(
@@ -690,6 +691,25 @@ class AiSessionStore {
       }
       await batch.commit(noResult: true);
     });
+  }
+
+  /// Persists only the session row. Use this for title, permission, model,
+  /// metadata and other header-only updates so long transcripts do not pay a
+  /// delete + bulk-insert cycle for every small state change.
+  Future<void> saveSessionHeader(AiSession session) async {
+    _validateSessionForStorage(session);
+    final row = _sessionToRow(session);
+    await _db.insert(
+      'sessions',
+      row,
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await _db.update(
+      'sessions',
+      row,
+      where: 'id = ?',
+      whereArgs: <Object?>[session.id],
+    );
   }
 
   /// Deletes a session and all its messages from the database, plus
@@ -744,7 +764,46 @@ class AiSessionStore {
     List<Map<String, Object?>> messageRows,
   ) {
     final messages = messageRows.map(_messageFromRow).toList(growable: false);
+    return _sessionFromRowWithMessages(row, messages);
+  }
 
+  Future<AiSession> _sessionFromRowCooperatively(
+    Map<String, Object?> row,
+    List<Map<String, Object?>> messageRows,
+  ) async {
+    final messages = await _decodeMessagesCooperatively(messageRows);
+    return _sessionFromRowWithMessages(row, messages);
+  }
+
+  Future<List<AiSessionMessage>> _decodeMessagesCooperatively(
+    List<Map<String, Object?>> messageRows,
+  ) async {
+    if (messageRows.isEmpty) {
+      return const <AiSessionMessage>[];
+    }
+    final messages = <AiSessionMessage>[];
+    for (var index = 0; index < messageRows.length; index++) {
+      messages.add(_messageFromRow(messageRows[index]));
+      final shouldYield =
+          (index + 1) % _kMessageDecodeYieldBatchSize == 0 &&
+          index + 1 < messageRows.length;
+      if (shouldYield) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+    return List<AiSessionMessage>.unmodifiable(messages);
+  }
+
+  Future<void> _yieldAfterSessionDecodeIfNeeded(int decodedCount) async {
+    if (decodedCount % _kSessionDecodeYieldBatchSize == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  AiSession _sessionFromRowWithMessages(
+    Map<String, Object?> row,
+    List<AiSessionMessage> messages,
+  ) {
     final now = DateTime.now().toUtc();
 
     return AiSession(
@@ -820,6 +879,10 @@ class AiSessionStore {
           )
           .toList(growable: false),
     );
+  }
+
+  bool _isMetadataOnlySessionSnapshot(AiSession session) {
+    return session.messages.isEmpty && session.statistics.totalMessageCount > 0;
   }
 
   Map<String, Object?> _sessionToRow(AiSession session) {

@@ -582,12 +582,9 @@ class AiSessionController extends ChangeNotifier {
 
   bool _isDisposed = false;
   bool _isLoading = false;
-  // 2026-05-25 — `refresh()` 走两阶段：先 `loadAllHeaders` 把 sidebar
-  // 拍上 (messages 为空)，再 `loadAll` 注入完整消息。两阶段之间若用户已
-  // 选中一个会话，transcript 会读到 messages.isEmpty 直接渲染
-  // `_WorkspaceEmptyState`（白屏）。这个 flag 在 header 阶段置 true，
-  // full 阶段结束置 false；transcript 据此渲染一张丝滑的「加载消息中」
-  // 占位卡，避免白屏闪烁。
+  // Header refresh keeps the sidebar responsive; selected transcripts hydrate
+  // messages on demand via [_hydratingSessionMessageIds]. This legacy global
+  // flag is retained for broad load states that still need a single signal.
   bool _isMessagesHydrating = false;
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
@@ -1217,37 +1214,20 @@ class AiSessionController extends ChangeNotifier {
     _networkSnapshotFuture ??= _localNetworkSnapshot();
     await _enqueueOperation(() async {
       _isLoading = true;
-      _isMessagesHydrating = true;
+      _isMessagesHydrating = false;
       _lastErrorMessage = null;
       _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
       try {
-        // Two-phase load to keep app boot snappy: first surface metadata-only
-        // session headers (no message rows decoded) so the sidebar / current
-        // session list paints immediately, then replace with the full
-        // hydrated sessions once the heavier query completes. Both phases
-        // run inside the same serialized operation, so any write op queued
-        // by the user (send / edit / delete) happens after the full
-        // hydration — `_store.save` therefore always observes the complete
-        // message list and never accidentally truncates older messages.
+        // Keep refresh lightweight: session headers are enough for the
+        // sidebar, while the selected transcript hydrates its own messages on
+        // demand. This avoids a cold-start load of every historical message
+        // row and keeps existing hydrated sessions alive across header
+        // refreshes such as pin/archive reorder.
         final headerLoad = await _store.loadAllHeaders();
-        _setSessions(headerLoad.sessions);
+        _setSessions(_mergeHeaderSessionsWithLiveMessages(headerLoad.sessions));
         _persistenceIssues = headerLoad.issues;
-        notifyListeners();
-
-        final loadResult = await _store.loadAll();
-        _setSessions(
-          loadResult.sessions
-              .map(
-                (session) => _normalizeStaleCompletedPlanState(
-                  session,
-                  normalizedAt: session.updatedAt,
-                ),
-              )
-              .toList(growable: false),
-        );
         _pruneSessionScopedSendState();
-        _persistenceIssues = loadResult.issues;
         // 2026-05-24 — 把每个 session.metadata['stream_throttle_override'] 重新
         // 灌进 _sessionStreamThrottleOverrides，让上次设过临时节流的会话
         // 重启后立刻继续生效。
@@ -1316,8 +1296,15 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<void> selectSession(String sessionId) async {
-    if (_currentSessionId == sessionId ||
-        !_sessionsById.containsKey(sessionId)) {
+    if (!_sessionsById.containsKey(sessionId)) {
+      return;
+    }
+    if (_currentSessionId == sessionId) {
+      final selectedSession = _sessionById(sessionId);
+      if (selectedSession != null &&
+          _sessionNeedsMessageHydration(selectedSession)) {
+        unawaited(ensureSessionMessagesHydrated(sessionId));
+      }
       return;
     }
     _currentSessionId = sessionId;
@@ -1686,14 +1673,15 @@ class AiSessionController extends ChangeNotifier {
         session: clearedSession,
         mode: mode,
       );
-      final updatedSession = _rebuildSession(
-        clearedSession.copyWith(
-          mode: mode,
-          updatedAt: _clock().toUtc(),
-          lastPromptMetadata: updatedPromptMetadata,
-        ),
+      final updatedSession = clearedSession.copyWith(
+        mode: mode,
+        updatedAt: _clock().toUtc(),
+        lastPromptMetadata: updatedPromptMetadata,
       );
-      return _commitSessionLocked(updatedSession);
+      return _replaceSessionHeaderInMemoryAndPersist(
+        updatedSession,
+        logOperation: 'persist session mode update',
+      );
     });
   }
 
@@ -1721,36 +1709,10 @@ class AiSessionController extends ChangeNotifier {
       fullAccessPermission: enabled,
       updatedAt: _clock().toUtc(),
     );
-    // Directly replace in the _sessions list to bypass
-    // _mergeLiveSessionState which would otherwise revert the permission
-    // back to the previous (live) value.
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) {
-      return false;
-    }
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    notifyListeners();
-    // Persist to disk asynchronously. Even if this save races with a
-    // concurrent save from sendMessage, the final committed state will be
-    // correct: _mergeLiveSessionState always reads the live session's
-    // fullAccessPermission from _sessions (which we just updated).
-    try {
-      await _store.save(updatedSession);
-    } catch (error, stack) {
-      // Disk persistence failure does not prevent the in-memory update
-      // from taking effect. The next successful _commitSessionLocked call
-      // (e.g. from sendMessage) will propagate the correct permission to
-      // disk via _mergeLiveSessionState.
-      silentLog(
-        'ai_session_controller',
-        'persist permission update',
-        error,
-        stack,
-      );
-    }
-    return true;
+    return _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist permission update',
+    );
   }
 
   Future<bool> updateSessionMetadata(
@@ -1778,17 +1740,13 @@ class AiSessionController extends ChangeNotifier {
       metadata: nextMetadata,
       updatedAt: _clock().toUtc(),
     );
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) {
+    final effectiveSession = _replaceSessionHeaderInMemory(updatedSession);
+    if (effectiveSession == null) {
       return false;
     }
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    notifyListeners();
     var persisted = false;
     try {
-      await _store.save(updatedSession);
+      await _store.saveSessionHeader(effectiveSession);
       persisted = true;
     } catch (error, stack) {
       silentLog(
@@ -1802,7 +1760,7 @@ class AiSessionController extends ChangeNotifier {
       debugPrint(
         '[pe.recents] updateSessionMetadata session=$sessionId '
         'payloadKeys=${payload.keys.toList()} persisted=$persisted '
-        'metadataKeysAfter=${updatedSession.metadata.keys.toList()}',
+        'metadataKeysAfter=${effectiveSession.metadata.keys.toList()}',
       );
     }
     return true;
@@ -1818,8 +1776,11 @@ class AiSessionController extends ChangeNotifier {
     required String content,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
-    final session = _sessionById(sessionId);
+    final session =
+        await ensureSessionMessagesHydrated(sessionId) ??
+        _sessionById(sessionId);
     if (session == null) return null;
+    if (_sessionNeedsMessageHydration(session)) return null;
     final id = _idGenerator();
     final msg = AiSessionMessage.selfLearning(
       id: id,
@@ -1832,22 +1793,8 @@ class AiSessionController extends ChangeNotifier {
     final updatedSession = _rebuildSession(
       session.copyWith(messages: updatedMessages, updatedAt: _clock().toUtc()),
     );
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) return null;
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    notifyListeners();
-    try {
-      await _store.save(updatedSession);
-    } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist self-learning append',
-        error,
-        stack,
-      );
-    }
+    final committed = await _commitSessionLocked(updatedSession);
+    if (!committed) return null;
     return id;
   }
 
@@ -1871,8 +1818,11 @@ class AiSessionController extends ChangeNotifier {
     Map<String, Object?>? metadataPatch,
     bool replaceMetadata = false,
   }) async {
-    final session = _sessionById(sessionId);
+    final session =
+        await ensureSessionMessagesHydrated(sessionId) ??
+        _sessionById(sessionId);
     if (session == null) return false;
+    if (_sessionNeedsMessageHydration(session)) return false;
     final index = session.messages.indexWhere((m) => m.id == messageId);
     if (index == -1) return false;
     final original = session.messages[index];
@@ -1900,22 +1850,8 @@ class AiSessionController extends ChangeNotifier {
     final updatedSession = _rebuildSession(
       session.copyWith(messages: updatedMessages, updatedAt: _clock().toUtc()),
     );
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) return false;
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    notifyListeners();
-    try {
-      await _store.save(updatedSession);
-    } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist self-learning update',
-        error,
-        stack,
-      );
-    }
+    final committed = await _commitSessionLocked(updatedSession);
+    if (!committed) return false;
     return true;
   }
 
@@ -1944,25 +1880,10 @@ class AiSessionController extends ChangeNotifier {
       lastUsedModelLabel: modelId,
       updatedAt: _clock().toUtc(),
     );
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) {
-      return false;
-    }
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    notifyListeners();
-    try {
-      await _store.save(updatedSession);
-    } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist last-used model',
-        error,
-        stack,
-      );
-    }
-    return true;
+    return _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist last-used model',
+    );
   }
 
   Future<bool> renameSession(String sessionId, String title) async {
@@ -1986,26 +1907,11 @@ class AiSessionController extends ChangeNotifier {
       isTitleManuallyEdited: true,
       updatedAt: _clock().toUtc(),
     );
-    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
-    if (existingIndex == -1) {
-      return false;
-    }
-    final updatedSessions = List<AiSession>.from(_sessions);
-    updatedSessions[existingIndex] = updatedSession;
-    _setSessions(updatedSessions);
-    _currentSessionId ??= sessionId;
-    notifyListeners();
-    try {
-      await _store.save(updatedSession);
-    } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist manual title update',
-        error,
-        stack,
-      );
-    }
-    return true;
+    return _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist manual title update',
+      keepCurrentIfUnset: true,
+    );
   }
 
   Future<bool> deleteSession(
@@ -2193,7 +2099,7 @@ class AiSessionController extends ChangeNotifier {
       // session and lazy-load on demand.
       try {
         final result = await _store.loadAllHeaders();
-        _setSessions(result.sessions);
+        _setSessions(_mergeHeaderSessionsWithLiveMessages(result.sessions));
         notifyListeners();
       } catch (error, stack) {
         silentLog(
@@ -2220,7 +2126,7 @@ class AiSessionController extends ChangeNotifier {
       }
       try {
         final result = await _store.loadAllHeaders();
-        _setSessions(result.sessions);
+        _setSessions(_mergeHeaderSessionsWithLiveMessages(result.sessions));
         notifyListeners();
       } catch (error, stack) {
         silentLog(
@@ -2638,11 +2544,12 @@ class AiSessionController extends ChangeNotifier {
       if (!didChange) {
         return true;
       }
-      return _commitSessionLocked(
+      return _replaceSessionHeaderInMemoryAndPersist(
         session.copyWith(
           recentErrors: updatedErrors,
           updatedAt: session.updatedAt,
         ),
+        logOperation: 'persist presented error update',
       );
     });
   }
@@ -7698,6 +7605,63 @@ $trimmedSummary''';
     return true;
   }
 
+  AiSession? _replaceSessionHeaderInMemory(
+    AiSession session, {
+    bool keepCurrentIfUnset = false,
+  }) {
+    if (_deletedSessionIds.contains(session.id)) {
+      return null;
+    }
+    final existingIndex = _sessions.indexWhere((item) => item.id == session.id);
+    if (existingIndex == -1) {
+      return null;
+    }
+    final liveSession = _sessions[existingIndex];
+    var effectiveSession = session;
+    if (session.messages.isEmpty && liveSession.messages.isNotEmpty) {
+      effectiveSession = session.copyWith(
+        messages: liveSession.messages,
+        statistics: liveSession.statistics,
+        updatedAt: liveSession.updatedAt.isAfter(session.updatedAt)
+            ? liveSession.updatedAt
+            : session.updatedAt,
+        latestCompressionCheckpointMessageId:
+            session.latestCompressionCheckpointMessageId ??
+            liveSession.latestCompressionCheckpointMessageId,
+        latestCompressionAt:
+            session.latestCompressionAt ?? liveSession.latestCompressionAt,
+      );
+    }
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = effectiveSession;
+    _setSessions(updatedSessions);
+    if (keepCurrentIfUnset) {
+      _currentSessionId ??= session.id;
+    }
+    notifyListeners();
+    return effectiveSession;
+  }
+
+  Future<bool> _replaceSessionHeaderInMemoryAndPersist(
+    AiSession session, {
+    required String logOperation,
+    bool keepCurrentIfUnset = false,
+  }) async {
+    final effectiveSession = _replaceSessionHeaderInMemory(
+      session,
+      keepCurrentIfUnset: keepCurrentIfUnset,
+    );
+    if (effectiveSession == null) {
+      return false;
+    }
+    try {
+      await _store.saveSessionHeader(effectiveSession);
+    } catch (error, stack) {
+      silentLog('ai_session_controller', logOperation, error, stack);
+    }
+    return true;
+  }
+
   Future<bool> _commitSessionLocked(AiSession session) async {
     if (_deletedSessionIds.contains(session.id)) {
       return true;
@@ -7762,6 +7726,30 @@ $trimmedSummary''';
     _sessionsById = <String, AiSession>{
       for (final session in sessions) session.id: session,
     };
+  }
+
+  List<AiSession> _mergeHeaderSessionsWithLiveMessages(
+    List<AiSession> headers,
+  ) {
+    if (headers.isEmpty || _sessionsById.isEmpty) {
+      return headers;
+    }
+    return headers
+        .map((header) {
+          final live = _sessionsById[header.id];
+          if (live == null ||
+              live.messages.isEmpty ||
+              header.messages.isNotEmpty) {
+            return header;
+          }
+          return header.copyWith(
+            messages: live.messages,
+            updatedAt: live.updatedAt.isAfter(header.updatedAt)
+                ? live.updatedAt
+                : header.updatedAt,
+          );
+        })
+        .toList(growable: false);
   }
 
   AiSession? _sessionById(String sessionId) {

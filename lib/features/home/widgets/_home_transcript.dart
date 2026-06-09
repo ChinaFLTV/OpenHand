@@ -285,6 +285,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final Set<String> _dismissedErrorIds = <String>{};
   int _windowStartIndex = 0;
   bool _loadingOlderMessages = false;
+  bool _initialMaterializationPending = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
   // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
@@ -335,11 +336,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // bubbles inside the actual viewport + ~120 px buffer), the heavy work
     // naturally spreads across post-mount frames without any drip wrapper.
     //
-    // 阶段㉒c (回滚 drip)：首屏「按 1/帧 drip」会把 _visibleMessagesForWindow
-    // 截断成「window 开头若干条」，导致用户看到的是最近窗口的「最旧」一条
-    // 而不是最新一条 — 与 transcript 默认应当落底的语义直接冲突。回滚到
-    // 「render entries 一次性物化、ListView 自然懒挂载」的策略。
-    _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+    // 首帧只取窗口底部几条消息，保证打开长会话时先落到最新内容；
+    // 下一帧再补齐常规窗口，避免同步物化与外壳切换挤在同一帧。
+    _replaceRenderEntries(
+      _initialVisibleMessagesForFirstFrame(),
+      animate: false,
+    );
+    _scheduleInitialMaterializationCompletionIfNeeded();
     _syncVisibleError();
     // Immediately jump to the bottom on the first rendered frame, before the
     // parent's postFrameCallback chain fires. This prevents the user from ever
@@ -371,10 +374,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // visible window on the next frame; the markdown / highlight work
       // is throttled by [_MarkdownFrameScheduler] / [_HighlightFrameScheduler]
       // and the ListView's `cacheExtent: 120` keeps off-viewport mounts cheap.
-      // 全量物化首屏的可见窗口：drip 串行 materialization 已下线，
-      // ListView 自身的 cacheExtent: 1800 + 懒挂载足以平滑首屏渲染。
+      // 切换会话时同样先绘制底部小窗口，再补齐常规窗口。
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
+      _initialMaterializationPending = false;
       // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -384,15 +387,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          _replaceRenderEntries(
+            _initialVisibleMessagesForFirstFrame(),
+            animate: false,
+          );
         });
+        _scheduleInitialMaterializationCompletionIfNeeded();
       });
       WidgetsBinding.instance.endOfFrame.then((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          _replaceRenderEntries(
+            _initialVisibleMessagesForFirstFrame(),
+            animate: false,
+          );
         });
+        _scheduleInitialMaterializationCompletionIfNeeded();
       });
       // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
     } else if (oldWidget.session.messages != widget.session.messages ||
@@ -434,6 +445,36 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return displayMessages;
     }
     return displayMessages.sublist(clampedWindowStartIndex);
+  }
+
+  List<AiSessionMessage> _initialVisibleMessagesForFirstFrame() {
+    final visibleMessages = _visibleMessagesForWindow();
+    final shouldStage =
+        visibleMessages.length > _transcriptFirstFrameWindowSize &&
+        widget.session.statistics.totalMessageCount >=
+            _transcriptStagedMaterializationThreshold;
+    _initialMaterializationPending = shouldStage;
+    if (!shouldStage) {
+      return visibleMessages;
+    }
+    return visibleMessages.sublist(
+      visibleMessages.length - _transcriptFirstFrameWindowSize,
+    );
+  }
+
+  void _scheduleInitialMaterializationCompletionIfNeeded() {
+    if (!_initialMaterializationPending) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_initialMaterializationPending) {
+        return;
+      }
+      setState(() {
+        _initialMaterializationPending = false;
+        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+      });
+    });
   }
 
   void _replaceRenderEntries(
@@ -1001,13 +1042,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
     // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
-      _replaceRenderEntries(visibleMessages, animate: false);
+      _replaceRenderEntries(
+        _initialVisibleMessagesForFirstFrame(),
+        animate: false,
+      );
+      _scheduleInitialMaterializationCompletionIfNeeded();
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
-      // 2026-05-25 — 两阶段加载窗口期（header 已注入 / full 未到）若用户
-      // 选中的会话当前 messages 为空，渲染丝滑加载占位卡而非 empty state，
-      // 避免「打开历史线程瞬间白屏」。
-      if (aiSessionController.isMessagesHydrating) {
+      // Header-only 会话正在按需水合消息时，显示加载占位而非空会话。
+      if (aiSessionController.isSessionMessagesHydrating(session.id)) {
         return _TranscriptHydratingPlaceholder(
           key: ValueKey<String>('hydrating-transcript-${session.id}'),
         );
