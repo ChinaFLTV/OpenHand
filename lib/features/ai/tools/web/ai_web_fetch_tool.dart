@@ -24,7 +24,7 @@ import '../ai_tool_utils.dart';
 
 /// WebFetch 工具实现：
 /// 1. 从 [AiBuiltinToolConfig.webFetchSettings] 读取启用的引擎清单 / 缓存策略 /
-///    并行参数；缺省回落到默认配置（自动启用 Jina/Bing/DDG 兜底）。
+///    并行参数；缺省回落到默认配置（自动启用 Bing/DDG 兜底）。
 /// 2. 通过 [WebFetchOrchestrator] 并行/串行扇出抓取，按质量评分挑选胜出引擎的内容。
 /// 3. 把胜出内容喂给 background chat client，让模型按 user prompt 聚焦回答。
 class AiWebFetchTool extends AiTool {

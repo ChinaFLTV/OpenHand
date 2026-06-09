@@ -4,18 +4,25 @@ import 'package:http/testing.dart';
 import 'package:openhand/features/ai/index.dart';
 
 void main() {
-  test('default WebFetch settings include Jina Reader', () {
-    final settings = AiWebFetchSettings.defaults();
+  test(
+    'WebFetch settings expose Jina Reader after Scrapling but not as fallback',
+    () {
+      final settings = AiWebFetchSettings.defaults();
+      final kinds = settings.engines.map((config) => config.kind).toList();
 
-    expect(
-      settings.engines.any(
-        (config) => config.kind == AiWebFetchEngineKind.jina,
-      ),
-      isTrue,
-    );
-    expect(AiWebFetchEngineKind.jina.requiresApiKey, isFalse);
-    expect(AiWebFetchEngineKind.jina.isFallback, isTrue);
-  });
+      expect(kinds, contains(AiWebFetchEngineKind.jina));
+      expect(
+        kinds.indexOf(AiWebFetchEngineKind.jina),
+        kinds.indexOf(AiWebFetchEngineKind.scrapling) + 1,
+      );
+      expect(
+        settings.engines[kinds.indexOf(AiWebFetchEngineKind.jina)].enabled,
+        isFalse,
+      );
+      expect(AiWebFetchEngineKind.jina.requiresApiKey, isFalse);
+      expect(AiWebFetchEngineKind.jina.isFallback, isFalse);
+    },
+  );
 
   test('Jina Reader fetches markdown through r.jina.ai path form', () async {
     late Uri requestedUri;

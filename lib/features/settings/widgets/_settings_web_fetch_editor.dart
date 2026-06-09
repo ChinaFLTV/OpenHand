@@ -725,11 +725,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             context,
             zh:
                 '拖拽卡片调整顺序；启用至少一个引擎；若全部禁用则自动启用 '
-                'Jina/Bing/DuckDuckGo 兜底。Scrapling 未就绪时只会跳过该引擎。',
+                'Bing/DuckDuckGo 兜底。Scrapling/Jina 均按开关配置执行。',
             en:
                 'Drag cards to reorder; enable at least one. '
-                'If all are disabled, Jina/Bing/DuckDuckGo fallback kicks in. '
-                'If Scrapling is not ready, only that engine is skipped.',
+                'If all are disabled, Bing/DuckDuckGo fallback kicks in. '
+                'Scrapling/Jina run only when enabled.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,

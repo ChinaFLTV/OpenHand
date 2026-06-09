@@ -373,7 +373,6 @@ class WebFetchOrchestrator {
 
   List<AiWebFetchEngineConfig> _fallbackConfigs() {
     return const [
-      AiWebFetchEngineConfig(kind: AiWebFetchEngineKind.jina, enabled: true),
       AiWebFetchEngineConfig(kind: AiWebFetchEngineKind.bing, enabled: true),
       AiWebFetchEngineConfig(
         kind: AiWebFetchEngineKind.duckduckgo,
