@@ -451,6 +451,44 @@ html, body, #root {
   text-overflow: ellipsis;
 }
 
+.oh-message-card-frame {
+  display: block;
+  width: 100%;
+}
+
+.oh-message-selected-panel {
+  margin-top: 8px;
+  color: var(--m3-on-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oh-message-selected-panel.is-user {
+  align-items: flex-end;
+}
+
+.oh-message-selected-panel.is-other {
+  align-items: flex-start;
+}
+
+.oh-message-action-row,
+.oh-message-selected-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.oh-message-selected-panel.is-user .oh-message-action-row,
+.oh-message-selected-panel.is-user .oh-message-selected-info-row {
+  justify-content: flex-end;
+}
+
+.oh-message-selected-info-row {
+  gap: 6px;
+}
+
 .oh-user-attachment-list {
   display: flex;
   flex-wrap: wrap;
@@ -3610,13 +3648,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-message-card-meta {
     flex: 1 1 100%;
     max-width: 100%;
-  }
-  .oh-message-model-label {
-    display: none;
-  }
-  .oh-message-time {
-    font-size: 10px;
-    line-height: 1.2;
   }
   .oh-message-kind-icon,
   .oh-file-mutation-icon {

@@ -34,7 +34,7 @@ function formatTimestamp(iso: string): string {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   } catch {
     return iso;
   }
@@ -106,7 +106,9 @@ type MessageIconName =
   | 'write'
   | 'delete'
   | 'mutate'
-  | 'globe';
+  | 'globe'
+  | 'model'
+  | 'clock';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = {
@@ -188,6 +190,10 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="m8 8-4 4 4 4" /><path d="m16 8 4 4-4 4" /><path d="m4 4 16 16" /></svg>;
     case 'globe':
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>;
+    case 'model':
+      return <svg {...common}><rect x="5" y="5" width="14" height="14" rx="3" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /><path d="M9 12h6" /></svg>;
+    case 'clock':
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>;
   }
 }
 
@@ -478,7 +484,7 @@ function attachmentKindData(kind: AttachmentKind): { icon: MessageIconName; labe
 
 function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
   return (
-    <span class="oh-message-context-capsule oh-soft-replace">
+    <span class="oh-message-context-capsule oh-soft-replace" title={chip.label}>
       {chip.emoji ? (
         <span class="oh-message-context-emoji" aria-hidden>{chip.emoji}</span>
       ) : chip.icon ? (
@@ -582,6 +588,36 @@ function isAssistantResponseMessage(message: SessionMessage): boolean {
   ].includes(message.kind);
 }
 
+function isPlainConversationMessage(message: SessionMessage): boolean {
+  if (message.role !== 'user' && message.role !== 'assistant') return false;
+  return !message.kind ||
+    message.kind === 'text' ||
+    message.kind === message.role;
+}
+
+function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[] {
+  const chips: MessageContextChip[] = [];
+  if (message.role !== 'user') {
+    const modelLabel = nonEmptyString(message.model_label) || nonEmptyString(message.model_id);
+    if (modelLabel) {
+      chips.push({
+        key: 'model',
+        icon: 'model',
+        label: modelLabel,
+      });
+    }
+  }
+  const sentAt = formatTimestamp(message.created_at);
+  if (sentAt) {
+    chips.push({
+      key: 'sent-at',
+      icon: 'clock',
+      label: sentAt,
+    });
+  }
+  return chips;
+}
+
 function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolean): string {
   const metadata = message.metadata ?? {};
   return [
@@ -614,7 +650,7 @@ function numberLayoutMotionSignal(value: number | undefined): string {
 }
 
 function useMessageSizeMotion(signal: string, enabled: boolean) {
-  const ref = useRef<HTMLElement | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const lastHeightRef = useRef<number | null>(null);
   const animationRef = useRef<Animation | null>(null);
   const overflowBeforeAnimationRef = useRef<string | null>(null);
@@ -1150,15 +1186,17 @@ function MessageCardImpl({
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
   const contextChips = messageContextChips(message);
-  const plainRoleMeta = isUserBubble
-    ? (message.kind && message.kind !== 'text' && message.kind !== 'user'
-      ? message.kind
-      : '')
+  const plainRoleMeta = isPlainConversationMessage(message)
+    ? ''
     : `${roleLabel(message.role)}${
-      message.kind && message.kind !== 'text' && message.kind !== 'user' && message.kind !== 'assistant'
-        ? ` · ${message.kind}`
-        : ''
-    }`;
+        message.kind &&
+        message.kind !== 'text' &&
+        message.kind !== message.role
+          ? ` · ${message.kind}`
+          : ''
+      }`;
+  const shouldRenderHeader = style.badge || Boolean(plainRoleMeta);
+  const selectedInfoChips = selectedMessageInfoChips(message);
   const media = sessionId ? (
     <MessageMedia
       message={message}
@@ -1188,8 +1226,14 @@ function MessageCardImpl({
 
   return (
     <>
-    <article
+    <div
       ref={cardRef}
+      class={`oh-message-card-frame ${isUserBubble ? 'is-user' : 'is-other'}`}
+      style={{
+        transformOrigin: isUserBubble ? 'right top' : 'left top',
+      }}
+    >
+    <article
       class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
       style={{
         display: 'block',
@@ -1203,7 +1247,6 @@ function MessageCardImpl({
         border: style.border,
         cursor: hasAnyAction ? 'pointer' : 'default',
         overflowWrap: 'anywhere',
-        transformOrigin: isUserBubble ? 'right top' : 'left top',
         transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {
@@ -1247,65 +1290,63 @@ function MessageCardImpl({
         onActiveChange?.(message, !active);
       }}
     >
-      <header class="oh-message-card-header flex items-center justify-between gap-3 text-xs mb-2 opacity-90">
-        <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
-          {style.badge ? (
-            isCollapsibleByBadge ? (
-              <button
-                type="button"
-                class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-                style={{
-                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  fontSize: 'inherit',
-                  lineHeight: 'inherit',
-                }}
-                onClick={handleBadgeToggle}
-                aria-expanded={!badgeCollapsed ? 'true' : 'false'}
-                title={badgeCollapsed
-                  ? t('detail.tool.body.expand', '展开全部')
-                  : t('detail.tool.body.collapse', '折叠')}
-              >
-                <span class="oh-message-kind-icon" aria-hidden>
-                  <MessageIcon name={style.icon} size={14} />
-                </span>
-                <span>{style.label}</span>
-                <span
-                  class="oh-badge-chevron"
-                  aria-hidden
+      {shouldRenderHeader ? (
+        <header class="oh-message-card-header flex items-center gap-3 text-xs mb-2 opacity-90">
+          <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
+            {style.badge ? (
+              isCollapsibleByBadge ? (
+                <button
+                  type="button"
+                  class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
                   style={{
-                    display: 'inline-flex',
-                    transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
-                    transform: badgeCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                    background: 'color-mix(in srgb, currentColor 14%, transparent)',
+                    border: 'none',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    fontSize: 'inherit',
+                    lineHeight: 'inherit',
+                  }}
+                  onClick={handleBadgeToggle}
+                  aria-expanded={!badgeCollapsed ? 'true' : 'false'}
+                  title={badgeCollapsed
+                    ? t('detail.tool.body.expand', '展开全部')
+                    : t('detail.tool.body.collapse', '折叠')}
+                >
+                  <span class="oh-message-kind-icon" aria-hidden>
+                    <MessageIcon name={style.icon} size={14} />
+                  </span>
+                  <span>{style.label}</span>
+                  <span
+                    class="oh-badge-chevron"
+                    aria-hidden
+                    style={{
+                      display: 'inline-flex',
+                      transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
+                      transform: badgeCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                    }}
+                  >
+                    <MessageIcon name="chevronDown" size={12} />
+                  </span>
+                </button>
+              ) : (
+                <span
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+                  style={{
+                    background: 'color-mix(in srgb, currentColor 14%, transparent)',
                   }}
                 >
-                  <MessageIcon name="chevronDown" size={12} />
+                  <span class="oh-message-kind-icon" aria-hidden>
+                    <MessageIcon name={style.icon} size={14} />
+                  </span>
+                  <span>{style.label}</span>
                 </span>
-              </button>
+              )
             ) : (
-              <span
-                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-                style={{
-                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
-                }}
-              >
-                <span class="oh-message-kind-icon" aria-hidden>
-                  <MessageIcon name={style.icon} size={14} />
-                </span>
-                <span>{style.label}</span>
-              </span>
-            )
-          ) : (
-            plainRoleMeta ? <span class="opacity-90">{plainRoleMeta}</span> : null
-          )}
-          {message.model_label && message.role !== 'user' ? (
-            <span class="oh-message-model-label truncate opacity-75">· {message.model_label}</span>
-          ) : null}
-        </span>
-        <span class="oh-message-time opacity-75 flex-none">{formatTimestamp(message.created_at)}</span>
-      </header>
+              <span class="opacity-90">{plainRoleMeta}</span>
+            )}
+          </span>
+        </header>
+      ) : null}
       {!isUserBubble && contextChips.length > 0 ? (
         <div class={`oh-message-context-capsules ${isUserBubble ? 'is-user' : 'is-other'}`}>
           {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
@@ -1392,13 +1433,17 @@ function MessageCardImpl({
         }
         return null;
       })() : null}
-      {actionsVisible ? (
-        <div
-          class="mt-3 pt-3 flex flex-wrap items-center gap-2 text-xs"
-          style={{
-            borderTop: '1px solid color-mix(in srgb, currentColor 18%, transparent)',
-          }}
-        >
+    </article>
+    {actionsVisible ? (
+      <div
+        class={`oh-message-selected-panel ${isUserBubble ? 'is-user' : 'is-other'} oh-soft-replace`}
+        style={{
+          maxWidth: bubbleMaxWidth,
+          marginLeft: isUserBubble ? 'auto' : '0',
+          marginRight: isUserBubble ? '0' : 'auto',
+        }}
+      >
+        <div class="oh-message-action-row">
           {onCopy ? (
             <ActionBtn icon="copy" label={t('common.copy')} onClick={() => onCopy(message)} />
           ) : null}
@@ -1439,8 +1484,14 @@ function MessageCardImpl({
             />
           ) : null}
         </div>
-      ) : null}
-    </article>
+        {selectedInfoChips.length > 0 ? (
+          <div class="oh-message-selected-info-row">
+            {selectedInfoChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+          </div>
+        ) : null}
+      </div>
+    ) : null}
+    </div>
     {inlineImagePreview ? (
       <MediaPreviewDialog
         item={inlineImagePreview.item}
