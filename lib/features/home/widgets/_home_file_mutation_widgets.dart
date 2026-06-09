@@ -330,21 +330,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     final file = ledger.ledgerFileFor(sessionId);
     final target = await file.exists() ? file.path : file.parent.path;
     try {
-      if (Platform.isMacOS) {
-        await runProcessWithTimeout('open', <String>[
-          '-R',
-          target,
-        ], tag: 'file_mutation_card.reveal');
-      } else if (Platform.isWindows) {
-        await runProcessWithTimeout('explorer.exe', <String>[
-          '/select,$target',
-        ], tag: 'file_mutation_card.reveal');
-      } else {
-        final dir = await file.exists() ? file.parent.path : target;
-        await runProcessWithTimeout('xdg-open', <String>[
-          dir,
-        ], tag: 'file_mutation_card.reveal');
-      }
+      await revealLocalPathInSystemFileManager(
+        target,
+        tag: 'file_mutation_card.reveal',
+      );
     } catch (error, stack) {
       silentLog('file_mutation_card', '_revealLedgerFile', error, stack);
     }

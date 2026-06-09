@@ -373,22 +373,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   /// Windows 用 `explorer.exe /select,`，Linux 退化到打开父目录。失败静默 log。
   Future<void> _revealInFileManager(String filePath) async {
     try {
-      if (Platform.isMacOS) {
-        await runProcessWithTimeout('open', <String>[
-          '-R',
-          filePath,
-        ], tag: 'tool_search_loaded_dialog.reveal');
-      } else if (Platform.isWindows) {
-        await runProcessWithTimeout('explorer.exe', <String>[
-          '/select,$filePath',
-        ], tag: 'tool_search_loaded_dialog.reveal');
-      } else {
-        // Linux / others — open the containing directory.
-        final dir = File(filePath).parent.path;
-        await runProcessWithTimeout('xdg-open', <String>[
-          dir,
-        ], tag: 'tool_search_loaded_dialog.reveal');
-      }
+      await revealLocalPathInSystemFileManager(
+        filePath,
+        tag: 'tool_search_loaded_dialog.reveal',
+      );
     } catch (error, stack) {
       silentLog(
         'tool_search_loaded_dialog',

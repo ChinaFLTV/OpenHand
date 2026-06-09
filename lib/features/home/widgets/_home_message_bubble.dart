@@ -1161,8 +1161,11 @@ Future<void> _openLocalPathWithSystemApp(
   final looksLikeUri = RegExp(
     r'^[A-Za-z][A-Za-z0-9+.-]*:',
   ).hasMatch(normalizedPath);
+  final isWindowsDrivePath =
+      Platform.isWindows &&
+      RegExp(r'^[A-Za-z]:([\\/]|$)').hasMatch(normalizedPath);
   final hasLeadingDash = normalizedPath.startsWith('-');
-  if (looksLikeUri || hasLeadingDash) {
+  if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
       _showHomeSnackBar(
         context,
@@ -1180,39 +1183,17 @@ Future<void> _openLocalPathWithSystemApp(
     return;
   }
   try {
-    final ProcessResult? result;
-    if (Platform.isMacOS) {
-      result = await runProcessWithTimeout(
-        'open',
-        <String>[normalizedPath],
-        timeout: const Duration(seconds: 6),
-        tag: 'home_message_bubble',
-      );
-    } else if (Platform.isWindows) {
-      result = await runProcessWithTimeout(
-        'cmd',
-        <String>['/c', 'start', '', normalizedPath],
-        timeout: const Duration(seconds: 6),
-        tag: 'home_message_bubble',
-      );
-    } else if (Platform.isLinux) {
-      result = await runProcessWithTimeout(
-        'xdg-open',
-        <String>[normalizedPath],
-        timeout: const Duration(seconds: 6),
-        tag: 'home_message_bubble',
-      );
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
-    if (result != null && result.exitCode == 0) {
+    final launched = await openLocalPathWithSystemApp(
+      normalizedPath,
+      tag: 'home_message_bubble',
+    );
+    if (launched) {
       return;
     }
-    final message = result == null
-        ? 'open command timed out'
-        : '${result.stderr}'.trim();
     throw FileSystemException(
-      message.isEmpty ? 'Failed to open file.' : message,
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux
+          ? 'Failed to open file.'
+          : 'Unsupported platform.',
       normalizedPath,
     );
   } catch (error) {

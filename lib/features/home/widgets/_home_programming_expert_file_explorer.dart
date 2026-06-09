@@ -591,13 +591,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Future<void> _openInSystemExplorer(_FileNode node) async {
     final target = node.isDirectory ? node.path : p.dirname(node.path);
     try {
-      if (Platform.isMacOS) {
-        await runDetachedSystemOpen('open', [target]);
-      } else if (Platform.isWindows) {
-        await runDetachedSystemOpen('explorer', [target]);
-      } else if (Platform.isLinux) {
-        await runDetachedSystemOpen('xdg-open', [target]);
-      }
+      await openLocalPathWithSystemApp(
+        target,
+        tag: 'file_explorer.open_node_in_system_explorer',
+      );
     } catch (error, stack) {
       silentLog('file_explorer', 'open node in system explorer', error, stack);
     }
@@ -9401,13 +9398,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Future<void> _openFileInSystemExplorer(String filePath) async {
     final target = p.dirname(filePath);
     try {
-      if (Platform.isMacOS) {
-        await runDetachedSystemOpen('open', [target]);
-      } else if (Platform.isWindows) {
-        await runDetachedSystemOpen('explorer', [target]);
-      } else if (Platform.isLinux) {
-        await runDetachedSystemOpen('xdg-open', [target]);
-      }
+      await openLocalPathWithSystemApp(
+        target,
+        tag: 'file_explorer.open_file_in_system_explorer',
+      );
     } catch (error, stack) {
       silentLog('file_explorer', 'open file in system explorer', error, stack);
     }

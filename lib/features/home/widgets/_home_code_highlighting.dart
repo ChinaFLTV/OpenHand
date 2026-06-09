@@ -2727,13 +2727,22 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               : SnackBarAction(
                   label: _localizedText(context, zh: '打开', en: 'Open'),
                   onPressed: () {
-                    try {
-                      Process.start('open', <String>[savedPath!]);
-                    } catch (_) {}
+                    unawaited(_openSavedSvgFile(savedPath!));
                   },
                 ),
         ),
       );
+    }
+  }
+
+  Future<void> _openSavedSvgFile(String path) async {
+    try {
+      await openLocalPathWithSystemApp(
+        path,
+        tag: 'home_code_highlighting.open_saved_svg',
+      );
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'open saved svg', error, stack);
     }
   }
 

@@ -2755,47 +2755,22 @@ Future<void> _openResolvedMessagePath(
   MessageResolvedPath resolvedPath,
 ) async {
   try {
-    final ProcessResult? result;
-    if (Platform.isMacOS) {
-      result = await runProcessWithTimeout(
-        'open',
-        resolvedPath.isDirectory
-            ? <String>[resolvedPath.resolvedPath]
-            : <String>['-R', resolvedPath.resolvedPath],
-        timeout: const Duration(seconds: 6),
-        tag: 'tool_call_widgets',
-      );
-    } else if (Platform.isWindows) {
-      result = await runProcessWithTimeout(
-        'explorer',
-        resolvedPath.isDirectory
-            ? <String>[resolvedPath.resolvedPath]
-            : <String>['/select,${resolvedPath.resolvedPath}'],
-        timeout: const Duration(seconds: 6),
-        tag: 'tool_call_widgets',
-      );
-    } else if (Platform.isLinux) {
-      result = await runProcessWithTimeout(
-        'xdg-open',
-        <String>[
-          resolvedPath.isDirectory
-              ? resolvedPath.resolvedPath
-              : p.dirname(resolvedPath.resolvedPath),
-        ],
-        timeout: const Duration(seconds: 6),
-        tag: 'tool_call_widgets',
-      );
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
-    if (result != null && result.exitCode == 0) {
+    final launched = resolvedPath.isDirectory
+        ? await openLocalPathWithSystemApp(
+            resolvedPath.resolvedPath,
+            tag: 'tool_call_widgets',
+          )
+        : await revealLocalPathInSystemFileManager(
+            resolvedPath.resolvedPath,
+            tag: 'tool_call_widgets',
+          );
+    if (launched) {
       return;
     }
-    final message = result == null
-        ? 'open command timed out'
-        : '${result.stderr}'.trim();
     throw FileSystemException(
-      message.isEmpty ? 'Unable to open file location.' : message,
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux
+          ? 'Unable to open file location.'
+          : 'Unsupported platform.',
     );
   } catch (error) {
     if (!context.mounted) {

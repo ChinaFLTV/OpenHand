@@ -582,3 +582,91 @@ Future<bool> runDetachedSystemOpen(
     return false;
   }
 }
+
+/// Opens a local file or directory with the system default application.
+///
+/// This is the preferred high-level wrapper for app UI actions. It rejects
+/// URI-like strings and leading dash arguments so local-path open actions
+/// cannot be accidentally upgraded into URL launches or command options.
+Future<bool> openLocalPathWithSystemApp(
+  String path, {
+  String tag = 'safe_subprocess.open_path',
+}) async {
+  final target = _safeLocalPathArgument(path);
+  if (target == null) return false;
+  if (Platform.isMacOS) {
+    return runDetachedSystemOpen('open', <String>[target], tag: tag);
+  }
+  if (Platform.isWindows) {
+    return runDetachedSystemOpen(
+      'cmd',
+      <String>['/c', 'start', '', target],
+      tag: tag,
+      runInShell: true,
+    );
+  }
+  if (Platform.isLinux) {
+    return runDetachedSystemOpen('xdg-open', <String>[target], tag: tag);
+  }
+  return false;
+}
+
+/// Reveals a local file or directory in the system file manager.
+///
+/// macOS and Windows highlight the target where supported. Linux file managers
+/// do not share a portable "select file" contract, so this opens the target
+/// directory, or the containing directory for files.
+Future<bool> revealLocalPathInSystemFileManager(
+  String path, {
+  String tag = 'safe_subprocess.reveal_path',
+}) async {
+  final target = _safeLocalPathArgument(path);
+  if (target == null) return false;
+  if (Platform.isMacOS) {
+    return runDetachedSystemOpen('open', <String>['-R', target], tag: tag);
+  }
+  if (Platform.isWindows) {
+    final type = FileSystemEntity.typeSync(target, followLinks: false);
+    if (type == FileSystemEntityType.directory) {
+      return runDetachedSystemOpen('explorer.exe', <String>[target], tag: tag);
+    }
+    return runDetachedSystemOpen(
+      'explorer.exe',
+      <String>['/select,$target'],
+      tag: tag,
+    );
+  }
+  if (Platform.isLinux) {
+    return runDetachedSystemOpen(
+      'xdg-open',
+      <String>[_directoryForReveal(target)],
+      tag: tag,
+    );
+  }
+  return false;
+}
+
+String? _safeLocalPathArgument(String value) {
+  final target = value.trim();
+  if (target.isEmpty || target.startsWith('-')) return null;
+  final looksLikeUri = RegExp(
+    r'^[A-Za-z][A-Za-z0-9+.-]*:',
+  ).hasMatch(target);
+  if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
+    return null;
+  }
+  return target;
+}
+
+bool _isWindowsDrivePath(String value) =>
+    RegExp(r'^[A-Za-z]:([\\/]|$)').hasMatch(value);
+
+String _directoryForReveal(String target) {
+  try {
+    final type = FileSystemEntity.typeSync(target, followLinks: false);
+    if (type == FileSystemEntityType.directory) return target;
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'resolve reveal directory', error, stack);
+  }
+  return File(target).parent.path;
+}
