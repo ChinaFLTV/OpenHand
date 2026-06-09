@@ -1,6 +1,13 @@
 part of '../ai_session_controller.dart';
 
 const int _minRetainedCompressionTextMessages = 5;
+const int _minCompressionPromptRetryMessages = 1;
+const List<double> _compressionPromptTooLongDropRatios = <double>[
+  0.20,
+  0.35,
+  0.50,
+  0.65,
+];
 const int _maxClaudeCodeDocsPrefetchTargets = 2;
 const Duration _claudeCodeDocsPrefetchTargetTimeout = Duration(seconds: 12);
 
@@ -18,18 +25,42 @@ List<List<AiSessionMessage>> groupSessionMessagesForCompression(
   List<AiSessionMessage> discardedMessages,
   List<AiSessionMessage> messagesToCompress,
 })?
-retryCompressionWindowAfterPromptTooLong(List<AiSessionMessage> messages) {
-  final groups = _buildCompressionMessageGroups(messages);
-  if (groups.length <= 1) {
+retryCompressionWindowAfterPromptTooLong(
+  List<AiSessionMessage> messages, {
+  int attempt = 0,
+}) {
+  if (messages.length <= _minCompressionPromptRetryMessages) {
     return null;
   }
-  final dropGroupCount = math.min(
-    groups.length - 1,
-    math.max(1, (groups.length * 0.2).ceil()),
+  final dropRatio =
+      _compressionPromptTooLongDropRatios[attempt
+          .clamp(0, _compressionPromptTooLongDropRatios.length - 1)
+          .toInt()];
+  final groups = _buildCompressionMessageGroups(messages);
+  if (groups.length > 1) {
+    final dropGroupCount = math.min(
+      groups.length - 1,
+      math.max(1, (groups.length * dropRatio).ceil()),
+    );
+    return (
+      discardedMessages: _flattenCompressionGroups(groups.take(dropGroupCount)),
+      messagesToCompress: _flattenCompressionGroups(
+        groups.skip(dropGroupCount),
+      ),
+    );
+  }
+
+  // Emergency fallback for a single oversized group. Compression prompts are
+  // summarization payloads, not provider tool-call history, so preserving every
+  // tool exchange boundary is less important than avoiding a hard context
+  // overflow. Keep the newest message(s) as the recovery anchor.
+  final dropMessageCount = math.min(
+    messages.length - _minCompressionPromptRetryMessages,
+    math.max(1, (messages.length * dropRatio).ceil()),
   );
   return (
-    discardedMessages: _flattenCompressionGroups(groups.take(dropGroupCount)),
-    messagesToCompress: _flattenCompressionGroups(groups.skip(dropGroupCount)),
+    discardedMessages: messages.take(dropMessageCount).toList(growable: false),
+    messagesToCompress: messages.skip(dropMessageCount).toList(growable: false),
   );
 }
 

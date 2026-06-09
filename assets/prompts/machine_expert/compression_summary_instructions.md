@@ -1,27 +1,44 @@
 <role>
-Summarize the compressed conversation history into a compact, high-value record.
+为机器专家终端会话生成可接力 checkpoint。用简体中文输出；终端标识、host、user、cwd、命令、tmux pane、退出码保留原文。
 </role>
 
-<general_rules>
+<preserve>
+- **Objective / User Messages**：用户目标、约束、授权 / 拒绝、后续任务；用 `User Messages Manifest` 防漏。
+- **终端绑定**：终端应用、窗口 / 会话索引、AppleScript 定位串、tmux session / pane、SSH host / user / cwd。
+- **漂移与假成功**：write text 假成功、回显比对失败、anti-drift 触发轮次和已纠正命令。
+- **写命令确认**：deny-list 或写命令的确认 / 拒绝结果、命令字面值、时间。
+- **当前 shell 状态**：最后提示符、交互式程序、未结束 here-doc / 多行命令。
+- **后台进程**：仍 alive 的 `BashBackground` id、命令、用途、最近 read 时间。
+- **阶段状态**：提示词调优、执行计划、准备工作、进行工作、结束工作中的当前位置。
+- **Tool Outcomes / Build & Test**：失败、超时、验证命令和退出码。
+- **Context Gap / Resource Recovery**：被丢弃消息的缺口范围、数量、风险；可重载文件 / URL 锚点。
+</preserve>
 
-- Keep user goals, constraints, confirmed facts, decisions, active plans, todo state, relevant file paths, commands, failures, validation outcomes, open questions, and important generated artifacts.
-- Preserve every source user message's intent, constraints, corrections, approvals/rejections, and follow-up tasks; use the `User Messages Manifest` as the loss-prevention checklist.
-- Remove repetition and low-signal chatter.
-- Do not invent facts that were not present in the source messages.
-- Important: Maintain the state of the target terminal interaction, so the next generated response is aware of the current working directory, remote host, or context where the terminal was left.
+<remove>
+- 重复检查、低信号闲聊、过场陈述。
+- 已被摘要覆盖的冗长终端输出。
+- 与当前恢复路径无关的探索读取。
+</remove>
 
-</general_rules>
+<output_format>
+仅输出 Markdown；空章节省略。
 
-<must_keep_checklist>
+```markdown
+## Objective
+## User Messages
+## Terminal Binding
+## Current Shell State
+## Decisions & Plan
+## Tool Outcomes
+## Active Background Processes
+## Open Questions
+## Risks
+```
+</output_format>
 
-# 终端模板专用"不丢"清单（机器专家会话压缩必保留）
-
-1. **目标终端绑定信息**：终端应用名、窗口/会话索引、AppleScript 精确定位串、tmux session/pane、SSH 远端 host/user/工作目录——这些一旦丢失，下一轮无法定位会话。
-2. **未送达 / 假成功 / 漂移历史**：任何"write text 假成功"事件、回显比对失败、anti-drift 触发的轮次编号与已纠正的命令清单——这些**必须**逐条保留，禁止压缩成"曾出现若干异常"的概括，否则下一轮会重蹈覆辙。
-3. **写命令确认状态**：用户对 deny-list 命中或写命令的逐条确认/拒绝结果（含确认时间、命令字面值），用于后续轮次复用授权而非反复打扰用户。
-4. **当前 shell 状态**：最后一次 `get contents` 显示的提示符、是否处于交互式程序（vim/less/python REPL/分页器）、是否有未结束的 here-doc 或多行命令——决定下一轮的恢复路径。
-5. **BashBackground 会话清单**：每个仍 alive 的本地后台会话 `id` + 启动命令 + 最近一次 read 截止时间——避免泄漏未关闭的子进程。
-6. **五阶段交付状态**：当前处于"提示词调优 / 执行计划 / 准备工作 / 进行工作 / 结束工作"的哪一阶段，以及该阶段已完成与未完成项。
-7. **用户消息清单**：所有用户非工具消息的意图、约束变更、授权 / 拒绝和后续附加任务，禁止压缩到只剩“用户要求继续”。
-
-</must_keep_checklist>
+<rules>
+1. 只写来源中存在的事实；显式区分已确认与猜测。
+2. 命令字面值、终端绑定、未闭环失败不得概括成“若干异常”。
+3. 若已有更早 checkpoint，增量整合，不原文复读。
+4. 保持短、准、可恢复终端现场。
+</rules>

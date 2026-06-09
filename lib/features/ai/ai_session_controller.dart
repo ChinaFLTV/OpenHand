@@ -262,6 +262,10 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _videoGenerationTimeout = Duration(minutes: 15);
   static const Duration _audioGenerationTimeout = Duration(minutes: 5);
   static const int _maxConsecutiveCompressionFailures = 3;
+  static const int _maxCompressionPromptTooLongRetries = 5;
+  static const int _compressionPromptResponseReserveTokens = 4096;
+  static const int _compressionCheckpointMaxChars = 36000;
+  static const int _compressionCheckpointEdgeChars = 16000;
 
   /// 手动压缩两次之间最小冷却时长。压缩涉及 LLM 调用与磁盘写入，
   /// 频繁触发既浪费 token 也会冲掉刚生成的检查点上下文。
@@ -6810,6 +6814,9 @@ class AiSessionController extends ChangeNotifier {
           'messages_to_compress_count': messagesToCompress.length,
           'discarded_message_count_due_to_context_limit':
               discardedMessages.length,
+          'compression_window_strategy': compressionWindow.strategy,
+          'compression_prompt_input_token_limit':
+              compressionWindow.promptInputTokenLimit,
         },
       );
       var retryMessagesToCompress = messagesToCompress;
@@ -6835,11 +6842,12 @@ class AiSessionController extends ChangeNotifier {
           break;
         } catch (error) {
           if (!_looksLikeCompressionPromptTooLong(error) ||
-              promptTooLongRetryCount >= 3) {
+              promptTooLongRetryCount >= _maxCompressionPromptTooLongRetries) {
             rethrow;
           }
           final retryWindow = retryCompressionWindowAfterPromptTooLong(
             retryMessagesToCompress,
+            attempt: promptTooLongRetryCount,
           );
           if (retryWindow == null) {
             rethrow;
@@ -6868,6 +6876,7 @@ class AiSessionController extends ChangeNotifier {
         id: _idGenerator(),
         content: _buildCompressionCheckpointContent(
           summary: completion.reply,
+          sourceMessages: sourceMessages,
           discardedMessages: retryDiscardedMessages,
         ),
         createdAt: _clock().toUtc(),
@@ -6889,6 +6898,9 @@ class AiSessionController extends ChangeNotifier {
           'discarded_message_count_due_to_context_limit':
               retryDiscardedMessages.length,
           'prompt_too_long_retry_count': promptTooLongRetryCount,
+          'compression_window_strategy': compressionWindow.strategy,
+          'compression_prompt_input_token_limit':
+              compressionWindow.promptInputTokenLimit,
           'source_character_count': sourceCharacterCount,
           'retained_message_ids_after_checkpoint': retainedMessages
               .map((message) => message.id)
@@ -6966,6 +6978,7 @@ class AiSessionController extends ChangeNotifier {
             'discarded_message_count_due_to_context_limit':
                 retryDiscardedMessages.length,
             'prompt_too_long_retry_count': promptTooLongRetryCount,
+            'compression_window_strategy': compressionWindow.strategy,
           },
         );
         await _emitSessionStartHook(
@@ -7007,16 +7020,27 @@ class AiSessionController extends ChangeNotifier {
         text.contains('context length') ||
         text.contains('context window') ||
         text.contains('maximum context') ||
+        text.contains('input too large') ||
+        text.contains('input is too long') ||
+        text.contains('too many tokens') ||
+        text.contains('request too large') ||
+        text.contains('413') ||
         (text.contains('token') && text.contains('exceed'));
   }
 
   String _buildCompressionCheckpointContent({
     required String summary,
+    required List<AiSessionMessage> sourceMessages,
     required List<AiSessionMessage> discardedMessages,
   }) {
-    final trimmedSummary = normalizeCompressionCheckpointSummary(summary);
+    final trimmedSummary = _boundedCompressionCheckpointSummary(
+      normalizeCompressionCheckpointSummary(summary),
+    );
+    final effectiveSummary = trimmedSummary.isEmpty
+        ? _buildFallbackCompressionCheckpoint(sourceMessages)
+        : trimmedSummary;
     if (discardedMessages.isEmpty) {
-      return trimmedSummary;
+      return effectiveSummary;
     }
     final countsByKind = <String, int>{};
     for (final message in discardedMessages) {
@@ -7034,7 +7058,52 @@ class AiSessionController extends ChangeNotifier {
     return '''## Context Gap
 - ${discardedMessages.length} older messages were not included in the summary because the compression prompt exceeded the model context. Range: $firstAt to $lastAt. Kinds: $kindSummary.
 
-$trimmedSummary''';
+$effectiveSummary''';
+  }
+
+  String _boundedCompressionCheckpointSummary(String summary) {
+    final trimmed = summary.trim();
+    if (trimmed.length <= _compressionCheckpointMaxChars) {
+      return trimmed;
+    }
+    final head = trimmed
+        .substring(0, _compressionCheckpointEdgeChars)
+        .trimRight();
+    final tail = trimmed
+        .substring(trimmed.length - _compressionCheckpointEdgeChars)
+        .trimLeft();
+    final omitted = trimmed.length - head.length - tail.length;
+    return '''$head
+
+[checkpoint_summary_middle_omitted: omitted $omitted chars]
+
+$tail''';
+  }
+
+  String _buildFallbackCompressionCheckpoint(
+    List<AiSessionMessage> sourceMessages,
+  ) {
+    if (sourceMessages.isEmpty) {
+      return '## Compression Note\n- Summary model returned no usable checkpoint.\n- No source messages were available in the compression window.';
+    }
+    final countsByKind = <String, int>{};
+    for (final message in sourceMessages) {
+      countsByKind.update(
+        message.kind.storageValue,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final kindSummary = countsByKind.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    final firstAt = sourceMessages.first.createdAt.toIso8601String();
+    final lastAt = sourceMessages.last.createdAt.toIso8601String();
+    return '''## Compression Note
+- Summary model returned no usable checkpoint; OpenHand inserted this fallback.
+- Source range: $firstAt to $lastAt.
+- Source messages: ${sourceMessages.length}. Kinds: $kindSummary.
+- Exact source messages remain persisted in the session before this checkpoint.''';
   }
 
   Future<_PreparedUserTurn> _prepareUserTurn({
@@ -8506,21 +8575,27 @@ $trimmedSummary''';
       return _CompressionWindowSelection(
         messagesToCompress: _flattenCompressionGroups(candidateGroups),
         discardedMessages: const <AiSessionMessage>[],
+        strategy: 'unbounded_model_context',
       );
     }
+    final promptInputTokenLimit = _effectiveCompressionPromptInputTokenLimit(
+      maxContextTokens,
+    );
     final candidateMessages = _flattenCompressionGroups(candidateGroups);
     if (_compressionPromptFitsModelContext(
       templateBundle: templateBundle,
       template: template,
       session: session,
       runtimeContext: runtimeContext,
-      maxContextTokens: maxContextTokens,
+      promptInputTokenLimit: promptInputTokenLimit,
       messagesToCompress: candidateMessages,
       previousCompressionPoint: previousCompressionPoint,
     )) {
       return _CompressionWindowSelection(
         messagesToCompress: candidateMessages,
         discardedMessages: const <AiSessionMessage>[],
+        strategy: 'full_window',
+        promptInputTokenLimit: promptInputTokenLimit,
       );
     }
 
@@ -8537,7 +8612,7 @@ $trimmedSummary''';
         template: template,
         session: session,
         runtimeContext: runtimeContext,
-        maxContextTokens: maxContextTokens,
+        promptInputTokenLimit: promptInputTokenLimit,
         messagesToCompress: candidateSlice,
         previousCompressionPoint: previousCompressionPoint,
       );
@@ -8550,9 +8625,47 @@ $trimmedSummary''';
     }
 
     if (bestStartIndex == -1) {
-      return const _CompressionWindowSelection(
-        messagesToCompress: <AiSessionMessage>[],
-        discardedMessages: <AiSessionMessage>[],
+      var bestMessageStartIndex = -1;
+      left = 0;
+      right = candidateMessages.length - 1;
+      while (left <= right) {
+        final middle = left + ((right - left) ~/ 2);
+        final candidateSlice = candidateMessages
+            .skip(middle)
+            .toList(growable: false);
+        final fits = _compressionPromptFitsModelContext(
+          templateBundle: templateBundle,
+          template: template,
+          session: session,
+          runtimeContext: runtimeContext,
+          promptInputTokenLimit: promptInputTokenLimit,
+          messagesToCompress: candidateSlice,
+          previousCompressionPoint: previousCompressionPoint,
+        );
+        if (fits) {
+          bestMessageStartIndex = middle;
+          right = middle - 1;
+        } else {
+          left = middle + 1;
+        }
+      }
+      if (bestMessageStartIndex == -1) {
+        return _CompressionWindowSelection(
+          messagesToCompress: const <AiSessionMessage>[],
+          discardedMessages: const <AiSessionMessage>[],
+          strategy: 'no_fit',
+          promptInputTokenLimit: promptInputTokenLimit,
+        );
+      }
+      return _CompressionWindowSelection(
+        messagesToCompress: candidateMessages
+            .skip(bestMessageStartIndex)
+            .toList(growable: false),
+        discardedMessages: candidateMessages
+            .take(bestMessageStartIndex)
+            .toList(growable: false),
+        strategy: 'message_tail_window',
+        promptInputTokenLimit: promptInputTokenLimit,
       );
     }
     final resolvedStartIndex = bestStartIndex;
@@ -8563,6 +8676,8 @@ $trimmedSummary''';
       discardedMessages: _flattenCompressionGroups(
         candidateGroups.take(resolvedStartIndex),
       ),
+      strategy: 'group_tail_window',
+      promptInputTokenLimit: promptInputTokenLimit,
     );
   }
 
@@ -8571,7 +8686,7 @@ $trimmedSummary''';
     required AiThreadTemplate template,
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
-    required int maxContextTokens,
+    required int promptInputTokenLimit,
     required List<AiSessionMessage> messagesToCompress,
     required AiSessionMessage? previousCompressionPoint,
   }) {
@@ -8590,7 +8705,19 @@ $trimmedSummary''';
       0,
       (sum, message) => sum + message.promptCharacterCount,
     );
-    return _estimateTokensFromCharacters(promptCharacters) <= maxContextTokens;
+    return _estimateTokensFromCharacters(promptCharacters) <=
+        promptInputTokenLimit;
+  }
+
+  int _effectiveCompressionPromptInputTokenLimit(int maxContextTokens) {
+    if (maxContextTokens <= 0) {
+      return 0;
+    }
+    final reserve = math.min(
+      _compressionPromptResponseReserveTokens,
+      math.max(512, maxContextTokens ~/ 5),
+    );
+    return math.max(1, maxContextTokens - reserve);
   }
 
   int _estimateTokensFromCharacters(int characterCount) {

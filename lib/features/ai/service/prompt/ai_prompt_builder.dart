@@ -81,6 +81,8 @@ class AiPromptBuilder {
   static const int _checkpointPromptMaxChars = 40000;
   static const int _checkpointPromptEdgeChars = 18000;
   static const int _compressionAttachmentDetailMaxChars = 2000;
+  static const int _compressionPromptToolResultThresholdChars = 4096;
+  static const int _compressionPromptToolResultHeadTailChars = 384;
   static const int _postCompactRestoreMaxFiles = 5;
   static const int _postCompactRestoreMaxFileBytes = 256 * 1024;
   static const int _postCompactRestoreMaxCharsPerFile = 12000;
@@ -1632,13 +1634,21 @@ class AiPromptBuilder {
     final resourceManifest = _renderCompressionResourceManifest(
       messagesToCompress,
     );
-    // 2026-05-23 — 微压缩关闭时，正常对话不执行微压缩，但压缩前必须补做。
-    final microCompactContentMap = runtimeContext.microCompressionEnabled
-        ? const <String, String>{}
-        : _computeMicroCompactContentMap(messagesToCompress);
+    // Compression must follow the same coarse order as Claude Code:
+    // tool-result budget first, then transcript summarization. Stored history
+    // remains lossless; only this summarization prompt receives compact views.
+    final compressionConfig = _ToolCompressionConfig.forCompressionPrompt(
+      runtimeContext,
+    );
+    final microCompactContentMap = _computeMicroCompactContentMap(
+      messagesToCompress,
+    );
     String renderForCompression(AiSessionMessage m) {
       final compacted = microCompactContentMap[m.id];
       if (compacted != null) return compacted;
+      if (_isToolResultKind(m.kind)) {
+        return _promptHistoryToolResultContent(m, compressionConfig);
+      }
       return _renderMessageForCompression(m);
     }
 
@@ -4780,6 +4790,29 @@ class _ToolCompressionConfig {
         1 << 20,
       ),
       microCompressionEnabled: runtimeContext.microCompressionEnabled,
+    );
+  }
+
+  factory _ToolCompressionConfig.forCompressionPrompt(
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    final base = _ToolCompressionConfig.fromRuntimeContext(runtimeContext);
+    return _ToolCompressionConfig(
+      enabled: true,
+      thresholdChars: math.min(
+        base.thresholdChars,
+        AiPromptBuilder._compressionPromptToolResultThresholdChars,
+      ),
+      headTailWindowChars: math.min(
+        base.headTailWindowChars,
+        AiPromptBuilder._compressionPromptToolResultHeadTailChars,
+      ),
+      maxPathHits: base.maxPathHits,
+      writeSummaryMaxChars: math.min(
+        base.writeSummaryMaxChars,
+        AiPromptBuilder._compressionPromptToolResultHeadTailChars,
+      ),
+      microCompressionEnabled: true,
     );
   }
 

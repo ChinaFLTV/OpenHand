@@ -8,10 +8,14 @@ class _CompressionWindowSelection {
   const _CompressionWindowSelection({
     required this.messagesToCompress,
     required this.discardedMessages,
+    this.strategy = 'full',
+    this.promptInputTokenLimit,
   });
 
   final List<AiSessionMessage> messagesToCompress;
   final List<AiSessionMessage> discardedMessages;
+  final String strategy;
+  final int? promptInputTokenLimit;
 }
 
 class _CompressionMessageGroup {
