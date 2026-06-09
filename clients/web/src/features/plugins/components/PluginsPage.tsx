@@ -3,7 +3,7 @@
 // 展示可选插件（NodeJS / Playwright / Python / pip）的安装状态，支持安装、更新与按能力约束的卸载操作。
 // 5 秒轮询刷新状态，操作期间实时反馈进度。UI 风格与 ToolboxPage 保持一致。
 
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -17,8 +17,12 @@ import {
   rescanPlugins,
   checkPluginUpdate,
 } from '../../../api/plugins';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t } from '../../../i18n';
 import { showSnackbar } from '../../../components/Snackbar';
+import { describeApiError } from '../../../utils/api_error';
+
+const PLUGINS_POLL_INTERVAL_MS = 5_000;
 
 function statusBadge(status: PluginStatus): { color: string; bg: string; label: string } {
   switch (status) {
@@ -61,33 +65,20 @@ export function PluginsPage() {
     action: 'install' | 'update' | 'uninstall';
   } | null>(null);
 
-  const fetchPlugins = async () => {
+  const fetchPlugins = async (isActive: () => boolean = () => true) => {
     try {
       const result = await listPlugins();
+      if (!isActive()) return;
       setPlugins(result.items);
       setError(null);
     } catch (err) {
-      if (!plugins) setError(err instanceof Error ? err.message : String(err));
+      if (isActive()) setError(describeApiError(err));
     } finally {
-      setLoading(false);
+      if (isActive()) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    let stop = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const tick = async () => {
-      await fetchPlugins();
-      if (!stop) timer = setTimeout(tick, 5000);
-    };
-    void tick();
-
-    return () => {
-      stop = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+  useAsyncPolling(fetchPlugins, { intervalMs: PLUGINS_POLL_INTERVAL_MS });
 
   const handleAction = async (pluginId: string, action: 'install' | 'update' | 'uninstall') => {
     setOperating(pluginId);
@@ -103,7 +94,7 @@ export function PluginsPage() {
       }
       await fetchPlugins();
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
+      showSnackbar(describeApiError(err), { tone: 'error' });
     } finally {
       setOperating(null);
     }
@@ -116,7 +107,7 @@ export function PluginsPage() {
       setPlugins(result.items);
       showSnackbar(t('plugins.rescanDone', '扫描完成'), { tone: 'success' });
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
+      showSnackbar(describeApiError(err), { tone: 'error' });
     } finally {
       setLoading(false);
     }
@@ -141,7 +132,7 @@ export function PluginsPage() {
         );
       }
     } catch (err) {
-      showSnackbar(err instanceof Error ? err.message : String(err), { tone: 'error' });
+      showSnackbar(describeApiError(err), { tone: 'error' });
     } finally {
       setCheckingUpdate(null);
     }

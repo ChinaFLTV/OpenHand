@@ -113,7 +113,7 @@ html, body, #root {
   --oh-motion-duration-base: 240ms;
   --oh-motion-duration-slow: 320ms;
   --oh-motion-stagger-step: 60ms;
-  --oh-dialog-duration: 320ms;
+  --oh-dialog-duration: 360ms;
   --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
   --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
 }
@@ -4229,45 +4229,65 @@ button.oh-composer-pill:not(:disabled):hover {
   animation: none;
 }
 [data-dialog-enter='fade'] .oh-dialog-pop-in,
+[data-dialog-enter='fade'] .oh-dialog-sheet-in,
 [data-dialog-enter='fade'] .oh-popmenu-pop { animation-name: oh-dialog-card-fade-in; }
 [data-dialog-enter='slide_up'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_up'] .oh-dialog-sheet-in,
 [data-dialog-enter='slide_up'] .oh-popmenu-pop { animation-name: oh-dialog-slide-up-in; }
 [data-dialog-enter='slide_down'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_down'] .oh-dialog-sheet-in,
 [data-dialog-enter='slide_down'] .oh-popmenu-pop { animation-name: oh-dialog-slide-down-in; }
 [data-dialog-enter='slide_left'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_left'] .oh-dialog-sheet-in,
 [data-dialog-enter='slide_left'] .oh-popmenu-pop { animation-name: oh-dialog-slide-left-in; }
 [data-dialog-enter='slide_right'] .oh-dialog-pop-in,
+[data-dialog-enter='slide_right'] .oh-dialog-sheet-in,
 [data-dialog-enter='slide_right'] .oh-popmenu-pop { animation-name: oh-dialog-slide-right-in; }
 [data-dialog-enter='expand'] .oh-dialog-pop-in,
+[data-dialog-enter='expand'] .oh-dialog-sheet-in,
 [data-dialog-enter='expand'] .oh-popmenu-pop { animation-name: oh-dialog-expand-in; }
 [data-dialog-enter='rotate_scale'] .oh-dialog-pop-in,
+[data-dialog-enter='rotate_scale'] .oh-dialog-sheet-in,
 [data-dialog-enter='rotate_scale'] .oh-popmenu-pop { animation-name: oh-dialog-rotate-scale-in; }
 [data-dialog-enter='elastic'] .oh-dialog-pop-in,
+[data-dialog-enter='elastic'] .oh-dialog-sheet-in,
 [data-dialog-enter='elastic'] .oh-popmenu-pop { animation-name: oh-dialog-elastic-in; }
 [data-dialog-enter='spring_scale'] .oh-dialog-pop-in,
+[data-dialog-enter='spring_scale'] .oh-dialog-sheet-in,
 [data-dialog-enter='spring_scale'] .oh-popmenu-pop { animation-name: oh-dialog-spring-scale-in; }
 [data-dialog-enter='flip_x'] .oh-dialog-pop-in,
+[data-dialog-enter='flip_x'] .oh-dialog-sheet-in,
 [data-dialog-enter='flip_x'] .oh-popmenu-pop { animation-name: oh-dialog-flip-x-in; }
 
 [data-dialog-exit='fade'] .oh-dialog-pop-out,
+[data-dialog-exit='fade'] .oh-dialog-sheet-out,
 [data-dialog-exit='fade'] .oh-menu-pop-out { animation-name: oh-dialog-card-fade-out; }
 [data-dialog-exit='slide_up'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_up'] .oh-dialog-sheet-out,
 [data-dialog-exit='slide_up'] .oh-menu-pop-out { animation-name: oh-dialog-slide-up-out; }
 [data-dialog-exit='slide_down'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_down'] .oh-dialog-sheet-out,
 [data-dialog-exit='slide_down'] .oh-menu-pop-out { animation-name: oh-dialog-slide-down-out; }
 [data-dialog-exit='slide_left'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_left'] .oh-dialog-sheet-out,
 [data-dialog-exit='slide_left'] .oh-menu-pop-out { animation-name: oh-dialog-slide-left-out; }
 [data-dialog-exit='slide_right'] .oh-dialog-pop-out,
+[data-dialog-exit='slide_right'] .oh-dialog-sheet-out,
 [data-dialog-exit='slide_right'] .oh-menu-pop-out { animation-name: oh-dialog-slide-right-out; }
 [data-dialog-exit='expand'] .oh-dialog-pop-out,
+[data-dialog-exit='expand'] .oh-dialog-sheet-out,
 [data-dialog-exit='expand'] .oh-menu-pop-out { animation-name: oh-dialog-expand-out; }
 [data-dialog-exit='rotate_scale'] .oh-dialog-pop-out,
+[data-dialog-exit='rotate_scale'] .oh-dialog-sheet-out,
 [data-dialog-exit='rotate_scale'] .oh-menu-pop-out { animation-name: oh-dialog-rotate-scale-out; }
 [data-dialog-exit='elastic'] .oh-dialog-pop-out,
+[data-dialog-exit='elastic'] .oh-dialog-sheet-out,
 [data-dialog-exit='elastic'] .oh-menu-pop-out,
 [data-dialog-exit='spring_scale'] .oh-dialog-pop-out,
+[data-dialog-exit='spring_scale'] .oh-dialog-sheet-out,
 [data-dialog-exit='spring_scale'] .oh-menu-pop-out { animation-name: oh-dialog-spring-scale-out; }
 [data-dialog-exit='flip_x'] .oh-dialog-pop-out,
+[data-dialog-exit='flip_x'] .oh-dialog-sheet-out,
 [data-dialog-exit='flip_x'] .oh-menu-pop-out { animation-name: oh-dialog-flip-x-out; }
 
 /* 悬浮加号按钮 (FAB)：常态轻浮 + hover 上抬 + active 下沉，外加循环极轻 idle 呼吸。 */

@@ -5,9 +5,8 @@
 // - 网格指标：state / uptime / 请求 / 错误 / 字节 / 进程 RSS / 文件句柄 …
 // - 清理面板：target=all/logs/uploads + expired_only 复选框 + 历史列表
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
-import { ApiError } from '../../../api/client';
 import {
   CleanupHistoryEntry,
   OpsRuntimeSnapshot,
@@ -15,22 +14,15 @@ import {
   getOpsSnapshot,
   runCleanup,
 } from '../../../api/ops';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tBytes, tDateTime, tDuration, tFmt, tPlural } from '../../../i18n';
 import { MenuSelect } from '../../../components/MenuSelect';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
+import { describeApiError } from '../../../utils/api_error';
 
 const REFRESH_INTERVAL_MS = 5_000;
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
 
 interface OpsHealthSignal {
   label: string;
@@ -160,55 +152,48 @@ export function OpsPage() {
   const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
   const [cleanupOk, setCleanupOk] = useState<string | null>(null);
-  const timerRef = useRef<number | null>(null);
 
-  const refreshSnapshot = async () => {
+  const refreshSnapshot = async (isActive: () => boolean = () => true) => {
     setSnapLoading(true);
     setSnapError(null);
     try {
       const s = await getOpsSnapshot();
+      if (!isActive()) return;
       setSnapshot(s);
     } catch (err) {
-      setSnapError(describeApiError(err));
+      if (isActive()) setSnapError(describeApiError(err));
     } finally {
-      setSnapLoading(false);
+      if (isActive()) setSnapLoading(false);
     }
   };
 
-  const refreshHistory = async () => {
+  const refreshHistory = async (isActive: () => boolean = () => true) => {
     setHistoryError(null);
     try {
       const h = await getCleanupHistory();
+      if (!isActive()) return;
       setHistory(h.items);
     } catch (err) {
-      setHistoryError(describeApiError(err));
+      if (isActive()) setHistoryError(describeApiError(err));
     }
   };
 
   // 初次加载
   useEffect(() => {
-    void refreshSnapshot();
-    void refreshHistory();
+    let stopped = false;
+    const isActive = () => !stopped;
+    void refreshSnapshot(isActive);
+    void refreshHistory(isActive);
+    return () => {
+      stopped = true;
+    };
   }, []);
 
-  // 自动刷新定时器
-  useEffect(() => {
-    if (!autoRefresh) {
-      if (timerRef.current != null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-    const tick = () => void refreshSnapshot();
-    timerRef.current = window.setInterval(tick, REFRESH_INTERVAL_MS);
-    return () => {
-      if (timerRef.current != null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [autoRefresh]);
+  useAsyncPolling((isActive) => refreshSnapshot(isActive), {
+    enabled: autoRefresh,
+    immediate: false,
+    intervalMs: REFRESH_INTERVAL_MS,
+  });
 
   const handleCleanup = async () => {
     if (cleaning) return;

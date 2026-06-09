@@ -45,21 +45,21 @@ export function listPlugins(): Promise<{ items: PluginSummary[] }> {
 export function installPlugin(pluginId: string): Promise<PluginActionResult> {
   return apiRequest<PluginActionResult>('/api/plugins/install', {
     method: 'POST',
-    body: JSON.stringify({ plugin_id: pluginId }),
+    body: { plugin_id: pluginId },
   });
 }
 
 export function updatePlugin(pluginId: string): Promise<PluginActionResult> {
   return apiRequest<PluginActionResult>('/api/plugins/update', {
     method: 'POST',
-    body: JSON.stringify({ plugin_id: pluginId }),
+    body: { plugin_id: pluginId },
   });
 }
 
 export function uninstallPlugin(pluginId: string): Promise<PluginActionResult> {
   return apiRequest<PluginActionResult>('/api/plugins/uninstall', {
     method: 'POST',
-    body: JSON.stringify({ plugin_id: pluginId }),
+    body: { plugin_id: pluginId },
   });
 }
 
@@ -72,6 +72,6 @@ export function rescanPlugins(): Promise<{ items: PluginSummary[] }> {
 export function checkPluginUpdate(pluginId: string): Promise<PluginCheckUpdateResult> {
   return apiRequest<PluginCheckUpdateResult>('/api/plugins/check-update', {
     method: 'POST',
-    body: JSON.stringify({ plugin_id: pluginId }),
+    body: { plugin_id: pluginId },
   });
 }

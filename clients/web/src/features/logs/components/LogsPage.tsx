@@ -9,12 +9,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
-import { ApiError } from '../../../api/client';
 import { LogEntry, exportLogsBundle, listLogs } from '../../../api/logs';
 import { t, tTime } from '../../../i18n';
 import { MenuSelect } from '../../../components/MenuSelect';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
+import { describeApiError, isAbortError } from '../../../utils/api_error';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;
@@ -33,19 +33,6 @@ function fmtTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return `${tTime(d)}.${String(d.getMilliseconds()).padStart(3, '0')}`;
-}
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
-
-function isAbortError(err: unknown): boolean {
-  return err instanceof Error && err.name === 'AbortError';
 }
 
 export function LogsPage() {

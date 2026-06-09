@@ -8,7 +8,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
-import { ApiError } from '../../../api/client';
 import {
   WorkspaceItem,
   WorkspaceListResponse,
@@ -25,21 +24,14 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { TopBar } from '../../../components/TopBar';
+import { describeApiError } from '../../../utils/api_error';
+
+const SAVE_OK_RESET_MS = 2_000;
 
 function parentOf(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
   const idx = trimmed.lastIndexOf('/');
   return idx <= 0 ? '' : trimmed.slice(0, idx);
-}
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string; message?: string } | null;
-    if (body?.message) return body.message;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
 }
 
 export function FilesPage() {
@@ -71,6 +63,24 @@ export function FilesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
   const detailSectionRef = useRef<HTMLElement | null>(null);
+  const saveOkTimerRef = useRef<number | null>(null);
+
+  const clearSaveOkTimer = () => {
+    if (saveOkTimerRef.current == null || typeof window === 'undefined') return;
+    window.clearTimeout(saveOkTimerRef.current);
+    saveOkTimerRef.current = null;
+  };
+
+  const scheduleSaveOkReset = () => {
+    clearSaveOkTimer();
+    if (typeof window === 'undefined') return;
+    saveOkTimerRef.current = window.setTimeout(() => {
+      saveOkTimerRef.current = null;
+      setSaveOk(false);
+    }, SAVE_OK_RESET_MS);
+  };
+
+  useEffect(() => () => clearSaveOkTimer(), []);
 
   const refresh = async () => {
     setListLoading(true);
@@ -147,7 +157,7 @@ export function FilesPage() {
       setDirty(false);
       setSaveOk(true);
       showSnackbar(`${t('files.saveOk', '已保存')}：${selected.path}`, { tone: 'success' });
-      setTimeout(() => setSaveOk(false), 2000);
+      scheduleSaveOkReset();
     } catch (err) {
       const message = describeApiError(err);
       setSaveError(message);

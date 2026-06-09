@@ -8,10 +8,9 @@
 // 与 ToolboxPage 一样: 一个页面打开后做 polling, 错误顶部红条但保留旧数据,
 // 避免抖动清空界面。
 
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
-import { ApiError } from '../../../api/client';
 import {
   HardnessPhaseLogSnapshot,
   HardnessPhaseStatus,
@@ -19,7 +18,11 @@ import {
   HardnessSessionRecord,
   fetchHardnessSession,
 } from '../../../api/hardness';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tDateTime } from '../../../i18n';
+import { describeApiError } from '../../../utils/api_error';
+
+const HARDNESS_POLL_INTERVAL_MS = 5_000;
 
 const PHASE_ORDER: HardnessPhaseValue[] = [
   'meta_collection',
@@ -36,15 +39,6 @@ const PHASE_NAMES_ZH: Record<HardnessPhaseValue, string> = {
   implementing: '实施',
   reviewing: '验收',
 };
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
 
 function phaseStatusBadge(status: HardnessPhaseStatus): { color: string; bg: string; icon: string } {
   switch (status) {
@@ -76,28 +70,16 @@ export function HardnessPage() {
   const [record, setRecord] = useState<HardnessSessionRecord | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let stop = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const tick = async () => {
-      try {
-        const res = await fetchHardnessSession();
-        if (stop) return;
-        setRecord(res.record);
-        setError(null);
-      } catch (err) {
-        if (!stop) setError(describeApiError(err));
-      } finally {
-        if (!stop) timer = setTimeout(tick, 5000);
-      }
-    };
-    void tick();
-    return () => {
-      stop = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+  useAsyncPolling(async (isActive) => {
+    try {
+      const res = await fetchHardnessSession();
+      if (!isActive()) return;
+      setRecord(res.record);
+      setError(null);
+    } catch (err) {
+      if (isActive()) setError(describeApiError(err));
+    }
+  }, { intervalMs: HARDNESS_POLL_INTERVAL_MS });
 
   return (
     <main

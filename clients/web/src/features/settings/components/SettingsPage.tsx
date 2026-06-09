@@ -10,7 +10,6 @@ import { useEffect, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import { MenuSelect } from '../../../components/MenuSelect';
-import { ApiError } from '../../../api/client';
 import {
   fetchPreferences,
   updatePreferences,
@@ -29,6 +28,7 @@ import {
   syncRemoteDialogMotionSettings,
 } from '../../../hooks/useDialogMotionSettings';
 import { showSnackbar } from '../../../components/Snackbar';
+import { describeApiError } from '../../../utils/api_error';
 
 const LANG_LABEL: Record<string, string> = {
   zh_Hans: '简体中文',
@@ -63,15 +63,6 @@ const MOTION_CURVE_LABEL: Record<string, string> = {
   bounce_out: '回弹缓出',
   decelerate: '减速',
 };
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
 
 function languageLabel(code: string): string {
   return LANG_LABEL[code] ?? code;

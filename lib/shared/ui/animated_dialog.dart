@@ -20,11 +20,17 @@ Color resolveAnimatedDialogBarrierColor(
 }
 
 Widget? _constrainDialogContent(Widget? content, double? maxWidth) {
-  if (content == null || maxWidth == null) return content;
+  final effectiveMaxWidth = _validDialogMaxWidth(maxWidth);
+  if (content == null || effectiveMaxWidth == null) return content;
   return ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: maxWidth),
+    constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
     child: content,
   );
+}
+
+double? _validDialogMaxWidth(double? maxWidth) {
+  if (maxWidth == null || !maxWidth.isFinite || maxWidth <= 0) return null;
+  return maxWidth;
 }
 
 Future<bool> showOpenHandConfirmDialog({
@@ -92,7 +98,11 @@ Future<String?> showOpenHandTextInputDialog({
   int? maxLines,
 }) async {
   final textController = TextEditingController(text: initialValue ?? '');
-  final resolvedMaxLines = maxLines ?? (minLines > 1 ? minLines : 1);
+  final resolvedMinLines = minLines < 1 ? 1 : minLines;
+  final resolvedMaxLines = maxLines == null || maxLines < resolvedMinLines
+      ? resolvedMinLines
+      : maxLines;
+  final resolvedMaxWidth = _validDialogMaxWidth(maxWidth);
   String normalize(String value) => trimResult ? value.trim() : value;
 
   try {
@@ -104,7 +114,7 @@ Future<String?> showOpenHandTextInputDialog({
         final field = TextField(
           controller: textController,
           autofocus: autofocus,
-          minLines: minLines,
+          minLines: resolvedMinLines,
           maxLines: resolvedMaxLines,
           keyboardType:
               keyboardType ??
@@ -124,9 +134,9 @@ Future<String?> showOpenHandTextInputDialog({
           actionsOverflowAlignment: OverflowBarAlignment.center,
           icon: icon,
           title: Text(title),
-          content: maxWidth == null
+          content: resolvedMaxWidth == null
               ? field
-              : SizedBox(width: maxWidth, child: field),
+              : SizedBox(width: resolvedMaxWidth, child: field),
           actions: <Widget>[
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),

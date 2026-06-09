@@ -5,10 +5,9 @@
 // 哪些定时任务正在跑。所有列表 5 秒一次 polling, 出错只在头部红条提示,
 // 内容保留旧值, 避免短暂网络抖动让用户 tab 整个清空。
 
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
-import { ApiError } from '../../../api/client';
 import {
   CronEntrySummary,
   McpServerSummary,
@@ -19,22 +18,16 @@ import {
   listMemories,
   listSkills,
 } from '../../../api/toolbox';
+import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tDateTime } from '../../../i18n';
+import { describeApiError } from '../../../utils/api_error';
 
 type TabKey = 'mcp' | 'skills' | 'memories' | 'crons';
+const TOOLBOX_POLL_INTERVAL_MS = 5_000;
 
 interface TabSpec {
   key: TabKey;
   label: string;
-}
-
-function describeApiError(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    return `HTTP ${err.status}${body?.error ? ` (${body.error})` : ''}`;
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
 }
 
 function statusBadge(status: string): { color: string; bg: string; label: string } {
@@ -65,46 +58,27 @@ export function ToolboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let stop = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const fetchAll = async () => {
-      try {
-        const [m, s, mem, c] = await Promise.all([
-          listMcpServers(),
-          listSkills(),
-          listMemories(),
-          listCrons(),
-        ]);
-        if (stop) return;
-        setMcp(m.items);
-        setSkills(s.items);
-        setSkillsRoot(s.storage_path);
-        setMemories(mem.items);
-        setCrons(c.items);
-        setError(null);
-      } catch (err) {
-        if (!stop) setError(describeApiError(err));
-      } finally {
-        if (!stop) setLoading(false);
-      }
-    };
-
-    void fetchAll();
-    const tick = () => {
-      timer = setTimeout(async () => {
-        await fetchAll();
-        if (!stop) tick();
-      }, 5000);
-    };
-    tick();
-
-    return () => {
-      stop = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+  useAsyncPolling(async (isActive) => {
+    try {
+      const [m, s, mem, c] = await Promise.all([
+        listMcpServers(),
+        listSkills(),
+        listMemories(),
+        listCrons(),
+      ]);
+      if (!isActive()) return;
+      setMcp(m.items);
+      setSkills(s.items);
+      setSkillsRoot(s.storage_path);
+      setMemories(mem.items);
+      setCrons(c.items);
+      setError(null);
+    } catch (err) {
+      if (isActive()) setError(describeApiError(err));
+    } finally {
+      if (isActive()) setLoading(false);
+    }
+  }, { intervalMs: TOOLBOX_POLL_INTERVAL_MS });
 
   const tabs: TabSpec[] = useMemo(
     () => [
