@@ -55,9 +55,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   final Stopwatch _totalStopwatch = Stopwatch();
   late final AnimationController _cursorBlinkController;
 
-  // 2026-05-04 (UI \u8c03\u4f18): \u6bcf\u5f53\u4e00\u6761 head \u65e5\u5fd7\u51fa\u73b0\u65f6\u5c06\u4e0a\u4e00\u4e2a\u5c0f\u8282
-  // \u7684 tag \u4e0e\u8017\u65f6\u8bb0\u5165 _sectionDurations\uff0c\u4f9b\u9876\u90e8 chip \u5c55\u793a "\u70ed\u70b9
-  // \u8017\u65f6 = TAG (Xms)" \u4f7f\u7528\u3002
+  // 记录上一段 head 日志的 tag 与耗时，供顶部 chip 展示热点耗时。
   final Map<String, int> _sectionDurations = <String, int>{};
   String? _currentSectionTag;
   int _currentSectionStartMs = 0;
@@ -83,9 +81,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   @override
   void initState() {
     super.initState();
-    // 2026-05-04 (UI \u8c03\u4f18): \u5c06 blink \u5468\u671f\u4ece 900\u2192600 ms\uff0c\u8ba9\u7e41\u5fd9
-    // \u4e2d\u7684\u5149\u6807\u51fa\u73b0\u51fa "\u7e41\u5fd9" \u54cd\u5e94\u3002\u80cc\u666f\u4ece\u9ec4\u7eff\u8272\u8fc7\u5ea6
-    // \u5230\u9752\u9752\u7684\u8b66\u9192\u8272\uff0c\u8df3\u52a8\u8282\u594f\u4e2d\u5b8c\u6210"\u8272\u5f69+\u4eae\u5ea6"\u53cc\u91cd\u63d0\u793a\u3002
+    // 600 ms blink 周期让繁忙状态的光标反馈更明确。
     _cursorBlinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),

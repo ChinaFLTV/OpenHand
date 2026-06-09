@@ -1101,7 +1101,8 @@ class _DiffLine extends StatelessWidget {
   }
 }
 
-/// Closes an unterminated fenced code block so the Markdown parser/// never produces garbage output on streaming/partial content.
+/// Closes an unterminated fenced code block so the Markdown parser never
+/// produces garbage output on streaming/partial content.
 String _heCloseUnterminatedCodeBlock(String source) {
   final fenceRe = RegExp(r'^[ ]{0,3}(`{3,}|~{3,})[^\n]*$', multiLine: true);
   String? openFence;

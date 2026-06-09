@@ -540,11 +540,9 @@ class _PulsingDotState extends State<_PulsingDot>
     if (!_controller.isAnimating) {
       _controller.repeat(reverse: true);
     }
-    // Bake the pulsing opacity into the BoxDecoration color rather than
-    // wrapping the dot in `Opacity` \u2014 `Opacity` always allocates a
-    // saveLayer (offscreen pass) which is wasted overhead for a 6-8 px
-    // circle that has no children to composite. Painting a translucent
-    // colour does the same job in a single fill call per frame.
+    // Bake the pulsing opacity into the BoxDecoration color. Wrapping the dot
+    // in `Opacity` allocates a saveLayer, which is wasted overhead for a small
+    // circle with no child to composite.
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
