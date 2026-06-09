@@ -15,6 +15,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../ai/index.dart';
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
@@ -168,17 +169,6 @@ class _ThreadSessionManagementDialogState
     String pad(int n) => n.toString().padLeft(2, '0');
     return '${local.year}-${pad(local.month)}-${pad(local.day)} '
         '${pad(local.hour)}:${pad(local.minute)}';
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   /// Approximate on-disk size based on the session statistics already
@@ -1270,7 +1260,7 @@ class _ThreadSessionManagementDialogState
         showDragHandle: canReorder,
         diskBytes: _diskBytes[session.id],
         formatDateTime: _formatDateTime,
-        formatBytes: _formatBytes,
+        formatBytes: formatByteSize,
         estimateBytes: _estimateBytes,
         onTap: _isSelectionMode ? null : () => _openPreview(session),
         onToggleSelect: (checked) {

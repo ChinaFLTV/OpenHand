@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
+import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -280,8 +281,8 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               const SizedBox(height: 4),
               Text(
                 isZh
-                    ? '文件大小: ${_formatBytes(_release!.downloadSize)}'
-                    : 'Size: ${_formatBytes(_release!.downloadSize)}',
+                    ? '文件大小: ${formatByteSize(_release!.downloadSize)}'
+                    : 'Size: ${formatByteSize(_release!.downloadSize)}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.outline,
                 ),
@@ -471,11 +472,5 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

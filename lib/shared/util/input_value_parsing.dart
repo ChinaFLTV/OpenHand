@@ -81,6 +81,15 @@ int intFromValue(Object? value, {required int fallback}) {
   return fallback;
 }
 
+double doubleFromValue(Object? value, {required double fallback}) {
+  if (value is double && value.isFinite) return value;
+  if (value is num && value.isFinite) return value.toDouble();
+  if (value is String) {
+    return double.tryParse(value.trim()) ?? fallback;
+  }
+  return fallback;
+}
+
 int? optionalIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;

@@ -1,0 +1,50 @@
+import 'input_value_parsing.dart';
+
+const int kBytesPerKiB = 1024;
+const int kBytesPerMiB = kBytesPerKiB * 1024;
+const int kBytesPerGiB = kBytesPerMiB * 1024;
+
+String formatByteSize(int bytes) {
+  if (bytes <= 0) return '0 B';
+  if (bytes < kBytesPerKiB) return '$bytes B';
+
+  const units = <String>['KB', 'MB', 'GB', 'TB', 'PB'];
+  double size = bytes / kBytesPerKiB;
+  var unitIndex = 0;
+  while (size >= kBytesPerKiB && unitIndex < units.length - 1) {
+    size /= kBytesPerKiB;
+    unitIndex++;
+  }
+
+  final fractionDigits = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
+  return '${size.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+}
+
+String formatNullableByteSize(int? bytes, {String pendingLabel = '...'}) {
+  return bytes == null ? pendingLabel : formatByteSize(bytes);
+}
+
+String formatMegabytesInput(int bytes) {
+  if (bytes <= 0) return '0';
+  final mb = bytes / kBytesPerMiB;
+  return mb >= 100
+      ? mb.toStringAsFixed(0)
+      : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
+}
+
+int megabytesTextToBytes(
+  String value, {
+  required int fallbackBytes,
+  required int minBytes,
+  required int maxBytes,
+}) {
+  final fallbackMb = fallbackBytes / kBytesPerMiB;
+  final parsedMb = doubleFromValue(value, fallback: fallbackMb);
+  if (parsedMb <= 0) {
+    return minBytes <= 0 ? 0 : minBytes;
+  }
+  final bytes = (parsedMb * kBytesPerMiB).round();
+  final lower = minBytes <= maxBytes ? minBytes : maxBytes;
+  final upper = minBytes <= maxBytes ? maxBytes : minBytes;
+  return bytes.clamp(lower, upper).toInt();
+}

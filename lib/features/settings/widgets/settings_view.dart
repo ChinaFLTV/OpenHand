@@ -48,6 +48,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/rolling_text.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
@@ -88,27 +89,6 @@ const DialogAnimationSettings _kNoListItemAnimationSettings =
       exitStyle: DialogAnimationStyle.none,
       durationMs: 0,
     );
-
-String _formatCacheMegabytesInput(int bytes) {
-  if (bytes <= 0) return '0';
-  final mb = bytes / (1024 * 1024);
-  return mb >= 100
-      ? mb.toStringAsFixed(0)
-      : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
-}
-
-String _formatBytesHuman(int? bytes) {
-  if (bytes == null) return '…';
-  if (bytes <= 0) return '0 B';
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  }
-  if (bytes < 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
-  }
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-}
 
 void _syncControllerText(TextEditingController controller, String text) {
   if (controller.text == text) return;
@@ -193,6 +173,23 @@ Future<void> _exportToolTelemetry<T>({
     ),
     duration: const Duration(milliseconds: 1800),
   );
+}
+
+String _encodeJsonList(Iterable<Object?> values) {
+  return const JsonEncoder.withIndent(
+    '  ',
+  ).convert(values.toList(growable: false));
+}
+
+String _csvCell(Object? value) {
+  final s = value?.toString() ?? '';
+  return (s.contains(',') || s.contains('"') || s.contains('\n'))
+      ? '"${s.replaceAll('"', '""')}"'
+      : s;
+}
+
+String _csvRow(Iterable<Object?> values) {
+  return values.map(_csvCell).join(',');
 }
 
 enum _SettingsSection {
@@ -1679,7 +1676,7 @@ class _SettingsViewState extends State<SettingsView> {
             labelText: l10n.aiImageSizeLimitFieldLabel,
             hintText:
                 (AppSettingsSnapshot.defaultAiImageSizeLimitBytes /
-                        (1024 * 1024))
+                        kBytesPerMiB)
                     .toStringAsFixed(0),
             helperText: l10n.aiImageSizeLimitBody,
           ),
@@ -5144,7 +5141,7 @@ class _SettingsViewState extends State<SettingsView> {
   /// Examples: `1048576 -> '1'`, `1572864 -> '1.5'`. Trims trailing
   /// zeros so values like `2.0` show as `'2'`.
   String _formatImageSizeLimitInput(int bytes) {
-    final mb = bytes / (1024 * 1024);
+    final mb = bytes / kBytesPerMiB;
     final fixed = mb.toStringAsFixed(2);
     final trimmed = fixed
         .replaceFirst(RegExp(r'0+$'), '')
@@ -5166,7 +5163,7 @@ class _SettingsViewState extends State<SettingsView> {
       );
       return;
     }
-    final bytes = (parsedValue * 1024 * 1024).round();
+    final bytes = (parsedValue * kBytesPerMiB).round();
     final saved = await context
         .read<SettingsController>()
         .updateAiImageSizeLimitBytes(bytes);

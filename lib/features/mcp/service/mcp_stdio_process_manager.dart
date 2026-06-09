@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -669,14 +670,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     return '${d.inSeconds}秒';
   }
 
-  static String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
+  static String _formatBytes(int bytes) => formatByteSize(bytes);
 
   @override
   void dispose() {

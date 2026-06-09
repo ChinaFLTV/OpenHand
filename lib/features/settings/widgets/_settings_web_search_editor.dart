@@ -61,7 +61,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       text: '${widget.value.cacheTtlSeconds}',
     );
     _cacheMaxBytesController = TextEditingController(
-      text: _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+      text: formatMegabytesInput(widget.value.cacheMaxBytes),
     );
     _parallelWorkersController = TextEditingController(
       text: '${widget.value.parallelWorkers}',
@@ -157,21 +157,10 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   }
 
   String _callsToJson(List<WebSearchCallLog> calls) {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(
-      calls.map((c) => c.toJson()).toList(growable: false),
-    );
+    return _encodeJsonList(calls.map((c) => c.toJson()));
   }
 
   String _callsToCsv(List<WebSearchCallLog> calls) {
-    String esc(Object? v) {
-      final s = v?.toString() ?? '';
-      if (s.contains(',') || s.contains('"') || s.contains('\n')) {
-        return '"${s.replaceAll('"', '""')}"';
-      }
-      return s;
-    }
-
     final buf = StringBuffer();
     buf.writeln(
       'timestamp_ms,timestamp_iso,query,cache_status,success,total_duration_ms,'
@@ -189,21 +178,21 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           )
           .join(';');
       buf.writeln(
-        [
+        _csvRow([
           c.timestampMs,
           iso,
-          esc(c.query),
+          c.query,
           c.cacheStatus,
           c.success,
           c.totalDurationMs,
           c.mergedHitCount,
           c.fallbackUsed,
           c.summaryChars,
-          esc(c.errorMessage),
-          esc(c.modelProtocol),
-          esc(c.modelId),
-          esc(pe),
-        ].join(','),
+          c.errorMessage,
+          c.modelProtocol,
+          c.modelId,
+          pe,
+        ]),
       );
     }
     return buf.toString();
@@ -251,10 +240,10 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     }
     if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
         _cacheMaxBytesController.text !=
-            _formatCacheMegabytesInput(widget.value.cacheMaxBytes)) {
+            formatMegabytesInput(widget.value.cacheMaxBytes)) {
       _syncControllerText(
         _cacheMaxBytesController,
-        _formatCacheMegabytesInput(widget.value.cacheMaxBytes),
+        formatMegabytesInput(widget.value.cacheMaxBytes),
       );
     }
     if (old.value.parallelWorkers != widget.value.parallelWorkers &&
@@ -757,13 +746,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = double.tryParse(s.trim()) ?? 0.0;
-                  final bytes = (parsed * 1024 * 1024).round();
                   _emit(
                     v.copyWith(
-                      cacheMaxBytes: bytes.clamp(
-                        AiWebSearchSettings.minCacheMaxBytes,
-                        AiWebSearchSettings.maxCacheMaxBytes,
+                      cacheMaxBytes: megabytesTextToBytes(
+                        s,
+                        fallbackBytes: v.cacheMaxBytes,
+                        minBytes: AiWebSearchSettings.minCacheMaxBytes,
+                        maxBytes: AiWebSearchSettings.maxCacheMaxBytes,
                       ),
                     ),
                   );
@@ -780,8 +769,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: Text(
                 _localizedText(
                   context,
-                  zh: '当前已占用：${_formatBytesHuman(_cacheBytesOnDisk)}',
-                  en: 'On disk: ${_formatBytesHuman(_cacheBytesOnDisk)}',
+                  zh: '当前已占用：${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
+                  en: 'On disk: ${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -1285,15 +1274,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: Row(
                 children: [
                   if (inCooldown) ...[
-                    _StatusChip(
+                    _SettingsStatusChip(
                       icon: Icons.pause_circle_outline,
                       label: _localizedText(
                         context,
                         zh: '降级中 · 剩余 ${_formatRemaining(stat.cooldownUntilMs)}',
                         en: 'cooldown · ${_formatRemaining(stat.cooldownUntilMs)} left',
                       ),
-                      bg: colorScheme.errorContainer,
-                      fg: colorScheme.onErrorContainer,
+                      backgroundColor: colorScheme.errorContainer,
+                      foregroundColor: colorScheme.onErrorContainer,
                     ),
                     const SizedBox(width: 6),
                     InkWell(
@@ -1318,15 +1307,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                     if (inCooldown) const SizedBox(width: 6),
                     Tooltip(
                       message: stat.lastQuotaError ?? '',
-                      child: _StatusChip(
+                      child: _SettingsStatusChip(
                         icon: Icons.speed,
                         label: _localizedText(
                           context,
                           zh: '配额/限流',
                           en: 'rate limit',
                         ),
-                        bg: colorScheme.tertiaryContainer,
-                        fg: colorScheme.onTertiaryContainer,
+                        backgroundColor: colorScheme.tertiaryContainer,
+                        foregroundColor: colorScheme.onTertiaryContainer,
                       ),
                     ),
                   ],
@@ -1528,7 +1517,7 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
           ),
           SizedBox(
             width: 60,
-            child: _IntField(
+            child: _SettingsIntField(
               value: failures,
               min: AiWebSearchSettings.minCooldownFailures,
               max: AiWebSearchSettings.maxCooldownFailures,
@@ -1541,7 +1530,7 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
           ),
           SizedBox(
             width: 80,
-            child: _IntField(
+            child: _SettingsIntField(
               value: seconds,
               min: AiWebSearchSettings.minCooldownSeconds,
               max: AiWebSearchSettings.maxCooldownSeconds,
@@ -1583,117 +1572,13 @@ class _AdvancedNumberRow extends StatelessWidget {
           Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
           SizedBox(
             width: 100,
-            child: _IntField(
+            child: _SettingsIntField(
               value: value,
               min: min,
               max: max,
               onChanged: onChanged,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _IntField extends StatefulWidget {
-  const _IntField({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
-
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-
-  @override
-  State<_IntField> createState() => _IntFieldState();
-}
-
-class _IntFieldState extends State<_IntField> {
-  late TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: '${widget.value}');
-  }
-
-  @override
-  void didUpdateWidget(covariant _IntField old) {
-    super.didUpdateWidget(old);
-    if (widget.value != old.value && _ctrl.text != '${widget.value}') {
-      _ctrl.text = '${widget.value}';
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _commit(String raw) {
-    final parsed = int.tryParse(raw.trim());
-    if (parsed == null) {
-      _ctrl.text = '${widget.value}';
-      return;
-    }
-    final clamped = parsed < widget.min
-        ? widget.min
-        : (parsed > widget.max ? widget.max : parsed);
-    if (clamped != widget.value) widget.onChanged(clamped);
-    if ('$clamped' != raw.trim()) _ctrl.text = '$clamped';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: _ctrl,
-      keyboardType: TextInputType.number,
-      textAlign: TextAlign.right,
-      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-      decoration: const InputDecoration(
-        isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        border: OutlineInputBorder(),
-      ),
-      onSubmitted: _commit,
-      onEditingComplete: () => _commit(_ctrl.text),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({
-    required this.icon,
-    required this.label,
-    required this.bg,
-    required this.fg,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color bg;
-  final Color fg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: fg),
-          const SizedBox(width: 3),
-          Text(label, style: TextStyle(color: fg, fontSize: 11)),
         ],
       ),
     );

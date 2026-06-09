@@ -247,6 +247,119 @@ class _SettingsSwitch extends StatelessWidget {
   }
 }
 
+class _SettingsIntField extends StatefulWidget {
+  const _SettingsIntField({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_SettingsIntField> createState() => _SettingsIntFieldState();
+}
+
+class _SettingsIntFieldState extends State<_SettingsIntField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.value}');
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsIntField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value &&
+        _controller.text != '${widget.value}') {
+      _syncControllerText(_controller, '${widget.value}');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _commit(String raw) {
+    final trimmed = raw.trim();
+    final parsed = optionalIntFromText(trimmed);
+    if (parsed == null) {
+      _syncControllerText(_controller, '${widget.value}');
+      return;
+    }
+    final clamped = clampedIntFromText(
+      trimmed,
+      fallback: widget.value,
+      min: widget.min,
+      max: widget.max,
+    );
+    if (clamped != widget.value) {
+      widget.onChanged(clamped);
+    }
+    if ('$clamped' != trimmed) {
+      _syncControllerText(_controller, '$clamped');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.right,
+      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        border: OutlineInputBorder(),
+      ),
+      onSubmitted: _commit,
+      onEditingComplete: () => _commit(_controller.text),
+    );
+  }
+}
+
+class _SettingsStatusChip extends StatelessWidget {
+  const _SettingsStatusChip({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: foregroundColor),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(color: foregroundColor, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReadonlySettingRow extends StatelessWidget {
   const _ReadonlySettingRow({required this.label, required this.value});
 

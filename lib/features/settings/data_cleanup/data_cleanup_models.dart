@@ -5,6 +5,8 @@
 /// 拿到分类元数据与人类友好的字节数格式化结果。
 library;
 
+import '../../../shared/util/byte_size_format.dart';
+
 /// 数据清理分类。每一项都对应"全局设置 → 应用数据 → 数据清理"面板里的
 /// 一行。**枚举顺序就是 UI 顺序**，`wipeAll` 必须放在最后。
 enum DataCleanupCategory {
@@ -93,28 +95,4 @@ class DataCleanupSizeReport {
 }
 
 /// 把字节数渲染为人类友好的字符串。`1500` → `'1.46 KB'`。
-///
-/// 阈值规则：
-/// - `< 1 KB` 直接展示原始字节数；
-/// - `>= 100` 时不保留小数；
-/// - `[10, 100)` 保留 1 位小数；
-/// - `< 10` 保留 2 位小数。
-///
-/// 这样即便单位跳变也不会出现 `1024.00 KB` 这种丑陋数字。
-String formatHumanBytes(int bytes) {
-  if (bytes <= 0) {
-    return '0 B';
-  }
-  if (bytes < 1024) {
-    return '$bytes B';
-  }
-  const units = <String>['KB', 'MB', 'GB', 'TB', 'PB'];
-  double size = bytes / 1024.0;
-  int unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024.0;
-    unitIndex++;
-  }
-  final fractionDigits = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
-  return '${size.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
-}
+String formatHumanBytes(int bytes) => formatByteSize(bytes);
