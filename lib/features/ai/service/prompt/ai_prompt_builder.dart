@@ -446,6 +446,10 @@ class AiPromptBuilder {
         latestUserNonSystemTurns.add(turn);
       }
     }
+    final outputFormatReminderTurns = _buildOutputFormatReminderTurns(
+      runtimeContext: runtimeContext,
+      model: model,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -464,9 +468,10 @@ class AiPromptBuilder {
             '${AiPromptSectionHeaders.toolCatalog}\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
-      // Session State 拆分为静态/动态两部分，均置于 history 之前：
+      // Session State 拆分为静态/动态两部分：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
-      // - [3d] Dynamic（todos、plan、mode、title）— 仅包含会话内真正可变字段。
+      // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，留在
+      //   latest user 之后的 volatile tail。
       //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
       //
       // 原因（实测 DeepSeek-v4-flash 9 轮会话，整体命中率 44%）：
@@ -475,11 +480,10 @@ class AiPromptBuilder {
       // 下一轮的 token 序列在 volatile tail 位置（随 history 增长后移）
       // 与已缓存路径不一致 → 0 命中，形成"98% / 0% 交替"的锁步 miss 模式。
       //
-      // 修复：将 [3d]/[5.5] 移至 history 之前，使相邻轮次满足
-      // "前缀扩展"性质：Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]。
-      // 只要 [3d]/[5.5] 内容不变，Turn N+1 完整命中 Turn N 的缓存路径，
-      // 命中率从 ~44% → 95%+；[3d] 变化时当轮 miss 一次，下轮即恢复命中。
-      // Hook system-reminder（从用户消息中提取、每轮不同）仍保留在 prompt 尾部。
+      // 修复：静态块固定在 history 之前，动态块固定在 latest user 之后。
+      // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
+      // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
+      // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
       AiChatTurn(
         role: AiChatRole.system,
         content: isCompactTemplate
@@ -566,18 +570,26 @@ class AiPromptBuilder {
         content:
             '${AiPromptSectionHeaders.staticSessionState}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
       ),
+      ...outputFormatReminderTurns,
       // ─────────────────────────────────────────────────────────────
       // 2026-05-30 cache-friendly ordering：history 之前只放真正稳定的
       // prefix 块（system / developer / tool catalog / memory /
-      // instructions / static session state / restored contexts）。
+      // instructions / static session state / restored contexts /
+      // output-format reminders）。
       //
       // 易变块（[3d] / [5.5] / System Reminder / Plan Mode Reminder /
-      // Output Format Reminder / hook system-reminder）不能再插入到
-      // history 与 latest user 之间；否则一旦工具轮次把 [5.5] 改写，下一轮
+      // hook system-reminder）不能再插入到 history 与 latest user 之间；
+      // 否则一旦工具轮次把 [5.5] 改写，下一轮
       // 从 history 之后开始就不再是“纯追加”路径，跨轮 prefix cache 会被截断。
       // 因此顺序必须固定为：stable prefix → history → latest user → volatile tail。
       // 这样易变块即便每轮重写，影响范围也只落在当前轮 user 之后，不会吞掉
       // 历史+当前用户消息的共享前缀。实测工具会话可避免 0~50% 的异常塌方。
+      //
+      // 2026-06-11：输出格式与主题提醒属于会话级稳定约束。放在 latest user
+      // 后会让下一轮在“上一轮用户消息之后”插入 assistant/tool 历史时与旧
+      // prompt 尾部不一致，OpenAI 兼容自动 prefix cache 只能命中静态系统
+      // 前缀。将它们放回 history 之前后，格式不变的多轮 HTML 会话恢复为
+      // 纯追加序列；用户切换格式/主题时只击穿一次，下一轮即重新稳定。
       // ─────────────────────────────────────────────────────────────
       ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
@@ -607,45 +619,6 @@ class AiPromptBuilder {
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
       ...latestUserSystemTurns,
-      if (runtimeContext.messageContentFormat ==
-              AiMessageContentFormat.plainText &&
-          AiOutputFormatPrompts.plainText.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.plainText}',
-        ),
-      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
-          AiOutputFormatPrompts.htmlFor(
-            runtimeContext.htmlContentRichness,
-          ).isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.htmlFor(runtimeContext.htmlContentRichness)}',
-        ),
-      // 2026-06-06 — HTML 模式下注入当前应用主题上下文，避免模型生成与
-      // 当前界面亮度/配色冲突的内容，同时引导其结合主题色做更丰富表达。
-      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
-          AiOutputFormatPrompts.themeContextFor(
-            brightness: runtimeContext.appThemeBrightness,
-            presetName: runtimeContext.appThemePresetName,
-            primaryColor: runtimeContext.appThemePrimaryColor,
-          ).isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.themeContextReminder}\n\n${AiOutputFormatPrompts.themeContextFor(brightness: runtimeContext.appThemeBrightness, presetName: runtimeContext.appThemePresetName, primaryColor: runtimeContext.appThemePrimaryColor)}',
-        ),
-      // GPT 系列模型在 HTML 模式下追加 chat_rules，纠正其默认散乱长清单的回复陋习。
-      if (runtimeContext.messageContentFormat == AiMessageContentFormat.html &&
-          _isGptSeriesModel(model.modelId) &&
-          AiOutputFormatPrompts.gptChatRules.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.gptChatRulesReminder}\n\n${AiOutputFormatPrompts.gptChatRules}',
-        ),
     ];
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)
@@ -707,6 +680,67 @@ class AiPromptBuilder {
       systemMessageCount: systemMessageCount,
       historyMessageCount: historyTurns.length,
     );
+  }
+
+  List<AiChatTurn> _buildOutputFormatReminderTurns({
+    required AiSessionRuntimeContext runtimeContext,
+    required AiModelConfig model,
+  }) {
+    final turns = <AiChatTurn>[];
+    switch (runtimeContext.messageContentFormat) {
+      case AiMessageContentFormat.markdown:
+        break;
+      case AiMessageContentFormat.plainText:
+        if (AiOutputFormatPrompts.plainText.isNotEmpty) {
+          turns.add(
+            AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.plainText}',
+            ),
+          );
+        }
+        break;
+      case AiMessageContentFormat.html:
+        final htmlPrompt = AiOutputFormatPrompts.htmlFor(
+          runtimeContext.htmlContentRichness,
+        );
+        if (htmlPrompt.isNotEmpty) {
+          turns.add(
+            AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  '${AiPromptSectionHeaders.outputFormatReminder}\n\n$htmlPrompt',
+            ),
+          );
+        }
+        final themeContext = AiOutputFormatPrompts.themeContextFor(
+          brightness: runtimeContext.appThemeBrightness,
+          presetName: runtimeContext.appThemePresetName,
+          primaryColor: runtimeContext.appThemePrimaryColor,
+        );
+        if (themeContext.isNotEmpty) {
+          turns.add(
+            AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  '${AiPromptSectionHeaders.themeContextReminder}\n\n$themeContext',
+            ),
+          );
+        }
+        if (_isGptSeriesModel(model.modelId) &&
+            AiOutputFormatPrompts.gptChatRules.isNotEmpty) {
+          turns.add(
+            AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  '${AiPromptSectionHeaders.gptChatRulesReminder}\n\n${AiOutputFormatPrompts.gptChatRules}',
+            ),
+          );
+        }
+        break;
+    }
+    return turns;
   }
 
   String _renderWorkspaceInstructions(AiSessionRuntimeContext runtimeContext) {
@@ -1282,10 +1316,10 @@ class AiPromptBuilder {
         );
       } else {
         buffer.writeln(
-          'Capability invocation priority: Skill > MCP > Builtin. '
-          'When a task matches an available skill, use the skill tool first. '
-          'If no skill matches but a relevant MCP tool exists, prefer the MCP tool. '
-          'Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.',
+          'Choose tools by task fit, not by trial order. '
+          'Use a skill only when the user explicitly selected it or the request clearly needs that skill\'s specialized workflow. '
+          'For greetings, casual chat, simple answers, or underspecified creative requests, answer directly or ask the missing question without loading a skill. '
+          'Prefer MCP when it is the clearest live data/action surface; use builtin tools for local files, shell, search, and routine implementation.',
         );
       }
     }
@@ -1299,7 +1333,7 @@ class AiPromptBuilder {
                     ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
                     : isWebReverse
                     ? '## Skill Tools (auxiliary knowledge only — CDP remains source of truth)'
-                    : '## Skill Tools (highest priority)'),
+                    : '## Skill Tools (load only on clear match)'),
         );
       for (final tool in skillTools) {
         _renderToolEntry(buffer, tool, compact: compact);

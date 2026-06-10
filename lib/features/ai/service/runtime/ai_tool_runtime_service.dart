@@ -1494,9 +1494,10 @@ class AiToolRuntimeService {
         ? '${rawSummary.substring(0, _skillCatalogDescriptionCap - 1).trimRight()}…'
         : rawSummary;
     final description = [
-      'Load and apply the local skill "${skill.name}".',
+      'Load the full instructions for the local skill "${skill.name}" only when the current request clearly matches it.',
       summary,
-      'Catalog shows summary only — invoke this tool to load the full SKILL.md body on demand.',
+      'Do not call this for greetings, casual chat, simple answers, or underspecified creative requests; answer directly or ask a clarifying question instead.',
+      'Catalog shows summary only; this call returns the full SKILL.md body on demand.',
     ].where((item) => item.isNotEmpty).join(' ');
     return AiResolvedTool(
       name: name,

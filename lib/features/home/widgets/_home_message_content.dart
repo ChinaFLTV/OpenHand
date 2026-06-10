@@ -3431,6 +3431,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const int _kEstimatedCharsPerLine = 80;
   static const double _kEstimatedMinHeight = 96.0;
   static const double _kEstimatedMaxHeight = 2000.0;
+  static const Duration _kInitialRevealFallbackDelay = Duration(
+    milliseconds: 1600,
+  );
   // 2026-06-07：首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
   // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
   // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
@@ -3681,8 +3684,17 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       var dpr = window.devicePixelRatio || 1;
       height = Math.ceil(height * dpr) / dpr;
       if (height > 0 && Math.abs(height - __lastReportedHeight) > 0.5) {
-        __lastReportedHeight = height;
-        window.flutter_inappwebview.callHandler('OpenHandHeight', height);
+        var bridge = window.flutter_inappwebview;
+        if (bridge && typeof bridge.callHandler === 'function') {
+          try {
+            bridge.callHandler('OpenHandHeight', height);
+            __lastReportedHeight = height;
+          } catch (_) {
+            setTimeout(schedule, 120);
+          }
+        } else {
+          setTimeout(schedule, 120);
+        }
       }
     } catch (_) {}
   }
@@ -3821,7 +3833,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Color? _documentCacheBackgroundColor;
   String? _documentCache;
   int _measurementCount = 0;
+  int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
+  Timer? _initialRevealFallbackTimer;
   // 2026-06-06（线程模板抽搐 bug 真凶）：HTML WebView 通过 ResizeObserver
   // + rAF 在 macOS focus/blur、JS 二次布局、scrollIntoView 触发时都会重新
   // 测高，每帧 16-30ms 一次。原来的 100ms 防抖每次都被新一轮测量重置、
@@ -3848,11 +3862,18 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
+  bool _heightFromFallback = false;
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
     widget.baseTextStyle?.height,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _armInitialRevealFallback();
+  }
 
   @override
   void didUpdateWidget(covariant _HtmlBubbleWebView oldWidget) {
@@ -3904,6 +3925,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
+    _initialRevealFallbackTimer?.cancel();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
@@ -3942,6 +3964,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Future<void> _reload() async {
     final controller = _controller;
     if (controller == null) return;
+    _loadGeneration += 1;
     // 内容/样式变化时清除旧高度缓存与 floor，避免新内容被旧大值撑出空白。
     _heightCache.remove(_heightCacheKey);
     _heightFloorCache.remove(_heightCacheKey);
@@ -3954,9 +3977,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _safeSetState(() {
       _height = null;
       _hasError = false;
+      _heightFromFallback = false;
     });
     _measurementCount = 0;
+    _firstMeasurementHandled = false;
     _heightDebounceTimer?.cancel();
+    _armInitialRevealFallback();
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
@@ -3967,6 +3993,40 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         stack,
       );
     }
+  }
+
+  void _armInitialRevealFallback() {
+    _initialRevealFallbackTimer?.cancel();
+    final generation = _loadGeneration;
+    _initialRevealFallbackTimer = Timer(_kInitialRevealFallbackDelay, () {
+      if (!mounted || generation != _loadGeneration || _hasError) {
+        return;
+      }
+      if (_height != null || _heightCache[_heightCacheKey] != null) {
+        return;
+      }
+      final estimated = _estimateHeight();
+      _safeSetState(() {
+        _height = estimated;
+        _heightFromFallback = true;
+      });
+      final controller = _controller;
+      if (controller != null) {
+        unawaited(
+          controller
+              .evaluateJavascript(source: _heightObserverScript)
+              .catchError((Object error, StackTrace stack) {
+                silentLog(
+                  'home_message_content',
+                  'html bubble fallback height probe failed',
+                  error,
+                  stack,
+                );
+                return null;
+              }),
+        );
+      }
+    });
   }
 
   void _onContentSizeChanged(Size newSize) {
@@ -3999,7 +4059,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 经 500ms 防抖会修正到准确值。视觉上是"由小到大"生长，比
     // "由大到小收缩留下空白"更可接受。仅对首测做一次判定，避免后
     // 续正常 reflow 持续被当成 outlier 抑制。
-    if (!_firstMeasurementHandled) {
+    if (!_firstMeasurementHandled && !_heightFromFallback) {
       _firstMeasurementHandled = true;
       final estimated = _estimateHeight();
       if (next > estimated * _kFirstMeasurementOutlierRatio) {
@@ -4067,6 +4127,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _applyHeight(double next) {
+    _initialRevealFallbackTimer?.cancel();
     // 2026-06-07：outlier 检查**集中**在 apply 入口——所有上游路径
     //（scroll-active 缓存、pending apply、debounce timer、immediate
     // apply）都通过本方法落地，确保"rendered → raw → rendered"跳变
@@ -4077,7 +4138,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 为噪声保留旧值。
     final refHeight =
         _heightFloorCache[_heightCacheKey] ??
-        _height ??
+        (_heightFromFallback ? null : _height) ??
         _heightCache[_heightCacheKey];
     if (refHeight != null && refHeight > 0) {
       final refRatio = next / refHeight;
@@ -4090,7 +4151,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightCache.remove(_heightCache.keys.first);
     }
     _lastHeightApplyTime = DateTime.now();
-    _safeSetState(() => _height = next);
+    _safeSetState(() {
+      _height = next;
+      _heightFromFallback = false;
+    });
   }
 
   /// 滚动停止后应用滚动期间累积的最近一次高度测量。统一走 `_applyHeight`

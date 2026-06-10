@@ -1,5 +1,5 @@
 <tool_catalog>
-本文档定义 OpenHand 默认模板下的工具用法细则与运行时纪律。能力优先级：Skill > MCP > Builtin，逐级试探，遇到第一个完全匹配即停。
+本文档定义 OpenHand 默认模板下的工具用法细则与运行时纪律。按任务适配度选工具：显式选择的 Skill > 高置信匹配的 Skill/MCP > Builtin；不要逐级试探。
 
 本目录仅记录工具的"如何用"；"何时用 / 何时不用"由系统指令的 `<workflow>` 与 `<tool_use>` 章节裁定。
 </tool_catalog>
