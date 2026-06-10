@@ -4206,17 +4206,6 @@ class AiSessionController extends ChangeNotifier {
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000;
-        if (kDebugMode && effectiveCharsPerSec > 0) {
-          debugPrint(
-            '[oh.stream] drain-start session=${workingSession.id} '
-            'assistantTotal=$assistantPendingGraphemes '
-            'reasoningTotal=$reasoningPendingGraphemes '
-            'effChars=$effectiveCharsPerSec maxWaitMs=$maxWaitMs '
-            'durationSec=$throttleDurationSec '
-            'assistantPending=${charThrottle.hasPending} '
-            'reasoningPending=${reasoningCharThrottle.hasPending}',
-          );
-        }
         if (maxWaitMs > 0) {
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
@@ -4234,22 +4223,14 @@ class AiSessionController extends ChangeNotifier {
         // 时 maxWaitMs=0，或者 effChars 估算偏差）可能在 release 前仍
         // 残留 grapheme。release() 之后任何 syncFinalAssistantMessage
         // 都会把 result.reply 全文一次性 dump，重现「正式响应一股脑
-        // 输出」。这里 release 前再做一道兜底：检测 hasPending，发出
-        // silentLog（regression 可观察），然后 16ms 一拍按 grapheme
-        // 批次手动喂剩余字符，保证视觉上仍是「逐字铺开」而非一次性 dump。
+        // 输出」。这里 release 前再做一道兜底：检测 hasPending，然后
+        // 16ms 一拍按 grapheme 批次手动喂剩余字符，保证视觉上仍是
+        // 「逐字铺开」而非一次性 dump。
         didCancelStreamEarly =
             didCancelStreamEarly ||
             _isStopRequestedForSession(workingSession.id);
         if (!didCancelStreamEarly &&
             (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
-          silentLog(
-            'ai_session_controller',
-            'drain_undercut',
-            'release-time throttle still pending '
-                'assistant=${charThrottle.hasPending} '
-                'reasoning=${reasoningCharThrottle.hasPending} '
-                'effChars=$effChars maxWaitMs=$maxWaitMs',
-          );
           // 兜底节奏：按 effChars 估一个 step interval，最少 16ms（避免
           // 把主线程卡死），最多 200ms（避免低速率下显得卡顿）。
           final fallbackStep = effChars <= 0
@@ -4295,14 +4276,6 @@ class AiSessionController extends ChangeNotifier {
           : null;
       // 流正常结束：此处应已按显示侧节流排空字符队列；release 只负责
       // 清理计时器和活跃 throttle 记录。取消/错误路径才允许立即放开余量。
-      if (kDebugMode) {
-        debugPrint(
-          '[oh.stream] release session=${workingSession.id} '
-          'didCancel=$didCancelStream '
-          'assistantPending=${charThrottle.hasPending} '
-          'reasoningPending=${reasoningCharThrottle.hasPending}',
-        );
-      }
       _lastCharThroughputSnapshot[workingSession
           .id] = _CachedStreamThroughputSnapshot(
         _sessionDisplayThroughputSnapshot(
