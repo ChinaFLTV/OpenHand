@@ -40,6 +40,10 @@ import 'mcp_stdio_dialogs.dart';
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
+const double _mcpToolDebugMenuGap = 8;
+const double _mcpToolDebugMenuMinWidth = 240;
+const double _mcpToolDebugMenuMaxWidth = 520;
+const double _mcpToolDebugMenuMaxHeight = 360;
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -4343,11 +4347,13 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
   late McpTool? _selectedTool;
   late final TextEditingController _argumentsController;
   late final List<_EditableHeaderRow> _headerRows;
+  final GlobalKey _toolMenuAnchorKey = GlobalKey();
   bool _useServerHeaders = true;
   McpToolCallResult? _result;
   String? _errorMessage;
   String? _headerErrorMessage;
   bool _isRunning = false;
+  bool _toolMenuOpen = false;
 
   @override
   void initState() {
@@ -4450,6 +4456,109 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
     return _HeaderParseResult(
       headers: Map<String, String>.unmodifiable(headers),
     );
+  }
+
+  McpTool? _toolForId(String toolId) {
+    for (final item in widget.toolCatalog.tools) {
+      if (item.id == toolId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  void _applySelectedTool(McpTool tool) {
+    _selectedTool = tool;
+    _result = null;
+    _errorMessage = null;
+    _headerErrorMessage = null;
+    _argumentsController.text = _suggestedArgumentsJson(tool);
+  }
+
+  Future<void> _showToolMenu() async {
+    if (_isRunning || _toolMenuOpen || widget.toolCatalog.tools.isEmpty) {
+      return;
+    }
+    final anchorContext = _toolMenuAnchorKey.currentContext;
+    final overlayState = Navigator.of(context).overlay;
+    if (anchorContext == null || overlayState == null) {
+      return;
+    }
+    final anchorBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlayBox = overlayState.context.findRenderObject() as RenderBox?;
+    if (anchorBox == null ||
+        overlayBox == null ||
+        !anchorBox.attached ||
+        !overlayBox.attached) {
+      return;
+    }
+
+    final anchorOffset = anchorBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(
+        anchorOffset.dx,
+        anchorOffset.dy + anchorBox.size.height + _mcpToolDebugMenuGap,
+        anchorBox.size.width,
+        0,
+      ),
+      Offset.zero & overlayBox.size,
+    );
+    final minWidth = anchorBox.size.width
+        .clamp(_mcpToolDebugMenuMinWidth, _mcpToolDebugMenuMaxWidth)
+        .toDouble();
+    final selectedToolId = _selectedTool?.id;
+
+    setState(() {
+      _toolMenuOpen = true;
+    });
+
+    String? nextToolId;
+    try {
+      nextToolId = await showAnimatedMenu<String>(
+        context: context,
+        position: position,
+        initialValue: selectedToolId,
+        constraints: BoxConstraints(
+          minWidth: minWidth,
+          maxWidth: _mcpToolDebugMenuMaxWidth,
+          maxHeight: _mcpToolDebugMenuMaxHeight,
+        ),
+        enableBidirectionalScroll: true,
+        items: [
+          for (final item in widget.toolCatalog.tools)
+            PopupMenuItem<String>(
+              key: ValueKey<String>('mcpToolDebugMenuItem-${item.id}'),
+              value: item.id,
+              padding: EdgeInsets.zero,
+              child: _McpToolDebugMenuItem(
+                label: item.name,
+                selected: item.id == selectedToolId,
+                hasWarning: item.hasMetadataWarning,
+              ),
+            ),
+        ],
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _toolMenuOpen = false;
+        });
+      }
+    }
+
+    if (!mounted || nextToolId == null || nextToolId == selectedToolId) {
+      return;
+    }
+    final nextTool = _toolForId(nextToolId);
+    if (nextTool == null) {
+      return;
+    }
+    setState(() {
+      _applySelectedTool(nextTool);
+    });
   }
 
   Future<void> _runTool() async {
@@ -4556,11 +4665,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.dns_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
+                Icon(Icons.dns_rounded, size: 18, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -4577,11 +4682,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                 if (headersEmpty)
                   _McpStatusChip(
                     icon: Icons.info_outline_rounded,
-                    label: _localizedText(
-                      context,
-                      zh: '未配置',
-                      en: 'None',
-                    ),
+                    label: _localizedText(context, zh: '未配置', en: 'None'),
                   )
                 else
                   _McpStatusChip(
@@ -4649,10 +4750,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Divider(
-                            height: 1,
-                            color: colorScheme.outlineVariant,
-                          ),
+                          Divider(height: 1, color: colorScheme.outlineVariant),
                           const SizedBox(height: 10),
                           Row(
                             children: [
@@ -4670,11 +4768,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                 onPressed: _isRunning ? null : _addHeaderRow,
                                 icon: const Icon(Icons.add_rounded, size: 18),
                                 label: Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '新增',
-                                    en: 'Add',
-                                  ),
+                                  _localizedText(context, zh: '新增', en: 'Add'),
                                 ),
                               ),
                             ],
@@ -4689,10 +4783,9 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                   final row = entry.value;
                                   return Padding(
                                     padding: EdgeInsets.only(
-                                      bottom:
-                                          index == _headerRows.length - 1
-                                              ? 0
-                                              : 10,
+                                      bottom: index == _headerRows.length - 1
+                                          ? 0
+                                          : 10,
                                     ),
                                     child: Row(
                                       crossAxisAlignment:
@@ -4746,8 +4839,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                         IconButton(
                                           onPressed: _isRunning
                                               ? null
-                                              : () =>
-                                                  _removeHeaderRow(index),
+                                              : () => _removeHeaderRow(index),
                                           tooltip: _localizedText(
                                             context,
                                             zh: '删除',
@@ -4863,51 +4955,58 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        DropdownButtonFormField<String>(
-                          key: ValueKey<String>(
-                            'mcpToolDebugToolField-${tool.id}',
-                          ),
-                          initialValue: tool.id,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: '选择 Tool',
-                              en: 'Tool',
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            key: ValueKey<String>(
+                              'mcpToolDebugToolField-${tool.id}',
                             ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          items: widget.toolCatalog.tools
-                              .map(
-                                (item) => DropdownMenuItem<String>(
-                                  value: item.id,
-                                  child: Text(item.name),
+                            onTap: _isRunning ? null : _showToolMenu,
+                            borderRadius: BorderRadius.circular(18),
+                            child: InputDecorator(
+                              key: _toolMenuAnchorKey,
+                              isFocused: _toolMenuOpen,
+                              isEmpty: tool.name.trim().isEmpty,
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: '选择 Tool',
+                                  en: 'Tool',
                                 ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            McpTool? nextTool;
-                            for (final item in widget.toolCatalog.tools) {
-                              if (item.id == value) {
-                                nextTool = item;
-                                break;
-                              }
-                            }
-                            if (nextTool == null) {
-                              return;
-                            }
-                            setState(() {
-                              _selectedTool = nextTool;
-                              _result = null;
-                              _errorMessage = null;
-                              _argumentsController.text =
-                                  _suggestedArgumentsJson(nextTool!);
-                            });
-                          },
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                suffixIcon: Icon(
+                                  _toolMenuOpen
+                                      ? Icons.arrow_drop_up_rounded
+                                      : Icons.arrow_drop_down_rounded,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    tool.hasMetadataWarning
+                                        ? Icons.warning_amber_rounded
+                                        : Icons.build_circle_outlined,
+                                    size: 18,
+                                    color: tool.hasMetadataWarning
+                                        ? colorScheme.error
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      tool.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyLarge,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         if (tool.description.trim().isNotEmpty) ...[
@@ -4945,7 +5044,8 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        if (widget.server.type == McpServerType.streamableHttp ||
+                        if (widget.server.type ==
+                                McpServerType.streamableHttp ||
                             widget.server.type == McpServerType.sse)
                           _buildHeaderConfigSection(context),
                         const SizedBox(height: 12),
@@ -5093,6 +5193,62 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _McpToolDebugMenuItem extends StatelessWidget {
+  const _McpToolDebugMenuItem({
+    required this.label,
+    required this.selected,
+    required this.hasWarning,
+  });
+
+  final String label;
+  final bool selected;
+  final bool hasWarning;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foregroundColor = selected
+        ? colorScheme.primary
+        : hasWarning
+        ? colorScheme.error
+        : colorScheme.onSurfaceVariant;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: selected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            selected
+                ? Icons.check_circle_rounded
+                : hasWarning
+                ? Icons.warning_amber_rounded
+                : Icons.build_circle_outlined,
+            size: 18,
+            color: foregroundColor,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            softWrap: false,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: selected ? colorScheme.onSurface : null,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

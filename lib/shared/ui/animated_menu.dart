@@ -6,6 +6,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
+import 'openhand_safe_scrollbar.dart';
 
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
@@ -22,6 +23,7 @@ Future<T?> showAnimatedMenu<T>({
   BoxConstraints? constraints,
   DialogAnimationSettings? settings,
   bool useRootNavigator = false,
+  bool enableBidirectionalScroll = false,
 }) {
   final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
       ? OpenHandMotionDefaults.disabled
@@ -54,6 +56,7 @@ Future<T?> showAnimatedMenu<T>({
       shape: shape,
       constraints: constraints,
       animationSettings: effectiveSettings,
+      enableBidirectionalScroll: enableBidirectionalScroll,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       capturedThemes: InheritedTheme.capture(
         from: context,
@@ -82,6 +85,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     required this.animationSettings,
     required this.barrierLabel,
     required this.capturedThemes,
+    required this.enableBidirectionalScroll,
     this.initialValue,
     this.elevation,
     this.color,
@@ -98,6 +102,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   final BoxConstraints? constraints;
   final DialogAnimationSettings animationSettings;
   final CapturedThemes capturedThemes;
+  final bool enableBidirectionalScroll;
   final List<Size?> itemSizes;
 
   @override
@@ -163,13 +168,84 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
 // Menu content
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PopupMenuContent<T> extends StatelessWidget {
+class _PopupMenuContent<T> extends StatefulWidget {
   const _PopupMenuContent({required this.route});
 
   final _AnimatedPopupMenuRoute<T> route;
 
   @override
+  State<_PopupMenuContent<T>> createState() => _PopupMenuContentState<T>();
+}
+
+class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
+  static const double _kMenuMinWidth = 112.0;
+  static const double _kScrollbarThickness = 6.0;
+  static const Radius _kScrollbarRadius = Radius.circular(999);
+
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  double _resolvedMinWidth(BoxConstraints? constraints) {
+    final minWidth = constraints?.minWidth ?? _kMenuMinWidth;
+    if (!minWidth.isFinite) {
+      return _kMenuMinWidth;
+    }
+    return minWidth < _kMenuMinWidth ? _kMenuMinWidth : minWidth;
+  }
+
+  Widget _buildScrollableBody({
+    required Widget child,
+    required EdgeInsetsGeometry padding,
+    required double minWidth,
+  }) {
+    final resolvedPadding = padding.resolve(Directionality.of(context));
+    if (!widget.route.enableBidirectionalScroll) {
+      return SingleChildScrollView(padding: resolvedPadding, child: child);
+    }
+
+    final contentPadding = resolvedPadding.copyWith(
+      right: resolvedPadding.right + 4,
+      bottom: resolvedPadding.bottom + 10,
+    );
+    return PrimaryScrollController.none(
+      child: OpenHandSafeScrollbar(
+        controller: _horizontalScrollController,
+        thumbVisibility: true,
+        thickness: _kScrollbarThickness,
+        radius: _kScrollbarRadius,
+        scrollbarOrientation: ScrollbarOrientation.bottom,
+        child: SingleChildScrollView(
+          controller: _horizontalScrollController,
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: minWidth),
+            child: OpenHandSafeScrollbar(
+              controller: _verticalScrollController,
+              thumbVisibility: true,
+              thickness: _kScrollbarThickness,
+              radius: _kScrollbarRadius,
+              child: SingleChildScrollView(
+                controller: _verticalScrollController,
+                padding: contentPadding,
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final route = widget.route;
     final popupMenuTheme = PopupMenuTheme.of(context);
     final defaults = Theme.of(context).useMaterial3
         ? _PopupMenuDefaultsM3(context)
@@ -184,6 +260,13 @@ class _PopupMenuContent<T> extends StatelessWidget {
         ),
       );
     }
+    final menuPadding =
+        (popupMenuTheme.menuPadding ?? defaults.menuPadding) ?? EdgeInsets.zero;
+    final menuBody = _buildScrollableBody(
+      child: ListBody(children: children),
+      padding: menuPadding,
+      minWidth: _resolvedMinWidth(route.constraints),
+    );
 
     return Semantics(
       container: true,
@@ -205,13 +288,7 @@ class _PopupMenuContent<T> extends StatelessWidget {
           color: route.color ?? popupMenuTheme.color ?? defaults.color,
           shape: route.shape ?? popupMenuTheme.shape ?? defaults.shape,
           clipBehavior: Clip.hardEdge,
-          child: IntrinsicWidth(
-            stepWidth: 56,
-            child: SingleChildScrollView(
-              padding: popupMenuTheme.menuPadding ?? defaults.menuPadding,
-              child: ListBody(children: children),
-            ),
-          ),
+          child: IntrinsicWidth(stepWidth: 56, child: menuBody),
         ),
       ),
     );
