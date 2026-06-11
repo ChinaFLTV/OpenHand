@@ -397,19 +397,41 @@ class _CorsDialogState extends State<_CorsDialog> {
                     ),
                   if (res != null) ...[
                     const SizedBox(height: 16),
-                    if (res['ok'] != true)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.errorContainer.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${res['error'] ?? 'failed'}',
-                          style: TextStyle(color: cs.error, fontSize: 12),
-                        ),
-                      )
-                    else ...[
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        return SizeTransition(
+                          sizeFactor: animation,
+                          axisAlignment: -1.0,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: res['ok'] == true
+                          ? const SizedBox.shrink(
+                              key: ValueKey('cors-result-ok'),
+                            )
+                          : Container(
+                              key: const ValueKey('cors-result-err'),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: cs.errorContainer.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${res['error'] ?? 'failed'}',
+                                style: TextStyle(
+                                  color: cs.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                    ),
+                    if (res['ok'] == true) ...[
                       Row(
                         children: [
                           Container(

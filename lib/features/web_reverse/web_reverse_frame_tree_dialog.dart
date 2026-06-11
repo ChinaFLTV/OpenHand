@@ -212,13 +212,22 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
               ),
             ),
             Divider(height: 1, color: cs.outlineVariant),
-            if (_err.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.errorContainer,
-                padding: const EdgeInsets.all(10),
-                child: Text(_err, style: TextStyle(color: cs.onErrorContainer)),
-              ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _err.isEmpty
+                  ? const SizedBox(width: double.infinity)
+                  : Container(
+                      width: double.infinity,
+                      color: cs.errorContainer,
+                      padding: const EdgeInsets.all(10),
+                      child: Text(
+                        _err,
+                        style: TextStyle(color: cs.onErrorContainer),
+                      ),
+                    ),
+            ),
             Expanded(
               child: _busy
                   ? const Center(child: CircularProgressIndicator())

@@ -333,24 +333,44 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                               ),
                             ],
                           ),
-                          if (_lastError != null) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: cs.errorContainer,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                _lastError!,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  color: cs.onErrorContainer,
-                                  fontSize: 12,
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              return SizeTransition(
+                                sizeFactor: animation,
+                                axisAlignment: -1.0,
+                                child: FadeTransition(
+                                  opacity: animation,
+                                  child: child,
                                 ),
-                              ),
-                            ),
-                          ],
+                              );
+                            },
+                            child: _lastError == null
+                                ? const SizedBox.shrink(
+                                    key: ValueKey('webauthn-err-empty'),
+                                  )
+                                : Padding(
+                                    key: const ValueKey('webauthn-err-on'),
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: cs.errorContainer,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        _lastError!,
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          color: cs.onErrorContainer,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                          ),
                           const SizedBox(height: 16),
                           Divider(color: cs.outlineVariant),
                           const SizedBox(height: 8),
