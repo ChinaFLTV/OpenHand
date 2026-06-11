@@ -4477,7 +4477,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
       }
       if (name.isEmpty || value.isEmpty) {
         return _HeaderParseResult(
-          headers: const <String, String>,
+          headers: const <String, String>{},
           errorMessage: _localizedText(
             context,
             zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',

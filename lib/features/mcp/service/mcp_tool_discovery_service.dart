@@ -27,6 +27,7 @@ abstract class McpToolDiscoveryService {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
     String? toolCallId,
+    Map<String, String>? customHeaders,
   });
 
   void dispose();
