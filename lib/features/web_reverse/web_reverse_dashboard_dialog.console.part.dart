@@ -299,30 +299,45 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         Divider(height: 1, color: cs.outlineVariant),
         // REPL 输入：单行。回车执行；上下方向键浏览历史；
         // 结果通过 controller.runReplExpression 写入 console，复用渲染。
-        if (widget.controller.isPaused)
-          Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: cs.errorContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.pause_circle_filled_rounded,
-                    size: 14, color: cs.onErrorContainer),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    loc?.webReverseConsolePausedHint ??
-                        'Debugger paused · expressions evaluate in the top frame scope',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onErrorContainer),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: widget.controller.isPaused
+              ? FadeTransition(
+                  opacity: AlwaysStoppedAnimation(1),
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.pause_circle_filled_rounded,
+                          size: 14,
+                          color: cs.onErrorContainer,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            loc?.webReverseConsolePausedHint ??
+                                'Debugger paused · expressions evaluate in the top frame scope',
+                            style: theme.textTheme.labelSmall
+                                ?.copyWith(color: cs.onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: Row(

@@ -188,7 +188,6 @@ String _csvRow(Iterable<Object?> values) {
 
 enum _SettingsSection {
   header,
-  persistenceIssue,
   general,
   shortcuts,
   ai,
@@ -781,8 +780,6 @@ class _SettingsViewState extends State<SettingsView> {
 
     final sections = <_SettingsSection>[
       _SettingsSection.header,
-      if (settingsController.persistenceIssue != null)
-        _SettingsSection.persistenceIssue,
       _SettingsSection.general,
       _SettingsSection.shortcuts,
       _SettingsSection.ai,
@@ -803,29 +800,61 @@ class _SettingsViewState extends State<SettingsView> {
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: Stack(
         children: [
-          ListView.separated(
-            padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
-            itemCount: sections.length,
-            separatorBuilder: (context, index) {
-              final current = sections[index];
-              if (current == _SettingsSection.header &&
-                  sections[index + 1] == _SettingsSection.persistenceIssue) {
-                return const SizedBox(height: 18);
-              }
-              if (current == _SettingsSection.header ||
-                  current == _SettingsSection.persistenceIssue) {
-                return const SizedBox(height: 24);
-              }
-              return const SizedBox(height: 18);
-            },
-            itemBuilder: (context, index) {
-              return _buildSettingsSection(
-                context,
-                settingsController,
-                appInfo,
-                sections[index],
-              );
-            },
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1.0,
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, -0.1),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                  );
+                },
+                child: settingsController.persistenceIssue == null
+                    ? const SizedBox.shrink(
+                        key: ValueKey('settings-persistence-issue-empty'),
+                      )
+                    : Padding(
+                        key: const ValueKey(
+                          'settings-persistence-issue-active',
+                        ),
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _SettingsPersistenceIssueCard(
+                          issue: settingsController.persistenceIssue!,
+                          onDismiss: settingsController.clearPersistenceIssue,
+                        ),
+                      ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
+                  itemCount: sections.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 18),
+                  itemBuilder: (context, index) {
+                    return _buildSettingsSection(
+                      context,
+                      settingsController,
+                      appInfo,
+                      sections[index],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
           // Top-edge highlight pulse fired whenever any settings mutation
           // is successfully persisted. Subscribes to the controller's
@@ -858,10 +887,6 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.header => _PaneHeader(
         title: l10n.settingsTitle,
         subtitle: l10n.settingsSubtitle,
-      ),
-      _SettingsSection.persistenceIssue => _SettingsPersistenceIssueCard(
-        issue: settingsController.persistenceIssue!,
-        onDismiss: settingsController.clearPersistenceIssue,
       ),
       _SettingsSection.general => _SettingsGroupCard(
         title: l10n.settingsCategoryGeneral,

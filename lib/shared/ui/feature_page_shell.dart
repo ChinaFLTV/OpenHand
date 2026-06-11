@@ -82,19 +82,48 @@ class FeaturePageShell extends StatelessWidget {
               },
             ),
             SizedBox(height: headerSpacing),
-            if (notices.isNotEmpty)
-              ...notices.expand(
-                (notice) => <Widget>[
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: notice,
+            AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 300),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1.0,
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.08),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
                     ),
                   ),
-                  SizedBox(height: noticeSpacing),
-                ],
-              ),
+                );
+              },
+              child: notices.isEmpty
+                  ? const SizedBox.shrink(key: ValueKey('feature-notices-empty'))
+                  : Column(
+                      key: const ValueKey('feature-notices-list'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        for (final notice in notices) ...<Widget>[
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 220),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: notice,
+                            ),
+                          ),
+                          SizedBox(height: noticeSpacing),
+                        ],
+                      ],
+                    ),
+            ),
             bodyWidget,
           ],
         ),

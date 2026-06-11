@@ -1507,19 +1507,66 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
   }
 }
 
-class _SessionErrorBanner extends StatelessWidget {
+class _SessionErrorBanner extends StatefulWidget {
   const _SessionErrorBanner({required this.error, required this.onDismiss});
 
   final AiSessionErrorRecord error;
   final VoidCallback onDismiss;
 
   @override
+  State<_SessionErrorBanner> createState() => _SessionErrorBannerState();
+}
+
+class _SessionErrorBannerState extends State<_SessionErrorBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
+  bool _exiting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.12),
+      end: Offset.zero,
+    ).animate(_fade);
+    _scale = Tween<double>(begin: 0.96, end: 1).animate(_fade);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleDismiss() async {
+    if (_exiting) return;
+    _exiting = true;
+    await _controller.reverse();
+    if (!mounted) return;
+    widget.onDismiss();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final presentation = _presentSessionError(context, error);
-    final rawMessage = error.message.trim();
+    final presentation = _presentSessionError(context, widget.error);
+    final rawMessage = widget.error.message.trim();
     final hasFullDetails = rawMessage.split('\n').length > 2;
 
     final banner = Container(
@@ -1569,7 +1616,7 @@ class _SessionErrorBanner extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               GestureDetector(
-                onTap: onDismiss,
+                onTap: _handleDismiss,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.all(4),
@@ -1620,7 +1667,13 @@ class _SessionErrorBanner extends StatelessWidget {
         ],
       ),
     );
-    return banner;
+    return SlideTransition(
+      position: _slide,
+      child: FadeTransition(
+        opacity: _fade,
+        child: ScaleTransition(scale: _scale, child: banner),
+      ),
+    );
   }
 }
 
@@ -1763,7 +1816,7 @@ class _PendingCreationPlaceholderCard extends StatelessWidget {
 /// Mirrors the user's chosen creation mode (image / video / audio) so the
 /// failed turn stays visually coupled to the request, and surfaces the
 /// underlying error message with a dismiss button.
-class _CreationFailureCard extends StatelessWidget {
+class _CreationFailureCard extends StatefulWidget {
   const _CreationFailureCard({
     required this.request,
     required this.error,
@@ -1775,11 +1828,58 @@ class _CreationFailureCard extends StatelessWidget {
   final Future<void> Function() onDismiss;
 
   @override
+  State<_CreationFailureCard> createState() => _CreationFailureCardState();
+}
+
+class _CreationFailureCardState extends State<_CreationFailureCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
+  bool _exiting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      reverseDuration: const Duration(milliseconds: 240),
+    );
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.08),
+      end: Offset.zero,
+    ).animate(_fade);
+    _scale = Tween<double>(begin: 0.94, end: 1).animate(_fade);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleDismiss() async {
+    if (_exiting) return;
+    _exiting = true;
+    await _controller.reverse();
+    if (!mounted) return;
+    await widget.onDismiss();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final presentation = _presentSessionError(context, error);
-    final (icon, titleZh, titleEn) = switch (request.mode) {
+    final presentation = _presentSessionError(context, widget.error);
+    final (icon, titleZh, titleEn) = switch (widget.request.mode) {
       AiCreationMode.image => (
         Icons.broken_image_outlined,
         '图片生成失败',
@@ -1807,7 +1907,7 @@ class _CreationFailureCard extends StatelessWidget {
       ),
     };
     final title = _localizedText(context, zh: titleZh, en: titleEn);
-    return Align(
+    final card = Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -1848,8 +1948,10 @@ class _CreationFailureCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton(
-                key: ValueKey<String>('creation-failure-dismiss-${error.id}'),
-                onPressed: () => onDismiss(),
+                key: ValueKey<String>(
+                  'creation-failure-dismiss-${widget.error.id}',
+                ),
+                onPressed: _handleDismiss,
                 tooltip: _localizedText(context, zh: '关闭', en: 'Dismiss'),
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
@@ -1861,6 +1963,13 @@ class _CreationFailureCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+    return SlideTransition(
+      position: _slide,
+      child: FadeTransition(
+        opacity: _fade,
+        child: ScaleTransition(scale: _scale, child: card),
       ),
     );
   }
