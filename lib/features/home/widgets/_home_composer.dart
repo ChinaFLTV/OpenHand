@@ -2948,21 +2948,25 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                     ),
                                     if (item.isDirectory) ...[
                                       const SizedBox(width: 4),
-                                      SizedBox(
-                                        width: 28,
-                                        height: 28,
-                                        child: IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          tooltip: isZh
-                                              ? '进入目录'
-                                              : 'Open directory',
-                                          onPressed: () =>
-                                              widget.onDrillDown(item),
-                                          icon: Icon(
-                                            Icons.chevron_right_rounded,
-                                            size: 18,
-                                            color: colorScheme.primary,
+                                      Semantics(
+                                        button: true,
+                                        label: isZh
+                                            ? '进入目录'
+                                            : 'Open directory',
+                                        child: SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints:
+                                                const BoxConstraints(),
+                                            onPressed: () =>
+                                                widget.onDrillDown(item),
+                                            icon: Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 18,
+                                              color: colorScheme.primary,
+                                            ),
                                           ),
                                         ),
                                       ),
