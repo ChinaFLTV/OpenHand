@@ -23,6 +23,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1803,43 +1804,28 @@ class _McpServerCardState extends State<_McpServerCard> {
                   ),
                   if (healthStatus.hasError) ...[
                     const SizedBox(height: 14),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _McpInlineNotice(
-                        icon: Icons.health_and_safety_outlined,
-                        color: colorScheme.errorContainer,
-                        foregroundColor: colorScheme.onErrorContainer,
-                        message: healthStatus.errorMessage!,
+                    OpenHandInlineNoticeSlot(
+                      child: OpenHandInlineNoticeFactory.error(
+                        context,
+                        healthStatus.errorMessage!,
                       ),
                     ),
                   ],
                   if (toolCatalog.hasError) ...[
                     const SizedBox(height: 14),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _McpInlineNotice(
-                        icon: Icons.error_outline_rounded,
-                        color: colorScheme.errorContainer,
-                        foregroundColor: colorScheme.onErrorContainer,
-                        message: toolCatalog.errorMessage!,
+                    OpenHandInlineNoticeSlot(
+                      child: OpenHandInlineNoticeFactory.error(
+                        context,
+                        toolCatalog.errorMessage!,
                       ),
                     ),
                   ],
                   if (toolCatalog.hasWarning) ...[
                     const SizedBox(height: 14),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _McpInlineNotice(
-                        icon: Icons.warning_amber_rounded,
-                        color: colorScheme.tertiaryContainer,
-                        foregroundColor: colorScheme.onTertiaryContainer,
-                        message: toolCatalog.warningMessage!,
+                    OpenHandInlineNoticeSlot(
+                      child: OpenHandInlineNoticeFactory.warning(
+                        context,
+                        toolCatalog.warningMessage!,
                       ),
                     ),
                   ],
@@ -4069,47 +4055,6 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   }
 }
 
-class _McpInlineNotice extends StatelessWidget {
-  const _McpInlineNotice({
-    required this.icon,
-    required this.color,
-    required this.foregroundColor,
-    required this.message,
-  });
-
-  final IconData icon;
-  final Color color;
-  final Color foregroundColor;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: foregroundColor),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 void _showToolDetailsDialog(
   BuildContext context, {
   required McpController mcpController,
@@ -4241,11 +4186,9 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         const SizedBox(height: 14),
                       ],
                       if (tool.hasMetadataWarning) ...[
-                        _McpInlineNotice(
-                          icon: Icons.warning_amber_rounded,
-                          color: colorScheme.tertiaryContainer,
-                          foregroundColor: colorScheme.onTertiaryContainer,
-                          message: tool.metadataWarning!,
+                        OpenHandInlineNoticeFactory.warning(
+                          context,
+                          tool.metadataWarning!,
                         ),
                         const SizedBox(height: 14),
                       ],
@@ -5043,11 +4986,11 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                         ),
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 14),
-                          _McpInlineNotice(
-                            icon: Icons.error_outline_rounded,
-                            color: colorScheme.errorContainer,
-                            foregroundColor: colorScheme.onErrorContainer,
-                            message: _errorMessage!,
+                          OpenHandInlineNoticeSlot(
+                            child: OpenHandInlineNoticeFactory.error(
+                              context,
+                              _errorMessage!,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 20),
