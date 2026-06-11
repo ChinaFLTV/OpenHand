@@ -6,7 +6,6 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
-import 'openhand_safe_scrollbar.dart';
 
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
@@ -179,6 +178,8 @@ class _PopupMenuContent<T> extends StatefulWidget {
 
 class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
   static const double _kMenuMinWidth = 112.0;
+  static const double _kMenuMaxWidth = 280.0;
+  static const double _kMenuWidthStep = 56.0;
   static const double _kScrollbarThickness = 6.0;
   static const Radius _kScrollbarRadius = Radius.circular(999);
 
@@ -200,41 +201,91 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
     return minWidth < _kMenuMinWidth ? _kMenuMinWidth : minWidth;
   }
 
-  Widget _buildScrollableBody({
-    required Widget child,
+  BoxConstraints _resolvedMenuConstraints(BoxConstraints? constraints) {
+    final fallback =
+        constraints ??
+        const BoxConstraints(
+          minWidth: _kMenuMinWidth,
+          maxWidth: _kMenuMaxWidth,
+        );
+    final resolvedMinWidth = _resolvedMinWidth(fallback);
+    final resolvedMaxWidth = fallback.maxWidth.isFinite
+        ? (fallback.maxWidth < resolvedMinWidth
+              ? resolvedMinWidth
+              : fallback.maxWidth)
+        : fallback.maxWidth;
+    final resolvedMinHeight = fallback.minHeight.isFinite
+        ? fallback.minHeight.clamp(0.0, fallback.maxHeight).toDouble()
+        : 0.0;
+    return BoxConstraints(
+      minWidth: resolvedMinWidth,
+      maxWidth: resolvedMaxWidth,
+      minHeight: resolvedMinHeight,
+      maxHeight: fallback.maxHeight,
+    );
+  }
+
+  Widget _buildVerticalMenuList({
     required EdgeInsetsGeometry padding,
+    required List<Widget> children,
+    bool enableScrollbar = false,
+  }) {
+    final list = SingleChildScrollView(
+      controller: enableScrollbar ? _verticalScrollController : null,
+      padding: padding,
+      child: ListBody(children: children),
+    );
+    if (!enableScrollbar) {
+      return list;
+    }
+    return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
+      thickness: _kScrollbarThickness,
+      radius: _kScrollbarRadius,
+      notificationPredicate: (notification) =>
+          notification.metrics.axis == Axis.vertical,
+      child: list,
+    );
+  }
+
+  Widget _buildScrollableBody({
+    required EdgeInsetsGeometry padding,
+    required List<Widget> children,
     required double minWidth,
   }) {
-    final resolvedPadding = padding.resolve(Directionality.of(context));
     if (!widget.route.enableBidirectionalScroll) {
-      return SingleChildScrollView(padding: resolvedPadding, child: child);
+      return IntrinsicWidth(
+        stepWidth: _kMenuWidthStep,
+        child: _buildVerticalMenuList(padding: padding, children: children),
+      );
     }
 
+    final resolvedPadding = padding.resolve(Directionality.of(context));
     final contentPadding = resolvedPadding.copyWith(
       right: resolvedPadding.right + 4,
       bottom: resolvedPadding.bottom + 10,
     );
     return PrimaryScrollController.none(
-      child: OpenHandSafeScrollbar(
+      child: Scrollbar(
         controller: _horizontalScrollController,
         thumbVisibility: true,
         thickness: _kScrollbarThickness,
         radius: _kScrollbarRadius,
         scrollbarOrientation: ScrollbarOrientation.bottom,
+        notificationPredicate: (notification) =>
+            notification.metrics.axis == Axis.horizontal,
         child: SingleChildScrollView(
           controller: _horizontalScrollController,
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: minWidth),
-            child: OpenHandSafeScrollbar(
-              controller: _verticalScrollController,
-              thumbVisibility: true,
-              thickness: _kScrollbarThickness,
-              radius: _kScrollbarRadius,
-              child: SingleChildScrollView(
-                controller: _verticalScrollController,
+            child: IntrinsicWidth(
+              stepWidth: _kMenuWidthStep,
+              child: _buildVerticalMenuList(
                 padding: contentPadding,
-                child: child,
+                children: children,
+                enableScrollbar: true,
               ),
             ),
           ),
@@ -262,20 +313,21 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
     }
     final menuPadding =
         (popupMenuTheme.menuPadding ?? defaults.menuPadding) ?? EdgeInsets.zero;
+    final menuConstraints = _resolvedMenuConstraints(route.constraints);
     final menuBody = _buildScrollableBody(
-      child: ListBody(children: children),
       padding: menuPadding,
-      minWidth: _resolvedMinWidth(route.constraints),
+      children: children,
+      minWidth: _resolvedMinWidth(menuConstraints),
     );
 
     return Semantics(
       container: true,
       explicitChildNodes: true,
       role: SemanticsRole.menu,
+      scopesRoute: true,
+      namesRoute: true,
       child: ConstrainedBox(
-        constraints:
-            route.constraints ??
-            const BoxConstraints(minWidth: 112, maxWidth: 280),
+        constraints: menuConstraints,
         child: Material(
           type: MaterialType.card,
           elevation:
@@ -288,7 +340,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
           color: route.color ?? popupMenuTheme.color ?? defaults.color,
           shape: route.shape ?? popupMenuTheme.shape ?? defaults.shape,
           clipBehavior: Clip.hardEdge,
-          child: IntrinsicWidth(stepWidth: 56, child: menuBody),
+          child: menuBody,
         ),
       ),
     );
