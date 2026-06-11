@@ -4628,36 +4628,39 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
             ],
           ),
           const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _useServerHeaders,
-            onChanged: _isRunning
-                ? null
-                : (value) {
-                    setState(() {
-                      _useServerHeaders = value;
-                      _headerErrorMessage = null;
-                    });
-                  },
-            title: Text(
-              _localizedText(
-                context,
-                zh: '复用 MCP 服务的 Header 配置',
-                en: 'Use MCP Server Headers',
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _useServerHeaders,
+              onChanged: _isRunning
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _useServerHeaders = value;
+                        _headerErrorMessage = null;
+                      });
+                    },
+              title: Text(
+                _localizedText(
+                  context,
+                  zh: '复用 MCP 服务的 Header 配置',
+                  en: 'Use MCP Server Headers',
+                ),
               ),
-            ),
-            subtitle: Text(
-              widget.server.headers.isEmpty
-                  ? _localizedText(
-                      context,
-                      zh: '该服务未配置 Header',
-                      en: 'This server has no headers configured',
-                    )
-                  : _localizedText(
-                      context,
-                      zh: '已配置 ${widget.server.headers.length} 个 Header',
-                      en: '${widget.server.headers.length} headers configured',
-                    ),
+              subtitle: Text(
+                widget.server.headers.isEmpty
+                    ? _localizedText(
+                        context,
+                        zh: '该服务未配置 Header',
+                        en: 'This server has no headers configured',
+                      )
+                    : _localizedText(
+                        context,
+                        zh: '已配置 ${widget.server.headers.length} 个 Header',
+                        en: '${widget.server.headers.length} headers configured',
+                      ),
+              ),
             ),
           ),
           AnimatedSwitcher(
