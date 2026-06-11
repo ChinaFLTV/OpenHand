@@ -4588,202 +4588,217 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
   Widget _buildHeaderConfigSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final headers = widget.server.headers;
+    final headersEmpty = headers.isEmpty;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _localizedText(
-                        context,
-                        zh: '请求 Header 配置',
-                        en: 'Request Headers',
-                      ),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _localizedText(
-                        context,
-                        zh: '可复用 MCP 服务配置的 Header，或手动配置调试专用 Header。',
-                        en: 'Use server headers or configure custom headers for debugging.',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.dns_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _localizedText(
-                        context,
-                        zh: '复用 MCP 服务的 Header 配置',
-                        en: 'Use MCP Server Headers',
-                      ),
-                      style: theme.textTheme.titleSmall,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '请求 Header 配置',
+                      en: 'Request Headers',
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.server.headers.isEmpty
-                          ? _localizedText(
-                              context,
-                              zh: '该服务未配置 Header',
-                              en: 'This server has no headers configured',
-                            )
-                          : _localizedText(
-                              context,
-                              zh: '已配置 ${widget.server.headers.length} 个 Header',
-                              en:
-                                  '${widget.server.headers.length} headers configured',
-                            ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.primary,
                     ),
-                  ],
+                  ),
                 ),
+                if (headersEmpty)
+                  _McpStatusChip(
+                    icon: Icons.info_outline_rounded,
+                    label: _localizedText(
+                      context,
+                      zh: '未配置',
+                      en: 'None',
+                    ),
+                  )
+                else
+                  _McpStatusChip(
+                    icon: Icons.layers_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '${headers.length} 个',
+                      en: '${headers.length}',
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _localizedText(
+                context,
+                zh: '可复用 MCP 服务配置的 Header，或手动配置调试专用 Header。',
+                en: 'Reuse server headers or configure custom headers for debugging.',
               ),
-              const SizedBox(width: 12),
-              Switch(
-                value: _useServerHeaders,
-                onChanged: _isRunning
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _useServerHeaders = value;
-                          _headerErrorMessage = null;
-                        });
-                      },
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
-            ],
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              return SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: -1.0,
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            child: !_useServerHeaders
-                ? Padding(
-                    key: const ValueKey('custom-headers'),
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '自定义 Header',
-                                  en: 'Custom Headers',
-                                ),
-                                style: theme.textTheme.titleSmall,
-                              ),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: _isRunning ? null : _addHeaderRow,
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '新增',
-                                  en: 'Add',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Column(
-                          children: _headerRows
-                              .asMap()
-                              .entries
-                              .map((entry) {
-                                final index = entry.key;
-                                final row = entry.value;
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: index == _headerRows.length - 1
-                                        ? 0
-                                        : 12,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '复用服务 Header',
+                      en: 'Use server headers',
+                    ),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                Switch(
+                  value: _useServerHeaders,
+                  onChanged: _isRunning
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _useServerHeaders = value;
+                            _headerErrorMessage = null;
+                          });
+                        },
+                ),
+              ],
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1.0,
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: !_useServerHeaders
+                  ? Padding(
+                      key: const ValueKey('custom-headers'),
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Divider(
+                            height: 1,
+                            color: colorScheme.outlineVariant,
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '自定义 Header',
+                                    en: 'Custom Headers',
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: row.nameController,
-                                          enabled: !_isRunning,
-                                          onChanged: (_) => _clearHeaderError(),
-                                          decoration: InputDecoration(
-                                            labelText: _localizedText(
-                                              context,
-                                              zh: 'Header 名称',
-                                              en: 'Header Name',
-                                            ),
-                                            hintText: _localizedText(
-                                              context,
-                                              zh: '例如 Authorization',
-                                              en: 'e.g. Authorization',
+                                  style: theme.textTheme.labelLarge,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: _isRunning ? null : _addHeaderRow,
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '新增',
+                                    en: 'Add',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Column(
+                            children: _headerRows
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                                  final index = entry.key;
+                                  final row = entry.value;
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom:
+                                          index == _headerRows.length - 1
+                                              ? 0
+                                              : 10,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: row.nameController,
+                                            enabled: !_isRunning,
+                                            onChanged: (_) =>
+                                                _clearHeaderError(),
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              labelText: _localizedText(
+                                                context,
+                                                zh: '名称',
+                                                en: 'Name',
+                                              ),
+                                              hintText: _localizedText(
+                                                context,
+                                                zh: 'Authorization',
+                                                en: 'Authorization',
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: row.valueController,
-                                          enabled: !_isRunning,
-                                          onChanged: (_) => _clearHeaderError(),
-                                          decoration: InputDecoration(
-                                            labelText: _localizedText(
-                                              context,
-                                              zh: 'Header 值',
-                                              en: 'Header Value',
-                                            ),
-                                            hintText: _localizedText(
-                                              context,
-                                              zh: '例如 Bearer token',
-                                              en: 'e.g. Bearer token',
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          flex: 2,
+                                          child: TextField(
+                                            controller: row.valueController,
+                                            enabled: !_isRunning,
+                                            onChanged: (_) =>
+                                                _clearHeaderError(),
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              labelText: _localizedText(
+                                                context,
+                                                zh: '值',
+                                                en: 'Value',
+                                              ),
+                                              hintText: _localizedText(
+                                                context,
+                                                zh: 'Bearer token',
+                                                en: 'Bearer token',
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: IconButton(
+                                        const SizedBox(width: 2),
+                                        IconButton(
                                           onPressed: _isRunning
                                               ? null
-                                              : () => _removeHeaderRow(index),
+                                              : () =>
+                                                  _removeHeaderRow(index),
                                           tooltip: _localizedText(
                                             context,
                                             zh: '删除',
@@ -4791,31 +4806,31 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                           ),
                                           icon: const Icon(
                                             Icons.delete_outline_rounded,
+                                            size: 20,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              })
-                              .toList(growable: false),
-                        ),
-                        if (_headerErrorMessage != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _headerErrorMessage!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.error,
-                            ),
+                                      ],
+                                    ),
+                                  );
+                                })
+                                .toList(growable: false),
                           ),
+                          if (_headerErrorMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _headerErrorMessage!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.error,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('use-server-headers')),
-          ),
-          const SizedBox(height: 4),
-        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('use-server-headers')),
+            ),
+          ],
+        ),
       ),
     );
   }
