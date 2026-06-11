@@ -13,6 +13,8 @@ enum AiApiDialect {
       orElse: () => AiApiDialect.openAiCompat,
     );
   }
+
+  bool get isOpenAiCompat => this == AiApiDialect.openAiCompat;
 }
 
 enum AiProviderKind {

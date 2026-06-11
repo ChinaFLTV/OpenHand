@@ -297,6 +297,14 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 160,
   );
+  // DeepSeek KV cache is persisted asynchronously on the provider side.
+  // Tool-continuation requests sent immediately after the previous response
+  // often miss the just-written prefix cache even when the prompt is a pure
+  // append. A short, provider-scoped settle window lets the cache become
+  // visible without penalizing ordinary user-turn latency.
+  static const Duration _deepSeekContinuationCacheSettleDelay = Duration(
+    seconds: 2,
+  );
 
   /// Maximum number of consecutive auto-continuations when the model keeps
   /// hitting its output token limit (finish_reason: "length" / "max_tokens").
@@ -4803,7 +4811,55 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       }
+      if (await _delayForDeepSeekContinuationCacheSettle(
+        sessionId: workingSession.id,
+        model: model,
+        toolRoundCount: toolRoundCount,
+      )) {
+        return true;
+      }
     }
+  }
+
+  bool _shouldDelayForDeepSeekContinuationCacheSettle({
+    required AiModelConfig model,
+    required int toolRoundCount,
+  }) {
+    if (toolRoundCount <= 0) {
+      return false;
+    }
+    if (!model.streamEnabled || !model.apiDialect.isOpenAiCompat) {
+      return false;
+    }
+    final normalizedModelId = model.modelId.trim().toLowerCase();
+    return normalizedModelId.startsWith('deepseek-v4');
+  }
+
+  Future<bool> _delayForDeepSeekContinuationCacheSettle({
+    required String sessionId,
+    required AiModelConfig model,
+    required int toolRoundCount,
+  }) async {
+    if (!_shouldDelayForDeepSeekContinuationCacheSettle(
+      model: model,
+      toolRoundCount: toolRoundCount,
+    )) {
+      return false;
+    }
+    _debugSessionLog(
+      sessionId,
+      'deepseek_cache_settle_wait round=${toolRoundCount + 1} '
+      'delay_ms=${_deepSeekContinuationCacheSettleDelay.inMilliseconds}',
+    );
+    await Future<void>.delayed(_deepSeekContinuationCacheSettleDelay);
+    if (_isDisposed || _isStopRequestedForSession(sessionId)) {
+      _debugSessionLog(
+        sessionId,
+        'deepseek_cache_settle_wait_cancelled round=${toolRoundCount + 1}',
+      );
+      return true;
+    }
+    return false;
   }
 
   Future<AiSession?> _executeToolCalls({
