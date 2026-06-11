@@ -4393,8 +4393,11 @@ class _McpToolDebugDialog extends StatefulWidget {
 class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
   late McpTool? _selectedTool;
   late final TextEditingController _argumentsController;
+  late final List<_EditableHeaderRow> _headerRows;
+  bool _useServerHeaders = true;
   McpToolCallResult? _result;
   String? _errorMessage;
+  String? _headerErrorMessage;
   bool _isRunning = false;
 
   @override
@@ -4410,12 +4413,94 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
           ? '{}'
           : _suggestedArgumentsJson(_selectedTool!),
     );
+    _headerRows = _buildInitialHeaderRows(widget.server.headers);
   }
 
   @override
   void dispose() {
     _argumentsController.dispose();
+    for (final row in _headerRows) {
+      row.dispose();
+    }
     super.dispose();
+  }
+
+  List<_EditableHeaderRow> _buildInitialHeaderRows(
+    Map<String, String>? headers,
+  ) {
+    final entries = headers?.entries.toList(growable: false) ?? const [];
+    if (entries.isEmpty) {
+      return <_EditableHeaderRow>[_EditableHeaderRow()];
+    }
+    return entries
+        .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
+        .toList();
+  }
+
+  void _addHeaderRow() {
+    setState(() {
+      _headerRows.add(_EditableHeaderRow());
+      _headerErrorMessage = null;
+    });
+  }
+
+  void _removeHeaderRow(int index) {
+    setState(() {
+      _headerErrorMessage = null;
+      if (_headerRows.length == 1) {
+        _headerRows.single.clear();
+        return;
+      }
+      final removedRow = _headerRows.removeAt(index);
+      removedRow.dispose();
+    });
+  }
+
+  void _clearHeaderError() {
+    if (_headerErrorMessage == null) {
+      return;
+    }
+    setState(() {
+      _headerErrorMessage = null;
+    });
+  }
+
+  _HeaderParseResult _collectHeadersFromRows() {
+    final headers = <String, String>{};
+    final seenNames = <String>{};
+    for (var index = 0; index < _headerRows.length; index++) {
+      final row = _headerRows[index];
+      final name = row.nameController.text.trim();
+      final value = row.valueController.text.trim();
+      if (name.isEmpty && value.isEmpty) {
+        continue;
+      }
+      if (name.isEmpty || value.isEmpty) {
+        return _HeaderParseResult(
+          headers: const <String, String>,
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
+            en: 'Header ${index + 1} must include both name and value',
+          ),
+        );
+      }
+      final normalizedName = name.toLowerCase();
+      if (!seenNames.add(normalizedName)) {
+        return _HeaderParseResult(
+          headers: const <String, String>{},
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 名称重复',
+            en: 'Header ${index + 1} uses a duplicate name',
+          ),
+        );
+      }
+      headers[name] = value;
+    }
+    return _HeaderParseResult(
+      headers: Map<String, String>.unmodifiable(headers),
+    );
   }
 
   Future<void> _runTool() async {
@@ -4448,10 +4533,27 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
       return;
     }
 
+    // 仅对 HTTP/SSE 类型服务处理自定义 headers
+    Map<String, String>? customHeaders;
+    if (widget.server.type == McpServerType.streamableHttp ||
+        widget.server.type == McpServerType.sse) {
+      if (!_useServerHeaders) {
+        final headerParseResult = _collectHeadersFromRows();
+        if (headerParseResult.errorMessage != null) {
+          setState(() {
+            _headerErrorMessage = headerParseResult.errorMessage;
+          });
+          return;
+        }
+        customHeaders = headerParseResult.headers;
+      }
+    }
+
     setState(() {
       _isRunning = true;
       _result = null;
       _errorMessage = null;
+      _headerErrorMessage = null;
     });
 
     try {
@@ -4459,6 +4561,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
         serverName: widget.server.name,
         toolName: tool.id,
         arguments: arguments,
+        customHeaders: customHeaders,
       );
       if (!mounted) {
         return;
@@ -4480,6 +4583,224 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
         });
       }
     }
+  }
+
+  Widget _buildHeaderConfigSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '请求 Header 配置',
+                        en: 'Request Headers',
+                      ),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '可复用 MCP 服务配置的 Header，或手动配置调试专用 Header。',
+                        en: 'Use server headers or configure custom headers for debugging.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _useServerHeaders,
+            onChanged: _isRunning
+                ? null
+                : (value) {
+                    setState(() {
+                      _useServerHeaders = value;
+                      _headerErrorMessage = null;
+                    });
+                  },
+            title: Text(
+              _localizedText(
+                context,
+                zh: '复用 MCP 服务的 Header 配置',
+                en: 'Use MCP Server Headers',
+              ),
+            ),
+            subtitle: Text(
+              widget.server.headers.isEmpty
+                  ? _localizedText(
+                      context,
+                      zh: '该服务未配置 Header',
+                      en: 'This server has no headers configured',
+                    )
+                  : _localizedText(
+                      context,
+                      zh: '已配置 ${widget.server.headers.length} 个 Header',
+                      en: '${widget.server.headers.length} headers configured',
+                    ),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0,
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: !_useServerHeaders
+                ? Padding(
+                    key: const ValueKey('custom-headers'),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '自定义 Header',
+                                  en: 'Custom Headers',
+                                ),
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ),
+                            FilledButton.tonalIcon(
+                              onPressed: _isRunning ? null : _addHeaderRow,
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '新增',
+                                  en: 'Add',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          children: _headerRows
+                              .asMap()
+                              .entries
+                              .map((entry) {
+                                final index = entry.key;
+                                final row = entry.value;
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: index == _headerRows.length - 1
+                                        ? 0
+                                        : 12,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: row.nameController,
+                                          enabled: !_isRunning,
+                                          onChanged: (_) => _clearHeaderError(),
+                                          decoration: InputDecoration(
+                                            labelText: _localizedText(
+                                              context,
+                                              zh: 'Header 名称',
+                                              en: 'Header Name',
+                                            ),
+                                            hintText: _localizedText(
+                                              context,
+                                              zh: '例如 Authorization',
+                                              en: 'e.g. Authorization',
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: row.valueController,
+                                          enabled: !_isRunning,
+                                          onChanged: (_) => _clearHeaderError(),
+                                          decoration: InputDecoration(
+                                            labelText: _localizedText(
+                                              context,
+                                              zh: 'Header 值',
+                                              en: 'Header Value',
+                                            ),
+                                            hintText: _localizedText(
+                                              context,
+                                              zh: '例如 Bearer token',
+                                              en: 'e.g. Bearer token',
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: IconButton(
+                                          onPressed: _isRunning
+                                              ? null
+                                              : () => _removeHeaderRow(index),
+                                          tooltip: _localizedText(
+                                            context,
+                                            zh: '删除',
+                                            en: 'Remove',
+                                          ),
+                                          icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                        if (_headerErrorMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _headerErrorMessage!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('use-server-headers')),
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
   }
 
   @override
@@ -4642,6 +4963,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        if (widget.server.type == McpServerType.streamableHttp ||
+                            widget.server.type == McpServerType.sse)
+                          _buildHeaderConfigSection(context),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 10,

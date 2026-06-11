@@ -165,6 +165,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
     String? toolCallId,
+    Map<String, String>? customHeaders,
   }) async {
     late final Map<String, Object?> result;
     try {
@@ -173,11 +174,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           server,
           toolName,
           arguments,
+          customHeaders: customHeaders,
         ),
         McpServerType.sse => _callToolOverLegacySseWithFallback(
           server,
           toolName,
           arguments,
+          customHeaders: customHeaders,
         ),
         McpServerType.stdio => _callToolOverStdio(
           server,
@@ -308,8 +311,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<Map<String, Object?>> _callToolOverStreamableHttp(
     McpServer server,
     String toolName,
-    Map<String, Object?> arguments,
-  ) async {
+    Map<String, Object?> arguments, {
+    Map<String, String>? customHeaders,
+  }) async {
     final session = await _initializeStreamableHttpSession(server);
     final response = await _postJsonRpc(
       server: server,
@@ -323,6 +327,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       ),
       requestTimeout: _toolCallTimeout,
       expectResponse: true,
+      customHeaders: customHeaders,
     );
     return _extractResult(response.message);
   }
@@ -330,9 +335,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<Map<String, Object?>> _callToolOverLegacySse(
     McpServer server,
     String toolName,
-    Map<String, Object?> arguments,
-  ) async {
-    final session = await _initializeLegacySseSession(server);
+    Map<String, Object?> arguments, {
+    Map<String, String>? customHeaders,
+  }) async {
+    final session = await _initializeLegacySseSession(
+      server,
+      customHeaders: customHeaders,
+    );
     try {
       return _extractResult(
         await session.sendRequest(
@@ -352,13 +361,22 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<Map<String, Object?>> _callToolOverLegacySseWithFallback(
     McpServer server,
     String toolName,
-    Map<String, Object?> arguments,
-  ) {
+    Map<String, Object?> arguments, {
+    Map<String, String>? customHeaders,
+  }) {
     return _runLegacySseWithStreamableFallback(
-      primaryOperation: () =>
-          _callToolOverLegacySse(server, toolName, arguments),
-      fallbackOperation: () =>
-          _callToolOverStreamableHttp(server, toolName, arguments),
+      primaryOperation: () => _callToolOverLegacySse(
+        server,
+        toolName,
+        arguments,
+        customHeaders: customHeaders,
+      ),
+      fallbackOperation: () => _callToolOverStreamableHttp(
+        server,
+        toolName,
+        arguments,
+        customHeaders: customHeaders,
+      ),
     );
   }
 
@@ -508,13 +526,16 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_LegacySseSession> _initializeLegacySseSession(
-    McpServer server,
-  ) async {
+    McpServer server, {
+    Map<String, String>? customHeaders,
+  }) async {
     final session = await _LegacySseSession.connect(
       client: _client,
       sseUri: _parseServerUri(server.url),
-      headers: server.headers,
-      sensitiveHeaderNames: _sensitiveHeaderNames(server.headers),
+      headers: customHeaders ?? server.headers,
+      sensitiveHeaderNames: _sensitiveHeaderNames(
+        customHeaders ?? server.headers,
+      ),
       endpointTimeout: _legacyEndpointTimeout,
       requestTimeout: _requestTimeout,
     );
@@ -744,13 +765,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     String? sessionId,
     Duration? requestTimeout,
     required bool expectResponse,
+    Map<String, String>? customHeaders,
   }) async {
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
         'content-type': 'application/json',
         'accept': 'application/json, text/event-stream',
       },
-      extraHeaders: server.headers,
+      extraHeaders: customHeaders ?? server.headers,
       protectedHeaderNames: const <String>{
         'content-type',
         'accept',
@@ -773,7 +795,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       body: jsonEncode(payload),
       requestTimeout: requestTimeout ?? _requestTimeout,
       maxRedirects: _maxRedirects,
-      additionalSensitiveHeaderNames: _sensitiveHeaderNames(server.headers),
+      additionalSensitiveHeaderNames: _sensitiveHeaderNames(
+        customHeaders ?? server.headers,
+      ),
     );
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = _readHeader(response.headers, 'mcp-session-id');

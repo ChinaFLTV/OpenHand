@@ -648,6 +648,7 @@ class McpController extends ChangeNotifier {
     required String serverName,
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
+    Map<String, String>? customHeaders,
   }) async {
     if (_isDisposed) {
       throw StateError('MCP controller has been disposed.');
@@ -671,6 +672,7 @@ class McpController extends ChangeNotifier {
       server: server,
       toolName: normalizedToolName,
       arguments: arguments,
+      customHeaders: customHeaders,
     );
   }
 
