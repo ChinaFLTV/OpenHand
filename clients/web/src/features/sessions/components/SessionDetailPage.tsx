@@ -18,31 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import {
-  deleteMessage,
-  deleteMessageCascade,
-  deleteSession,
-  EXPORT_SESSION_TIMEOUT_ERROR,
-  exportSessionDownload,
-  getSession,
-  listMessages,
-  renameSession,
-  respondWriteApproval,
-  sendMessage,
-  stopMessage,
-  updateSessionFullAccessPermission,
-  updateSessionMode,
-  compactSession,
-  setSessionThrottle,
-  clearSessionThrottle,
-  type CompactSessionResponse,
-  type CompactSessionStatus,
-  type SendMessageAttachment,
-  type SessionCacheHitTrendPoint,
-  type SessionDetailResponse,
-  type SessionMessage,
-  type SessionSummary,
-} from '../../../api/sessions';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
 import { ApiError, UnauthorizedError, apiRequest } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -55,15 +31,8 @@ import { MessageCard, markMessagesAsAppeared } from '../../../components/Message
 import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
-import {
-  readBrowserStorage,
-  removeBrowserStorage,
-  writeBrowserStorage,
-} from '../../../shared/util/browser_storage';
-import {
-  SessionTopBar,
-  type SessionToolbarCapsule,
-} from '../../../components/SessionTopBar';
+import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
+import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
@@ -76,26 +45,14 @@ import { useEventCallback } from '../../../hooks/useEventCallback';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
-import {
-  DialogFrame,
-  DIALOG_OVERLAY_INTENSE_BACKGROUND,
-  DIALOG_OVERLAY_INVERSE_BACKGROUND,
-  DIALOG_OVERLAY_LOW_Z_INDEX,
-  DIALOG_OVERLAY_SOFT_BACKGROUND,
-  DIALOG_OVERLAY_STRONG_BACKGROUND,
-  createDialogOverlayStyle,
-} from '../../../components/DialogFrame';
+import { DialogFrame, DIALOG_OVERLAY_INTENSE_BACKGROUND, DIALOG_OVERLAY_INVERSE_BACKGROUND, DIALOG_OVERLAY_LOW_Z_INDEX, DIALOG_OVERLAY_SOFT_BACKGROUND, DIALOG_OVERLAY_STRONG_BACKGROUND, createDialogOverlayStyle } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { streamDebugLog } from '../../../utils/stream_debug';
 import { PopMenu } from '../../../components/PopMenu';
 import { listSkills, type SkillSummary } from '../../../api/toolbox';
-import {
-  ImageEditorDialog,
-  type ImageEditorInput,
-  type ImageEditorResult,
-} from '../../../components/ImageEditorDialog';
+import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from '../../../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholder } from '../../../components/MediaGeneratingPlaceholder';
@@ -126,6 +83,42 @@ const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
+const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
+const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
+
+interface ComposerTriggerDismissal {
+  offset: number;
+  query: string;
+}
+
+interface SlashTriggerInfo {
+  triggerOffset: number;
+  tokenEnd: number;
+  query: string;
+  token: string;
+}
+
+function isComposerTriggerWhitespaceCode(code: number): boolean {
+  return code === 0x20 || code === 0x09 || code === 0x0a || code === 0x0d;
+}
+
+function isComposerPathLikeQuery(query: string): boolean {
+  if (query.length === 0) return false;
+  if (query.startsWith('/') || query.startsWith('\\') || query.includes('/') || query.includes('\\') || query.startsWith('./') || query.startsWith('../') || query.startsWith('~/') || query.startsWith('.\\') || query.startsWith('..\\') || query.startsWith('~\\')) {
+    return true;
+  }
+  return COMPOSER_TRIGGER_WINDOWS_DRIVE_RE.test(query);
+}
+
+function shouldSuppressSlashSkillQuery(query: string): boolean {
+  return isComposerPathLikeQuery(query) || query.startsWith('*');
+}
+
+function shouldSuppressDismissedComposerTrigger(dismissedQuery: string, currentQuery: string): boolean {
+  const dismissed = dismissedQuery.trim().toLowerCase();
+  const current = currentQuery.trim().toLowerCase();
+  return current.length >= dismissed.length && current.startsWith(dismissed);
+}
 
 interface RestoredSkillSelection {
   name: string;
@@ -135,9 +128,7 @@ interface RestoredSkillSelection {
 }
 
 function asObjectRecord(value: unknown): Record<string, unknown> | null {
-  return value != null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
+  return value != null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
 function trimString(value: unknown): string {
@@ -146,13 +137,11 @@ function trimString(value: unknown): string {
 
 function extractUserSkillSelection(message: SessionMessage): RestoredSkillSelection | null {
   const metadata = asObjectRecord(message.metadata);
-  const skill = asObjectRecord(metadata?.[USER_SKILL_SELECTION_METADATA_KEY])
-    ?? asObjectRecord(metadata?.['selected_skill']);
+  const skill = asObjectRecord(metadata?.[USER_SKILL_SELECTION_METADATA_KEY]) ?? asObjectRecord(metadata?.['selected_skill']);
   if (!skill) return null;
   const name = trimString(skill['name']);
   const path = trimString(skill['path']) || trimString(skill['manifest_path']);
-  const relativePath = trimString(skill['relative_directory_path'])
-    || trimString(skill['relative_path']);
+  const relativePath = trimString(skill['relative_directory_path']) || trimString(skill['relative_path']);
   if (!name && !path && !relativePath) return null;
   return {
     name,
@@ -169,20 +158,14 @@ function skillMatchesSelection(skill: SkillSummary, selection: RestoredSkillSele
   if (selection.path) {
     const normalized = selection.path.replaceAll('\\', '/');
     const relative = skill.relative_directory_path.replaceAll('\\', '/');
-    if (
-      normalized.endsWith(`/${relative}`) ||
-      normalized.endsWith(`/${relative}/SKILL.md`)
-    ) {
+    if (normalized.endsWith(`/${relative}`) || normalized.endsWith(`/${relative}/SKILL.md`)) {
       return true;
     }
   }
   return Boolean(selection.name && skill.name === selection.name);
 }
 
-function skillSummaryFromSelection(
-  selection: RestoredSkillSelection,
-  source: SkillSummary[],
-): SkillSummary | null {
+function skillSummaryFromSelection(selection: RestoredSkillSelection, source: SkillSummary[]): SkillSummary | null {
   const found = source.find((skill) => skillMatchesSelection(skill, selection));
   if (found) return found;
   if (!selection.name) return null;
@@ -210,11 +193,9 @@ function persistComposerCollapsed(value: boolean): void {
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
   const ok = await copyTextToClipboard(json);
-  showSnackbar(ok
-    ? t('common.copied', '已复制')
-    : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
-      tone: ok ? 'success' : 'error',
-    });
+  showSnackbar(ok ? t('common.copied', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+    tone: ok ? 'success' : 'error',
+  });
 }
 
 // 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
@@ -232,18 +213,11 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
-export function shouldApplyPollingMessageWindow(
-  sseLive: boolean,
-  pollSendPhase: string | null | undefined,
-): boolean {
+export function shouldApplyPollingMessageWindow(sseLive: boolean, pollSendPhase: string | null | undefined): boolean {
   return !sseLive || !isRunningPhase(pollSendPhase);
 }
 
-export function shouldApplySessionAsyncResult(
-  currentSessionId: string,
-  requestSessionId: string,
-  componentMounted = true,
-): boolean {
+export function shouldApplySessionAsyncResult(currentSessionId: string, requestSessionId: string, componentMounted = true): boolean {
   return componentMounted && requestSessionId.length > 0 && currentSessionId === requestSessionId;
 }
 
@@ -253,17 +227,7 @@ function isStreamingTailMessage(message: SessionMessage): boolean {
 
 function isAssistantTextLikeMessage(message: SessionMessage): boolean {
   if (message.role !== 'assistant') return false;
-  return ![
-    'tool',
-    'tool_call',
-    'mcp',
-    'skill',
-    'hook',
-    'status',
-    'compression_point',
-    'file_mutation_summary',
-    'self_learning',
-  ].includes(message.kind);
+  return !['tool', 'tool_call', 'mcp', 'skill', 'hook', 'status', 'compression_point', 'file_mutation_summary', 'self_learning'].includes(message.kind);
 }
 
 function messageMetadataStreaming(message: SessionMessage): boolean {
@@ -283,45 +247,17 @@ function metadataTextLength(value: unknown): number {
 
 export function messageFollowSignature(message: SessionMessage): string {
   const metadata = message.metadata ?? {};
-  return [
-    message.id,
-    message.role,
-    message.kind,
-    message.content?.length ?? 0,
-    message.character_count ?? 0,
-    metadataTextLength(metadata['tool_arguments']),
-    metadataTextLength(metadata['tool_execution_stdout']),
-    metadataTextLength(metadata['tool_execution_stderr']),
-    metadataTextLength(metadata['tool_execution_result'] ?? metadata['result_text']),
-    metadataTextLength(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
-    metadataTextLength(metadata['streaming']),
-  ].join('|');
+  return [message.id, message.role, message.kind, message.content?.length ?? 0, message.character_count ?? 0, metadataTextLength(metadata['tool_arguments']), metadataTextLength(metadata['tool_execution_stdout']), metadataTextLength(metadata['tool_execution_stderr']), metadataTextLength(metadata['tool_execution_result'] ?? metadata['result_text']), metadataTextLength(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']), metadataTextLength(metadata['streaming'])].join('|');
 }
 
-function shouldKeepLongerStreamingMessage(
-  existing: SessionMessage | undefined,
-  incoming: SessionMessage,
-  options: MergeServerWindowOptions,
-): boolean {
-  return Boolean(
-    options.preserveLocalStreamingTail &&
-    existing &&
-    existing.id === incoming.id &&
-    existing.kind === incoming.kind &&
-    existing.role === incoming.role &&
-    isStreamingTailMessage(existing) &&
-    existing.content.length > incoming.content.length,
-  );
+function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, incoming: SessionMessage, options: MergeServerWindowOptions): boolean {
+  return Boolean(options.preserveLocalStreamingTail && existing && existing.id === incoming.id && existing.kind === incoming.kind && existing.role === incoming.role && isStreamingTailMessage(existing) && existing.content.length > incoming.content.length);
 }
 
 /// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
 /// 使 `<MessageCard memo>` 在 SSE 80ms 推流期间跳过不变前缀的重新 diff，
 /// 让流式更新感觉真正像"逐字增长"而不是"全帧重排"。
-export function mergeStream(
-  prev: SessionMessage[],
-  next: SessionMessage[],
-  options: MergeServerWindowOptions = {},
-): SessionMessage[] {
+export function mergeStream(prev: SessionMessage[], next: SessionMessage[], options: MergeServerWindowOptions = {}): SessionMessage[] {
   if (prev === next) return prev;
   if (prev.length === 0 || next.length === 0) return next;
   // 长度变化或前缀 id 不一致 → 走完整替换；其他场景按 id+content+metadata 比较保留引用。
@@ -332,16 +268,7 @@ export function mergeStream(
     const b = next[i];
     if (shouldKeepLongerStreamingMessage(a, b, options)) {
       out[i] = a!;
-    } else if (
-      a &&
-      a.id === b.id &&
-      a.content.length === b.content.length &&
-      a.kind === b.kind &&
-      a.role === b.role &&
-      a.character_count === b.character_count &&
-      a.created_at === b.created_at &&
-      sameMetadata(a.metadata, b.metadata)
-    ) {
+    } else if (a && a.id === b.id && a.content.length === b.content.length && a.kind === b.kind && a.role === b.role && a.character_count === b.character_count && a.created_at === b.created_at && sameMetadata(a.metadata, b.metadata)) {
       out[i] = a;
     } else {
       out[i] = b;
@@ -351,10 +278,7 @@ export function mergeStream(
   return identical ? prev : out;
 }
 
-function appendLocalStreamingTail(
-  prev: SessionMessage[],
-  merged: SessionMessage[],
-): SessionMessage[] {
+function appendLocalStreamingTail(prev: SessionMessage[], merged: SessionMessage[]): SessionMessage[] {
   if (prev.length === 0 || merged.length === 0) return merged;
   const mergedIndexById = new Map<string, number>();
   merged.forEach((item, index) => mergedIndexById.set(item.id, index));
@@ -374,13 +298,7 @@ function appendLocalStreamingTail(
   return [...merged, ...suffix];
 }
 
-export function mergeServerWindowResult(
-  prev: SessionMessage[],
-  latest: SessionMessage[],
-  currentOffset: number,
-  nextOffset: number,
-  options: MergeServerWindowOptions = {},
-): MergeServerWindowResult {
+export function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): MergeServerWindowResult {
   if (prev.length === 0) return { items: latest, offset: nextOffset };
   if (options.preserveLocalStreamingTail && latest.length === 0) {
     return { items: prev, offset: currentOffset };
@@ -388,9 +306,7 @@ export function mergeServerWindowResult(
   if (nextOffset < currentOffset) {
     if (options.preserveLocalStreamingTail) {
       const firstPrev = prev[0];
-      const overlapIndex = firstPrev
-        ? latest.findIndex((item) => item.id === firstPrev.id)
-        : -1;
+      const overlapIndex = firstPrev ? latest.findIndex((item) => item.id === firstPrev.id) : -1;
       if (overlapIndex >= 0) {
         const merged = mergeStream(prev, latest.slice(overlapIndex), options);
         return {
@@ -406,9 +322,7 @@ export function mergeServerWindowResult(
   if (prefixCount <= 0) {
     const merged = mergeStream(prev, latest, options);
     return {
-      items: options.preserveLocalStreamingTail
-        ? appendLocalStreamingTail(prev, merged)
-        : merged,
+      items: options.preserveLocalStreamingTail ? appendLocalStreamingTail(prev, merged) : merged,
       offset: currentOffset,
     };
   }
@@ -421,10 +335,7 @@ export function mergeServerWindowResult(
       const overlapIndex = suffix.findIndex((item) => item.id === firstLatestId);
       if (overlapIndex > 0) {
         const prefix = prev.slice(0, prefixCount + overlapIndex);
-        const merged = [
-          ...prefix,
-          ...mergeStream(prev.slice(prefixCount + overlapIndex), latest, options),
-        ];
+        const merged = [...prefix, ...mergeStream(prev.slice(prefixCount + overlapIndex), latest, options)];
         return {
           items: appendLocalStreamingTail(prev, merged),
           offset: currentOffset,
@@ -438,52 +349,20 @@ export function mergeServerWindowResult(
   const prefix = prev.slice(0, prefixCount);
   const merged = [...prefix, ...mergeStream(prev.slice(prefixCount), latest, options)];
   return {
-    items: options.preserveLocalStreamingTail
-      ? appendLocalStreamingTail(prev, merged)
-      : merged,
+    items: options.preserveLocalStreamingTail ? appendLocalStreamingTail(prev, merged) : merged,
     offset: currentOffset,
   };
 }
 
-export function mergeServerWindow(
-  prev: SessionMessage[],
-  latest: SessionMessage[],
-  currentOffset: number,
-  nextOffset: number,
-  options: MergeServerWindowOptions = {},
-): SessionMessage[] {
+export function mergeServerWindow(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): SessionMessage[] {
   return mergeServerWindowResult(prev, latest, currentOffset, nextOffset, options).items;
 }
 
 function sessionModeLabel(mode: string): string {
-  return mode === 'plan'
-    ? t('sessions.mode.plan', '计划模式')
-    : t('sessions.mode.chat', '聊天模式');
+  return mode === 'plan' ? t('sessions.mode.plan', '计划模式') : t('sessions.mode.chat', '聊天模式');
 }
 
-type ComposerIconName =
-  | 'attachment'
-  | 'chat'
-  | 'chevronDown'
-  | 'chevronUp'
-  | 'close'
-  | 'copy'
-  | 'edit'
-  | 'file'
-  | 'image'
-  | 'model'
-  | 'mode'
-  | 'plan'
-  | 'permission'
-  | 'plus'
-  | 'research'
-  | 'refresh'
-  | 'send'
-  | 'sound'
-  | 'spark'
-  | 'stop'
-  | 'video'
-  | 'follow';
+type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'image' | 'model' | 'mode' | 'plan' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video' | 'follow';
 
 function sessionModeIconName(mode: string): ComposerIconName {
   return mode === 'plan' ? 'plan' : 'chat';
@@ -525,51 +404,163 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
   };
   switch (name) {
     case 'attachment':
-      return <svg {...common}><path {...stroke} d="M21.4 11.6 12 21a5.2 5.2 0 0 1-7.4-7.4l9.7-9.7a3.5 3.5 0 0 1 5 5l-9.8 9.8a1.8 1.8 0 0 1-2.6-2.6l8.9-8.9" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M21.4 11.6 12 21a5.2 5.2 0 0 1-7.4-7.4l9.7-9.7a3.5 3.5 0 0 1 5 5l-9.8 9.8a1.8 1.8 0 0 1-2.6-2.6l8.9-8.9" />
+        </svg>
+      );
     case 'chat':
-      return <svg {...common}><path {...stroke} d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15h-4.7L6 19v-4.2a3.5 3.5 0 0 1-1-2.3z" /><path {...stroke} d="M9 8h6M9 11h3.8" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15h-4.7L6 19v-4.2a3.5 3.5 0 0 1-1-2.3z" />
+          <path {...stroke} d="M9 8h6M9 11h3.8" />
+        </svg>
+      );
     case 'chevronDown':
-      return <svg {...common}><path {...stroke} d="m7 10 5 5 5-5" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="m7 10 5 5 5-5" />
+        </svg>
+      );
     case 'chevronUp':
-      return <svg {...common}><path {...stroke} d="m7 14 5-5 5 5" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="m7 14 5-5 5 5" />
+        </svg>
+      );
     case 'close':
-      return <svg {...common}><path {...stroke} d="M7 7l10 10M17 7 7 17" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M7 7l10 10M17 7 7 17" />
+        </svg>
+      );
     case 'copy':
-      return <svg {...common}><rect {...stroke} x="8" y="8" width="11" height="11" rx="2" /><path {...stroke} d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
+      return (
+        <svg {...common}>
+          <rect {...stroke} x="8" y="8" width="11" height="11" rx="2" />
+          <path {...stroke} d="M5 15V7a2 2 0 0 1 2-2h8" />
+        </svg>
+      );
     case 'edit':
-      return <svg {...common}><path {...stroke} d="M4 20h4.4L19 9.4A2.1 2.1 0 0 0 16 6.4L5.4 17H4z" /><path {...stroke} d="m14.8 7.6 1.6 1.6" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 20h4.4L19 9.4A2.1 2.1 0 0 0 16 6.4L5.4 17H4z" />
+          <path {...stroke} d="m14.8 7.6 1.6 1.6" />
+        </svg>
+      );
     case 'file':
-      return <svg {...common}><path {...stroke} d="M7 3h6l4 4v14H7z" /><path {...stroke} d="M13 3v5h5M9 13h6M9 17h4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M7 3h6l4 4v14H7z" />
+          <path {...stroke} d="M13 3v5h5M9 13h6M9 17h4" />
+        </svg>
+      );
     case 'follow':
-      return <svg {...common}><path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" />
+        </svg>
+      );
     case 'refresh':
-      return <svg {...common}><path {...stroke} d="M4 12a8 8 0 0 1 13.4-5.9" /><path {...stroke} d="M17 3v4h-4" /><path {...stroke} d="M20 12a8 8 0 0 1-13.4 5.9" /><path {...stroke} d="M7 21v-4h4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 12a8 8 0 0 1 13.4-5.9" />
+          <path {...stroke} d="M17 3v4h-4" />
+          <path {...stroke} d="M20 12a8 8 0 0 1-13.4 5.9" />
+          <path {...stroke} d="M7 21v-4h4" />
+        </svg>
+      );
     case 'image':
-      return <svg {...common}><path {...stroke} d="M5 5h14v14H5z" /><path {...stroke} d="m5 16 4.5-4.5 3.5 3.5 2-2 4 4" /><path {...stroke} d="M14.5 8.5h.01" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M5 5h14v14H5z" />
+          <path {...stroke} d="m5 16 4.5-4.5 3.5 3.5 2-2 4 4" />
+          <path {...stroke} d="M14.5 8.5h.01" />
+        </svg>
+      );
     case 'model':
-      return <svg {...common}><rect {...stroke} x="7" y="7" width="10" height="10" rx="2" /><path {...stroke} d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4" /><path {...stroke} d="M10 12h4" /></svg>;
+      return (
+        <svg {...common}>
+          <rect {...stroke} x="7" y="7" width="10" height="10" rx="2" />
+          <path {...stroke} d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4" />
+          <path {...stroke} d="M10 12h4" />
+        </svg>
+      );
     case 'mode':
-      return <svg {...common}><path {...stroke} d="M5 7h8M17 7h2M5 12h2M11 12h8M5 17h10M19 17h0" /><path {...stroke} d="M13 5v4M9 10v4M15 15v4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M5 7h8M17 7h2M5 12h2M11 12h8M5 17h10M19 17h0" />
+          <path {...stroke} d="M13 5v4M9 10v4M15 15v4" />
+        </svg>
+      );
     case 'permission':
-      return <svg {...common}><path {...stroke} d="M12 3 5 6v5c0 4.4 2.8 8.4 7 10 4.2-1.6 7-5.6 7-10V6z" /><path {...stroke} d="m9.5 12 1.7 1.7 3.6-4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 5 6v5c0 4.4 2.8 8.4 7 10 4.2-1.6 7-5.6 7-10V6z" />
+          <path {...stroke} d="m9.5 12 1.7 1.7 3.6-4" />
+        </svg>
+      );
     case 'plan':
-      return <svg {...common}><path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" /><path {...stroke} d="M9 8h6M9 12h6M9 16h3" /><path {...stroke} d="m15 16 1.2 1.2L19 14.4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" />
+          <path {...stroke} d="M9 8h6M9 12h6M9 16h3" />
+          <path {...stroke} d="m15 16 1.2 1.2L19 14.4" />
+        </svg>
+      );
     case 'plus':
-      return <svg {...common}><path {...stroke} d="M12 5v14M5 12h14" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 5v14M5 12h14" />
+        </svg>
+      );
     case 'research':
-      return <svg {...common}><path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" /><path {...stroke} d="M8 10h5M8 13h3" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" />
+          <path {...stroke} d="M8 10h5M8 13h3" />
+        </svg>
+      );
     case 'send':
-      return <svg {...common}><path {...stroke} d="M4 12 20 4l-5 16-3-7z" /><path {...stroke} d="m12 13 4-5" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 12 20 4l-5 16-3-7z" />
+          <path {...stroke} d="m12 13 4-5" />
+        </svg>
+      );
     case 'sound':
-      return <svg {...common}><path {...stroke} d="M4 10v4h4l5 4V6L8 10z" /><path {...stroke} d="M16 9.5a4 4 0 0 1 0 5M19 7a8 8 0 0 1 0 10" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 10v4h4l5 4V6L8 10z" />
+          <path {...stroke} d="M16 9.5a4 4 0 0 1 0 5M19 7a8 8 0 0 1 0 10" />
+        </svg>
+      );
     case 'spark':
-      return <svg {...common}><path {...stroke} d="m12 3 1.6 5.2L19 10l-5.4 1.8L12 17l-1.6-5.2L5 10l5.4-1.8z" /><path {...stroke} d="M19 16v4M17 18h4" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="m12 3 1.6 5.2L19 10l-5.4 1.8L12 17l-1.6-5.2L5 10l5.4-1.8z" />
+          <path {...stroke} d="M19 16v4M17 18h4" />
+        </svg>
+      );
     case 'stop':
-      return <svg {...common}><rect {...stroke} x="7" y="7" width="10" height="10" rx="2" /></svg>;
+      return (
+        <svg {...common}>
+          <rect {...stroke} x="7" y="7" width="10" height="10" rx="2" />
+        </svg>
+      );
     case 'video':
-      return <svg {...common}><path {...stroke} d="M5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5z" /><path {...stroke} d="m17 10 4-2.5v9L17 14" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5z" />
+          <path {...stroke} d="m17 10 4-2.5v9L17 14" />
+        </svg>
+      );
     default:
-      return <svg {...common}><path {...stroke} d="M12 3v18M3 12h18" /></svg>;
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3v18M3 12h18" />
+        </svg>
+      );
   }
 }
 
@@ -581,21 +572,7 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
 ///   与 fullscreen containing block。
 /// - Ctrl+1..Ctrl+9（macOS 同时也响应 Meta+1..Meta+9）切换前 9 个胶囊的跳过状态，
 ///   Ctrl+0 / Meta+0 重置：所有指令重新生效（清空跳过集合）。
-function ComposerInstructionsStrip({
-  entries,
-  skipped,
-  disabled,
-  onToggle,
-  onResetAll,
-  t,
-}: {
-  entries: ApiMetaInstruction[];
-  skipped: Set<string>;
-  disabled: boolean;
-  onToggle: (id: string) => void;
-  onResetAll?: () => void;
-  t: (key: string, fallback: string) => string;
-}) {
+function ComposerInstructionsStrip({ entries, skipped, disabled, onToggle, onResetAll, t }: { entries: ApiMetaInstruction[]; skipped: Set<string>; disabled: boolean; onToggle: (id: string) => void; onResetAll?: () => void; t: (key: string, fallback: string) => string }) {
   const [hoverEntry, setHoverEntry] = useState<{
     entry: ApiMetaInstruction;
     rect: DOMRect;
@@ -637,7 +614,10 @@ function ComposerInstructionsStrip({
       onToggle(entry.id);
     }
     window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as EventListenerOptions);
+    return () =>
+      window.removeEventListener('keydown', onKeyDown, {
+        capture: true,
+      } as EventListenerOptions);
   }, [entries, skipped, disabled, onToggle, onResetAll]);
 
   function scheduleHover(entry: ApiMetaInstruction, target: HTMLElement): void {
@@ -650,42 +630,19 @@ function ComposerInstructionsStrip({
 
   return (
     <div class="oh-composer-instructions-strip mb-3" role="group" aria-label={t('composer.instructions.aria', '当前会话生效的用户指令')}>
-      <span class="oh-composer-instructions-strip-label">
-        {t('composer.instructions.label', '用户指令')}
-      </span>
+      <span class="oh-composer-instructions-strip-label">{t('composer.instructions.label', '用户指令')}</span>
       <div class="oh-composer-instructions-strip-list">
         {entries.map((entry, index) => {
           const isSkipped = skipped.has(entry.id);
-          const baseTip = entry.description?.trim()
-            ? entry.description
-            : isSkipped
-              ? t('composer.instructions.tooltipSkipped', '点击恢复：本轮临时跳过此指令')
-              : t('composer.instructions.tooltipActive', '点击跳过：本轮临时不携带此指令');
+          const baseTip = entry.description?.trim() ? entry.description : isSkipped ? t('composer.instructions.tooltipSkipped', '点击恢复：本轮临时跳过此指令') : t('composer.instructions.tooltipActive', '点击跳过：本轮临时不携带此指令');
           // 前 9 项追加快捷键提示
-          const hotkey = index < 9
-            ? ` · ${navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}${index + 1}`
-            : '';
+          const hotkey = index < 9 ? ` · ${navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}${index + 1}` : '';
           return (
-            <button
-              key={entry.id}
-              type="button"
-              class={`oh-composer-instruction-pill oh-tap-press${isSkipped ? ' is-skipped' : ''}`}
-              data-skipped={isSkipped ? 'true' : 'false'}
-              title={baseTip + hotkey}
-              aria-pressed={isSkipped ? 'false' : 'true'}
-              onClick={() => onToggle(entry.id)}
-              onMouseEnter={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)}
-              onMouseLeave={cancelHover}
-              onFocus={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)}
-              onBlur={cancelHover}
-              disabled={disabled}
-            >
+            <button key={entry.id} type="button" class={`oh-composer-instruction-pill oh-tap-press${isSkipped ? ' is-skipped' : ''}`} data-skipped={isSkipped ? 'true' : 'false'} title={baseTip + hotkey} aria-pressed={isSkipped ? 'false' : 'true'} onClick={() => onToggle(entry.id)} onMouseEnter={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)} onMouseLeave={cancelHover} onFocus={(e) => scheduleHover(entry, e.currentTarget as HTMLElement)} onBlur={cancelHover} disabled={disabled}>
               <span class="oh-composer-instruction-pill-icon" aria-hidden="true">
                 <ComposerIcon name="spark" size={14} />
               </span>
-              <span class="oh-composer-instruction-pill-label">
-                {entry.name?.trim() || entry.id}
-              </span>
+              <span class="oh-composer-instruction-pill-label">{entry.name?.trim() || entry.id}</span>
               <span class="oh-composer-instruction-pill-toggle" aria-hidden="true">
                 <ComposerIcon name={isSkipped ? 'plus' : 'close'} size={13} />
               </span>
@@ -693,20 +650,12 @@ function ComposerInstructionsStrip({
           );
         })}
       </div>
-      {hoverEntry ? (
-        <ComposerInstructionPreviewCard hover={hoverEntry} t={t} />
-      ) : null}
+      {hoverEntry ? <ComposerInstructionPreviewCard hover={hoverEntry} t={t} /> : null}
     </div>
   );
 }
 
-function ComposerInstructionPreviewCard({
-  hover,
-  t,
-}: {
-  hover: { entry: ApiMetaInstruction; rect: DOMRect };
-  t: (key: string, fallback: string) => string;
-}) {
+function ComposerInstructionPreviewCard({ hover, t }: { hover: { entry: ApiMetaInstruction; rect: DOMRect }; t: (key: string, fallback: string) => string }) {
   const { entry, rect } = hover;
   // 与 OverlayPortal 注释一致：position: fixed 锚定胶囊矩形。
   // 上方空间不足时下翻，并把 max-height 限在可用空间内，避免上边缘被视口裁切。
@@ -717,10 +666,7 @@ function ComposerInstructionPreviewCard({
   const rawAbove = Math.max(0, rect.top - margin - gap);
   const rawBelow = Math.max(0, window.innerHeight - rect.bottom - margin - gap);
   const placeAbove = rawAbove >= 180 || rawAbove >= rawBelow;
-  const availableHeight = Math.max(
-    120,
-    Math.min(480, placeAbove ? rawAbove : rawBelow, window.innerHeight - margin * 2),
-  );
+  const availableHeight = Math.max(120, Math.min(480, placeAbove ? rawAbove : rawBelow, window.innerHeight - margin * 2));
   const cardStyle: Record<string, string> = {
     position: 'fixed',
     left: `${left}px`,
@@ -736,30 +682,11 @@ function ComposerInstructionPreviewCard({
   const body = entry.body?.trim();
   return (
     <OverlayPortal>
-      <div
-        class="oh-composer-instruction-preview"
-        data-placement={placeAbove ? 'above' : 'below'}
-        role="tooltip"
-        style={cardStyle}
-      >
-        <div class="oh-composer-instruction-preview-title">
-          {entry.name?.trim() || entry.id}
-        </div>
-        {description ? (
-          <div class="oh-composer-instruction-preview-desc">{description}</div>
-        ) : null}
-        {body ? (
-          <pre class="oh-composer-instruction-preview-body">{body}</pre>
-        ) : (
-          <div class="oh-composer-instruction-preview-empty">
-            {t('composer.instructions.previewEmpty', '此指令暂无正文。')}
-          </div>
-        )}
-        {entry.body_truncated ? (
-          <div class="oh-composer-instruction-preview-foot">
-            {t('composer.instructions.previewTruncated', '正文已截断 · 完整内容请在 App 端查看')}
-          </div>
-        ) : null}
+      <div class="oh-composer-instruction-preview" data-placement={placeAbove ? 'above' : 'below'} role="tooltip" style={cardStyle}>
+        <div class="oh-composer-instruction-preview-title">{entry.name?.trim() || entry.id}</div>
+        {description ? <div class="oh-composer-instruction-preview-desc">{description}</div> : null}
+        {body ? <pre class="oh-composer-instruction-preview-body">{body}</pre> : <div class="oh-composer-instruction-preview-empty">{t('composer.instructions.previewEmpty', '此指令暂无正文。')}</div>}
+        {entry.body_truncated ? <div class="oh-composer-instruction-preview-foot">{t('composer.instructions.previewTruncated', '正文已截断 · 完整内容请在 App 端查看')}</div> : null}
       </div>
     </OverlayPortal>
   );
@@ -776,12 +703,7 @@ function basename(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
-function pushEditableAttachmentAsset(
-  out: EditableAttachmentAsset[],
-  rawPath: unknown,
-  rawName?: unknown,
-  rawMime?: unknown,
-): void {
+function pushEditableAttachmentAsset(out: EditableAttachmentAsset[], rawPath: unknown, rawName?: unknown, rawMime?: unknown): void {
   if (typeof rawPath !== 'string') return;
   const path = rawPath.trim();
   if (!path || path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
@@ -805,12 +727,7 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
         const item = entry as Record<string, unknown>;
         const name = item['name'] ?? item['file_name'] ?? item['original_name'];
         const mime = item['mime'] ?? item['content_type'];
-        pushEditableAttachmentAsset(
-          out,
-          item['storage_path'] ?? item['path'] ?? item['file_path'] ?? item['original_source_path'],
-          name,
-          mime,
-        );
+        pushEditableAttachmentAsset(out, item['storage_path'] ?? item['path'] ?? item['file_path'] ?? item['original_source_path'], name, mime);
       } else {
         pushEditableAttachmentAsset(out, entry);
       }
@@ -824,11 +741,7 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
   });
 }
 
-function sameJsonValue(
-  a: unknown,
-  b: unknown,
-  seen: WeakMap<object, WeakSet<object>> = new WeakMap(),
-): boolean {
+function sameJsonValue(a: unknown, b: unknown, seen: WeakMap<object, WeakSet<object>> = new WeakMap()): boolean {
   if (Object.is(a, b)) return true;
   if (a == null || b == null) return false;
   if (typeof a !== typeof b) return false;
@@ -885,15 +798,10 @@ function messagesAreChronological(items: SessionMessage[]): boolean {
 }
 
 export function messagesInDisplayOrder(items: SessionMessage[]): SessionMessage[] {
-  return messagesAreChronological(items)
-    ? items
-    : [...items].sort(compareMessageCreatedAt);
+  return messagesAreChronological(items) ? items : [...items].sort(compareMessageCreatedAt);
 }
 
-function mergeSessionSummary(
-  previous: SessionDetailResponse['session'],
-  incoming: SessionDetailResponse['session'],
-): SessionDetailResponse['session'] {
+function mergeSessionSummary(previous: SessionDetailResponse['session'], incoming: SessionDetailResponse['session']): SessionDetailResponse['session'] {
   return {
     ...previous,
     ...incoming,
@@ -981,11 +889,7 @@ function keyMatchesShortcutToken(event: KeyboardEvent, token: string): boolean {
   }
 }
 
-function eventMatchesShortcut(
-  event: KeyboardEvent,
-  binding: ApiMetaShortcutBinding | undefined,
-  fallback: string[],
-): boolean {
+function eventMatchesShortcut(event: KeyboardEvent, binding: ApiMetaShortcutBinding | undefined, fallback: string[]): boolean {
   const tokens = parseShortcutLabel(binding, fallback);
   if (tokens.length === 0) return false;
   const needsCtrl = tokens.includes('ctrl');
@@ -996,9 +900,7 @@ function eventMatchesShortcut(
   if (event.shiftKey !== needsShift) return false;
   if (event.altKey !== needsAlt) return false;
   if (event.metaKey !== needsMeta) return false;
-  const keyTokens = tokens.filter(
-    (token) => !['ctrl', 'shift', 'alt', 'cmd', 'meta'].includes(token),
-  );
+  const keyTokens = tokens.filter((token) => !['ctrl', 'shift', 'alt', 'cmd', 'meta'].includes(token));
   return keyTokens.length === 1 && keyMatchesShortcutToken(event, keyTokens[0]!);
 }
 
@@ -1046,10 +948,7 @@ export interface ComposerCollapsedSummaryLabels {
   running: string;
 }
 
-export function composerCollapsedSummaryParts(
-  state: ComposerCollapsedSummaryState,
-  labels: ComposerCollapsedSummaryLabels,
-): string[] {
+export function composerCollapsedSummaryParts(state: ComposerCollapsedSummaryState, labels: ComposerCollapsedSummaryLabels): string[] {
   const parts: string[] = [];
   if (state.editing) parts.push(labels.editing);
   if (state.responseRunning) parts.push(labels.running);
@@ -1090,11 +989,9 @@ export function SessionDetailPage() {
   const [composerText, setComposerText] = useState<string>('');
   const [composerMode, setComposerMode] = useState<string>('normal');
   const [composerModelKey, setComposerModelKey] = useState<string>('');
-  const [composerAttachments, setComposerAttachments] =
-    useState<SendMessageAttachment[]>([]);
+  const [composerAttachments, setComposerAttachments] = useState<SendMessageAttachment[]>([]);
   const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>([]);
-  const [editingDraftMessage, setEditingDraftMessage] =
-    useState<SessionMessage | null>(null);
+  const [editingDraftMessage, setEditingDraftMessage] = useState<SessionMessage | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
   // 与 App 端 `_skippedInstructionIds` 1:1 对齐：本轮临时跳过的用户指令 id 集合，
   // 仅作用于本次发送，不持久化。每次切换会话时清空，避免上一会话的跳过状态泄漏。
@@ -1104,14 +1001,16 @@ export function SessionDetailPage() {
   const [skillPickerQuery, setSkillPickerQuery] = useState('');
   const [skillPickerLoading, setSkillPickerLoading] = useState(false);
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = useState(0);
-  const [slashDismissedToken, setSlashDismissedToken] = useState<string | null>(null);
   // 技能浮窗渲染态：用 visible+closing 双层让退场动效跑完再卸载，
   // 配合全局 dialog 动画设置（oh-dialog-pop-in / oh-dialog-pop-out）。
   const [skillPickerVisible, setSkillPickerVisible] = useState(false);
   const [skillPickerClosing, setSkillPickerClosing] = useState(false);
-  const [skillPickerAnchor, setSkillPickerAnchor] = useState<
-    { bottomGap: number; left: number; width: number; maxHeight: number } | null
-  >(null);
+  const [skillPickerAnchor, setSkillPickerAnchor] = useState<{
+    bottomGap: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const skillPickerCloseTimerRef = useRef<number | null>(null);
   const clearSkillPickerCloseTimer = useCallback(() => {
     if (skillPickerCloseTimerRef.current == null) return;
@@ -1121,9 +1020,7 @@ export function SessionDetailPage() {
     skillPickerCloseTimerRef.current = null;
   }, []);
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
-  const [attachmentPreviews, setAttachmentPreviews] = useState<
-    { mime: string; dataUrl: string; size: number }[]
-  >([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<{ mime: string; dataUrl: string; size: number }[]>([]);
   const [exitingComposerChipKeys, setExitingComposerChipKeys] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
@@ -1135,9 +1032,7 @@ export function SessionDetailPage() {
   const [queueDispatchingId, setQueueDispatchingId] = useState<string | null>(null);
   const [queuedListMotionGeneration, setQueuedListMotionGeneration] = useState(0);
   const [stopping, setStopping] = useState<boolean>(false);
-  const [composerCollapsed, setComposerCollapsed] = useState(
-    readPersistedComposerCollapsed,
-  );
+  const [composerCollapsed, setComposerCollapsed] = useState(readPersistedComposerCollapsed);
   const [autoFollow, setAutoFollow] = useState(true);
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [fullscreenActive, setFullscreenActive] = useState(false);
@@ -1172,6 +1067,7 @@ export function SessionDetailPage() {
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
@@ -1266,6 +1162,7 @@ export function SessionDetailPage() {
     setSessionGone(false);
     setSessionAuditOpen(false);
     setAuditMessage(null);
+    slashDismissalRef.current = null;
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
@@ -1279,36 +1176,45 @@ export function SessionDetailPage() {
     setSkippedInstructionIds(new Set());
   }, [sessionId]);
 
-  useEffect(() => () => {
-    imageEditorResolverRef.current?.(null);
-    imageEditorResolverRef.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      imageEditorResolverRef.current?.(null);
+      imageEditorResolverRef.current = null;
+    },
+    [],
+  );
 
-  useEffect(() => () => {
-    for (const timer of composerChipExitTimersRef.current) {
-      window.clearTimeout(timer);
-    }
-    composerChipExitTimersRef.current = [];
-    for (const timer of queuedMessageExitTimersRef.current) {
-      window.clearTimeout(timer);
-    }
-    queuedMessageExitTimersRef.current = [];
-  }, []);
+  useEffect(
+    () => () => {
+      for (const timer of composerChipExitTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      composerChipExitTimersRef.current = [];
+      for (const timer of queuedMessageExitTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      queuedMessageExitTimersRef.current = [];
+    },
+    [],
+  );
 
-  useEffect(() => () => {
-    if (followFrameRef.current != null) {
-      window.cancelAnimationFrame(followFrameRef.current);
-      followFrameRef.current = null;
-    }
-    if (followSettleFrameRef.current != null) {
-      window.cancelAnimationFrame(followSettleFrameRef.current);
-      followSettleFrameRef.current = null;
-    }
-    if (resizeFollowFrameRef.current != null) {
-      window.cancelAnimationFrame(resizeFollowFrameRef.current);
-      resizeFollowFrameRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (followFrameRef.current != null) {
+        window.cancelAnimationFrame(followFrameRef.current);
+        followFrameRef.current = null;
+      }
+      if (followSettleFrameRef.current != null) {
+        window.cancelAnimationFrame(followSettleFrameRef.current);
+        followSettleFrameRef.current = null;
+      }
+      if (resizeFollowFrameRef.current != null) {
+        window.cancelAnimationFrame(resizeFollowFrameRef.current);
+        resizeFollowFrameRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     autoFollowRef.current = autoFollow;
@@ -1394,7 +1300,10 @@ export function SessionDetailPage() {
     if (!el) return;
     programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 700 : 220);
     if (behavior === 'smooth') {
-      el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight), behavior });
+      el.scrollTo({
+        top: Math.max(0, el.scrollHeight - el.clientHeight),
+        behavior,
+      });
     } else {
       pinMessagesToBottom();
     }
@@ -1457,11 +1366,9 @@ export function SessionDetailPage() {
   const handleCopyMessage = useCallback(async (m: SessionMessage) => {
     const text = m.content ?? '';
     const ok = await copyTextToClipboard(text);
-    showSnackbar(ok
-      ? t('detail.copy.ok', '已复制消息内容')
-      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
-        tone: ok ? 'success' : 'error',
-      });
+    showSnackbar(ok ? t('detail.copy.ok', '已复制消息内容') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
   }, []);
   const handleDeleteMessage = useCallback((m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: false });
@@ -1482,15 +1389,15 @@ export function SessionDetailPage() {
       }
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setPendingDeleteAction(null);
-      showSnackbar(cascade
-        ? t('detail.deleteAfter.ok', '已删除此条及后续消息')
-        : t('detail.delete.ok', '已删除消息'), { tone: 'success' });
+      showSnackbar(cascade ? t('detail.deleteAfter.ok', '已删除此条及后续消息') : t('detail.delete.ok', '已删除消息'), { tone: 'success' });
     } catch (e) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
       setError(e instanceof Error ? e.message : String(e));
-      showSnackbar(t('detail.delete.failed', '删除消息失败'), { tone: 'error' });
+      showSnackbar(t('detail.delete.failed', '删除消息失败'), {
+        tone: 'error',
+      });
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setDeleteBusy(false);
     }
@@ -1515,7 +1422,9 @@ export function SessionDetailPage() {
       }
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
-      showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, { tone: 'error' });
+      showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, {
+        tone: 'error',
+      });
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) {
         setSessionDeleteBusy(false);
@@ -1531,9 +1440,7 @@ export function SessionDetailPage() {
     try {
       const res = await updateSessionFullAccessPermission(requestSessionId, next);
       if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setDetail((prev) =>
-        prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
-      );
+      setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
       showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
     } catch (e) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -1559,9 +1466,7 @@ export function SessionDetailPage() {
     void applyFullAccessPermission(next);
   };
 
-  const handleWriteApproval = async (
-    decision: 'approved' | 'rejected' | 'dismissed',
-  ) => {
+  const handleWriteApproval = async (decision: 'approved' | 'rejected' | 'dismissed') => {
     if (!pendingWriteApproval || writeApprovalBusy) return;
     const requestSessionId = sessionId;
     const approvalId = pendingWriteApproval.id;
@@ -1674,8 +1579,7 @@ export function SessionDetailPage() {
     // 是否 ≤64px 都跟随到底部。修复 tool-call 内容暴涨一帧 >64px、isNearBottom
     // 已翻 false 时 ResizeObserver 不再 follow 的 BUG。仅 autoFollowPaused
     // (= 用户主动上滑) 时不跟随。
-    const shouldFollowOnGrow = () =>
-      autoFollowRef.current && !autoFollowPausedRef.current;
+    const shouldFollowOnGrow = () => autoFollowRef.current && !autoFollowPausedRef.current;
     const observer = new ResizeObserver(() => {
       if (!shouldFollowOnGrow()) return;
       if (resizeFollowFrameRef.current != null) return;
@@ -1759,13 +1663,7 @@ export function SessionDetailPage() {
 
   useLayoutEffect(() => {
     if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
-  }, [
-    composerCollapsed,
-    composerAttachments.length,
-    selectedSkill?.name,
-    editingDraftMessage?.id,
-    composerError,
-  ]);
+  }, [composerCollapsed, composerAttachments.length, selectedSkill?.name, editingDraftMessage?.id, composerError]);
 
   useEffect(() => {
     if (activeMessageId == null) return;
@@ -1778,7 +1676,9 @@ export function SessionDetailPage() {
     if (messages.some((item) => item.id === editingDraftMessage.id)) return;
     editingDraftMessageRef.current = null;
     setEditingDraftMessage(null);
-    showSnackbar(t('composer.edit.targetGone', '原消息已在其他客户端被更新'), { tone: 'error' });
+    showSnackbar(t('composer.edit.targetGone', '原消息已在其他客户端被更新'), {
+      tone: 'error',
+    });
   }, [messages, editingDraftMessage, composerSending]);
 
   // messages 变化 → 自动跟随 / 累计未读
@@ -1870,9 +1770,7 @@ export function SessionDetailPage() {
   function handleSessionGoneError(e: unknown): boolean {
     if (e instanceof ApiError && e.status === 404) {
       const body = e.body as { error?: string; message?: string } | string | null;
-      const marker = typeof body === 'string'
-        ? body
-        : `${body?.error ?? ''} ${body?.message ?? ''}`;
+      const marker = typeof body === 'string' ? body : `${body?.error ?? ''} ${body?.message ?? ''}`;
       if (marker.includes('session_deleted_or_not_found')) {
         // 主动断开 SSE / 终止轮询，避免后续噪声错误覆盖弹窗
         sseCloseRef.current?.();
@@ -1898,9 +1796,7 @@ export function SessionDetailPage() {
     if (!current || current.is_title_manually_edited || current.auto_title_acquired || current.auto_title_generated_at) {
       return false;
     }
-    const visibleUserMessages = messagesRef.current.filter(
-      (item) => item.role === 'user' && (item.content ?? '').trim().length > 0,
-    );
+    const visibleUserMessages = messagesRef.current.filter((item) => item.role === 'user' && (item.content ?? '').trim().length > 0);
     return visibleUserMessages.length === 0;
   }
 
@@ -1912,7 +1808,11 @@ export function SessionDetailPage() {
         last_error: lastError,
       };
       return prev
-        ? { ...prev, session: mergeSessionSummary(prev.session, summary), runtime }
+        ? {
+            ...prev,
+            session: mergeSessionSummary(prev.session, summary),
+            runtime,
+          }
         : { session: summary, runtime };
     });
     if (typeof summary.message_count === 'number') {
@@ -1930,18 +1830,8 @@ export function SessionDetailPage() {
     setWindowOffset(offset);
   }
 
-  function applyServerMessageWindow(
-    latest: SessionMessage[],
-    nextOffset: number,
-    options: MergeServerWindowOptions = {},
-  ): void {
-    const result = mergeServerWindowResult(
-      messagesRef.current,
-      latest,
-      windowOffsetRef.current,
-      nextOffset,
-      options,
-    );
+  function applyServerMessageWindow(latest: SessionMessage[], nextOffset: number, options: MergeServerWindowOptions = {}): void {
+    const result = mergeServerWindowResult(messagesRef.current, latest, windowOffsetRef.current, nextOffset, options);
     replaceMessageWindow(result.items, result.offset);
   }
 
@@ -1953,33 +1843,36 @@ export function SessionDetailPage() {
     }
     const fresh = await getSession(sessionId);
     if (!ownsSessionAsyncResult(sessionId)) return true;
-    setDetail((prev) => (
+    setDetail((prev) =>
       prev
-        ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
-        : fresh
-    ));
+        ? {
+            ...fresh,
+            session: mergeSessionSummary(prev.session, fresh.session),
+          }
+        : fresh,
+    );
     setSendPhase(fresh.runtime.send_phase);
     setLastError(fresh.runtime.last_error);
     setTotalKnown(fresh.session.message_count ?? messagesRef.current.length);
-    return Boolean(
-      fresh.session.is_title_manually_edited || fresh.session.auto_title_acquired || fresh.session.auto_title_generated_at,
-    );
+    return Boolean(fresh.session.is_title_manually_edited || fresh.session.auto_title_acquired || fresh.session.auto_title_generated_at);
   }
 
   function scheduleAutoTitleFollowUp(): void {
     clearAutoTitleRefreshTimers();
     const delays = [1200, 3200, 7000, 14000, 24000];
-    autoTitleRefreshTimersRef.current = delays.map((delay) => window.setTimeout(() => {
-      void refreshAutoTitleSummary()
-        .then((done) => {
-          if (done) clearAutoTitleRefreshTimers();
-        })
-        .catch((error: unknown) => {
-          if (handleAuthError(error) || handleSessionGoneError(error)) {
-            clearAutoTitleRefreshTimers();
-          }
-        });
-    }, delay));
+    autoTitleRefreshTimersRef.current = delays.map((delay) =>
+      window.setTimeout(() => {
+        void refreshAutoTitleSummary()
+          .then((done) => {
+            if (done) clearAutoTitleRefreshTimers();
+          })
+          .catch((error: unknown) => {
+            if (handleAuthError(error) || handleSessionGoneError(error)) {
+              clearAutoTitleRefreshTimers();
+            }
+          });
+      }, delay),
+    );
   }
 
   function loadDetail(): void {
@@ -2003,14 +1896,18 @@ export function SessionDetailPage() {
     lastTailSignatureRef.current = '';
     Promise.all([
       getSession(requestSessionId, { signal: ctrl.signal }),
-      listMessages(requestSessionId, { limit: INITIAL_PAGE_SIZE, tail: true, signal: ctrl.signal }),
+      listMessages(requestSessionId, {
+        limit: INITIAL_PAGE_SIZE,
+        tail: true,
+        signal: ctrl.signal,
+      }),
     ])
       .then(([d, m]) => {
         if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
         // W3：历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
         // 并发开销；后续流式 / SSE 真正新增的消息仍会正常入场。
-        markMessagesAsAppeared(m.items.map(it => it.id));
+        markMessagesAsAppeared(m.items.map((it) => it.id));
         replaceMessageWindow([...m.items], m.offset);
         setTotalKnown(m.total);
         setSendPhase(m.send_phase || d.runtime.send_phase || 'idle');
@@ -2037,13 +1934,15 @@ export function SessionDetailPage() {
     messagesAbortRef.current = ctrl;
     setRefreshing(true);
     try {
-      const m = await listMessages(requestSessionId, { limit: PAGE_SIZE, tail: true, signal: ctrl.signal });
+      const m = await listMessages(requestSessionId, {
+        limit: PAGE_SIZE,
+        tail: true,
+        signal: ctrl.signal,
+      });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      applyServerMessageWindow(
-        m.items,
-        m.offset,
-        { preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase) },
-      );
+      applyServerMessageWindow(m.items, m.offset, {
+        preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
+      });
       setTotalKnown(m.total);
       setSendPhase(m.send_phase);
       setLastError(m.last_error);
@@ -2156,15 +2055,8 @@ export function SessionDetailPage() {
         // 纳入 fingerprint，避免会话侧仅 token 计数器变化时客户端把快照当成
         // 重复帧丢掉，导致 Token 弹窗不实时刷新。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
-        const tokenSig =
-          `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${
-            stats['cache_hit_ratio'] ?? 'n'
-          }:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
-        const fingerprint =
-          `${snap.messages.length}|${messagesSignature}|` +
-          `${snap.send_phase}|${snap.last_error?.length ?? 0}|` +
-          `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` +
-          `tok=${tokenSig}`;
+        const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
+        const fingerprint = `${snap.messages.length}|${messagesSignature}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|` + `${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
         const tail = snap.messages.length > 0 ? snap.messages[snap.messages.length - 1] : null;
@@ -2194,19 +2086,13 @@ export function SessionDetailPage() {
         // 这是 #9 "感觉不像流式" 的关键修复：之前 setMessages([...snap.messages]) 把
         // 整个数组的 reference 全换了，所有 MessageCard 重建一遍 markdown / 高亮，
         // 80ms 一次的 SSE snapshot 就形成肉眼可见的"分段抖动"。
-        const snapOffset = snap.message_window?.offset ?? Math.max(
-          0,
-          (snap.session.message_count ?? snap.messages.length) - snap.messages.length,
-        );
+        const snapOffset = snap.message_window?.offset ?? Math.max(0, (snap.session.message_count ?? snap.messages.length) - snap.messages.length);
         const snapTotal = snap.message_window?.total ?? snap.session.message_count ?? snap.messages.length;
-        const emptyWindowWouldHideLoadedHistory =
-          snap.messages.length === 0 && snapTotal > 0 && messagesRef.current.length > 0;
+        const emptyWindowWouldHideLoadedHistory = snap.messages.length === 0 && snapTotal > 0 && messagesRef.current.length > 0;
         if (!emptyWindowWouldHideLoadedHistory) {
-          applyServerMessageWindow(
-            snap.messages,
-            snapOffset,
-            { preserveLocalStreamingTail: isRunningPhase(snap.send_phase) },
-          );
+          applyServerMessageWindow(snap.messages, snapOffset, {
+            preserveLocalStreamingTail: isRunningPhase(snap.send_phase),
+          });
         }
         setTotalKnown(snapTotal);
         setDetail((prev) => {
@@ -2216,7 +2102,11 @@ export function SessionDetailPage() {
             last_error: snap.last_error,
           };
           return prev
-            ? { ...prev, session: mergeSessionSummary(prev.session, snap.session), runtime }
+            ? {
+                ...prev,
+                session: mergeSessionSummary(prev.session, snap.session),
+                runtime,
+              }
             : { session: snap.session, runtime };
         });
         if (snap.session.auto_title_acquired || snap.session.auto_title_generated_at || snap.session.is_title_manually_edited) {
@@ -2265,52 +2155,23 @@ export function SessionDetailPage() {
   // 模型/模式默认值与 meta 同步：拿到 meta.models 第一项做默认；模式取 meta.conversation_modes
   // 第一项（通常是 normal）作为默认。
   const meta = auth.meta;
-  const allowedModels = useMemo<ApiMetaModel[]>(
-    () => meta?.models ?? [],
-    [meta],
-  );
-  const allowedModes = useMemo<string[]>(
-    () => meta?.conversation_modes ?? ['normal'],
-    [meta],
-  );
+  const allowedModels = useMemo<ApiMetaModel[]>(() => meta?.models ?? [], [meta]);
+  const allowedModes = useMemo<string[]>(() => meta?.conversation_modes ?? ['normal'], [meta]);
   // 与 App 端 _ComposerInstructionsStrip 1:1 对齐：meta.instructions 已在
   // service 端按 allowedInstructionIds + enabled 过滤，前端直接消费。
-  const availableInstructions = useMemo<ApiMetaInstruction[]>(
-    () => meta?.instructions ?? [],
-    [meta],
-  );
-  const shortcutBindings = useMemo(
-    () => meta?.shortcut_bindings ?? {},
-    [meta],
-  );
-  const selectedModel = useMemo(
-    () => allowedModels.find((model) => model.key === composerModelKey),
-    [allowedModels, composerModelKey],
-  );
+  const availableInstructions = useMemo<ApiMetaInstruction[]>(() => meta?.instructions ?? [], [meta]);
+  const shortcutBindings = useMemo(() => meta?.shortcut_bindings ?? {}, [meta]);
+  const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || '';
-  const selectedModelProvider = selectedModel
-    ? selectedModel.protocol
-      ? `${selectedModel.provider} · ${selectedModel.protocol}`
-      : selectedModel.provider
-    : '';
+  const selectedModelProvider = selectedModel ? (selectedModel.protocol ? `${selectedModel.provider} · ${selectedModel.protocol}` : selectedModel.provider) : '';
   const modelAllowedModes = useMemo(() => {
     const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
     return filtered.length > 0 ? filtered : ['normal'];
   }, [allowedModes, selectedModel]);
-  const composerModeOptions = useMemo(
-    () => allComposerModes(allowedModes),
-    [allowedModes],
-  );
-  const allowedMessageTypes = useMemo<string[]>(
-    () => meta?.message_types ?? ['text', 'attachment'],
-    [meta],
-  );
-  const sessionModeOptions = useMemo<string[]>(
-    () => (meta?.service?.plan_mode_enabled ? ['chat', 'plan'] : ['chat']),
-    [meta?.service?.plan_mode_enabled],
-  );
-  const attachmentsAllowed =
-    allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
+  const composerModeOptions = useMemo(() => allComposerModes(allowedModes), [allowedModes]);
+  const allowedMessageTypes = useMemo<string[]>(() => meta?.message_types ?? ['text', 'attachment'], [meta]);
+  const sessionModeOptions = useMemo<string[]>(() => (meta?.service?.plan_mode_enabled ? ['chat', 'plan'] : ['chat']), [meta?.service?.plan_mode_enabled]);
+  const attachmentsAllowed = allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
   const textAllowed = allowedMessageTypes.includes('text');
 
   function copyQueuedAttachments(): SendMessageAttachment[] {
@@ -2333,18 +2194,13 @@ export function SessionDetailPage() {
     setAttachmentPreviews([]);
     setSelectedSkill(null);
     setSkillPickerOpen(false);
+    slashDismissalRef.current = null;
     if (!composerCollapsed) {
       requestAnimationFrame(() => composerTextareaRef.current?.focus());
     }
   }
 
-  function validateComposerPayload(
-    text: string,
-    attachments: SendMessageAttachment[],
-    modelKey: string,
-    mode: string,
-    model: typeof selectedModel,
-  ): string | null {
+  function validateComposerPayload(text: string, attachments: SendMessageAttachment[], modelKey: string, mode: string, model: typeof selectedModel): string | null {
     if (!text && attachments.length === 0) return t('composer.error.empty', '请输入内容或添加附件');
     if (text && !textAllowed) return t('composer.error.textNotAllowed', '当前 service 禁用了文本消息');
     if (attachments.length > 0 && (!allowedMessageTypes.includes('attachment') || model?.supports_attachments === false)) {
@@ -2422,9 +2278,7 @@ export function SessionDetailPage() {
   function saveQueuedMessageEdit(id: string): void {
     const trimmed = queuedEditText.trim();
     if (!trimmed) return;
-    setQueuedComposerMessages((prev) => prev.map((item) => (
-      item.id === id ? { ...item, content: trimmed } : item
-    )));
+    setQueuedComposerMessages((prev) => prev.map((item) => (item.id === id ? { ...item, content: trimmed } : item)));
     setEditingQueuedMessageId(null);
     setQueuedEditText('');
     setQueuedListMotionGeneration((value) => value + 1);
@@ -2455,9 +2309,7 @@ export function SessionDetailPage() {
         skippedInstructionIds: next.skippedInstructionIds,
       });
       if (!ownsSessionAsyncResult(dispatchSessionId)) return;
-      setQueuedComposerMessages((prev) => (
-        prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)
-      ));
+      setQueuedComposerMessages((prev) => (prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)));
       setQueuedListMotionGeneration((value) => value + 1);
       setSendPhase(res.send_phase || 'sendingMessage');
       if (!sseLive) void refresh();
@@ -2468,17 +2320,9 @@ export function SessionDetailPage() {
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
         const body = e.body as { error?: string; message?: string } | null;
-        setComposerError(
-          body?.message ||
-            t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') +
-              String(e.status) +
-              (body?.error ? ` (${body.error})` : ''),
-        );
+        setComposerError(body?.message || t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') + String(e.status) + (body?.error ? ` (${body.error})` : ''));
       } else {
-        setComposerError(
-          t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') +
-            (e instanceof Error ? e.message : String(e)),
-        );
+        setComposerError(t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') + (e instanceof Error ? e.message : String(e)));
       }
     } finally {
       if (ownsSessionAsyncResult(dispatchSessionId)) {
@@ -2500,20 +2344,12 @@ export function SessionDetailPage() {
   useEffect(() => {
     if (allowedModels.length === 0) return;
     const activeModelKey = meta?.active_model_key ?? '';
-    const activeModelAllowed = activeModelKey
-      ? allowedModels.some((model) => model.key === activeModelKey)
-      : false;
-    const fallbackModelKey = activeModelAllowed
-      ? activeModelKey
-      : allowedModels[0]!.key;
+    const activeModelAllowed = activeModelKey ? allowedModels.some((model) => model.key === activeModelKey) : false;
+    const fallbackModelKey = activeModelAllowed ? activeModelKey : allowedModels[0]!.key;
     const sessionModelKey = detail?.session.last_model_key ?? '';
-    const sessionModelAllowed = sessionModelKey
-      ? allowedModels.some((model) => model.key === sessionModelKey)
-      : false;
+    const sessionModelAllowed = sessionModelKey ? allowedModels.some((model) => model.key === sessionModelKey) : false;
     setComposerModelKey((current) => {
-      const currentAllowed = current
-        ? allowedModels.some((model) => model.key === current)
-        : false;
+      const currentAllowed = current ? allowedModels.some((model) => model.key === current) : false;
       if (sessionModelAllowed && (!currentAllowed || current === fallbackModelKey)) {
         return sessionModelKey;
       }
@@ -2532,55 +2368,46 @@ export function SessionDetailPage() {
   // 兜底最后一帧 idle 丢失导致按钮一直停在「等待响应中」。
   // 公共轮询 hook 内部仍用 setTimeout 自驱动，避免 setInterval 叠加；
   // 同时提供 AbortSignal + 单次超时，防止异常网络导致无限等待。
-  const phasePollEnabled =
-    !auth.loading &&
-    !sessionGone &&
-    Boolean(sessionId) &&
-    sendPhase !== 'idle' &&
-    sendPhase !== '';
-  const phasePollIntervalMs = sseLive
-    ? SSE_PHASE_GUARD_INTERVAL_MS
-    : POLL_INTERVAL_MS;
-  useAsyncPolling(async (isActive, signal) => {
-    const pollSessionId = sessionId;
-    if (!pollSessionId) return;
-    try {
-      const m = await listMessages(pollSessionId, {
-        limit: PAGE_SIZE,
-        tail: true,
-        signal,
-      });
-      if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
-      const offset = m.offset ?? Math.max(0, m.total - m.items.length);
-      if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
-        // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-        applyServerMessageWindow(
-          m.items,
-          offset,
-          {
-            preserveLocalStreamingTail:
-              isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
-          },
-        );
-        setTotalKnown(m.total);
-        setSendPhase(m.send_phase);
-        setLastError(m.last_error);
-        setPendingWriteApproval(m.pending_write_approval ?? null);
-        if (m.session) mergeSessionSummaryFromPolling(m.session);
+  const phasePollEnabled = !auth.loading && !sessionGone && Boolean(sessionId) && sendPhase !== 'idle' && sendPhase !== '';
+  const phasePollIntervalMs = sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS;
+  useAsyncPolling(
+    async (isActive, signal) => {
+      const pollSessionId = sessionId;
+      if (!pollSessionId) return;
+      try {
+        const m = await listMessages(pollSessionId, {
+          limit: PAGE_SIZE,
+          tail: true,
+          signal,
+        });
+        if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
+        const offset = m.offset ?? Math.max(0, m.total - m.items.length);
+        if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
+          // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
+          applyServerMessageWindow(m.items, offset, {
+            preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
+          });
+          setTotalKnown(m.total);
+          setSendPhase(m.send_phase);
+          setLastError(m.last_error);
+          setPendingWriteApproval(m.pending_write_approval ?? null);
+          if (m.session) mergeSessionSummaryFromPolling(m.session);
+        }
+      } catch (e: unknown) {
+        if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
+        if (handleAuthError(e)) return;
+        if (handleSessionGoneError(e)) return;
+        setLastError(e instanceof Error ? e.message : String(e));
       }
-    } catch (e: unknown) {
-      if (!isActive() || !ownsSessionAsyncResult(pollSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
-      setLastError(e instanceof Error ? e.message : String(e));
-    }
-  }, {
-    enabled: phasePollEnabled,
-    immediate: false,
-    intervalMs: phasePollIntervalMs,
-    taskTimeoutMs: SESSION_PHASE_POLL_TIMEOUT_MS,
-    onError: (e) => setLastError(e instanceof Error ? e.message : String(e)),
-  });
+    },
+    {
+      enabled: phasePollEnabled,
+      immediate: false,
+      intervalMs: phasePollIntervalMs,
+      taskTimeoutMs: SESSION_PHASE_POLL_TIMEOUT_MS,
+      onError: (e) => setLastError(e instanceof Error ? e.message : String(e)),
+    },
+  );
 
   // 桌面通知: 当窗口隐藏时, 若收到新的 assistant 消息 (id 与上次不同),
   // 通过 Service Worker / Notification API 弹一个通知。
@@ -2619,9 +2446,7 @@ export function SessionDetailPage() {
 
   const skillPickerResults = useMemo(() => {
     const query = skillPickerQuery.trim().toLowerCase();
-    const base = query.length === 0
-      ? skills
-      : skills.filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(query));
+    const base = query.length === 0 ? skills : skills.filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(query));
     return base.slice(0, 18);
   }, [skills, skillPickerQuery]);
 
@@ -2669,12 +2494,7 @@ export function SessionDetailPage() {
       setSkillPickerVisible(false);
       setSkillPickerClosing(false);
     }, exitMs);
-  }, [
-    clearSkillPickerCloseTimer,
-    skillPickerOpen,
-    skillPickerVisible,
-    recomputeSkillPickerAnchor,
-  ]);
+  }, [clearSkillPickerCloseTimer, skillPickerOpen, skillPickerVisible, recomputeSkillPickerAnchor]);
 
   useEffect(() => clearSkillPickerCloseTimer, [clearSkillPickerCloseTimer]);
 
@@ -2697,9 +2517,7 @@ export function SessionDetailPage() {
       const res = await listSkills();
       setSkills(res.items);
     } catch (error: unknown) {
-      setComposerError(
-        `${t('composer.skill.loadFailed', '加载技能列表失败')}：${error instanceof Error ? error.message : String(error)}`,
-      );
+      setComposerError(`${t('composer.skill.loadFailed', '加载技能列表失败')}：${error instanceof Error ? error.message : String(error)}`);
     } finally {
       skillsLoadedRef.current = true;
       setSkillPickerLoading(false);
@@ -2733,19 +2551,26 @@ export function SessionDetailPage() {
     setSelectedSkill(skillSummaryFromSelection(selection, source));
   }
 
-  function computeSlashTrigger(text: string, cursor: number): { tokenEnd: number; query: string; token: string } | null {
+  function computeSlashTrigger(text: string, cursor: number): SlashTriggerInfo | null {
     if (!text.startsWith('/')) return null;
     let tokenEnd = text.length;
     for (let i = 0; i < text.length; i += 1) {
       const ch = text.charCodeAt(i);
-      if (ch === 0x20 || ch === 0x09 || ch === 0x0A || ch === 0x0D) {
+      if (isComposerTriggerWhitespaceCode(ch)) {
         tokenEnd = i;
         break;
       }
     }
     if (cursor > tokenEnd) return null;
+    const query = text.slice(1, tokenEnd);
+    if (shouldSuppressSlashSkillQuery(query)) return null;
     const token = text.slice(0, tokenEnd);
-    return { tokenEnd, query: text.slice(1, tokenEnd), token };
+    return {
+      triggerOffset: COMPOSER_TRIGGER_ROOT_OFFSET,
+      tokenEnd,
+      query,
+      token,
+    };
   }
 
   function updateSkillPickerForText(text: string, cursor: number): void {
@@ -2757,10 +2582,15 @@ export function SessionDetailPage() {
     if (!trigger) {
       setSkillPickerOpen(false);
       setSkillPickerQuery('');
-      setSlashDismissedToken(null);
+      slashDismissalRef.current = null;
       return;
     }
-    if (slashDismissedToken === trigger.token) return;
+    const dismissal = slashDismissalRef.current;
+    if (dismissal && dismissal.offset === trigger.triggerOffset && shouldSuppressDismissedComposerTrigger(dismissal.query, trigger.query)) {
+      setSkillPickerOpen(false);
+      return;
+    }
+    slashDismissalRef.current = null;
     setSkillPickerQuery(trigger.query);
     setSkillPickerOpen(true);
     setSkillPickerSelectedIndex(0);
@@ -2772,16 +2602,12 @@ export function SessionDetailPage() {
     const text = textarea?.value ?? composerText;
     const cursor = textarea?.selectionStart ?? 0;
     const trigger = computeSlashTrigger(text, cursor);
-    const remainderStart = trigger
-      ? trigger.tokenEnd < text.length && /[ \t]/.test(text.charAt(trigger.tokenEnd))
-        ? trigger.tokenEnd + 1
-        : trigger.tokenEnd
-      : 0;
+    const remainderStart = trigger ? (trigger.tokenEnd < text.length && /[ \t]/.test(text.charAt(trigger.tokenEnd)) ? trigger.tokenEnd + 1 : trigger.tokenEnd) : 0;
     const nextText = text.slice(remainderStart);
     setComposerText(nextText);
     setSelectedSkill(skill);
     setSkillPickerOpen(false);
-    setSlashDismissedToken(null);
+    slashDismissalRef.current = null;
     requestAnimationFrame(() => {
       const node = composerTextareaRef.current;
       node?.focus();
@@ -2794,7 +2620,12 @@ export function SessionDetailPage() {
     const text = textarea?.value ?? composerText;
     const cursor = textarea?.selectionStart ?? 0;
     const trigger = computeSlashTrigger(text, cursor);
-    if (remember && trigger) setSlashDismissedToken(trigger.token);
+    if (remember && trigger) {
+      slashDismissalRef.current = {
+        offset: trigger.triggerOffset,
+        query: trigger.query,
+      };
+    }
     setSkillPickerOpen(false);
   }
 
@@ -2802,9 +2633,7 @@ export function SessionDetailPage() {
     if (skillPickerOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSkillPickerSelectedIndex((index) => (
-          skillPickerResults.length === 0 ? 0 : (index + 1) % skillPickerResults.length
-        ));
+        setSkillPickerSelectedIndex((index) => (skillPickerResults.length === 0 ? 0 : (index + 1) % skillPickerResults.length));
         return;
       }
       if (e.key === 'ArrowUp') {
@@ -2832,9 +2661,7 @@ export function SessionDetailPage() {
     handleComposerShortcut(e);
   }
 
-  async function readFileAsAttachment(
-    file: File,
-  ): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
+  async function readFileAsAttachment(file: File): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -2849,9 +2676,7 @@ export function SessionDetailPage() {
           reject(new Error('empty base64 payload'));
           return;
         }
-        const mime = file.type || (idx > 0
-          ? result.substring(5, result.indexOf(';'))
-          : 'application/octet-stream');
+        const mime = file.type || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
         resolve({
           att: { name: file.name, data_base64: data },
           mime,
@@ -2878,18 +2703,18 @@ export function SessionDetailPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         if (blob.size > ATTACHMENT_MAX_BYTES) {
-          throw new Error(
-            t('composer.attachment.tooLarge', '附件超过 ') +
-              (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
-              ' MiB',
-          );
+          throw new Error(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
         }
         const file = new File([blob], asset.name, {
           type: asset.mime || blob.type || 'application/octet-stream',
         });
         const item = await readFileAsAttachment(file);
         restoredAttachments.push(item.att);
-        restoredPreviews.push({ mime: item.mime, dataUrl: item.dataUrl, size: blob.size });
+        restoredPreviews.push({
+          mime: item.mime,
+          dataUrl: item.dataUrl,
+          size: blob.size,
+        });
       } catch {
         failed += 1;
       }
@@ -2926,19 +2751,13 @@ export function SessionDetailPage() {
     const requestSessionId = sessionId;
     setComposerError(null);
     const nextAtt: SendMessageAttachment[] = [...composerAttachments];
-    const nextPv: { mime: string; dataUrl: string; size: number }[] = [
-      ...attachmentPreviews,
-    ];
+    const nextPv: { mime: string; dataUrl: string; size: number }[] = [...attachmentPreviews];
     const nextIds = [...composerAttachmentIds];
     for (const file of files) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (file.size > ATTACHMENT_MAX_BYTES) {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
-        setComposerError(
-          t('composer.attachment.tooLarge', '附件超过 ') +
-            (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
-            ' MiB',
-        );
+        setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
         continue;
       }
       try {
@@ -2954,15 +2773,15 @@ export function SessionDetailPage() {
           if (!ownsSessionAsyncResult(requestSessionId)) return;
           if (!edited) continue;
           if (edited.size > ATTACHMENT_MAX_BYTES) {
-            setComposerError(
-              t('composer.attachment.tooLarge', '附件超过 ') +
-                (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
-                ' MiB',
-            );
+            setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
             continue;
           }
           nextAtt.push({ name: edited.name, data_base64: edited.dataBase64 });
-          nextPv.push({ mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size });
+          nextPv.push({
+            mime: edited.mime,
+            dataUrl: edited.dataUrl,
+            size: edited.size,
+          });
           nextIds.push(nextAttachmentUiId());
         } else {
           nextAtt.push(r.att);
@@ -2971,10 +2790,7 @@ export function SessionDetailPage() {
         }
       } catch (e: unknown) {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
-        setComposerError(
-          t('composer.attachment.readFailed', '附件读取失败：') +
-            (e instanceof Error ? e.message : String(e)),
-        );
+        setComposerError(t('composer.attachment.readFailed', '附件读取失败：') + (e instanceof Error ? e.message : String(e)));
       }
     }
     if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -3025,19 +2841,11 @@ export function SessionDetailPage() {
     if (!edited) return;
     if (!ownsSessionAsyncResult(requestSessionId)) return;
     if (edited.size > ATTACHMENT_MAX_BYTES) {
-      setComposerError(
-        t('composer.attachment.tooLarge', '附件超过 ') +
-          (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) +
-          ' MiB',
-      );
+      setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
       return;
     }
-    setComposerAttachments((prev) => prev.map((item, i) => (
-      i === idx ? { name: edited.name, data_base64: edited.dataBase64 } : item
-    )));
-    setAttachmentPreviews((prev) => prev.map((item, i) => (
-      i === idx ? { mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size } : item
-    )));
+    setComposerAttachments((prev) => prev.map((item, i) => (i === idx ? { name: edited.name, data_base64: edited.dataBase64 } : item)));
+    setAttachmentPreviews((prev) => prev.map((item, i) => (i === idx ? { mime: edited.mime, dataUrl: edited.dataUrl, size: edited.size } : item)));
   }
 
   async function handleSend(): Promise<void> {
@@ -3080,13 +2888,14 @@ export function SessionDetailPage() {
         modelKey: composerModelKey,
         mode: composerMode,
         attachments: composerAttachments,
-        creationOptions: (composerMode === 'image' || composerMode === 'video' || composerMode === 'audio')
-          ? {
-              aspect_ratio: creationOptions.aspectRatio,
-              duration_seconds: creationOptions.durationSeconds,
-              count: creationOptions.count,
-            }
-          : undefined,
+        creationOptions:
+          composerMode === 'image' || composerMode === 'video' || composerMode === 'audio'
+            ? {
+                aspect_ratio: creationOptions.aspectRatio,
+                duration_seconds: creationOptions.durationSeconds,
+                count: creationOptions.count,
+              }
+            : undefined,
         selectedSkill: selectedSkill
           ? {
               name: selectedSkill.name,
@@ -3119,17 +2928,9 @@ export function SessionDetailPage() {
       if (handleSessionGoneError(e)) return;
       if (e instanceof ApiError) {
         const body = e.body as { error?: string; message?: string } | null;
-        setComposerError(
-          body?.message ||
-            t('composer.error.send', '发送失败：HTTP ') +
-              String(e.status) +
-              (body?.error ? ` (${body.error})` : ''),
-        );
+        setComposerError(body?.message || t('composer.error.send', '发送失败：HTTP ') + String(e.status) + (body?.error ? ` (${body.error})` : ''));
       } else {
-        setComposerError(
-          t('composer.error.send', '发送失败：HTTP ') +
-            (e instanceof Error ? e.message : String(e)),
-        );
+        setComposerError(t('composer.error.send', '发送失败：HTTP ') + (e instanceof Error ? e.message : String(e)));
       }
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) {
@@ -3205,9 +3006,7 @@ export function SessionDetailPage() {
     try {
       const res = await updateSessionMode(requestSessionId, next);
       if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setDetail((prev) =>
-        prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
-      );
+      setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
       showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
     } catch (e: unknown) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -3227,7 +3026,10 @@ export function SessionDetailPage() {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setDetail((prev) =>
         prev
-          ? { ...fresh, session: mergeSessionSummary(prev.session, fresh.session) }
+          ? {
+              ...fresh,
+              session: mergeSessionSummary(prev.session, fresh.session),
+            }
           : fresh,
       );
       setSessionMetadataOpen(true);
@@ -3244,16 +3046,12 @@ export function SessionDetailPage() {
   const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
     if (!session) return [];
     const templateLabel = session.template_name || session.template_id;
-    const templateVersion = session.template_internal_version != null
-      ? ` · v${session.template_internal_version}`
-      : '';
+    const templateVersion = session.template_internal_version != null ? ` · v${session.template_internal_version}` : '';
     const lastPromptMetadata = asRecord(session.last_prompt_metadata);
     const runtimeNotices = asStringList(lastPromptMetadata['runtime_tool_catalog_notices']);
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
-    const tokens = session.total_tokens != null
-      ? `${session.total_tokens.toLocaleString()} tokens`
-      : t('topbar.tokens.empty', 'Token 暂无');
+    const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
     // 2026-06-08 — WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
     // 不做任何客户端计算。后端 _patchedStatistics + _resolveCacheHitTrend
     // 已保证任何有 cache 数据的会话都返回非零值。
@@ -3262,19 +3060,16 @@ export function SessionDetailPage() {
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
     const backendHitRatio = readDouble(tokenStats['cache_hit_ratio'], 0);
-    const cacheSavingsPercent = backendHitRatio > 0.0001
-      ? Math.max(0, Math.min(100, Math.round(backendHitRatio * 100)))
-      : 0;
-    const cacheSavingsBase = claudeStyle
-      ? sessPrompt + sessCacheRead
-      : sessPrompt;
-    const tokensBadge = sessCacheRead > 0
-      ? {
-          text: `${cacheSavingsPercent}%`,
-          title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheSavingsBase.toLocaleString()}`,
-          tone: 'success' as const,
-        }
-      : undefined;
+    const cacheSavingsPercent = backendHitRatio > 0.0001 ? Math.max(0, Math.min(100, Math.round(backendHitRatio * 100))) : 0;
+    const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
+    const tokensBadge =
+      sessCacheRead > 0
+        ? {
+            text: `${cacheSavingsPercent}%`,
+            title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheSavingsBase.toLocaleString()}`,
+            tone: 'success' as const,
+          }
+        : undefined;
     const capsules: SessionToolbarCapsule[] = [];
     capsules.push(
       {
@@ -3302,14 +3097,12 @@ export function SessionDetailPage() {
         title: runtimeNotices.join('\n'),
       });
     }
-    capsules.push(
-      {
-        key: 'template',
-        icon: 'template',
-        label: `${templateLabel}${templateVersion}`,
-        title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
-      },
-    );
+    capsules.push({
+      key: 'template',
+      icon: 'template',
+      label: `${templateLabel}${templateVersion}`,
+      title: `${t('sessions.template.label', '模板：')}${templateLabel}${templateVersion}`,
+    });
     if (session.template_id === 'hermes_talker') {
       capsules.push({
         key: 'hermes-warning',
@@ -3318,15 +3111,13 @@ export function SessionDetailPage() {
         title: t('topbar.hermesSelfLearningNotice.title', '可在 App 定时任务面板检查 Hermes Talker 自学习开关。'),
       });
     }
-    capsules.push(
-      {
-        key: 'metadata',
-        icon: 'metadata',
-        label: t('topbar.metadata', '会话元数据'),
-        title: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
-        onClick: () => void openSessionMetadataDialog(),
-      },
-    );
+    capsules.push({
+      key: 'metadata',
+      icon: 'metadata',
+      label: t('topbar.metadata', '会话元数据'),
+      title: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
+      onClick: () => void openSessionMetadataDialog(),
+    });
     if (contextBudgetLabel) {
       capsules.push({
         key: 'context-budget',
@@ -3342,40 +3133,19 @@ export function SessionDetailPage() {
     // 或 chars+cards > 0）才显示胶囊；从未节流过的会话不放胶囊。
     if (streamThrottle) {
       const enabledOff = streamThrottle.enabled === false;
-      const rateOff =
-        (streamThrottle.chars ?? 0) <= 0 || (streamThrottle.cards ?? 0) <= 0;
+      const rateOff = (streamThrottle.chars ?? 0) <= 0 || (streamThrottle.cards ?? 0) <= 0;
       const disabled = enabledOff || rateOff;
       const expired = streamThrottle.durationExpired === true;
       const showAsGray = disabled || expired;
-      const ratesActive =
-        (streamThrottle.chars ?? 0) > 0 && (streamThrottle.cards ?? 0) > 0;
-      const pillVisible =
-        streamThrottle.hasOverride ||
-        streamThrottle.wasInitiallyThrottled ||
-        ratesActive;
+      const ratesActive = (streamThrottle.chars ?? 0) > 0 && (streamThrottle.cards ?? 0) > 0;
+      const pillVisible = streamThrottle.hasOverride || streamThrottle.wasInitiallyThrottled || ratesActive;
       if (pillVisible) {
-        const label = disabled
-          ? t('topbar.throttle.off', '节流·关')
-          : expired
-            ? t('topbar.throttle.expired', '节流·已耗尽')
-            : t('topbar.throttle.value', '字{chars}·卡{cards}')
-                .replace('{chars}', String(streamThrottle.chars))
-                .replace('{cards}', String(streamThrottle.cards));
+        const label = disabled ? t('topbar.throttle.off', '节流·关') : expired ? t('topbar.throttle.expired', '节流·已耗尽') : t('topbar.throttle.value', '字{chars}·卡{cards}').replace('{chars}', String(streamThrottle.chars)).replace('{cards}', String(streamThrottle.cards));
         capsules.push({
           key: 'stream-throttle',
           icon: 'throttle',
           label,
-          title: disabled
-            ? t(
-                'topbar.throttle.off.title',
-                '节流已关闭：AI 输出将以真实速率全速渲染。',
-              )
-            : expired
-              ? t(
-                  'topbar.throttle.expired.title',
-                  '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。',
-                )
-              : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
+          title: disabled ? t('topbar.throttle.off.title', '节流已关闭：AI 输出将以真实速率全速渲染。') : expired ? t('topbar.throttle.expired.title', '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。') : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
           tone: showAsGray ? 'muted' : 'success',
           onClick: () => setThrottleDialogOpen(true),
         });
@@ -3397,9 +3167,7 @@ export function SessionDetailPage() {
       capsules.push({
         key: 'web-reverse-debug',
         icon: 'debug',
-        label: typeof port === 'number'
-          ? `CDP :${port}`
-          : t('topbar.webReverseDebug', 'CDP 调试'),
+        label: typeof port === 'number' ? `CDP :${port}` : t('topbar.webReverseDebug', 'CDP 调试'),
         title: t('topbar.webReverseDebug.title', '查看 Web 逆向调试面板'),
         onClick: () => setWebReverseDashboardOpen(true),
       });
@@ -3471,37 +3239,17 @@ export function SessionDetailPage() {
     );
   }
 
-  const subtitle = session
-    ? [
-        session.template_name || session.template_id,
-        `${totalKnown} ${t('sessions.messageUnit', '条消息')}`,
-        session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '',
-        session.tool_message_count ? `${session.tool_message_count} tool` : '',
-        session.compression_point_count ? `${session.compression_point_count} compress` : '',
-      ].filter(Boolean).join(' · ')
-    : t('detail.loading', '加载会话中…');
+  const subtitle = session ? [session.template_name || session.template_id, `${totalKnown} ${t('sessions.messageUnit', '条消息')}`, session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '', session.tool_message_count ? `${session.tool_message_count} tool` : '', session.compression_point_count ? `${session.compression_point_count} compress` : ''].filter(Boolean).join(' · ') : t('detail.loading', '加载会话中…');
   const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping;
 
   return (
     <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
-      <PullIndicator
-        pulled={pull.pulled}
-        refreshing={pull.refreshing}
-        willRelease={pull.willRelease}
-        activationDistance={84}
-      />
+      <PullIndicator pulled={pull.pulled} refreshing={pull.refreshing} willRelease={pull.willRelease} activationDistance={84} />
       <div class="oh-session-detail-shell mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col gap-3">
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
-          titleGenerating={Boolean(
-            session &&
-            !session.is_title_manually_edited &&
-            !session.auto_title_acquired &&
-            !session.auto_title_generated_at &&
-            messages.length > 0 &&
-            messages.some((m) => m.role === 'user'),
-          )}
+          titleGenerating={Boolean(session && !session.is_title_manually_edited && !session.auto_title_acquired && !session.auto_title_generated_at && messages.length > 0 && messages.some((m) => m.role === 'user'))}
           onBack={() => location.route('/threads')}
           onRename={async (next) => {
             const requestSessionId = sessionId;
@@ -3509,9 +3257,16 @@ export function SessionDetailPage() {
               const res = await renameSession(requestSessionId, next);
               if (!ownsSessionAsyncResult(requestSessionId)) return;
               setDetail((prev) =>
-                prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev,
+                prev
+                  ? {
+                      ...prev,
+                      session: mergeSessionSummary(prev.session, res.session),
+                    }
+                  : prev,
               );
-              showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
+              showSnackbar(t('topbar.rename.ok', '已重命名会话'), {
+                tone: 'success',
+              });
             } catch (e) {
               if (!ownsSessionAsyncResult(requestSessionId)) return;
               if (handleAuthError(e)) return;
@@ -3529,10 +3284,7 @@ export function SessionDetailPage() {
             const requestSessionId = sessionId;
             try {
               showSnackbar(t('topbar.export.started', '正在导出会话数据…'));
-              const result = await exportSessionDownload(
-                requestSessionId,
-                session?.title || requestSessionId,
-              );
+              const result = await exportSessionDownload(requestSessionId, session?.title || requestSessionId);
               if (!ownsSessionAsyncResult(requestSessionId)) return;
               showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
             } catch (e) {
@@ -3540,11 +3292,7 @@ export function SessionDetailPage() {
               if (e instanceof DOMException && e.name === 'AbortError') return;
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
-              const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR
-                ? t('topbar.export.timeout', '导出会话超时，请稍后重试')
-                : e instanceof Error
-                  ? e.message
-                  : String(e);
+              const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR ? t('topbar.export.timeout', '导出会话超时，请稍后重试') : e instanceof Error ? e.message : String(e);
               setLastError(message);
               showSnackbar(`${t('topbar.export.failed', '导出会话失败')}：${message}`, { tone: 'error' });
             }
@@ -3574,122 +3322,93 @@ export function SessionDetailPage() {
           }
         />
 
-        {lastError ? (
-          <ErrorBanner message={lastError} onRetry={() => void refresh()} onDismiss={() => setLastError(null)} />
-        ) : null}
+        {lastError ? <ErrorBanner message={lastError} onRetry={() => void refresh()} onDismiss={() => setLastError(null)} /> : null}
 
         {remoteRunning ? (
           <div class="oh-remote-running-banner rounded-md px-3 py-2 text-xs flex items-start gap-2">
-            <span class="oh-remote-running-text">
-              {t(
-                'detail.remoteRunning',
-                '另一处客户端已发送消息，AI 正在生成回复中。如本端正在编辑草稿，建议等回复完成后再发送，避免消息顺序混乱。',
-              )}
-            </span>
+            <span class="oh-remote-running-text">{t('detail.remoteRunning', '另一处客户端已发送消息，AI 正在生成回复中。如本端正在编辑草稿，建议等回复完成后再发送，避免消息顺序混乱。')}</span>
           </div>
         ) : null}
 
         {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
         <section ref={mainRef} class="oh-session-messages relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
           <div ref={messagesContentRef} class="oh-session-message-content">
-          {loadingDetail ? (
-            <div class="oh-session-state-card is-loading">
-              <span class="oh-session-state-icon oh-spin" aria-hidden><ComposerIcon name="refresh" size={18} /></span>
-              <span>{t('detail.loading', '加载会话中…')}</span>
-            </div>
-          ) : error ? (
-            <div class="oh-session-state-card is-error">
-              <span class="oh-session-state-icon" aria-hidden><ComposerIcon name="refresh" size={18} /></span>
-              <span>{error}</span>
-              <button
-                type="button"
-                onClick={loadDetail}
-                class="oh-session-state-action oh-tap-press"
-              >
-                {t('sessions.retry', '重试')}
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* 加载更早 */}
-              {remainingOlder > 0 ? (
-                <div class="text-center mb-3">
-                  <button
-                    type="button"
-                    onClick={loadOlder}
-                    disabled={loadingOlder}
-                    class="oh-session-load-older-button oh-tap-press disabled:opacity-50"
-                  >
-                    <span class={loadingOlder ? 'oh-spin' : undefined} aria-hidden>
-                      <ComposerIcon name="refresh" size={13} />
-                    </span>
-                    {loadingOlder
-                      ? t('detail.loadingOlder', '加载中…')
-                      : t('detail.loadOlder', '加载更早 ') +
-                        `(${remainingOlder})`}
-                  </button>
-                </div>
-              ) : null}
-
-            {sortedMessages.length === 0 ? (
-              <div class="oh-session-empty-state">
-                <span class="oh-session-empty-icon" aria-hidden><ComposerIcon name="chat" size={20} /></span>
-                <span>{t('detail.empty', '该会话尚无消息。')}</span>
+            {loadingDetail ? (
+              <div class="oh-session-state-card is-loading">
+                <span class="oh-session-state-icon oh-spin" aria-hidden>
+                  <ComposerIcon name="refresh" size={18} />
+                </span>
+                <span>{t('detail.loading', '加载会话中…')}</span>
+              </div>
+            ) : error ? (
+              <div class="oh-session-state-card is-error">
+                <span class="oh-session-state-icon" aria-hidden>
+                  <ComposerIcon name="refresh" size={18} />
+                </span>
+                <span>{error}</span>
+                <button type="button" onClick={loadDetail} class="oh-session-state-action oh-tap-press">
+                  {t('sessions.retry', '重试')}
+                </button>
               </div>
             ) : (
               <>
-                {detail?.session ? (
-                  <PlanTimeline session={detail.session} modelKey={composerModelKey} />
+                {/* 加载更早 */}
+                {remainingOlder > 0 ? (
+                  <div class="text-center mb-3">
+                    <button type="button" onClick={loadOlder} disabled={loadingOlder} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
+                      <span class={loadingOlder ? 'oh-spin' : undefined} aria-hidden>
+                        <ComposerIcon name="refresh" size={13} />
+                      </span>
+                      {loadingOlder ? t('detail.loadingOlder', '加载中…') : t('detail.loadOlder', '加载更早 ') + `(${remainingOlder})`}
+                    </button>
+                  </div>
                 ) : null}
-                <ul class="flex flex-col gap-3">
-                  {sortedMessages.map((m) => (
-                    <li key={m.id}>
-                      <MessageCard
-                        message={m}
-                        active={activeMessageId === m.id}
-                        streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)}
-                        turnActive={stableResponseRunning}
-                        sessionId={sessionId}
-                        onActiveChange={handleMessageActiveChange}
-                        onCopy={handleCopyMessage}
-                        onDelete={handleDeleteMessage}
-                        onDeleteAfter={handleDeleteMessageCascade}
-                        onEdit={m.role === 'user' ? handleEditMessage : undefined}
-                        onAudit={handleAuditMessage}
-                      />
-                    </li>
-                  ))}
-                </ul>
-                {(() => {
-                  if (!responseRunning) return null;
-                  // 查找最后一条用户消息的 creation mode
-                  for (let i = sortedMessages.length - 1; i >= 0; i--) {
-                    const msg = sortedMessages[i];
-                    if (msg.role !== 'user') continue;
-                    const meta = msg.metadata ?? {};
-                    const creationReq = meta['creation_request'] as Record<string, unknown> | undefined;
-                    const mode = (creationReq?.['mode'] as string) || (meta['conversation_mode'] as string) || '';
-                    if (mode === 'image' || mode === 'video' || mode === 'audio') {
-                      // 检查是否已有助手回复（有媒体内容）
-                      const hasAssistantReply = sortedMessages.slice(i + 1).some(
-                        (m) => m.role === 'assistant' && m.content.trim().length > 10,
-                      );
-                      if (!hasAssistantReply) {
-                        return (
-                          <div class="mt-3">
-                            <MediaGeneratingPlaceholder mode={mode as 'image' | 'video' | 'audio'} />
-                          </div>
-                        );
+
+                {sortedMessages.length === 0 ? (
+                  <div class="oh-session-empty-state">
+                    <span class="oh-session-empty-icon" aria-hidden>
+                      <ComposerIcon name="chat" size={20} />
+                    </span>
+                    <span>{t('detail.empty', '该会话尚无消息。')}</span>
+                  </div>
+                ) : (
+                  <>
+                    {detail?.session ? <PlanTimeline session={detail.session} modelKey={composerModelKey} /> : null}
+                    <ul class="flex flex-col gap-3">
+                      {sortedMessages.map((m) => (
+                        <li key={m.id}>
+                          <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} />
+                        </li>
+                      ))}
+                    </ul>
+                    {(() => {
+                      if (!responseRunning) return null;
+                      // 查找最后一条用户消息的 creation mode
+                      for (let i = sortedMessages.length - 1; i >= 0; i--) {
+                        const msg = sortedMessages[i];
+                        if (msg.role !== 'user') continue;
+                        const meta = msg.metadata ?? {};
+                        const creationReq = meta['creation_request'] as Record<string, unknown> | undefined;
+                        const mode = (creationReq?.['mode'] as string) || (meta['conversation_mode'] as string) || '';
+                        if (mode === 'image' || mode === 'video' || mode === 'audio') {
+                          // 检查是否已有助手回复（有媒体内容）
+                          const hasAssistantReply = sortedMessages.slice(i + 1).some((m) => m.role === 'assistant' && m.content.trim().length > 10);
+                          if (!hasAssistantReply) {
+                            return (
+                              <div class="mt-3">
+                                <MediaGeneratingPlaceholder mode={mode as 'image' | 'video' | 'audio'} />
+                              </div>
+                            );
+                          }
+                        }
+                        break;
                       }
-                    }
-                    break;
-                  }
-                  return null;
-                })()}
+                      return null;
+                    })()}
+                  </>
+                )}
               </>
             )}
-            </>
-          )}
           </div>
         </section>
 
@@ -3703,552 +3422,416 @@ export function SessionDetailPage() {
             boxShadow: 'var(--m3-elev-1)',
           }}
         >
-          <div
-            class="oh-composer-toolbar"
-            data-collapsed={composerCollapsed ? 'true' : 'false'}
-          >
+          <div class="oh-composer-toolbar" data-collapsed={composerCollapsed ? 'true' : 'false'}>
             {!composerCollapsed ? (
               <>
-            {sessionModeOptions.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => void applySessionMode(nextSessionMode)}
-                disabled={composerSending || !canToggleSessionMode}
-                class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`}
-                aria-pressed={currentSessionMode === 'plan'}
-                title={sessionModeLabel(currentSessionMode)}
-              >
-                <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
-                  <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
-                </span>
-                <span key={`session-mode-label-${currentSessionMode}`} class="oh-session-mode-label oh-soft-replace">{sessionModeLabel(currentSessionMode)}</span>
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => setShowComposerModelPicker(true)}
-              disabled={composerSending || allowedModels.length === 0}
-              class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0"
-              title={selectedModelName && selectedModelProvider
-                ? `${selectedModelName} · ${selectedModelProvider}`
-                : t('composer.model', '模型')}
-            >
-              <span class="oh-composer-control-icon">
-                <ComposerIcon name="model" />
-              </span>
-              <span class="truncate">
-                {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
-                {selectedModelProvider ? (
-                  <span class="oh-composer-model-provider"> · {selectedModelProvider}</span>
+                {sessionModeOptions.length > 1 ? (
+                  <button type="button" onClick={() => void applySessionMode(nextSessionMode)} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`} aria-pressed={currentSessionMode === 'plan'} title={sessionModeLabel(currentSessionMode)}>
+                    <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
+                      <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
+                    </span>
+                    <span key={`session-mode-label-${currentSessionMode}`} class="oh-session-mode-label oh-soft-replace">
+                      {sessionModeLabel(currentSessionMode)}
+                    </span>
+                  </button>
                 ) : null}
-              </span>
-            </button>
 
-            <PopMenu
-              align="left"
-              width={220}
-              wrapperClassName="oh-composer-mode-menu"
-              items={composerModeOptions.map((mode) => {
-                const serviceAllowed = allowedModes.includes(mode);
-                const modelAllowed = modelSupportsMode(selectedModel, mode);
-                const active = mode === composerMode;
-                const label = composerModeLabel(mode);
-                const suffix = !serviceAllowed
-                  ? t('composer.mode.disabled.service', '（未启用）')
-                  : !modelAllowed
-                    ? t('composer.mode.disabled.model', '（当前模型不支持）')
-                    : '';
-                return {
-                  key: mode,
-                  label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
-                  disabled: composerSending || active || !serviceAllowed || !modelAllowed,
-                  selected: active,
-                  onClick: () => {
-                    setComposerMode(mode);
-                    // 选择多媒体模式时弹出生成选项弹窗
-                    if (mode === 'image' || mode === 'video' || mode === 'audio') {
-                      setShowCreationOptions(mode as 'image' | 'video' | 'audio');
-                    }
-                  },
-                };
-              })}
-              trigger={({ open, toggle }) => (
-                <button
-                  type="button"
-                  onClick={toggle}
-                  disabled={composerSending}
-                  class="oh-composer-control oh-composer-mode-control oh-tap-press is-tonal disabled:opacity-50"
-                  aria-expanded={open}
-                  title={t('composer.mode', '模式')}
-                >
-                  <span key={`composer-mode-icon-${composerMode}`} class="oh-composer-control-icon oh-soft-replace">
-                    <ComposerIcon name={composerModeIconName(composerMode)} />
+                <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName && selectedModelProvider ? `${selectedModelName} · ${selectedModelProvider}` : t('composer.model', '模型')}>
+                  <span class="oh-composer-control-icon">
+                    <ComposerIcon name="model" />
                   </span>
-                  <span key={`composer-mode-label-${composerMode}`} class="oh-soft-replace">{composerModeLabel(composerMode)}</span>
-                  <span class={`oh-composer-caret ${open ? 'is-open' : ''}`}>
-                    <ComposerIcon name="chevronDown" size={16} />
+                  <span class="truncate">
+                    {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
+                    {selectedModelProvider ? <span class="oh-composer-model-provider"> · {selectedModelProvider}</span> : null}
                   </span>
                 </button>
-              )}
-            />
 
-            <button
-              type="button"
-              onClick={() => {
-                if (permissionSaving) return;
-                const next = session?.full_access_permission !== true;
-                requestFullAccessPermissionChange(next);
-              }}
-              disabled={permissionSaving}
-              class={`oh-composer-control oh-composer-permission-control oh-tap-press ${session?.full_access_permission === true ? 'is-full-access' : 'is-muted'}`}
-              title={t('topbar.perm.title', '权限模式')}
-            >
-              <span class="oh-composer-control-icon">
-                <ComposerIcon name="permission" />
-              </span>
-              <span>
-                {session?.full_access_permission === true
-                  ? t('topbar.perm.full', '完全访问权限')
-                  : t('topbar.perm.default', '默认权限')}
-              </span>
-            </button>
+                <PopMenu
+                  align="left"
+                  width={220}
+                  wrapperClassName="oh-composer-mode-menu"
+                  items={composerModeOptions.map((mode) => {
+                    const serviceAllowed = allowedModes.includes(mode);
+                    const modelAllowed = modelSupportsMode(selectedModel, mode);
+                    const active = mode === composerMode;
+                    const label = composerModeLabel(mode);
+                    const suffix = !serviceAllowed ? t('composer.mode.disabled.service', '（未启用）') : !modelAllowed ? t('composer.mode.disabled.model', '（当前模型不支持）') : '';
+                    return {
+                      key: mode,
+                      label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
+                      disabled: composerSending || active || !serviceAllowed || !modelAllowed,
+                      selected: active,
+                      onClick: () => {
+                        setComposerMode(mode);
+                        // 选择多媒体模式时弹出生成选项弹窗
+                        if (mode === 'image' || mode === 'video' || mode === 'audio') {
+                          setShowCreationOptions(mode as 'image' | 'video' | 'audio');
+                        }
+                      },
+                    };
+                  })}
+                  trigger={({ open, toggle }) => (
+                    <button type="button" onClick={toggle} disabled={composerSending} class="oh-composer-control oh-composer-mode-control oh-tap-press is-tonal disabled:opacity-50" aria-expanded={open} title={t('composer.mode', '模式')}>
+                      <span key={`composer-mode-icon-${composerMode}`} class="oh-composer-control-icon oh-soft-replace">
+                        <ComposerIcon name={composerModeIconName(composerMode)} />
+                      </span>
+                      <span key={`composer-mode-label-${composerMode}`} class="oh-soft-replace">
+                        {composerModeLabel(composerMode)}
+                      </span>
+                      <span class={`oh-composer-caret ${open ? 'is-open' : ''}`}>
+                        <ComposerIcon name="chevronDown" size={16} />
+                      </span>
+                    </button>
+                  )}
+                />
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!autoFollow || autoFollowPaused || unreadCount > 0) {
-                  resumeToLatest();
-                } else {
-                  setAutoFollowEnabled(false);
-                  setAutoFollowPausedValue(false);
-                }
-              }}
-              class={`oh-composer-control oh-composer-follow-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
-              aria-label={autoFollowPaused || unreadCount > 0
-                ? t('detail.resumeToLatest', '回到底部')
-                : t('composer.autoFollow', '自动跟随到底部')}
-              title={autoFollowPaused || unreadCount > 0
-                ? t('detail.resumeToLatest', '回到底部')
-                : t('composer.autoFollow', '自动跟随到底部')}
-            >
-              <span class="oh-composer-control-icon">
-                <ComposerIcon name="follow" />
-              </span>
-              <span>
-                {autoFollowPaused || unreadCount > 0
-                  ? t('detail.resumeToLatest', '回到底部')
-                  : autoFollow
-                    ? t('common.on', '开启')
-                    : t('common.off', '关闭')}
-              </span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (permissionSaving) return;
+                    const next = session?.full_access_permission !== true;
+                    requestFullAccessPermissionChange(next);
+                  }}
+                  disabled={permissionSaving}
+                  class={`oh-composer-control oh-composer-permission-control oh-tap-press ${session?.full_access_permission === true ? 'is-full-access' : 'is-muted'}`}
+                  title={t('topbar.perm.title', '权限模式')}
+                >
+                  <span class="oh-composer-control-icon">
+                    <ComposerIcon name="permission" />
+                  </span>
+                  <span>{session?.full_access_permission === true ? t('topbar.perm.full', '完全访问权限') : t('topbar.perm.default', '默认权限')}</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!autoFollow || autoFollowPaused || unreadCount > 0) {
+                      resumeToLatest();
+                    } else {
+                      setAutoFollowEnabled(false);
+                      setAutoFollowPausedValue(false);
+                    }
+                  }}
+                  class={`oh-composer-control oh-composer-follow-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
+                  aria-label={autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : t('composer.autoFollow', '自动跟随到底部')}
+                  title={autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : t('composer.autoFollow', '自动跟随到底部')}
+                >
+                  <span class="oh-composer-control-icon">
+                    <ComposerIcon name="follow" />
+                  </span>
+                  <span>{autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : autoFollow ? t('common.on', '开启') : t('common.off', '关闭')}</span>
+                </button>
               </>
             ) : null}
 
-            <button
-              type="button"
-              onClick={toggleComposerCollapsed}
-              class={`oh-composer-icon-control oh-composer-collapse-control oh-tap-press ${composerCollapsed ? '' : 'ml-auto'}`}
-              title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
-              aria-label={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')}
-              aria-expanded={!composerCollapsed}
-            >
+            <button type="button" onClick={toggleComposerCollapsed} class={`oh-composer-icon-control oh-composer-collapse-control oh-tap-press ${composerCollapsed ? '' : 'ml-auto'}`} title={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')} aria-label={composerCollapsed ? t('composer.expand', '展开输入区') : t('composer.collapse', '收起输入区')} aria-expanded={!composerCollapsed}>
               <ComposerIcon name={composerCollapsed ? 'chevronUp' : 'chevronDown'} />
             </button>
           </div>
 
-          <div
-            class="oh-composer-body"
-            data-collapsed={composerCollapsed ? 'true' : 'false'}
-            aria-hidden={composerCollapsed ? 'true' : undefined}
-            {...(composerCollapsed ? { inert: true } : {})}
-          >
-          {availableInstructions.length > 0 ? (
-            <ComposerInstructionsStrip
-              entries={availableInstructions}
-              skipped={skippedInstructionIds}
-              disabled={composerSending}
-              onToggle={(id) => {
-                setSkippedInstructionIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(id)) {
-                    next.delete(id);
-                  } else {
-                    next.add(id);
-                  }
-                  return next;
-                });
-              }}
-              onResetAll={() => setSkippedInstructionIds(new Set())}
-              t={t}
-            />
-          ) : null}
-          <div class="oh-composer-chip-rail mb-3">
-            {editingDraftMessage ? (
-              <button
-                type="button"
-                class={`oh-composer-pill oh-composer-edit-pill oh-composer-chip-motion ${composerChipIsExiting('edit-draft') ? 'is-exiting' : ''}`}
-                onClick={() => runAfterComposerChipExit('edit-draft', () => {
-                  editingDraftMessageRef.current = null;
-                  setEditingDraftMessage(null);
-                })}
-                disabled={composerSending || composerChipIsExiting('edit-draft')}
-                title={t('composer.edit.cancel', '取消编辑历史消息')}
-              >
-                <span class="oh-composer-pill-icon"><ComposerIcon name="edit" size={16} /></span>
-                <span class="truncate max-w-[180px]">
-                  {t('composer.edit.active', '正在编辑历史消息')}
-                </span>
-                <span class="oh-composer-pill-icon"><ComposerIcon name="close" size={15} /></span>
-              </button>
+          <div class="oh-composer-body" data-collapsed={composerCollapsed ? 'true' : 'false'} aria-hidden={composerCollapsed ? 'true' : undefined} {...(composerCollapsed ? { inert: true } : {})}>
+            {availableInstructions.length > 0 ? (
+              <ComposerInstructionsStrip
+                entries={availableInstructions}
+                skipped={skippedInstructionIds}
+                disabled={composerSending}
+                onToggle={(id) => {
+                  setSkippedInstructionIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) {
+                      next.delete(id);
+                    } else {
+                      next.add(id);
+                    }
+                    return next;
+                  });
+                }}
+                onResetAll={() => setSkippedInstructionIds(new Set())}
+                t={t}
+              />
             ) : null}
-            <span key={`mode-${composerMode}`} class="oh-composer-pill oh-composer-mode-pill oh-composer-chip-motion">
-              <span class="oh-composer-pill-icon"><ComposerIcon name={composerModeIconName(composerMode)} size={16} /></span>
-              {composerModeLabel(composerMode)}
-            </span>
-            {selectedSkill ? (
-              <span
-                class={`oh-composer-pill oh-composer-skill-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`}
-                title={selectedSkill.name}
-              >
-                <span class="oh-composer-pill-icon">
-                  {selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}
-                </span>
-                <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
+            <div class="oh-composer-chip-rail mb-3">
+              {editingDraftMessage ? (
                 <button
                   type="button"
-                  class="oh-composer-pill-close oh-tap-press"
-                  onClick={() => runAfterComposerChipExit(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`, () => setSelectedSkill(null))}
-                  disabled={composerSending || composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`)}
-                  aria-label={t('composer.skill.clear', '移除已选择技能')}
-                  title={t('composer.skill.clear', '移除已选择技能')}
+                  class={`oh-composer-pill oh-composer-edit-pill oh-composer-chip-motion ${composerChipIsExiting('edit-draft') ? 'is-exiting' : ''}`}
+                  onClick={() =>
+                    runAfterComposerChipExit('edit-draft', () => {
+                      editingDraftMessageRef.current = null;
+                      setEditingDraftMessage(null);
+                    })
+                  }
+                  disabled={composerSending || composerChipIsExiting('edit-draft')}
+                  title={t('composer.edit.cancel', '取消编辑历史消息')}
                 >
-                  <ComposerIcon name="close" size={15} />
+                  <span class="oh-composer-pill-icon">
+                    <ComposerIcon name="edit" size={16} />
+                  </span>
+                  <span class="truncate max-w-[180px]">{t('composer.edit.active', '正在编辑历史消息')}</span>
+                  <span class="oh-composer-pill-icon">
+                    <ComposerIcon name="close" size={15} />
+                  </span>
                 </button>
+              ) : null}
+              <span key={`mode-${composerMode}`} class="oh-composer-pill oh-composer-mode-pill oh-composer-chip-motion">
+                <span class="oh-composer-pill-icon">
+                  <ComposerIcon name={composerModeIconName(composerMode)} size={16} />
+                </span>
+                {composerModeLabel(composerMode)}
               </span>
-            ) : null}
-          </div>
-
-          {attachmentsAllowed && composerAttachments.length > 0 ? (
-            <ul class="oh-composer-attachment-rail mb-3">
-              {composerAttachments.map((att, i) => {
-                const pv = attachmentPreviews[i];
-                const chipKey = composerAttachmentIds[i] ?? `${att.name}-${i}`;
-                const isImage = (pv?.mime ?? '').startsWith('image/');
-                const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
-                return (
-                  <li
-                    key={chipKey}
-                    class={`oh-composer-attachment-chip oh-composer-chip-motion ${composerChipIsExiting(chipKey) ? 'is-exiting' : ''} ${isImage ? 'is-image' : ''}`}
-                  >
-                    {isImage && pv ? (
-                      <button
-                        type="button"
-                        class="oh-composer-image-thumb"
-                        onClick={() => void editAttachmentAt(i)}
-                        disabled={composerSending}
-                        title={t('imageEditor.title', '编辑图片')}
-                      >
-                        <img src={pv.dataUrl} alt={att.name} decoding="async" loading="lazy" />
-                      </button>
-                    ) : (
-                      <span aria-hidden class="oh-composer-file-leading">
-                        <ComposerIcon name="file" size={16} />
-                      </span>
-                    )}
-                    {!isImage ? (
-                      <span class="flex flex-col min-w-0">
-                        <span class="truncate max-w-[180px]">{att.name}</span>
-                        {pv ? (
-                          <span class="truncate" style={{ color: 'var(--m3-on-surface-variant)', fontSize: '10px' }}>
-                            {pv.mime || 'application/octet-stream'} · {sizeKb} KB
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => requestRemoveAttachmentAt(i)}
-                      disabled={composerSending || composerChipIsExiting(chipKey)}
-                      class="oh-composer-chip-close"
-                      aria-label={t('composer.attachment.remove', '移除附件')}
-                    >
-                      <ComposerIcon name="close" size={14} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-
-          {queuedComposerMessages.length > 0 ? (
-            <section class="oh-queued-message-panel mb-3" aria-label={t('composer.queue.title', '自动发送等待队列')}>
-              <div class="oh-queued-message-header">
-                <span class="oh-queued-message-title">
-                  <ComposerIcon name="send" size={15} />
-                  {t('composer.queue.title', '自动发送等待队列')}
+              {selectedSkill ? (
+                <span class={`oh-composer-pill oh-composer-skill-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`} title={selectedSkill.name}>
+                  <span class="oh-composer-pill-icon">{selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}</span>
+                  <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
+                  <button type="button" class="oh-composer-pill-close oh-tap-press" onClick={() => runAfterComposerChipExit(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`, () => setSelectedSkill(null))} disabled={composerSending || composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`)} aria-label={t('composer.skill.clear', '移除已选择技能')} title={t('composer.skill.clear', '移除已选择技能')}>
+                    <ComposerIcon name="close" size={15} />
+                  </button>
                 </span>
-                <span class="oh-queued-message-count">
-                  {queuedComposerMessages.length} {t('composer.queue.unit', '条')}
-                </span>
-              </div>
-              <ul class="oh-queued-message-list">
-                {queuedComposerMessages.map((item, index) => {
-                  const isEditingQueued = editingQueuedMessageId === item.id;
-                  const isDispatchingQueued = queueDispatchingId === item.id;
-                  const queueKey = `${item.id}-${queuedListMotionGeneration}`;
+              ) : null}
+            </div>
+
+            {attachmentsAllowed && composerAttachments.length > 0 ? (
+              <ul class="oh-composer-attachment-rail mb-3">
+                {composerAttachments.map((att, i) => {
+                  const pv = attachmentPreviews[i];
+                  const chipKey = composerAttachmentIds[i] ?? `${att.name}-${i}`;
+                  const isImage = (pv?.mime ?? '').startsWith('image/');
+                  const sizeKb = pv ? (pv.size / 1024).toFixed(1) : '';
                   return (
-                    <li
-                      key={queueKey}
-                      class={`oh-queued-message-row ${queuedMessageIsExiting(item.id) ? 'is-exiting' : ''} ${isDispatchingQueued ? 'is-dispatching' : ''}`}
-                    >
-                      <div class="oh-queued-message-index">{index + 1}</div>
-                      <div class="oh-queued-message-main">
-                        {isEditingQueued ? (
-                          <div class="oh-queued-message-edit">
-                            <textarea
-                              value={queuedEditText}
-                              onInput={(event) => setQueuedEditText(event.currentTarget.value)}
-                              rows={3}
-                              aria-label={t('composer.queue.editLabel', '编辑等待消息')}
-                            />
-                            <div class="oh-queued-message-edit-actions">
-                              <button
-                                type="button"
-                                class="oh-tap-press oh-queued-message-mini-action"
-                                onClick={() => saveQueuedMessageEdit(item.id)}
-                                disabled={!queuedEditText.trim()}
-                              >
-                                {t('common.save', '保存')}
-                              </button>
-                              <button
-                                type="button"
-                                class="oh-tap-press oh-queued-message-mini-action is-muted"
-                                onClick={() => {
-                                  setEditingQueuedMessageId(null);
-                                  setQueuedEditText('');
-                                }}
-                              >
-                                {t('common.cancel', '取消')}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p class="oh-queued-message-text">
-                              {item.content || t('composer.queue.attachmentOnly', '仅附件消息')}
-                            </p>
-                            <div class="oh-queued-message-meta">
-                              <span>{composerModeLabel(item.mode)}</span>
-                              <span>{item.modelLabel || item.modelKey}</span>
-                              {item.selectedSkill ? <span>{item.skillLabel ?? item.selectedSkill.name}</span> : null}
-                              {item.attachments.length > 0 ? (
-                                <span>{item.attachments.length} {t('composer.attachment.unit', '个附件')}</span>
-                              ) : null}
-                              {isDispatchingQueued ? <span>{t('composer.queue.sending', '正在自动发送')}</span> : null}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <div class="oh-queued-message-actions">
-                        <button
-                          type="button"
-                          class="oh-tap-press oh-queued-message-icon-action"
-                          onClick={() => moveQueuedMessage(index, index - 1)}
-                          disabled={index === 0 || isDispatchingQueued}
-                          title={t('composer.queue.moveUp', '上移')}
-                          aria-label={t('composer.queue.moveUp', '上移')}
-                        >
-                          <ComposerIcon name="chevronUp" size={15} />
+                    <li key={chipKey} class={`oh-composer-attachment-chip oh-composer-chip-motion ${composerChipIsExiting(chipKey) ? 'is-exiting' : ''} ${isImage ? 'is-image' : ''}`}>
+                      {isImage && pv ? (
+                        <button type="button" class="oh-composer-image-thumb" onClick={() => void editAttachmentAt(i)} disabled={composerSending} title={t('imageEditor.title', '编辑图片')}>
+                          <img src={pv.dataUrl} alt={att.name} decoding="async" loading="lazy" />
                         </button>
-                        <button
-                          type="button"
-                          class="oh-tap-press oh-queued-message-icon-action"
-                          onClick={() => moveQueuedMessage(index, index + 1)}
-                          disabled={index >= queuedComposerMessages.length - 1 || isDispatchingQueued}
-                          title={t('composer.queue.moveDown', '下移')}
-                          aria-label={t('composer.queue.moveDown', '下移')}
-                        >
-                          <ComposerIcon name="chevronDown" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          class="oh-tap-press oh-queued-message-icon-action"
-                          onClick={() => startEditQueuedMessage(item)}
-                          disabled={isDispatchingQueued}
-                          title={t('composer.queue.edit', '编辑')}
-                          aria-label={t('composer.queue.edit', '编辑')}
-                        >
-                          <ComposerIcon name="edit" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          class="oh-tap-press oh-queued-message-icon-action is-danger"
-                          onClick={() => removeQueuedMessage(item.id)}
-                          disabled={isDispatchingQueued}
-                          title={t('composer.queue.remove', '删除')}
-                          aria-label={t('composer.queue.remove', '删除')}
-                        >
-                          <ComposerIcon name="close" size={15} />
-                        </button>
-                      </div>
+                      ) : (
+                        <span aria-hidden class="oh-composer-file-leading">
+                          <ComposerIcon name="file" size={16} />
+                        </span>
+                      )}
+                      {!isImage ? (
+                        <span class="flex flex-col min-w-0">
+                          <span class="truncate max-w-[180px]">{att.name}</span>
+                          {pv ? (
+                            <span
+                              class="truncate"
+                              style={{
+                                color: 'var(--m3-on-surface-variant)',
+                                fontSize: '10px',
+                              }}
+                            >
+                              {pv.mime || 'application/octet-stream'} · {sizeKb} KB
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                      <button type="button" onClick={() => requestRemoveAttachmentAt(i)} disabled={composerSending || composerChipIsExiting(chipKey)} class="oh-composer-chip-close" aria-label={t('composer.attachment.remove', '移除附件')}>
+                        <ComposerIcon name="close" size={14} />
+                      </button>
                     </li>
                   );
                 })}
               </ul>
-            </section>
-          ) : null}
+            ) : null}
 
-          <div
-            class="relative"
-            onDragOver={(e) => {
-              if (!attachmentsAllowed) return;
-              if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
-                e.preventDefault();
-                if (!dragOver) setDragOver(true);
-              }
-            }}
-            onDragLeave={(e) => {
-              if (e.currentTarget === e.target) setDragOver(false);
-            }}
-            onDrop={(e) => {
-              if (!attachmentsAllowed) return;
-              e.preventDefault();
-              setDragOver(false);
-              const files = Array.from(e.dataTransfer?.files ?? []);
-              if (files.length > 0) void appendFiles(files);
-            }}
-          >
-          {skillPickerVisible && skillPickerAnchor ? (
-            <OverlayPortal>
-              <div
-                class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
-                role="listbox"
-                style={{
-                  position: 'fixed',
-                  bottom: `${skillPickerAnchor.bottomGap}px`,
-                  left: `${skillPickerAnchor.left}px`,
-                  width: `${skillPickerAnchor.width}px`,
-                  maxHeight: `${skillPickerAnchor.maxHeight}px`,
-                  zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
-                }}
-              >
-              <div class="oh-skill-picker-title">
-                <span aria-hidden><ComposerIcon name="spark" size={16} /></span>
-                {t('composer.skill.pick', '选择一个技能')}
-              </div>
-              {skillPickerLoading ? (
-                <div class="oh-skill-picker-empty">{t('common.loading', '加载中…')}</div>
-              ) : skillPickerResults.length === 0 ? (
-                <div class="oh-skill-picker-empty">{t('composer.skill.empty', '未找到匹配技能')}</div>
-              ) : (
-                <ul class="oh-skill-picker-list">
-                  {skillPickerResults.map((skill, index) => (
-                    <li key={`${skill.relative_directory_path}-${skill.name}`}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={index === skillPickerSelectedIndex}
-                        class="oh-skill-picker-item"
-                        data-active={index === skillPickerSelectedIndex ? 'true' : 'false'}
-                        onMouseEnter={() => setSkillPickerSelectedIndex(index)}
-                        onClick={() => selectSkillForComposer(skill)}
-                      >
-                        <span class="oh-skill-picker-leading" aria-hidden>
-                          {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
-                        </span>
-                        <span class="min-w-0 flex-1 text-left">
-                          <span class="block truncate font-semibold">{skill.name}</span>
-                          {(skill.description ?? '').trim() ? (
-                            <span class="block truncate text-[11px] opacity-70">{skill.description}</span>
-                          ) : null}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
+            {queuedComposerMessages.length > 0 ? (
+              <section class="oh-queued-message-panel mb-3" aria-label={t('composer.queue.title', '自动发送等待队列')}>
+                <div class="oh-queued-message-header">
+                  <span class="oh-queued-message-title">
+                    <ComposerIcon name="send" size={15} />
+                    {t('composer.queue.title', '自动发送等待队列')}
+                  </span>
+                  <span class="oh-queued-message-count">
+                    {queuedComposerMessages.length} {t('composer.queue.unit', '条')}
+                  </span>
+                </div>
+                <ul class="oh-queued-message-list">
+                  {queuedComposerMessages.map((item, index) => {
+                    const isEditingQueued = editingQueuedMessageId === item.id;
+                    const isDispatchingQueued = queueDispatchingId === item.id;
+                    const queueKey = `${item.id}-${queuedListMotionGeneration}`;
+                    return (
+                      <li key={queueKey} class={`oh-queued-message-row ${queuedMessageIsExiting(item.id) ? 'is-exiting' : ''} ${isDispatchingQueued ? 'is-dispatching' : ''}`}>
+                        <div class="oh-queued-message-index">{index + 1}</div>
+                        <div class="oh-queued-message-main">
+                          {isEditingQueued ? (
+                            <div class="oh-queued-message-edit">
+                              <textarea value={queuedEditText} onInput={(event) => setQueuedEditText(event.currentTarget.value)} rows={3} aria-label={t('composer.queue.editLabel', '编辑等待消息')} />
+                              <div class="oh-queued-message-edit-actions">
+                                <button type="button" class="oh-tap-press oh-queued-message-mini-action" onClick={() => saveQueuedMessageEdit(item.id)} disabled={!queuedEditText.trim()}>
+                                  {t('common.save', '保存')}
+                                </button>
+                                <button
+                                  type="button"
+                                  class="oh-tap-press oh-queued-message-mini-action is-muted"
+                                  onClick={() => {
+                                    setEditingQueuedMessageId(null);
+                                    setQueuedEditText('');
+                                  }}
+                                >
+                                  {t('common.cancel', '取消')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p class="oh-queued-message-text">{item.content || t('composer.queue.attachmentOnly', '仅附件消息')}</p>
+                              <div class="oh-queued-message-meta">
+                                <span>{composerModeLabel(item.mode)}</span>
+                                <span>{item.modelLabel || item.modelKey}</span>
+                                {item.selectedSkill ? <span>{item.skillLabel ?? item.selectedSkill.name}</span> : null}
+                                {item.attachments.length > 0 ? (
+                                  <span>
+                                    {item.attachments.length} {t('composer.attachment.unit', '个附件')}
+                                  </span>
+                                ) : null}
+                                {isDispatchingQueued ? <span>{t('composer.queue.sending', '正在自动发送')}</span> : null}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <div class="oh-queued-message-actions">
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index - 1)} disabled={index === 0 || isDispatchingQueued} title={t('composer.queue.moveUp', '上移')} aria-label={t('composer.queue.moveUp', '上移')}>
+                            <ComposerIcon name="chevronUp" size={15} />
+                          </button>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index + 1)} disabled={index >= queuedComposerMessages.length - 1 || isDispatchingQueued} title={t('composer.queue.moveDown', '下移')} aria-label={t('composer.queue.moveDown', '下移')}>
+                            <ComposerIcon name="chevronDown" size={15} />
+                          </button>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => startEditQueuedMessage(item)} disabled={isDispatchingQueued} title={t('composer.queue.edit', '编辑')} aria-label={t('composer.queue.edit', '编辑')}>
+                            <ComposerIcon name="edit" size={15} />
+                          </button>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action is-danger" onClick={() => removeQueuedMessage(item.id)} disabled={isDispatchingQueued} title={t('composer.queue.remove', '删除')} aria-label={t('composer.queue.remove', '删除')}>
+                            <ComposerIcon name="close" size={15} />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
-              )}
-              </div>
-            </OverlayPortal>
-          ) : null}
-          <textarea
-            ref={composerTextareaRef}
-            value={composerText}
-            onInput={(e) => {
-              const target = e.currentTarget as HTMLTextAreaElement;
-              setComposerText(target.value);
-              updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
-            }}
-            onSelect={(e) => {
-              const target = e.currentTarget as HTMLTextAreaElement;
-              updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
-            }}
-            onPaste={(e) => {
-              if (!attachmentsAllowed) return;
-              const items = e.clipboardData?.items;
-              if (!items) return;
-              const files: File[] = [];
-              for (const it of Array.from(items)) {
-                if (it.kind === 'file') {
-                  const f = it.getAsFile();
-                  if (f) files.push(f);
-                }
-              }
-              if (files.length > 0) {
-                e.preventDefault();
-                void appendFiles(files);
-              }
-            }}
-            onKeyDown={(e) => {
-              handleComposerKeyDown(e as unknown as KeyboardEvent);
-            }}
-            disabled={composerSending || composerCollapsed}
-            rows={4}
-            placeholder={t('composer.placeholder', '输入消息')}
-            class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
-          />
-          {dragOver ? (
+              </section>
+            ) : null}
+
             <div
-              class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up"
+              class="relative"
+              onDragOver={(e) => {
+                if (!attachmentsAllowed) return;
+                if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
+                  e.preventDefault();
+                  if (!dragOver) setDragOver(true);
+                }
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget === e.target) setDragOver(false);
+              }}
+              onDrop={(e) => {
+                if (!attachmentsAllowed) return;
+                e.preventDefault();
+                setDragOver(false);
+                const files = Array.from(e.dataTransfer?.files ?? []);
+                if (files.length > 0) void appendFiles(files);
+              }}
             >
-              {t('composer.attachment.drop', '松开即可添加附件')}
+              {skillPickerVisible && skillPickerAnchor ? (
+                <OverlayPortal>
+                  <div
+                    class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+                    role="listbox"
+                    style={{
+                      position: 'fixed',
+                      bottom: `${skillPickerAnchor.bottomGap}px`,
+                      left: `${skillPickerAnchor.left}px`,
+                      width: `${skillPickerAnchor.width}px`,
+                      maxHeight: `${skillPickerAnchor.maxHeight}px`,
+                      zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
+                    }}
+                  >
+                    <div class="oh-skill-picker-title">
+                      <span aria-hidden>
+                        <ComposerIcon name="spark" size={16} />
+                      </span>
+                      {t('composer.skill.pick', '选择一个技能')}
+                    </div>
+                    {skillPickerLoading ? (
+                      <div class="oh-skill-picker-empty">{t('common.loading', '加载中…')}</div>
+                    ) : skillPickerResults.length === 0 ? (
+                      <div class="oh-skill-picker-empty">{t('composer.skill.empty', '未找到匹配技能')}</div>
+                    ) : (
+                      <ul class="oh-skill-picker-list">
+                        {skillPickerResults.map((skill, index) => (
+                          <li key={`${skill.relative_directory_path}-${skill.name}`}>
+                            <button type="button" role="option" aria-selected={index === skillPickerSelectedIndex} class="oh-skill-picker-item" data-active={index === skillPickerSelectedIndex ? 'true' : 'false'} onMouseEnter={() => setSkillPickerSelectedIndex(index)} onClick={() => selectSkillForComposer(skill)}>
+                              <span class="oh-skill-picker-leading" aria-hidden>
+                                {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
+                              </span>
+                              <span class="min-w-0 flex-1 text-left">
+                                <span class="block truncate font-semibold">{skill.name}</span>
+                                {(skill.description ?? '').trim() ? <span class="block truncate text-[11px] opacity-70">{skill.description}</span> : null}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </OverlayPortal>
+              ) : null}
+              <textarea
+                ref={composerTextareaRef}
+                value={composerText}
+                onInput={(e) => {
+                  const target = e.currentTarget as HTMLTextAreaElement;
+                  setComposerText(target.value);
+                  updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+                }}
+                onSelect={(e) => {
+                  const target = e.currentTarget as HTMLTextAreaElement;
+                  updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+                }}
+                onPaste={(e) => {
+                  if (!attachmentsAllowed) return;
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  const files: File[] = [];
+                  for (const it of Array.from(items)) {
+                    if (it.kind === 'file') {
+                      const f = it.getAsFile();
+                      if (f) files.push(f);
+                    }
+                  }
+                  if (files.length > 0) {
+                    e.preventDefault();
+                    void appendFiles(files);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  handleComposerKeyDown(e as unknown as KeyboardEvent);
+                }}
+                disabled={composerSending || composerCollapsed}
+                rows={4}
+                placeholder={t('composer.placeholder', '输入消息')}
+                class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
+              />
+              {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}
             </div>
-          ) : null}
+
+            {composerError ? (
+              <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
+                {composerError}
+              </p>
+            ) : null}
           </div>
 
-          {composerError ? (
-            <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
-              {composerError}
-            </p>
-          ) : null}
-          </div>
-
-          <div
-            class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3"
-            data-collapsed={composerCollapsed ? 'true' : 'false'}
-            aria-hidden={composerCollapsed ? 'true' : undefined}
-            {...(composerCollapsed ? { inert: true } : {})}
-          >
+          <div class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3" data-collapsed={composerCollapsed ? 'true' : 'false'} aria-hidden={composerCollapsed ? 'true' : undefined} {...(composerCollapsed ? { inert: true } : {})}>
             {attachmentsAllowed ? (
-              <label
-                class="oh-tap-press oh-composer-footer-action is-attachment cursor-pointer"
-              >
-                <span class="oh-composer-action-icon"><ComposerIcon name="attachment" size={16} /></span>
+              <label class="oh-tap-press oh-composer-footer-action is-attachment cursor-pointer">
+                <span class="oh-composer-action-icon">
+                  <ComposerIcon name="attachment" size={16} />
+                </span>
                 {t('composer.attachment.add', '添加附件')}
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleAttachmentInput}
-                  style={{ display: 'none' }}
-                />
+                <input type="file" multiple onChange={handleAttachmentInput} style={{ display: 'none' }} />
               </label>
             ) : null}
             <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {composerText.length > 0
-                ? <RollingText text={`${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`} />
-                : ''}
+              {composerText.length > 0 ? <RollingText text={`${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`} /> : ''}
             </span>
             {composerAttachments.length > 0 ? (
               <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -4256,65 +3839,27 @@ export function SessionDetailPage() {
               </span>
             ) : null}
             {responseRunning ? (
-              <button
-                type="button"
-                onClick={handleStop}
-                disabled={stopping}
-                class="oh-tap-press oh-composer-footer-action is-stop disabled:opacity-50"
-              >
+              <button type="button" onClick={handleStop} disabled={stopping} class="oh-tap-press oh-composer-footer-action is-stop disabled:opacity-50">
                 <span class={stopping ? 'oh-spin' : undefined}>
                   <ComposerIcon name={stopping ? 'refresh' : 'stop'} size={16} />
                 </span>
-                <span>{stopping
-                  ? t('composer.stopping', '正在停止…')
-                  : t('composer.stop', '停止响应')}</span>
+                <span>{stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止响应')}</span>
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={composerSendDisabled}
-              class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}
-            >
+            <button type="button" onClick={handleSend} disabled={composerSendDisabled} class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}>
               <span class={composerSending ? 'oh-spin' : undefined}>
                 <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
               </span>
-              <span>{composerSending
-                ? t('composer.sending', '发送中…')
-                : responseRunning
-                  ? t('composer.queue.aheadSend', '提前发送')
-                  : t('composer.send', '发送')}</span>
+              <span>{composerSending ? t('composer.sending', '发送中…') : responseRunning ? t('composer.queue.aheadSend', '提前发送') : t('composer.send', '发送')}</span>
             </button>
           </div>
         </section>
       </div>
 
-      {auditMessage ? (
-        <MessageAuditDialog
-          message={auditMessage}
-          onClose={() => setAuditMessage(null)}
-        />
-      ) : null}
-      {sessionAuditOpen && detail ? (
-        <SessionAuditDialog
-          detail={detail}
-          messages={messages}
-          onClose={() => setSessionAuditOpen(false)}
-        />
-      ) : null}
-      {sessionMetadataOpen && detail ? (
-        <SessionMetadataDialog
-          detail={detail}
-          messages={messages}
-          onClose={() => setSessionMetadataOpen(false)}
-        />
-      ) : null}
-      {tokenStatsOpen && detail ? (
-        <SessionTokenStatsDialog
-          detail={detail}
-          onClose={() => setTokenStatsOpen(false)}
-        />
-      ) : null}
+      {auditMessage ? <MessageAuditDialog message={auditMessage} onClose={() => setAuditMessage(null)} /> : null}
+      {sessionAuditOpen && detail ? <SessionAuditDialog detail={detail} messages={messages} onClose={() => setSessionAuditOpen(false)} /> : null}
+      {sessionMetadataOpen && detail ? <SessionMetadataDialog detail={detail} messages={messages} onClose={() => setSessionMetadataOpen(false)} /> : null}
+      {tokenStatsOpen && detail ? <SessionTokenStatsDialog detail={detail} onClose={() => setTokenStatsOpen(false)} /> : null}
       {contextStatsOpen && detail ? (
         <SessionContextStatsDialog
           detail={detail}
@@ -4327,27 +3872,12 @@ export function SessionDetailPage() {
           }}
         />
       ) : null}
-      {webReverseDashboardOpen && session ? (
-        <WebReverseDashboardDialog
-          session={session}
-          onClose={() => setWebReverseDashboardOpen(false)}
-        />
-      ) : null}
-      {throttleDialogOpen && sessionId ? (
-        <SessionThrottleDialog
-          sessionId={sessionId}
-          current={streamThrottle}
-          onClose={() => setThrottleDialogOpen(false)}
-        />
-      ) : null}
+      {webReverseDashboardOpen && session ? <WebReverseDashboardDialog session={session} onClose={() => setWebReverseDashboardOpen(false)} /> : null}
+      {throttleDialogOpen && sessionId ? <SessionThrottleDialog sessionId={sessionId} current={streamThrottle} onClose={() => setThrottleDialogOpen(false)} /> : null}
       {pendingDeleteAction ? (
         <ConfirmDialog
-          title={pendingDeleteAction.cascade
-            ? t('detail.deleteAfter.confirmTitle', '删除此条及后续消息?')
-            : t('detail.delete.confirmTitle', '删除这条消息?')}
-          body={pendingDeleteAction.cascade
-            ? t('detail.deleteAfter.confirmBody', '此操作会删除当前消息以及它之后的所有消息，删除后不可恢复。')
-            : t('detail.delete.confirmBody', '此操作会删除当前消息，删除后不可恢复。')}
+          title={pendingDeleteAction.cascade ? t('detail.deleteAfter.confirmTitle', '删除此条及后续消息?') : t('detail.delete.confirmTitle', '删除这条消息?')}
+          body={pendingDeleteAction.cascade ? t('detail.deleteAfter.confirmBody', '此操作会删除当前消息以及它之后的所有消息，删除后不可恢复。') : t('detail.delete.confirmBody', '此操作会删除当前消息，删除后不可恢复。')}
           danger
           busy={deleteBusy}
           confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
@@ -4374,15 +3904,10 @@ export function SessionDetailPage() {
       {pendingFullAccess === true ? (
         <ConfirmDialog
           title={t('topbar.perm.fullConfirmTitle', '启用完全访问权限')}
-          body={t(
-            'topbar.perm.fullConfirmBody',
-            '启用后，Web 会话中的写文件、执行命令等高风险操作将按 APP 完全访问权限模式自动执行。请确认当前会话和浏览器设备可信。',
-          )}
+          body={t('topbar.perm.fullConfirmBody', '启用后，Web 会话中的写文件、执行命令等高风险操作将按 APP 完全访问权限模式自动执行。请确认当前会话和浏览器设备可信。')}
           danger
           busy={permissionSaving}
-          confirmLabel={permissionSaving
-            ? t('common.saving', '保存中…')
-            : t('topbar.perm.enableFullAccess', '启用完全访问权限')}
+          confirmLabel={permissionSaving ? t('common.saving', '保存中…') : t('topbar.perm.enableFullAccess', '启用完全访问权限')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!permissionSaving) setPendingFullAccess(null);
@@ -4393,11 +3918,9 @@ export function SessionDetailPage() {
       {pendingWriteApproval ? (
         <ConfirmDialog
           title={t('detail.writeApproval.title', '确认写操作')}
-          body={(
+          body={
             <div class="oh-write-approval-dialog-content">
-              <p class="oh-write-approval-dialog-copy">
-                {t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}
-              </p>
+              <p class="oh-write-approval-dialog-copy">{t('detail.writeApproval.body', '当前默认权限模式需要确认后才会继续执行写文件或命令操作。')}</p>
               <p class="oh-write-approval-dialog-copy" style={{ marginTop: 6, opacity: 0.8 }}>
                 {t('detail.writeApproval.hintEsc', '快捷键：Enter 允许 · Esc 关闭弹窗（不视为同意或拒绝）')}
               </p>
@@ -4410,28 +3933,20 @@ export function SessionDetailPage() {
                 <pre class="oh-write-approval-dialog-command">{pendingWriteApproval.command || '-'}</pre>
               </div>
             </div>
-          )}
+          }
           danger
           busy={writeApprovalBusy}
           wide
           scrollBody
           disableBackdropClose
-          confirmLabel={writeApprovalBusy
-            ? t('common.processing', '处理中…')
-            : t('detail.writeApproval.approve', '允许执行')}
+          confirmLabel={writeApprovalBusy ? t('common.processing', '处理中…') : t('detail.writeApproval.approve', '允许执行')}
           cancelLabel={t('detail.writeApproval.reject', '拒绝')}
           onCancel={() => void handleWriteApproval('rejected')}
           onDismiss={() => void handleWriteApproval('dismissed')}
           onConfirm={() => void handleWriteApproval('approved')}
         />
       ) : null}
-      {imageEditorInput ? (
-        <ImageEditorDialog
-          input={imageEditorInput}
-          onCancel={() => settleImageEditor(null)}
-          onSave={(result) => settleImageEditor(result)}
-        />
-      ) : null}
+      {imageEditorInput ? <ImageEditorDialog input={imageEditorInput} onCancel={() => settleImageEditor(null)} onSave={(result) => settleImageEditor(result)} /> : null}
       {showComposerModelPicker ? (
         <ModelPickerDialog
           models={allowedModels}
@@ -4463,17 +3978,14 @@ export function SessionDetailPage() {
               .slice(startIdx, endIdx + 1)
               .map((m) => m.content.trim())
               .join('\n\n');
-            const res = await apiRequest<{ title: string }>(
-              `/api/sessions/${encodeURIComponent(sessionId)}/generate-title`,
-              { method: 'POST', body: { content: selectedContent } },
-            );
+            const res = await apiRequest<{ title: string }>(`/api/sessions/${encodeURIComponent(sessionId)}/generate-title`, { method: 'POST', body: { content: selectedContent } });
             // 刷新会话详情以获取新标题
             loadDetail();
             return res.title;
           }}
           onClose={() => setShowTitleSummary(false)}
           onTitleUpdated={(title) => {
-            setDetail((prev) => prev ? { ...prev, session: { ...prev.session, title } } : prev);
+            setDetail((prev) => (prev ? { ...prev, session: { ...prev.session, title } } : prev));
           }}
         />
       ) : null}
@@ -4496,55 +4008,23 @@ export function SessionDetailPage() {
 
 /// 错误条带：自动识别 Connection refused / 网络断开 等常见错误，给出本地化解释 +
 /// [重试] [复制] [关闭] 三档操作。普通错误退化为单行 Material 错误样式。
-function ErrorBanner({
-  message,
-  onRetry,
-  onDismiss,
-}: {
-  message: string;
-  onRetry: () => void;
-  onDismiss: () => void;
-}) {
+function ErrorBanner({ message, onRetry, onDismiss }: { message: string; onRetry: () => void; onDismiss: () => void }) {
   const lower = message.toLowerCase();
-  const isConnRefused =
-    lower.includes('connection refused') ||
-    lower.includes('econnrefused') ||
-    lower.includes('errno = 61') ||
-    lower.includes('errno = 111') ||
-    lower.includes('failed to connect');
-  const isNetwork =
-    !isConnRefused &&
-    (lower.includes('socketexception') ||
-      lower.includes('handshakeexception') ||
-      lower.includes('network is unreachable') ||
-      lower.includes('failed host lookup') ||
-      lower.includes('errno = 8') ||
-      lower.includes('errno = 65'));
-  const isTimeout =
-    !isConnRefused &&
-    !isNetwork &&
-    (lower.includes('timeout') || lower.includes('timed out'));
+  const isConnRefused = lower.includes('connection refused') || lower.includes('econnrefused') || lower.includes('errno = 61') || lower.includes('errno = 111') || lower.includes('failed to connect');
+  const isNetwork = !isConnRefused && (lower.includes('socketexception') || lower.includes('handshakeexception') || lower.includes('network is unreachable') || lower.includes('failed host lookup') || lower.includes('errno = 8') || lower.includes('errno = 65'));
+  const isTimeout = !isConnRefused && !isNetwork && (lower.includes('timeout') || lower.includes('timed out'));
 
   let title: string;
   let hint: string | null;
   if (isConnRefused) {
     title = t('detail.error.connRefused.title', '无法连接到 AI 服务');
-    hint = t(
-      'detail.error.connRefused.hint',
-      '后端拒绝连接：请确认 Base URL 与端口可访问，确认代理（如 Clash）端口/规则正确，或切换至备用模型/服务商再试。',
-    );
+    hint = t('detail.error.connRefused.hint', '后端拒绝连接：请确认 Base URL 与端口可访问，确认代理（如 Clash）端口/规则正确，或切换至备用模型/服务商再试。');
   } else if (isNetwork) {
     title = t('detail.error.network.title', '网络异常');
-    hint = t(
-      'detail.error.network.hint',
-      '请求未能完成：检查本机网络连接、DNS 与代理设置；如使用专线/VPN 请确认隧道在线。',
-    );
+    hint = t('detail.error.network.hint', '请求未能完成：检查本机网络连接、DNS 与代理设置；如使用专线/VPN 请确认隧道在线。');
   } else if (isTimeout) {
     title = t('detail.error.timeout.title', '请求超时');
-    hint = t(
-      'detail.error.timeout.hint',
-      '远端长时间未响应：可重试一次；若持续超时请尝试更小的输入或切换模型。',
-    );
+    hint = t('detail.error.timeout.hint', '远端长时间未响应：可重试一次；若持续超时请尝试更小的输入或切换模型。');
   } else {
     title = t('detail.lastError', '最近错误：');
     hint = null;
@@ -4552,11 +4032,9 @@ function ErrorBanner({
 
   const copyText = async () => {
     const ok = await copyTextToClipboard(message);
-    showSnackbar(ok
-      ? t('detail.error.copy.ok', '已复制错误详情')
-      : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
-        tone: ok ? 'success' : 'error',
-      });
+    showSnackbar(ok ? t('detail.error.copy.ok', '已复制错误详情') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
   };
 
   return (
@@ -4572,9 +4050,13 @@ function ErrorBanner({
     >
       <div class="oh-session-error-content flex items-start gap-2">
         <div class="flex-1 min-w-0">
-          <div class="oh-session-error-title" style={{ color: 'var(--m3-error)', fontWeight: 600 }}>{title}</div>
+          <div class="oh-session-error-title" style={{ color: 'var(--m3-error)', fontWeight: 600 }}>
+            {title}
+          </div>
           {hint ? (
-            <div class="oh-session-error-hint" style={{ color: 'var(--m3-on-surface-variant)', marginTop: 2 }}>{hint}</div>
+            <div class="oh-session-error-hint" style={{ color: 'var(--m3-on-surface-variant)', marginTop: 2 }}>
+              {hint}
+            </div>
           ) : null}
           <div
             class="oh-session-error-message"
@@ -4666,13 +4148,7 @@ function ErrorBanner({
 
 /// 消息审计弹窗：展示原始 JSON（id / kind / role / metadata / created_at / character_count），
 /// 用于排查 tool_call 元数据 / 文件变动等问题。复用全局对话框样式。
-function MessageAuditDialog({
-  message,
-  onClose,
-}: {
-  message: SessionMessage;
-  onClose: () => void;
-}) {
+function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onClose: () => void }) {
   const json = JSON.stringify(message, null, 2);
   const { closing, requestClose } = useDialogExitMotion(onClose);
   return (
@@ -4694,69 +4170,64 @@ function MessageAuditDialog({
       ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
     >
       <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <h2 class="text-base font-semibold min-w-0 truncate">{t('common.audit', '审计')} · {message.id}</h2>
-          <div class="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void copyJsonWithFeedback(json)}
-            >
-              <ComposerIcon name="copy" size={14} />
-              <span>{t('common.copy', '复制')}</span>
-            </button>
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={requestClose}
-            >
-              <ComposerIcon name="close" size={14} />
-              <span>{t('common.close', '关闭')}</span>
-            </button>
-          </div>
-        </header>
-        <pre
-          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline)',
-            maxHeight: 'calc(80vh - 96px)',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          }}
-        >
-          {json}
-        </pre>
+        <h2 class="text-base font-semibold min-w-0 truncate">
+          {t('common.audit', '审计')} · {message.id}
+        </h2>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-primary)',
+              border: '1px solid var(--m3-outline)',
+            }}
+            onClick={() => void copyJsonWithFeedback(json)}
+          >
+            <ComposerIcon name="copy" size={14} />
+            <span>{t('common.copy', '复制')}</span>
+          </button>
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              background: 'transparent',
+            }}
+            onClick={requestClose}
+          >
+            <ComposerIcon name="close" size={14} />
+            <span>{t('common.close', '关闭')}</span>
+          </button>
+        </div>
+      </header>
+      <pre
+        class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline)',
+          maxHeight: 'calc(80vh - 96px)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        }}
+      >
+        {json}
+      </pre>
     </DialogFrame>
   );
 }
 
-function SessionTokenStatsDialog({
-  detail,
-  onClose,
-}: {
-  detail: SessionDetailResponse;
-  onClose: () => void;
-}) {
-  const [trendDisplayMode, setTrendDisplayMode] =
-    useState<CacheHitDisplayMode>('excludeExtremeMisses');
+function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailResponse; onClose: () => void }) {
+  const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const stats = session.statistics ?? {};
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
   const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
   const promptTokens = Math.max(0, promptTokensTotal - firstPrompt);
-  const completionTokens = readStatNumber(
-    stats['total_completion_tokens'],
-    session.total_completion_tokens,
-  );
+  const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
   const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
-  const totalTokens = readStatNumber(
-    stats['total_tokens'],
-    session.total_tokens ?? promptTokensTotal + completionTokens,
-  );
+  const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? promptTokensTotal + completionTokens);
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
@@ -4765,11 +4236,8 @@ function SessionTokenStatsDialog({
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
   const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
-  const cacheHitRatio =
-    backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
-  const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as
-    | SessionCacheHitTrendPoint[]
-    | undefined;
+  const cacheHitRatio = backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
+  const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
   const trendData = useMemo<{
     points: TrendPoint[];
     averageRatio: number;
@@ -4789,12 +4257,8 @@ function SessionTokenStatsDialog({
   // SessionCacheHitTrend.displayData 生成），而非客户端聚合公式。
   const cacheHitFrac = cacheHitRatio / 100;
   const hasWrite = cacheWriteTokens > 0;
-  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
-      ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens))
-      : cacheHitFrac;
-  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
-      ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens))
-      : 0;
+  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0 ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens)) : cacheHitFrac;
+  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0 ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens)) : 0;
   const missWeight = 1 - cacheHitFrac;
   return (
     <DialogFrame
@@ -4815,75 +4279,64 @@ function SessionTokenStatsDialog({
       ariaLabel={t('topbar.tokens', 'Token 统计')}
     >
       <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
-            <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {session.title || t('sessions.untitled', '未命名会话')}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
-            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-            onClick={requestClose}
-          >
-            {t('common.close', '关闭')}
-          </button>
-        </header>
-        <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-          <TokenStatsSection title={t('tokenPopup.input', '输入')}>
-            <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
-            <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
-            <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
-          </TokenStatsSection>
-          <TokenStatsSection title={t('tokenPopup.output', '输出')}>
-            <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
-            {reasoningTokens > 0 ? (
-              <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" />
-            ) : null}
-          </TokenStatsSection>
-          <div
-            class="rounded-m3-md px-3 py-2.5"
-            style={{
-              background: 'var(--m3-primary-container)',
-              color: 'var(--m3-on-primary-container)',
-              border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
-            }}
-          >
-            <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
-            {(cacheReadTokens > 0 || cacheWriteTokens > 0) ? (
-              <>
-                <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
-                <CacheHitBar
-                  readWeight={readWeight}
-                  writeWeight={writeWeight}
-                  missWeight={missWeight}
-                />
-                {(() => {
-                  if (!trendData || trendData.points.length === 0) return null;
-                  return (
-                    <div style={{ marginTop: '8px' }}>
-                      <CacheHitTrendChart
-                        points={trendData.points}
-                        averageRatio={trendData.averageRatio}
-                        claudeStyle={claudeStyle}
-                        height={136}
-                        displayMode={trendDisplayMode}
-                        onDisplayModeChange={setTrendDisplayMode}
-                        t={t}
-                      />
-                    </div>
-                  );
-                })()}
-              </>
-            ) : null}
-          </div>
-          <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
-            <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
-            <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
-            <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
-          </TokenStatsSection>
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
+          <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {session.title || t('sessions.untitled', '未命名会话')}
+          </p>
         </div>
+        <button
+          type="button"
+          class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
+          style={{
+            color: 'var(--m3-on-surface-variant)',
+            background: 'transparent',
+          }}
+          onClick={requestClose}
+        >
+          {t('common.close', '关闭')}
+        </button>
+      </header>
+      <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <TokenStatsSection title={t('tokenPopup.input', '输入')}>
+          <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
+          <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
+          <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
+        </TokenStatsSection>
+        <TokenStatsSection title={t('tokenPopup.output', '输出')}>
+          <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
+          {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" /> : null}
+        </TokenStatsSection>
+        <div
+          class="rounded-m3-md px-3 py-2.5"
+          style={{
+            background: 'var(--m3-primary-container)',
+            color: 'var(--m3-on-primary-container)',
+            border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
+          }}
+        >
+          <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
+          {cacheReadTokens > 0 || cacheWriteTokens > 0 ? (
+            <>
+              <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
+              <CacheHitBar readWeight={readWeight} writeWeight={writeWeight} missWeight={missWeight} />
+              {(() => {
+                if (!trendData || trendData.points.length === 0) return null;
+                return (
+                  <div style={{ marginTop: '8px' }}>
+                    <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={setTrendDisplayMode} t={t} />
+                  </div>
+                );
+              })()}
+            </>
+          ) : null}
+        </div>
+        <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
+          <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
+          <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
+          <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
+        </TokenStatsSection>
+      </div>
     </DialogFrame>
   );
 }
@@ -4902,9 +4355,7 @@ function computeContextBreakdown(messages: SessionMessage[]): ContextStatsBreakd
   let otherChars = 0;
   for (const msg of messages) {
     if ((msg as { is_deleted?: boolean }).is_deleted) continue;
-    const chars = typeof msg.character_count === 'number' && msg.character_count >= 0
-      ? msg.character_count
-      : (msg.content ?? '').length;
+    const chars = typeof msg.character_count === 'number' && msg.character_count >= 0 ? msg.character_count : (msg.content ?? '').length;
     switch (msg.kind) {
       case 'user':
         userChars += chars;
@@ -4933,8 +4384,7 @@ function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: numbe
       return t('contextStats.success', '已生成压缩检查点。');
     case 'cooldown': {
       const secs = Math.max(1, Math.round((retryAfterMs ?? 30000) / 1000));
-      return t('contextStats.cooldown', '刚刚已经压缩过，约 {secs} 秒后再试。')
-        .replace('{secs}', String(secs));
+      return t('contextStats.cooldown', '刚刚已经压缩过，约 {secs} 秒后再试。').replace('{secs}', String(secs));
     }
     case 'not_needed':
       return t('contextStats.notNeeded', '当前占用过低或没有可压缩的历史。');
@@ -4953,19 +4403,7 @@ function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: numbe
   }
 }
 
-function SessionContextStatsDialog({
-  detail,
-  messages,
-  modelKey,
-  onClose,
-  onCompacted,
-}: {
-  detail: SessionDetailResponse;
-  messages: SessionMessage[];
-  modelKey: string;
-  onClose: () => void;
-  onCompacted: () => void;
-}) {
+function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onCompacted }: { detail: SessionDetailResponse; messages: SessionMessage[]; modelKey: string; onClose: () => void; onCompacted: () => void }) {
   const session = detail.session;
   const meta = asRecord(session.last_prompt_metadata);
   const estimatedTokens = asInt(meta['context_budget_estimated_prompt_tokens']);
@@ -4978,41 +4416,44 @@ function SessionContextStatsDialog({
   const status = String(meta['context_budget_status'] ?? '').trim();
 
   const breakdown = useMemo(() => computeContextBreakdown(messages), [messages]);
-  const totalChars = breakdown.userChars + breakdown.assistantChars +
-    breakdown.toolChars + breakdown.otherChars;
+  const totalChars = breakdown.userChars + breakdown.assistantChars + breakdown.toolChars + breakdown.otherChars;
   const stats = session.statistics ?? {};
-  const cumulativePromptTokens = readStatNumber(
-    stats['total_prompt_tokens'],
-    session.total_prompt_tokens ?? 0,
-  );
-  const cumulativeCompletionTokens = readStatNumber(
-    stats['total_completion_tokens'],
-    session.total_completion_tokens ?? 0,
-  );
-  const cumulativeTokens = readStatNumber(
-    stats['total_tokens'],
-    session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens,
-  );
+  const cumulativePromptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens ?? 0);
+  const cumulativeCompletionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens ?? 0);
+  const cumulativeTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens);
 
   const [busy, setBusy] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [resultIsError, setResultIsError] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
-  const disableCompact = estimatedTokens <= 0 ||
-    (percentLeft >= 0 && percentLeft > 85) ||
-    usagePercent < 10 ||
-    busy;
+  const disableCompact = estimatedTokens <= 0 || (percentLeft >= 0 && percentLeft > 85) || usagePercent < 10 || busy;
 
-  const statusBadge = status === 'critical'
-    ? { color: 'var(--m3-error)', label: t('topbar.contextBudget.critical', '危险') }
-    : status === 'auto_compact'
-      ? { color: 'var(--m3-tertiary)', label: t('topbar.contextBudget.compact', '压缩') }
-      : status === 'warning'
-        ? { color: '#e07a00', label: t('topbar.contextBudget.warning', '偏高') }
-        : status === 'ok'
-          ? { color: 'var(--m3-primary)', label: t('topbar.contextBudget.ok', '正常') }
-          : { color: 'var(--m3-outline)', label: t('topbar.contextBudget.unknown', '未知') };
+  const statusBadge =
+    status === 'critical'
+      ? {
+          color: 'var(--m3-error)',
+          label: t('topbar.contextBudget.critical', '危险'),
+        }
+      : status === 'auto_compact'
+        ? {
+            color: 'var(--m3-tertiary)',
+            label: t('topbar.contextBudget.compact', '压缩'),
+          }
+        : status === 'warning'
+          ? {
+              color: '#e07a00',
+              label: t('topbar.contextBudget.warning', '偏高'),
+            }
+          : status === 'ok'
+            ? {
+                color: 'var(--m3-primary)',
+                label: t('topbar.contextBudget.ok', '正常'),
+              }
+            : {
+                color: 'var(--m3-outline)',
+                label: t('topbar.contextBudget.unknown', '未知'),
+              };
 
   async function handleCompactPressed() {
     if (busy) return;
@@ -5025,10 +4466,7 @@ function SessionContextStatsDialog({
       setResultIsError(!response.ok);
       if (response.ok) onCompacted();
     } catch (error) {
-      setResultMessage(
-        t('contextStats.error', '压缩请求失败：{detail}')
-          .replace('{detail}', error instanceof Error ? error.message : String(error)),
-      );
+      setResultMessage(t('contextStats.error', '压缩请求失败：{detail}').replace('{detail}', error instanceof Error ? error.message : String(error)));
       setResultIsError(true);
     } finally {
       setBusy(false);
@@ -5036,10 +4474,30 @@ function SessionContextStatsDialog({
   }
 
   const breakdownRows = [
-    { key: 'user', label: t('contextStats.user', '用户'), chars: breakdown.userChars, color: 'var(--m3-primary)' },
-    { key: 'assistant', label: t('contextStats.assistant', 'AI 回复'), chars: breakdown.assistantChars, color: 'var(--m3-secondary)' },
-    { key: 'tool', label: t('contextStats.tool', '工具'), chars: breakdown.toolChars, color: 'var(--m3-tertiary)' },
-    { key: 'other', label: t('contextStats.other', '附件 / 其他'), chars: breakdown.otherChars, color: 'var(--m3-outline)' },
+    {
+      key: 'user',
+      label: t('contextStats.user', '用户'),
+      chars: breakdown.userChars,
+      color: 'var(--m3-primary)',
+    },
+    {
+      key: 'assistant',
+      label: t('contextStats.assistant', 'AI 回复'),
+      chars: breakdown.assistantChars,
+      color: 'var(--m3-secondary)',
+    },
+    {
+      key: 'tool',
+      label: t('contextStats.tool', '工具'),
+      chars: breakdown.toolChars,
+      color: 'var(--m3-tertiary)',
+    },
+    {
+      key: 'other',
+      label: t('contextStats.other', '附件 / 其他'),
+      chars: breakdown.otherChars,
+      color: 'var(--m3-outline)',
+    },
   ];
 
   return (
@@ -5060,155 +4518,116 @@ function SessionContextStatsDialog({
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
       <header class="mb-4 flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
-            <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {session.title || t('sessions.untitled', '未命名会话')}
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
+          <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {session.title || t('sessions.untitled', '未命名会话')}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
+          style={{
+            color: 'var(--m3-on-surface-variant)',
+            background: 'transparent',
+          }}
+          onClick={requestClose}
+          disabled={busy}
+        >
+          {t('common.close', '关闭')}
+        </button>
+      </header>
+      <div class="space-y-4">
+        <section
+          class="rounded-m3-md p-3"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <ContextStatsRow label={t('contextStats.estimated', '估算 prompt tokens')} value={estimatedTokens > 0 ? estimatedTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
+          <ContextStatsRow label={t('contextStats.usage', '占用 / 剩余')} value={estimatedTokens > 0 && percentLeft >= 0 ? `${usagePercent}% · ${Math.round(percentLeft)}%` : t('contextStats.empty', '暂无')} valueColor={statusBadge.color} suffix={statusBadge.label} />
+          <ContextStatsRow label={t('contextStats.window', '有效窗口 tokens')} value={effectiveWindow > 0 ? `${effectiveWindow.toLocaleString()}${inferred ? '*' : ''}` : t('contextStats.empty', '暂无')} />
+          <ContextStatsRow label={t('contextStats.remaining', '剩余 tokens')} value={remainingTokens > 0 ? remainingTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
+        </section>
+        <section
+          class="rounded-m3-md p-3"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <h3 class="mb-2 text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('contextStats.breakdown', '会话历史字符占比')}
+          </h3>
+          {totalChars <= 0 ? (
+            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {t('contextStats.empty.history', '暂无历史。')}
             </p>
+          ) : (
+            <div class="space-y-2">
+              {breakdownRows.map((row) => (
+                <ContextBreakdownBar key={row.key} label={row.label} chars={row.chars} totalChars={totalChars} color={row.color} />
+              ))}
+            </div>
+          )}
+        </section>
+        <section
+          class="rounded-m3-md p-3"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          <ContextStatsRow label={t('contextStats.cumulativePrompt', '历史累计 prompt tokens')} value={cumulativePromptTokens.toLocaleString()} />
+          <ContextStatsRow label={t('contextStats.cumulativeCompletion', '历史累计输出 tokens')} value={cumulativeCompletionTokens.toLocaleString()} />
+          <ContextStatsRow label={t('contextStats.cumulativeTotal', '历史总 tokens')} value={cumulativeTokens.toLocaleString()} emphasized />
+        </section>
+        {resultMessage ? (
+          <div
+            class="rounded-m3-sm px-3 py-2 text-xs"
+            style={{
+              background: resultIsError ? 'color-mix(in srgb, var(--m3-error-container) 60%, transparent)' : 'color-mix(in srgb, var(--m3-primary-container) 60%, transparent)',
+              color: resultIsError ? 'var(--m3-on-error-container)' : 'var(--m3-on-primary-container)',
+              border: `1px solid ${resultIsError ? 'var(--m3-error)' : 'var(--m3-primary)'}`,
+            }}
+          >
+            {resultMessage}
           </div>
+        ) : null}
+        {inferred ? (
+          <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('contextStats.inferred', '* 模型未声明 maxContextTokens，按 128000 估算。')}
+          </p>
+        ) : null}
+        <div class="flex justify-end">
           <button
             type="button"
-            class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
-            style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-            onClick={requestClose}
-            disabled={busy}
+            class="oh-tap-press rounded-m3-md px-4 py-2 text-sm font-semibold"
+            style={{
+              background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
+              color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
+              cursor: disableCompact ? 'not-allowed' : 'pointer',
+              opacity: disableCompact ? 0.7 : 1,
+            }}
+            disabled={disableCompact}
+            onClick={() => void handleCompactPressed()}
           >
-            {t('common.close', '关闭')}
+            {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '立即压缩')}
           </button>
-        </header>
-        <div class="space-y-4">
-          <section
-            class="rounded-m3-md p-3"
-            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-          >
-            <ContextStatsRow
-              label={t('contextStats.estimated', '估算 prompt tokens')}
-              value={estimatedTokens > 0 ? estimatedTokens.toLocaleString() : t('contextStats.empty', '暂无')}
-            />
-            <ContextStatsRow
-              label={t('contextStats.usage', '占用 / 剩余')}
-              value={estimatedTokens > 0 && percentLeft >= 0
-                ? `${usagePercent}% · ${Math.round(percentLeft)}%`
-                : t('contextStats.empty', '暂无')}
-              valueColor={statusBadge.color}
-              suffix={statusBadge.label}
-            />
-            <ContextStatsRow
-              label={t('contextStats.window', '有效窗口 tokens')}
-              value={effectiveWindow > 0
-                ? `${effectiveWindow.toLocaleString()}${inferred ? '*' : ''}`
-                : t('contextStats.empty', '暂无')}
-            />
-            <ContextStatsRow
-              label={t('contextStats.remaining', '剩余 tokens')}
-              value={remainingTokens > 0 ? remainingTokens.toLocaleString() : t('contextStats.empty', '暂无')}
-            />
-          </section>
-          <section
-            class="rounded-m3-md p-3"
-            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-          >
-            <h3 class="mb-2 text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('contextStats.breakdown', '会话历史字符占比')}
-            </h3>
-            {totalChars <= 0 ? (
-              <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-                {t('contextStats.empty.history', '暂无历史。')}
-              </p>
-            ) : (
-              <div class="space-y-2">
-                {breakdownRows.map((row) => (
-                  <ContextBreakdownBar
-                    key={row.key}
-                    label={row.label}
-                    chars={row.chars}
-                    totalChars={totalChars}
-                    color={row.color}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-          <section
-            class="rounded-m3-md p-3"
-            style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
-          >
-            <ContextStatsRow
-              label={t('contextStats.cumulativePrompt', '历史累计 prompt tokens')}
-              value={cumulativePromptTokens.toLocaleString()}
-            />
-            <ContextStatsRow
-              label={t('contextStats.cumulativeCompletion', '历史累计输出 tokens')}
-              value={cumulativeCompletionTokens.toLocaleString()}
-            />
-            <ContextStatsRow
-              label={t('contextStats.cumulativeTotal', '历史总 tokens')}
-              value={cumulativeTokens.toLocaleString()}
-              emphasized
-            />
-          </section>
-          {resultMessage ? (
-            <div
-              class="rounded-m3-sm px-3 py-2 text-xs"
-              style={{
-                background: resultIsError
-                  ? 'color-mix(in srgb, var(--m3-error-container) 60%, transparent)'
-                  : 'color-mix(in srgb, var(--m3-primary-container) 60%, transparent)',
-                color: resultIsError ? 'var(--m3-on-error-container)' : 'var(--m3-on-primary-container)',
-                border: `1px solid ${resultIsError ? 'var(--m3-error)' : 'var(--m3-primary)'}`,
-              }}
-            >
-              {resultMessage}
-            </div>
-          ) : null}
-          {inferred ? (
-            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('contextStats.inferred', '* 模型未声明 maxContextTokens，按 128000 估算。')}
-            </p>
-          ) : null}
-          <div class="flex justify-end">
-            <button
-              type="button"
-              class="oh-tap-press rounded-m3-md px-4 py-2 text-sm font-semibold"
-              style={{
-                background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
-                color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
-                cursor: disableCompact ? 'not-allowed' : 'pointer',
-                opacity: disableCompact ? 0.7 : 1,
-              }}
-              disabled={disableCompact}
-              onClick={() => void handleCompactPressed()}
-            >
-              {busy
-                ? t('contextStats.busy', '正在压缩…')
-                : t('contextStats.action', '立即压缩')}
-            </button>
-          </div>
         </div>
+      </div>
     </DialogFrame>
   );
 }
 
-function ContextStatsRow({
-  label,
-  value,
-  valueColor,
-  suffix,
-  emphasized = false,
-}: {
-  label: string;
-  value: string;
-  valueColor?: string;
-  suffix?: string;
-  emphasized?: boolean;
-}) {
+function ContextStatsRow({ label, value, valueColor, suffix, emphasized = false }: { label: string; value: string; valueColor?: string; suffix?: string; emphasized?: boolean }) {
   return (
     <div class="flex items-baseline justify-between gap-3 py-1">
-      <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
-      <span
-        class={emphasized ? 'text-base font-bold tabular-nums' : 'text-sm font-semibold tabular-nums'}
-        style={{ color: valueColor ?? 'var(--m3-on-surface)' }}
-      >
+      <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {label}
+      </span>
+      <span class={emphasized ? 'text-base font-bold tabular-nums' : 'text-sm font-semibold tabular-nums'} style={{ color: valueColor ?? 'var(--m3-on-surface)' }}>
         {value}
         {suffix ? <span class="ml-1 text-xs font-normal">· {suffix}</span> : null}
       </span>
@@ -5216,26 +4635,23 @@ function ContextStatsRow({
   );
 }
 
-function ContextBreakdownBar({
-  label,
-  chars,
-  totalChars,
-  color,
-}: {
-  label: string;
-  chars: number;
-  totalChars: number;
-  color: string;
-}) {
+function ContextBreakdownBar({ label, chars, totalChars, color }: { label: string; chars: number; totalChars: number; color: string }) {
   const ratio = totalChars <= 0 ? 0 : chars / totalChars;
   const percent = (ratio * 100).toFixed(1);
   return (
     <div>
       <div class="flex items-baseline justify-between text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
         <span>{label}</span>
-        <span class="tabular-nums">{chars.toLocaleString()} · {percent}%</span>
+        <span class="tabular-nums">
+          {chars.toLocaleString()} · {percent}%
+        </span>
       </div>
-      <div class="mt-1 h-1.5 w-full overflow-hidden rounded" style={{ background: 'color-mix(in srgb, ' + color + ' 18%, transparent)' }}>
+      <div
+        class="mt-1 h-1.5 w-full overflow-hidden rounded"
+        style={{
+          background: 'color-mix(in srgb, ' + color + ' 18%, transparent)',
+        }}
+      >
         <div
           class="h-full"
           style={{
@@ -5253,7 +4669,10 @@ function TokenStatsSection({ title, children }: { title: string; children: Compo
   return (
     <section
       class="rounded-m3-md p-3"
-      style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+      style={{
+        background: 'var(--m3-surface)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
     >
       <h3 class="mb-2 text-[11px] font-semibold uppercase" style={{ color: 'var(--m3-on-surface-variant)' }}>
         {title}
@@ -5266,15 +4685,7 @@ function TokenStatsSection({ title, children }: { title: string; children: Compo
 /// Three-segment cache hit visualisation: green = cache_read, amber =
 /// cache_creation (write), neutral = remaining un-cached prompt. Mirrors
 /// the App-side _CacheHitBar so users get the same shape across platforms.
-function CacheHitBar({
-  readWeight,
-  writeWeight,
-  missWeight,
-}: {
-  readWeight: number;
-  writeWeight: number;
-  missWeight: number;
-}) {
+function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: number; writeWeight: number; missWeight: number }) {
   const safe = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
   const r = safe(readWeight);
   const w = safe(writeWeight);
@@ -5282,11 +4693,7 @@ function CacheHitBar({
   const sum = r + w + m;
   if (sum <= 0) return null;
   return (
-    <div
-      class="mt-2 h-2 overflow-hidden rounded-full"
-      style={{ background: 'var(--m3-surface-variant)' }}
-      title={t('tokenPopup.cacheHitBar.title', '左：cache_read · 中：cache_write · 右：未缓存 prompt')}
-    >
+    <div class="mt-2 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-variant)' }} title={t('tokenPopup.cacheHitBar.title', '左：cache_read · 中：cache_write · 右：未缓存 prompt')}>
       <div class="flex h-full">
         {r > 0 ? (
           <div
@@ -5320,31 +4727,12 @@ function CacheHitBar({
   );
 }
 
-function TokenStatsRow({
-  label,
-  value,
-  suffix = '',
-  tone = 'neutral',
-  emphasized = false,
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-  tone?: 'neutral' | 'success' | 'reasoning';
-  emphasized?: boolean;
-}) {
-  const color = tone === 'success'
-    ? 'var(--m3-secondary)'
-    : tone === 'reasoning'
-      ? 'var(--m3-tertiary)'
-      : 'var(--m3-on-surface)';
+function TokenStatsRow({ label, value, suffix = '', tone = 'neutral', emphasized = false }: { label: string; value: number; suffix?: string; tone?: 'neutral' | 'success' | 'reasoning'; emphasized?: boolean }) {
+  const color = tone === 'success' ? 'var(--m3-secondary)' : tone === 'reasoning' ? 'var(--m3-tertiary)' : 'var(--m3-on-surface)';
   return (
     <div class="flex items-center justify-between gap-3 text-sm">
       <span style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
-      <span
-        class={emphasized ? 'text-base font-bold tabular-nums' : 'font-semibold tabular-nums'}
-        style={{ color }}
-      >
+      <span class={emphasized ? 'text-base font-bold tabular-nums' : 'font-semibold tabular-nums'} style={{ color }}>
         <RollingText text={`${value.toLocaleString()}${suffix}`} />
       </span>
     </div>
@@ -5372,7 +4760,9 @@ function readStatNumber(value: unknown, fallback: unknown): number {
 }
 
 function usesClaudeStyleCacheMath(protocol: unknown): boolean {
-  const normalized = String(protocol ?? '').trim().toLowerCase();
+  const normalized = String(protocol ?? '')
+    .trim()
+    .toLowerCase();
   return normalized === 'claude';
 }
 
@@ -5421,15 +4811,7 @@ function contextBudgetToolbarLabel(metadata: Record<string, unknown>): string | 
   if (estimatedTokens <= 0) return null;
   const percentLeft = asInt(metadata['context_budget_percent_left']);
   const status = String(metadata['context_budget_status'] ?? '').trim();
-  const statusLabel = status === 'critical'
-    ? t('topbar.contextBudget.critical', '危险')
-    : status === 'auto_compact'
-      ? t('topbar.contextBudget.compact', '压缩')
-      : status === 'warning'
-        ? t('topbar.contextBudget.warning', '偏高')
-        : status === 'ok'
-          ? t('topbar.contextBudget.ok', '正常')
-          : t('topbar.contextBudget.unknown', '未知');
+  const statusLabel = status === 'critical' ? t('topbar.contextBudget.critical', '危险') : status === 'auto_compact' ? t('topbar.contextBudget.compact', '压缩') : status === 'warning' ? t('topbar.contextBudget.warning', '偏高') : status === 'ok' ? t('topbar.contextBudget.ok', '正常') : t('topbar.contextBudget.unknown', '未知');
   return `${t('topbar.contextBudget', '上下文')} ${percentLeft}% · ${statusLabel}`;
 }
 
@@ -5445,9 +4827,7 @@ function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null 
     return {
       key: 'mcp-lazy-loading',
       icon: 'runtime',
-      label: t('topbar.mcpLazyLoading', 'MCP {loaded}/{total}')
-        .replace('{loaded}', String(loaded))
-        .replace('{total}', String(total)),
+      label: t('topbar.mcpLazyLoading', 'MCP {loaded}/{total}').replace('{loaded}', String(loaded)).replace('{total}', String(total)),
       title: notice,
     };
   }
@@ -5546,15 +4926,7 @@ function runtimeGateReasonLabel(reason: string): string {
   }
 }
 
-function SessionMetadataDialog({
-  detail,
-  messages,
-  onClose,
-}: {
-  detail: SessionDetailResponse;
-  messages: SessionMessage[];
-  onClose: () => void;
-}) {
+function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
@@ -5576,58 +4948,20 @@ function SessionMetadataDialog({
   const hasActivePlanState = Boolean(session.todo_items?.length) || Boolean((session.pending_plan ?? '').trim());
   let gateReason = String(lastPromptMetadata['runtime_tool_gate_reason'] ?? '').trim();
   if (!gateReason) {
-    gateReason = awaitingPlanApproval
-      ? 'awaiting_plan_approval'
-      : session.mode !== 'plan'
-        ? (hasPromptMetadata ? 'chat_mode' : 'no_runtime_snapshot')
-        : planRecoveryRequired
-          ? 'plan_mode_recovery_inspection'
-          : planExecutionApproved
-            ? 'plan_mode_execution'
-            : hasActivePlanState
-              ? 'plan_mode_planning_with_exit_allowed'
-              : 'plan_mode_planning_only';
+    gateReason = awaitingPlanApproval ? 'awaiting_plan_approval' : session.mode !== 'plan' ? (hasPromptMetadata ? 'chat_mode' : 'no_runtime_snapshot') : planRecoveryRequired ? 'plan_mode_recovery_inspection' : planExecutionApproved ? 'plan_mode_execution' : hasActivePlanState ? 'plan_mode_planning_with_exit_allowed' : 'plan_mode_planning_only';
   }
-  const runtimeModeLabel = session.mode !== 'plan'
-    ? '聊天模式'
-    : awaitingPlanApproval
-      ? '计划待审'
-      : planRecoveryRequired
-        ? '计划审阅'
-        : planExecutionApproved
-          ? '计划执行'
-          : hasActivePlanState
-            ? '计划草拟'
-            : '计划模式';
-  const toolCatalogState = !hasPromptMetadata
-    ? '暂无运行时快照'
-    : runtimeStale
-      ? '工具目录待刷新'
-      : '工具目录已同步';
+  const runtimeModeLabel = session.mode !== 'plan' ? '聊天模式' : awaitingPlanApproval ? '计划待审' : planRecoveryRequired ? '计划审阅' : planExecutionApproved ? '计划执行' : hasActivePlanState ? '计划草拟' : '计划模式';
+  const toolCatalogState = !hasPromptMetadata ? '暂无运行时快照' : runtimeStale ? '工具目录待刷新' : '工具目录已同步';
   const promptBudgetTokens = asInt(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
   const contextStatus = String(lastPromptMetadata['context_budget_status'] ?? 'unknown').trim();
-  const contextStatusLabel = contextStatus === 'critical'
-    ? '危险'
-    : contextStatus === 'auto_compact'
-      ? '需压缩'
-      : contextStatus === 'warning'
-        ? '偏高'
-        : contextStatus === 'ok'
-          ? '正常'
-          : '未知';
+  const contextStatusLabel = contextStatus === 'critical' ? '危险' : contextStatus === 'auto_compact' ? '需压缩' : contextStatus === 'warning' ? '偏高' : contextStatus === 'ok' ? '正常' : '未知';
   const usagePercent = asInt(lastPromptMetadata['context_budget_usage_percent']);
   const usageValue = Math.max(0, Math.min(100, usagePercent));
   const sidecarPath = String(rehydration['session_memory_sidecar_path'] ?? '').trim();
   const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
   const compressionRestored = latestCompressionPointMetadata['restored_from_compact_memory_sidecar'] === true;
   const hasCompressionPoint = Boolean(String(latestCompressionPoint['id'] ?? '').trim());
-  const sidecarStatus = !hasCompressionPoint
-    ? '未生成'
-    : compressionRestored
-      ? '已恢复'
-      : sidecarPresent
-        ? '已登记'
-        : '等待下次 Prompt 刷新';
+  const sidecarStatus = !hasCompressionPoint ? '未生成' : compressionRestored ? '已恢复' : sidecarPresent ? '已登记' : '等待下次 Prompt 刷新';
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
     if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
     if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
@@ -5645,21 +4979,28 @@ function SessionMetadataDialog({
 
   const SummaryTile = ({ label, value }: { label: string; value: string }) => (
     <div class="p-3.5" style={{ ...sectionStyle, width: '188px' }}>
-      <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
+      <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {label}
+      </div>
       <div class="mt-1.5 text-xl font-extrabold tabular-nums">{value}</div>
     </div>
   );
   const Chip = ({ label }: { label: string }) => (
     <span
       class="inline-flex rounded-full px-2.5 py-1.5 text-xs font-bold"
-      style={{ background: 'var(--m3-surface-container-highest)', color: 'var(--m3-on-surface)' }}
+      style={{
+        background: 'var(--m3-surface-container-highest)',
+        color: 'var(--m3-on-surface)',
+      }}
     >
       {label}
     </span>
   );
   const EntryRow = ({ label, value }: { label: string; value: ComponentChildren }) => (
     <div class="mb-2.5 min-w-0">
-      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
+      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {label}
+      </div>
       <div class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap select-text">{value}</div>
     </div>
   );
@@ -5672,7 +5013,10 @@ function SessionMetadataDialog({
   const JsonPanel = ({ content }: { content: unknown }) => (
     <pre
       class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap max-h-72"
-      style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}
+      style={{
+        background: 'var(--m3-surface)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
     >
       {JSON.stringify(content ?? {}, null, 2)}
     </pre>
@@ -5683,7 +5027,9 @@ function SessionMetadataDialog({
     return (
       <Section title="编程专家配置">
         {Object.keys(config).length === 0 ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>配置数据尚未写入会话元数据。</p>
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            配置数据尚未写入会话元数据。
+          </p>
         ) : (
           <>
             <EntryRow label="项目根目录" value={metadataValue(config['project_root'])} />
@@ -5702,7 +5048,9 @@ function SessionMetadataDialog({
     return (
       <Section title="Hardness Engineering 配置">
         {Object.keys(config).length === 0 ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。</p>
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。
+          </p>
         ) : (
           <>
             <EntryRow label="任务描述" value={metadataValue(config['task'])} />
@@ -5742,214 +5090,323 @@ function SessionMetadataDialog({
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
       <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div class="min-w-0">
-            <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
-            <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>{session.title}</p>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void copyJsonWithFeedback(JSON.stringify({ session, runtime: detail.runtime, loaded_messages: messages.length }, null, 2))}
-            >
-              <ComposerIcon name="copy" size={14} />
-              <span>{t('common.copy', '复制')}</span>
-            </button>
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={requestClose}
-            >
-              <ComposerIcon name="close" size={14} />
-              <span>{t('common.close', '关闭')}</span>
-            </button>
-          </div>
-        </header>
-        <div class="flex flex-wrap gap-3 mb-4">
-          <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
-          <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
-          <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
-          <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
-          <SummaryTile label="当前模式" value={runtimeModeLabel} />
-          <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
+        <div class="min-w-0">
+          <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
+          <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {session.title}
+          </p>
         </div>
-        <div class="overflow-auto pr-1 flex-1 min-h-0">
-          <div class="flex flex-col gap-4">
-            <Section title="会话概览">
-              <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
-              <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
-              <EntryRow label={metadataFieldLabel('created_at')} value={formatDialogDate(session.created_at)} />
-              <EntryRow label={metadataFieldLabel('updated_at')} value={formatDialogDate(session.updated_at)} />
-              <EntryRow label={metadataFieldLabel('last_model')} value={session.last_used_model_label || session.last_used_model_id || '—'} />
-              <EntryRow label={metadataFieldLabel('auto_title_acquired')} value={session.auto_title_acquired ? '✓ 已获取' : '✗ 未获取'} />
-              <EntryRow label={metadataFieldLabel('auto_title_retry_count')} value={`${session.auto_title_retry_count ?? 0}`} />
-              <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
-              <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
+        <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-primary)',
+              border: '1px solid var(--m3-outline)',
+            }}
+            onClick={() =>
+              void copyJsonWithFeedback(
+                JSON.stringify(
+                  {
+                    session,
+                    runtime: detail.runtime,
+                    loaded_messages: messages.length,
+                  },
+                  null,
+                  2,
+                ),
+              )
+            }
+          >
+            <ComposerIcon name="copy" size={14} />
+            <span>{t('common.copy', '复制')}</span>
+          </button>
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              background: 'transparent',
+            }}
+            onClick={requestClose}
+          >
+            <ComposerIcon name="close" size={14} />
+            <span>{t('common.close', '关闭')}</span>
+          </button>
+        </div>
+      </header>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
+        <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
+        <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
+        <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
+        <SummaryTile label="当前模式" value={runtimeModeLabel} />
+        <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
+      </div>
+      <div class="overflow-auto pr-1 flex-1 min-h-0">
+        <div class="flex flex-col gap-4">
+          <Section title="会话概览">
+            <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
+            <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
+            <EntryRow label={metadataFieldLabel('created_at')} value={formatDialogDate(session.created_at)} />
+            <EntryRow label={metadataFieldLabel('updated_at')} value={formatDialogDate(session.updated_at)} />
+            <EntryRow label={metadataFieldLabel('last_model')} value={session.last_used_model_label || session.last_used_model_id || '—'} />
+            <EntryRow label={metadataFieldLabel('auto_title_acquired')} value={session.auto_title_acquired ? '✓ 已获取' : '✗ 未获取'} />
+            <EntryRow label={metadataFieldLabel('auto_title_retry_count')} value={`${session.auto_title_retry_count ?? 0}`} />
+            <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
+            <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
+          </Section>
+          {session.template_id === 'hardness_engineering' ? renderHardnessConfig() : null}
+          {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
+          {visibleMetadataEntries.length > 0 ? (
+            <Section title="扩展元数据">
+              {visibleMetadataEntries.map(([key, value]) => (
+                <EntryRow key={key} label={key} value={metadataValue(value)} />
+              ))}
             </Section>
-            {session.template_id === 'hardness_engineering' ? renderHardnessConfig() : null}
-            {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
-            {visibleMetadataEntries.length > 0 ? (
-              <Section title="扩展元数据">
-                {visibleMetadataEntries.map(([key, value]) => <EntryRow key={key} label={key} value={metadataValue(value)} />)}
-              </Section>
-            ) : null}
-            <Section title="统计信息">
-              <div class="flex flex-wrap gap-2 mb-3">
-                <Chip label={`用户 ${stats.user_message_count ?? 0}`} />
-                <Chip label={`助手 ${stats.assistant_message_count ?? 0}`} />
-                <Chip label={`工具 ${stats.tool_message_count ?? 0}`} />
-                <Chip label={`MCP ${stats.mcp_message_count ?? 0}`} />
-                <Chip label={`技能 ${stats.skill_message_count ?? 0}`} />
-                <Chip label={`压缩 ${stats.compression_point_count ?? 0}`} />
+          ) : null}
+          <Section title="统计信息">
+            <div class="flex flex-wrap gap-2 mb-3">
+              <Chip label={`用户 ${stats.user_message_count ?? 0}`} />
+              <Chip label={`助手 ${stats.assistant_message_count ?? 0}`} />
+              <Chip label={`工具 ${stats.tool_message_count ?? 0}`} />
+              <Chip label={`MCP ${stats.mcp_message_count ?? 0}`} />
+              <Chip label={`技能 ${stats.skill_message_count ?? 0}`} />
+              <Chip label={`压缩 ${stats.compression_point_count ?? 0}`} />
+            </div>
+            <EntryRow label={metadataFieldLabel('total_input_characters')} value={`${stats.total_input_characters ?? 0}`} />
+            <EntryRow label={metadataFieldLabel('total_output_characters')} value={`${stats.total_output_characters ?? 0}`} />
+            <EntryRow label={metadataFieldLabel('total_prompt_characters')} value={`${stats.total_prompt_characters ?? 0}`} />
+            <EntryRow label={metadataFieldLabel('last_prompt_system_message_count')} value={`${stats.last_prompt_system_message_count ?? 0}`} />
+            <EntryRow label={metadataFieldLabel('last_prompt_history_message_count')} value={`${stats.last_prompt_history_message_count ?? 0}`} />
+          </Section>
+          {promptBudgetTokens > 0 ? (
+            <Section title="上下文预算">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="h-2 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--m3-surface-container-highest)' }}>
+                  <div
+                    class="h-full rounded-full"
+                    style={{
+                      width: `${usageValue}%`,
+                      background: contextStatus === 'critical' ? 'var(--m3-error)' : 'var(--m3-primary)',
+                    }}
+                  />
+                </div>
+                <Chip label={contextStatusLabel} />
               </div>
-              <EntryRow label={metadataFieldLabel('total_input_characters')} value={`${stats.total_input_characters ?? 0}`} />
-              <EntryRow label={metadataFieldLabel('total_output_characters')} value={`${stats.total_output_characters ?? 0}`} />
-              <EntryRow label={metadataFieldLabel('total_prompt_characters')} value={`${stats.total_prompt_characters ?? 0}`} />
-              <EntryRow label={metadataFieldLabel('last_prompt_system_message_count')} value={`${stats.last_prompt_system_message_count ?? 0}`} />
-              <EntryRow label={metadataFieldLabel('last_prompt_history_message_count')} value={`${stats.last_prompt_history_message_count ?? 0}`} />
+              <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
+              <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
+              <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
+              <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
+              <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
+              <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
+              <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
             </Section>
-            {promptBudgetTokens > 0 ? (
-              <Section title="上下文预算">
-                <div class="flex items-center gap-3 mb-3">
-                  <div class="h-2 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--m3-surface-container-highest)' }}>
-                    <div class="h-full rounded-full" style={{ width: `${usageValue}%`, background: contextStatus === 'critical' ? 'var(--m3-error)' : 'var(--m3-primary)' }} />
-                  </div>
-                  <Chip label={contextStatusLabel} />
-                </div>
-                <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
-                <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
-                <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
-                <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
-                <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
-                <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
-                <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
-              </Section>
-            ) : null}
-            {Object.keys(rehydration).length > 0 ? (
-              <Section title="压缩后上下文恢复">
-                <EntryRow label={metadataFieldLabel('post_compact_active')} value={rehydration['active'] === true ? '启用' : '未启用'} />
-                <EntryRow label={metadataFieldLabel('checkpoint_message_id')} value={metadataValue(rehydration['checkpoint_message_id'])} />
-                <EntryRow label={metadataFieldLabel('checkpoint_created_at')} value={metadataValue(rehydration['checkpoint_created_at'])} />
-                <EntryRow label={metadataFieldLabel('runtime_tool_count')} value={`${asInt(rehydration['runtime_tool_count'])} (${asInt(rehydration['builtin_tool_count'])} builtin, ${asInt(rehydration['skill_tool_count'])} skill, ${asInt(rehydration['mcp_tool_count'])} MCP)`} />
-                <EntryRow label={metadataFieldLabel('restored_signal_counts')} value={`read_files=${asInt(rehydration['recent_read_file_count'])}, skills=${asInt(rehydration['invoked_skill_count'])}, mcp_instructions=${asInt(rehydration['mcp_server_instruction_count'])}, session_hooks=${asInt(rehydration['session_start_hook_count'])}, agent_results=${asInt(rehydration['agent_result_count'])}, deferred_tools=${asInt(rehydration['deferred_builtin_tool_count'])}, agent_types=${asInt(rehydration['agent_type_count'])}`} />
-                <div class="mt-2 mb-2 text-sm font-extrabold">恢复通道</div>
+          ) : null}
+          {Object.keys(rehydration).length > 0 ? (
+            <Section title="压缩后上下文恢复">
+              <EntryRow label={metadataFieldLabel('post_compact_active')} value={rehydration['active'] === true ? '启用' : '未启用'} />
+              <EntryRow label={metadataFieldLabel('checkpoint_message_id')} value={metadataValue(rehydration['checkpoint_message_id'])} />
+              <EntryRow label={metadataFieldLabel('checkpoint_created_at')} value={metadataValue(rehydration['checkpoint_created_at'])} />
+              <EntryRow label={metadataFieldLabel('runtime_tool_count')} value={`${asInt(rehydration['runtime_tool_count'])} (${asInt(rehydration['builtin_tool_count'])} builtin, ${asInt(rehydration['skill_tool_count'])} skill, ${asInt(rehydration['mcp_tool_count'])} MCP)`} />
+              <EntryRow label={metadataFieldLabel('restored_signal_counts')} value={`read_files=${asInt(rehydration['recent_read_file_count'])}, skills=${asInt(rehydration['invoked_skill_count'])}, mcp_instructions=${asInt(rehydration['mcp_server_instruction_count'])}, session_hooks=${asInt(rehydration['session_start_hook_count'])}, agent_results=${asInt(rehydration['agent_result_count'])}, deferred_tools=${asInt(rehydration['deferred_builtin_tool_count'])}, agent_types=${asInt(rehydration['agent_type_count'])}`} />
+              <div class="mt-2 mb-2 text-sm font-extrabold">恢复通道</div>
+              <div class="flex flex-wrap gap-2">
+                {asStringList(rehydration['restored_channels']).length === 0 ? (
+                  <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    暂无恢复通道。
+                  </span>
+                ) : (
+                  asStringList(rehydration['restored_channels']).map((item) => <Chip key={item} label={item} />)
+                )}
+              </div>
+            </Section>
+          ) : null}
+          {hasCompressionPoint || Object.keys(rehydration).length > 0 ? (
+            <Section title="压缩记忆 Sidecar">
+              <EntryRow label={metadataFieldLabel('compact_memory_sidecar_status')} value={sidecarStatus} />
+              <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_id')} value={metadataValue(latestCompressionPoint['id'])} />
+              <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_characters')} value={metadataValue(latestCompressionPoint['character_count'])} />
+              <EntryRow label={metadataFieldLabel('compact_memory_restored_from_sidecar')} value={boolLabel(compressionRestored)} />
+              <EntryRow label={metadataFieldLabel('compact_memory_sidecar_path')} value={sidecarPath || '—'} />
+            </Section>
+          ) : null}
+          <Section title="环境">
+            <EntryRow label={metadataFieldLabel('locale_tag')} value={metadataValue(environment['locale_tag'])} />
+            <EntryRow label={metadataFieldLabel('platform')} value={metadataValue(environment['platform'])} />
+            <EntryRow label={metadataFieldLabel('app_version')} value={`${environment['app_version'] ?? '—'} (${environment['app_build_number'] ?? '—'})`} />
+            <EntryRow label={metadataFieldLabel('compression_threshold_chars')} value={metadataValue(environment['compression_threshold_chars'])} />
+            <EntryRow label={metadataFieldLabel('single_round_tool_call_limit')} value={metadataValue(environment['single_round_tool_call_limit'])} />
+            <EntryRow label={metadataFieldLabel('sequential_tool_round_limit')} value={metadataValue(environment['sequential_tool_round_limit'])} />
+            <EntryRow label={metadataFieldLabel('application_directory')} value={metadataValue(environment['application_directory'])} />
+            <EntryRow label={metadataFieldLabel('home_directory')} value={metadataValue(environment['home_directory'])} />
+            <EntryRow label={metadataFieldLabel('settings_file')} value={metadataValue(environment['settings_file_path'])} />
+            <EntryRow label={metadataFieldLabel('skills_storage')} value={metadataValue(environment['skills_storage_path'])} />
+            <EntryRow label={metadataFieldLabel('mcp_servers_file')} value={metadataValue(environment['mcp_servers_file_path'])} />
+            <EntryRow label={metadataFieldLabel('user_memory_file')} value={metadataValue(environment['user_memory_file_path'])} />
+            <EntryRow label={metadataFieldLabel('sessions_directory')} value={metadataValue(environment['sessions_directory_path'])} />
+          </Section>
+          <Section title="命令策略">
+            {!hasPromptMetadata ? (
+              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                Prompt 元数据尚不可用。
+              </p>
+            ) : (
+              <>
+                <EntryRow label="写命令确认" value={lastPromptMetadata['write_command_confirmation_enabled'] === true ? '必需' : '不需要'} />
+                <EntryRow label="允许规则" value={`${asInt(lastPromptMetadata['allow_command_rule_count'])}`} />
                 <div class="flex flex-wrap gap-2">
-                  {asStringList(rehydration['restored_channels']).length === 0 ? <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无恢复通道。</span> : asStringList(rehydration['restored_channels']).map((item) => <Chip key={item} label={item} />)}
-                </div>
-              </Section>
-            ) : null}
-            {hasCompressionPoint || Object.keys(rehydration).length > 0 ? (
-              <Section title="压缩记忆 Sidecar">
-                <EntryRow label={metadataFieldLabel('compact_memory_sidecar_status')} value={sidecarStatus} />
-                <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_id')} value={metadataValue(latestCompressionPoint['id'])} />
-                <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_characters')} value={metadataValue(latestCompressionPoint['character_count'])} />
-                <EntryRow label={metadataFieldLabel('compact_memory_restored_from_sidecar')} value={boolLabel(compressionRestored)} />
-                <EntryRow label={metadataFieldLabel('compact_memory_sidecar_path')} value={sidecarPath || '—'} />
-              </Section>
-            ) : null}
-            <Section title="环境">
-              <EntryRow label={metadataFieldLabel('locale_tag')} value={metadataValue(environment['locale_tag'])} />
-              <EntryRow label={metadataFieldLabel('platform')} value={metadataValue(environment['platform'])} />
-              <EntryRow label={metadataFieldLabel('app_version')} value={`${environment['app_version'] ?? '—'} (${environment['app_build_number'] ?? '—'})`} />
-              <EntryRow label={metadataFieldLabel('compression_threshold_chars')} value={metadataValue(environment['compression_threshold_chars'])} />
-              <EntryRow label={metadataFieldLabel('single_round_tool_call_limit')} value={metadataValue(environment['single_round_tool_call_limit'])} />
-              <EntryRow label={metadataFieldLabel('sequential_tool_round_limit')} value={metadataValue(environment['sequential_tool_round_limit'])} />
-              <EntryRow label={metadataFieldLabel('application_directory')} value={metadataValue(environment['application_directory'])} />
-              <EntryRow label={metadataFieldLabel('home_directory')} value={metadataValue(environment['home_directory'])} />
-              <EntryRow label={metadataFieldLabel('settings_file')} value={metadataValue(environment['settings_file_path'])} />
-              <EntryRow label={metadataFieldLabel('skills_storage')} value={metadataValue(environment['skills_storage_path'])} />
-              <EntryRow label={metadataFieldLabel('mcp_servers_file')} value={metadataValue(environment['mcp_servers_file_path'])} />
-              <EntryRow label={metadataFieldLabel('user_memory_file')} value={metadataValue(environment['user_memory_file_path'])} />
-              <EntryRow label={metadataFieldLabel('sessions_directory')} value={metadataValue(environment['sessions_directory_path'])} />
-            </Section>
-            <Section title="命令策略">
-              {!hasPromptMetadata ? (
-                <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>Prompt 元数据尚不可用。</p>
-              ) : (
-                <>
-                  <EntryRow label="写命令确认" value={lastPromptMetadata['write_command_confirmation_enabled'] === true ? '必需' : '不需要'} />
-                  <EntryRow label="允许规则" value={`${asInt(lastPromptMetadata['allow_command_rule_count'])}`} />
-                  <div class="flex flex-wrap gap-2">
-                    {asArray(lastPromptMetadata['allow_command_rules']).length === 0 ? <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无显式允许命令规则。</span> : asArray(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
+                  {asArray(lastPromptMetadata['allow_command_rules']).length === 0 ? (
+                    <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      暂无显式允许命令规则。
+                    </span>
+                  ) : (
+                    asArray(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
                       const rule = asRecord(raw);
                       const pattern = String(rule['pattern'] ?? '').trim();
                       const mode = String(rule['match_mode'] ?? '').trim();
                       return pattern ? <Chip key={`${pattern}-${index}`} label={`${mode ? `${mode}: ` : ''}${pattern}`} /> : null;
-                    })}
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </Section>
+          <Section title="运行编排">
+            <EntryRow label="状态来源" value={hasPromptMetadata ? '最近持久化运行时快照' : '暂无快照'} />
+            <EntryRow label="模式" value={runtimeModeLabel} />
+            <EntryRow label="工具目录状态" value={toolCatalogState} />
+            <EntryRow label="门控原因" value={runtimeGateReasonLabel(gateReason)} />
+            <EntryRow label="运行工具数" value={hasPromptMetadata && !runtimeStale ? `${runtimeToolCount}` : '下轮刷新'} />
+            {runtimeNotices.length > 0 ? (
+              <>
+                <div class="mt-3 mb-2 text-sm font-extrabold">运行时提示</div>
+                <div class="flex flex-wrap gap-2">
+                  {runtimeNotices.map((item) => (
+                    <Chip key={item} label={item} />
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {runtimeToolNames.length > 0 && !runtimeStale ? (
+              <>
+                <div class="mt-3 mb-2 text-sm font-extrabold">当前运行工具</div>
+                <div class="flex flex-wrap gap-2">
+                  {runtimeToolNames.map((item) => (
+                    <Chip key={item} label={item} />
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </Section>
+          <Section title="任务跟踪">
+            <EntryRow label="当前 Todos" value={`${todos.length}`} />
+            <EntryRow label="计划记录" value={`${planHistory.length}`} />
+            <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
+            {String(lastPromptMetadata['todo_write_reason'] ?? '').trim() ? <EntryRow label="提醒原因" value={String(lastPromptMetadata['todo_write_reason'])} /> : null}
+            {todos.length > 0 ? (
+              <div class="flex flex-wrap gap-2">
+                {todos.map((todo) => (
+                  <Chip key={todo.id} label={`${todo.status ? `[${todo.status}] ` : ''}${todo.id ? `${todo.id}: ` : ''}${todo.content}`} />
+                ))}
+              </div>
+            ) : null}
+            {planHistory.length > 0 ? (
+              <div class="mt-4 flex flex-col gap-2">
+                {planHistory.map((plan, index) => (
+                  <div
+                    key={plan.id || index}
+                    class="rounded-m3-sm p-3"
+                    style={{
+                      background: 'var(--m3-surface)',
+                      border: '1px solid var(--m3-outline-variant)',
+                    }}
+                  >
+                    <div class="text-sm font-bold">
+                      计划 #{planHistory.length - index} · {plan.status || '—'}
+                    </div>
+                    <div class="mt-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      {formatDialogDate(plan.created_at)} → {formatDialogDate(plan.updated_at)}
+                    </div>
+                    {plan.plan ? <div class="mt-2 text-sm whitespace-pre-wrap">{plan.plan}</div> : null}
+                    {plan.steps?.length ? (
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {plan.steps.map((step) => (
+                          <Chip key={step.id} label={`${step.status ? `[${step.status}] ` : ''}${step.id}: ${step.content}`} />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </>
-              )}
-            </Section>
-            <Section title="运行编排">
-              <EntryRow label="状态来源" value={hasPromptMetadata ? '最近持久化运行时快照' : '暂无快照'} />
-              <EntryRow label="模式" value={runtimeModeLabel} />
-              <EntryRow label="工具目录状态" value={toolCatalogState} />
-              <EntryRow label="门控原因" value={runtimeGateReasonLabel(gateReason)} />
-              <EntryRow label="运行工具数" value={hasPromptMetadata && !runtimeStale ? `${runtimeToolCount}` : '下轮刷新'} />
-              {runtimeNotices.length > 0 ? <><div class="mt-3 mb-2 text-sm font-extrabold">运行时提示</div><div class="flex flex-wrap gap-2">{runtimeNotices.map((item) => <Chip key={item} label={item} />)}</div></> : null}
-              {runtimeToolNames.length > 0 && !runtimeStale ? <><div class="mt-3 mb-2 text-sm font-extrabold">当前运行工具</div><div class="flex flex-wrap gap-2">{runtimeToolNames.map((item) => <Chip key={item} label={item} />)}</div></> : null}
-            </Section>
-            <Section title="任务跟踪">
-              <EntryRow label="当前 Todos" value={`${todos.length}`} />
-              <EntryRow label="计划记录" value={`${planHistory.length}`} />
-              <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
-              {String(lastPromptMetadata['todo_write_reason'] ?? '').trim() ? <EntryRow label="提醒原因" value={String(lastPromptMetadata['todo_write_reason'])} /> : null}
-              {todos.length > 0 ? <div class="flex flex-wrap gap-2">{todos.map((todo) => <Chip key={todo.id} label={`${todo.status ? `[${todo.status}] ` : ''}${todo.id ? `${todo.id}: ` : ''}${todo.content}`} />)}</div> : null}
-              {planHistory.length > 0 ? <div class="mt-4 flex flex-col gap-2">{planHistory.map((plan, index) => <div key={plan.id || index} class="rounded-m3-sm p-3" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}><div class="text-sm font-bold">计划 #{planHistory.length - index} · {plan.status || '—'}</div><div class="mt-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{formatDialogDate(plan.created_at)} → {formatDialogDate(plan.updated_at)}</div>{plan.plan ? <div class="mt-2 text-sm whitespace-pre-wrap">{plan.plan}</div> : null}{plan.steps?.length ? <div class="mt-2 flex flex-wrap gap-2">{plan.steps.map((step) => <Chip key={step.id} label={`${step.status ? `[${step.status}] ` : ''}${step.id}: ${step.content}`} />)}</div> : null}</div>)}</div> : null}
-            </Section>
-            <Section title="最近错误">
-              {recentErrors.length === 0 ? <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无会话错误。</p> : recentErrors.map((error) => <div key={error.id} class="rounded-m3-sm p-3 mb-2" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline-variant)' }}><div class="text-sm font-bold" style={{ color: 'var(--m3-error)' }}>{error.stage || 'error'} · {formatDialogDate(error.created_at)}</div><div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>{error.detail ? <pre class="mt-2 text-xs whitespace-pre-wrap overflow-auto">{error.detail}</pre> : null}</div>)}
-            </Section>
-            <Section title="最近加载消息">
-              <EntryRow label="已加载" value={`${messages.length}`} />
-              <EntryRow label="最新角色" value={messages[messages.length - 1]?.role || '—'} />
-              <EntryRow label="最新类型" value={messages[messages.length - 1]?.kind || '—'} />
-              <EntryRow label="最新 ID" value={messages[messages.length - 1]?.id || '—'} />
-            </Section>
-            <Section title="Last Prompt Metadata">
-              <JsonPanel content={lastPromptMetadata} />
-            </Section>
-          </div>
+                ))}
+              </div>
+            ) : null}
+          </Section>
+          <Section title="最近错误">
+            {recentErrors.length === 0 ? (
+              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                暂无会话错误。
+              </p>
+            ) : (
+              recentErrors.map((error) => (
+                <div
+                  key={error.id}
+                  class="rounded-m3-sm p-3 mb-2"
+                  style={{
+                    background: 'var(--m3-surface)',
+                    border: '1px solid var(--m3-outline-variant)',
+                  }}
+                >
+                  <div class="text-sm font-bold" style={{ color: 'var(--m3-error)' }}>
+                    {error.stage || 'error'} · {formatDialogDate(error.created_at)}
+                  </div>
+                  <div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>
+                  {error.detail ? <pre class="mt-2 text-xs whitespace-pre-wrap overflow-auto">{error.detail}</pre> : null}
+                </div>
+              ))
+            )}
+          </Section>
+          <Section title="最近加载消息">
+            <EntryRow label="已加载" value={`${messages.length}`} />
+            <EntryRow label="最新角色" value={messages[messages.length - 1]?.role || '—'} />
+            <EntryRow label="最新类型" value={messages[messages.length - 1]?.kind || '—'} />
+            <EntryRow label="最新 ID" value={messages[messages.length - 1]?.id || '—'} />
+          </Section>
+          <Section title="Last Prompt Metadata">
+            <JsonPanel content={lastPromptMetadata} />
+          </Section>
         </div>
-        <footer class="flex justify-end pt-4">
-          <button
-            type="button"
-            class="oh-tap-press px-5 py-2 rounded-m3-sm text-sm font-bold"
-            style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
-            onClick={requestClose}
-          >
-            {t('common.close', '关闭')}
-          </button>
-        </footer>
+      </div>
+      <footer class="flex justify-end pt-4">
+        <button
+          type="button"
+          class="oh-tap-press px-5 py-2 rounded-m3-sm text-sm font-bold"
+          style={{
+            background: 'var(--m3-primary)',
+            color: 'var(--m3-on-primary)',
+          }}
+          onClick={requestClose}
+        >
+          {t('common.close', '关闭')}
+        </button>
+      </footer>
     </DialogFrame>
   );
 }
 
-function SessionAuditDialog({
-  detail,
-  messages,
-  onClose,
-}: {
-  detail: SessionDetailResponse;
-  messages: SessionMessage[];
-  onClose: () => void;
-}) {
+function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  const json = JSON.stringify({
-    session,
-    runtime: detail.runtime,
-    loaded_message_count: messages.length,
-    loaded_message_ids: messages.map((item) => item.id),
-  }, null, 2);
-  const stats = [
-    `${session.message_count} ${t('sessions.messageUnit', '条消息')}`,
-    `${session.total_tokens ?? 0} tokens`,
-    `${session.tool_message_count ?? 0} tool`,
-    `${session.compression_point_count ?? 0} compress`,
-  ];
+  const json = JSON.stringify(
+    {
+      session,
+      runtime: detail.runtime,
+      loaded_message_count: messages.length,
+      loaded_message_ids: messages.map((item) => item.id),
+    },
+    null,
+    2,
+  );
+  const stats = [`${session.message_count} ${t('sessions.messageUnit', '条消息')}`, `${session.total_tokens ?? 0} tokens`, `${session.tool_message_count ?? 0} tool`, `${session.compression_point_count ?? 0} compress`];
   const auditStats = asRecord(session.statistics);
   const auditCacheRead = readStatNumber(auditStats['cache_read_tokens'], 0);
   const auditCacheWrite = readStatNumber(auditStats['cache_creation_tokens'], 0);
@@ -5982,62 +5439,69 @@ function SessionAuditDialog({
       ariaLabel={t('topbar.audit', '会话审计')}
     >
       <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div class="min-w-0">
-            <h2 class="text-base font-semibold truncate">{t('topbar.audit', '会话审计')} · {session.title}</h2>
-            <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {session.id}
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline)' }}
-              onClick={() => void copyJsonWithFeedback(json)}
-            >
-              <ComposerIcon name="copy" size={14} />
-              <span>{t('common.copy', '复制')}</span>
-            </button>
-            <button
-              type="button"
-              class="oh-tap-press oh-dialog-action-button"
-              style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}
-              onClick={requestClose}
-            >
-              <ComposerIcon name="close" size={14} />
-              <span>{t('common.close', '关闭')}</span>
-            </button>
-          </div>
-        </header>
-        <div class="flex flex-wrap gap-2 mb-3">
-          {stats.map((item) => (
-            <span
-              key={item}
-              class="text-xs px-2 py-1 rounded-full"
-              style={{
-                color: 'var(--m3-on-surface-variant)',
-                background: 'var(--m3-surface)',
-                border: '1px solid var(--m3-outline)',
-              }}
-            >
-              {item}
-            </span>
-          ))}
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold truncate">
+            {t('topbar.audit', '会话审计')} · {session.title}
+          </h2>
+          <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {session.id}
+          </p>
         </div>
-        <pre
-          class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline)',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          }}
-        >
-          {json}
-        </pre>
+        <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-primary)',
+              border: '1px solid var(--m3-outline)',
+            }}
+            onClick={() => void copyJsonWithFeedback(json)}
+          >
+            <ComposerIcon name="copy" size={14} />
+            <span>{t('common.copy', '复制')}</span>
+          </button>
+          <button
+            type="button"
+            class="oh-tap-press oh-dialog-action-button"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              background: 'transparent',
+            }}
+            onClick={requestClose}
+          >
+            <ComposerIcon name="close" size={14} />
+            <span>{t('common.close', '关闭')}</span>
+          </button>
+        </div>
+      </header>
+      <div class="flex flex-wrap gap-2 mb-3">
+        {stats.map((item) => (
+          <span
+            key={item}
+            class="text-xs px-2 py-1 rounded-full"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              background: 'var(--m3-surface)',
+              border: '1px solid var(--m3-outline)',
+            }}
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+      <pre
+        class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        }}
+      >
+        {json}
+      </pre>
     </DialogFrame>
   );
 }
-
 
 /// 2026-05-17 — 「会话级临时节流」弹窗。
 ///
@@ -6071,9 +5535,7 @@ function SessionThrottleDialog({
   const [cards, setCards] = useState(initialCards);
   // 2026-05-19 — 会话级启用开关：undefined = 沿用全局；true/false = 强制
   // 覆盖。Switch 切换会立即 PUT，让流式响应在下一帧就感受到差异。
-  const [enabledOverride, setEnabledOverride] = useState<boolean>(
-    current?.enabled !== false,
-  );
+  const [enabledOverride, setEnabledOverride] = useState<boolean>(current?.enabled !== false);
   const [busy, setBusy] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose, {
     closeOnEscape: !busy,
@@ -6107,15 +5569,12 @@ function SessionThrottleDialog({
       patch.cardsPerSecond = m === undefined ? null : m;
       patch.enabled = enabledOverride;
       await setSessionThrottle(sessionId, patch);
-      showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), { tone: 'success' });
+      showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), {
+        tone: 'success',
+      });
       requestClose();
     } catch (err) {
-      showSnackbar(
-        `${t('topbar.throttle.failed', '应用节流失败')}：${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { tone: 'error' },
-      );
+      showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -6125,15 +5584,12 @@ function SessionThrottleDialog({
     setBusy(true);
     try {
       await clearSessionThrottle(sessionId);
-      showSnackbar(t('topbar.throttle.reset', '已恢复模板/全局节流'), { tone: 'success' });
+      showSnackbar(t('topbar.throttle.reset', '已恢复模板/全局节流'), {
+        tone: 'success',
+      });
       requestClose();
     } catch (err) {
-      showSnackbar(
-        `${t('topbar.throttle.failed', '应用节流失败')}：${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { tone: 'error' },
-      );
+      showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -6159,9 +5615,7 @@ function SessionThrottleDialog({
     void tick;
     const base = lastBucketsRef.current;
     if (base.length === 0) return base;
-    const elapsed = Math.floor(
-      (Date.now() - lastUpdateRef.current) / 1000,
-    );
+    const elapsed = Math.floor((Date.now() - lastUpdateRef.current) / 1000);
     if (elapsed <= 0) return base;
     const keep = Math.max(0, base.length - elapsed);
     const out = new Array<number>(base.length).fill(0);
@@ -6186,203 +5640,170 @@ function SessionThrottleDialog({
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
     >
       <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
-          {t('topbar.throttle.dialogTitle', '本会话流式节流')}
-        </h2>
-        <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t(
-            'topbar.throttle.dialogHint',
-            '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用模板/全局值，0 = 关闭节流。',
-          )}
-        </p>
-        <div
-          class="rounded-m3-sm p-3 mb-3"
-          style={{
-            background: 'var(--m3-surface-container-highest)',
-            border: '1px solid var(--m3-outline-variant)',
-          }}
-        >
-          <div class="flex items-center justify-between text-xs mb-2">
-            <div style={{ color: 'var(--m3-on-surface-variant)' }} class="font-semibold">
-              {t('topbar.throttle.gaugeTitle', '字符吞吐 (30s)')}
-            </div>
-            <div
-              style={{
-                color: 'var(--m3-on-surface)',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {t('topbar.throttle.gaugeStats', '当前 {now}/s · 峰 {peak}/s · 上限 {cap}/s')
-                .replace('{now}', String(nowVal))
-                .replace('{peak}', String(peak))
-                .replace('{cap}', String(current?.chars ?? 0))}
-            </div>
+        {t('topbar.throttle.dialogTitle', '本会话流式节流')}
+      </h2>
+      <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t('topbar.throttle.dialogHint', '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用模板/全局值，0 = 关闭节流。')}
+      </p>
+      <div
+        class="rounded-m3-sm p-3 mb-3"
+        style={{
+          background: 'var(--m3-surface-container-highest)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+      >
+        <div class="flex items-center justify-between text-xs mb-2">
+          <div style={{ color: 'var(--m3-on-surface-variant)' }} class="font-semibold">
+            {t('topbar.throttle.gaugeTitle', '字符吞吐 (30s)')}
           </div>
-          <ThroughputBars
-            samples={displayedBuckets}
-            cap={cap}
-            limitValue={current?.chars ?? 0}
-          />
+          <div
+            style={{
+              color: 'var(--m3-on-surface)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {t('topbar.throttle.gaugeStats', '当前 {now}/s · 峰 {peak}/s · 上限 {cap}/s')
+              .replace('{now}', String(nowVal))
+              .replace('{peak}', String(peak))
+              .replace('{cap}', String(current?.chars ?? 0))}
+          </div>
         </div>
-        {/* 2026-05-19 — 会话级启用节流开关：切换会立即 PUT，让正在输出
+        <ThroughputBars samples={displayedBuckets} cap={cap} limitValue={current?.chars ?? 0} />
+      </div>
+      {/* 2026-05-19 — 会话级启用节流开关：切换会立即 PUT，让正在输出
             的响应消息一帧内感受到差异；关闭后 TopBar 胶囊会变灰展示
             「节流·关」，但只要会话历史曾节流过，胶囊就不会消失。 */}
-        <div
-          class="flex items-start justify-between rounded-m3-sm p-3 mb-3 gap-3"
+      <div
+        class="flex items-start justify-between rounded-m3-sm p-3 mb-3 gap-3"
+        style={{
+          background: 'var(--m3-surface-container-highest)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+      >
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+            {t('topbar.throttle.enabledTitle', '启用流式输出节流（本会话）')}
+          </div>
+          <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {enabledOverride ? t('topbar.throttle.enabledOnHint', '已启用：按下方速率限制字符 / 卡片吞吐。') : t('topbar.throttle.enabledOffHint', '已关闭：流式响应将不再受任何节流限制，按 AI 真实速率渲染。')}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabledOverride}
+          disabled={busy || closing}
+          onClick={async () => {
+            if (busy || closing) return;
+            const next = !enabledOverride;
+            setEnabledOverride(next);
+            setBusy(true);
+            try {
+              await setSessionThrottle(sessionId, { enabled: next });
+            } catch (err: unknown) {
+              showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
+              setEnabledOverride(!next);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          class="oh-tap-press"
           style={{
-            background: 'var(--m3-surface-container-highest)',
+            flex: '0 0 auto',
+            width: '40px',
+            height: '24px',
+            borderRadius: '12px',
             border: '1px solid var(--m3-outline-variant)',
+            background: enabledOverride ? 'var(--m3-primary)' : 'var(--m3-surface)',
+            position: 'relative',
+            transition: 'background 160ms ease-out',
+            cursor: busy || closing ? 'not-allowed' : 'pointer',
           }}
         >
-          <div class="flex-1 min-w-0">
-            <div
-              class="text-sm font-semibold mb-1"
-              style={{ color: 'var(--m3-on-surface)' }}
-            >
-              {t('topbar.throttle.enabledTitle', '启用流式输出节流（本会话）')}
-            </div>
-            <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {enabledOverride
-                ? t(
-                    'topbar.throttle.enabledOnHint',
-                    '已启用：按下方速率限制字符 / 卡片吞吐。',
-                  )
-                : t(
-                    'topbar.throttle.enabledOffHint',
-                    '已关闭：流式响应将不再受任何节流限制，按 AI 真实速率渲染。',
-                  )}
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabledOverride}
-            disabled={busy || closing}
-            onClick={async () => {
-              if (busy || closing) return;
-              const next = !enabledOverride;
-              setEnabledOverride(next);
-              setBusy(true);
-              try {
-                await setSessionThrottle(sessionId, { enabled: next });
-              } catch (err: unknown) {
-                showSnackbar(
-                  `${t('topbar.throttle.failed', '应用节流失败')}：${
-                    err instanceof Error ? err.message : String(err)
-                  }`,
-                  { tone: 'error' },
-                );
-                setEnabledOverride(!next);
-              } finally {
-                setBusy(false);
-              }
-            }}
-            class="oh-tap-press"
+          <span
             style={{
-              flex: '0 0 auto',
-              width: '40px',
-              height: '24px',
-              borderRadius: '12px',
-              border: '1px solid var(--m3-outline-variant)',
-              background: enabledOverride
-                ? 'var(--m3-primary)'
-                : 'var(--m3-surface)',
-              position: 'relative',
-              transition: 'background 160ms ease-out',
-              cursor: busy || closing ? 'not-allowed' : 'pointer',
+              position: 'absolute',
+              top: '2px',
+              left: enabledOverride ? '18px' : '2px',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: enabledOverride ? 'var(--m3-on-primary)' : 'var(--m3-on-surface-variant)',
+              transition: 'left 160ms ease-out, background 160ms ease-out',
             }}
-          >
-            <span
-              style={{
-                position: 'absolute',
-                top: '2px',
-                left: enabledOverride ? '18px' : '2px',
-                width: '18px',
-                height: '18px',
-                borderRadius: '50%',
-                background: enabledOverride
-                  ? 'var(--m3-on-primary)'
-                  : 'var(--m3-on-surface-variant)',
-                transition: 'left 160ms ease-out, background 160ms ease-out',
-              }}
-            />
-          </button>
-        </div>
-        <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t('topbar.throttle.charsLabel', '字符 / 秒（当前生效：{cur}）').replace(
-            '{cur}',
-            String(current?.chars ?? 0),
-          )}
-        </label>
-        <input
-          type="number"
-          min={0}
-          value={chars}
-          onInput={(e) => setChars((e.target as HTMLInputElement).value)}
-          class="w-full mb-3 px-3 py-2 rounded-m3-sm text-sm"
+          />
+        </button>
+      </div>
+      <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t('topbar.throttle.charsLabel', '字符 / 秒（当前生效：{cur}）').replace('{cur}', String(current?.chars ?? 0))}
+      </label>
+      <input
+        type="number"
+        min={0}
+        value={chars}
+        onInput={(e) => setChars((e.target as HTMLInputElement).value)}
+        class="w-full mb-3 px-3 py-2 rounded-m3-sm text-sm"
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline-variant)',
+          color: 'var(--m3-on-surface)',
+        }}
+        placeholder={current ? String(current.chars) : '10'}
+      />
+      <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t('topbar.throttle.cardsLabel', '卡片 / 秒（当前生效：{cur}）').replace('{cur}', String(current?.cards ?? 0))}
+      </label>
+      <input
+        type="number"
+        min={0}
+        value={cards}
+        onInput={(e) => setCards((e.target as HTMLInputElement).value)}
+        class="w-full mb-4 px-3 py-2 rounded-m3-sm text-sm"
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline-variant)',
+          color: 'var(--m3-on-surface)',
+        }}
+        placeholder={current ? String(current.cards) : '1'}
+      />
+      <div class="flex justify-center gap-3">
+        <button
+          type="button"
+          onClick={reset}
+          disabled={busy || closing}
+          class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
           style={{
-            background: 'var(--m3-surface)',
             border: '1px solid var(--m3-outline-variant)',
             color: 'var(--m3-on-surface)',
           }}
-          placeholder={current ? String(current.chars) : '10'}
-        />
-        <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t('topbar.throttle.cardsLabel', '卡片 / 秒（当前生效：{cur}）').replace(
-            '{cur}',
-            String(current?.cards ?? 0),
-          )}
-        </label>
-        <input
-          type="number"
-          min={0}
-          value={cards}
-          onInput={(e) => setCards((e.target as HTMLInputElement).value)}
-          class="w-full mb-4 px-3 py-2 rounded-m3-sm text-sm"
+        >
+          {t('topbar.throttle.reset.action', '恢复默认')}
+        </button>
+        <button
+          type="button"
+          onClick={requestClose}
+          disabled={busy || closing}
+          class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
           style={{
-            background: 'var(--m3-surface)',
             border: '1px solid var(--m3-outline-variant)',
             color: 'var(--m3-on-surface)',
           }}
-          placeholder={current ? String(current.cards) : '1'}
-        />
-        <div class="flex justify-center gap-3">
-          <button
-            type="button"
-            onClick={reset}
-            disabled={busy || closing}
-            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
-            style={{
-              border: '1px solid var(--m3-outline-variant)',
-              color: 'var(--m3-on-surface)',
-            }}
-          >
-            {t('topbar.throttle.reset.action', '恢复默认')}
-          </button>
-          <button
-            type="button"
-            onClick={requestClose}
-            disabled={busy || closing}
-            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
-            style={{
-              border: '1px solid var(--m3-outline-variant)',
-              color: 'var(--m3-on-surface)',
-            }}
-          >
-            {t('common.cancel', '取消')}
-          </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={busy || closing}
-            class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
-            style={{
-              background: 'var(--m3-primary)',
-              color: 'var(--m3-on-primary)',
-            }}
-          >
-            {t('common.apply', '应用')}
-          </button>
-        </div>
+        >
+          {t('common.cancel', '取消')}
+        </button>
+        <button
+          type="button"
+          onClick={apply}
+          disabled={busy || closing}
+          class="oh-tap-press text-xs px-4 py-2 rounded-m3-sm"
+          style={{
+            background: 'var(--m3-primary)',
+            color: 'var(--m3-on-primary)',
+          }}
+        >
+          {t('common.apply', '应用')}
+        </button>
+      </div>
     </DialogFrame>
   );
 }
@@ -6393,15 +5814,7 @@ function SessionThrottleDialog({
 /// easeOutCubic 滑到新值）。2026-05-25 — 柱状改为 SVG 平滑曲线
 /// （Catmull-Rom → 三次贝塞尔），并新增双指捏合 / Ctrl+滚轮放缩时间区间
 /// （_zoom 1×–4×，区间始终 anchored on now）。
-function ThroughputBars({
-  samples,
-  cap,
-  limitValue,
-}: {
-  samples: number[];
-  cap: number;
-  limitValue: number;
-}) {
+function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: number; limitValue: number }) {
   const fullN = samples.length === 0 ? 30 : samples.length;
   const padded = samples.length === 0 ? new Array<number>(30).fill(0) : samples;
   const safeCap = Math.max(cap, 1);
@@ -6429,12 +5842,10 @@ function ThroughputBars({
     }
     fromRef.current = [...displayedRef.current];
     targetRef.current = [...targets];
-    startRef.current =
-      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    startRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     const tick = () => {
-      const now =
-        typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const elapsed = now - startRef.current;
       const t = Math.min(1, elapsed / 320);
       const e = 1 - Math.pow(1 - t, 3);
@@ -6458,9 +5869,7 @@ function ThroughputBars({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowed.join(','), n]);
 
-  const displayed = displayedRef.current.length === n
-      ? displayedRef.current
-      : targets;
+  const displayed = displayedRef.current.length === n ? displayedRef.current : targets;
 
   // Catmull-Rom → 三次贝塞尔（张力 1/6）。viewBox 100×56，便于 svg path
   // 坐标计算；transform: scale(横向铺满)由容器 width:100% 接管。
@@ -6468,10 +5877,12 @@ function ThroughputBars({
   const H = 56;
   const stepX = n <= 1 ? W : W / (n - 1);
   // 视觉 X：sample[0] = 当前 = 右；sample[n-1] = 最老 = 左。
-  const points = displayed.map((h, i) => ({
-    x: (n - 1 - i) * stepX,
-    y: H - h * H,
-  })).sort((a, b) => a.x - b.x);
+  const points = displayed
+    .map((h, i) => ({
+      x: (n - 1 - i) * stepX,
+      y: H - h * H,
+    }))
+    .sort((a, b) => a.x - b.x);
 
   let pathD = '';
   let fillD = '';
@@ -6507,76 +5918,31 @@ function ThroughputBars({
   };
 
   return (
-    <div
-      class="relative"
-      style={{ height: '56px', touchAction: 'pan-x' }}
-      onWheel={onWheel as any}
-      title="Ctrl + 滚轮（或触控板双指捏合）放缩时间区间"
-    >
+    <div class="relative" style={{ height: '56px', touchAction: 'pan-x' }} onWheel={onWheel as any} title="Ctrl + 滚轮（或触控板双指捏合）放缩时间区间">
       <div
         class="absolute inset-0"
         style={{
-          backgroundImage:
-            'linear-gradient(to top, var(--m3-outline-variant) 0, transparent 1px)',
+          backgroundImage: 'linear-gradient(to top, var(--m3-outline-variant) 0, transparent 1px)',
         }}
       />
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: '100%', display: 'block' }}
-      >
-        {fillD && (
-          <path
-            d={fillD}
-            fill="var(--m3-primary)"
-            opacity={0.22}
-          />
-        )}
-        {pathD && (
-          <path
-            d={pathD}
-            fill="none"
-            stroke="var(--m3-primary)"
-            stroke-width="1.4"
-            stroke-linejoin="round"
-            stroke-linecap="round"
-            vector-effect="non-scaling-stroke"
-          />
-        )}
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+        {fillD && <path d={fillD} fill="var(--m3-primary)" opacity={0.22} />}
+        {pathD && <path d={pathD} fill="none" stroke="var(--m3-primary)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />}
         {/* 超阈值点 */}
         {points.map((p, sortedIdx) => {
           // 反推原 index：sorted 后按 x 升序 → sample index = n - 1 - sortedIdx
           const origIdx = n - 1 - sortedIdx;
           const v = windowed[origIdx] ?? 0;
           if (limitValue > 0 && v > limitValue) {
-            return (
-              <circle
-                key={`o${sortedIdx}`}
-                cx={p.x}
-                cy={p.y}
-                r={1.6}
-                fill="var(--m3-error)"
-              />
-            );
+            return <circle key={`o${sortedIdx}`} cx={p.x} cy={p.y} r={1.6} fill="var(--m3-error)" />;
           }
           return null;
         })}
         {/* 当前秒高亮 */}
         {lastP && (
           <>
-            <circle
-              cx={lastP.x}
-              cy={lastP.y}
-              r={3.4}
-              fill="var(--m3-primary)"
-              opacity={0.22}
-            />
-            <circle
-              cx={lastP.x}
-              cy={lastP.y}
-              r={2.0}
-              fill="var(--m3-primary)"
-            />
+            <circle cx={lastP.x} cy={lastP.y} r={3.4} fill="var(--m3-primary)" opacity={0.22} />
+            <circle cx={lastP.x} cy={lastP.y} r={2.0} fill="var(--m3-primary)" />
           </>
         )}
       </svg>

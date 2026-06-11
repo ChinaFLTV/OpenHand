@@ -1,5 +1,71 @@
 part of '../openhand_home_page.dart';
 
+const Set<String> _atMentionIgnoredEntryNames = <String>{
+  'node_modules',
+  'build',
+  '.dart_tool',
+  '__pycache__',
+  '.git',
+  '.idea',
+  '.vscode',
+  'target',
+  'dist',
+  '.gradle',
+};
+const int _atMentionShallowResultLimit = 50;
+const int _atMentionDeepSearchSoftLimit = 20;
+const int _atMentionDeepSearchResultLimit = 80;
+const int _atMentionDeepSearchMaxDepth = 8;
+final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
+
+bool _isComposerTriggerWhitespaceCodeUnit(int codeUnit) {
+  return codeUnit == 0x20 ||
+      codeUnit == 0x09 ||
+      codeUnit == 0x0A ||
+      codeUnit == 0x0D;
+}
+
+bool _isComposerPathLikeQuery(String query) {
+  if (query.isEmpty) return false;
+  if (query.startsWith('/') ||
+      query.startsWith('\\') ||
+      query.contains('/') ||
+      query.contains('\\') ||
+      query.startsWith('./') ||
+      query.startsWith('../') ||
+      query.startsWith('~/') ||
+      query.startsWith('.\\') ||
+      query.startsWith('..\\') ||
+      query.startsWith('~\\')) {
+    return true;
+  }
+  return _composerTriggerWindowsDrivePattern.hasMatch(query);
+}
+
+bool _shouldSuppressSlashSkillPickerQuery(String query) {
+  return _isComposerPathLikeQuery(query) || query.startsWith('*');
+}
+
+bool _shouldSuppressAtMentionPickerQuery(String query) {
+  return _isComposerPathLikeQuery(query);
+}
+
+bool _shouldSuppressDismissedComposerTrigger({
+  required String dismissedQuery,
+  required String currentQuery,
+}) {
+  final dismissed = dismissedQuery.toLowerCase();
+  final current = currentQuery.toLowerCase();
+  return current.length >= dismissed.length && current.startsWith(dismissed);
+}
+
+class _ComposerTriggerDismissal {
+  const _ComposerTriggerDismissal({required this.offset, required this.query});
+
+  final int offset;
+  final String query;
+}
+
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
     required this.currentSession,
@@ -107,9 +173,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   List<String> _atMentionBreadcrumbs = const [];
   bool _atMentionLoading = false;
   bool _atMentionSuppressListener = false;
-  // Offset of a dismissed '@' – prevents re-triggering the popup for the
-  // same '@' character after the user explicitly closed it.
-  int _atMentionDismissedOffset = -1;
+  int _atMentionSearchGeneration = 0;
+  // Remembers the active '@query' prefix that the user explicitly dismissed,
+  // so continuing to type within the same trigger cycle will not immediately
+  // reopen the overlay.
+  _ComposerTriggerDismissal? _atMentionDismissal;
   // Project file/directory references selected via the @ mention overlay.
   List<_AtMentionItem> _projectFileReferences = [];
   // Drives the @‑mention overlay exit animation.
@@ -126,7 +194,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   LocalSkill? _selectedSkill;
   String? _selectedSkillManifest;
   int _slashTriggerOffset = -1;
-  int _slashDismissedOffset = -1;
+  _ComposerTriggerDismissal? _slashDismissal;
   List<LocalSkill> _skillPickerResults = const <LocalSkill>[];
   int _skillPickerSelectedIndex = 0;
   bool _skillPickerLoading = false;
@@ -168,21 +236,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   // ── @ mention detection ──
 
-  void _handleTextChangedForAtMention() {
-    if (_atMentionSuppressListener) return;
-    final root = widget.projectRoot;
-    if (root == null || root.isEmpty) {
-      _dismissAtMentionOverlay();
-      return;
-    }
+  ({int triggerOffset, String query})? _computeAtMentionTrigger() {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
-    if (!selection.isValid || !selection.isCollapsed) {
-      _dismissAtMentionOverlay();
-      return;
-    }
-    final cursor = selection.baseOffset;
-    // Scan backwards from cursor to find a '@' anchor.
+    if (!selection.isValid || !selection.isCollapsed) return null;
+    final cursor = selection.baseOffset.clamp(0, text.length);
     int atIndex = -1;
     for (var i = cursor - 1; i >= 0; i--) {
       final ch = text.codeUnitAt(i);
@@ -190,55 +248,119 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         atIndex = i;
         break;
       }
-      // Stop scanning at any whitespace (space, tab, newline, carriage-return).
-      // Once the user types a space after the query, the mention is abandoned.
-      if (ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D) {
+      if (_isComposerTriggerWhitespaceCodeUnit(ch)) {
         break;
       }
     }
-    if (atIndex < 0) {
+    if (atIndex < 0) return null;
+    if (atIndex > 0 &&
+        !_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(atIndex - 1))) {
+      return null;
+    }
+    final query = text.substring(atIndex + 1, cursor);
+    if (_shouldSuppressAtMentionPickerQuery(query)) {
+      return null;
+    }
+    return (triggerOffset: atIndex, query: query);
+  }
+
+  void _invalidateAtMentionSearch() {
+    _atMentionSearchGeneration += 1;
+    _atMentionLoading = false;
+  }
+
+  bool _isAtMentionSearchStillActive({
+    required int searchGeneration,
+    required int triggerOffset,
+    required String query,
+    required String currentDirectory,
+    required String rootPath,
+  }) {
+    if (!mounted) return false;
+    if (searchGeneration != _atMentionSearchGeneration) return false;
+    if (widget.projectRoot != rootPath) return false;
+    if (_atMentionCurrentDirectory != currentDirectory) return false;
+    if (_atMentionTriggerOffset != triggerOffset) return false;
+    final trigger = _computeAtMentionTrigger();
+    return trigger != null &&
+        trigger.triggerOffset == triggerOffset &&
+        trigger.query == query;
+  }
+
+  void _handleTextChangedForAtMention() {
+    if (_atMentionSuppressListener) return;
+    final root = widget.projectRoot;
+    if (root == null || root.isEmpty) {
+      _atMentionDismissal = null;
       _dismissAtMentionOverlay();
       return;
     }
-    // The character before @ must be start-of-text or whitespace.
-    if (atIndex > 0) {
-      final prev = text.codeUnitAt(atIndex - 1);
-      if (prev != 0x20 && prev != 0x0A && prev != 0x0D && prev != 0x09) {
-        _dismissAtMentionOverlay();
-        return;
-      }
-    }
-    // If the user previously dismissed the popup for this exact '@' offset
-    // AND the '@' character at that offset is still the same one (not a newly
-    // typed '@'), do not re-trigger.
-    if (atIndex == _atMentionDismissedOffset) {
+    final trigger = _computeAtMentionTrigger();
+    if (trigger == null) {
+      _atMentionDismissal = null;
+      _dismissAtMentionOverlay();
       return;
     }
-    _atMentionDismissedOffset = -1;
-    final query = text.substring(atIndex + 1, cursor);
-    _atMentionTriggerOffset = atIndex;
-    _performAtMentionSearch(root, query);
+    final dismissal = _atMentionDismissal;
+    if (dismissal != null &&
+        dismissal.offset == trigger.triggerOffset &&
+        _shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: trigger.query,
+        )) {
+      _dismissAtMentionOverlay();
+      return;
+    }
+    if (_atMentionTriggerOffset != trigger.triggerOffset) {
+      _atMentionCurrentDirectory = '';
+      _atMentionBreadcrumbs = const [];
+    }
+    _atMentionDismissal = null;
+    _atMentionTriggerOffset = trigger.triggerOffset;
+    _performAtMentionSearch(root, trigger.query);
   }
 
   Future<void> _performAtMentionSearch(String rootPath, String query) async {
     if (!mounted) return;
+    final searchGeneration = ++_atMentionSearchGeneration;
+    final triggerOffset = _atMentionTriggerOffset;
+    final currentDirectory = _atMentionCurrentDirectory;
     setState(() => _atMentionLoading = true);
-    final basePath = _atMentionCurrentDirectory.isEmpty
+    final basePath = currentDirectory.isEmpty
         ? rootPath
-        : p.join(rootPath, _atMentionCurrentDirectory);
+        : p.join(rootPath, currentDirectory);
     final trimmedQuery = query.trim().toLowerCase();
     final results = <_AtMentionItem>[];
     try {
       final dir = Directory(basePath);
       if (!await dir.exists()) {
+        if (!_isAtMentionSearchStillActive(
+          searchGeneration: searchGeneration,
+          triggerOffset: triggerOffset,
+          query: query,
+          currentDirectory: currentDirectory,
+          rootPath: rootPath,
+        )) {
+          return;
+        }
         setState(() {
           _atMentionResults = const [];
+          _atMentionSelectedIndex = 0;
           _atMentionLoading = false;
         });
         _showAtMentionOverlay();
         return;
       }
       final entries = await dir.list().toList();
+      if (!_isAtMentionSearchStillActive(
+        searchGeneration: searchGeneration,
+        triggerOffset: triggerOffset,
+        query: query,
+        currentDirectory: currentDirectory,
+        rootPath: rootPath,
+      )) {
+        return;
+      }
       entries.sort((a, b) {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
@@ -249,22 +371,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
-        if (results.length >= 50) break;
+        if (!_isAtMentionSearchStillActive(
+          searchGeneration: searchGeneration,
+          triggerOffset: triggerOffset,
+          query: query,
+          currentDirectory: currentDirectory,
+          rootPath: rootPath,
+        )) {
+          return;
+        }
+        if (results.length >= _atMentionShallowResultLimit) break;
         final name = p.basename(entry.path);
         if (name.startsWith('.')) continue;
-        const ignored = {
-          'node_modules',
-          'build',
-          '.dart_tool',
-          '__pycache__',
-          '.git',
-          '.idea',
-          '.vscode',
-          'target',
-          'dist',
-          '.gradle',
-        };
-        if (ignored.contains(name)) continue;
+        if (_atMentionIgnoredEntryNames.contains(name)) continue;
         if (trimmedQuery.isEmpty || name.toLowerCase().contains(trimmedQuery)) {
           final relativePath = p.relative(entry.path, from: rootPath);
           results.add(
@@ -279,19 +398,32 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       }
       // If trimmedQuery is non-empty and we have few results, also search
       // recursively for deeper matches (up to 80 total).
-      if (trimmedQuery.isNotEmpty && results.length < 20) {
+      if (trimmedQuery.isNotEmpty &&
+          results.length < _atMentionDeepSearchSoftLimit) {
         await _deepSearchAtMention(
           Directory(rootPath),
           trimmedQuery,
           results,
           rootPath,
           0,
+          searchGeneration: searchGeneration,
+          triggerOffset: triggerOffset,
+          triggerQuery: query,
+          currentDirectory: currentDirectory,
         );
       }
     } catch (error, stack) {
       silentLog('composer', 'at-mention shallow search', error, stack);
     }
-    if (!mounted) return;
+    if (!_isAtMentionSearchStillActive(
+      searchGeneration: searchGeneration,
+      triggerOffset: triggerOffset,
+      query: query,
+      currentDirectory: currentDirectory,
+      rootPath: rootPath,
+    )) {
+      return;
+    }
     setState(() {
       _atMentionResults = results;
       _atMentionSelectedIndex = 0;
@@ -305,28 +437,50 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     String query,
     List<_AtMentionItem> results,
     String rootPath,
-    int depth,
-  ) async {
-    if (depth > 8 || results.length >= 80) return;
+    int depth, {
+    required int searchGeneration,
+    required int triggerOffset,
+    required String triggerQuery,
+    required String currentDirectory,
+  }) async {
+    if (depth > _atMentionDeepSearchMaxDepth ||
+        results.length >= _atMentionDeepSearchResultLimit) {
+      return;
+    }
+    if (!_isAtMentionSearchStillActive(
+      searchGeneration: searchGeneration,
+      triggerOffset: triggerOffset,
+      query: triggerQuery,
+      currentDirectory: currentDirectory,
+      rootPath: rootPath,
+    )) {
+      return;
+    }
     try {
       final entries = await dir.list().toList();
+      if (!_isAtMentionSearchStillActive(
+        searchGeneration: searchGeneration,
+        triggerOffset: triggerOffset,
+        query: triggerQuery,
+        currentDirectory: currentDirectory,
+        rootPath: rootPath,
+      )) {
+        return;
+      }
       for (final entry in entries) {
-        if (results.length >= 80) return;
+        if (!_isAtMentionSearchStillActive(
+          searchGeneration: searchGeneration,
+          triggerOffset: triggerOffset,
+          query: triggerQuery,
+          currentDirectory: currentDirectory,
+          rootPath: rootPath,
+        )) {
+          return;
+        }
+        if (results.length >= _atMentionDeepSearchResultLimit) return;
         final name = p.basename(entry.path);
         if (name.startsWith('.')) continue;
-        const ignored = {
-          'node_modules',
-          'build',
-          '.dart_tool',
-          '__pycache__',
-          '.git',
-          '.idea',
-          '.vscode',
-          'target',
-          'dist',
-          '.gradle',
-        };
-        if (ignored.contains(name)) continue;
+        if (_atMentionIgnoredEntryNames.contains(name)) continue;
         final relativePath = p.relative(entry.path, from: rootPath);
         // Avoid duplicates already in the shallow list.
         if (name.toLowerCase().contains(query) &&
@@ -347,6 +501,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             results,
             rootPath,
             depth + 1,
+            searchGeneration: searchGeneration,
+            triggerOffset: triggerOffset,
+            triggerQuery: triggerQuery,
+            currentDirectory: currentDirectory,
           );
         }
       }
@@ -400,8 +558,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   /// Dismiss triggered by user action (click outside / Escape).
   /// Remembers the '@' offset so the popup won't re-trigger for the same '@'.
   void _userDismissAtMentionOverlay() {
-    if (_atMentionTriggerOffset >= 0) {
-      _atMentionDismissedOffset = _atMentionTriggerOffset;
+    final trigger = _computeAtMentionTrigger();
+    if (trigger != null) {
+      _atMentionDismissal = _ComposerTriggerDismissal(
+        offset: trigger.triggerOffset,
+        query: trigger.query,
+      );
+    } else if (_atMentionTriggerOffset >= 0) {
+      _atMentionDismissal = _ComposerTriggerDismissal(
+        offset: _atMentionTriggerOffset,
+        query: '',
+      );
     }
     _dismissAtMentionOverlay();
   }
@@ -416,21 +583,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     } else {
       visible.value = false;
     }
+    _invalidateAtMentionSearch();
+    _atMentionResults = const [];
+    _atMentionSelectedIndex = 0;
     if (_atMentionTriggerOffset >= 0) {
       _atMentionTriggerOffset = -1;
       _atMentionCurrentDirectory = '';
       _atMentionBreadcrumbs = const [];
-      _atMentionResults = const [];
-    }
-    // Validate the dismissed-offset marker: if the '@' at that position
-    // no longer exists in the text, clear it so it won't block a future '@'
-    // that happens to land at the same offset.
-    if (_atMentionDismissedOffset >= 0) {
-      final text = widget.controller.text;
-      if (_atMentionDismissedOffset >= text.length ||
-          text.codeUnitAt(_atMentionDismissedOffset) != 0x40) {
-        _atMentionDismissedOffset = -1;
-      }
     }
   }
 
@@ -447,6 +606,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     // Add to project file/directory references as a capsule chip.
     if (_projectFileReferences.any((r) => r.path == item.path)) {
       // Already referenced — just dismiss.
+      _atMentionDismissal = null;
       _dismissAtMentionOverlay();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -481,6 +641,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     setState(() {
       _projectFileReferences = [..._projectFileReferences, item];
     });
+    _atMentionDismissal = null;
     _dismissAtMentionOverlay();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -552,31 +713,43 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     var tokenEnd = text.length;
     for (var i = 0; i < text.length; i++) {
       final ch = text.codeUnitAt(i);
-      if (ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D) {
+      if (_isComposerTriggerWhitespaceCodeUnit(ch)) {
         tokenEnd = i;
         break;
       }
     }
     final cursor = selection.baseOffset.clamp(0, text.length);
     if (cursor > tokenEnd) return null;
-    return (
-      triggerOffset: 0,
-      tokenEnd: tokenEnd,
-      query: text.substring(1, tokenEnd),
-    );
+    final query = text.substring(1, tokenEnd);
+    if (_shouldSuppressSlashSkillPickerQuery(query)) {
+      return null;
+    }
+    return (triggerOffset: 0, tokenEnd: tokenEnd, query: query);
   }
 
   void _handleTextChangedForSlashSkill() {
     if (_atMentionSuppressListener) return;
-    if (_selectedSkill != null) return;
+    if (_selectedSkill != null) {
+      _dismissSkillPickerOverlay(remember: false);
+      return;
+    }
     final trigger = _computeSlashTrigger();
     if (trigger == null) {
       _dismissSkillPickerOverlay(remember: false);
-      _slashDismissedOffset = -1;
+      _slashDismissal = null;
       return;
     }
-    if (trigger.triggerOffset == _slashDismissedOffset) return;
-    _slashDismissedOffset = -1;
+    final dismissal = _slashDismissal;
+    if (dismissal != null &&
+        dismissal.offset == trigger.triggerOffset &&
+        _shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: trigger.query,
+        )) {
+      _dismissSkillPickerOverlay(remember: false);
+      return;
+    }
+    _slashDismissal = null;
     _slashTriggerOffset = trigger.triggerOffset;
     _performSkillPickerSearch(trigger.query);
   }
@@ -643,8 +816,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _dismissSkillPickerOverlay({required bool remember}) {
-    if (remember && _slashTriggerOffset >= 0) {
-      _slashDismissedOffset = _slashTriggerOffset;
+    if (remember) {
+      final trigger = _computeSlashTrigger();
+      if (trigger != null) {
+        _slashDismissal = _ComposerTriggerDismissal(
+          offset: trigger.triggerOffset,
+          query: trigger.query,
+        );
+      } else if (_slashTriggerOffset >= 0) {
+        _slashDismissal = _ComposerTriggerDismissal(
+          offset: _slashTriggerOffset,
+          query: '',
+        );
+      }
     }
     // Ask the overlay panel to reverse its animation; it will invoke
     // [_finalizeSkillPickerOverlayRemoval] when the exit transition ends.
@@ -660,13 +844,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _skillPickerSelectedIndex = 0;
     _skillPickerLoading = false;
     _slashTriggerOffset = -1;
-    if (_slashDismissedOffset >= 0) {
-      final text = widget.controller.text;
-      if (_slashDismissedOffset >= text.length ||
-          text.codeUnitAt(_slashDismissedOffset) != 0x2F) {
-        _slashDismissedOffset = -1;
-      }
-    }
   }
 
   /// Removes the overlay entry from the root overlay and disposes the
@@ -704,7 +881,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       }
     }
     _dismissSkillPickerOverlay(remember: false);
-    _slashDismissedOffset = -1;
+    _slashDismissal = null;
     String? manifestContent;
     try {
       final controller = Provider.of<SkillsController>(context, listen: false);
@@ -2950,16 +3127,13 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                       const SizedBox(width: 4),
                                       Semantics(
                                         button: true,
-                                        label: isZh
-                                            ? '进入目录'
-                                            : 'Open directory',
+                                        label: isZh ? '进入目录' : 'Open directory',
                                         child: SizedBox(
                                           width: 28,
                                           height: 28,
                                           child: IconButton(
                                             padding: EdgeInsets.zero,
-                                            constraints:
-                                                const BoxConstraints(),
+                                            constraints: const BoxConstraints(),
                                             onPressed: () =>
                                                 widget.onDrillDown(item),
                                             icon: Icon(
