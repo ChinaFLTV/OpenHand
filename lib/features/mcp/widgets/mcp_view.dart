@@ -44,6 +44,8 @@ const double _mcpToolDebugMenuGap = 8;
 const double _mcpToolDebugMenuMinWidth = 240;
 const double _mcpToolDebugMenuMaxWidth = 520;
 const double _mcpToolDebugMenuMaxHeight = 360;
+const double _mcpToolDebugMenuItemInset = 8;
+const double _mcpToolDebugMenuItemRadius = 10;
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -5219,36 +5221,41 @@ class _McpToolDebugMenuItem extends StatelessWidget {
         ? colorScheme.error
         : colorScheme.onSurfaceVariant;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: selected
-            ? colorScheme.primaryContainer.withValues(alpha: 0.42)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _mcpToolDebugMenuItemInset,
+        vertical: 4,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            selected
-                ? Icons.check_circle_rounded
-                : hasWarning
-                ? Icons.warning_amber_rounded
-                : Icons.build_circle_outlined,
-            size: 18,
-            color: foregroundColor,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            softWrap: false,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: selected ? colorScheme.onSurface : null,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected
+              ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(_mcpToolDebugMenuItemRadius),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : hasWarning
+                  ? Icons.warning_amber_rounded
+                  : Icons.build_circle_outlined,
+              size: 18,
+              color: foregroundColor,
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Text(
+              label,
+              softWrap: false,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: selected ? colorScheme.onSurface : null,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
