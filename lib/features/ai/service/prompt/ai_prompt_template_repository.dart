@@ -78,15 +78,6 @@ class AiPromptTemplateRepository {
       promptAssetDirectory: 'assets/prompts/hermes_talker',
     ),
     AiThreadTemplate(
-      id: 'siri_helper',
-      name: 'Siri 助手',
-      iconName: 'assistant_rounded',
-      description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
-      internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/siri_helper',
-      availability: AiThreadTemplateAvailability.appleOnly,
-    ),
-    AiThreadTemplate(
       id: 'web_reverse_expert',
       name: 'Web 逆向专家',
       iconName: 'travel_explore_rounded',
@@ -94,6 +85,15 @@ class AiPromptTemplateRepository {
           '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。',
       internalVersion: '1.1.0',
       promptAssetDirectory: 'assets/prompts/web_reverse_expert',
+    ),
+    AiThreadTemplate(
+      id: 'siri_helper',
+      name: 'Siri 助手',
+      iconName: 'assistant_rounded',
+      description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/siri_helper',
+      availability: AiThreadTemplateAvailability.appleOnly,
     ),
   ];
 
