@@ -162,6 +162,7 @@ For each protocol OpenHand bundles:
 | 💻 **Programming Expert** | Read/edit/refactor code | Full toolset (Bash/LSP/Grep/Edit/...) + workspace view. |
 | 🛠 **Hardness Engineering** | Complex multi-phase tasks | Plan→Implement→Verify→Recap phased pipeline. |
 | 💬 **Hermes Talker** | Casual self-learning chat | `memory` + `skill_manager` + background cron distillation. |
+| 🍎 **Siri Helper** | Apple-native assistant vibe | Shown only on Apple devices; keeps the default capability stack but swaps in a Siri-style system prompt. |
 | 🌐 **Web Reverse Expert** | Browser API reversing / param recovery / repro scripts | Real Chrome + CDP + 17-tab dashboard + 40+ advanced panels + JS snippet library. |
 
 > Template prompts live under [assets/prompts/](assets/prompts/). Each template ships `system_instructions.md`, `developer_instructions.md`, and `compression_summary_instructions.md`.

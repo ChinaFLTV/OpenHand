@@ -6,6 +6,14 @@ All notable changes to OpenHand will be documented in this file.
 
 ### Added
 
+- **Siri 助手 thread template**:
+  - New `siri_helper` built-in thread template with a Siri-style system prompt
+    while preserving the default template's capability surface.
+  - Template is visible only on Apple devices and is rejected at runtime on
+    non-Apple platforms to avoid mismatched expectations.
+  - Thread-template selection UI now adapts its card grid to available width,
+    so added templates keep the dialog smooth and balanced.
+
 - **ToolSearch loaded-tools dialog** polish (Phases 9–17):
   - History export popup now shows tooltips per item (CSV / Markdown / JSON
     hints) explaining whether the action targets the clipboard or a file.

@@ -159,6 +159,7 @@
 | 💻 **Programming Expert** | 代码读写、重构、调试 | 完整工具集（Bash/LSP/Grep/Edit/...）+ 工作区视图。 |
 | 🛠 **Hardness Engineering** | 复杂多阶段任务 | Plan→Implement→Verify→Recap 阶段化流水线。 |
 | 💬 **Hermes Talker** | 闲聊式自学习 | `memory` + `skill_manager` + 后台 Cron 自动蒸馏长期记忆。 |
+| 🍎 **Siri 助手** | 苹果生态风格助手 | 仅在 Apple 设备显示；沿用默认模板能力栈，切换为 Siri 风格系统提示词。 |
 | 🌐 **Web Reverse Expert** | 浏览器接口逆向 / 参数还原 / 复现脚本 | 真实 Chrome + CDP + 17 Dashboard tab + 40+ 高级面板 + JS 片段库。 |
 
 > 模板提示词位于 [assets/prompts/](assets/prompts/)，每个模板包含 `system_instructions.md`、`developer_instructions.md`、`compression_summary_instructions.md` 三件套。

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/support/silent_log.dart';
@@ -77,6 +78,15 @@ class AiPromptTemplateRepository {
       promptAssetDirectory: 'assets/prompts/hermes_talker',
     ),
     AiThreadTemplate(
+      id: 'siri_helper',
+      name: 'Siri 助手',
+      iconName: 'assistant_rounded',
+      description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/siri_helper',
+      availability: AiThreadTemplateAvailability.appleOnly,
+    ),
+    AiThreadTemplate(
       id: 'web_reverse_expert',
       name: 'Web 逆向专家',
       iconName: 'travel_explore_rounded',
@@ -90,11 +100,36 @@ class AiPromptTemplateRepository {
   List<AiThreadTemplate> get templates =>
       List<AiThreadTemplate>.unmodifiable(_templates);
 
+  List<AiThreadTemplate> templatesForPlatform([TargetPlatform? platform]) {
+    final effectivePlatform = platform ?? defaultTargetPlatform;
+    return List<AiThreadTemplate>.unmodifiable(
+      _templates.where(
+        (template) => template.isSupportedOnPlatform(effectivePlatform),
+      ),
+    );
+  }
+
   AiThreadTemplate resolveTemplate(String templateId) {
     for (final template in _templates) {
       if (template.id == templateId) {
         return template;
       }
+    }
+    return _templates.first;
+  }
+
+  AiThreadTemplate resolveTemplateForPlatform(
+    String templateId, {
+    TargetPlatform? platform,
+  }) {
+    final resolved = resolveTemplate(templateId);
+    final effectivePlatform = platform ?? defaultTargetPlatform;
+    if (resolved.isSupportedOnPlatform(effectivePlatform)) {
+      return resolved;
+    }
+    final supportedTemplates = templatesForPlatform(effectivePlatform);
+    if (supportedTemplates.isNotEmpty) {
+      return supportedTemplates.first;
     }
     return _templates.first;
   }
@@ -143,6 +178,10 @@ class AiPromptTemplateRepository {
         systemFallback = _hermesTalkerSystemInstructions;
         developerFallback = _hermesTalkerDeveloperInstructions;
         compressionFallback = _hermesTalkerCompressionSummaryInstructions;
+      case 'siri_helper':
+        systemFallback = _siriHelperSystemInstructions;
+        developerFallback = _siriHelperDeveloperInstructions;
+        compressionFallback = _siriHelperCompressionSummaryInstructions;
       case 'web_reverse_expert':
         systemFallback = _webReverseSystemInstructions;
         developerFallback = _webReverseDeveloperInstructions;
@@ -164,6 +203,14 @@ class AiPromptTemplateRepository {
       '$assetDirectory/compression_summary_instructions.md',
       compressionFallback,
     );
+    if (templateId == 'siri_helper') {
+      return AiPromptTemplateBundle(
+        template: template,
+        systemInstructions: systemInstructions,
+        developerInstructions: developerInstructions,
+        compressionSummaryInstructions: compressionSummaryInstructions,
+      );
+    }
     final systemWithSharedSections = await _appendSharedSectionsIfAbsent(
       systemInstructions,
       templateId: templateId,
@@ -321,6 +368,10 @@ const String _hardnessCompressionSummaryInstructions = _fallbackNotice;
 const String _hermesTalkerSystemInstructions = _fallbackNotice;
 const String _hermesTalkerDeveloperInstructions = _fallbackNotice;
 const String _hermesTalkerCompressionSummaryInstructions = _fallbackNotice;
+
+const String _siriHelperSystemInstructions = _fallbackNotice;
+const String _siriHelperDeveloperInstructions = _fallbackNotice;
+const String _siriHelperCompressionSummaryInstructions = _fallbackNotice;
 
 const String _webReverseSystemInstructions = _fallbackNotice;
 const String _webReverseDeveloperInstructions = _fallbackNotice;

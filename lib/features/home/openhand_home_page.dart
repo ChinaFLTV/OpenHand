@@ -1307,9 +1307,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _replayToolSearchInFreshSession(List<String> names) async {
     if (!mounted || names.isEmpty) return;
     final sessionController = context.read<AiSessionController>();
+    final fallbackTemplate =
+        sessionController.availableTemplates.firstOrNull ??
+        sessionController.templateRepository.templates.first;
     final fallbackTemplateId =
-        sessionController.currentSession?.templateId ??
-        sessionController.templateRepository.templates.first.id;
+        sessionController.currentSession?.templateId ?? fallbackTemplate.id;
     final initialMode = AiSessionMode.fromStorage(
       context.read<SettingsController>().aiDefaultSessionMode,
     );
@@ -2591,7 +2593,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         final sessionController = dialogContext.read<AiSessionController>();
-        return _ThreadTemplateDialog(templates: sessionController.templates);
+        return _ThreadTemplateDialog(
+          templates: sessionController.availableTemplates,
+        );
       },
     );
   }

@@ -125,8 +125,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     _historyCursor = -1;
     _replCtrl.clear();
     // 通知 dashboard 异步把最新历史持久化到 session metadata。
-    final dashState =
-        context.findAncestorStateOfType<_WebReverseDashboardDialogState>();
+    final dashState = context
+        .findAncestorStateOfType<_WebReverseDashboardDialogState>();
     dashState?.persistConsoleReplHistory();
     final r = await widget.controller.runReplExpression(raw);
     if (!mounted) return;
@@ -151,8 +151,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         _historyCursor--;
       }
       _replCtrl.text = hist[_historyCursor];
-      _replCtrl.selection =
-          TextSelection.collapsed(offset: _replCtrl.text.length);
+      _replCtrl.selection = TextSelection.collapsed(
+        offset: _replCtrl.text.length,
+      );
       return KeyEventResult.handled;
     }
     if (ev.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -160,8 +161,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       if (_historyCursor < hist.length - 1) {
         _historyCursor++;
         _replCtrl.text = hist[_historyCursor];
-        _replCtrl.selection =
-            TextSelection.collapsed(offset: _replCtrl.text.length);
+        _replCtrl.selection = TextSelection.collapsed(
+          offset: _replCtrl.text.length,
+        );
       } else {
         _historyCursor = -1;
         _replCtrl.clear();
@@ -185,9 +187,11 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     final visible = filter.isEmpty
         ? ordered
         : ordered
-            .where((s) =>
-                s.isExiting || s.entry.text.toLowerCase().contains(filter))
-            .toList(growable: false);
+              .where(
+                (s) =>
+                    s.isExiting || s.entry.text.toLowerCase().contains(filter),
+              )
+              .toList(growable: false);
     final hasContent = visible.any((s) => !s.isExiting);
     return Column(
       children: [
@@ -197,8 +201,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(
-                      loc?.webReverseConsoleEmpty ??
-                          'No console output yet.',
+                      loc?.webReverseConsoleEmpty ?? 'No console output yet.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -267,9 +270,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     // 退场：240ms 内 AnimatedSize 折叠 + AnimatedOpacity
                     // 淡出 + 轻微缩放，与 _TabStrip 退场风格保持一致。
                     if (widget.reduceMotion) {
-                      return slot.isExiting
-                          ? const SizedBox.shrink()
-                          : padded;
+                      return slot.isExiting ? const SizedBox.shrink() : padded;
                     }
                     return AnimatedSize(
                       key: ValueKey(identityHashCode(slot)),
@@ -305,7 +306,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
           alignment: Alignment.topCenter,
           child: widget.controller.isPaused
               ? FadeTransition(
-                  opacity: AlwaysStoppedAnimation(1),
+                  opacity: const AlwaysStoppedAnimation(1),
                   child: Container(
                     margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
                     padding: const EdgeInsets.symmetric(
@@ -328,8 +329,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                           child: Text(
                             loc?.webReverseConsolePausedHint ??
                                 'Debugger paused · expressions evaluate in the top frame scope',
-                            style: theme.textTheme.labelSmall
-                                ?.copyWith(color: cs.onErrorContainer),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onErrorContainer,
+                            ),
                           ),
                         ),
                       ],
@@ -357,7 +359,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     ),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: loc?.webReverseConsoleReplHint ??
+                      hintText:
+                          loc?.webReverseConsoleReplHint ??
                           'JS expression; ↑↓ history',
                       border: const OutlineInputBorder(),
                     ),

@@ -4,18 +4,38 @@ class _ThreadTemplateDialog extends StatelessWidget {
   const _ThreadTemplateDialog({required this.templates});
 
   final List<AiThreadTemplate> templates;
+  static const double _dialogMaxWidth = 1080;
+  static const double _dialogMaxHeight = 640;
+  static const double _cardMinWidth = 220;
+  static const double _cardMaxWidth = 300;
+  static const double _gridSpacing = 16;
+  static const double _dialogHorizontalInset = 48;
+  static const double _dialogVerticalInset = 72;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final viewport = MediaQuery.sizeOf(context);
+    final dialogWidth = math
+        .max(
+          _cardMinWidth,
+          math.min(_dialogMaxWidth, viewport.width - _dialogHorizontalInset),
+        )
+        .toDouble();
+    final dialogHeight = math
+        .max(
+          360,
+          math.min(_dialogMaxHeight, viewport.height - _dialogVerticalInset),
+        )
+        .toDouble();
     return AlertDialog(
       actionsAlignment: MainAxisAlignment.center,
       actionsOverflowAlignment: OverflowBarAlignment.center,
       title: Text(l10n.threadTemplateDialogTitle),
       content: SizedBox(
-        width: 1080,
-        height: 640,
+        width: dialogWidth,
+        height: dialogHeight,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -30,14 +50,10 @@ class _ThreadTemplateDialog extends StatelessWidget {
               const SizedBox(height: 18),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  const columns = 4;
-                  const spacing = 16.0;
-                  final cardWidth =
-                      (constraints.maxWidth - spacing * (columns - 1)) /
-                      columns;
+                  final cardWidth = _resolveCardWidth(constraints.maxWidth);
                   return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
+                    spacing: _gridSpacing,
+                    runSpacing: _gridSpacing,
                     children: templates
                         .map(
                           (template) => _ThreadTemplateCard(
@@ -61,6 +77,20 @@ class _ThreadTemplateDialog extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  double _resolveCardWidth(double availableWidth) {
+    if (!availableWidth.isFinite || availableWidth <= _cardMinWidth) {
+      return _cardMinWidth;
+    }
+    final columnCount = math.max(
+      1,
+      ((availableWidth + _gridSpacing) / (_cardMinWidth + _gridSpacing))
+          .floor(),
+    );
+    final width =
+        (availableWidth - _gridSpacing * (columnCount - 1)) / columnCount;
+    return width.clamp(_cardMinWidth, _cardMaxWidth).toDouble();
   }
 }
 
@@ -367,19 +397,13 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         label: isZh ? '浏览器' : 'Browser',
         value: config.browserKind.displayName,
       ),
-      _MetadataEntryRow(
-        label: 'CDP Port',
-        value: '${config.cdpPort}',
-      ),
+      _MetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
       _MetadataEntryRow(
         label: isZh ? '登录态' : 'Login Mode',
         value: isZh ? config.loginMode.label : config.loginMode.id,
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
-        _MetadataEntryRow(
-          label: isZh ? '代理' : 'Proxy',
-          value: config.proxy!,
-        ),
+        _MetadataEntryRow(label: isZh ? '代理' : 'Proxy', value: config.proxy!),
       if (config.keywords.isNotEmpty)
         _MetadataEntryRow(
           label: isZh ? '关键关键字' : 'Keywords',

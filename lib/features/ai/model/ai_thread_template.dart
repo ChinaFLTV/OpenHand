@@ -1,5 +1,18 @@
 import 'package:flutter/material.dart';
 
+enum AiThreadTemplateAvailability {
+  all,
+  appleOnly;
+
+  bool supportsPlatform(TargetPlatform platform) {
+    return switch (this) {
+      AiThreadTemplateAvailability.all => true,
+      AiThreadTemplateAvailability.appleOnly =>
+        platform == TargetPlatform.macOS || platform == TargetPlatform.iOS,
+    };
+  }
+}
+
 class AiThreadTemplate {
   const AiThreadTemplate({
     required this.id,
@@ -8,6 +21,7 @@ class AiThreadTemplate {
     required this.description,
     required this.internalVersion,
     required this.promptAssetDirectory,
+    this.availability = AiThreadTemplateAvailability.all,
   });
 
   final String id;
@@ -16,6 +30,11 @@ class AiThreadTemplate {
   final String description;
   final String internalVersion;
   final String promptAssetDirectory;
+  final AiThreadTemplateAvailability availability;
+
+  bool isSupportedOnPlatform(TargetPlatform platform) {
+    return availability.supportsPlatform(platform);
+  }
 
   IconData get iconData {
     return switch (iconName) {
@@ -25,6 +44,7 @@ class AiThreadTemplate {
       'hub_rounded' => Icons.hub_rounded,
       'code_rounded' => Icons.code_rounded,
       'travel_explore_rounded' => Icons.travel_explore_rounded,
+      'assistant_rounded' => Icons.assistant_rounded,
       _ => Icons.auto_awesome_rounded,
     };
   }

@@ -1995,6 +1995,8 @@ class AiPromptBuilder {
         'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
       'hermes_talker' =>
         'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
+      'siri_helper' =>
+        'You are OpenHand Siri Helper. Produce a relay-safe Apple-assistant checkpoint with grounded facts, cited claims, and any user-visible UI context preserved.',
       'web_reverse_expert' =>
         'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, hook scripts injected, and saved artifacts under WD/.web_reverse/.',
       _ => 'You are OpenHand. Produce a relay-safe conversation checkpoint.',

@@ -16,6 +16,7 @@ const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'hardness_engineering', dir: 'assets/prompts/hardness_engineering'),
   (id: 'programming_expert', dir: 'assets/prompts/programming_expert'),
   (id: 'hermes_talker', dir: 'assets/prompts/hermes_talker'),
+  (id: 'siri_helper', dir: 'assets/prompts/siri_helper'),
   (id: 'web_reverse_expert', dir: 'assets/prompts/web_reverse_expert'),
 ];
 
@@ -84,9 +85,13 @@ void main() {
     final tonePolicyMarker = aiPromptInstructionsHasMemoryTonePolicy(system);
     final cjkRatio = _cjkRatioPct(system);
 
-    final assembled = _appendMemoryTonePolicyIfAbsent(
-      _appendV4DisciplineIfAbsent(_appendSharedSectionsIfAbsent(system, t.id)),
-    );
+    final assembled = t.id == 'siri_helper'
+        ? system
+        : _appendMemoryTonePolicyIfAbsent(
+            _appendV4DisciplineIfAbsent(
+              _appendSharedSectionsIfAbsent(system, t.id),
+            ),
+          );
 
     File(
       '${outDir.path}/system_instructions.assembled.md',

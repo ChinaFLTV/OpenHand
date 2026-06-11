@@ -4702,14 +4702,19 @@ class WebMessagePlatformService {
     if (webGatewayIsDenyAllSelection(_config.allowedTemplateIds)) {
       return const [];
     }
-    if (_config.allowedTemplateIds.isEmpty) return _sessionController.templates;
-    return _sessionController.templates
+    final platformTemplates = _sessionController.availableTemplates;
+    if (_config.allowedTemplateIds.isEmpty) return platformTemplates;
+    return platformTemplates
         .where((template) => _config.allowedTemplateIds.contains(template.id))
         .toList(growable: false);
   }
 
   bool _templateAllowed(String templateId) {
     if (webGatewayIsDenyAllSelection(_config.allowedTemplateIds)) return false;
+    final supported = _sessionController.availableTemplates.any(
+      (template) => template.id == templateId,
+    );
+    if (!supported) return false;
     return _config.allowedTemplateIds.isEmpty ||
         _config.allowedTemplateIds.contains(templateId);
   }

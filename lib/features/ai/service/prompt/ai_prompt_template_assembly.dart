@@ -1,8 +1,5 @@
 class AiPromptSharedSectionSpec {
-  const AiPromptSharedSectionSpec({
-    required this.tag,
-    required this.assetPath,
-  });
+  const AiPromptSharedSectionSpec({required this.tag, required this.assetPath});
 
   final String tag;
   final String assetPath;
@@ -57,6 +54,9 @@ List<AiPromptSharedSectionSpec> aiPromptSharedSectionsForTemplate(
     return _defaultPromptSharedSections
         .where((section) => section.tag != 'workflow')
         .toList(growable: false);
+  }
+  if (templateId == 'siri_helper') {
+    return const <AiPromptSharedSectionSpec>[];
   }
   return _defaultPromptSharedSections;
 }

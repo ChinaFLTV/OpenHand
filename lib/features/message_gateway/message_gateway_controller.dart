@@ -158,7 +158,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     );
   }
 
-  List<AiThreadTemplate> get templates => _sessionController.templates;
+  List<AiThreadTemplate> get templates => _sessionController.availableTemplates;
   List<String> get skillNames => _skillsController.skills
       .map((skill) => skill.name)
       .where((name) => name.trim().isNotEmpty)

@@ -731,6 +731,8 @@ class AiSessionController extends ChangeNotifier {
   List<AiSessionPersistenceIssue> get persistenceIssues =>
       List<AiSessionPersistenceIssue>.unmodifiable(_persistenceIssues);
   List<AiThreadTemplate> get templates => _templateRepository.templates;
+  List<AiThreadTemplate> get availableTemplates =>
+      _templateRepository.templatesForPlatform();
   String get sessionsDirectoryPath => _store.sessionsDirectoryPath;
 
   bool isSessionMessagesHydrating(String sessionId) {
@@ -1478,6 +1480,11 @@ class AiSessionController extends ChangeNotifier {
     required bool awaitStartHook,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
+    if (!template.isSupportedOnPlatform(defaultTargetPlatform)) {
+      _lastErrorMessage =
+          'The thread template "${template.name}" is only available on Apple devices.';
+      return false;
+    }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
     // 2026-04-14: 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
