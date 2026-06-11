@@ -1802,33 +1802,39 @@ class _McpServerCardState extends State<_McpServerCard> {
                       ],
                     ),
                   ),
-                  if (healthStatus.hasError) ...[
-                    const SizedBox(height: 14),
-                    OpenHandInlineNoticeSlot(
-                      child: OpenHandInlineNoticeFactory.error(
-                        context,
-                        healthStatus.errorMessage!,
-                      ),
-                    ),
-                  ],
-                  if (toolCatalog.hasError) ...[
-                    const SizedBox(height: 14),
-                    OpenHandInlineNoticeSlot(
-                      child: OpenHandInlineNoticeFactory.error(
-                        context,
-                        toolCatalog.errorMessage!,
-                      ),
-                    ),
-                  ],
-                  if (toolCatalog.hasWarning) ...[
-                    const SizedBox(height: 14),
-                    OpenHandInlineNoticeSlot(
-                      child: OpenHandInlineNoticeFactory.warning(
-                        context,
-                        toolCatalog.warningMessage!,
-                      ),
-                    ),
-                  ],
+                  OpenHandInlineNoticeSlot(
+                    child: healthStatus.hasError
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: OpenHandInlineNoticeFactory.error(
+                              context,
+                              healthStatus.errorMessage!,
+                            ),
+                          )
+                        : null,
+                  ),
+                  OpenHandInlineNoticeSlot(
+                    child: toolCatalog.hasError
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: OpenHandInlineNoticeFactory.error(
+                              context,
+                              toolCatalog.errorMessage!,
+                            ),
+                          )
+                        : null,
+                  ),
+                  OpenHandInlineNoticeSlot(
+                    child: toolCatalog.hasWarning
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: OpenHandInlineNoticeFactory.warning(
+                              context,
+                              toolCatalog.warningMessage!,
+                            ),
+                          )
+                        : null,
+                  ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
                     switchInCurve: Curves.easeOutBack,
@@ -4984,15 +4990,17 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                             ),
                           ],
                         ),
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 14),
-                          OpenHandInlineNoticeSlot(
-                            child: OpenHandInlineNoticeFactory.error(
-                              context,
-                              _errorMessage!,
-                            ),
-                          ),
-                        ],
+                        OpenHandInlineNoticeSlot(
+                          child: _errorMessage != null
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: OpenHandInlineNoticeFactory.error(
+                                    context,
+                                    _errorMessage!,
+                                  ),
+                                )
+                              : null,
+                        ),
                         const SizedBox(height: 20),
                         Text(
                           _localizedText(
