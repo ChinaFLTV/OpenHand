@@ -121,7 +121,6 @@ class AiPromptBuilder {
     '接着做',
     '接着',
   };
-
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -178,6 +177,7 @@ class AiPromptBuilder {
       session: session,
       runtimeContext: runtimeContext,
     );
+    final preferInlineHistorySystemArtifacts = model.apiDialect.isOpenAiCompat;
     final latestCompressionPoint = session.latestCompressionPoint;
     final visibleSessionMessages = sessionMessages
         .where((item) => !item.isDeleted)
@@ -237,6 +237,8 @@ class AiPromptBuilder {
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
             : null,
+        preferInlineSystemReminders: preferInlineHistorySystemArtifacts,
+        preferInlineSystemArtifacts: preferInlineHistorySystemArtifacts,
       ),
     );
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
@@ -2024,6 +2026,8 @@ $identity''';
     _ToolCompressionConfig compressionConfig, {
     required int preTurnHistoryCount,
     String? latestUserMessageIdForInlineAttachments,
+    bool preferInlineSystemReminders = false,
+    bool preferInlineSystemArtifacts = false,
   }) {
     final shouldEchoReasoning = model.requiresReasoningEcho;
     final turns = <AiChatTurn>[];
@@ -2089,6 +2093,7 @@ $identity''';
           compressionConfig,
           lastConsumerIndex: stableConsumerBoundary,
           microCompactMessageIds: microCompactMessageIds,
+          preferInlineSystemReminders: preferInlineSystemReminders,
         );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(
@@ -2113,6 +2118,8 @@ $identity''';
         isLatestUserInline:
             latestUserMessageIdForInlineAttachments != null &&
             message.id == latestUserMessageIdForInlineAttachments,
+        preferInlineSystemReminders: preferInlineSystemReminders,
+        preferInlineSystemArtifacts: preferInlineSystemArtifacts,
       );
       if (mapped.isNotEmpty) {
         turns.addAll(_attachReasoningToAssistantTurns(mapped, roundReasoning));
@@ -2182,6 +2189,7 @@ $identity''';
     _ToolCompressionConfig compressionConfig, {
     required int lastConsumerIndex,
     required Set<String> microCompactMessageIds,
+    bool preferInlineSystemReminders = false,
   }) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
@@ -2203,6 +2211,7 @@ $identity''';
               messageIndex: cursor,
               lastConsumerIndex: lastConsumerIndex,
               microCompactMessageIds: microCompactMessageIds,
+              preferInlineSystemReminders: preferInlineSystemReminders,
             ),
             nextIndex: cursor + 1,
           );
@@ -2233,6 +2242,7 @@ $identity''';
           messageIndex: startIndex,
           lastConsumerIndex: lastConsumerIndex,
           microCompactMessageIds: microCompactMessageIds,
+          preferInlineSystemReminders: preferInlineSystemReminders,
         ),
         nextIndex: startIndex + 1,
       );
@@ -2281,6 +2291,7 @@ $identity''';
             isMicroCompactCleared: microCompactMessageIds.contains(
               toolMessage.id,
             ),
+            inlineSystemReminders: preferInlineSystemReminders,
           ),
         ),
       );
@@ -2297,8 +2308,13 @@ $identity''';
     required int lastConsumerIndex,
     required Set<String> microCompactMessageIds,
     bool isLatestUserInline = false,
+    bool preferInlineSystemReminders = false,
+    bool preferInlineSystemArtifacts = false,
   }) {
-    final promptContent = _promptContentForMessage(message);
+    final promptContent = _promptContentForMessage(
+      message,
+      inlineSystemReminders: preferInlineSystemReminders,
+    );
     switch (message.kind) {
       case AiSessionMessageKind.user:
         return _mapUserMessage(
@@ -2327,6 +2343,7 @@ $identity''';
             compressionConfig,
             isFreshUnconsumedResult: messageIndex > lastConsumerIndex,
             isMicroCompactCleared: microCompactMessageIds.contains(message.id),
+            inlineSystemReminders: preferInlineSystemReminders,
           ),
         );
       case AiSessionMessageKind.mcp:
@@ -2340,8 +2357,11 @@ $identity''';
       case AiSessionMessageKind.fileMutationSummary:
       case AiSessionMessageKind.status:
         return _mapMessageContent(
-          role: AiChatRole.system,
+          role: preferInlineSystemArtifacts
+              ? AiChatRole.assistant
+              : AiChatRole.system,
           content: '[${message.kind.storageValue}] $promptContent',
+          stripSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.selfLearning:
         // Self-learning cards are audit artefacts produced AFTER the fact by
@@ -2376,12 +2396,26 @@ $identity''';
     );
   }
 
-  String _promptContentForMessage(AiSessionMessage message) {
+  String _promptContentForMessage(
+    AiSessionMessage message, {
+    bool inlineSystemReminders = false,
+  }) {
     final buffer = StringBuffer(message.content.trim());
     final hookReminders = _readStringList(
       message.metadata[aiHookSystemRemindersMetadataKey],
     );
     for (final reminder in hookReminders) {
+      if (inlineSystemReminders) {
+        final normalizedReminder = _normalizeInlineHistoryReminder(reminder);
+        if (normalizedReminder.isEmpty) {
+          continue;
+        }
+        buffer
+          ..writeln()
+          ..writeln()
+          ..write(normalizedReminder);
+        continue;
+      }
       buffer
         ..writeln()
         ..writeln()
@@ -2401,6 +2435,14 @@ $identity''';
       }
     }
     return buffer.toString().trim();
+  }
+
+  String _normalizeInlineHistoryReminder(String reminder) {
+    final trimmed = reminder.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    return '[system_reminder] $trimmed';
   }
 
   List<AiChatContentPart> _attachmentPartsForMessage(
@@ -3941,10 +3983,14 @@ $content
     _ToolCompressionConfig compressionConfig, {
     bool isFreshUnconsumedResult = false,
     bool isMicroCompactCleared = false,
+    bool inlineSystemReminders = false,
   }) {
     if (!compressionConfig.enabled) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
-      return _promptContentForMessage(message);
+      return _promptContentForMessage(
+        message,
+        inlineSystemReminders: inlineSystemReminders,
+      );
     }
     if (isFreshUnconsumedResult) {
       // 2026-04-27 (修复): 最新一轮工具调用的结果是即将交给模型 *首次*
@@ -3952,17 +3998,27 @@ $content
       // 内容若被压缩成 head/tail 摘要，模型就拿不到必要的原始数据，
       // 会被迫凭空猜测或反复重试。仅对"已被模型消费过"的历史轮次
       // 启用压缩，未消费的最新一轮始终保留原文。
-      return _promptContentForMessage(message);
+      return _promptContentForMessage(
+        message,
+        inlineSystemReminders: inlineSystemReminders,
+      );
     }
     if (isMicroCompactCleared) {
-      return _microCompactToolResultContent(message);
+      return _microCompactToolResultContent(
+        message,
+        inlineSystemReminders: inlineSystemReminders,
+      );
     }
     if (!_isWriteLikeToolHistoryMessage(message)) {
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
       // conversation history 被海量原文淹没。
-      return _compressGenericToolResultContent(message, compressionConfig);
+      return _compressGenericToolResultContent(
+        message,
+        compressionConfig,
+        inlineSystemReminders: inlineSystemReminders,
+      );
     }
     final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
@@ -4023,7 +4079,10 @@ $content
         .toSet();
   }
 
-  String _microCompactToolResultContent(AiSessionMessage message) {
+  String _microCompactToolResultContent(
+    AiSessionMessage message, {
+    bool inlineSystemReminders = false,
+  }) {
     final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
     final status =
@@ -4034,7 +4093,10 @@ $content
         '${metadata['working_directory'] ?? metadata['tool_execution_working_directory'] ?? ''}'
             .trim();
     final purpose = _extractToolCallPurpose(metadata);
-    final original = _promptContentForMessage(message);
+    final original = _promptContentForMessage(
+      message,
+      inlineSystemReminders: inlineSystemReminders,
+    );
     final lines = <String>[
       '[old_tool_result_cleared] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
@@ -4274,9 +4336,13 @@ $content
 
   String _compressGenericToolResultContent(
     AiSessionMessage message,
-    _ToolCompressionConfig compressionConfig,
-  ) {
-    final original = _promptContentForMessage(message);
+    _ToolCompressionConfig compressionConfig, {
+    bool inlineSystemReminders = false,
+  }) {
+    final original = _promptContentForMessage(
+      message,
+      inlineSystemReminders: inlineSystemReminders,
+    );
     final threshold = compressionConfig.thresholdChars;
     if (original.length <= threshold) {
       return original;
