@@ -48,6 +48,13 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
+  static const _compactSessionStateTemplateIds = <String>{
+    'default',
+    'programming_expert',
+    // Siri 助手除 system prompt 外与 default 基本同构；沿用紧凑会话态布局，
+    // 避免非紧凑 [3d] 尾巴在 OpenAI 兼容自动前缀缓存模型上持续击穿命中率。
+    'siri_helper',
+  };
   static const _nonCompactStaticSessionKeys = <String>{
     'session_created_at',
     'session_id',
@@ -363,9 +370,9 @@ class AiPromptBuilder {
 
     // 2026-04-13: default template also uses compact metadata format to reduce
     // token overhead by ~40%. This follows the refactoring proposal.
-    final isCompactTemplate =
-        templateBundle.template.id == 'default' ||
-        templateBundle.template.id == 'programming_expert';
+    final isCompactTemplate = _compactSessionStateTemplateIds.contains(
+      templateBundle.template.id,
+    );
     final Map<String, Object?> staticSessionState;
     final Map<String, Object?> dynamicSessionState;
     if (isCompactTemplate) {
