@@ -85,13 +85,9 @@ void main() {
     final tonePolicyMarker = aiPromptInstructionsHasMemoryTonePolicy(system);
     final cjkRatio = _cjkRatioPct(system);
 
-    final assembled = t.id == 'siri_helper'
-        ? system
-        : _appendMemoryTonePolicyIfAbsent(
-            _appendV4DisciplineIfAbsent(
-              _appendSharedSectionsIfAbsent(system, t.id),
-            ),
-          );
+    final assembled = _appendMemoryTonePolicyIfAbsent(
+      _appendV4DisciplineIfAbsent(_appendSharedSectionsIfAbsent(system, t.id)),
+    );
 
     File(
       '${outDir.path}/system_instructions.assembled.md',

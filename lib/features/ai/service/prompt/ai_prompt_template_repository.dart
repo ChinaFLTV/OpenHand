@@ -203,14 +203,6 @@ class AiPromptTemplateRepository {
       '$assetDirectory/compression_summary_instructions.md',
       compressionFallback,
     );
-    if (templateId == 'siri_helper') {
-      return AiPromptTemplateBundle(
-        template: template,
-        systemInstructions: systemInstructions,
-        developerInstructions: developerInstructions,
-        compressionSummaryInstructions: compressionSummaryInstructions,
-      );
-    }
     final systemWithSharedSections = await _appendSharedSectionsIfAbsent(
       systemInstructions,
       templateId: templateId,
