@@ -4628,40 +4628,54 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
             ],
           ),
           const SizedBox(height: 12),
-          Material(
-            color: Colors.transparent,
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _useServerHeaders,
-              onChanged: _isRunning
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _useServerHeaders = value;
-                        _headerErrorMessage = null;
-                      });
-                    },
-              title: Text(
-                _localizedText(
-                  context,
-                  zh: '复用 MCP 服务的 Header 配置',
-                  en: 'Use MCP Server Headers',
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '复用 MCP 服务的 Header 配置',
+                        en: 'Use MCP Server Headers',
+                      ),
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.server.headers.isEmpty
+                          ? _localizedText(
+                              context,
+                              zh: '该服务未配置 Header',
+                              en: 'This server has no headers configured',
+                            )
+                          : _localizedText(
+                              context,
+                              zh: '已配置 ${widget.server.headers.length} 个 Header',
+                              en:
+                                  '${widget.server.headers.length} headers configured',
+                            ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              subtitle: Text(
-                widget.server.headers.isEmpty
-                    ? _localizedText(
-                        context,
-                        zh: '该服务未配置 Header',
-                        en: 'This server has no headers configured',
-                      )
-                    : _localizedText(
-                        context,
-                        zh: '已配置 ${widget.server.headers.length} 个 Header',
-                        en: '${widget.server.headers.length} headers configured',
-                      ),
+              const SizedBox(width: 12),
+              Switch(
+                value: _useServerHeaders,
+                onChanged: _isRunning
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _useServerHeaders = value;
+                          _headerErrorMessage = null;
+                        });
+                      },
               ),
-            ),
+            ],
           ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
