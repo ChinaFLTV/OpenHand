@@ -1024,6 +1024,47 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     });
   }
 
+  void _moveAtMentionSelection(int delta) {
+    if (_atMentionOverlay == null) return;
+    final total = _atMentionResults.length;
+    if (total == 0) return;
+    final next = (_atMentionSelectedIndex + delta) % total;
+    setState(() {
+      _atMentionSelectedIndex = next < 0 ? next + total : next;
+    });
+    _atMentionOverlay?.markNeedsBuild();
+  }
+
+  bool _commitAtMentionSelection() {
+    if (_atMentionOverlay == null) return false;
+    if (_atMentionLoading) return false;
+    if (_atMentionResults.isEmpty) return false;
+    final index = _atMentionSelectedIndex;
+    if (index < 0 || index >= _atMentionResults.length) return false;
+    _handleAtMentionSelect(_atMentionResults[index]);
+    return true;
+  }
+
+  bool _openSelectedAtMentionDirectory() {
+    if (_atMentionOverlay == null) return false;
+    if (_atMentionLoading) return false;
+    if (_atMentionResults.isEmpty) return false;
+    final index = _atMentionSelectedIndex;
+    if (index < 0 || index >= _atMentionResults.length) return false;
+    final item = _atMentionResults[index];
+    if (!item.isDirectory) return false;
+    _handleAtMentionDrillDown(item);
+    return true;
+  }
+
+  bool _navigateAtMentionToParentDirectory() {
+    if (_atMentionOverlay == null) return false;
+    if (_atMentionLoading) return false;
+    if (_atMentionCurrentDirectory.isEmpty) return false;
+    _handleAtMentionBreadcrumbTap(_atMentionBreadcrumbs.length - 2);
+    return true;
+  }
+
   /// Moves the skill picker's highlight by [delta] rows (wrap-around).
   /// Invoked by the parent focus node key handler when the user presses the
   /// up/down arrow keys while the picker overlay is visible.
@@ -3023,6 +3064,8 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late Animation<double> _animation;
+  final ScrollController _listController = ScrollController();
+  static const double _estimatedItemExtent = 50.0;
 
   @override
   void initState() {
@@ -3070,7 +3113,41 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     widget.visible.removeListener(_handleVisibilityChanged);
     _controller.removeStatusListener(_handleAnimationStatus);
     _controller.dispose();
+    _listController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AtMentionOverlayPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _scrollSelectionIntoView();
+    }
+  }
+
+  void _scrollSelectionIntoView() {
+    if (!_listController.hasClients) return;
+    final target = widget.selectedIndex * _estimatedItemExtent;
+    final viewportStart = _listController.offset;
+    final viewportEnd =
+        viewportStart + _listController.position.viewportDimension;
+    if (target < viewportStart) {
+      _listController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    } else if (target + _estimatedItemExtent > viewportEnd) {
+      final next =
+          target +
+          _estimatedItemExtent -
+          _listController.position.viewportDimension;
+      _listController.animateTo(
+        next.clamp(0.0, _listController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -3180,6 +3257,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                   else
                     Flexible(
                       child: ListView.builder(
+                        controller: _listController,
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         shrinkWrap: true,
                         itemCount: widget.items.length,

@@ -2156,9 +2156,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // still paste text if the clipboard happens to carry both.
       }
     }
+    final composerState = _composerPanelState;
     // Escape dismisses the @ mention overlay if it is showing.
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      final composerState = _composerPanelState;
       if (composerState != null && composerState._atMentionOverlay != null) {
         composerState._userDismissAtMentionOverlay();
         return KeyEventResult.handled;
@@ -2168,11 +2168,36 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return KeyEventResult.handled;
       }
     }
+    if (composerState != null && composerState._atMentionOverlay != null) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        composerState._moveAtMentionSelection(1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        composerState._moveAtMentionSelection(-1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        if (composerState._openSelectedAtMentionDirectory()) {
+          return KeyEventResult.handled;
+        }
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        if (composerState._navigateAtMentionToParentDirectory()) {
+          return KeyEventResult.handled;
+        }
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter ||
+          event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+        if (composerState._commitAtMentionSelection()) {
+          return KeyEventResult.handled;
+        }
+      }
+    }
     // When the skill picker overlay is visible, let Up/Down move the
     // selection highlight and Enter commit the current selection.  This
     // mirrors Codex / GitHub Copilot Chat behaviour and makes skill lookup
     // an efficient keyboard-only workflow.
-    final composerState = _composerPanelState;
     if (composerState != null && composerState._skillPickerOverlay != null) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         composerState._moveSkillPickerSelection(1);
