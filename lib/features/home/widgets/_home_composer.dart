@@ -200,6 +200,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   int _atMentionSelectedIndex = 0;
   int _atMentionTriggerOffset = -1;
   String _atMentionCurrentDirectory = '';
+  String? _atMentionRestoreSelectionRelativePath;
   // Breadcrumb path segments for directory drilling.
   List<String> _atMentionBreadcrumbs = const [];
   bool _atMentionLoading = false;
@@ -431,6 +432,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final searchGeneration = ++_atMentionSearchGeneration;
     final triggerOffset = _atMentionTriggerOffset;
     final currentDirectory = _atMentionCurrentDirectory;
+    final restoreSelectionRelativePath = _atMentionRestoreSelectionRelativePath;
     setState(() => _atMentionLoading = true);
     final basePath = currentDirectory.isEmpty
         ? rootPath
@@ -532,9 +534,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     setState(() {
       _atMentionResults = results;
-      _atMentionSelectedIndex = 0;
+      _atMentionSelectedIndex = restoreSelectionRelativePath == null
+          ? 0
+          : math.max(
+              0,
+              results.indexWhere(
+                (item) => item.relativePath == restoreSelectionRelativePath,
+              ),
+            );
       _atMentionLoading = false;
     });
+    if (_atMentionRestoreSelectionRelativePath ==
+        restoreSelectionRelativePath) {
+      _atMentionRestoreSelectionRelativePath = null;
+    }
     _showAtMentionOverlay();
   }
 
@@ -762,6 +775,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final root = widget.projectRoot;
     if (root == null) return;
     setState(() {
+      _atMentionRestoreSelectionRelativePath = null;
       _atMentionCurrentDirectory = p.relative(item.path, from: root);
       _atMentionBreadcrumbs = p
           .split(_atMentionCurrentDirectory)
@@ -792,15 +806,22 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   void _handleAtMentionBreadcrumbTap(int depth) {
     final root = widget.projectRoot;
     if (root == null) return;
+    final previousDirectory = _atMentionCurrentDirectory;
     if (depth < 0) {
       // Go back to project root.
       setState(() {
+        _atMentionRestoreSelectionRelativePath = previousDirectory.isEmpty
+            ? null
+            : previousDirectory;
         _atMentionCurrentDirectory = '';
         _atMentionBreadcrumbs = const [];
       });
     } else {
       final newBreadcrumbs = _atMentionBreadcrumbs.sublist(0, depth + 1);
       setState(() {
+        _atMentionRestoreSelectionRelativePath = previousDirectory.isEmpty
+            ? null
+            : previousDirectory;
         _atMentionCurrentDirectory = p.joinAll(newBreadcrumbs);
         _atMentionBreadcrumbs = newBreadcrumbs;
       });
