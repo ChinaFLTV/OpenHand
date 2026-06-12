@@ -38,10 +38,25 @@ String normalizeConsoleSignature(String text) {
   final firstLine = text.split('\n').first.trim();
   return firstLine
       .replaceAll(
-          RegExp(r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*'), '<ts>')
+        RegExp(r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*'),
+        '<ts>',
+      )
       .replaceAll(RegExp(r'\b0x[0-9a-fA-F]+\b'), '<hex>')
       .replaceAll(RegExp(r'\b\d{3,}\b'), '<num>')
       .replaceAll(RegExp(r'/[A-Fa-f0-9]{8,}'), '/<hash>')
       .replaceAll(RegExp(r':\d+:\d+\)'), ':L:C)')
       .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+Object? cdpResultValue(Object? response) {
+  if (response is! Map) return null;
+  if (response['error'] != null) return null;
+  final result = response['result'];
+  if (result is! Map) return null;
+  return result['value'];
+}
+
+String? cdpStringResultValue(Object? response) {
+  final value = cdpResultValue(response);
+  return value is String ? value : null;
 }

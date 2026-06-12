@@ -19,6 +19,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseWatchDialog(
@@ -100,7 +101,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   void _start() {
     _timer?.cancel();
-    _timer = Timer.periodic(_interval, (_) => _tick());
+    _timer = startNonOverlappingPeriodicTimer(_interval, (_) => _tick());
     setState(() => _running = true);
   }
 
@@ -111,9 +112,10 @@ class _WatchDialogState extends State<_WatchDialog> {
   }
 
   Future<void> _tick() async {
-    if (_exprs.isEmpty) return;
+    if (!mounted || _exprs.isEmpty) return;
     for (final e in _exprs) {
       await _evalOne(e);
+      if (!mounted) return;
     }
     if (mounted) setState(() {});
   }

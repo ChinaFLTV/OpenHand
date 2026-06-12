@@ -16,6 +16,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReversePerfTraceDialog(
@@ -78,22 +79,24 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   }
 
   Future<void> _start() async {
+    if (_busy) return;
     final loc = AppLocalizations.of(context);
-    final secs = _seconds.round();
+    final secs = _seconds.round().clamp(2, 30).toInt();
     final earlyStop = Completer<void>();
     setState(() {
       _busy = true;
       _ticksLeft = secs;
       _earlyStop = earlyStop;
-      _status = loc?.webReversePerfRecording(secs) ??
-          'Recording (${secs}s left)';
+      _status =
+          loc?.webReversePerfRecording(secs) ?? 'Recording (${secs}s left)';
     });
     _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _ticker = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
         _ticksLeft = (_ticksLeft - 1).clamp(0, 999);
-        _status = loc?.webReversePerfRecording(_ticksLeft) ??
+        _status =
+            loc?.webReversePerfRecording(_ticksLeft) ??
             'Recording (${_ticksLeft}s left)';
       });
     });
@@ -114,8 +117,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       setState(() {
         _busy = false;
         _earlyStop = null;
-        _status =
-            loc?.webReversePerfTraceFailed ?? 'Trace failed or empty';
+        _status = loc?.webReversePerfTraceFailed ?? 'Trace failed or empty';
       });
       return;
     }
@@ -130,7 +132,8 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       _lastSaved = file.path;
       _lastBytes = json!.length;
       final kb = (_lastBytes / 1024).toStringAsFixed(1);
-      _status = loc?.webReversePerfSaved(file.path, kb) ??
+      _status =
+          loc?.webReversePerfSaved(file.path, kb) ??
           'Saved: ${file.path} ($kb KB)';
     });
     final m = ScaffoldMessenger.maybeOf(context);
@@ -148,7 +151,8 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     if (c != null && !c.isCompleted) {
       c.complete();
       setState(() {
-        _status = AppLocalizations.of(context)?.webReversePerfStopping ??
+        _status =
+            AppLocalizations.of(context)?.webReversePerfStopping ??
             'Stopping, finalizing…';
       });
     }
@@ -198,14 +202,16 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                       children: [
                         Text(
                           loc?.webReversePerfTitle ?? 'Performance Trace',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReversePerfSubtitle ??
                               'Tracing → chrome-trace JSON',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -261,8 +267,10 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -295,8 +303,9 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                 color: cs.surfaceContainerHigh,
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             buildOpenHandDialogActionsBar(
@@ -321,9 +330,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
                   ),
                 OpenHandDialogActionButton.primary(
                   label: loc?.webReversePerfClose ?? 'Close',
-                  onPressed: _busy
-                      ? null
-                      : () => Navigator.of(context).pop(),
+                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
                 ),
               ],
             ),

@@ -17,12 +17,14 @@ int exponentialBackoffMs({
   required int capMs,
 }) {
   if (attempt <= 0) return 0;
+  final safeBaseMs = baseMs <= 0 ? 1 : baseMs;
+  final safeCapMs = capMs < safeBaseMs ? safeBaseMs : capMs;
   // 防 1<<(attempt-1) 在大 attempt 时溢出：6 次后 base*32 已经远超 capMs，
   // 提前 clamp attempt 到 30 已绰绰有余。
   final safeAttempt = attempt.clamp(1, 30);
-  final raw = baseMs * (1 << (safeAttempt - 1));
-  final lo = baseMs;
-  final hi = capMs < baseMs ? baseMs : capMs;
+  final raw = safeBaseMs * (1 << (safeAttempt - 1));
+  final lo = safeBaseMs;
+  final hi = safeCapMs;
   if (raw < lo) return lo;
   if (raw > hi) return hi;
   return raw;

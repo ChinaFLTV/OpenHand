@@ -22,6 +22,8 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/timer_safety.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 const String _kInstallScript = r'''
@@ -166,7 +168,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           'awaitPromise': false,
         }),
       );
-      _drainTimer = Timer.periodic(
+      _drainTimer = startNonOverlappingPeriodicTimer(
         const Duration(milliseconds: 800),
         (_) => _drain(),
       );
@@ -238,10 +240,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           'returnByValue': true,
         }),
       );
-      if (r == null) return;
-      final result = r['result'] as Map?;
-      final v = result?['value'];
-      if (v is! String) return;
+      final v = cdpStringResultValue(r);
+      if (v == null) return;
       final list = jsonDecode(v);
       if (list is! List) return;
       bool dirty = false;

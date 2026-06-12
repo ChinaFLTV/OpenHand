@@ -21,6 +21,8 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/timer_safety.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 const String _kHookSource = r"""
@@ -78,17 +80,18 @@ const String _kHookSource = r"""
 """;
 
 class _PmRecord {
-
   factory _PmRecord.fromJson(Map<String, Object?> j) => _PmRecord(
-        dir: j['dir']?.toString() ?? 'recv',
-        at: DateTime.fromMillisecondsSinceEpoch(
-          (j['t'] is num) ? (j['t'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
-        ),
-        origin: j['origin']?.toString() ?? '',
-        target: j['target']?.toString() ?? '',
-        source: j['source']?.toString() ?? '',
-        data: j['data']?.toString() ?? '',
-      );
+    dir: j['dir']?.toString() ?? 'recv',
+    at: DateTime.fromMillisecondsSinceEpoch(
+      (j['t'] is num)
+          ? (j['t'] as num).toInt()
+          : DateTime.now().millisecondsSinceEpoch,
+    ),
+    origin: j['origin']?.toString() ?? '',
+    target: j['target']?.toString() ?? '',
+    source: j['source']?.toString() ?? '',
+    data: j['data']?.toString() ?? '',
+  );
   _PmRecord({
     required this.dir,
     required this.at,
@@ -106,13 +109,13 @@ class _PmRecord {
   final String data;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'dir': dir,
-        'at': at.toIso8601String(),
-        'origin': origin,
-        'target': target,
-        'source': source,
-        'data': data,
-      };
+    'dir': dir,
+    'at': at.toIso8601String(),
+    'origin': origin,
+    'target': target,
+    'source': source,
+    'data': data,
+  };
 }
 
 Future<void> showWebReversePostMessageDialog(
@@ -175,11 +178,16 @@ class _PmDialogState extends State<_PmDialog> {
           }),
         );
         _pollTimer?.cancel();
-        _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) => _drain());
+        _pollTimer = startNonOverlappingPeriodicTimer(
+          const Duration(milliseconds: 800),
+          (_) => _drain(),
+        );
         if (mounted) {
           setState(() {
             _hooked = true;
-            _status = AppLocalizations.of(context)?.webReversePmHookInjected ?? 'Hook injected';
+            _status =
+                AppLocalizations.of(context)?.webReversePmHookInjected ??
+                'Hook injected';
           });
         }
       } else {
@@ -196,7 +204,9 @@ class _PmDialogState extends State<_PmDialog> {
         if (mounted) {
           setState(() {
             _hooked = false;
-            _status = AppLocalizations.of(context)?.webReversePmHookStopped ?? 'Stopped (full unhook after reload)';
+            _status =
+                AppLocalizations.of(context)?.webReversePmHookStopped ??
+                'Stopped (full unhook after reload)';
           });
         }
       }
@@ -212,15 +222,14 @@ class _PmDialogState extends State<_PmDialog> {
       final r = await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
         paramsJson: jsonEncode({
-          'expression': 'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
+          'expression':
+              'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
           'returnByValue': true,
         }),
       );
       if (r == null || r['error'] != null) return;
-      final result = r['result'];
-      if (result is! Map) return;
-      final value = result['value'];
-      if (value is! String || value.isEmpty) return;
+      final value = cdpStringResultValue(r);
+      if (value == null || value.isEmpty) return;
       final parsed = jsonDecode(value);
       if (parsed is! List) return;
       if (parsed.isEmpty) return;
@@ -262,15 +271,19 @@ class _PmDialogState extends State<_PmDialog> {
   Future<void> _copy() async {
     final filtered = _filtered();
     if (filtered.isEmpty) return;
-    final json = const JsonEncoder.withIndent('  ')
-        .convert(filtered.map((r) => r.toJson()).toList());
+    final json = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(filtered.map((r) => r.toJson()).toList());
     final messenger = ScaffoldMessenger.maybeOf(context);
     await Clipboard.setData(ClipboardData(text: json));
     if (messenger != null && mounted) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        AppLocalizations.of(context)?.webReversePmCopiedCount(filtered.length) ?? 'Copied ${filtered.length} records',
+        AppLocalizations.of(
+              context,
+            )?.webReversePmCopiedCount(filtered.length) ??
+            'Copied ${filtered.length} records',
       );
     }
   }
@@ -314,12 +327,16 @@ class _PmDialogState extends State<_PmDialog> {
                       children: [
                         Text(
                           loc?.webReversePmTitle ?? 'postMessage Trace',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReversePmSubtitle ??
                               'Inject hook → ring buffer → drain every 800ms (incl. iframe)',
-                          style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -338,10 +355,14 @@ class _PmDialogState extends State<_PmDialog> {
                 children: [
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _toggleHook,
-                    icon: Icon(_hooked ? Icons.stop_rounded : Icons.play_arrow_rounded),
-                    label: Text(_hooked
-                        ? (loc?.webReversePmStop ?? 'Stop')
-                        : (loc?.webReversePmInject ?? 'Inject')),
+                    icon: Icon(
+                      _hooked ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                    ),
+                    label: Text(
+                      _hooked
+                          ? (loc?.webReversePmStop ?? 'Stop')
+                          : (loc?.webReversePmInject ?? 'Inject'),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   FilledButton.tonalIcon(
@@ -358,7 +379,9 @@ class _PmDialogState extends State<_PmDialog> {
                   const Spacer(),
                   Text(
                     '${filtered.length}/${_records.length}',
-                    style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -374,7 +397,9 @@ class _PmDialogState extends State<_PmDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: loc?.webReversePmFilterHint ?? 'filter by substring',
+                        hintText:
+                            loc?.webReversePmFilterHint ??
+                            'filter by substring',
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -396,7 +421,10 @@ class _PmDialogState extends State<_PmDialog> {
             ),
             if (_status != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -421,16 +449,21 @@ class _PmDialogState extends State<_PmDialog> {
                     ? Center(
                         child: Text(
                           _hooked
-                              ? (loc?.webReversePmWaiting ?? 'Waiting for postMessage…')
-                              : (loc?.webReversePmClickToCapture ?? 'Click Inject to start capturing'),
-                          style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                              ? (loc?.webReversePmWaiting ??
+                                    'Waiting for postMessage…')
+                              : (loc?.webReversePmClickToCapture ??
+                                    'Click Inject to start capturing'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(8),
                         itemCount: filtered.length,
                         reverse: true,
-                        separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
+                        separatorBuilder: (_, _) =>
+                            Divider(height: 1, color: cs.outlineVariant),
                         itemBuilder: (_, i) {
                           final r = filtered[filtered.length - 1 - i];
                           final isSend = r.dir == 'send';
@@ -443,15 +476,20 @@ class _PmDialogState extends State<_PmDialog> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: accent.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         isSend
-                                            ? (loc?.webReversePmTagSend ?? 'SEND')
-                                            : (loc?.webReversePmTagRecv ?? 'RECV'),
+                                            ? (loc?.webReversePmTagSend ??
+                                                  'SEND')
+                                            : (loc?.webReversePmTagRecv ??
+                                                  'RECV'),
                                         style: TextStyle(
                                           color: accent,
                                           fontWeight: FontWeight.w700,
@@ -462,7 +500,10 @@ class _PmDialogState extends State<_PmDialog> {
                                     const SizedBox(width: 8),
                                     Text(
                                       _fmtTime(r.at),
-                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -483,7 +524,10 @@ class _PmDialogState extends State<_PmDialog> {
                                 const SizedBox(height: 4),
                                 SelectableText(
                                   r.data,
-                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
                                   maxLines: 6,
                                 ),
                               ],

@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCorsPreflightDialog(
@@ -86,7 +87,8 @@ class _CorsDialogState extends State<_CorsDialog> {
       _error = null;
       _result = null;
     });
-    final js = '''
+    final js =
+        '''
 (async () => {
   try {
     const url = ${jsonEncode(url)};
@@ -126,8 +128,8 @@ class _CorsDialogState extends State<_CorsDialog> {
           'returnByValue': true,
         }),
       );
-      final raw = (r?['result'] as Map?)?['value'];
-      if (raw is! String) {
+      final raw = cdpStringResultValue(r);
+      if (raw == null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
@@ -192,16 +194,19 @@ class _CorsDialogState extends State<_CorsDialog> {
         .map((s) => s.trim().toLowerCase())
         .where((s) => s.isNotEmpty)
         .toList();
-    final missing =
-        names.where((n) => !allowHeaders.contains(n) && !allowHeaders.contains('*')).toList();
+    final missing = names
+        .where((n) => !allowHeaders.contains(n) && !allowHeaders.contains('*'))
+        .toList();
     out.add(
       _Diagnostic(
         label: 'Access-Control-Allow-Headers',
         value: '${hdr['access-control-allow-headers'] ?? ''}',
         pass: missing.isEmpty,
         hint: missing.isEmpty
-            ? (loc?.webReverseCorsAllHeadersAllowed ?? 'all requested headers allowed')
-            : (loc?.webReverseCorsMissingHeaders(missing.join(', ')) ?? 'missing: ${missing.join(', ')}'),
+            ? (loc?.webReverseCorsAllHeadersAllowed ??
+                  'all requested headers allowed')
+            : (loc?.webReverseCorsMissingHeaders(missing.join(', ')) ??
+                  'missing: ${missing.join(', ')}'),
       ),
     );
     if (_withCredentials) {
@@ -211,18 +216,22 @@ class _CorsDialogState extends State<_CorsDialog> {
           label: 'Access-Control-Allow-Credentials',
           value: allowCreds,
           pass: allowCreds.toLowerCase() == 'true' && allowOrigin != '*',
-          hint: loc?.webReverseCorsCredsRule ?? 'must be true and Allow-Origin must not be *',
+          hint:
+              loc?.webReverseCorsCredsRule ??
+              'must be true and Allow-Origin must not be *',
         ),
       );
     }
     final maxAge = '${hdr['access-control-max-age'] ?? ''}';
     if (maxAge.isNotEmpty) {
-      out.add(_Diagnostic(
-        label: 'Access-Control-Max-Age',
-        value: maxAge,
-        pass: true,
-        hint: loc?.webReverseCorsCacheSeconds ?? 'cache seconds',
-      ));
+      out.add(
+        _Diagnostic(
+          label: 'Access-Control-Max-Age',
+          value: maxAge,
+          pass: true,
+          hint: loc?.webReverseCorsCacheSeconds ?? 'cache seconds',
+        ),
+      );
     }
     return out;
   }
@@ -233,9 +242,7 @@ class _CorsDialogState extends State<_CorsDialog> {
     final loc = AppLocalizations.of(context);
     try {
       await Clipboard.setData(
-        ClipboardData(
-          text: const JsonEncoder.withIndent('  ').convert(res),
-        ),
+        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(res)),
       );
     } catch (err, st) {
       silentLog('web-reverse', 'cors.copy', err, st);
@@ -279,14 +286,16 @@ class _CorsDialogState extends State<_CorsDialog> {
                       children: [
                         Text(
                           loc?.webReverseCorsTitle ?? 'CORS Preflight',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseCorsSubtitle ??
                               'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -325,7 +334,9 @@ class _CorsDialogState extends State<_CorsDialog> {
                         child: TextField(
                           controller: _methodCtl,
                           decoration: InputDecoration(
-                            labelText: loc?.webReverseCorsActualMethod ?? 'Actual Method',
+                            labelText:
+                                loc?.webReverseCorsActualMethod ??
+                                'Actual Method',
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -336,7 +347,8 @@ class _CorsDialogState extends State<_CorsDialog> {
                         child: TextField(
                           controller: _originCtl,
                           decoration: InputDecoration(
-                            labelText: loc?.webReverseCorsOriginOverride ??
+                            labelText:
+                                loc?.webReverseCorsOriginOverride ??
                                 'Origin override (optional, display only)',
                             border: const OutlineInputBorder(),
                             isDense: true,
@@ -349,9 +361,13 @@ class _CorsDialogState extends State<_CorsDialog> {
                   TextField(
                     controller: _headersCtl,
                     maxLines: 4,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
                     decoration: InputDecoration(
-                      labelText: loc?.webReverseCorsCustomHeaders ??
+                      labelText:
+                          loc?.webReverseCorsCustomHeaders ??
                           'Custom headers (one K: V per line; only names sent in preflight)',
                       border: const OutlineInputBorder(),
                     ),
@@ -361,8 +377,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                     children: [
                       Switch(
                         value: _withCredentials,
-                        onChanged: (v) =>
-                            setState(() => _withCredentials = v),
+                        onChanged: (v) => setState(() => _withCredentials = v),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -373,7 +388,9 @@ class _CorsDialogState extends State<_CorsDialog> {
                       FilledButton.icon(
                         onPressed: _busy ? null : _run,
                         icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(loc?.webReverseCorsRunButton ?? 'Run Preflight'),
+                        label: Text(
+                          loc?.webReverseCorsRunButton ?? 'Run Preflight',
+                        ),
                       ),
                     ],
                   ),
@@ -391,8 +408,10 @@ class _CorsDialogState extends State<_CorsDialog> {
                           color: cs.errorContainer.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_error!,
-                            style: TextStyle(color: cs.error, fontSize: 12)),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: cs.error, fontSize: 12),
+                        ),
                       ),
                     ),
                   if (res != null) ...[
@@ -424,10 +443,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                               ),
                               child: Text(
                                 '${res['error'] ?? 'failed'}',
-                                style: TextStyle(
-                                  color: cs.error,
-                                  fontSize: 12,
-                                ),
+                                style: TextStyle(color: cs.error, fontSize: 12),
                               ),
                             ),
                     ),
@@ -436,17 +452,19 @@ class _CorsDialogState extends State<_CorsDialog> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: cs.primaryContainer
-                                  .withValues(alpha: 0.5),
+                              color: cs.primaryContainer.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               'HTTP ${res['status']} ${res['statusText']}',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -459,8 +477,9 @@ class _CorsDialogState extends State<_CorsDialog> {
                       const SizedBox(height: 12),
                       Text(
                         loc?.webReverseCorsDiagnostics ?? 'Diagnostics',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       for (final d in diags)
@@ -503,13 +522,16 @@ class _CorsDialogState extends State<_CorsDialog> {
                               SelectableText(
                                 d.value.isEmpty ? '—' : d.value,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 11),
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 d.hint,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant),
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),
@@ -517,8 +539,9 @@ class _CorsDialogState extends State<_CorsDialog> {
                       const SizedBox(height: 10),
                       Text(
                         loc?.webReverseCorsAllHeaders ?? 'All response headers',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
@@ -528,12 +551,13 @@ class _CorsDialogState extends State<_CorsDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: SelectableText(
-                          ((res['respHeaders'] as Map?) ?? {})
-                              .entries
+                          ((res['respHeaders'] as Map?) ?? {}).entries
                               .map((e) => '${e.key}: ${e.value}')
                               .join('\n'),
                           style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 11),
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],

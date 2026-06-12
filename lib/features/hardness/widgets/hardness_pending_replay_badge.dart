@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/util/timer_safety.dart';
 
 /// Hardness header 内的 ToolSearch 重放反悔 chip：监听
 /// `ToolSearchReplayDispatcher.pendingDeadlineListenable`，window 内每秒
@@ -72,14 +73,19 @@ class _HardnessPendingReplayBadgeState
     if (dl == null) {
       _ticker = null;
     } else {
-      _ticker = Timer.periodic(widget.tickInterval, (_) {
-        if (!mounted) return;
-        if (widget.deadlineListenable.value == null) {
-          _ticker?.cancel();
-          _ticker = null;
-        }
-        setState(() {});
-      });
+      _ticker = startSafePeriodicTimer(
+        widget.tickInterval,
+        (_) {
+          if (!mounted) return;
+          if (widget.deadlineListenable.value == null) {
+            _ticker?.cancel();
+            _ticker = null;
+          }
+          setState(() {});
+        },
+        min: const Duration(milliseconds: 16),
+        max: const Duration(minutes: 1),
+      );
     }
     if (mounted) setState(() {});
   }

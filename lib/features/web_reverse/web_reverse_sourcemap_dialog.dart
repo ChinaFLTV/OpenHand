@@ -73,7 +73,9 @@ class _SmDialogState extends State<_SmDialog> {
     final line = int.tryParse(_line.text.trim()) ?? 0;
     final col = int.tryParse(_col.text.trim()) ?? 0;
     if (url.isEmpty || line < 1) {
-      setState(() => _status = loc?.webReverseSmInvalidInput ?? 'invalid input');
+      setState(
+        () => _status = loc?.webReverseSmInvalidInput ?? 'invalid input',
+      );
       return;
     }
     setState(() {
@@ -82,7 +84,8 @@ class _SmDialogState extends State<_SmDialog> {
       _result = null;
     });
     try {
-      final js = '''
+      final js =
+          '''
 (async () => {
   try {
     const r = await fetch(${jsonEncode(url)});
@@ -116,12 +119,13 @@ class _SmDialogState extends State<_SmDialog> {
         setState(() {
           _busy = false;
           _status =
-              loc?.webReverseSmFetchFailed('${r?['error']}') ?? 'Fetch failed: ${r?['error']}';
+              loc?.webReverseSmFetchFailed('${r?['error']}') ??
+              'Fetch failed: ${r?['error']}';
         });
         return;
       }
-      final raw = (r['result'] as Map?)?['value'];
-      if (raw is! String) {
+      final raw = cdpStringResultValue(r);
+      if (raw == null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
@@ -141,24 +145,24 @@ class _SmDialogState extends State<_SmDialog> {
       final mapText = '${wrap['map']}';
       final map = jsonDecode(mapText) as Map<String, Object?>;
       final sources =
-          (map['sources'] as List?)?.cast<Object?>().map((e) => '$e').toList() ??
-              const <String>[];
+          (map['sources'] as List?)
+              ?.cast<Object?>()
+              .map((e) => '$e')
+              .toList() ??
+          const <String>[];
       final names =
           (map['names'] as List?)?.cast<Object?>().map((e) => '$e').toList() ??
-              const <String>[];
+          const <String>[];
       final sourceRoot = '${map['sourceRoot'] ?? ''}';
       final mappings = '${map['mappings'] ?? ''}';
-      final sourcesContent = (map['sourcesContent'] as List?)
+      final sourcesContent =
+          (map['sourcesContent'] as List?)
               ?.cast<Object?>()
               .map((e) => e == null ? null : '$e')
               .toList() ??
           const <String?>[];
 
-      final hit = _decode(
-        mappings,
-        targetLine: line - 1,
-        targetColumn: col,
-      );
+      final hit = _decode(mappings, targetLine: line - 1, targetColumn: col);
       if (hit == null) {
         if (!mounted) return;
         setState(() {
@@ -177,7 +181,9 @@ class _SmDialogState extends State<_SmDialog> {
           : '?';
       final src = sourceRoot.isEmpty
           ? srcRel
-          : (sourceRoot.endsWith('/') ? '$sourceRoot$srcRel' : '$sourceRoot/$srcRel');
+          : (sourceRoot.endsWith('/')
+                ? '$sourceRoot$srcRel'
+                : '$sourceRoot/$srcRel');
       String snippet = '';
       if (srcIdx >= 0 && srcIdx < sourcesContent.length) {
         final body = sourcesContent[srcIdx];
@@ -185,9 +191,11 @@ class _SmDialogState extends State<_SmDialog> {
           final lines = const LineSplitter().convert(body);
           if (origLine < lines.length) {
             final around = <String>[];
-            for (var i = (origLine - 1).clamp(0, lines.length - 1);
-                i <= (origLine + 1).clamp(0, lines.length - 1);
-                i += 1) {
+            for (
+              var i = (origLine - 1).clamp(0, lines.length - 1);
+              i <= (origLine + 1).clamp(0, lines.length - 1);
+              i += 1
+            ) {
               final marker = i == origLine ? '→' : ' ';
               around.add('$marker ${i + 1}: ${lines[i]}');
             }
@@ -321,13 +329,16 @@ class _SmDialogState extends State<_SmDialog> {
                       children: [
                         Text(
                           loc?.webReverseSmTitle ?? 'SourceMap Resolver',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
-                          loc?.webReverseSmSubtitle ?? 'min file:line:col → original source:line:col',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          loc?.webReverseSmSubtitle ??
+                              'min file:line:col → original source:line:col',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -348,10 +359,12 @@ class _SmDialogState extends State<_SmDialog> {
                     controller: _url,
                     autofocus: true,
                     decoration: InputDecoration(
-                      labelText: loc?.webReverseSmUrlLabel ?? 'Minified file URL',
+                      labelText:
+                          loc?.webReverseSmUrlLabel ?? 'Minified file URL',
                       hintText: 'https://.../app.min.js',
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -361,9 +374,11 @@ class _SmDialogState extends State<_SmDialog> {
                         child: TextField(
                           controller: _line,
                           decoration: InputDecoration(
-                            labelText: loc?.webReverseSmLineLabel ?? 'Line (1-based)',
+                            labelText:
+                                loc?.webReverseSmLineLabel ?? 'Line (1-based)',
                             border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -373,9 +388,11 @@ class _SmDialogState extends State<_SmDialog> {
                         child: TextField(
                           controller: _col,
                           decoration: InputDecoration(
-                            labelText: loc?.webReverseSmColLabel ?? 'Column (0-based)',
+                            labelText:
+                                loc?.webReverseSmColLabel ?? 'Column (0-based)',
                             border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -397,10 +414,12 @@ class _SmDialogState extends State<_SmDialog> {
                   ? Center(
                       child: Text(
                         _status.isEmpty
-                            ? (loc?.webReverseSmEmptyHint ?? 'Enter URL + position, then resolve')
+                            ? (loc?.webReverseSmEmptyHint ??
+                                  'Enter URL + position, then resolve')
                             : _status,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : SingleChildScrollView(
@@ -466,8 +485,9 @@ class _SmDialogState extends State<_SmDialog> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             Padding(

@@ -15,6 +15,9 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/timer_safety.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 class _JwtSample {
@@ -35,8 +38,7 @@ class _JwtSample {
   final String? iss;
   final String? sub;
 
-  Duration? remaining(DateTime now) =>
-      exp?.difference(now);
+  Duration? remaining(DateTime now) => exp?.difference(now);
 }
 
 class _RefreshLog {
@@ -64,14 +66,24 @@ class _JwtRefreshDialog extends StatefulWidget {
 }
 
 class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
+  static const int _defaultAutoIntervalSeconds = 30;
+  static const int _minAutoIntervalSeconds = 5;
+  static const int _maxAutoIntervalSeconds = 3600;
+  static const int _defaultRefreshThresholdSeconds = 60;
+  static const int _minRefreshThresholdSeconds = 0;
+  static const int _maxRefreshThresholdSeconds = 86400;
+  static const int _maxRefreshLogs = 40;
+
   final TextEditingController _refreshExpr = TextEditingController(
     text:
         "await (await fetch('/api/refresh',{method:'POST',credentials:'include'})).text()",
   );
-  final TextEditingController _intervalCtrl =
-      TextEditingController(text: '30');
-  final TextEditingController _thresholdCtrl =
-      TextEditingController(text: '60');
+  final TextEditingController _intervalCtrl = TextEditingController(
+    text: '$_defaultAutoIntervalSeconds',
+  );
+  final TextEditingController _thresholdCtrl = TextEditingController(
+    text: '$_defaultRefreshThresholdSeconds',
+  );
 
   List<_JwtSample> _samples = const <_JwtSample>[];
   bool _busy = false;
@@ -155,30 +167,32 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
       }),
     );
     if (r == null) return const <_JwtSample>[];
-    final result = r['result'];
-    if (result is! Map) return const <_JwtSample>[];
-    final value = result['value'];
-    if (value is! String) return const <_JwtSample>[];
+    final value = cdpStringResultValue(r);
+    if (value == null) return const <_JwtSample>[];
     try {
       final list = jsonDecode(value);
       if (list is! List) return const <_JwtSample>[];
       return list
           .whereType<Map>()
-          .map((e) => _JwtSample(
-                source: '${e['source'] ?? ''}',
-                key: '${e['key'] ?? ''}',
-                value: '${e['value'] ?? ''}',
-                exp: e['exp'] is int
-                    ? DateTime.fromMillisecondsSinceEpoch(
-                        (e['exp'] as int) * 1000)
-                    : null,
-                iat: e['iat'] is int
-                    ? DateTime.fromMillisecondsSinceEpoch(
-                        (e['iat'] as int) * 1000)
-                    : null,
-                iss: e['iss']?.toString(),
-                sub: e['sub']?.toString(),
-              ))
+          .map(
+            (e) => _JwtSample(
+              source: '${e['source'] ?? ''}',
+              key: '${e['key'] ?? ''}',
+              value: '${e['value'] ?? ''}',
+              exp: e['exp'] is int
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      (e['exp'] as int) * 1000,
+                    )
+                  : null,
+              iat: e['iat'] is int
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      (e['iat'] as int) * 1000,
+                    )
+                  : null,
+              iss: e['iss']?.toString(),
+              sub: e['sub']?.toString(),
+            ),
+          )
           .toList();
     } catch (e, st) {
       silentLog('web_reverse_jwt', 'parse', e, st);
@@ -187,7 +201,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   }
 
   Future<void> _doScan() async {
-    if (_busy) return;
+    if (!mounted || _busy) return;
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.maybeOf(context);
     try {
@@ -204,61 +218,90 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   Future<bool> _runRefresh() async {
     final expr = _refreshExpr.text.trim();
     if (expr.isEmpty) return false;
-    final r = await widget.controller.sendRawCdp(
-      method: 'Runtime.evaluate',
-      paramsJson: jsonEncode({
-        'expression': '(async()=>{ $expr })()',
-        'awaitPromise': true,
-        'returnByValue': true,
-        'userGesture': true,
-      }),
-    );
-    if (r == null) {
-      _logs.insert(0, _RefreshLog(at: DateTime.now(), ok: false, detail: 'no response'));
+    try {
+      final r = await widget.controller.sendRawCdp(
+        method: 'Runtime.evaluate',
+        paramsJson: jsonEncode({
+          'expression': '(async()=>{ $expr })()',
+          'awaitPromise': true,
+          'returnByValue': true,
+          'userGesture': true,
+        }),
+      );
+      if (r == null) {
+        _addRefreshLog(ok: false, detail: 'no response');
+        return false;
+      }
+      if (r['error'] != null) {
+        _addRefreshLog(ok: false, detail: '${r['error']}');
+        return false;
+      }
+      final excp = r['exceptionDetails'];
+      if (excp is Map) {
+        _addRefreshLog(ok: false, detail: '${excp['text'] ?? excp}');
+        return false;
+      }
+      final value = cdpResultValue(r);
+      _addRefreshLog(ok: true, detail: value?.toString() ?? 'ok');
+      return true;
+    } catch (e, st) {
+      silentLog('web_reverse_jwt', 'refresh', e, st);
+      _addRefreshLog(ok: false, detail: '$e');
       return false;
     }
-    if (r['error'] != null) {
-      _logs.insert(0, _RefreshLog(at: DateTime.now(), ok: false, detail: '${r['error']}'));
-      return false;
-    }
-    final excp = r['exceptionDetails'];
-    if (excp is Map) {
-      _logs.insert(0, _RefreshLog(
-        at: DateTime.now(),
-        ok: false,
-        detail: '${excp['text'] ?? excp}',
-      ));
-      return false;
-    }
-    final result = r['result'];
-    final value = result is Map ? result['value'] : null;
-    _logs.insert(0, _RefreshLog(
-      at: DateTime.now(),
-      ok: true,
-      detail: value?.toString() ?? 'ok',
-    ));
-    return true;
   }
 
   void _toggleAuto(bool v) {
     _timer?.cancel();
+    _timer = null;
     setState(() => _autoRefresh = v);
     if (!v) return;
-    final interval = int.tryParse(_intervalCtrl.text) ?? 30;
-    final threshold = int.tryParse(_thresholdCtrl.text) ?? 60;
-    _timer = Timer.periodic(Duration(seconds: interval), (_) async {
-      await _doScan();
-      final now = DateTime.now();
-      final needsRefresh = _samples.any((s) {
-        final rem = s.remaining(now);
-        return rem != null && rem.inSeconds <= threshold;
-      });
-      if (needsRefresh) {
-        await _runRefresh();
+    final interval = _autoIntervalSeconds;
+    final threshold = _refreshThresholdSeconds;
+    _intervalCtrl.text = '$interval';
+    _thresholdCtrl.text = '$threshold';
+    _timer = startNonOverlappingPeriodicTimer(
+      Duration(seconds: interval),
+      (_) async {
+        if (!mounted || !_autoRefresh) return;
         await _doScan();
-        if (mounted) setState(() {});
-      }
-    });
+        if (!mounted || !_autoRefresh) return;
+        final now = DateTime.now();
+        final needsRefresh = _samples.any((s) {
+          final rem = s.remaining(now);
+          return rem != null && rem.inSeconds <= threshold;
+        });
+        if (needsRefresh) {
+          await _runRefresh();
+          if (!mounted || !_autoRefresh) return;
+          await _doScan();
+          if (mounted) setState(() {});
+        }
+      },
+      min: const Duration(seconds: _minAutoIntervalSeconds),
+      max: const Duration(seconds: _maxAutoIntervalSeconds),
+    );
+  }
+
+  int get _autoIntervalSeconds => clampedIntFromText(
+    _intervalCtrl.text,
+    fallback: _defaultAutoIntervalSeconds,
+    min: _minAutoIntervalSeconds,
+    max: _maxAutoIntervalSeconds,
+  );
+
+  int get _refreshThresholdSeconds => clampedIntFromText(
+    _thresholdCtrl.text,
+    fallback: _defaultRefreshThresholdSeconds,
+    min: _minRefreshThresholdSeconds,
+    max: _maxRefreshThresholdSeconds,
+  );
+
+  void _addRefreshLog({required bool ok, required String detail}) {
+    _logs.insert(0, _RefreshLog(at: DateTime.now(), ok: ok, detail: detail));
+    if (_logs.length > _maxRefreshLogs) {
+      _logs.removeRange(_maxRefreshLogs, _logs.length);
+    }
   }
 
   String _formatRemaining(Duration? d) {
@@ -274,7 +317,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final threshold = int.tryParse(_thresholdCtrl.text) ?? 60;
+    final threshold = _refreshThresholdSeconds;
 
     return Dialog(
       backgroundColor: cs.surfaceContainer,
@@ -296,14 +339,16 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       children: [
                         Text(
                           loc?.webReverseJwtTitle ?? 'JWT Auto Refresh',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseJwtSubtitle ??
                               'Scan JWTs in cookies/storage, run refresh JS when near exp',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -333,14 +378,17 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                           label: Text(loc?.webReverseJwtScanNow ?? 'Scan now'),
                         ),
                         FilledButton.tonalIcon(
-                          onPressed: _busy ? null : () async {
-                            final ok = await _runRefresh();
-                            if (ok) await _doScan();
-                            if (mounted) setState(() {});
-                          },
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  final ok = await _runRefresh();
+                                  if (ok) await _doScan();
+                                  if (mounted) setState(() {});
+                                },
                           icon: const Icon(Icons.refresh_rounded),
                           label: Text(
-                              loc?.webReverseJwtRefreshNow ?? 'Refresh now'),
+                            loc?.webReverseJwtRefreshNow ?? 'Refresh now',
+                          ),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -355,7 +403,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             controller: _intervalCtrl,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: loc?.webReverseJwtIntervalSec ??
+                              labelText:
+                                  loc?.webReverseJwtIntervalSec ??
                                   'Interval(s)',
                               isDense: true,
                               border: const OutlineInputBorder(),
@@ -368,7 +417,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             controller: _thresholdCtrl,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: loc?.webReverseJwtThresholdSec ??
+                              labelText:
+                                  loc?.webReverseJwtThresholdSec ??
                                   'Threshold(s)',
                               isDense: true,
                               border: const OutlineInputBorder(),
@@ -381,9 +431,13 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                     TextField(
                       controller: _refreshExpr,
                       maxLines: 3,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                       decoration: InputDecoration(
-                        labelText: loc?.webReverseJwtRefreshExpr ??
+                        labelText:
+                            loc?.webReverseJwtRefreshExpr ??
                             'Refresh expression (async JS)',
                         border: const OutlineInputBorder(),
                         isDense: true,
@@ -393,15 +447,17 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                     Text(
                       loc?.webReverseJwtFoundCount(_samples.length) ??
                           'JWTs (${_samples.length})',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     if (_samples.isEmpty)
                       Text(
                         loc?.webReverseJwtNoneFound ?? 'No JWT found',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     for (final s in _samples)
                       _SampleCard(
@@ -414,8 +470,9 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       const SizedBox(height: 18),
                       Text(
                         loc?.webReverseJwtRefreshLog ?? 'Refresh log',
-                        style: theme.textTheme.labelLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       for (final l in _logs.take(20))
@@ -423,7 +480,9 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                           margin: const EdgeInsets.only(bottom: 4),
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: l.ok ? cs.surfaceContainerHigh : cs.errorContainer,
+                            color: l.ok
+                                ? cs.surfaceContainerHigh
+                                : cs.errorContainer,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -440,7 +499,9 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                               Text(
                                 _hms(l.at),
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 11),
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -449,7 +510,9 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                                   style: TextStyle(
                                     fontFamily: 'monospace',
                                     fontSize: 11,
-                                    color: l.ok ? cs.onSurface : cs.onErrorContainer,
+                                    color: l.ok
+                                        ? cs.onSurface
+                                        : cs.onErrorContainer,
                                   ),
                                 ),
                               ),
@@ -503,8 +566,8 @@ class _SampleCard extends StatelessWidget {
     final color = urgent
         ? cs.errorContainer
         : (rem != null && rem.inSeconds > 0
-            ? cs.surfaceContainerHigh
-            : cs.surfaceContainerHighest);
+              ? cs.surfaceContainerHigh
+              : cs.surfaceContainerHighest);
     return Card(
       color: color,
       margin: const EdgeInsets.only(bottom: 8),
@@ -516,8 +579,10 @@ class _SampleCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(4),
@@ -525,15 +590,18 @@ class _SampleCard extends StatelessWidget {
                   child: Text(
                     sample.source,
                     style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11),
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     sample.key,
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -557,7 +625,9 @@ class _SampleCard extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            if (sample.exp != null || sample.iss != null || sample.sub != null) ...[
+            if (sample.exp != null ||
+                sample.iss != null ||
+                sample.sub != null) ...[
               const SizedBox(height: 4),
               Wrap(
                 spacing: 8,
@@ -579,10 +649,13 @@ class _SampleCard extends StatelessWidget {
   }
 
   Widget _kv(String k, String v, ThemeData theme) {
-    return Text('$k=$v',
-        style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 10,
-            color: theme.colorScheme.onSurfaceVariant));
+    return Text(
+      '$k=$v',
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 10,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
   }
 }

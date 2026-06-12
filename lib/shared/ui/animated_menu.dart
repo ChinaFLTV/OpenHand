@@ -26,7 +26,7 @@ Future<T?> showAnimatedMenu<T>({
 }) {
   final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
       ? OpenHandMotionDefaults.disabled
-      : (settings ?? _resolveMenuAnimationSettings(context));
+      : (settings ?? _resolveMenuAnimationSettings(context)).normalized();
 
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
       effectiveSettings.exitStyle == DialogAnimationStyle.none) {

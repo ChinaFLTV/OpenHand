@@ -148,8 +148,7 @@ int clampedIntFromValue(
   required int max,
 }) {
   final parsed = intFromValue(value, fallback: fallback);
-  final lower = min <= max ? min : max;
-  final upper = min <= max ? max : min;
+  final (:lower, :upper) = _orderedIntBounds(min, max);
   return parsed.clamp(lower, upper).toInt();
 }
 
@@ -160,8 +159,7 @@ double clampedDoubleFromValue(
   required double max,
 }) {
   final parsed = optionalDoubleFromValue(value);
-  final lower = min <= max ? min : max;
-  final upper = min <= max ? max : min;
+  final (:lower, :upper) = _orderedDoubleBounds(min, max);
   final safeFallback = fallback.isFinite ? fallback : lower;
   return (parsed ?? safeFallback).clamp(lower, upper).toDouble();
 }
@@ -172,10 +170,7 @@ int clampedIntFromText(
   required int min,
   required int max,
 }) {
-  final parsed = int.tryParse(value.trim()) ?? fallback;
-  final lower = min <= max ? min : max;
-  final upper = min <= max ? max : min;
-  return parsed.clamp(lower, upper).toInt();
+  return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
 }
 
 double clampedDoubleFromText(
@@ -197,4 +192,16 @@ double? optionalDoubleFromText(String value) {
 
 int positiveIntFromText(String value, {required int fallback}) {
   return positiveIntFromValue(value, fallback: fallback);
+}
+
+({int lower, int upper}) _orderedIntBounds(int min, int max) {
+  return min <= max ? (lower: min, upper: max) : (lower: max, upper: min);
+}
+
+({double lower, double upper}) _orderedDoubleBounds(double min, double max) {
+  final safeMin = min.isFinite ? min : 0.0;
+  final safeMax = max.isFinite ? max : safeMin;
+  return safeMin <= safeMax
+      ? (lower: safeMin, upper: safeMax)
+      : (lower: safeMax, upper: safeMin);
 }

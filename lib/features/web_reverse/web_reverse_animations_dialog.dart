@@ -24,6 +24,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseAnimationsDialog(
@@ -88,9 +89,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       _busy = true;
     });
     try {
-      await widget.controller.sendRawCdp(
-        method: 'Animation.enable',
-      );
+      await widget.controller.sendRawCdp(method: 'Animation.enable');
       final r = await widget.controller.sendRawCdp(
         method: 'Animation.setPlaybackRate',
         paramsJson: jsonEncode({'playbackRate': rate}),
@@ -101,16 +100,20 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         _busy = false;
         _status = (r != null && r['error'] != null)
             ? (loc?.webReverseAnimationsSetFailed(r['error'].toString()) ??
-                'setPlaybackRate failed: ${r['error']}')
+                  'setPlaybackRate failed: ${r['error']}')
             : (loc?.webReverseAnimationsRateNow(rate.toStringAsFixed(2)) ??
-                'global rate = ${rate.toStringAsFixed(2)}x');
+                  'global rate = ${rate.toStringAsFixed(2)}x');
       });
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', 'setPlaybackRate', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = AppLocalizations.of(context)?.webReverseAnimationsSetError(e.toString()) ?? 'error: $e';
+        _status =
+            AppLocalizations.of(
+              context,
+            )?.webReverseAnimationsSetError(e.toString()) ??
+            'error: $e';
       });
     }
   }
@@ -182,14 +185,13 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         }),
       );
       if (!mounted) return;
-      final result = (r?['result'] is Map)
-          ? Map<String, Object?>.from(r!['result'] as Map)
-          : const <String, Object?>{};
-      final value = result['value'];
-      if (value is! String) {
+      final value = cdpStringResultValue(r);
+      if (value == null) {
         setState(() {
           _busy = false;
-          _status = AppLocalizations.of(context)?.webReverseAnimationsNoSnapshot ?? 'no snapshot returned';
+          _status =
+              AppLocalizations.of(context)?.webReverseAnimationsNoSnapshot ??
+              'no snapshot returned';
           _rows = const [];
         });
         return;
@@ -198,8 +200,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (decoded is Map && decoded['__err'] != null) {
         setState(() {
           _busy = false;
-          _status = AppLocalizations.of(context)?.webReverseAnimationsBrowserError(decoded['__err'].toString())
-              ?? 'browser error: ${decoded['__err']}';
+          _status =
+              AppLocalizations.of(context)?.webReverseAnimationsBrowserError(
+                decoded['__err'].toString(),
+              ) ??
+              'browser error: ${decoded['__err']}';
           _rows = const [];
         });
         return;
@@ -207,7 +212,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (decoded is! List) {
         setState(() {
           _busy = false;
-          _status = AppLocalizations.of(context)?.webReverseAnimationsMalformedSnapshot ?? 'malformed snapshot';
+          _status =
+              AppLocalizations.of(
+                context,
+              )?.webReverseAnimationsMalformedSnapshot ??
+              'malformed snapshot';
           _rows = const [];
         });
         return;
@@ -220,11 +229,9 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
             id: (item['id'] ?? '').toString(),
             animationName: (item['animationName'] ?? '').toString(),
             playState: (item['playState'] ?? 'idle').toString(),
-            currentTime:
-                (item['currentTime'] as num?)?.toDouble() ?? 0,
+            currentTime: (item['currentTime'] as num?)?.toDouble() ?? 0,
             duration: (item['duration'] as num?)?.toDouble() ?? 0,
-            playbackRate:
-                (item['playbackRate'] as num?)?.toDouble() ?? 1,
+            playbackRate: (item['playbackRate'] as num?)?.toDouble() ?? 1,
             iterations: (item['iterations'] as num?)?.toDouble() ?? 1,
             targetSelector: (item['target'] ?? '').toString(),
           ),
@@ -233,15 +240,22 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       setState(() {
         _busy = false;
         _rows = rows;
-        _status = AppLocalizations.of(context)?.webReverseAnimationsSnapshotCount(rows.length)
-            ?? '${rows.length} active animation(s)';
+        _status =
+            AppLocalizations.of(
+              context,
+            )?.webReverseAnimationsSnapshotCount(rows.length) ??
+            '${rows.length} active animation(s)';
       });
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', 'refresh', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = AppLocalizations.of(context)?.webReverseAnimationsSnapshotFailed(e.toString()) ?? 'snapshot failed: $e';
+        _status =
+            AppLocalizations.of(
+              context,
+            )?.webReverseAnimationsSnapshotFailed(e.toString()) ??
+            'snapshot failed: $e';
       });
     }
   }
@@ -254,10 +268,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
           '(function(){var a=window.__oh_anims||[];var n=0;for(var i=0;i<a.length;i++){try{a[i].$method();n++;}catch(_){}};return n;})()';
       final r = await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': expr,
-          'returnByValue': true,
-        }),
+        paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
       );
       final result = (r?['result'] is Map)
           ? Map<String, Object?>.from(r!['result'] as Map)
@@ -266,8 +277,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = AppLocalizations.of(context)?.webReverseAnimationsBulkInvoked(method, n)
-            ?? '$method invoked on $n animation(s)';
+        _status =
+            AppLocalizations.of(
+              context,
+            )?.webReverseAnimationsBulkInvoked(method, n) ??
+            '$method invoked on $n animation(s)';
       });
       await _refresh();
     } catch (e, st) {
@@ -275,8 +289,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = AppLocalizations.of(context)?.webReverseAnimationsBulkError(method, e.toString())
-            ?? '$method error: $e';
+        _status =
+            AppLocalizations.of(
+              context,
+            )?.webReverseAnimationsBulkError(method, e.toString()) ??
+            '$method error: $e';
       });
     }
   }
@@ -287,10 +304,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
           '(function(){var a=window.__oh_anims&&window.__oh_anims[$handle];if(!a)return 0;try{a.$method();return 1;}catch(_){return -1;}})()';
       await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': expr,
-          'returnByValue': true,
-        }),
+        paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
       );
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', 'row.$method', e, st);
@@ -302,17 +316,19 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
   Future<void> _copyJson() async {
     final json = const JsonEncoder.withIndent('  ').convert(
       _rows
-          .map((r) => {
-                'handle': r.handle,
-                'id': r.id,
-                'animationName': r.animationName,
-                'playState': r.playState,
-                'currentTimeMs': r.currentTime,
-                'durationMs': r.duration,
-                'playbackRate': r.playbackRate,
-                'iterations': r.iterations,
-                'target': r.targetSelector,
-              })
+          .map(
+            (r) => {
+              'handle': r.handle,
+              'id': r.id,
+              'animationName': r.animationName,
+              'playState': r.playState,
+              'currentTimeMs': r.currentTime,
+              'durationMs': r.duration,
+              'playbackRate': r.playbackRate,
+              'iterations': r.iterations,
+              'target': r.targetSelector,
+            },
+          )
           .toList(),
     );
     try {
@@ -327,7 +343,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        AppLocalizations.of(context)?.webReverseAnimationsJsonCopied ?? 'JSON copied',
+        AppLocalizations.of(context)?.webReverseAnimationsJsonCopied ??
+            'JSON copied',
       );
     }
   }
@@ -428,14 +445,14 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(46, 30),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          backgroundColor:
-                              (_playbackRate - preset).abs() < 1e-3
-                                  ? cs.primaryContainer
-                                  : null,
+                          backgroundColor: (_playbackRate - preset).abs() < 1e-3
+                              ? cs.primaryContainer
+                              : null,
                         ),
                         child: Text(
                           preset == 0
-                              ? (loc?.webReverseAnimationsPauseSymbol ?? 'Pause')
+                              ? (loc?.webReverseAnimationsPauseSymbol ??
+                                    'Pause')
                               : '${preset}x',
                           style: const TextStyle(
                             fontFamily: 'monospace',
@@ -457,9 +474,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                 onChanged: _busy
                     ? null
                     : (v) => setState(() => _playbackRate = v),
-                onChangeEnd: _busy
-                    ? null
-                    : (v) => _setPlaybackRate(v),
+                onChangeEnd: _busy ? null : (v) => _setPlaybackRate(v),
               ),
             ),
             Padding(
@@ -471,17 +486,23 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('pause'),
                     icon: const Icon(Icons.pause_rounded, size: 16),
-                    label: Text(loc?.webReverseAnimationsBulkPause ?? 'Pause all'),
+                    label: Text(
+                      loc?.webReverseAnimationsBulkPause ?? 'Pause all',
+                    ),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('play'),
                     icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: Text(loc?.webReverseAnimationsBulkResume ?? 'Resume all'),
+                    label: Text(
+                      loc?.webReverseAnimationsBulkResume ?? 'Resume all',
+                    ),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : () => _bulkCommand('cancel'),
                     icon: const Icon(Icons.stop_circle_outlined, size: 16),
-                    label: Text(loc?.webReverseAnimationsBulkCancel ?? 'Cancel all'),
+                    label: Text(
+                      loc?.webReverseAnimationsBulkCancel ?? 'Cancel all',
+                    ),
                   ),
                 ],
               ),
@@ -517,8 +538,10 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                         final r = _rows[i];
                         final pct = r.duration <= 0
                             ? 0.0
-                            : ((r.currentTime % r.duration) / r.duration)
-                                .clamp(0.0, 1.0);
+                            : ((r.currentTime % r.duration) / r.duration).clamp(
+                                0.0,
+                                1.0,
+                              );
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(10),
@@ -541,8 +564,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                       color: r.playState == 'running'
                                           ? cs.primaryContainer
                                           : r.playState == 'paused'
-                                              ? cs.tertiaryContainer
-                                              : cs.surfaceContainerHighest,
+                                          ? cs.tertiaryContainer
+                                          : cs.surfaceContainerHighest,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -554,8 +577,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                         color: r.playState == 'running'
                                             ? cs.onPrimaryContainer
                                             : r.playState == 'paused'
-                                                ? cs.onTertiaryContainer
-                                                : cs.onSurfaceVariant,
+                                            ? cs.onTertiaryContainer
+                                            : cs.onSurfaceVariant,
                                       ),
                                     ),
                                   ),
@@ -565,8 +588,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                       r.animationName.isNotEmpty
                                           ? r.animationName
                                           : (r.id.isNotEmpty
-                                              ? r.id
-                                              : '<anonymous>'),
+                                                ? r.id
+                                                : '<anonymous>'),
                                       maxLines: 1,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w700,
@@ -576,7 +599,9 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: loc?.webReverseAnimationsRowPause ?? 'Pause',
+                                    tooltip:
+                                        loc?.webReverseAnimationsRowPause ??
+                                        'Pause',
                                     icon: const Icon(
                                       Icons.pause_rounded,
                                       size: 16,
@@ -587,7 +612,9 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: loc?.webReverseAnimationsRowPlay ?? 'Play',
+                                    tooltip:
+                                        loc?.webReverseAnimationsRowPlay ??
+                                        'Play',
                                     icon: const Icon(
                                       Icons.play_arrow_rounded,
                                       size: 16,
@@ -598,15 +625,16 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: loc?.webReverseAnimationsRowCancel ?? 'Cancel',
+                                    tooltip:
+                                        loc?.webReverseAnimationsRowCancel ??
+                                        'Cancel',
                                     icon: const Icon(
                                       Icons.cancel_outlined,
                                       size: 16,
                                     ),
                                     onPressed: _busy
                                         ? null
-                                        : () =>
-                                            _rowCommand(r.handle, 'cancel'),
+                                        : () => _rowCommand(r.handle, 'cancel'),
                                   ),
                                 ],
                               ),

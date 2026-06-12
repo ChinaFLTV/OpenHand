@@ -22,6 +22,8 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/timer_safety.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseVitalsDialog(
@@ -83,9 +85,12 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   }
 
   Future<void> _bootstrap() async {
+    if (!mounted) return;
     setState(() {
       _busy = true;
-      _status = AppLocalizations.of(context)?.webReverseVitalsInstalling ?? 'Installing observers…';
+      _status =
+          AppLocalizations.of(context)?.webReverseVitalsInstalling ??
+          'Installing observers…';
     });
     const installer = '''
 (function(){
@@ -133,18 +138,22 @@ class _VitalsDialogState extends State<_VitalsDialog> {
         }),
       );
       if ((res?['error']) != null) {
-        setState(() => _status = 'Runtime.evaluate · ${res!['error']}');
+        if (mounted) {
+          setState(() => _status = 'Runtime.evaluate · ${res!['error']}');
+        }
       } else {
         _bootstrapped = true;
-        setState(() => _status = '');
+        if (mounted) setState(() => _status = '');
       }
     } catch (e, st) {
       silentLog('web_reverse_vitals_dialog', 'bootstrap', e, st);
-      setState(() => _status = '$e');
+      if (mounted) setState(() => _status = '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-    _pullTimer = Timer.periodic(
+    if (!mounted) return;
+    _pullTimer?.cancel();
+    _pullTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _pull(),
     );
@@ -152,7 +161,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   }
 
   Future<void> _pull() async {
-    if (!_bootstrapped) return;
+    if (!mounted || !_bootstrapped) return;
     try {
       final res = await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
@@ -161,12 +170,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           'returnByValue': true,
         }),
       );
-      final raw = res?['result'];
-      if (raw is! Map) return;
-      final result = raw['result'];
-      if (result is! Map) return;
-      final value = result['value'];
-      if (value is! String) return;
+      final value = cdpStringResultValue(res);
+      if (value == null) return;
       final parsed = jsonDecode(value);
       if (parsed is! Map) return;
       if (!mounted) return;
@@ -184,13 +189,16 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   Future<void> _reset() async {
     setState(() {
       _busy = true;
-      _status = AppLocalizations.of(context)?.webReverseVitalsResetting ?? 'Resetting…';
+      _status =
+          AppLocalizations.of(context)?.webReverseVitalsResetting ??
+          'Resetting…';
     });
     try {
       await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
         paramsJson: jsonEncode({
-          'expression': 'delete window.__oh_vitals; delete window.__oh_vitals_installed;',
+          'expression':
+              'delete window.__oh_vitals; delete window.__oh_vitals_installed;',
         }),
       );
       for (final m in _metrics) {
@@ -210,18 +218,12 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       'collected_at': DateTime.now().toIso8601String(),
       'metrics': {
         for (final m in _metrics)
-          m.key: {
-            'value': m.value,
-            'unit': m.unit,
-            'rating': _ratingOf(m),
-          },
+          m.key: {'value': m.value, 'unit': m.unit, 'rating': _ratingOf(m)},
       },
     };
     try {
       await Clipboard.setData(
-        ClipboardData(
-          text: const JsonEncoder.withIndent('  ').convert(report),
-        ),
+        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(report)),
       );
       if (mounted) {
         final m = ScaffoldMessenger.maybeOf(context);
@@ -229,7 +231,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            AppLocalizations.of(context)?.webReverseVitalsReportCopied ?? 'Report JSON copied',
+            AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
+                'Report JSON copied',
           );
         }
       }
@@ -292,13 +295,16 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLocalizations.of(context)?.webReverseVitalsTitle ?? 'Web Vitals',
+                          AppLocalizations.of(context)?.webReverseVitalsTitle ??
+                              'Web Vitals',
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          AppLocalizations.of(context)?.webReverseVitalsSubtitle ??
+                          AppLocalizations.of(
+                                context,
+                              )?.webReverseVitalsSubtitle ??
                               'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live',
                           style: tt.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
@@ -308,17 +314,25 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseVitalsCopyJson ?? 'Copy JSON',
+                    tooltip:
+                        AppLocalizations.of(
+                          context,
+                        )?.webReverseVitalsCopyJson ??
+                        'Copy JSON',
                     onPressed: _copyReport,
                     icon: const Icon(Icons.copy_rounded),
                   ),
                   IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseVitalsReset ?? 'Reset',
+                    tooltip:
+                        AppLocalizations.of(context)?.webReverseVitalsReset ??
+                        'Reset',
                     onPressed: _busy ? null : _reset,
                     icon: const Icon(Icons.restart_alt_rounded),
                   ),
                   IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
+                    tooltip:
+                        AppLocalizations.of(context)?.webReverseVitalsClose ??
+                        'Close',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -346,11 +360,11 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      AppLocalizations.of(context)?.webReverseVitalsThresholdsHint ??
+                      AppLocalizations.of(
+                            context,
+                          )?.webReverseVitalsThresholdsHint ??
                           'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.',
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   ),
                 ],
@@ -359,7 +373,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
             Divider(height: 1, color: cs.outlineVariant),
             buildOpenHandDialogFooter(
               primaryLabel:
-                  AppLocalizations.of(context)?.webReverseVitalsClose ?? 'Close',
+                  AppLocalizations.of(context)?.webReverseVitalsClose ??
+                  'Close',
               onPrimaryPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
               leading: _busy
@@ -410,10 +425,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(999),
@@ -429,9 +441,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
               const Spacer(),
               Text(
                 _fmt(m),
-                style: tt.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),

@@ -20,6 +20,8 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/timer_safety.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 const String _kBootstrap = r'''
@@ -76,8 +78,7 @@ Future<void> showWebReverseWsInjectDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) =>
-        _WsInjectDialog(controller: controller),
+    builder: (_) => _WsInjectDialog(controller: controller),
   );
 }
 
@@ -132,7 +133,10 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _install());
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _refresh());
+    _pollTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 2),
+      (_) => _refresh(),
+    );
   }
 
   @override
@@ -143,6 +147,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   }
 
   Future<void> _install() async {
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       // 注册 newDocument 钩子 → 刷新/跳转后自动应用。
@@ -186,12 +191,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         }),
       );
       if (res == null) return;
-      final result = res['result'];
-      if (result is! Map) return;
-      final inner = result['result'];
-      if (inner is! Map) return;
-      final value = inner['value'];
-      if (value is! String) return;
+      final value = cdpStringResultValue(res);
+      if (value == null) return;
       final decoded = jsonDecode(value);
       if (decoded is! List) return;
       final parsed = decoded.whereType<Map>().map((m) {
@@ -206,8 +207,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       if (!mounted) return;
       setState(() {
         _rows = parsed;
-        if (_selectedId != null &&
-            !_rows.any((r) => r.id == _selectedId)) {
+        if (_selectedId != null && !_rows.any((r) => r.id == _selectedId)) {
           _selectedId = null;
         }
       });
@@ -225,7 +225,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     setState(() => _busy = true);
     try {
       final encoded = jsonEncode(raw);
-      final expr = "window.__OH_WS_REGISTRY__ && "
+      final expr =
+          "window.__OH_WS_REGISTRY__ && "
           "window.__OH_WS_REGISTRY__[$id] && "
           "window.__OH_WS_REGISTRY__[$id].readyState === 1 "
           "? (window.__OH_WS_REGISTRY__[$id].send($encoded), 'sent') "
@@ -237,8 +238,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
           'returnByValue': true,
         }),
       );
-      final inner = (res?['result'] as Map?)?['result'];
-      final value = (inner as Map?)?['value'];
+      final value = cdpResultValue(res);
       final ok = value == 'sent';
       _log.insert(
         0,
@@ -247,9 +247,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
           ok: ok,
           summary: ok
               ? (loc?.webReverseWsInjectSentBytes(raw.length) ??
-                  'Sent ${raw.length} bytes')
+                    'Sent ${raw.length} bytes')
               : (loc?.webReverseWsInjectFailedReason('$value') ??
-                  'Failed: $value'),
+                    'Failed: $value'),
           payload: raw,
         ),
       );
@@ -304,14 +304,16 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                       children: [
                         Text(
                           loc?.webReverseWsInjectTitle ?? 'WebSocket Inject',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseWsInjectSubtitle ??
                               'All page-created WebSockets are proxied → pick one → inject any text frame',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -384,8 +386,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         loc?.webReverseWsInjectNoLive ??
                             'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -402,8 +405,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                           borderRadius: BorderRadius.circular(8),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
-                            onTap: () =>
-                                setState(() => _selectedId = row.id),
+                            onTap: () => setState(() => _selectedId = row.id),
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                               child: Row(
@@ -423,7 +425,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                     child: Text(
                                       '#${row.id}',
                                       style: const TextStyle(
-                                          fontFamily: 'monospace'),
+                                        fontFamily: 'monospace',
+                                      ),
                                     ),
                                   ),
                                   Expanded(
@@ -463,7 +466,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 maxLines: 8,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 decoration: InputDecoration(
-                  labelText: loc?.webReverseWsInjectPayloadLabel ??
+                  labelText:
+                      loc?.webReverseWsInjectPayloadLabel ??
                       'Text frame / JSON',
                   border: const OutlineInputBorder(),
                   isDense: true,
@@ -489,8 +493,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                     _selectedId == null
                         ? (loc?.webReverseWsInjectPickTarget ?? 'Pick a target')
                         : '${loc?.webReverseWsInjectTargetLabel ?? 'Target'}: #$_selectedId',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -508,8 +513,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         child: Text(
                           loc?.webReverseWsInjectLogEmpty ??
                               'Inject log appears here',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.separated(
@@ -578,7 +584,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
                     label: loc?.webReverseWsInjectSend ?? 'Send',
-                    onPressed: _selectedId == null ||
+                    onPressed:
+                        _selectedId == null ||
                             _payloadCtrl.text.isEmpty ||
                             _busy
                         ? null

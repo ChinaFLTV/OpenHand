@@ -34,9 +34,9 @@ class WebReverseSessionController extends ChangeNotifier {
     required this.artifactsRootDir,
     WebReverseBrowserLauncher? launcher,
     WebReverseSessionArtifacts? artifacts,
-  })  : _launcher = launcher ?? WebReverseBrowserLauncher(),
-        _artifacts =
-            artifacts ?? WebReverseSessionArtifacts(rootDir: artifactsRootDir);
+  }) : _launcher = launcher ?? WebReverseBrowserLauncher(),
+       _artifacts =
+           artifacts ?? WebReverseSessionArtifacts(rootDir: artifactsRootDir);
 
   final WebReverseSessionConfig config;
   final String executablePath;
@@ -70,6 +70,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _errorMessage = null;
     _safeNotify();
   }
+
   String? _lastHarPath;
   String? get lastHarPath => _lastHarPath;
 
@@ -161,6 +162,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void clearSourceJumpRequest() {
     sourceJumpRequest.value = null;
   }
+
   int _screencastWidth = _screencastDefaultMaxWidth;
   int _screencastHeight = _screencastDefaultMaxHeight;
   int _screencastQuality = _screencastDefaultQuality;
@@ -225,7 +227,10 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     if (chosen == null) {
-      throw const CdpException(code: -1, message: '未发现 page target；浏览器可能没有打开任何标签页');
+      throw const CdpException(
+        code: -1,
+        message: '未发现 page target；浏览器可能没有打开任何标签页',
+      );
     }
     final targetId = chosen['targetId'] as String;
     // 订阅 page target 的创建 / 销毁 / 信息变化，让 dashboard 实时更新 tab strip。
@@ -259,10 +264,13 @@ class WebReverseSessionController extends ChangeNotifier {
     if (id == null || id.isEmpty) return;
     _targetBuffers[id] = _PerTargetBuffer(
       networkRequests: List<CdpNetworkEntry>.from(_networkRequests),
-      networkByRequestId: Map<String, CdpNetworkEntry>.from(_networkByRequestId),
+      networkByRequestId: Map<String, CdpNetworkEntry>.from(
+        _networkByRequestId,
+      ),
       consoleMessages: List<CdpConsoleEntry>.from(_consoleMessages),
-      parsedScripts:
-          Map<String, ({String url, bool isModule})>.from(_parsedScripts),
+      parsedScripts: Map<String, ({String url, bool isModule})>.from(
+        _parsedScripts,
+      ),
       scriptSources: Map<String, String>.from(_scriptSources),
       bpIdByKey: Map<String, String>.from(_bpIdByKey),
       lastUsedAt: DateTime.now(),
@@ -307,11 +315,13 @@ class WebReverseSessionController extends ChangeNotifier {
     _pageTargets.clear();
     for (final t in infos.whereType<Map>()) {
       if (t['type'] != 'page') continue;
-      _pageTargets.add(CdpPageTargetSnapshot(
-        id: '${t['targetId'] ?? ''}',
-        url: '${t['url'] ?? ''}',
-        title: '${t['title'] ?? ''}',
-      ));
+      _pageTargets.add(
+        CdpPageTargetSnapshot(
+          id: '${t['targetId'] ?? ''}',
+          url: '${t['url'] ?? ''}',
+          title: '${t['title'] ?? ''}',
+        ),
+      );
     }
     _safeNotify();
   }
@@ -343,10 +353,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _bpIdByKey.clear();
     final attachResult = await cdp.send(
       'Target.attachToTarget',
-      params: <String, Object?>{
-        'targetId': targetId,
-        'flatten': true,
-      },
+      params: <String, Object?>{'targetId': targetId, 'flatten': true},
     );
     _pageSessionId = attachResult['sessionId'] as String?;
     _currentTargetId = targetId;
@@ -511,7 +518,12 @@ class WebReverseSessionController extends ChangeNotifier {
       try {
         _rawCdpEventBus.add(ev);
       } catch (e, st) {
-        silentLog('web_reverse_session_controller', 'rawCdpEventBus.add', e, st);
+        silentLog(
+          'web_reverse_session_controller',
+          'rawCdpEventBus.add',
+          e,
+          st,
+        );
       }
     }
     switch (ev.method) {
@@ -590,13 +602,21 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final metrics = r['metrics'] as List?;
       if (metrics == null) return const [];
-      return metrics.whereType<Map>().map((m) {
-        final n = '${m['name'] ?? ''}';
-        final v = (m['value'] as num?)?.toDouble() ?? 0;
-        return (n, v);
-      }).toList(growable: false);
+      return metrics
+          .whereType<Map>()
+          .map((m) {
+            final n = '${m['name'] ?? ''}';
+            final v = (m['value'] as num?)?.toDouble() ?? 0;
+            return (n, v);
+          })
+          .toList(growable: false);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'performanceMetrics', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'performanceMetrics',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -681,10 +701,13 @@ class WebReverseSessionController extends ChangeNotifier {
           if (!completer.isCompleted) completer.complete();
         }
       });
-      await cdp.send('Tracing.start', params: <String, Object?>{
-        'categories': categories.join(','),
-        'transferMode': 'ReportEvents',
-      });
+      await cdp.send(
+        'Tracing.start',
+        params: <String, Object?>{
+          'categories': categories.join(','),
+          'transferMode': 'ReportEvents',
+        },
+      );
       final timeout = Future<void>.delayed(duration);
       if (earlyStop != null) {
         await Future.any(<Future<void>>[timeout, earlyStop]);
@@ -692,8 +715,10 @@ class WebReverseSessionController extends ChangeNotifier {
         await timeout;
       }
       await cdp.send('Tracing.end');
-      await completer.future
-          .timeout(const Duration(seconds: 30), onTimeout: () {});
+      await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {},
+      );
       return jsonEncode(<String, Object?>{
         'traceEvents': events,
         'metadata': <String, Object?>{
@@ -702,12 +727,7 @@ class WebReverseSessionController extends ChangeNotifier {
         },
       });
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'recordTrace',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', 'recordTrace', error, stack);
       return null;
     } finally {
       await sub?.cancel();
@@ -720,9 +740,15 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return const [];
     try {
-      final r = await cdp.send('Network.getAllCookies', sessionId: _pageSessionId);
+      final r = await cdp.send(
+        'Network.getAllCookies',
+        sessionId: _pageSessionId,
+      );
       final list = r['cookies'] as List?;
-      return list?.whereType<Map>().map((m) => Map<String, Object?>.from(m)).toList() ??
+      return list
+              ?.whereType<Map>()
+              .map((m) => Map<String, Object?>.from(m))
+              .toList() ??
           const [];
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'listCookies', error, stack);
@@ -757,7 +783,11 @@ class WebReverseSessionController extends ChangeNotifier {
           .toList(growable: false);
     } catch (error, stack) {
       silentLog(
-          'web_reverse_session_controller', 'listDomStorage', error, stack);
+        'web_reverse_session_controller',
+        'listDomStorage',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -783,7 +813,11 @@ class WebReverseSessionController extends ChangeNotifier {
       return true;
     } catch (error, stack) {
       silentLog(
-          'web_reverse_session_controller', 'deleteCookie $name', error, stack);
+        'web_reverse_session_controller',
+        'deleteCookie $name',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -819,7 +853,11 @@ class WebReverseSessionController extends ChangeNotifier {
       return true;
     } catch (error, stack) {
       silentLog(
-          'web_reverse_session_controller', 'setCookie $name', error, stack);
+        'web_reverse_session_controller',
+        'setCookie $name',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -850,7 +888,11 @@ class WebReverseSessionController extends ChangeNotifier {
       return true;
     } catch (error, stack) {
       silentLog(
-          'web_reverse_session_controller', 'setDomStorageItem', error, stack);
+        'web_reverse_session_controller',
+        'setDomStorageItem',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -878,7 +920,11 @@ class WebReverseSessionController extends ChangeNotifier {
       return true;
     } catch (error, stack) {
       silentLog(
-          'web_reverse_session_controller', 'removeDomStorageItem', error, stack);
+        'web_reverse_session_controller',
+        'removeDomStorageItem',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -896,7 +942,8 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      return (r['result'] as Map?)?['value'] as String?;
+      final value = cdpResultValue(r);
+      return value is String ? value : null;
     } catch (_) {
       return null;
     }
@@ -930,8 +977,9 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// `IndexedDB.requestDatabase` —— 拿单个 db 的 schema 摘要。
   /// 返回字段：(name, version, objectStores)。
-  Future<({String name, int version, List<String> stores})?>
-      describeIndexedDb(String dbName) async {
+  Future<({String name, int version, List<String> stores})?> describeIndexedDb(
+    String dbName,
+  ) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
     try {
@@ -948,7 +996,8 @@ class WebReverseSessionController extends ChangeNotifier {
       final db = r['databaseWithObjectStores'] as Map?;
       if (db == null) return null;
       final version = (db['version'] as num?)?.toInt() ?? 0;
-      final stores = (db['objectStores'] as List?)
+      final stores =
+          (db['objectStores'] as List?)
               ?.whereType<Map>()
               .map((m) => '${m['name'] ?? ''}')
               .toList(growable: false) ??
@@ -968,7 +1017,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// `IndexedDB.requestData` —— 读单个 object store 的前 N 条记录。
   /// 返回 (entries, hasMore)；entries 元素为 `{key, primaryKey, value}` 的纯 Map。
   Future<({List<Map<String, Object?>> entries, bool hasMore})?>
-      readIndexedDbStore({
+  readIndexedDbStore({
     required String dbName,
     required String storeName,
     int skipCount = 0,
@@ -994,7 +1043,8 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final list = r['objectStoreDataEntries'] as List?;
       final hasMore = r['hasMore'] == true;
-      final entries = list
+      final entries =
+          list
               ?.whereType<Map>()
               .map((m) => Map<String, Object?>.from(m))
               .toList(growable: false) ??
@@ -1248,7 +1298,12 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await cdp.send('Security.enable', sessionId: _pageSessionId);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'enableSecurity', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'enableSecurity',
+        error,
+        stack,
+      );
     }
   }
 
@@ -1447,7 +1502,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _recording = true;
       _safeNotify();
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'startRecording', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'startRecording',
+        error,
+        stack,
+      );
     }
   }
 
@@ -1667,7 +1727,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: timeout,
       );
-      final v = (r['result'] as Map?)?['value'];
+      final v = cdpResultValue(r);
       return v is bool ? v : null;
     } catch (_) {
       return null;
@@ -1675,7 +1735,11 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 把一条断言追加到 _recorderSteps（让 UI 直接添加，不依赖浏览器 console）。
-  void addAssertionStep(String type, {required String selector, String? expected}) {
+  void addAssertionStep(
+    String type, {
+    required String selector,
+    String? expected,
+  }) {
     _recorderSteps.add(<String, Object?>{
       'type': type,
       'selector': selector,
@@ -1720,31 +1784,34 @@ class WebReverseSessionController extends ChangeNotifier {
         ..method = method
         ..requestHeaders = headers
         ..requestPostData = request['postData'] as String?;
-      entry.redirectChain.add(CdpRedirectStep(
-        url: '${redirect['url'] ?? ''}',
-        status: (redirect['status'] as num?)?.toInt(),
-        statusText: redirect['statusText'] as String?,
-        responseHeaders: _flattenHeaders(redirect['headers']),
-        at: DateTime.now(),
-      ));
+      entry.redirectChain.add(
+        CdpRedirectStep(
+          url: '${redirect['url'] ?? ''}',
+          status: (redirect['status'] as num?)?.toInt(),
+          statusText: redirect['statusText'] as String?,
+          responseHeaders: _flattenHeaders(redirect['headers']),
+          at: DateTime.now(),
+        ),
+      );
     } else {
-      entry = CdpNetworkEntry(
-        requestId: requestId,
-        url: url,
-        method: method,
-        timestamp: DateTime.now(),
-        resourceType: '${p['type'] ?? 'Other'}',
-      )
-        ..requestHeaders = headers
-        ..requestPostData = request['postData'] as String?;
+      entry =
+          CdpNetworkEntry(
+              requestId: requestId,
+              url: url,
+              method: method,
+              timestamp: DateTime.now(),
+              resourceType: '${p['type'] ?? 'Other'}',
+            )
+            ..requestHeaders = headers
+            ..requestPostData = request['postData'] as String?;
     }
     final initiator = p['initiator'] as Map?;
     if (initiator != null) {
       entry.initiatorType = initiator['type'] as String?;
       entry.initiatorUrl = initiator['url'] as String?;
       entry.initiatorLineNumber = (initiator['lineNumber'] as num?)?.toInt();
-      entry.initiatorColumnNumber =
-          (initiator['columnNumber'] as num?)?.toInt();
+      entry.initiatorColumnNumber = (initiator['columnNumber'] as num?)
+          ?.toInt();
       final stack = initiator['stack'] as Map?;
       final frames = stack?['callFrames'] as List?;
       if (frames != null) {
@@ -1798,7 +1865,8 @@ class WebReverseSessionController extends ChangeNotifier {
       ..remoteAddress = _formatRemoteAddress(response)
       ..protocol = response['protocol'] as String?
       ..encodedDataLength = (response['encodedDataLength'] as num?)?.toInt()
-      ..fromCache = response['fromDiskCache'] == true ||
+      ..fromCache =
+          response['fromDiskCache'] == true ||
           response['fromMemoryCache'] == true ||
           response['fromServiceWorker'] == true
       ..responseReceivedAt = DateTime.now();
@@ -1896,16 +1964,18 @@ class WebReverseSessionController extends ChangeNotifier {
     final mask = response?['mask'] == true;
     var payload = '${response?['payloadData'] ?? ''}';
     if (payload.length > 8192) payload = '${payload.substring(0, 8192)}…';
-    entry.wsFrames.add(CdpWebSocketFrame(
-      direction: direction,
-      timestamp: DateTime.now(),
-      opcode: opcode,
-      mask: mask,
-      payload: payload,
-      errorMessage: direction == CdpWebSocketDirection.error
-          ? '${p['errorMessage'] ?? ''}'
-          : null,
-    ));
+    entry.wsFrames.add(
+      CdpWebSocketFrame(
+        direction: direction,
+        timestamp: DateTime.now(),
+        opcode: opcode,
+        mask: mask,
+        payload: payload,
+        errorMessage: direction == CdpWebSocketDirection.error
+            ? '${p['errorMessage'] ?? ''}'
+            : null,
+      ),
+    );
     // 防止单条 WS 累积爆炸。
     while (entry.wsFrames.length > 2000) {
       entry.wsFrames.removeAt(0);
@@ -1962,10 +2032,7 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
-        params: {
-          'expression': 'document.title',
-          'returnByValue': true,
-        },
+        params: {'expression': 'document.title', 'returnByValue': true},
         sessionId: sid,
       );
       final result = r['result'] as Map?;
@@ -2095,10 +2162,13 @@ class WebReverseSessionController extends ChangeNotifier {
   void _onConsoleApi(Map<String, Object?> p) {
     final type = '${p['type'] ?? 'log'}';
     final args = p['args'] as List? ?? const <Object?>[];
-    final text = args.whereType<Map>().map((a) {
-      final v = a['value'];
-      return v == null ? (a['description'] ?? '').toString() : v.toString();
-    }).join(' ');
+    final text = args
+        .whereType<Map>()
+        .map((a) {
+          final v = a['value'];
+          return v == null ? (a['description'] ?? '').toString() : v.toString();
+        })
+        .join(' ');
     // 拦截 recorder 标记，转为 step 列表（不影响 console 列表本身）。
     if (_recording && text.startsWith('__OH_REC__ ')) {
       try {
@@ -2211,8 +2281,12 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       _appendConsole('info', '[OpenHand] CDP 已自动重连，已恢复网络 / 控制台监听');
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', '_reattachAfterReconnect',
-          error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        '_reattachAfterReconnect',
+        error,
+        stack,
+      );
     }
   }
 
@@ -2271,7 +2345,8 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   WebReverseSnippet addSnippet({required String name, required String code}) {
-    final id = 'snip_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+    final id =
+        'snip_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
     final s = WebReverseSnippet(
       id: id,
       name: name.trim().isEmpty ? 'untitled' : name.trim(),
@@ -2283,17 +2358,15 @@ class WebReverseSessionController extends ChangeNotifier {
     return s;
   }
 
-  void updateSnippet({
-    required String id,
-    String? name,
-    String? code,
-  }) {
+  void updateSnippet({required String id, String? name, String? code}) {
     final i = _snippets.indexWhere((e) => e.id == id);
     if (i < 0) return;
     final old = _snippets[i];
     _snippets[i] = WebReverseSnippet(
       id: old.id,
-      name: (name ?? old.name).trim().isEmpty ? old.name : (name ?? old.name).trim(),
+      name: (name ?? old.name).trim().isEmpty
+          ? old.name
+          : (name ?? old.name).trim(),
       code: code ?? old.code,
       updatedAt: DateTime.now(),
     );
@@ -2311,9 +2384,8 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<String?> runSnippet(String id) async {
     final s = _snippets.firstWhere(
       (e) => e.id == id,
-      orElse: () => const WebReverseSnippet(
-        id: '', name: '', code: '', updatedAt: null,
-      ),
+      orElse: () =>
+          const WebReverseSnippet(id: '', name: '', code: '', updatedAt: null),
     );
     if (s.id.isEmpty) return null;
     return runReplExpression(s.code);
@@ -2432,7 +2504,11 @@ class WebReverseSessionController extends ChangeNotifier {
       if (sid is String) _hookCdpScriptId[h.id] = sid;
     } catch (e, st) {
       silentLog(
-          'web_reverse_session_controller', 'installHook ${h.name}', e, st);
+        'web_reverse_session_controller',
+        'installHook ${h.name}',
+        e,
+        st,
+      );
     }
   }
 
@@ -2562,7 +2638,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final c = _crons.firstWhere(
       (e) => e.id == id,
       orElse: () => const WebReverseCron(
-        id: '', name: '', code: '', intervalSeconds: 0, enabled: false,
+        id: '',
+        name: '',
+        code: '',
+        intervalSeconds: 0,
+        enabled: false,
         updatedAt: null,
       ),
     );
@@ -2615,8 +2695,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// `DOM.describeNode` — 取指定 node 的最新结构 + 一层 children。
-  Future<Map<String, dynamic>?> domDescribeNode(int nodeId,
-      {int depth = 1}) async {
+  Future<Map<String, dynamic>?> domDescribeNode(
+    int nodeId, {
+    int depth = 1,
+  }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
     try {
@@ -2640,9 +2722,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return const [];
     try {
-      await cdp.send('CSS.enable',
-          sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 3));
+      await cdp.send(
+        'CSS.enable',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
       final r = await cdp.send(
         'CSS.getComputedStyleForNode',
         params: <String, Object?>{'nodeId': nodeId},
@@ -2690,7 +2774,12 @@ class WebReverseSessionController extends ChangeNotifier {
       if (list is! List) return const [];
       return list.whereType<Map<String, dynamic>>().toList();
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domGetEventListeners', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'domGetEventListeners',
+        e,
+        st,
+      );
       return const [];
     }
   }
@@ -2746,9 +2835,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     try {
-      await cdp.send('Overlay.enable',
-          sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 3));
+      await cdp.send(
+        'Overlay.enable',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
       await cdp.send(
         'Overlay.highlightNode',
         params: <String, Object?>{
@@ -2758,16 +2849,28 @@ class WebReverseSessionController extends ChangeNotifier {
             'showRulers': false,
             'showExtensionLines': false,
             'contentColor': <String, Object?>{
-              'r': 111, 'g': 168, 'b': 220, 'a': 0.35,
+              'r': 111,
+              'g': 168,
+              'b': 220,
+              'a': 0.35,
             },
             'paddingColor': <String, Object?>{
-              'r': 147, 'g': 196, 'b': 125, 'a': 0.55,
+              'r': 147,
+              'g': 196,
+              'b': 125,
+              'a': 0.55,
             },
             'borderColor': <String, Object?>{
-              'r': 255, 'g': 229, 'b': 153, 'a': 0.66,
+              'r': 255,
+              'g': 229,
+              'b': 153,
+              'a': 0.66,
             },
             'marginColor': <String, Object?>{
-              'r': 246, 'g': 178, 'b': 107, 'a': 0.66,
+              'r': 246,
+              'g': 178,
+              'b': 107,
+              'a': 0.66,
             },
           },
         },
@@ -2783,9 +2886,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     try {
-      await cdp.send('Overlay.hideHighlight',
-          sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 3));
+      await cdp.send(
+        'Overlay.hideHighlight',
+        sessionId: _pageSessionId,
+        timeout: const Duration(seconds: 3),
+      );
     } catch (e, st) {
       silentLog('web_reverse_session_controller', 'domHideHighlight', e, st);
     }
@@ -2849,7 +2954,8 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       final exception = r['exceptionDetails'];
       if (exception is Map) {
-        final m = '${exception['exception']?['description'] ?? exception['text'] ?? 'eval failed'}';
+        final m =
+            '${exception['exception']?['description'] ?? exception['text'] ?? 'eval failed'}';
         _appendConsole('error', m);
         return null;
       }
@@ -2881,7 +2987,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _appendConsole('repl-result', preview);
       return preview;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'runReplExpression', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'runReplExpression',
+        error,
+        stack,
+      );
       _appendConsole('error', '$error');
       return null;
     }
@@ -3189,8 +3300,8 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final raw = (r['result'] as Map?)?['value'];
-      if (raw is! String || raw.isEmpty) return const [];
+      final raw = cdpStringResultValue(r);
+      if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
       return decoded
@@ -3335,8 +3446,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _rtcInstalled = true;
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'installWebRtcCapture',
-          error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'installWebRtcCapture',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -3355,8 +3470,8 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final raw = (r['result'] as Map?)?['value'];
-      if (raw is! String || raw.isEmpty) return const [];
+      final raw = cdpStringResultValue(r);
+      if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
       return decoded
@@ -3382,8 +3497,8 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final raw = (r['result'] as Map?)?['value'];
-      if (raw is! String || raw.isEmpty) return const [];
+      final raw = cdpStringResultValue(r);
+      if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
       return decoded
@@ -3408,7 +3523,7 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final v = (r['result'] as Map?)?['value'];
+      final v = cdpResultValue(r);
       return v is num ? v.toDouble() : null;
     } catch (_) {
       return null;
@@ -3631,12 +3746,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'insertText',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', 'insertText', error, stack);
     }
   }
 
@@ -3674,8 +3784,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final entries = (r['entries'] as List?) ?? const [];
       final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
       if (current <= 0 || entries.isEmpty) return;
-      final id =
-          (entries[current - 1] as Map?)?['id'];
+      final id = (entries[current - 1] as Map?)?['id'];
       if (id == null) return;
       await cdp.send(
         'Page.navigateToHistoryEntry',
@@ -3700,8 +3809,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final entries = (r['entries'] as List?) ?? const [];
       final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
       if (current < 0 || current + 1 >= entries.length) return;
-      final id =
-          (entries[current + 1] as Map?)?['id'];
+      final id = (entries[current + 1] as Map?)?['id'];
       if (id == null) return;
       await cdp.send(
         'Page.navigateToHistoryEntry',
@@ -3845,7 +3953,8 @@ class WebReverseSessionController extends ChangeNotifier {
           );
         } catch (_) {}
       }
-      final initJs = '''
+      final initJs =
+          '''
 (() => {
   const apply = () => {
     if (document.body) document.body.style.zoom = '$clamped';
@@ -3869,7 +3978,7 @@ class WebReverseSessionController extends ChangeNotifier {
         params: <String, Object?>{
           'expression':
               '(document.body && (document.body.style.zoom = "$clamped"))'
-                  ' || (document.documentElement.style.zoom = "$clamped");',
+              ' || (document.documentElement.style.zoom = "$clamped");',
         },
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 3),
@@ -3916,7 +4025,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 5),
       );
-      final v = (r['result'] as Map?)?['value'];
+      final v = cdpResultValue(r);
       return v is num ? v.toInt() : 0;
     } catch (_) {
       return 0;
@@ -4069,7 +4178,8 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 3),
       );
-      return (r['result'] as Map?)?['value'] as String?;
+      final value = cdpResultValue(r);
+      return value is String ? value : null;
     } catch (_) {
       return null;
     }
@@ -4186,8 +4296,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 停止采样并返回汇总。停止前可多次调 stopMemorySampling 取中间快照。
-  Future<({int totalSize, List<({String label, int size, List<String> stack})> top})?>
-      stopMemorySampling() async {
+  Future<
+    ({int totalSize, List<({String label, int size, List<String> stack})> top})?
+  >
+  stopMemorySampling() async {
     final cdp = _browserCdp;
     if (cdp == null || !_samplingProfileRunning) return null;
     try {
@@ -4229,16 +4341,19 @@ class WebReverseSessionController extends ChangeNotifier {
           }
         }
       }
+
       walk(Map<String, Object?>.from(profile['head'] as Map), const []);
       final entries = tally.entries.toList()
         ..sort((a, b) => b.value.size.compareTo(a.value.size));
       final top = entries
           .take(15)
-          .map((e) => (
-                label: e.key.isEmpty ? '(anonymous)' : e.key,
-                size: e.value.size,
-                stack: e.value.stack,
-              ))
+          .map(
+            (e) => (
+              label: e.key.isEmpty ? '(anonymous)' : e.key,
+              size: e.value.size,
+              stack: e.value.stack,
+            ),
+          )
           .toList(growable: false);
       return (totalSize: total, top: top);
     } catch (error, stack) {
@@ -4285,17 +4400,20 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 启用后所有请求都需要 dashboard 显式放行；适合反爬调试与超时模拟，
   /// 不建议默认开。
   bool _fetchInterceptEnabled = false;
-  bool get isFetchInterceptEnabled => _fetchInterceptEnabled;  // 请求 ID -> 暂存的元信息（method / url），等用户决策。
+  bool get isFetchInterceptEnabled =>
+      _fetchInterceptEnabled; // 请求 ID -> 暂存的元信息（method / url），等用户决策。
   final Map<String, Map<String, Object?>> _pendingFetchRequests =
       <String, Map<String, Object?>>{};
   List<({String requestId, String method, String url})>
-      get pendingFetchRequests => _pendingFetchRequests.entries
-          .map((e) => (
-                requestId: e.key,
-                method: '${e.value['method'] ?? 'GET'}',
-                url: '${e.value['url'] ?? ''}',
-              ))
-          .toList(growable: false);
+  get pendingFetchRequests => _pendingFetchRequests.entries
+      .map(
+        (e) => (
+          requestId: e.key,
+          method: '${e.value['method'] ?? 'GET'}',
+          url: '${e.value['url'] ?? ''}',
+        ),
+      )
+      .toList(growable: false);
 
   Future<bool> setFetchInterceptEnabled(bool enabled) async {
     final cdp = _browserCdp;
@@ -4382,7 +4500,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 终止某条请求；reason 见 CDP Network.ErrorReason 枚举。
-  Future<void> abortFetchRequest(String requestId, {String reason = 'Aborted'}) async {
+  Future<void> abortFetchRequest(
+    String requestId, {
+    String reason = 'Aborted',
+  }) async {
     final cdp = _browserCdp;
     if (cdp == null) return;
     _pendingFetchRequests.remove(requestId);
@@ -4442,11 +4563,13 @@ class WebReverseSessionController extends ChangeNotifier {
         newHeaders = hdrs;
       }
       if (newUrl != null || newHeaders != null) {
-        unawaited(continueFetchRequestEdited(
-          requestId,
-          url: newUrl,
-          headers: newHeaders,
-        ));
+        unawaited(
+          continueFetchRequestEdited(
+            requestId,
+            url: newUrl,
+            headers: newHeaders,
+          ),
+        );
         return;
       }
       // 命中规则但仅作"标记"，仍然 hold 住等用户决定。
@@ -4570,12 +4693,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       _safeNotify();
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        '_fulfillMockRequest',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '_fulfillMockRequest', e, st);
     }
   }
 
@@ -4641,12 +4759,14 @@ class WebReverseSessionController extends ChangeNotifier {
     final init = <String, Object?>{
       'method': e.method,
       if ((overrideHeaders ?? e.requestHeaders).isNotEmpty)
-        'headers':
-            (overrideHeaders ?? e.requestHeaders).map((k, v) => MapEntry(k, v)),
+        'headers': (overrideHeaders ?? e.requestHeaders).map(
+          (k, v) => MapEntry(k, v),
+        ),
       if (e.requestPostData != null) 'body': e.requestPostData,
       'credentials': 'include',
     };
-    final js = '''
+    final js =
+        '''
 (async () => {
   try {
     const r = await fetch(${jsonEncode(url)}, ${jsonEncode(init)});
@@ -4668,8 +4788,8 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 30),
       );
-      final raw = (r['result'] as Map?)?['value'];
-      if (raw is! String) return null;
+      final raw = cdpStringResultValue(r);
+      if (raw == null) return null;
       final decoded = jsonDecode(raw) as Map<String, Object?>;
       return (
         status: (decoded['status'] as num?)?.toInt() ?? -1,
@@ -4742,7 +4862,12 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send('Debugger.enable', sessionId: _pageSessionId);
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'enableDebugger', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'enableDebugger',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -4752,11 +4877,10 @@ class WebReverseSessionController extends ChangeNotifier {
   /// scriptId / url / line / preview。仅做基本的字符串匹配（不区分大小写），
   /// 模型若需要正则可在 UI 端自己处理。
   Future<List<({String scriptId, String url, int line, String preview})>>
-      searchScriptsGlobal(String query, {int limit = 200}) async {
+  searchScriptsGlobal(String query, {int limit = 200}) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return const [];
-    final hits =
-        <({String scriptId, String url, int line, String preview})>[];
+    final hits = <({String scriptId, String url, int line, String preview})>[];
     for (final entry in _parsedScripts.entries) {
       if (hits.length >= limit) break;
       final id = entry.key;
@@ -4797,7 +4921,12 @@ class WebReverseSessionController extends ChangeNotifier {
       if (src != null) _scriptSources[scriptId] = src;
       return src;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'getScriptSource', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'getScriptSource',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -4860,7 +4989,12 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return bp;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'setBreakpointByUrl', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'setBreakpointByUrl',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -4877,15 +5011,13 @@ class WebReverseSessionController extends ChangeNotifier {
     if (oldId != null) {
       await removeBreakpoint(oldId);
     }
-    return setBreakpointByUrl(
-      url: url,
-      lineNumber: line,
-      condition: condition,
-    );
+    return setBreakpointByUrl(url: url, lineNumber: line, condition: condition);
   }
 
   /// 持久化数据下发：恢复之前持久化的断点（dashboard 启动 / 浏览器重启用）。
-  Future<void> restoreBreakpoints(Iterable<({String url, int line})> bps) async {
+  Future<void> restoreBreakpoints(
+    Iterable<({String url, int line})> bps,
+  ) async {
     for (final b in bps) {
       await setBreakpointByUrl(url: b.url, lineNumber: b.line);
     }
@@ -4905,19 +5037,25 @@ class WebReverseSessionController extends ChangeNotifier {
         (b) => !_bpIdByKey.containsKey('${b.url}#${b.line}'),
       );
       // 同步清理已失效断点的条件表达式。
-      _bpConditions.removeWhere(
-        (k, _) => !_bpIdByKey.containsKey(k),
-      );
+      _bpConditions.removeWhere((k, _) => !_bpIdByKey.containsKey(k));
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'removeBreakpoint', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'removeBreakpoint',
+        error,
+        stack,
+      );
       return false;
     }
   }
 
   /// 便捷封装：按 (url,line) 查 breakpointId 再 remove。Breakpoints 面板用。
-  Future<bool> removeBreakpointAt({required String url, required int line}) async {
+  Future<bool> removeBreakpointAt({
+    required String url,
+    required int line,
+  }) async {
     final id = _bpIdByKey['$url#$line'];
     if (id == null) return false;
     return removeBreakpoint(id);
@@ -4958,7 +5096,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'setPauseOnExceptions', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'setPauseOnExceptions',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -5008,29 +5151,34 @@ class WebReverseSessionController extends ChangeNotifier {
     String reason,
     Map<String, Object?> data,
     List<String> hitBreakpoints,
-  })? _pausedState;
+  })?
+  _pausedState;
 
   ({
     List<Map<String, Object?>> callFrames,
     String reason,
     Map<String, Object?> data,
     List<String> hitBreakpoints,
-  })? get pausedState => _pausedState;
+  })?
+  get pausedState => _pausedState;
 
   bool get isPaused => _pausedState != null;
 
   void _onDebuggerPaused(Map<String, Object?> p) {
-    final frames = (p['callFrames'] as List?)
+    final frames =
+        (p['callFrames'] as List?)
             ?.whereType<Map>()
             .map(Map<String, Object?>.from)
             .toList(growable: false) ??
         const <Map<String, Object?>>[];
     final reason = '${p['reason'] ?? ''}';
-    final data = (p['data'] as Map?)?.cast<String, Object?>() ??
+    final data =
+        (p['data'] as Map?)?.cast<String, Object?>() ??
         const <String, Object?>{};
-    final hits = (p['hitBreakpoints'] as List?)
-            ?.whereType<String>()
-            .toList(growable: false) ??
+    final hits =
+        (p['hitBreakpoints'] as List?)?.whereType<String>().toList(
+          growable: false,
+        ) ??
         const <String>[];
     _pausedState = (
       callFrames: frames,
@@ -5106,7 +5254,8 @@ class WebReverseSessionController extends ChangeNotifier {
   // 纯前端维护；每次调 evaluateWatch 时会按当前是否处于暂停态走
   // evaluateOnCallFrame 或 Runtime.evaluate。
   final List<String> _watchExpressions = <String>[];
-  List<String> get watchExpressions => List<String>.unmodifiable(_watchExpressions);
+  List<String> get watchExpressions =>
+      List<String>.unmodifiable(_watchExpressions);
 
   void addWatchExpression(String expr) {
     final e = expr.trim();
@@ -5126,10 +5275,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (paused != null && paused.callFrames.isNotEmpty) {
       final fid = '${paused.callFrames.first['callFrameId'] ?? ''}';
       if (fid.isNotEmpty) {
-        return evaluateOnCallFrame(
-          callFrameId: fid,
-          expression: expression,
-        );
+        return evaluateOnCallFrame(callFrameId: fid, expression: expression);
       }
     }
     final cdp = _browserCdp;
@@ -5183,7 +5329,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'setEventListenerBreakpoint', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'setEventListenerBreakpoint',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -5201,7 +5352,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'removeEventListenerBreakpoint', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'removeEventListenerBreakpoint',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -5255,7 +5411,8 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       // selector 同 type 重复添加时合并去重。
       if (!_domBreakpoints.any(
-          (b) => b.selector == selector && b.type == type)) {
+        (b) => b.selector == selector && b.type == type,
+      )) {
         _domBreakpoints.add((selector: selector, type: type));
       }
       _safeNotify();
@@ -5411,7 +5568,12 @@ class WebReverseSessionController extends ChangeNotifier {
           .map(Map<String, Object?>.from)
           .toList(growable: false);
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'listGlobalEventListeners', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'listGlobalEventListeners',
+        e,
+        st,
+      );
       return const [];
     }
   }
@@ -5873,7 +6035,10 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 调用方拿到 port 后用 `127.0.0.1:<port>/<原 path+query>` 即可命中 mock。
   Future<({int port, int entryCount})?> startHarReplayServer() async {
     if (_harReplayServer != null) {
-      return (port: _harReplayServer!.port, entryCount: _harReplayServer!.entryCount);
+      return (
+        port: _harReplayServer!.port,
+        entryCount: _harReplayServer!.entryCount,
+      );
     }
     try {
       // 优先用 in-flight artifacts；为空时生成一个临时 HAR。
@@ -5887,7 +6052,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return (port: s.port, entryCount: s.entryCount);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'startHarReplayServer', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'startHarReplayServer',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -6055,7 +6225,12 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return out.path;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'exportSessionBundle', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        'exportSessionBundle',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -6159,13 +6334,13 @@ class WebReverseSessionController extends ChangeNotifier {
         final url = '${req['url'] ?? ''}';
         final method = '${req['method'] ?? 'GET'}';
         final reqHeaders = <String, String>{};
-        for (final h in (req['headers'] as List? ?? const [])
-            .whereType<Map>()) {
+        for (final h
+            in (req['headers'] as List? ?? const []).whereType<Map>()) {
           reqHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
         }
         final resHeaders = <String, String>{};
-        for (final h in (res?['headers'] as List? ?? const [])
-            .whereType<Map>()) {
+        for (final h
+            in (res?['headers'] as List? ?? const []).whereType<Map>()) {
           resHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
         }
         final startedRaw = '${raw['startedDateTime'] ?? ''}';
@@ -6174,32 +6349,35 @@ class WebReverseSessionController extends ChangeNotifier {
           started = DateTime.parse(startedRaw);
         } catch (_) {
           started = DateTime.now().toUtc().subtract(
-                Duration(milliseconds: entries.length - i),
-              );
+            Duration(milliseconds: entries.length - i),
+          );
         }
         final timeMs = (raw['time'] as num?)?.toInt() ?? 0;
         // requestId 在 merge 时必须避免与现有 / 同批次冲突；用 ts 后缀保证唯一。
         final reqId = merge
             ? 'har-${started.microsecondsSinceEpoch}-$i'
             : 'har-$i';
-        final entry = CdpNetworkEntry(
-          requestId: reqId,
-          url: url,
-          method: method,
-          timestamp: started,
-          resourceType:
-              _resourceTypeFromMime('${res?['content']?['mimeType'] ?? ''}'),
-        )
-          ..requestHeaders = reqHeaders
-          ..requestPostData = (req['postData'] as Map?)?['text'] as String?
-          ..responseHeaders = resHeaders
-          ..statusCode = (res?['status'] as num?)?.toInt()
-          ..statusText = res?['statusText'] as String?
-          ..mimeType = '${res?['content']?['mimeType'] ?? ''}'
-          ..encodedDataLength = (res?['bodySize'] as num?)?.toInt()
-          ..responseReceivedAt =
-              started.add(Duration(milliseconds: timeMs ~/ 2))
-          ..loadingFinishedAt = started.add(Duration(milliseconds: timeMs));
+        final entry =
+            CdpNetworkEntry(
+                requestId: reqId,
+                url: url,
+                method: method,
+                timestamp: started,
+                resourceType: _resourceTypeFromMime(
+                  '${res?['content']?['mimeType'] ?? ''}',
+                ),
+              )
+              ..requestHeaders = reqHeaders
+              ..requestPostData = (req['postData'] as Map?)?['text'] as String?
+              ..responseHeaders = resHeaders
+              ..statusCode = (res?['status'] as num?)?.toInt()
+              ..statusText = res?['statusText'] as String?
+              ..mimeType = '${res?['content']?['mimeType'] ?? ''}'
+              ..encodedDataLength = (res?['bodySize'] as num?)?.toInt()
+              ..responseReceivedAt = started.add(
+                Duration(milliseconds: timeMs ~/ 2),
+              )
+              ..loadingFinishedAt = started.add(Duration(milliseconds: timeMs));
         candidates.add(entry);
         loaded++;
       }
@@ -6212,10 +6390,8 @@ class WebReverseSessionController extends ChangeNotifier {
         }
       } else {
         // 合并：按 timestamp 升序插入；超出容量时 FIFO 砍头。
-        final combined = <CdpNetworkEntry>[
-          ..._networkRequests,
-          ...candidates,
-        ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        final combined = <CdpNetworkEntry>[..._networkRequests, ...candidates]
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
         if (combined.length > _maxNetworkEntries) {
           combined.removeRange(0, combined.length - _maxNetworkEntries);
         }
@@ -6269,53 +6445,59 @@ class WebReverseSessionController extends ChangeNotifier {
       'exported_ms': DateTime.now().millisecondsSinceEpoch,
       'target_id': _currentTargetId,
       'network': _networkRequests
-          .map((e) => <String, Object?>{
-                'request_id': e.requestId,
-                'url': e.url,
-                'method': e.method,
-                'ts': e.timestamp.toIso8601String(),
-                'resource_type': e.resourceType,
-                'request_headers': e.requestHeaders,
-                'request_post': e.requestPostData,
-                'status': e.statusCode,
-                'status_text': e.statusText,
-                'mime_type': e.mimeType,
-                'response_headers': e.responseHeaders,
-                'remote': e.remoteAddress,
-                'protocol': e.protocol,
-                'from_cache': e.fromCache,
-                'encoded_len': e.encodedDataLength,
-                'decoded_len': e.decodedBodyLength,
-                'initiator_type': e.initiatorType,
-                'initiator_url': e.initiatorUrl,
-                'initiator_line': e.initiatorLineNumber,
-                'initiator_col': e.initiatorColumnNumber,
-                'cached_body': e.cachedBody,
-                'cached_body_b64': e.cachedBodyBase64,
-                'failed': e.failed,
-                'error_text': e.errorText,
-                'response_received_ms':
-                    e.responseReceivedAt?.millisecondsSinceEpoch,
-                'loading_finished_ms':
-                    e.loadingFinishedAt?.millisecondsSinceEpoch,
-                'ws_frames': e.wsFrames
-                    .map((f) => <String, Object?>{
-                          'dir': f.direction.name,
-                          'ts': f.timestamp.toIso8601String(),
-                          'opcode': f.opcode,
-                          'mask': f.mask,
-                          'payload': f.payload,
-                          'error': f.errorMessage,
-                        })
-                    .toList(),
-              })
+          .map(
+            (e) => <String, Object?>{
+              'request_id': e.requestId,
+              'url': e.url,
+              'method': e.method,
+              'ts': e.timestamp.toIso8601String(),
+              'resource_type': e.resourceType,
+              'request_headers': e.requestHeaders,
+              'request_post': e.requestPostData,
+              'status': e.statusCode,
+              'status_text': e.statusText,
+              'mime_type': e.mimeType,
+              'response_headers': e.responseHeaders,
+              'remote': e.remoteAddress,
+              'protocol': e.protocol,
+              'from_cache': e.fromCache,
+              'encoded_len': e.encodedDataLength,
+              'decoded_len': e.decodedBodyLength,
+              'initiator_type': e.initiatorType,
+              'initiator_url': e.initiatorUrl,
+              'initiator_line': e.initiatorLineNumber,
+              'initiator_col': e.initiatorColumnNumber,
+              'cached_body': e.cachedBody,
+              'cached_body_b64': e.cachedBodyBase64,
+              'failed': e.failed,
+              'error_text': e.errorText,
+              'response_received_ms':
+                  e.responseReceivedAt?.millisecondsSinceEpoch,
+              'loading_finished_ms':
+                  e.loadingFinishedAt?.millisecondsSinceEpoch,
+              'ws_frames': e.wsFrames
+                  .map(
+                    (f) => <String, Object?>{
+                      'dir': f.direction.name,
+                      'ts': f.timestamp.toIso8601String(),
+                      'opcode': f.opcode,
+                      'mask': f.mask,
+                      'payload': f.payload,
+                      'error': f.errorMessage,
+                    },
+                  )
+                  .toList(),
+            },
+          )
           .toList(),
       'console': _consoleMessages
-          .map((c) => <String, Object?>{
-                'level': c.level,
-                'text': c.text,
-                'ts': c.timestamp.toIso8601String(),
-              })
+          .map(
+            (c) => <String, Object?>{
+              'level': c.level,
+              'text': c.text,
+              'ts': c.timestamp.toIso8601String(),
+            },
+          )
           .toList(),
     };
   }
@@ -6341,15 +6523,19 @@ class WebReverseSessionController extends ChangeNotifier {
             timestamp: DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
             resourceType: '${m['resource_type'] ?? 'Other'}',
           );
-          entry.requestHeaders = (m['request_headers'] as Map?)
-                  ?.map((k, v) => MapEntry('$k', '$v')) ??
+          entry.requestHeaders =
+              (m['request_headers'] as Map?)?.map(
+                (k, v) => MapEntry('$k', '$v'),
+              ) ??
               const <String, String>{};
           entry.requestPostData = m['request_post'] as String?;
           entry.statusCode = m['status'] as int?;
           entry.statusText = m['status_text'] as String?;
           entry.mimeType = m['mime_type'] as String?;
-          entry.responseHeaders = (m['response_headers'] as Map?)
-                  ?.map((k, v) => MapEntry('$k', '$v')) ??
+          entry.responseHeaders =
+              (m['response_headers'] as Map?)?.map(
+                (k, v) => MapEntry('$k', '$v'),
+              ) ??
               const <String, String>{};
           entry.remoteAddress = m['remote'] as String?;
           entry.protocol = m['protocol'] as String?;
@@ -6366,13 +6552,13 @@ class WebReverseSessionController extends ChangeNotifier {
           entry.errorText = m['error_text'] as String?;
           final rrMs = m['response_received_ms'];
           if (rrMs is int) {
-            entry.responseReceivedAt =
-                DateTime.fromMillisecondsSinceEpoch(rrMs);
+            entry.responseReceivedAt = DateTime.fromMillisecondsSinceEpoch(
+              rrMs,
+            );
           }
           final lfMs = m['loading_finished_ms'];
           if (lfMs is int) {
-            entry.loadingFinishedAt =
-                DateTime.fromMillisecondsSinceEpoch(lfMs);
+            entry.loadingFinishedAt = DateTime.fromMillisecondsSinceEpoch(lfMs);
           }
           final rawWs = m['ws_frames'];
           if (rawWs is List) {
@@ -6384,15 +6570,17 @@ class WebReverseSessionController extends ChangeNotifier {
                 (d) => d.name == dirName,
                 orElse: () => CdpWebSocketDirection.received,
               );
-              entry.wsFrames.add(CdpWebSocketFrame(
-                direction: dir,
-                timestamp:
-                    DateTime.tryParse('${fm['ts'] ?? ''}') ?? DateTime.now(),
-                opcode: fm['opcode'] is int ? fm['opcode'] as int : 1,
-                mask: fm['mask'] == true,
-                payload: '${fm['payload'] ?? ''}',
-                errorMessage: fm['error'] as String?,
-              ));
+              entry.wsFrames.add(
+                CdpWebSocketFrame(
+                  direction: dir,
+                  timestamp:
+                      DateTime.tryParse('${fm['ts'] ?? ''}') ?? DateTime.now(),
+                  opcode: fm['opcode'] is int ? fm['opcode'] as int : 1,
+                  mask: fm['mask'] == true,
+                  payload: '${fm['payload'] ?? ''}',
+                  errorMessage: fm['error'] as String?,
+                ),
+              );
             }
           }
           _networkRequests.add(entry);
@@ -6404,12 +6592,14 @@ class WebReverseSessionController extends ChangeNotifier {
         for (final raw in rawCon) {
           if (raw is! Map) continue;
           final m = raw.cast<String, Object?>();
-          _consoleMessages.add(CdpConsoleEntry(
-            level: '${m['level'] ?? 'log'}',
-            text: '${m['text'] ?? ''}',
-            timestamp:
-                DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
-          ));
+          _consoleMessages.add(
+            CdpConsoleEntry(
+              level: '${m['level'] ?? 'log'}',
+              text: '${m['text'] ?? ''}',
+              timestamp:
+                  DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+            ),
+          );
         }
       }
       _safeNotify();
@@ -6430,8 +6620,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// Headless 批量采集要直接持有 browser-level CDP（共享 sessionId-less 命令通道）。
   /// 仅在 controller 已经 `start()` 过、且没被 dispose 时返回非空。
-  WebReverseCdpClient? get browserCdpForBatch =>
-      _disposed ? null : _browserCdp;
+  WebReverseCdpClient? get browserCdpForBatch => _disposed ? null : _browserCdp;
 
   // ── 报文条件断点 ─────────────────────────────────────────────────
   // 与拦截规则不同，这里不改写也不放行 —— 只在「请求拦截」全局开关已开的
@@ -6493,13 +6682,15 @@ class WebReverseSessionController extends ChangeNotifier {
     String url,
     String? body,
   ) async {
-    _breakpointHits.add(WebReverseRequestBreakpointHit(
-      breakpointId: bp.id,
-      breakpointName: bp.name,
-      method: method,
-      url: url,
-      at: DateTime.now(),
-    ));
+    _breakpointHits.add(
+      WebReverseRequestBreakpointHit(
+        breakpointId: bp.id,
+        breakpointName: bp.name,
+        method: method,
+        url: url,
+        at: DateTime.now(),
+      ),
+    );
     if (_breakpointHits.length > _kBreakpointHitsCap) {
       _breakpointHits.removeRange(
         0,
@@ -6523,12 +6714,7 @@ class WebReverseSessionController extends ChangeNotifier {
             timeout: const Duration(seconds: 3),
           );
         } catch (e, st) {
-          silentLog(
-            'web_reverse_session_controller',
-            'breakpoint_eval',
-            e,
-            st,
-          );
+          silentLog('web_reverse_session_controller', 'breakpoint_eval', e, st);
         }
       }
     }
@@ -6588,12 +6774,8 @@ class WebReverseSessionController extends ChangeNotifier {
       cookies: cookies
           .map((c) => Map<String, Object?>.from(c))
           .toList(growable: false),
-      localStorage: <String, String>{
-        for (final e in ls) e.key: e.value,
-      },
-      sessionStorage: <String, String>{
-        for (final e in ss) e.key: e.value,
-      },
+      localStorage: <String, String>{for (final e in ls) e.key: e.value},
+      sessionStorage: <String, String>{for (final e in ss) e.key: e.value},
     );
     _accountSnapshots.add(snap);
     _safeNotify();
@@ -6613,12 +6795,7 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await cdp.send('Network.clearBrowserCookies', sessionId: _pageSessionId);
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'clearBrowserCookies',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', 'clearBrowserCookies', e, st);
     }
     for (final c in snap.cookies) {
       await setCookie(
@@ -6670,7 +6847,8 @@ class WebReverseSessionController extends ChangeNotifier {
     if (_sourceMapCache.containsKey(url)) return _sourceMapCache[url];
     if (_browserCdp == null || _pageSessionId == null) return null;
     try {
-      final js = '''
+      final js =
+          '''
 (async () => {
   try {
     const r = await fetch(${jsonEncode(url)});
@@ -6699,8 +6877,8 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         }),
       );
-      final raw = (r?['result'] as Map?)?['value'];
-      if (raw is! String) {
+      final raw = cdpStringResultValue(r);
+      if (raw == null) {
         _sourceMapCache[url] = null;
         return null;
       }
@@ -6710,17 +6888,20 @@ class WebReverseSessionController extends ChangeNotifier {
         return null;
       }
       final mapJson = jsonDecode('${wrap['map']}') as Map<String, Object?>;
-      final sources = (mapJson['sources'] as List?)
+      final sources =
+          (mapJson['sources'] as List?)
               ?.cast<Object?>()
               .map((e) => '$e')
               .toList(growable: false) ??
           const <String>[];
-      final names = (mapJson['names'] as List?)
+      final names =
+          (mapJson['names'] as List?)
               ?.cast<Object?>()
               .map((e) => '$e')
               .toList(growable: false) ??
           const <String>[];
-      final sourcesContent = (mapJson['sourcesContent'] as List?)
+      final sourcesContent =
+          (mapJson['sourcesContent'] as List?)
               ?.cast<Object?>()
               .map((e) => e == null ? null : '$e')
               .toList(growable: false) ??
@@ -6739,7 +6920,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _sourceMapCache[url] = info;
       return info;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'fetchSourceMapForUrl', e, st);
+      silentLog(
+        'web_reverse_session_controller',
+        'fetchSourceMapForUrl',
+        e,
+        st,
+      );
       _sourceMapCache[url] = null;
       return null;
     }
@@ -6829,8 +7015,7 @@ class CdpNetworkEntry {
       resourceType.toLowerCase() == 'websocket' ||
       resourceType.toLowerCase() == 'eventsource';
 
-  bool get isError =>
-      failed || (statusCode != null && statusCode! >= 400);
+  bool get isError => failed || (statusCode != null && statusCode! >= 400);
 }
 
 /// 一条 WebSocket 帧（发送 / 接收 / 错误）。`payload` 截断到 8KB 防止内存爆。
@@ -6931,13 +7116,12 @@ enum WebReverseThrottlePreset {
   final int uploadKbps;
 
   Map<String, Object?> get cdpParams => <String, Object?>{
-        'offline': isOffline,
-        'latency': latencyMs,
-        'downloadThroughput': downloadKbps < 0 ? -1 : downloadKbps * 1024 / 8,
-        'uploadThroughput': uploadKbps < 0 ? -1 : uploadKbps * 1024 / 8,
-      };
+    'offline': isOffline,
+    'latency': latencyMs,
+    'downloadThroughput': downloadKbps < 0 ? -1 : downloadKbps * 1024 / 8,
+    'uploadThroughput': uploadKbps < 0 ? -1 : uploadKbps * 1024 / 8,
+  };
 }
-
 
 /// CDP page target 的精简快照，给 dashboard 浏览器面板的 tab strip 渲染用。
 class CdpPageTargetSnapshot {
@@ -6951,7 +7135,6 @@ class CdpPageTargetSnapshot {
   final String url;
   final String title;
 }
-
 
 /// 抓取并解析后的 Source Map 信息，供源码板块「跳到原始源」使用。
 /// 这里只保留浏览器侧返回的字段；mappings 解码是按需进行的：调用
@@ -7047,7 +7230,6 @@ class WebReverseSourceMapInfo {
   }
 }
 
-
 /// 一条网络拦截规则：URL 通配匹配后对请求 block 或 rewrite。
 /// `urlPattern` 支持 `*` 任意段、`?` 单字符；不区分大小写。
 class WebReverseInterceptRule {
@@ -7059,17 +7241,17 @@ class WebReverseInterceptRule {
     this.headerOverrides = const <String, String>{},
   });
 
-  factory WebReverseInterceptRule.fromJson(Map<String, Object?> j) =>
-      WebReverseInterceptRule(
-        urlPattern: '${j['urlPattern'] ?? ''}',
-        enabled: j['enabled'] != false,
-        block: j['block'] == true,
-        replaceUrl:
-            j['replaceUrl'] is String ? j['replaceUrl'] as String : null,
-        headerOverrides: (j['headerOverrides'] as Map?)
-                ?.map((k, v) => MapEntry('$k', '$v')) ??
-            const <String, String>{},
-      );
+  factory WebReverseInterceptRule.fromJson(
+    Map<String, Object?> j,
+  ) => WebReverseInterceptRule(
+    urlPattern: '${j['urlPattern'] ?? ''}',
+    enabled: j['enabled'] != false,
+    block: j['block'] == true,
+    replaceUrl: j['replaceUrl'] is String ? j['replaceUrl'] as String : null,
+    headerOverrides:
+        (j['headerOverrides'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
+        const <String, String>{},
+  );
 
   final String urlPattern;
   final bool enabled;
@@ -7083,14 +7265,13 @@ class WebReverseInterceptRule {
     bool? block,
     String? replaceUrl,
     Map<String, String>? headerOverrides,
-  }) =>
-      WebReverseInterceptRule(
-        urlPattern: urlPattern ?? this.urlPattern,
-        enabled: enabled ?? this.enabled,
-        block: block ?? this.block,
-        replaceUrl: replaceUrl ?? this.replaceUrl,
-        headerOverrides: headerOverrides ?? this.headerOverrides,
-      );
+  }) => WebReverseInterceptRule(
+    urlPattern: urlPattern ?? this.urlPattern,
+    enabled: enabled ?? this.enabled,
+    block: block ?? this.block,
+    replaceUrl: replaceUrl ?? this.replaceUrl,
+    headerOverrides: headerOverrides ?? this.headerOverrides,
+  );
 
   bool matches(String url) {
     if (urlPattern.isEmpty) return false;
@@ -7104,14 +7285,13 @@ class WebReverseInterceptRule {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'urlPattern': urlPattern,
-        'enabled': enabled,
-        'block': block,
-        if (replaceUrl != null) 'replaceUrl': replaceUrl,
-        'headerOverrides': headerOverrides,
-      };
+    'urlPattern': urlPattern,
+    'enabled': enabled,
+    'block': block,
+    if (replaceUrl != null) 'replaceUrl': replaceUrl,
+    'headerOverrides': headerOverrides,
+  };
 }
-
 
 /// 一档设备模拟预设：尺寸 + DPR + UA + mobile flag。
 class WebReverseDevicePreset {
@@ -7165,7 +7345,6 @@ class WebReverseDevicePreset {
   );
 }
 
-
 /// 切 tab 时的 panel 缓冲快照。仅在 controller 内部使用，存进
 /// _targetBuffers map（LRU 8 槽）保留每个 page target 上次离开时的现场。
 /// 字段都按 tab 维度独立，不影响其它 tab；switchToPageTarget 切回时整体
@@ -7190,11 +7369,9 @@ class _PerTargetBuffer {
   final DateTime lastUsedAt;
 }
 
-
 /// 用户保存的 JS 片段（脚本注入库）。`runReplExpression` 执行后结果
 /// 进入 Console 面板；持久化由 dashboard 写入 session metadata。
 class WebReverseSnippet {
-
   factory WebReverseSnippet.fromJson(Map<String, Object?> json) {
     final ms = json['updated_ms'];
     return WebReverseSnippet(
@@ -7217,16 +7394,15 @@ class WebReverseSnippet {
   final DateTime? updatedAt;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'code': code,
-        'updated_ms': updatedAt?.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'code': code,
+    'updated_ms': updatedAt?.millisecondsSinceEpoch,
+  };
 }
 
 /// 用户保存的 JS Hook（每个文档加载前注入）。
 class WebReverseHook {
-
   factory WebReverseHook.fromJson(Map<String, Object?> json) {
     final ms = json['updated_ms'];
     return WebReverseHook(
@@ -7252,16 +7428,15 @@ class WebReverseHook {
   final DateTime? updatedAt;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'code': code,
-        'enabled': enabled,
-        'updated_ms': updatedAt?.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'code': code,
+    'enabled': enabled,
+    'updated_ms': updatedAt?.millisecondsSinceEpoch,
+  };
 }
 
 class WebReverseCron {
-
   factory WebReverseCron.fromJson(Map<String, Object?> json) {
     final ms = json['updated_ms'];
     final iv = json['interval_s'];
@@ -7291,13 +7466,13 @@ class WebReverseCron {
   final DateTime? updatedAt;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'code': code,
-        'interval_s': intervalSeconds,
-        'enabled': enabled,
-        'updated_ms': updatedAt?.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'code': code,
+    'interval_s': intervalSeconds,
+    'enabled': enabled,
+    'updated_ms': updatedAt?.millisecondsSinceEpoch,
+  };
 }
 
 // ─── DOM 路径 JS 函数体 ────────────────────────────────────────────────
@@ -7356,7 +7531,6 @@ function() {
 }
 ''';
 
-
 /// 一条「报文条件断点」。匹配命中时只记录 hit + 可选触发 JS 表达式，
 /// 不改变请求放行决策（用户仍需在「请求拦截」面板里继续/中止）。
 class WebReverseRequestBreakpoint {
@@ -7396,26 +7570,25 @@ class WebReverseRequestBreakpoint {
     String? urlContains,
     String? bodyContains,
     String? evalExpression,
-  }) =>
-      WebReverseRequestBreakpoint(
-        id: id,
-        name: name ?? this.name,
-        enabled: enabled ?? this.enabled,
-        methodFilter: methodFilter ?? this.methodFilter,
-        urlContains: urlContains ?? this.urlContains,
-        bodyContains: bodyContains ?? this.bodyContains,
-        evalExpression: evalExpression ?? this.evalExpression,
-      );
+  }) => WebReverseRequestBreakpoint(
+    id: id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    methodFilter: methodFilter ?? this.methodFilter,
+    urlContains: urlContains ?? this.urlContains,
+    bodyContains: bodyContains ?? this.bodyContains,
+    evalExpression: evalExpression ?? this.evalExpression,
+  );
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'enabled': enabled,
-        'method': methodFilter,
-        'url_contains': urlContains,
-        'body_contains': bodyContains,
-        'eval': evalExpression,
-      };
+    'id': id,
+    'name': name,
+    'enabled': enabled,
+    'method': methodFilter,
+    'url_contains': urlContains,
+    'body_contains': bodyContains,
+    'eval': evalExpression,
+  };
 }
 
 /// 单次断点命中记录。
@@ -7457,16 +7630,17 @@ class WebReverseAccountSnapshot {
       capturedAt: ts is int
           ? DateTime.fromMillisecondsSinceEpoch(ts)
           : DateTime.now(),
-      cookies: (j['cookies'] as List?)
+      cookies:
+          (j['cookies'] as List?)
               ?.whereType<Map>()
               .map((m) => Map<String, Object?>.from(m))
               .toList(growable: false) ??
           const <Map<String, Object?>>[],
-      localStorage: (j['localStorage'] as Map?)
-              ?.map((k, v) => MapEntry('$k', '$v')) ??
+      localStorage:
+          (j['localStorage'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
           const <String, String>{},
-      sessionStorage: (j['sessionStorage'] as Map?)
-              ?.map((k, v) => MapEntry('$k', '$v')) ??
+      sessionStorage:
+          (j['sessionStorage'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
           const <String, String>{},
     );
   }
@@ -7480,14 +7654,14 @@ class WebReverseAccountSnapshot {
   final Map<String, String> sessionStorage;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'origin': origin,
-        'captured_ms': capturedAt.millisecondsSinceEpoch,
-        'cookies': cookies,
-        'localStorage': localStorage,
-        'sessionStorage': sessionStorage,
-      };
+    'id': id,
+    'name': name,
+    'origin': origin,
+    'captured_ms': capturedAt.millisecondsSinceEpoch,
+    'cookies': cookies,
+    'localStorage': localStorage,
+    'sessionStorage': sessionStorage,
+  };
 }
 
 /// 本地 Mock 规则：URL 通配命中即用 Fetch.fulfillRequest 直接回 [statusCode]
@@ -7515,8 +7689,8 @@ class WebReverseMockRule {
         statusCode: (j['status'] as num?)?.toInt() ?? 200,
         contentType: '${j['contentType'] ?? 'application/json; charset=utf-8'}',
         body: '${j['body'] ?? ''}',
-        extraHeaders: (j['headers'] as Map?)
-                ?.map((k, v) => MapEntry('$k', '$v')) ??
+        extraHeaders:
+            (j['headers'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
             const <String, String>{},
       );
 
@@ -7551,30 +7725,29 @@ class WebReverseMockRule {
     String? contentType,
     String? body,
     Map<String, String>? extraHeaders,
-  }) =>
-      WebReverseMockRule(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        urlPattern: urlPattern ?? this.urlPattern,
-        enabled: enabled ?? this.enabled,
-        methodFilter: methodFilter ?? this.methodFilter,
-        statusCode: statusCode ?? this.statusCode,
-        contentType: contentType ?? this.contentType,
-        body: body ?? this.body,
-        extraHeaders: extraHeaders ?? this.extraHeaders,
-      );
+  }) => WebReverseMockRule(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    urlPattern: urlPattern ?? this.urlPattern,
+    enabled: enabled ?? this.enabled,
+    methodFilter: methodFilter ?? this.methodFilter,
+    statusCode: statusCode ?? this.statusCode,
+    contentType: contentType ?? this.contentType,
+    body: body ?? this.body,
+    extraHeaders: extraHeaders ?? this.extraHeaders,
+  );
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'name': name,
-        'urlPattern': urlPattern,
-        'enabled': enabled,
-        'method': methodFilter,
-        'status': statusCode,
-        'contentType': contentType,
-        'body': body,
-        'headers': extraHeaders,
-      };
+    'id': id,
+    'name': name,
+    'urlPattern': urlPattern,
+    'enabled': enabled,
+    'method': methodFilter,
+    'status': statusCode,
+    'contentType': contentType,
+    'body': body,
+    'headers': extraHeaders,
+  };
 }
 
 /// 单次 mock 命中记录。
