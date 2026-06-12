@@ -89,6 +89,7 @@ const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 interface ComposerTriggerDismissal {
   offset: number;
   query: string;
+  lifecycle: number;
 }
 
 interface SlashTriggerInfo {
@@ -1086,6 +1087,8 @@ export function SessionDetailPage() {
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
+  const slashTriggerLifecycleRef = useRef(0);
+  const slashTriggerActiveRef = useRef(false);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
@@ -2623,13 +2626,18 @@ export function SessionDetailPage() {
     }
     const trigger = computeSlashTrigger(text, cursor);
     if (!trigger) {
+      if (slashTriggerActiveRef.current) {
+        slashTriggerActiveRef.current = false;
+        slashTriggerLifecycleRef.current += 1;
+      }
       setSkillPickerOpen(false);
       setSkillPickerQuery('');
       pruneSlashDismissalForText(text);
       return;
     }
+    slashTriggerActiveRef.current = true;
     const dismissal = slashDismissalRef.current;
-    if (dismissal && dismissal.offset === trigger.triggerOffset && shouldSuppressDismissedComposerTrigger(dismissal.query, trigger.query)) {
+    if (dismissal && dismissal.offset === trigger.triggerOffset && dismissal.lifecycle === slashTriggerLifecycleRef.current && shouldSuppressDismissedComposerTrigger(dismissal.query, trigger.query)) {
       setSkillPickerOpen(false);
       return;
     }
@@ -2667,6 +2675,7 @@ export function SessionDetailPage() {
       slashDismissalRef.current = {
         offset: trigger.triggerOffset,
         query: trigger.query,
+        lifecycle: slashTriggerLifecycleRef.current,
       };
     }
     setSkillPickerOpen(false);
