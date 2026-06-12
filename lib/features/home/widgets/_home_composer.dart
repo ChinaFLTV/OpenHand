@@ -3212,183 +3212,190 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
           link: widget.link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
-            child: Material(
-              elevation: 8,
-              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(16),
-              color: isDark
-                  ? colorScheme.surfaceContainerHigh
-                  : colorScheme.surface,
-              surfaceTintColor: colorScheme.surfaceTint,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Breadcrumb row.
-                  if (widget.breadcrumbs.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _AtMentionBreadcrumbChip(
-                              label: isZh ? '项目根目录' : 'Project Root',
-                              icon: Icons.home_rounded,
-                              onTap: () => widget.onBreadcrumbTap(-1),
-                            ),
-                            for (
-                              var i = 0;
-                              i < widget.breadcrumbs.length;
-                              i++
-                            ) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                ),
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 14,
-                                  color: colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.4),
-                                ),
-                              ),
+          child: TextFieldTapRegion(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
+              child: Material(
+                elevation: 8,
+                shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+                color: isDark
+                    ? colorScheme.surfaceContainerHigh
+                    : colorScheme.surface,
+                surfaceTintColor: colorScheme.surfaceTint,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Breadcrumb row.
+                    if (widget.breadcrumbs.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               _AtMentionBreadcrumbChip(
-                                label: widget.breadcrumbs[i],
-                                icon: Icons.folder_rounded,
-                                onTap: () => widget.onBreadcrumbTap(i),
-                                isLast: i == widget.breadcrumbs.length - 1,
+                                label: isZh ? '项目根目录' : 'Project Root',
+                                icon: Icons.home_rounded,
+                                onTap: () => widget.onBreadcrumbTap(-1),
                               ),
+                              for (
+                                var i = 0;
+                                i < widget.breadcrumbs.length;
+                                i++
+                              ) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 14,
+                                    color: colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                _AtMentionBreadcrumbChip(
+                                  label: widget.breadcrumbs[i],
+                                  icon: Icons.folder_rounded,
+                                  onTap: () => widget.onBreadcrumbTap(i),
+                                  isLast: i == widget.breadcrumbs.length - 1,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  // Results.
-                  if (widget.loading)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  else if (widget.items.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: Text(
-                          isZh
-                              ? '未找到匹配文件或目录'
-                              : 'No matching files or directories',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.6,
-                            ),
                           ),
                         ),
                       ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        controller: _listController,
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        shrinkWrap: true,
-                        itemCount: widget.items.length,
-                        itemBuilder: (ctx, index) {
-                          final item = widget.items[index];
-                          final isSelected = index == widget.selectedIndex;
-                          return Material(
-                            color: isSelected
-                                ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.4,
-                                  )
-                                : Colors.transparent,
-                            child: InkWell(
-                              onTap: () => widget.onSelect(item),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _atMentionIcon(item),
-                                      size: 18,
-                                      color: item.isDirectory
-                                          ? colorScheme.primary
-                                          : colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            item.relativePath,
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant
-                                                      .withValues(alpha: 0.55),
-                                                  fontSize: 10,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
+                    // Results.
+                    if (widget.loading)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    else if (widget.items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: Text(
+                            isZh
+                                ? '未找到匹配文件或目录'
+                                : 'No matching files or directories',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          controller: _listController,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          shrinkWrap: true,
+                          itemCount: widget.items.length,
+                          itemBuilder: (ctx, index) {
+                            final item = widget.items[index];
+                            final isSelected = index == widget.selectedIndex;
+                            return Material(
+                              color: isSelected
+                                  ? colorScheme.primaryContainer.withValues(
+                                      alpha: 0.4,
+                                    )
+                                  : Colors.transparent,
+                              child: InkWell(
+                                onTap: () => widget.onSelect(item),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _atMentionIcon(item),
+                                        size: 18,
+                                        color: item.isDirectory
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurfaceVariant,
                                       ),
-                                    ),
-                                    if (item.isDirectory) ...[
-                                      const SizedBox(width: 4),
-                                      Semantics(
-                                        button: true,
-                                        label: isZh ? '进入目录' : 'Open directory',
-                                        child: SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            onPressed: () =>
-                                                widget.onDrillDown(item),
-                                            icon: Icon(
-                                              Icons.chevron_right_rounded,
-                                              size: 18,
-                                              color: colorScheme.primary,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.name,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              item.relativePath,
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant
+                                                        .withValues(
+                                                          alpha: 0.55,
+                                                        ),
+                                                    fontSize: 10,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (item.isDirectory) ...[
+                                        const SizedBox(width: 4),
+                                        Semantics(
+                                          button: true,
+                                          label: isZh
+                                              ? '进入目录'
+                                              : 'Open directory',
+                                          child: SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () =>
+                                                  widget.onDrillDown(item),
+                                              icon: Icon(
+                                                Icons.chevron_right_rounded,
+                                                size: 18,
+                                                color: colorScheme.primary,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -3759,12 +3766,14 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
           link: widget.link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
-            child: _SkillPickerTransition(
-              animation: _animation,
-              settings: widget.animationSettings,
-              child: panel,
+          child: TextFieldTapRegion(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
+              child: _SkillPickerTransition(
+                animation: _animation,
+                settings: widget.animationSettings,
+                child: panel,
+              ),
             ),
           ),
         ),

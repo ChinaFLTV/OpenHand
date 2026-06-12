@@ -3829,7 +3829,22 @@ export function SessionDetailPage() {
                       <ul class="oh-skill-picker-list">
                         {skillPickerResults.map((skill, index) => (
                           <li key={`${skill.relative_directory_path}-${skill.name}`}>
-                            <button type="button" role="option" aria-selected={index === skillPickerSelectedIndex} class="oh-skill-picker-item" data-active={index === skillPickerSelectedIndex ? 'true' : 'false'} onMouseEnter={() => setSkillPickerSelectedIndex(index)} onClick={() => selectSkillForComposer(skill)}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={index === skillPickerSelectedIndex}
+                              class="oh-skill-picker-item"
+                              data-active={index === skillPickerSelectedIndex ? 'true' : 'false'}
+                              onMouseEnter={() => setSkillPickerSelectedIndex(index)}
+                              onPointerDown={(event) => {
+                                if (event.button !== 0) return;
+                                event.preventDefault();
+                                selectSkillForComposer(skill);
+                              }}
+                              onClick={(event) => {
+                                if (event.detail === 0) selectSkillForComposer(skill);
+                              }}
+                            >
                               <span class="oh-skill-picker-leading" aria-hidden>
                                 {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
                               </span>
