@@ -120,6 +120,23 @@ function shouldSuppressDismissedComposerTrigger(dismissedQuery: string, currentQ
   return current.length >= dismissed.length && current.startsWith(dismissed);
 }
 
+function readComposerTriggerQueryAtOffset(text: string, triggerOffset: number, triggerChar: string, requireWhitespaceBefore: boolean): string | null {
+  if (triggerOffset < 0 || triggerOffset >= text.length) return null;
+  if (text.charAt(triggerOffset) !== triggerChar) return null;
+  if (requireWhitespaceBefore && triggerOffset > 0) {
+    const prevCode = text.charCodeAt(triggerOffset - 1);
+    if (!isComposerTriggerWhitespaceCode(prevCode)) return null;
+  }
+  let tokenEnd = text.length;
+  for (let i = triggerOffset + 1; i < text.length; i += 1) {
+    if (isComposerTriggerWhitespaceCode(text.charCodeAt(i))) {
+      tokenEnd = i;
+      break;
+    }
+  }
+  return text.slice(triggerOffset + 1, tokenEnd);
+}
+
 interface RestoredSkillSelection {
   name: string;
   path: string;
@@ -1068,6 +1085,7 @@ export function SessionDetailPage() {
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
+  const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
@@ -2510,6 +2528,22 @@ export function SessionDetailPage() {
     };
   }, [skillPickerVisible, recomputeSkillPickerAnchor]);
 
+  useEffect(() => {
+    if (!skillPickerVisible || typeof document === 'undefined') return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const textarea = composerTextareaRef.current;
+      const overlay = skillPickerOverlayRef.current;
+      if (!(target instanceof Node)) return;
+      if (textarea?.contains(target) || overlay?.contains(target)) return;
+      dismissSkillPicker(true);
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [skillPickerVisible]);
+
   async function ensureSkillsLoadedForPicker(): Promise<void> {
     if (skillsLoadedRef.current || skillPickerLoading) return;
     setSkillPickerLoading(true);
@@ -2573,6 +2607,15 @@ export function SessionDetailPage() {
     };
   }
 
+  function pruneSlashDismissalForText(text: string): void {
+    const dismissal = slashDismissalRef.current;
+    if (!dismissal) return;
+    const currentQuery = readComposerTriggerQueryAtOffset(text, dismissal.offset, '/', false);
+    if (!currentQuery || !shouldSuppressDismissedComposerTrigger(dismissal.query, currentQuery)) {
+      slashDismissalRef.current = null;
+    }
+  }
+
   function updateSkillPickerForText(text: string, cursor: number): void {
     if (selectedSkill) {
       setSkillPickerOpen(false);
@@ -2582,7 +2625,7 @@ export function SessionDetailPage() {
     if (!trigger) {
       setSkillPickerOpen(false);
       setSkillPickerQuery('');
-      slashDismissalRef.current = null;
+      pruneSlashDismissalForText(text);
       return;
     }
     const dismissal = slashDismissalRef.current;
@@ -3733,6 +3776,7 @@ export function SessionDetailPage() {
               {skillPickerVisible && skillPickerAnchor ? (
                 <OverlayPortal>
                   <div
+                    ref={skillPickerOverlayRef}
                     class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
                     role="listbox"
                     style={{
@@ -3777,6 +3821,13 @@ export function SessionDetailPage() {
               <textarea
                 ref={composerTextareaRef}
                 value={composerText}
+                onBlur={(e) => {
+                  const nextFocusTarget = e.relatedTarget;
+                  const overlay = skillPickerOverlayRef.current;
+                  if (!(nextFocusTarget instanceof Node) || !overlay?.contains(nextFocusTarget)) {
+                    dismissSkillPicker(true);
+                  }
+                }}
                 onInput={(e) => {
                   const target = e.currentTarget as HTMLTextAreaElement;
                   setComposerText(target.value);

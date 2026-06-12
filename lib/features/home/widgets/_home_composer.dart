@@ -59,6 +59,31 @@ bool _shouldSuppressDismissedComposerTrigger({
   return current.length >= dismissed.length && current.startsWith(dismissed);
 }
 
+String? _readComposerTriggerQueryAtOffset({
+  required String text,
+  required int triggerOffset,
+  required int triggerCodeUnit,
+  required bool requireWhitespaceBefore,
+}) {
+  if (triggerOffset < 0 || triggerOffset >= text.length) return null;
+  if (text.codeUnitAt(triggerOffset) != triggerCodeUnit) return null;
+  if (requireWhitespaceBefore &&
+      triggerOffset > 0 &&
+      !_isComposerTriggerWhitespaceCodeUnit(
+        text.codeUnitAt(triggerOffset - 1),
+      )) {
+    return null;
+  }
+  var tokenEnd = text.length;
+  for (var i = triggerOffset + 1; i < text.length; i++) {
+    if (_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(i))) {
+      tokenEnd = i;
+      break;
+    }
+  }
+  return text.substring(triggerOffset + 1, tokenEnd);
+}
+
 class _ComposerTriggerDismissal {
   const _ComposerTriggerDismissal({required this.offset, required this.query});
 
@@ -164,6 +189,7 @@ class _ComposerPanel extends StatefulWidget {
 class _ComposerPanelState extends State<_ComposerPanel> {
   final LayerLink _atMentionLayerLink = LayerLink();
   final LayerLink _skillPickerLayerLink = LayerLink();
+  bool _composerFocusListenerAttached = false;
   OverlayEntry? _atMentionOverlay;
   List<_AtMentionItem> _atMentionResults = const [];
   int _atMentionSelectedIndex = 0;
@@ -211,6 +237,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     widget.onStateCreated?.call(this);
     widget.controller.addListener(_handleTextChangedForAtMention);
     widget.controller.addListener(_handleTextChangedForSlashSkill);
+    _attachComposerFocusListener(widget.focusNode);
   }
 
   @override
@@ -222,6 +249,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       widget.controller.addListener(_handleTextChangedForAtMention);
       widget.controller.addListener(_handleTextChangedForSlashSkill);
     }
+    if (oldWidget.focusNode != widget.focusNode) {
+      _detachComposerFocusListener(oldWidget.focusNode);
+      _attachComposerFocusListener(widget.focusNode);
+    }
   }
 
   @override
@@ -229,9 +260,32 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     widget.onStateDisposed?.call(this);
     widget.controller.removeListener(_handleTextChangedForAtMention);
     widget.controller.removeListener(_handleTextChangedForSlashSkill);
+    _detachComposerFocusListener(widget.focusNode);
     _dismissAtMentionOverlay();
     _dismissSkillPickerOverlay(remember: false);
     super.dispose();
+  }
+
+  void _attachComposerFocusListener(FocusNode focusNode) {
+    if (_composerFocusListenerAttached) return;
+    focusNode.addListener(_handleComposerFocusChanged);
+    _composerFocusListenerAttached = true;
+  }
+
+  void _detachComposerFocusListener(FocusNode focusNode) {
+    if (!_composerFocusListenerAttached) return;
+    focusNode.removeListener(_handleComposerFocusChanged);
+    _composerFocusListenerAttached = false;
+  }
+
+  void _handleComposerFocusChanged() {
+    if (!mounted || widget.focusNode.hasFocus) return;
+    if (_atMentionOverlay != null) {
+      _userDismissAtMentionOverlay();
+    }
+    if (_skillPickerOverlay != null) {
+      _userDismissSkillPickerOverlay();
+    }
   }
 
   // ── @ mention detection ──
@@ -287,6 +341,42 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         trigger.query == query;
   }
 
+  void _pruneAtMentionDismissal() {
+    final dismissal = _atMentionDismissal;
+    if (dismissal == null) return;
+    final currentQuery = _readComposerTriggerQueryAtOffset(
+      text: widget.controller.text,
+      triggerOffset: dismissal.offset,
+      triggerCodeUnit: 0x40,
+      requireWhitespaceBefore: true,
+    );
+    if (currentQuery == null ||
+        !_shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: currentQuery,
+        )) {
+      _atMentionDismissal = null;
+    }
+  }
+
+  void _pruneSlashDismissal() {
+    final dismissal = _slashDismissal;
+    if (dismissal == null) return;
+    final currentQuery = _readComposerTriggerQueryAtOffset(
+      text: widget.controller.text,
+      triggerOffset: dismissal.offset,
+      triggerCodeUnit: 0x2F,
+      requireWhitespaceBefore: false,
+    );
+    if (currentQuery == null ||
+        !_shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: currentQuery,
+        )) {
+      _slashDismissal = null;
+    }
+  }
+
   void _handleTextChangedForAtMention() {
     if (_atMentionSuppressListener) return;
     final root = widget.projectRoot;
@@ -297,7 +387,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     final trigger = _computeAtMentionTrigger();
     if (trigger == null) {
-      _atMentionDismissal = null;
+      _pruneAtMentionDismissal();
       _dismissAtMentionOverlay();
       return;
     }
@@ -736,7 +826,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final trigger = _computeSlashTrigger();
     if (trigger == null) {
       _dismissSkillPickerOverlay(remember: false);
-      _slashDismissal = null;
+      _pruneSlashDismissal();
       return;
     }
     final dismissal = _slashDismissal;
