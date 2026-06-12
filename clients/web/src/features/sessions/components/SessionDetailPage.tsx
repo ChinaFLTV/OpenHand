@@ -89,7 +89,6 @@ const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 interface ComposerTriggerDismissal {
   offset: number;
   query: string;
-  lifecycle: number;
 }
 
 interface SlashTriggerInfo {
@@ -1037,6 +1036,7 @@ export function SessionDetailPage() {
     }
     skillPickerCloseTimerRef.current = null;
   }, []);
+
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<{ mime: string; dataUrl: string; size: number }[]>([]);
   const [exitingComposerChipKeys, setExitingComposerChipKeys] = useState<string[]>([]);
@@ -1087,12 +1087,16 @@ export function SessionDetailPage() {
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
-  const slashTriggerLifecycleRef = useRef(0);
-  const slashTriggerActiveRef = useRef(false);
+  const slashTriggerOffsetRef = useRef<number | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const sessionIdRef = useRef(sessionId);
+
+  function resetSlashTriggerState(): void {
+    slashDismissalRef.current = null;
+    slashTriggerOffsetRef.current = null;
+  }
   const mountedRef = useRef(true);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
   const autoTitleRefreshTimersRef = useRef<number[]>([]);
@@ -1183,7 +1187,7 @@ export function SessionDetailPage() {
     setSessionGone(false);
     setSessionAuditOpen(false);
     setAuditMessage(null);
-    slashDismissalRef.current = null;
+    resetSlashTriggerState();
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
@@ -1528,6 +1532,7 @@ export function SessionDetailPage() {
     setComposerError(null);
     setSelectedSkill(null);
     setSkillPickerOpen(false);
+    resetSlashTriggerState();
     setComposerCollapsed(false);
     setComposerAttachments([]);
     setComposerAttachmentIds([]);
@@ -2215,7 +2220,7 @@ export function SessionDetailPage() {
     setAttachmentPreviews([]);
     setSelectedSkill(null);
     setSkillPickerOpen(false);
-    slashDismissalRef.current = null;
+    resetSlashTriggerState();
     if (!composerCollapsed) {
       requestAnimationFrame(() => composerTextareaRef.current?.focus());
     }
@@ -2614,9 +2619,22 @@ export function SessionDetailPage() {
     const dismissal = slashDismissalRef.current;
     if (!dismissal) return;
     const currentQuery = readComposerTriggerQueryAtOffset(text, dismissal.offset, '/', false);
-    if (!currentQuery || !shouldSuppressDismissedComposerTrigger(dismissal.query, currentQuery)) {
+    if (currentQuery == null || !shouldSuppressDismissedComposerTrigger(dismissal.query, currentQuery)) {
       slashDismissalRef.current = null;
     }
+  }
+
+  function readSlashDismissalAtOffset(text: string, offset: number): ComposerTriggerDismissal | null {
+    const query = readComposerTriggerQueryAtOffset(text, offset, '/', false);
+    return query == null ? null : { offset, query };
+  }
+
+  function slashDismissalSuppresses(text: string, offset: number): boolean {
+    pruneSlashDismissalForText(text);
+    const dismissal = slashDismissalRef.current;
+    if (!dismissal || dismissal.offset !== offset) return false;
+    const current = readSlashDismissalAtOffset(text, offset);
+    return current != null && shouldSuppressDismissedComposerTrigger(dismissal.query, current.query);
   }
 
   function updateSkillPickerForText(text: string, cursor: number): void {
@@ -2626,22 +2644,20 @@ export function SessionDetailPage() {
     }
     const trigger = computeSlashTrigger(text, cursor);
     if (!trigger) {
-      if (slashTriggerActiveRef.current) {
-        slashTriggerActiveRef.current = false;
-        slashTriggerLifecycleRef.current += 1;
+      if (slashTriggerOffsetRef.current != null) {
+        slashDismissalRef.current = readSlashDismissalAtOffset(text, slashTriggerOffsetRef.current) ?? slashDismissalRef.current;
       }
       setSkillPickerOpen(false);
       setSkillPickerQuery('');
       pruneSlashDismissalForText(text);
       return;
     }
-    slashTriggerActiveRef.current = true;
-    const dismissal = slashDismissalRef.current;
-    if (dismissal && dismissal.offset === trigger.triggerOffset && dismissal.lifecycle === slashTriggerLifecycleRef.current && shouldSuppressDismissedComposerTrigger(dismissal.query, trigger.query)) {
+    if (slashDismissalSuppresses(text, trigger.triggerOffset)) {
       setSkillPickerOpen(false);
       return;
     }
     slashDismissalRef.current = null;
+    slashTriggerOffsetRef.current = trigger.triggerOffset;
     setSkillPickerQuery(trigger.query);
     setSkillPickerOpen(true);
     setSkillPickerSelectedIndex(0);
@@ -2658,7 +2674,7 @@ export function SessionDetailPage() {
     setComposerText(nextText);
     setSelectedSkill(skill);
     setSkillPickerOpen(false);
-    slashDismissalRef.current = null;
+    resetSlashTriggerState();
     requestAnimationFrame(() => {
       const node = composerTextareaRef.current;
       node?.focus();
@@ -2672,11 +2688,12 @@ export function SessionDetailPage() {
     const cursor = textarea?.selectionStart ?? 0;
     const trigger = computeSlashTrigger(text, cursor);
     if (remember && trigger) {
-      slashDismissalRef.current = {
+      slashDismissalRef.current = readSlashDismissalAtOffset(text, trigger.triggerOffset) ?? {
         offset: trigger.triggerOffset,
         query: trigger.query,
-        lifecycle: slashTriggerLifecycleRef.current,
       };
+    } else if (remember && slashTriggerOffsetRef.current != null) {
+      slashDismissalRef.current = readSlashDismissalAtOffset(text, slashTriggerOffsetRef.current) ?? slashDismissalRef.current;
     }
     setSkillPickerOpen(false);
   }
@@ -2965,6 +2982,7 @@ export function SessionDetailPage() {
       editingDraftMessageRef.current = null;
       setEditingDraftMessage(null);
       setSkillPickerOpen(false);
+      resetSlashTriggerState();
       setSendPhase(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。

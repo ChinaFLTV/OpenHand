@@ -85,15 +85,10 @@ String? _readComposerTriggerQueryAtOffset({
 }
 
 class _ComposerTriggerDismissal {
-  const _ComposerTriggerDismissal({
-    required this.offset,
-    required this.query,
-    required this.lifecycle,
-  });
+  const _ComposerTriggerDismissal({required this.offset, required this.query});
 
   final int offset;
   final String query;
-  final int lifecycle;
 }
 
 class _ComposerPanel extends StatefulWidget {
@@ -206,8 +201,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   bool _atMentionLoading = false;
   bool _atMentionSuppressListener = false;
   int _atMentionSearchGeneration = 0;
-  int _atMentionTriggerLifecycle = 0;
-  bool _atMentionTriggerActive = false;
   // Remembers the active '@query' prefix that the user explicitly dismissed,
   // so continuing to type within the same trigger cycle will not immediately
   // reopen the overlay.
@@ -228,8 +221,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   LocalSkill? _selectedSkill;
   String? _selectedSkillManifest;
   int _slashTriggerOffset = -1;
-  int _slashTriggerLifecycle = 0;
-  bool _slashTriggerActive = false;
   _ComposerTriggerDismissal? _slashDismissal;
   List<LocalSkill> _skillPickerResults = const <LocalSkill>[];
   int _skillPickerSelectedIndex = 0;
@@ -387,34 +378,74 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
   }
 
+  _ComposerTriggerDismissal? _readAtMentionDismissalAtOffset(int offset) {
+    final query = _readComposerTriggerQueryAtOffset(
+      text: widget.controller.text,
+      triggerOffset: offset,
+      triggerCodeUnit: 0x40,
+      requireWhitespaceBefore: true,
+    );
+    return query == null
+        ? null
+        : _ComposerTriggerDismissal(offset: offset, query: query);
+  }
+
+  _ComposerTriggerDismissal? _readSlashDismissalAtOffset(int offset) {
+    final query = _readComposerTriggerQueryAtOffset(
+      text: widget.controller.text,
+      triggerOffset: offset,
+      triggerCodeUnit: 0x2F,
+      requireWhitespaceBefore: false,
+    );
+    return query == null
+        ? null
+        : _ComposerTriggerDismissal(offset: offset, query: query);
+  }
+
+  bool _atMentionDismissalSuppresses(int triggerOffset) {
+    _pruneAtMentionDismissal();
+    final dismissal = _atMentionDismissal;
+    if (dismissal == null || dismissal.offset != triggerOffset) return false;
+    final current = _readAtMentionDismissalAtOffset(triggerOffset);
+    return current != null &&
+        _shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: current.query,
+        );
+  }
+
+  bool _slashDismissalSuppresses(int triggerOffset) {
+    _pruneSlashDismissal();
+    final dismissal = _slashDismissal;
+    if (dismissal == null || dismissal.offset != triggerOffset) return false;
+    final current = _readSlashDismissalAtOffset(triggerOffset);
+    return current != null &&
+        _shouldSuppressDismissedComposerTrigger(
+          dismissedQuery: dismissal.query,
+          currentQuery: current.query,
+        );
+  }
+
   void _handleTextChangedForAtMention() {
     if (_atMentionSuppressListener) return;
     final root = widget.projectRoot;
     if (root == null || root.isEmpty) {
-      _atMentionTriggerActive = false;
       _atMentionDismissal = null;
       _dismissAtMentionOverlay();
       return;
     }
     final trigger = _computeAtMentionTrigger();
     if (trigger == null) {
-      if (_atMentionTriggerActive) {
-        _atMentionTriggerActive = false;
-        _atMentionTriggerLifecycle += 1;
+      if (_atMentionTriggerOffset >= 0) {
+        _atMentionDismissal =
+            _readAtMentionDismissalAtOffset(_atMentionTriggerOffset) ??
+            _atMentionDismissal;
       }
       _pruneAtMentionDismissal();
       _dismissAtMentionOverlay();
       return;
     }
-    _atMentionTriggerActive = true;
-    final dismissal = _atMentionDismissal;
-    if (dismissal != null &&
-        dismissal.offset == trigger.triggerOffset &&
-        dismissal.lifecycle == _atMentionTriggerLifecycle &&
-        _shouldSuppressDismissedComposerTrigger(
-          dismissedQuery: dismissal.query,
-          currentQuery: trigger.query,
-        )) {
+    if (_atMentionDismissalSuppresses(trigger.triggerOffset)) {
       _dismissAtMentionOverlay();
       return;
     }
@@ -679,17 +710,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   void _userDismissAtMentionOverlay() {
     final trigger = _computeAtMentionTrigger();
     if (trigger != null) {
-      _atMentionDismissal = _ComposerTriggerDismissal(
-        offset: trigger.triggerOffset,
-        query: trigger.query,
-        lifecycle: _atMentionTriggerLifecycle,
-      );
+      _atMentionDismissal =
+          _readAtMentionDismissalAtOffset(trigger.triggerOffset) ??
+          _ComposerTriggerDismissal(
+            offset: trigger.triggerOffset,
+            query: trigger.query,
+          );
     } else if (_atMentionTriggerOffset >= 0) {
-      _atMentionDismissal = _ComposerTriggerDismissal(
-        offset: _atMentionTriggerOffset,
-        query: '',
-        lifecycle: _atMentionTriggerLifecycle,
-      );
+      _atMentionDismissal =
+          _readAtMentionDismissalAtOffset(_atMentionTriggerOffset) ??
+          _atMentionDismissal;
     }
     _dismissAtMentionOverlay();
   }
@@ -864,23 +894,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     final trigger = _computeSlashTrigger();
     if (trigger == null) {
-      if (_slashTriggerActive) {
-        _slashTriggerActive = false;
-        _slashTriggerLifecycle += 1;
+      if (_slashTriggerOffset >= 0) {
+        _slashDismissal =
+            _readSlashDismissalAtOffset(_slashTriggerOffset) ?? _slashDismissal;
       }
       _dismissSkillPickerOverlay(remember: false);
       _pruneSlashDismissal();
       return;
     }
-    _slashTriggerActive = true;
-    final dismissal = _slashDismissal;
-    if (dismissal != null &&
-        dismissal.offset == trigger.triggerOffset &&
-        dismissal.lifecycle == _slashTriggerLifecycle &&
-        _shouldSuppressDismissedComposerTrigger(
-          dismissedQuery: dismissal.query,
-          currentQuery: trigger.query,
-        )) {
+    if (_slashDismissalSuppresses(trigger.triggerOffset)) {
       _dismissSkillPickerOverlay(remember: false);
       return;
     }
@@ -954,17 +976,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     if (remember) {
       final trigger = _computeSlashTrigger();
       if (trigger != null) {
-        _slashDismissal = _ComposerTriggerDismissal(
-          offset: trigger.triggerOffset,
-          query: trigger.query,
-          lifecycle: _slashTriggerLifecycle,
-        );
+        _slashDismissal =
+            _readSlashDismissalAtOffset(trigger.triggerOffset) ??
+            _ComposerTriggerDismissal(
+              offset: trigger.triggerOffset,
+              query: trigger.query,
+            );
       } else if (_slashTriggerOffset >= 0) {
-        _slashDismissal = _ComposerTriggerDismissal(
-          offset: _slashTriggerOffset,
-          query: '',
-          lifecycle: _slashTriggerLifecycle,
-        );
+        _slashDismissal =
+            _readSlashDismissalAtOffset(_slashTriggerOffset) ?? _slashDismissal;
       }
     }
     // Ask the overlay panel to reverse its animation; it will invoke
