@@ -24,6 +24,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'lsp/web_reverse_lsp_client.dart';
 import 'web_reverse_account_snapshots_dialog.dart';
@@ -1523,7 +1524,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   void _startCooldown() {
     _cooldownTimer?.cancel();
     setState(() => _cooldownLeftSec = 60);
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _cooldownTimer = startSafePeriodicTimer(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _cooldownLeftSec--);
       if (_cooldownLeftSec <= 0) {

@@ -56,14 +56,27 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   void initState() {
     super.initState();
     _refresh();
-    _refreshTimer = Timer.periodic(
+    _refreshTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 2),
       (_) => _refresh(),
+      onError: (error, stack) => silentLog(
+        'web_reverse_dashboard',
+        'refresh performance metrics',
+        error,
+        stack,
+      ),
     );
-    _fpsTimer = Timer.periodic(const Duration(seconds: 1), (_) => _sampleFps());
-    _longTaskTimer = Timer.periodic(
+    _fpsTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 1),
+      (_) => _sampleFps(),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', 'sample fps', error, stack),
+    );
+    _longTaskTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _sampleLongTasks(),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', 'sample long tasks', error, stack),
     );
   }
 
@@ -1060,9 +1073,11 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   @override
   void initState() {
     super.initState();
-    _heapTimer = Timer.periodic(
+    _heapTimer = startNonOverlappingPeriodicTimer(
       const Duration(milliseconds: 1500),
       (_) => _sampleHeap(),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', 'sample heap', error, stack),
     );
     unawaited(_sampleHeap());
     // 2026-05-24 — 读回 session metadata 中保存的最近两次堆快照，让用户
@@ -2786,7 +2801,9 @@ class _StorageTableState extends State<_StorageTable> {
   Future<void> _clearAll() async {
     final origin = widget.origin;
     if (origin == null || origin.isEmpty || widget.rows.isEmpty) return;
-    final storageKind = widget.isLocalStorage ? 'localStorage' : 'sessionStorage';
+    final storageKind = widget.isLocalStorage
+        ? 'localStorage'
+        : 'sessionStorage';
     final ok = await showOpenHandConfirmDialog(
       context: context,
       title: widget.isZh ? '清空全部条目？' : 'Clear all entries?',

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/timer_safety.dart';
 import 'data/mcp_store.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
@@ -728,10 +729,16 @@ class McpController extends ChangeNotifier {
       if (_isPageActive &&
           shouldAutoRefreshTools &&
           changedServerName != null) {
-        unawaited(refreshServerTools(changedServerName));
+        _runDetached(
+          refreshServerTools(changedServerName),
+          'refresh changed server tools',
+        );
       }
       if (_isPageActive && shouldAutoCheckHealth && changedServerName != null) {
-        unawaited(checkServerHealth(changedServerName));
+        _runDetached(
+          checkServerHealth(changedServerName),
+          'check changed server health',
+        );
       }
       return true;
     } catch (error) {
@@ -819,7 +826,7 @@ class McpController extends ChangeNotifier {
     }
     _autoToolRefreshInProgress = true;
     _notifyAutoProbeMetricsChanged();
-    unawaited(_runAutoToolRefreshes(force: force));
+    _runDetached(_runAutoToolRefreshes(force: force), 'auto refresh tools');
   }
 
   Future<void> _runAutoToolRefreshes({required bool force}) async {
@@ -857,7 +864,15 @@ class McpController extends ChangeNotifier {
     }
     _autoHealthCheckInProgress = true;
     _notifyAutoProbeMetricsChanged();
-    unawaited(_runAutoHealthChecks(force: force));
+    _runDetached(_runAutoHealthChecks(force: force), 'auto health checks');
+  }
+
+  void _runDetached(Future<void> future, String where) {
+    unawaited(
+      future.catchError((Object error, StackTrace stack) {
+        silentLog('mcp', where, error, stack);
+      }),
+    );
   }
 
   Future<void> _runAutoHealthChecks({required bool force}) async {
@@ -1029,7 +1044,7 @@ class McpController extends ChangeNotifier {
         !_servers.any((server) => server.enabled)) {
       return;
     }
-    _healthCheckTimer = Timer.periodic(_healthCheckInterval, (_) {
+    _healthCheckTimer = startSafePeriodicTimer(_healthCheckInterval, (_) {
       _autoCheckEnabledServerHealth();
     });
   }

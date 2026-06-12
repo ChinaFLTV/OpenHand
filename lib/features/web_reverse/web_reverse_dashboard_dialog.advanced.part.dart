@@ -166,7 +166,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseSignatureDiffDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -180,7 +180,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseRequestBreakpointsDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -194,7 +194,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseAccountSnapshotsDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -205,10 +205,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Start → use the page → Take to see which scripts ran',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseCoverageDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseCoverageDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -222,7 +219,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCollectionExportDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -233,10 +230,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Proxy window.WebSocket → pick a socket → inject any text frame',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseWsInjectDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseWsInjectDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -251,7 +245,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -262,10 +256,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Periodic Runtime.evaluate on JS expressions, history tracked',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseWatchDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseWatchDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -279,7 +270,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseDomMutationDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -293,7 +284,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseGeoOverrideDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -304,10 +295,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Inject virtual FIDO2 device, complete navigator.credentials without hardware',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseWebAuthnDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseWebAuthnDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -318,10 +306,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Scan JWT in cookies/storage, run refresh JS near expiry',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseJwtRefreshDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseJwtRefreshDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -332,10 +317,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Diff repeated endpoint hits + search JS, copy as AI-ready prompt',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseAiCryptoDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseAiCryptoDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -349,7 +331,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReversePostMessageDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -364,7 +346,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -379,7 +361,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -394,7 +376,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -409,7 +391,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -424,7 +406,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -439,7 +421,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -450,10 +432,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Record Tracing → chrome-trace JSON',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReversePerfTraceDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReversePerfTraceDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -467,7 +446,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseHeapSnapshotDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -478,10 +457,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Runtime.evaluate · multi-line JS · history + shortcuts',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseReplDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseReplDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -492,10 +468,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Page.getFrameTree · main + nested iframes',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseFrameTreeDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseFrameTreeDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -509,7 +482,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCssCoverageDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -524,7 +497,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -539,7 +512,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -554,7 +527,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -569,7 +542,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -580,10 +553,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'multi-select · sequential replay · status diff',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseReplayDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseReplayDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -598,7 +568,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -612,7 +582,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseDeviceEmulationDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -626,7 +596,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCpuThrottleDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -637,10 +607,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'DOM.performSearch · CSS / text / XPath · highlight',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseDomSearchDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseDomSearchDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -651,10 +618,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'min file:line:col → original source:line:col',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseSourceMapDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseSourceMapDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -669,7 +633,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -684,7 +648,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -699,7 +663,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             context,
             controller: controller,
             isZh: isZh,
-                      );
+          );
         },
       ),
       _AdvancedEntry(
@@ -710,10 +674,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'history · shortcuts · arbitrary CDP method/params',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseCdpConsoleDialog(
-            context,
-            controller: controller,
-                      );
+          await showWebReverseCdpConsoleDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -727,7 +688,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseConsoleClusterDialog(
             context,
             controller: controller,
-                      );
+          );
         },
       ),
     ];
@@ -1538,7 +1499,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
+    _pollTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 1),
+      (_) => _poll(),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', 'poll webrtc log', error, stack),
+    );
     _poll();
   }
 
@@ -1972,7 +1938,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     error: cs.error,
                     onSurface: cs.onSurface,
                     surfaceContainer: cs.surfaceContainerHigh,
-                                      )
+                  )
                 : ListView.builder(
                     itemCount: entries.length,
                     itemBuilder: (_, i) {
@@ -2512,8 +2478,7 @@ Future<String> _runWebcrack(String src) async {
       runInShell: Platform.isWindows,
       timeout: const Duration(minutes: 5),
       tag: 'web_reverse.webcrack',
-      environment: SystemProxyResolver.instance
-          .resolveSubprocessEnvironment(),
+      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
     if (result.exitCode != 0) {
       return '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}';
@@ -3086,7 +3051,7 @@ class _IceTopologyGraph extends StatelessWidget {
                 error: error,
                 onSurface: onSurface,
                 surfaceContainer: surfaceContainer,
-                              ),
+              ),
             ),
           ),
         ),

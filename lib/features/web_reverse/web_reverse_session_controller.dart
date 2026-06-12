@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_har_replay_server.dart';
@@ -2192,46 +2193,68 @@ class WebReverseSessionController extends ChangeNotifier {
     _appendConsole(level, text);
   }
 
-  /// 4 秒一跳的浏览器存活探针：HTTP GET `/json/version`。任一探测失败立刻
+  /// 2 秒一跳的浏览器存活探针：HTTP GET `/json/version`。任一探测失败立刻
   /// 把 `_browserCdp` 标记为已关闭并触发 `__cdp_dead__` 事件，让 UI 走到
   /// "重启浏览器" 占位。WebSocket 自身的 onDone 会更早触发，这里是兜底。
   void _startAliveWatchdog() {
     _stopAliveWatchdog();
-    _aliveWatchdog = Timer.periodic(const Duration(seconds: 2), (_) async {
-      if (_stopped || _disposed) return;
-      final port = _launchResult?.cdpPort;
-      if (port == null) return;
-      final cdp = _browserCdp;
-      if (cdp == null || cdp.isClosed) return;
-      final client = HttpClient();
-      client.findProxy = (_) => 'DIRECT';
-      client.connectionTimeout = const Duration(seconds: 1);
-      try {
-        final req = await client
-            .getUrl(Uri.parse('http://127.0.0.1:$port/json/version'))
-            .timeout(const Duration(seconds: 1));
-        final res = await req.close().timeout(const Duration(seconds: 1));
-        await res.drain<void>();
-      } catch (_) {
-        // 浏览器已死：主动关 CDP 触发 __cdp_dead__ 事件路径。
-        _stopAliveWatchdog();
+    _aliveWatchdog = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 2),
+      (_) async {
+        if (_stopped || _disposed) return;
+        final port = _launchResult?.cdpPort;
+        if (port == null) return;
+        final cdp = _browserCdp;
+        if (cdp == null || cdp.isClosed) return;
+        final client = HttpClient();
+        client.findProxy = (_) => 'DIRECT';
+        client.connectionTimeout = const Duration(seconds: 1);
         try {
-          await _browserCdp?.close();
-        } catch (_) {}
-        if (_screencastActive) {
-          _screencastActive = false;
-          _latestScreencastFrame = null;
-          _screencastFrameSeq = 0;
-          if (!_disposed) {
-            screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+          final req = await client
+              .getUrl(Uri.parse('http://127.0.0.1:$port/json/version'))
+              .timeout(const Duration(seconds: 1));
+          final res = await req.close().timeout(const Duration(seconds: 1));
+          await res.drain<void>();
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'alive watchdog probe',
+            error,
+            stack,
+          );
+          // 浏览器已死：主动关 CDP 触发 __cdp_dead__ 事件路径。
+          _stopAliveWatchdog();
+          try {
+            await _browserCdp?.close();
+          } catch (closeError, closeStack) {
+            silentLog(
+              'web_reverse_session_controller',
+              'close dead browser cdp',
+              closeError,
+              closeStack,
+            );
           }
+          if (_screencastActive) {
+            _screencastActive = false;
+            _latestScreencastFrame = null;
+            _screencastFrameSeq = 0;
+            if (!_disposed) {
+              screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
+            }
+          }
+          _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
+          _safeNotify();
+        } finally {
+          client.close(force: true);
         }
-        _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
-        _safeNotify();
-      } finally {
-        client.close(force: true);
-      }
-    });
+      },
+      onError: (error, stack) => silentLog(
+        'web_reverse_session_controller',
+        'alive watchdog',
+        error,
+        stack,
+      ),
+    );
   }
 
   void _stopAliveWatchdog() {
@@ -2652,10 +2675,16 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _scheduleCron(WebReverseCron c) {
     final dur = Duration(seconds: c.intervalSeconds);
-    _cronTimers[c.id] = Timer.periodic(dur, (_) {
-      // 不 await——失败由 _executeCronOnce 内部吞掉，避免一次错误打死定时器。
-      unawaited(_executeCronOnce(c));
-    });
+    _cronTimers[c.id] = startNonOverlappingPeriodicTimer(
+      dur,
+      (_) => _executeCronOnce(c),
+      onError: (error, stack) => silentLog(
+        'web_reverse_session_controller',
+        'cron timer ${c.name}',
+        error,
+        stack,
+      ),
+    );
   }
 
   Future<String?> _executeCronOnce(WebReverseCron c) async {

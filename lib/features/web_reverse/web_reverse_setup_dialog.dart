@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
 import 'web_reverse_profile_actions.dart';
@@ -106,8 +107,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     super.dispose();
   }
 
-  bool _isZh() =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool _isZh() => Localizations.localeOf(context).languageCode.startsWith('zh');
 
   /// 预览的 user-data-dir：与 [_submit] 中拼装一致，仅用于 UI 展示与
   /// "清理冲突 profile"按钮。注意真实启动时 home page 还会再追加 sessionId
@@ -198,21 +198,26 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: loc?.webReverseSetupObjectiveHint ??
+                        hintText:
+                            loc?.webReverseSetupObjectiveHint ??
                             'e.g. reverse the wallpaper download API into a curl script',
                         border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupTriggerActions ?? 'Trigger actions (optional)'),
+                    _LabelText(
+                      loc?.webReverseSetupTriggerActions ??
+                          'Trigger actions (optional)',
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _triggerCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: loc?.webReverseSetupTriggerHint ??
+                        hintText:
+                            loc?.webReverseSetupTriggerHint ??
                             'e.g. log in then click "Download Original"',
                         border: const OutlineInputBorder(),
                       ),
@@ -234,7 +239,9 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                           setState(() => _loginMode = s.first),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupBrowser ?? 'Browser (detected)'),
+                    _LabelText(
+                      loc?.webReverseSetupBrowser ?? 'Browser (detected)',
+                    ),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<WebReverseBrowserProbeResult>(
                       initialValue: _selectedProbe,
@@ -283,7 +290,10 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupKeywords ?? 'Keywords (optional, comma-separated)'),
+                    _LabelText(
+                      loc?.webReverseSetupKeywords ??
+                          'Keywords (optional, comma-separated)',
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: _keywordsCtrl,
@@ -310,7 +320,8 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: AppLocalizations.of(context)?.commonCancel ?? 'Cancel',
+                    label:
+                        AppLocalizations.of(context)?.commonCancel ?? 'Cancel',
                   ),
                   const SizedBox(width: 12),
                   OpenHandDialogActionButton.primary(
@@ -450,7 +461,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
   void _startCooldown() {
     _cooldownTimer?.cancel();
     setState(() => _cooldownLeftSec = 60);
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _cooldownTimer = startSafePeriodicTimer(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _cooldownLeftSec--);
       if (_cooldownLeftSec <= 0) {
@@ -489,11 +500,11 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: hasLock ? cs.errorContainer.withValues(alpha: 0.4) : cs.surfaceContainer,
+        color: hasLock
+            ? cs.errorContainer.withValues(alpha: 0.4)
+            : cs.surfaceContainer,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: hasLock ? cs.error : cs.outlineVariant,
-        ),
+        border: Border.all(color: hasLock ? cs.error : cs.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,18 +566,18 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
                 _busy
                     ? Icons.hourglass_top_rounded
                     : (_onCooldown
-                        ? Icons.timer_rounded
-                        : Icons.auto_fix_high_rounded),
+                          ? Icons.timer_rounded
+                          : Icons.auto_fix_high_rounded),
                 size: 16,
               ),
               label: Text(
                 _busy
                     ? (loc?.webReverseSetupWorking ?? 'Working…')
                     : _onCooldown
-                        ? (loc?.webReverseSetupCooldown(_cooldownLeftSec) ??
-                            'Cool-down ${_cooldownLeftSec}s')
-                        : (loc?.webReverseSetupResolveLock ??
-                            'Resolve profile lock'),
+                    ? (loc?.webReverseSetupCooldown(_cooldownLeftSec) ??
+                          'Cool-down ${_cooldownLeftSec}s')
+                    : (loc?.webReverseSetupResolveLock ??
+                          'Resolve profile lock'),
               ),
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,

@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -435,9 +437,12 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
     super.initState();
     _loadInfo();
     // 每 3 秒刷新一次运行时信息
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) _loadInfo();
-    });
+    _refreshTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 3),
+      (_) => _loadInfo(),
+      onError: (error, stack) =>
+          silentLog('mcp_stdio_dialog', 'refresh runtime info', error, stack),
+    );
   }
 
   @override
@@ -447,14 +452,21 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
   }
 
   Future<void> _loadInfo() async {
-    final info = await McpStdioProcessManager.instance.getRuntimeInfo(
-      widget.server.name,
-    );
-    if (mounted) {
-      setState(() {
-        _runtimeInfo = info;
-        _loading = false;
-      });
+    try {
+      final info = await McpStdioProcessManager.instance.getRuntimeInfo(
+        widget.server.name,
+      );
+      if (mounted) {
+        setState(() {
+          _runtimeInfo = info;
+          _loading = false;
+        });
+      }
+    } catch (error, stack) {
+      silentLog('mcp_stdio_dialog', 'load runtime info', error, stack);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

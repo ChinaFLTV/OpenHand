@@ -96,7 +96,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _ticker = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
   }

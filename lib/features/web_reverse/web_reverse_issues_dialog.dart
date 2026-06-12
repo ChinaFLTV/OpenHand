@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -38,15 +39,11 @@ Future<void> showWebReverseIssuesDialog(
     final issue = (ev.params['issue'] as Map?)?.cast<String, Object?>();
     if (issue == null) return;
     final code = issue['code']?.toString() ?? 'Unknown';
-    final details = (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
+    final details =
+        (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
     _issueBuffer.insert(
       0,
-      _IssueEntry(
-        ts: DateTime.now(),
-        code: code,
-        details: details,
-        raw: issue,
-      ),
+      _IssueEntry(ts: DateTime.now(), code: code, details: details, raw: issue),
     );
     if (_issueBuffer.length > 500) {
       _issueBuffer.removeRange(500, _issueBuffer.length);
@@ -95,7 +92,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
     _rebuild = () {
       if (mounted) setState(() {});
     };
-    _refreshTicker = Timer.periodic(
+    _refreshTicker = startSafePeriodicTimer(
       const Duration(milliseconds: 800),
       (_) => _rebuild(),
     );
@@ -109,12 +106,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
 
   List<_IssueEntry> get _visible {
     final lowered = _filter.toLowerCase();
-    return _issueBuffer.where((e) {
-      if (_focusedCode != null && e.code != _focusedCode) return false;
-      if (lowered.isEmpty) return true;
-      if (e.code.toLowerCase().contains(lowered)) return true;
-      return _briefOf(e).toLowerCase().contains(lowered);
-    }).toList(growable: false);
+    return _issueBuffer
+        .where((e) {
+          if (_focusedCode != null && e.code != _focusedCode) return false;
+          if (lowered.isEmpty) return true;
+          if (e.code.toLowerCase().contains(lowered)) return true;
+          return _briefOf(e).toLowerCase().contains(lowered);
+        })
+        .toList(growable: false);
   }
 
   Map<String, int> get _grouped {
@@ -130,7 +129,10 @@ class _IssuesDialogState extends State<_IssuesDialog> {
     final details = e.details;
     for (final detail in details.values) {
       if (detail is Map) {
-        final url = detail['url'] ?? detail['request']?['url'] ?? detail['frame']?['url'];
+        final url =
+            detail['url'] ??
+            detail['request']?['url'] ??
+            detail['frame']?['url'];
         if (url is String && url.isNotEmpty) return url;
         final desc = detail['description'];
         if (desc is String && desc.isNotEmpty) return desc;
@@ -143,7 +145,9 @@ class _IssuesDialogState extends State<_IssuesDialog> {
     if (code.contains('Security') || code.contains('MixedContent')) {
       return cs.error;
     }
-    if (code.contains('Cookie') || code.contains('SameSite') || code.contains('Cors')) {
+    if (code.contains('Cookie') ||
+        code.contains('SameSite') ||
+        code.contains('Cors')) {
       return cs.tertiary;
     }
     if (code.contains('Deprecation') || code.contains('Quirks')) {
@@ -163,7 +167,8 @@ class _IssuesDialogState extends State<_IssuesDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            AppLocalizations.of(context)?.webReverseIssuesCopied ?? 'Issue JSON copied',
+            AppLocalizations.of(context)?.webReverseIssuesCopied ??
+                'Issue JSON copied',
           );
         }
       }
@@ -199,24 +204,23 @@ class _IssuesDialogState extends State<_IssuesDialog> {
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.report_problem_rounded,
-                    color: cs.error,
-                    size: 22,
-                  ),
+                  Icon(Icons.report_problem_rounded, color: cs.error, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLocalizations.of(context)?.webReverseIssuesTitle ?? 'Issues',
+                          AppLocalizations.of(context)?.webReverseIssuesTitle ??
+                              'Issues',
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          AppLocalizations.of(context)?.webReverseIssuesSubtitle ??
+                          AppLocalizations.of(
+                                context,
+                              )?.webReverseIssuesSubtitle ??
                               'Audits.issueAdded · live aggregator',
                           style: tt.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
@@ -243,12 +247,18 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseIssuesClearBuffer ?? 'Clear buffer',
+                    tooltip:
+                        AppLocalizations.of(
+                          context,
+                        )?.webReverseIssuesClearBuffer ??
+                        'Clear buffer',
                     onPressed: _issueBuffer.isEmpty ? null : _clear,
                     icon: const Icon(Icons.delete_sweep_rounded),
                   ),
                   IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseIssuesClose ?? 'Close',
+                    tooltip:
+                        AppLocalizations.of(context)?.webReverseIssuesClose ??
+                        'Close',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -265,7 +275,10 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                       decoration: InputDecoration(
                         isDense: true,
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText: AppLocalizations.of(context)?.webReverseIssuesFilterHint ??
+                        hintText:
+                            AppLocalizations.of(
+                              context,
+                            )?.webReverseIssuesFilterHint ??
                             'Filter by code / URL / description…',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -324,9 +337,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                           const SizedBox(height: 8),
                           Text(
                             _issueBuffer.isEmpty
-                                ? (AppLocalizations.of(context)?.webReverseIssuesEmptyBuffer ??
-                                    'No issues reported yet. Interact with the page.')
-                                : (AppLocalizations.of(context)?.webReverseIssuesNoMatch ?? 'No matching issue.'),
+                                ? (AppLocalizations.of(
+                                        context,
+                                      )?.webReverseIssuesEmptyBuffer ??
+                                      'No issues reported yet. Interact with the page.')
+                                : (AppLocalizations.of(
+                                        context,
+                                      )?.webReverseIssuesNoMatch ??
+                                      'No matching issue.'),
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -376,7 +394,11 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    tooltip: AppLocalizations.of(context)?.webReverseIssuesCopyJson ?? 'Copy JSON',
+                                    tooltip:
+                                        AppLocalizations.of(
+                                          context,
+                                        )?.webReverseIssuesCopyJson ??
+                                        'Copy JSON',
                                     icon: const Icon(
                                       Icons.copy_rounded,
                                       size: 16,
@@ -386,8 +408,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
                                     tooltip: expanded
-                                        ? (AppLocalizations.of(context)?.webReverseIssuesCollapse ?? 'Collapse')
-                                        : (AppLocalizations.of(context)?.webReverseIssuesExpand ?? 'Expand'),
+                                        ? (AppLocalizations.of(
+                                                context,
+                                              )?.webReverseIssuesCollapse ??
+                                              'Collapse')
+                                        : (AppLocalizations.of(
+                                                context,
+                                              )?.webReverseIssuesExpand ??
+                                              'Expand'),
                                     icon: Icon(
                                       expanded
                                           ? Icons.unfold_less_rounded
@@ -420,8 +448,9 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: SelectableText(
-                                    const JsonEncoder.withIndent('  ')
-                                        .convert(e.raw),
+                                    const JsonEncoder.withIndent(
+                                      '  ',
+                                    ).convert(e.raw),
                                     style: tt.bodySmall?.copyWith(
                                       fontFamily: 'monospace',
                                       fontSize: 11.5,
@@ -447,15 +476,21 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                   const SizedBox(width: 6),
                   Text(
                     _issueDomainEnabled
-                        ? (AppLocalizations.of(context)?.webReverseIssuesSubscribed ?? 'Subscribed to Audits.issueAdded')
-                        : (AppLocalizations.of(context)?.webReverseIssuesAuditsNotReady ?? 'Audits domain not ready'),
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                        ? (AppLocalizations.of(
+                                context,
+                              )?.webReverseIssuesSubscribed ??
+                              'Subscribed to Audits.issueAdded')
+                        : (AppLocalizations.of(
+                                context,
+                              )?.webReverseIssuesAuditsNotReady ??
+                              'Audits domain not ready'),
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   OpenHandDialogActionButton.primary(
-                    label: AppLocalizations.of(context)?.webReverseIssuesClose ?? 'Close',
+                    label:
+                        AppLocalizations.of(context)?.webReverseIssuesClose ??
+                        'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

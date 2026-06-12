@@ -43,7 +43,7 @@ class _CronsBodyState extends State<_CronsBody> {
     _codeCtrl.addListener(_markDirty);
     _intervalCtrl.addListener(_markDirty);
     // 每秒刷一次「上次执行 X 秒前」标签。
-    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _tickTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
   }

@@ -29,6 +29,10 @@ import '../../../../shared/util/byte_size_format.dart';
 class MediaCacheService {
   MediaCacheService._();
   static final MediaCacheService instance = MediaCacheService._();
+  static const Duration _requestOpenTimeout = Duration(seconds: 15);
+  static const Duration _responseHeaderTimeout = Duration(seconds: 30);
+  static const Duration _responseChunkTimeout = Duration(seconds: 30);
+  static const int _maxCacheFileBytes = 50 * kBytesPerMiB;
 
   /// 正在下载中的 URL 集合, 防止同一 URL 并发下载。
   final Set<String> _inflight = <String>{};
@@ -89,37 +93,26 @@ class MediaCacheService {
 
       final client = SystemProxyResolver.instance.createRawHttpClient();
       try {
-        final request = await client
-            .getUrl(uri)
-            .timeout(const Duration(seconds: 15));
-        final response = await request.close().timeout(
-          const Duration(seconds: 30),
-        );
+        final request = await client.getUrl(uri).timeout(_requestOpenTimeout);
+        final response = await request.close().timeout(_responseHeaderTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
           await response.drain<void>();
           return;
         }
         // 验证 content-type: 只缓存图片/视频/音频。
-        final contentType = response.headers.contentType;
-        if (contentType != null) {
-          final primary = contentType.primaryType;
-          if (primary != 'image' && primary != 'video' && primary != 'audio') {
-            await response.drain<void>();
-            return;
-          }
+        if (!_isCacheableContentType(response.headers.contentType)) {
+          await response.drain<void>();
+          return;
         }
         // 限制单文件最大 50MB, 防止恶意/异常响应撑爆磁盘。
-        const maxBytes = 50 * kBytesPerMiB;
         final tempFile = File(tempPath);
         final sink = tempFile.openWrite();
         int written = 0;
         bool aborted = false;
         try {
-          await for (final chunk in response.timeout(
-            const Duration(seconds: 30),
-          )) {
+          await for (final chunk in response.timeout(_responseChunkTimeout)) {
             written += chunk.length;
-            if (written > maxBytes) {
+            if (written > _maxCacheFileBytes) {
               aborted = true;
               break;
             }
@@ -131,9 +124,7 @@ class MediaCacheService {
         }
         if (aborted) {
           // 超限: 删除临时文件, 不缓存。
-          try {
-            await tempFile.delete();
-          } catch (_) {}
+          await _deleteFileIfExists(tempFile, 'delete oversized temp file');
           return;
         }
         // 原子重命名: 避免读到半写文件。
@@ -144,12 +135,31 @@ class MediaCacheService {
     } catch (e, st) {
       silentLog('media_cache', 'download', e, st);
       // 清理可能残留的临时文件。
-      try {
-        final dir = await _ensureCacheDir();
-        final tempPath = '${_cacheFilePathForUrl(url, dir.path)}.tmp';
-        final tempFile = File(tempPath);
-        if (tempFile.existsSync()) await tempFile.delete();
-      } catch (_) {}
+      await _deleteTempFileForUrl(url);
+    }
+  }
+
+  Future<void> _deleteTempFileForUrl(String url) async {
+    try {
+      final dir = await _ensureCacheDir();
+      final tempPath = '${_cacheFilePathForUrl(url, dir.path)}.tmp';
+      await _deleteFileIfExists(File(tempPath), 'delete leftover temp file');
+    } catch (e, st) {
+      silentLog('media_cache', 'resolve temp cleanup path', e, st);
+    }
+  }
+
+  static bool _isCacheableContentType(ContentType? contentType) {
+    if (contentType == null) return true;
+    final primary = contentType.primaryType;
+    return primary == 'image' || primary == 'video' || primary == 'audio';
+  }
+
+  static Future<void> _deleteFileIfExists(File file, String where) async {
+    try {
+      if (file.existsSync()) await file.delete();
+    } catch (e, st) {
+      silentLog('media_cache', where, e, st);
     }
   }
 
@@ -162,7 +172,9 @@ class MediaCacheService {
           : '';
       final ext = p.extension(pathSegment).toLowerCase();
       if (ext.isNotEmpty && ext.length <= 6) return ext;
-    } catch (_) {}
+    } catch (e, st) {
+      silentLog('media_cache', 'parse url extension', e, st);
+    }
     return '.bin';
   }
 
@@ -174,13 +186,22 @@ class MediaCacheService {
     try {
       await for (final entity in dir.list(followLinks: false)) {
         if (entity is File) {
-          try {
-            total += await entity.length();
-          } catch (_) {}
+          total += await _fileLengthOrZero(entity);
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      silentLog('media_cache', 'list cache directory size', e, st);
+    }
     return total;
+  }
+
+  static Future<int> _fileLengthOrZero(File file) async {
+    try {
+      return await file.length();
+    } catch (e, st) {
+      silentLog('media_cache', 'read cached file length', e, st);
+      return 0;
+    }
   }
 
   /// 清空缓存目录内容 (供数据清理模块使用)。
@@ -189,10 +210,21 @@ class MediaCacheService {
     if (!dir.existsSync()) return;
     try {
       await for (final entity in dir.list(followLinks: false)) {
-        try {
-          await entity.delete(recursive: true);
-        } catch (_) {}
+        await _deleteEntity(entity, 'delete cached media entity');
       }
-    } catch (_) {}
+    } catch (e, st) {
+      silentLog('media_cache', 'list cache directory clear', e, st);
+    }
+  }
+
+  static Future<void> _deleteEntity(
+    FileSystemEntity entity,
+    String where,
+  ) async {
+    try {
+      await entity.delete(recursive: true);
+    } catch (e, st) {
+      silentLog('media_cache', where, e, st);
+    }
   }
 }

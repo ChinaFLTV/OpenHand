@@ -182,38 +182,43 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // 进入面板就 acquire；离开 dispose 时 release。
     widget.controller.acquireScreencast();
     // 用户正在编辑地址栏时不强行覆写；导航 / 跳转后定时拉一次同步真实 URL。
-    _urlPoller = Timer.periodic(const Duration(seconds: 2), (_) async {
-      if (!mounted || _addressEditing) return;
-      final url = await widget.controller.currentUrl();
-      if (!mounted) return;
-      final next = (url == null || url.isEmpty || url == 'about:blank')
-          ? ''
-          : url;
-      final addrChanged = _addressCtrl.text != next;
-      if (addrChanged) _addressCtrl.text = next;
-      // 同时让 controller 的 page target 列表 url 字段保持同步——targetInfoChanged
-      // 在某些场景下不会立刻到达，这里兜底把当前 target 的 url 字段也改了。
-      final cur = widget.controller.currentPageTargetId;
-      if (cur != null) {
-        final realUrl = url ?? '';
-        final updated = <CdpPageTargetSnapshot>[];
-        var dirty = false;
-        for (final t in widget.controller.pageTargets) {
-          if (t.id == cur && t.url != realUrl) {
-            updated.add(
-              CdpPageTargetSnapshot(id: t.id, url: realUrl, title: t.title),
-            );
-            dirty = true;
-          } else {
-            updated.add(t);
+    _urlPoller = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 2),
+      (_) async {
+        if (!mounted || _addressEditing) return;
+        final url = await widget.controller.currentUrl();
+        if (!mounted) return;
+        final next = (url == null || url.isEmpty || url == 'about:blank')
+            ? ''
+            : url;
+        final addrChanged = _addressCtrl.text != next;
+        if (addrChanged) _addressCtrl.text = next;
+        // 同时让 controller 的 page target 列表 url 字段保持同步——targetInfoChanged
+        // 在某些场景下不会立刻到达，这里兜底把当前 target 的 url 字段也改了。
+        final cur = widget.controller.currentPageTargetId;
+        if (cur != null) {
+          final realUrl = url ?? '';
+          final updated = <CdpPageTargetSnapshot>[];
+          var dirty = false;
+          for (final t in widget.controller.pageTargets) {
+            if (t.id == cur && t.url != realUrl) {
+              updated.add(
+                CdpPageTargetSnapshot(id: t.id, url: realUrl, title: t.title),
+              );
+              dirty = true;
+            } else {
+              updated.add(t);
+            }
+          }
+          if (dirty) {
+            widget.controller.replacePageTargets(updated);
+            _persistTabsAndUrls();
           }
         }
-        if (dirty) {
-          widget.controller.replacePageTargets(updated);
-          _persistTabsAndUrls();
-        }
-      }
-    });
+      },
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', 'poll current url', error, stack),
+    );
   }
 
   @override

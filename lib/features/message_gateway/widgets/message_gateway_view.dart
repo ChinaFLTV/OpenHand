@@ -25,6 +25,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
@@ -2214,7 +2215,12 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
       return;
     }
-    _timer = Timer.periodic(_refreshInterval, (_) => _tick());
+    _timer = startNonOverlappingPeriodicTimer(
+      _refreshInterval,
+      (_) => _tick(),
+      onError: (error, stack) =>
+          silentLog('message_gateway', 'runtime snapshot tick', error, stack),
+    );
   }
 
   Future<void> _tick() async {

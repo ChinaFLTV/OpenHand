@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/timer_safety.dart';
 
 /// Web 逆向会话的产物落盘：把 dashboard 实时缓冲的网络/控制台事件
 /// 流式追加到 `~/.openhand/web_reverse/<session_id>/{network,console}.jsonl`，
@@ -43,10 +44,14 @@ class WebReverseSessionArtifacts {
       await Directory('$rootDir/scripts').create(recursive: true);
       await Directory('$rootDir/screenshots').create(recursive: true);
       await Directory('$rootDir/har').create(recursive: true);
-      _networkSink = File('$rootDir/network.jsonl').openWrite(mode: FileMode.append);
-      _consoleSink = File('$rootDir/console.jsonl').openWrite(mode: FileMode.append);
+      _networkSink = File(
+        '$rootDir/network.jsonl',
+      ).openWrite(mode: FileMode.append);
+      _consoleSink = File(
+        '$rootDir/console.jsonl',
+      ).openWrite(mode: FileMode.append);
       _ready = true;
-      _flushTimer = Timer.periodic(_flushInterval, (_) => _flush());
+      _flushTimer = startSafePeriodicTimer(_flushInterval, (_) => _flush());
     } catch (error, stack) {
       silentLog('web_reverse_artifacts', 'init', error, stack);
     }
@@ -201,9 +206,9 @@ class WebReverseSessionArtifacts {
     try {
       final ts = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
       final path = '$rootDir/har/$ts.har';
-      await File(path).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(har),
-      );
+      await File(
+        path,
+      ).writeAsString(const JsonEncoder.withIndent('  ').convert(har));
       return path;
     } catch (error, stack) {
       silentLog('web_reverse_artifacts', 'exportHar', error, stack);
@@ -218,11 +223,15 @@ class WebReverseSessionArtifacts {
     try {
       await _networkSink?.flush();
       await _networkSink?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_artifacts', 'close network sink', error, stack);
+    }
     try {
       await _consoleSink?.flush();
       await _consoleSink?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_artifacts', 'close console sink', error, stack);
+    }
     _ready = false;
   }
 

@@ -18,6 +18,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
 import '../../hardness/index.dart';
@@ -3341,14 +3342,20 @@ class WebMessagePlatformService {
     _sessionController.streamThrottleOverrideSignal.addListener(
       controllerListener,
     );
-    keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-      if (disposed || controller.isClosed) return;
-      try {
-        controller.add(utf8.encode(':keepalive\n\n'));
-      } catch (error, stack) {
-        silentLog('WebGateway', 'sse.keepalive', error, stack);
-      }
-    });
+    keepaliveTimer = startSafePeriodicTimer(
+      const Duration(seconds: 25),
+      (_) {
+        if (disposed || controller.isClosed) return;
+        try {
+          controller.add(utf8.encode(':keepalive\n\n'));
+        } catch (error, stack) {
+          silentLog('WebGateway', 'sse.keepalive', error, stack);
+        }
+      },
+      onError: (error, stack) {
+        silentLog('WebGateway', 'sse.keepalive.timer', error, stack);
+      },
+    );
 
     controller.onCancel = dispose;
     _activeSseSubscriptions += 1;
