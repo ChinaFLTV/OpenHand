@@ -1559,7 +1559,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'Wenn ein Werkzeugaufruf mehr Rohzeichen zurückgibt als dieser Schwellwert, verdichtet OpenHand das Ergebnis in eine strukturierte Zusammenfassung (betroffene Pfade + Zweck + Kopf-/Endausschnitt), bevor es zum Verlauf hinzugefügt wird. Standard: 1024.';
+      'Schwellwert für Werkzeugergebnis-Zusammenfassungen beim Erstellen von Kompressions-Checkpoints. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe zwischen Runden stabil bleiben; Ergebnisse über dem Schwellwert werden nur in aktiven/passiven Kompressions-Prompts verdichtet. Standard: 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Schwellwert speichern';
@@ -1578,7 +1578,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Hauptschalter. Wenn deaktiviert, umgeht die rohe Werkzeugausgabe unabhängig vom Schwellwert die Kompression – nützlich beim Debuggen vollständiger Werkzeugausgaben.';
+      'Steuert, ob Werkzeugausgaben beim Erstellen von Kompressions-Checkpoints verdichtet werden. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe stabil bleiben.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Mikro-Kompression';
@@ -2723,7 +2723,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get toolbarProviderModelLocked =>
-      'Anbieter & Modell gesperrt, um Cache-Treffer zu sichern';
+      'Anbieter & Modell gesperrt, um Cache-Präfix zu stabilisieren';
 
   @override
   String get toolbarModelLocked => 'Modell gesperrt';
@@ -4544,7 +4544,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Wenn ein Werkzeugaufruf mehr Rohzeichen zurückgibt als dieser Schwellwert, verdichtet OpenHand das Ergebnis in eine strukturierte Zusammenfassung (betroffene Pfade + Zweck + Kopf-/Endausschnitt), bevor es zum Verlauf hinzugefügt wird. Standard 1024.';
+      'Schwellwert für Werkzeugergebnis-Zusammenfassungen beim Erstellen von Kompressions-Checkpoints. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe zwischen Runden stabil bleiben; Ergebnisse über dem Schwellwert werden nur in aktiven/passiven Kompressions-Prompts verdichtet. Standard: 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -4566,14 +4566,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix einfrieren und Cache-Breakpoints auf Protokollebene einfügen. Wenn aktiviert: Eine neue Sitzung friert die aktuellen integrierten Werkzeuge / Skills / MCP / Anweisungen / Speicher als unveränderliches Präfix ein; der Anbieter und das Modell werden gesperrt, sobald die erste Benutzernachricht gesendet wird; der Anthropic-Adapter injiziert automatisch cache_control-Breakpoints.';
+      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Breakpoints auf Protokollebene einfügen. Wenn aktiviert, werden Anbieter und Modell nach der ersten Benutzernachricht gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; der Anthropic-Adapter injiziert cache_control-Breakpoints.';
 
   @override
   String get settingsEnableInputCache => 'Eingabecache aktivieren';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Standardmäßig deaktiviert. Wenn aktiviert, friert jede neu erstellte Sitzung – über alle Faden-Vorlagen und Modelle hinweg – ihr statisches Prompt-Präfix ein (Systemanweisungen / Werkzeugdefinitionen / Skills / MCP / Anweisungen / Speicher). Spätere Änderungen an Skills, MCP, Speicher etc. wirken sich NICHT auf bestehende Sitzungen aus; sie greifen nur in danach erstellten Sitzungen – für maximale Unveränderlichkeit und Cache-Trefferquote.';
+      'Standardmäßig aktiviert. Wenn deaktiviert, injiziert OpenHand keine Protokoll-Cache-Breakpoints und nutzt keine Eingabecache-Schutzmaßnahmen wie Modellsperren. Für maximale Trefferquote sollten Werkzeuge, Skills, MCP, Speicher und Anweisungen während einer Sitzung möglichst stabil bleiben.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>

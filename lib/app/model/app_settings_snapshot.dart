@@ -304,10 +304,10 @@ class AppSettingsSnapshot {
         .toInt();
   }
 
-  /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
-  /// 超过该上限的工具返回会被压缩为结构化摘要（受影响文件路径
-  /// + 行号 + AI 自述 purpose + 首尾片段），避免长篇 raw 输出吞噁
-  /// 上下文 token。默认 1024 字符。
+  /// 2026-04-27 — 工具调用输出在压缩提示词中的字符上限。
+  /// 2026-06-13 — 普通 conversation history 保留原文以稳定跨轮
+  /// prefix-cache；超过该上限的工具返回只在主动/被动压缩提示词中
+  /// 被压缩为结构化摘要，避免生成检查点时上下文爆窗。默认 1024 字符。
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
   static const int minAiToolResultCompressionThresholdChars = 256;
   static const int maxAiToolResultCompressionThresholdChars = 65536;
@@ -335,10 +335,10 @@ class AppSettingsSnapshot {
   static const int minAiToolResultCompressionMaxPathHits = 0;
   static const int maxAiToolResultCompressionMaxPathHits = 200;
 
-  /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，会话创建时
-  /// 会冻结 prompt 的静态前缀（系统指令/工具/技能/MCP/记忆/指令），并
-  /// 在 Anthropic 协议上自动注入 cache_control 断点；同时在用户首条消息
-  /// 发出后锁定服务商/模型选择，确保缓存命中。
+  /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，Prompt
+  /// Builder 尽量保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
+  /// 前置，并在 Anthropic 协议上自动注入 cache_control 断点；同时在用户
+  /// 首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
   ///
   /// 2026-06-01 — 默认改为 `true`：
   /// 旧默认 `false` 导致绝大多数用户从未开启；从第 2 轮起无法享受
@@ -680,8 +680,8 @@ class AppSettingsSnapshot {
   /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
   final int aiToolResultCompressionMaxPathHits;
 
-  /// 2026-05-02 — 成本控制：是否启用输入缓存优化（冻结静态前缀 + 模型锁
-  /// + Anthropic cache_control 断点注入）。
+  /// 2026-05-02 — 成本控制：是否启用输入缓存优化（稳定静态前缀 + 模型锁
+  /// + 支持协议的 cache_control 断点注入）。
   final bool aiInputCacheEnabled;
 
   /// 2026-05-02 — 缓存断点更新模式（allMessages / userMessages / tokens）。

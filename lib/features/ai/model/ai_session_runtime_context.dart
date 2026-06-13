@@ -211,8 +211,9 @@ class AiSessionRuntimeContext {
   final String userMemoryFilePath;
   final int compressionThresholdChars;
 
-  /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
-  /// prompt builder 会依该阈值压缩 raw 过长的工具返回。
+  /// 2026-04-27 — 工具调用输出在压缩提示词中的字符上限。
+  /// 普通 conversation history 保留原文以稳定跨轮 prefix-cache；prompt
+  /// builder 只在生成压缩检查点时依该阈值摘要 raw 过长的工具返回。
   final int toolResultCompressionThresholdChars;
 
   /// 2026-04-27 — 工具调用输出压缩总开关。关闭后返回原始内容。

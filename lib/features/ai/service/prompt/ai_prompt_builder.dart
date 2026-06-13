@@ -232,7 +232,7 @@ class AiPromptBuilder {
         historyMessages,
         session,
         model,
-        _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
+        _ToolCompressionConfig.forConversationHistory(runtimeContext),
         preTurnHistoryCount: preTurnHistoryCount,
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
@@ -3985,8 +3985,19 @@ $content
     bool isMicroCompactCleared = false,
     bool inlineSystemReminders = false,
   }) {
-    if (!compressionConfig.enabled) {
+    if (isMicroCompactCleared) {
+      return _microCompactToolResultContent(
+        message,
+        inlineSystemReminders: inlineSystemReminders,
+      );
+    }
+    if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
+      // 2026-06-13: 除用户显式开启的旧结果微压缩外，普通对话历史保留
+      // 原文。OpenAI-compatible 自动 prefix cache 依赖跨轮请求是纯追加
+      // 序列；把上一轮已发送的工具结果改写为摘要会让下一轮从该工具结果
+      // 处断裂。真正的工具结果摘要只在 compression prompt 中启用，避免
+      // 上下文检查点生成时爆窗。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
@@ -3999,12 +4010,6 @@ $content
       // 会被迫凭空猜测或反复重试。仅对"已被模型消费过"的历史轮次
       // 启用压缩，未消费的最新一轮始终保留原文。
       return _promptContentForMessage(
-        message,
-        inlineSystemReminders: inlineSystemReminders,
-      );
-    }
-    if (isMicroCompactCleared) {
-      return _microCompactToolResultContent(
         message,
         inlineSystemReminders: inlineSystemReminders,
       );
@@ -4872,6 +4877,7 @@ class _MappedToolExchange {
 class _ToolCompressionConfig {
   const _ToolCompressionConfig({
     required this.enabled,
+    required this.summarizeResults,
     required this.thresholdChars,
     required this.headTailWindowChars,
     required this.maxPathHits,
@@ -4879,11 +4885,12 @@ class _ToolCompressionConfig {
     required this.microCompressionEnabled,
   });
 
-  factory _ToolCompressionConfig.fromRuntimeContext(
+  factory _ToolCompressionConfig.forConversationHistory(
     AiSessionRuntimeContext runtimeContext,
   ) {
     return _ToolCompressionConfig(
       enabled: runtimeContext.toolResultCompressionEnabled,
+      summarizeResults: false,
       thresholdChars: runtimeContext.toolResultCompressionThresholdChars > 0
           ? runtimeContext.toolResultCompressionThresholdChars
           : 1024,
@@ -4905,9 +4912,10 @@ class _ToolCompressionConfig {
   factory _ToolCompressionConfig.forCompressionPrompt(
     AiSessionRuntimeContext runtimeContext,
   ) {
-    final base = _ToolCompressionConfig.fromRuntimeContext(runtimeContext);
+    final base = _ToolCompressionConfig.forConversationHistory(runtimeContext);
     return _ToolCompressionConfig(
       enabled: true,
+      summarizeResults: true,
       thresholdChars: math.min(
         base.thresholdChars,
         AiPromptBuilder._compressionPromptToolResultThresholdChars,
@@ -4926,6 +4934,7 @@ class _ToolCompressionConfig {
   }
 
   final bool enabled;
+  final bool summarizeResults;
   final int thresholdChars;
   final int headTailWindowChars;
   final int maxPathHits;

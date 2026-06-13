@@ -1564,7 +1564,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'Lorsqu’un appel d’outil renvoie plus de caractères bruts que ce seuil, OpenHand le condense en un résumé structuré (chemins affectés + objectif + extrait début/fin) avant de l’ajouter à l’historique. Par défaut 1024.';
+      'Seuil utilisé pour résumer les résultats d’outils lors de la création des points de compression. L’historique normal conserve la sortie brute afin de stabiliser les préfixes de cache de prompt entre tours ; les résultats au-dessus du seuil ne sont condensés que dans les prompts de compression active/passive. Par défaut 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Enregistrer le seuil';
@@ -1583,7 +1583,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Commutateur principal. Lorsqu’il est désactivé, la sortie d’outil brute contourne la compression quel que soit le seuil — utile pour déboguer la sortie complète d’un outil.';
+      'Détermine si les sorties d’outils sont condensées lors de la création des points de compression. L’historique normal conserve la sortie brute afin de stabiliser les préfixes de cache de prompt.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
@@ -2739,7 +2739,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get toolbarProviderModelLocked =>
-      'Fournisseur & modèle verrouillés pour assurer le cache';
+      'Fournisseur et modèle verrouillés pour stabiliser le préfixe de cache';
 
   @override
   String get toolbarModelLocked => 'Modèle verrouillé';
@@ -4565,7 +4565,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Lorsqu’un appel d’outil renvoie plus de caractères bruts que ce seuil, OpenHand le condense en un résumé structuré (chemins affectés + objectif + extrait début/fin) avant de l’ajouter à l’historique. Par défaut 1024.';
+      'Seuil utilisé pour résumer les résultats d’outils lors de la création des points de compression. L’historique normal conserve la sortie brute afin de stabiliser les préfixes de cache de prompt entre tours ; les résultats au-dessus du seuil ne sont condensés que dans les prompts de compression active/passive. Par défaut 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -4587,14 +4587,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Réduisez les coûts en jetons en gelant le préfixe statique de l’invite et en insérant des points d’arrêt de cache au niveau du protocole. Lorsqu’activé : une nouvelle session gèle les outils intégrés / compétences / MCP / instructions / mémoire actuels comme préfixe immuable ; le fournisseur et le modèle sont verrouillés dès l’envoi du premier message utilisateur ; l’adaptateur Anthropic injecte automatiquement des points d’arrêt cache_control.';
+      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en insérant des points de cache au niveau du protocole. Si activé, le fournisseur et le modèle sont verrouillés après le premier message utilisateur ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; l’adaptateur Anthropic injecte les points cache_control.';
 
   @override
   String get settingsEnableInputCache => 'Activer le cache d’entrée';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Désactivé par défaut. Lorsqu’activé, chaque session nouvellement créée — pour tous les modèles de fils et tous les modèles — fige son préfixe d’invite statique (instructions système / définitions d’outils / compétences / MCP / instructions / mémoire). Les modifications ultérieures de compétences, MCP, mémoire, etc. n’affectent PAS les sessions existantes ; elles ne prennent effet que pour les sessions créées par la suite — garantissant une immuabilité et un taux de succès de cache maximaux.';
+      'Activé par défaut. Si désactivé, OpenHand n’injecte pas de points de cache au niveau du protocole et n’applique pas les protections de cache d’entrée comme le verrouillage du modèle. Pour maximiser le taux de succès, évitez de modifier fréquemment les outils, compétences, MCP, mémoire ou instructions en cours de session.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>

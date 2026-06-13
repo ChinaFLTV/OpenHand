@@ -1539,7 +1539,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+      'Threshold used when building compression checkpoints. Normal conversation history keeps raw tool output to preserve cross-turn prompt-cache prefixes; over-threshold results are condensed only inside active/passive compression prompts. Defaults to 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Save Threshold';
@@ -1558,7 +1558,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.';
+      'Controls whether tool output is condensed while building compression checkpoints. Normal conversation history still keeps raw output so prompt-cache prefixes stay stable.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
@@ -2692,7 +2692,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toolbarProviderModelLocked =>
-      'Provider & model locked to ensure cache hit';
+      'Provider & model locked to stabilize cache prefix';
 
   @override
   String get toolbarModelLocked => 'Model Locked';
@@ -4499,7 +4499,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+      'Threshold used when building compression checkpoints. Normal conversation history keeps raw tool output to preserve cross-turn prompt-cache prefixes; over-threshold results are condensed only inside active/passive compression prompts. Defaults to 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -4521,14 +4521,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.';
+      'Reduce token costs by stabilizing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: the provider and model are locked after the first user message; Prompt Builder keeps system instructions, tool catalog, memory, and user instructions as stable leading sections where possible; the Anthropic adapter injects cache_control breakpoints.';
 
   @override
   String get settingsEnableInputCache => 'Enable Input Cache';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.';
+      'Enabled by default. When disabled, OpenHand will not inject protocol-level cache breakpoints or apply model-locking input-cache safeguards. To maximize hit rate, avoid frequent mid-session changes to tools, skills, MCP, memory, or instructions.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>

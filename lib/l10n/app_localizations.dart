@@ -2891,7 +2891,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionThresholdBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。'**
+  /// **'生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。'**
   String get aiToolResultCompressionThresholdBody;
 
   /// No description provided for @aiToolResultCompressionThresholdSave.
@@ -2921,7 +2921,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionEnabledBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。'**
+  /// **'控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。'**
   String get aiToolResultCompressionEnabledBody;
 
   /// No description provided for @aiMicroCompressionEnabledLabel.
@@ -4895,7 +4895,7 @@ abstract class AppLocalizations {
   /// No description provided for @toolbarProviderModelLocked.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'已锁定服务商与模型以保证缓存命中'**
+  /// **'已锁定服务商与模型以稳定缓存前缀'**
   String get toolbarProviderModelLocked;
 
   /// No description provided for @toolbarModelLocked.
@@ -8123,7 +8123,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsWhenAToolCallReturnsMore.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。'**
+  /// **'生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。'**
   String get settingsWhenAToolCallReturnsMore;
 
   /// No description provided for @settingsDefaultsTo40IfOneAssistant.
@@ -8159,7 +8159,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsReduceTokenCostsByFreezingThe.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。'**
+  /// **'通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。'**
   String get settingsReduceTokenCostsByFreezingThe;
 
   /// No description provided for @settingsEnableInputCache.
@@ -8171,7 +8171,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDisabledByDefaultWhenEnabledEvery.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。'**
+  /// **'默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。'**
   String get settingsDisabledByDefaultWhenEnabledEvery;
 
   /// No description provided for @settingsCacheBreakpointUpdateMode.

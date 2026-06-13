@@ -1478,7 +1478,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。';
+      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -1494,7 +1494,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
+      '控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微压缩';
@@ -2563,7 +2563,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolbarSessionMetadata => '会话元数据';
 
   @override
-  String get toolbarProviderModelLocked => '已锁定服务商与模型以保证缓存命中';
+  String get toolbarProviderModelLocked => '已锁定服务商与模型以稳定缓存前缀';
 
   @override
   String get toolbarModelLocked => '模型已锁定';
@@ -4276,7 +4276,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -4298,14 +4298,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+      '通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+      '默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
@@ -9354,7 +9354,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。';
+      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -9370,7 +9370,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
+      '控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微压缩';
@@ -10439,7 +10439,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get toolbarSessionMetadata => '会话元数据';
 
   @override
-  String get toolbarProviderModelLocked => '已锁定服务商与模型以保证缓存命中';
+  String get toolbarProviderModelLocked => '已锁定服务商与模型以稳定缓存前缀';
 
   @override
   String get toolbarModelLocked => '模型已锁定';
@@ -12152,7 +12152,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -12174,14 +12174,14 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+      '通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+      '默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
@@ -17229,7 +17229,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '當某個工具呼叫返回的 raw 內容字元數超過該閾值時，OpenHand 會在組裝 conversation history 前將其壓縮為「受影響路徑+目的+首尾片段」的結構化摘要，釋放 tokens。預設 1024。';
+      '生成壓縮檢查點時使用的工具結果摘要閾值。正常對話歷史保留原文以穩定跨輪 Prompt 快取前綴；超過閾值的工具結果只會在主動/被動壓縮提示詞中壓成結構化摘要。預設 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '儲存閾值';
@@ -17245,7 +17245,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '總開關。關閉後不管閾值多大都不壓縮工具輸出原文，適合需要調試完整輸出的場景。';
+      '控制生成壓縮檢查點時是否摘要工具輸出。正常對話歷史仍保留原文，以穩定 Prompt 快取前綴。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微壓縮';
@@ -18314,7 +18314,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get toolbarSessionMetadata => '會話元數據';
 
   @override
-  String get toolbarProviderModelLocked => '已鎖定服務商與模型以保證緩存命中';
+  String get toolbarProviderModelLocked => '已鎖定服務商與模型以穩定緩存前綴';
 
   @override
   String get toolbarModelLocked => '模型已鎖定';
@@ -20027,7 +20027,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+      '生成壓縮檢查點時使用的工具結果摘要閾值。正常對話歷史保留原文以穩定跨輪 Prompt 快取前綴；超過閾值的工具結果只會在主動/被動壓縮提示詞中壓成結構化摘要。預設 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -20049,14 +20049,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+      '透過穩定 Prompt 靜態前綴與協議層快取斷點來降低 token 成本。開啟後：使用者送出第一則訊息後會鎖定服務商與模型；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會自動注入 cache_control 斷點。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+      '預設開啟。關閉後不會注入協議層快取斷點，也不會執行模型鎖定等輸入快取保護。若要最大化命中率，請避免在會話中途頻繁修改工具、技能、MCP、記憶或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';

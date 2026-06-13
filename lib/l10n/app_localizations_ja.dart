@@ -1494,7 +1494,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'ツール呼び出しの戻り文字数がこの閾値を超えると、OpenHand は構造化サマリ（影響パス＋目的＋先頭/末尾スニペット）に圧縮してから会話履歴に追加します。既定値は 1024 です。';
+      '圧縮チェックポイント生成時に使うツール結果サマリ閾値です。通常の会話履歴はターン間 Prompt キャッシュ前綴を安定させるため原文を保持し、閾値超過の結果は能動/受動圧縮プロンプト内でのみ構造化サマリに圧縮されます。既定値は 1024 です。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '閾値を保存';
@@ -1510,7 +1510,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'マスタースイッチ。無効にすると、閾値に関わらず生のツール出力は圧縮されません。完全なツール出力をデバッグするときに便利です。';
+      '圧縮チェックポイント生成時にツール出力を要約するかを制御します。通常の会話履歴は Prompt キャッシュ前綴を安定させるため原文を保持します。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微圧縮';
@@ -2595,7 +2595,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get toolbarSessionMetadata => 'セッションメタデータ';
 
   @override
-  String get toolbarProviderModelLocked => 'プロバイダとモデルを固定してキャッシュヒット率を確保';
+  String get toolbarProviderModelLocked => 'プロバイダとモデルを固定してキャッシュ接頭辞を安定化';
 
   @override
   String get toolbarModelLocked => 'モデルロック中';
@@ -4341,7 +4341,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'ツール呼び出しの戻り文字数がこの閾値を超えると、OpenHand は構造化サマリ（影響パス＋目的＋先頭/末尾スニペット）に圧縮してから会話履歴に追加します。既定値は 1024。';
+      '圧縮チェックポイント生成時に使うツール結果サマリ閾値です。通常の会話履歴はターン間 Prompt キャッシュ前綴を安定させるため原文を保持し、閾値超過の結果は能動/受動圧縮プロンプト内でのみ構造化サマリに圧縮されます。既定値は 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -4363,14 +4363,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'プロンプトの静的プレフィックスを凍結し、プロトコルレベルのキャッシュブレークポイントを挿入することでトークンコストを削減します。有効にすると：新しいセッションは現在の組み込みツール / スキル / MCP / 指示 / メモリを不変のプレフィックスとして凍結し、最初のユーザーメッセージが送信されるとプロバイダーとモデルがロックされます。Anthropic アダプターは cache_control ブレークポイントを自動注入します。';
+      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュブレークポイントを挿入して token コストを削減します。有効にすると、最初のユーザーメッセージ後にプロバイダーとモデルをロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic アダプターは cache_control ブレークポイントを注入します。';
 
   @override
   String get settingsEnableInputCache => '入力キャッシュを有効化';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '既定では無効。有効にすると、すべてのスレッドテンプレートとモデルにわたって新規作成セッションは静的プロンプトプレフィックス（システム指示 / ツール定義 / スキル / MCP / 指示 / メモリ）を凍結します。スキル、MCP、メモリなどのその後の編集は既存セッションに影響せず、その後作成されたセッションに対してのみ反映されます。これにより最大の不変性とキャッシュヒット率を確保します。';
+      '既定で有効です。無効にすると、プロトコルレベルのキャッシュブレークポイント注入やモデルロックなどの入力キャッシュ保護は行われません。ヒット率を最大化するには、会話中にツール、スキル、MCP、メモリ、指示を頻繁に変更しないでください。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => 'キャッシュブレークポイント更新モード';
