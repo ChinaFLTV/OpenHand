@@ -2006,7 +2006,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         userScrollEnded &&
         _userScrollInProgress &&
         !maxExtentShrunkSignificantly) {
-      _shouldAutoFollowMessages = true;
       _userScrollGraceTimer?.cancel();
       _userScrollGraceTimer = null;
       _userScrollInProgress = false;
