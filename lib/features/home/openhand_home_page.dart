@@ -187,6 +187,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _processingQueueInProgress = false;
   bool _pendingAnimatedScrollToBottom = false;
   bool _programmaticAutoFollowScrollInProgress = false;
+  int _programmaticTranscriptScrollCorrectionDepth = 0;
   bool _userScrollInProgress = false;
   bool _userDragActive = false;
   bool _transcriptLayoutAutoFollowQueued = false;
@@ -756,6 +757,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
     _pendingScrollToBottomSettlePasses = 0;
+  }
+
+  bool _isProgrammaticMessageScrollInProgress() {
+    return _programmaticAutoFollowScrollInProgress ||
+        _programmaticTranscriptScrollCorrectionDepth > 0 ||
+        _composerScrollCompensationInProgress;
+  }
+
+  void _runProgrammaticTranscriptScrollCorrection(VoidCallback correction) {
+    if (!mounted) return;
+    _programmaticTranscriptScrollCorrectionDepth += 1;
+    try {
+      correction();
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _programmaticTranscriptScrollCorrectionDepth = math.max(
+          0,
+          _programmaticTranscriptScrollCorrectionDepth - 1,
+        );
+      });
+    }
   }
 
   /// 标记用户正在主动滚动；取消任何待执行的 scroll-end 宽限计时。
@@ -1765,8 +1788,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleMessageScroll() {
     final position = _activeMessageScrollPosition();
     if (position == null) return;
-    if (_programmaticAutoFollowScrollInProgress ||
-        _composerScrollCompensationInProgress) {
+    if (_isProgrammaticMessageScrollInProgress()) {
       return;
     }
     // 2026-05-26 (重构): 彻底移除 listener 中的 delta 判定逻辑。
@@ -1823,25 +1845,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // "用户正在滚动"，导致 AI 增量输出不再及时追到最新消息。
     final recentPointerSignalScroll = _hasRecentPointerSignalScrollActivity();
     final implicitPointerSignalScroll =
-        !_programmaticAutoFollowScrollInProgress &&
+        !_isProgrammaticMessageScrollInProgress() &&
         recentPointerSignalScroll &&
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
+    final fallbackScrollDelta = notification is ScrollUpdateNotification
+        ? notification.scrollDelta ?? 0.0
+        : 0.0;
+    final fallbackPointerSignalScroll =
+        notification is ScrollUpdateNotification &&
+        notification.depth == 0 &&
+        notification.dragDetails == null &&
+        !_isProgrammaticMessageScrollInProgress() &&
+        fallbackScrollDelta.abs() > 0.5;
     final userScrollActivity =
-        explicitUserScroll || implicitPointerSignalScroll;
+        explicitUserScroll ||
+        implicitPointerSignalScroll ||
+        fallbackPointerSignalScroll;
     // 后备检测：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
     // 导致 implicitPointerSignalScroll 为 false。直接观察外层 ListView
-    // 的 ScrollUpdateNotification（depth == 0）作为兜底，避免用户滚动
-    // HTML 卡片期间因检测失效而被 layout-change 拽回底部。
+    // 的 ScrollUpdateNotification（depth == 0）作为兜底，并归类为用户
+    // 滚动，避免 HTML 卡片期间因检测失效而被 layout-change 拽回底部。
     if (notification is ScrollUpdateNotification &&
         notification.depth == 0 &&
-        !_programmaticAutoFollowScrollInProgress &&
+        !_isProgrammaticMessageScrollInProgress() &&
         (notification.scrollDelta ?? 0).abs() > 0.5) {
       _lastScrollActivityAt = DateTime.now();
     }
     if (userScrollActivity) {
-      if (!implicitPointerSignalScroll || explicitUserScroll) {
+      if (fallbackPointerSignalScroll) {
+        _lastScrollActivityAt = DateTime.now();
+        _markUserScrollInProgress();
+        _scheduleUserScrollEndGrace();
+      } else if (!implicitPointerSignalScroll || explicitUserScroll) {
         _markUserScrollInProgress();
       }
       if (explicitUserScrollStart) {
@@ -1851,7 +1888,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _userDragActive = false;
       _scheduleUserScrollEndGrace();
     }
-    if (_programmaticAutoFollowScrollInProgress) {
+    if (_isProgrammaticMessageScrollInProgress()) {
       if (!explicitUserScroll) {
         return false;
       }
@@ -1901,17 +1938,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is UserScrollNotification &&
         notification.direction == ScrollDirection.reverse &&
         userScrollActivity &&
-        !_programmaticAutoFollowScrollInProgress;
+        !_isProgrammaticMessageScrollInProgress();
     final pointerSignalScrolledUpwardFromBottom =
         implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5;
     final explicitUserScrollUpward =
         explicitUserScrollUpdate && (notification.scrollDelta ?? 0) < -0.5;
+    final fallbackScrolledUpwardFromBottom =
+        fallbackPointerSignalScroll && fallbackScrollDelta < -0.5;
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom ||
-        explicitUserScrollUpward) {
+        explicitUserScrollUpward ||
+        fallbackScrolledUpwardFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
@@ -5088,7 +5128,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         force ? 8 : (animated ? 4 : 3),
       );
     }
-    if (_programmaticAutoFollowScrollInProgress) {
+    if (_isProgrammaticMessageScrollInProgress()) {
       return;
     }
     if (_userScrollInProgress) {
@@ -5379,11 +5419,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleRevealOlderMessages() {
-    if (_autoFollowEnabled) {
-      return;
-    }
     _shouldAutoFollowMessages = false;
     _clearPendingAutoFollowState();
+    _syncAutoFollowPausedState();
   }
 
   String? _sessionAutoScrollSignature(AiSession? session) {
@@ -6879,6 +6917,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onComposerLayoutChanged: _handleComposerLayoutChanged,
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
         onRevealOlderMessages: _handleRevealOlderMessages,
+        onProgrammaticScrollCorrection:
+            _runProgrammaticTranscriptScrollCorrection,
         autoFollowEnabled: _autoFollowEnabled,
         autoFollowPaused: _autoFollowPaused,
         onToggleAutoFollow: _toggleAutoFollow,

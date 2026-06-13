@@ -89,6 +89,16 @@ class _TranscriptBubbleRegistry {
   void clear() => _contexts.clear();
 }
 
+class _TranscriptViewportAnchor {
+  const _TranscriptViewportAnchor({
+    required this.messageId,
+    required this.viewportOffset,
+  });
+
+  final String messageId;
+  final double viewportOffset;
+}
+
 /// 阶段⑰b：跨 widget 的「按 messageId 平滑滚动」分发器。
 /// `_SessionTranscriptState` 在 init/dispose 时按 sessionId 注册自身；
 /// 任意位置（汇总卡、跳转链接等）可调 `scrollToMessage(sessionId, msgId)`。
@@ -238,6 +248,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onPlanTimelineCollapsedChanged,
     required this.onLayoutChanged,
     required this.onRevealOlderMessages,
+    required this.onProgrammaticScrollCorrection,
     required this.onEditMessage,
     required this.onCopyMessage,
     required this.onDeleteMessage,
@@ -260,6 +271,7 @@ class _SessionTranscript extends StatefulWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final VoidCallback onLayoutChanged;
   final VoidCallback onRevealOlderMessages;
+  final void Function(VoidCallback correction) onProgrammaticScrollCorrection;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
@@ -322,6 +334,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 2026-06-07: 保存每条消息的【显示原始】状态，避免 ListView.builder
   // 回收重建后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
+  _TranscriptViewportAnchor? _pendingPrependAnchor;
+  int _pendingPrependAnchorFrames = 0;
+  bool _prependAnchorCorrectionQueued = false;
 
   @override
   void initState() {
@@ -852,6 +867,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final currentMaxExtent = hadClients
         ? scrollController.position.maxScrollExtent
         : 0.0;
+    final anchor = _capturePrependAnchor();
 
     setState(() {
       _loadingOlderMessages = true;
@@ -881,17 +897,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       setState(() {
         _loadingOlderMessages = false;
       });
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) {
-        return;
-      }
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
     }
 
-    // 单帧 jumpTo 一次性把视口拉到"插入前内容"位置。线程会话窗口
-    // 不再走多帧 settle 循环（弹跳源头），scroll physics 已改为
-    // ClampingScrollPhysics（无 overscroll 弹簧共振），单次 jumpTo
-    // 足以保证"加载更早后用户视觉锚点不漂移"。
-    if (hadClients) {
+    final restoredByAnchor = anchor != null && _restorePrependAnchor(anchor);
+    if (anchor != null) {
+      _startPrependAnchorStabilization(anchor);
+    }
+
+    // 锚点不可用时，用 maxScrollExtent 差值兜底保持旧视觉位置。
+    if (!restoredByAnchor && hadClients) {
       final position = scrollController.positions.isNotEmpty
           ? scrollController.positions.last
           : null;
@@ -903,10 +921,110 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             position.minScrollExtent,
             newMaxExtent,
           );
-          position.jumpTo(target);
+          widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
         }
       }
     }
+  }
+
+  _TranscriptViewportAnchor? _capturePrependAnchor() {
+    if (!widget.controller.hasClients) return null;
+    final viewportExtent = widget.controller.position.viewportDimension;
+    _TranscriptViewportAnchor? best;
+    var bestRank = double.infinity;
+    for (final entry in _renderEntries) {
+      if (entry.exiting) continue;
+      final offset = _viewportOffsetForMessage(entry.id);
+      if (offset == null) continue;
+      final ctx = _bubbleRegistry.contextOf(entry.id);
+      final box = ctx?.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached || !box.hasSize) continue;
+      final bottom = offset + box.size.height;
+      if (bottom <= 0 || offset >= viewportExtent) continue;
+      final rank = offset >= 0 ? offset : viewportExtent + offset.abs();
+      if (rank < bestRank) {
+        bestRank = rank;
+        best = _TranscriptViewportAnchor(
+          messageId: entry.id,
+          viewportOffset: offset,
+        );
+      }
+    }
+    return best;
+  }
+
+  double? _viewportOffsetForMessage(String messageId) {
+    final ctx = _bubbleRegistry.contextOf(messageId);
+    if (ctx == null) return null;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return null;
+    final scrollable = Scrollable.maybeOf(ctx);
+    final scrollableBox = scrollable?.context.findRenderObject() as RenderBox?;
+    if (scrollableBox == null ||
+        !scrollableBox.attached ||
+        !scrollableBox.hasSize) {
+      return null;
+    }
+    return box.localToGlobal(Offset.zero, ancestor: scrollableBox).dy;
+  }
+
+  bool _restorePrependAnchor(_TranscriptViewportAnchor anchor) {
+    if (!widget.controller.hasClients) return false;
+    final currentOffset = _viewportOffsetForMessage(anchor.messageId);
+    if (currentOffset == null) return false;
+    final delta = currentOffset - anchor.viewportOffset;
+    if (delta.abs() < _transcriptPrependAnchorMinCorrection) {
+      return false;
+    }
+    widget.onProgrammaticScrollCorrection(() {
+      if (!mounted || !widget.controller.hasClients) return;
+      final position = widget.controller.position;
+      final target = (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if ((target - position.pixels).abs() <
+          _transcriptPrependAnchorMinCorrection) {
+        return;
+      }
+      position.jumpTo(target);
+    });
+    return true;
+  }
+
+  void _startPrependAnchorStabilization(_TranscriptViewportAnchor anchor) {
+    _pendingPrependAnchor = anchor;
+    _pendingPrependAnchorFrames = _transcriptPrependAnchorSettleFrameCount;
+    _queuePrependAnchorCorrection();
+  }
+
+  void _queuePrependAnchorCorrection() {
+    if (_prependAnchorCorrectionQueued ||
+        _pendingPrependAnchor == null ||
+        _pendingPrependAnchorFrames <= 0) {
+      return;
+    }
+    _prependAnchorCorrectionQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prependAnchorCorrectionQueued = false;
+      if (!mounted) return;
+      final anchor = _pendingPrependAnchor;
+      if (anchor == null || _pendingPrependAnchorFrames <= 0) {
+        return;
+      }
+      if (context.read<TranscriptScrollActivity>().value) {
+        _pendingPrependAnchor = null;
+        _pendingPrependAnchorFrames = 0;
+        return;
+      }
+      _restorePrependAnchor(anchor);
+      _pendingPrependAnchorFrames -= 1;
+      if (_pendingPrependAnchorFrames > 0) {
+        _queuePrependAnchorCorrection();
+      } else {
+        _pendingPrependAnchor = null;
+      }
+    });
   }
 
   Future<void> _runDeleteAction(
@@ -1421,6 +1539,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       )
                     : bubble;
                 return AnimatedSize(
+                  key: ValueKey<String>('transcript-entry-${message.id}'),
                   duration: cardMotionDurationFor(
                     context,
                     expanding: isSelected,
@@ -1430,7 +1549,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       ? Alignment.topLeft
                       : Alignment.bottomLeft,
                   child: Padding(
-                    key: ValueKey<String>('transcript-entry-${message.id}'),
                     padding: EdgeInsets.only(
                       bottom: messageIndex == _renderEntries.length - 1
                           ? 0

@@ -22,6 +22,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onComposerLayoutChanged,
     required this.onTranscriptLayoutChanged,
     required this.onRevealOlderMessages,
+    required this.onProgrammaticScrollCorrection,
     required this.autoFollowEnabled,
     required this.autoFollowPaused,
     required this.onToggleAutoFollow,
@@ -89,6 +90,7 @@ class _WorkspaceView extends StatelessWidget {
   final VoidCallback onComposerLayoutChanged;
   final VoidCallback onTranscriptLayoutChanged;
   final VoidCallback onRevealOlderMessages;
+  final void Function(VoidCallback correction) onProgrammaticScrollCorrection;
   final bool autoFollowEnabled;
   final bool autoFollowPaused;
   final VoidCallback onToggleAutoFollow;
@@ -238,6 +240,8 @@ class _WorkspaceView extends StatelessWidget {
                                               onTranscriptLayoutChanged,
                                           onRevealOlderMessages:
                                               onRevealOlderMessages,
+                                          onProgrammaticScrollCorrection:
+                                              onProgrammaticScrollCorrection,
                                           onEditMessage: onEditMessage,
                                           onCopyMessage: onCopyMessage,
                                           onDeleteMessage: onDeleteMessage,
