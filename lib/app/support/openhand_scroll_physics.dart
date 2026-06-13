@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// 线程会话窗口实验性禁用所有自定义滚动物理与滚动纠偏逻辑。

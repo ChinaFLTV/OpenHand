@@ -192,10 +192,18 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   int? _cachedPaletteSignature;
   bool _highlightScheduled = false;
   bool _highlightIsPlaceholder = false;
+  TranscriptScrollActivity? _scrollActivity;
+  bool _highlightPendingAfterScroll = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final activity = context.read<TranscriptScrollActivity>();
+    if (!identical(activity, _scrollActivity)) {
+      _scrollActivity?.removeListener(_handleScrollActivityChanged);
+      _scrollActivity = activity;
+      activity.addListener(_handleScrollActivityChanged);
+    }
     _ensureHighlightedSpan();
   }
 
@@ -230,9 +238,23 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
 
   @override
   void dispose() {
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = null;
     _copiedResetTimer?.cancel();
     _downloadedResetTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleScrollActivityChanged() {
+    final activity = _scrollActivity;
+    if (activity == null || !mounted || activity.value) {
+      return;
+    }
+    if (!_highlightPendingAfterScroll || _highlightScheduled) {
+      return;
+    }
+    _highlightPendingAfterScroll = false;
+    _scheduleDeferredHighlight();
   }
 
   void _toggleMermaidView() {
@@ -474,47 +496,15 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       );
       _highlightSignature = signature;
       _highlightIsPlaceholder = true;
-      if (!_highlightScheduled) {
-        _highlightScheduled = true;
-        _HighlightFrameScheduler.instance.schedule(() {
-          if (!mounted) return;
-          _highlightScheduled = false;
-          final currentEffectiveLanguage = _normalizeCodeLanguage(
-            widget.language,
-          );
-          final currentUseDarkPalette =
-              widget.forceDarkSurface ||
-              widget.theme.brightness == Brightness.dark;
-          final currentSignature = _highlightSignatureFor(
-            effectiveLanguage: currentEffectiveLanguage,
-            useDarkPalette: currentUseDarkPalette,
-          );
-          if (_highlightedSpan != null &&
-              _highlightSignature == currentSignature &&
-              !_highlightIsPlaceholder) {
-            return;
-          }
-          final span = widget.content.length > _highlightSkipThresholdChars
-              ? TextSpan(
-                  text: widget.content,
-                  style: _baseStyleForCurrentTheme(currentUseDarkPalette),
-                )
-              : _highlightSpanCache.get(currentSignature) ??
-                    _runHighlight(
-                      currentEffectiveLanguage,
-                      currentUseDarkPalette,
-                      currentSignature,
-                    );
-          if (!mounted) return;
-          setState(() {
-            _highlightedSpan = span;
-            _highlightSignature = currentSignature;
-            _highlightIsPlaceholder = false;
-          });
-        });
+      if (_scrollActivity?.value ?? false) {
+        _highlightPendingAfterScroll = true;
+      } else {
+        _highlightPendingAfterScroll = false;
+        _scheduleDeferredHighlight();
       }
       return;
     }
+    _highlightPendingAfterScroll = false;
     _highlightedSpan = _runHighlight(
       effectiveLanguage,
       useDarkPalette,
@@ -522,6 +512,52 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     _highlightSignature = signature;
     _highlightIsPlaceholder = false;
+  }
+
+  void _scheduleDeferredHighlight() {
+    if (_highlightScheduled) {
+      return;
+    }
+    _highlightScheduled = true;
+    _HighlightFrameScheduler.instance.schedule(() {
+      if (!mounted) return;
+      if (_scrollActivity?.value ?? false) {
+        _highlightScheduled = false;
+        _highlightPendingAfterScroll = true;
+        return;
+      }
+      _highlightScheduled = false;
+      _highlightPendingAfterScroll = false;
+      final currentEffectiveLanguage = _normalizeCodeLanguage(widget.language);
+      final currentUseDarkPalette =
+          widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
+      final currentSignature = _highlightSignatureFor(
+        effectiveLanguage: currentEffectiveLanguage,
+        useDarkPalette: currentUseDarkPalette,
+      );
+      if (_highlightedSpan != null &&
+          _highlightSignature == currentSignature &&
+          !_highlightIsPlaceholder) {
+        return;
+      }
+      final span = widget.content.length > _highlightSkipThresholdChars
+          ? TextSpan(
+              text: widget.content,
+              style: _baseStyleForCurrentTheme(currentUseDarkPalette),
+            )
+          : _highlightSpanCache.get(currentSignature) ??
+                _runHighlight(
+                  currentEffectiveLanguage,
+                  currentUseDarkPalette,
+                  currentSignature,
+                );
+      if (!mounted) return;
+      setState(() {
+        _highlightedSpan = span;
+        _highlightSignature = currentSignature;
+        _highlightIsPlaceholder = false;
+      });
+    });
   }
 
   int _highlightSignatureFor({
@@ -2061,9 +2097,7 @@ String? _cachedMermaidJs;
 Future<String> _loadMermaidJs() async {
   final cached = _cachedMermaidJs;
   if (cached != null) return cached;
-  final loaded = await rootBundle.loadString(
-    'assets/tooling/mermaid.min.js',
-  );
+  final loaded = await rootBundle.loadString('assets/tooling/mermaid.min.js');
   _cachedMermaidJs = loaded;
   return loaded;
 }
@@ -2191,6 +2225,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
     }
   }
+
   Uint8List? _decodePngBytes(String dataUrl) {
     final trimmed = dataUrl.trim();
     if (trimmed.isEmpty) return null;
@@ -2214,52 +2249,52 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.addJavaScriptChannel(
         'OpenHandMermaid',
-          onMessageReceived: (message) {
-            final raw = message.message.trim();
-            if (raw == 'rendered') {
-              _loadWatchdog?.cancel();
-              if (mounted && !_isReady) {
-                setState(() => _isReady = true);
-              }
-              return;
+        onMessageReceived: (message) {
+          final raw = message.message.trim();
+          if (raw == 'rendered') {
+            _loadWatchdog?.cancel();
+            if (mounted && !_isReady) {
+              setState(() => _isReady = true);
             }
-            if (raw == 'ready') {
-              _loadWatchdog?.cancel();
-              if (mounted) {
-                setState(() => _bridgeReady = true);
-              }
-              return;
+            return;
+          }
+          if (raw == 'ready') {
+            _loadWatchdog?.cancel();
+            if (mounted) {
+              setState(() => _bridgeReady = true);
             }
-            if (raw.startsWith('zoom:')) {
-              final value = double.tryParse(raw.substring(5));
-              if (value != null && mounted) {
-                setState(() => _zoomPercent = value);
-              }
-              return;
+            return;
+          }
+          if (raw.startsWith('zoom:')) {
+            final value = double.tryParse(raw.substring(5));
+            if (value != null && mounted) {
+              setState(() => _zoomPercent = value);
             }
-            if (raw.startsWith('svg:')) {
-              if (mounted) {
-                setState(() => _svgMarkup = raw.substring(4));
-              }
-              return;
+            return;
+          }
+          if (raw.startsWith('svg:')) {
+            if (mounted) {
+              setState(() => _svgMarkup = raw.substring(4));
             }
-            if (raw.startsWith('png:')) {
-              if (mounted) {
-                setState(() => _pngDataUrl = raw.substring(4));
-              }
-              return;
+            return;
+          }
+          if (raw.startsWith('png:')) {
+            if (mounted) {
+              setState(() => _pngDataUrl = raw.substring(4));
             }
-            if (raw.startsWith('error:')) {
-              _loadWatchdog?.cancel();
-              if (mounted) {
-                setState(() {
-                  _loadError = raw.length > 6 ? raw.substring(6) : raw;
-                  _isReady = true;
-                });
-              }
+            return;
+          }
+          if (raw.startsWith('error:')) {
+            _loadWatchdog?.cancel();
+            if (mounted) {
+              setState(() {
+                _loadError = raw.length > 6 ? raw.substring(6) : raw;
+                _isReady = true;
+              });
             }
-          },
-        );
+          }
+        },
+      );
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
@@ -2396,8 +2431,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final kind = e.kind == PointerDeviceKind.mouse
         ? 'mouse'
         : e.kind == PointerDeviceKind.touch
-            ? 'touch'
-            : 'pen';
+        ? 'touch'
+        : 'pen';
     final x = e.localPosition.dx;
     final y = e.localPosition.dy;
     unawaited(
@@ -2493,7 +2528,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 icon: Icons.copy_all_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
-                onTap: controlsLocked ? null : () => unawaited(_copySvgMarkup()),
+                onTap: controlsLocked
+                    ? null
+                    : () => unawaited(_copySvgMarkup()),
               ),
               const SizedBox(width: 8),
               _buildToolPill(
@@ -2523,7 +2560,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               _buildToolPill(
                 label: '${_zoomPercent.toStringAsFixed(0)}%',
                 icon: Icons.search_rounded,
-                backgroundColor: widget.palette.actionColor.withValues(alpha: 0.72),
+                backgroundColor: widget.palette.actionColor.withValues(
+                  alpha: 0.72,
+                ),
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : _resetView,
               ),
@@ -2602,11 +2641,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
-              context,
-              zh: '正在复制 SVG…',
-              en: 'Copying SVG…',
-            ),
+            _localizedText(context, zh: '正在复制 SVG…', en: 'Copying SVG…'),
           ),
           duration: const Duration(milliseconds: 700),
         ),
@@ -2687,11 +2722,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
-    final pathHint = savedPath ?? _localizedText(
-      context,
-      zh: '临时文件写入失败',
-      en: 'temp file write failed',
-    );
+    final pathHint =
+        savedPath ??
+        _localizedText(context, zh: '临时文件写入失败', en: 'temp file write failed');
     if (writeOk && verification.osLayerOk) {
       _showHomeSnackBarWithMessenger(
         context,
@@ -2770,7 +2803,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       flutterLen = data?.text?.length ?? 0;
     } catch (_) {}
-    final osLayerOk = pbpasteLen == svg.length &&
+    final osLayerOk =
+        pbpasteLen == svg.length &&
         pbpasteSvgOpenCount == 1 &&
         pbpasteSvgCloseCount == 1;
     return _SvgClipboardVerification(
@@ -2918,8 +2952,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   ({String bg, String fg, String border}) _computeMermaidThemeColors() {
-    String argbToCss(Color c) =>
-        c.toARGB32().toRadixString(16).padLeft(8, '0');
+    String argbToCss(Color c) => c.toARGB32().toRadixString(16).padLeft(8, '0');
     String argbToRgbHex(Color c) {
       final hex = argbToCss(c);
       return hex.length == 8 ? hex.substring(2) : hex;
@@ -2935,11 +2968,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   /// 构建由 Dart 端 runJavaScript 注入的 mermaid 渲染脚本。
   /// 不再嵌在 HTML 模板中——WKWebView 对内联 <script> 标签偶发
   /// 不执行，runJavaScript 走 platform channel 注入绕开此问题。
-  String _buildRenderJs(
-    String bg,
-    String fg,
-    String border,
-  ) {
+  String _buildRenderJs(String bg, String fg, String border) {
     return '''
 (function () {
   var post = function (value) {
@@ -3092,8 +3121,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // 在浏览器里变成 R=FF 亮红，导致整个 Mermaid 视图背景"深红色"。
     // 修复：只取后 6 位 RRGGBB（颜色必定不透明，alpha 直接丢弃）。
     String cssHex(Color c) {
-      final hex =
-          c.toARGB32().toRadixString(16).padLeft(8, '0');
+      final hex = c.toARGB32().toRadixString(16).padLeft(8, '0');
       return hex.length >= 7 ? hex.substring(hex.length - 6) : hex;
     }
 

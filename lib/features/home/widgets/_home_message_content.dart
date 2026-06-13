@@ -1017,10 +1017,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   String? _lastBuilderSignature;
   String? _lastParseKey;
   bool _deferredParseScheduled = false;
+  TranscriptScrollActivity? _scrollActivity;
+  bool _deferredParsePendingAfterScroll = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _bindScrollActivity();
     final themeSignature = _computeThemeSignature();
     if (_children == null || _lastThemeSignature != themeSignature) {
       _lastThemeSignature = themeSignature;
@@ -1048,8 +1051,32 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   @override
   void dispose() {
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = null;
     _disposeRecognizers();
     super.dispose();
+  }
+
+  void _bindScrollActivity() {
+    final activity = context.read<TranscriptScrollActivity>();
+    if (identical(activity, _scrollActivity)) {
+      return;
+    }
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = activity;
+    activity.addListener(_handleScrollActivityChanged);
+  }
+
+  void _handleScrollActivityChanged() {
+    final activity = _scrollActivity;
+    if (activity == null || !mounted || activity.value) {
+      return;
+    }
+    if (!_deferredParsePendingAfterScroll || _deferredParseScheduled) {
+      return;
+    }
+    _deferredParsePendingAfterScroll = false;
+    _scheduleDeferredParse();
   }
 
   /// Decides whether to parse synchronously or defer to the next frame.
@@ -1079,20 +1106,37 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       if (_children == null) {
         _renderPlainTextPlaceholder();
       }
-      if (!_deferredParseScheduled) {
-        _deferredParseScheduled = true;
-        _MarkdownFrameScheduler.instance.schedule(() {
-          if (!mounted) {
-            _deferredParseScheduled = false;
-            return;
-          }
-          _deferredParseScheduled = false;
-          setState(_parseMarkdown);
-        });
+      if (_scrollActivity?.value ?? false) {
+        _deferredParsePendingAfterScroll = true;
+      } else {
+        _deferredParsePendingAfterScroll = false;
+        _scheduleDeferredParse();
       }
       return;
     }
+    _deferredParsePendingAfterScroll = false;
     _parseMarkdown();
+  }
+
+  void _scheduleDeferredParse() {
+    if (_deferredParseScheduled) {
+      return;
+    }
+    _deferredParseScheduled = true;
+    _MarkdownFrameScheduler.instance.schedule(() {
+      if (!mounted) {
+        _deferredParseScheduled = false;
+        return;
+      }
+      if (_scrollActivity?.value ?? false) {
+        _deferredParseScheduled = false;
+        _deferredParsePendingAfterScroll = true;
+        return;
+      }
+      _deferredParseScheduled = false;
+      _deferredParsePendingAfterScroll = false;
+      setState(_parseMarkdown);
+    });
   }
 
   void _renderPlainTextPlaceholder() {
@@ -3289,6 +3333,8 @@ class _DeferredHtmlBubbleWebViewState
     extends State<_DeferredHtmlBubbleWebView> {
   bool _mountWebView = false;
   int _generation = 0;
+  TranscriptScrollActivity? _scrollActivity;
+  bool _pendingMountAfterScroll = false;
 
   @override
   void initState() {
@@ -3309,17 +3355,55 @@ class _DeferredHtmlBubbleWebViewState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activity = context.read<TranscriptScrollActivity>();
+    if (identical(activity, _scrollActivity)) {
+      return;
+    }
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = activity;
+    activity.addListener(_handleScrollActivityChanged);
+  }
+
+  @override
   void dispose() {
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = null;
     _generation += 1;
     super.dispose();
   }
 
+  void _handleScrollActivityChanged() {
+    final activity = _scrollActivity;
+    if (activity == null || !mounted || activity.value) {
+      return;
+    }
+    if (!_pendingMountAfterScroll || _mountWebView) {
+      return;
+    }
+    _pendingMountAfterScroll = false;
+    _scheduleMount();
+  }
+
   void _scheduleMount() {
+    if (_mountWebView) {
+      return;
+    }
+    if (_scrollActivity?.value ?? false) {
+      _pendingMountAfterScroll = true;
+      return;
+    }
     final generation = ++_generation;
     _HtmlWebViewFrameScheduler.instance.schedule(() {
       if (!mounted || generation != _generation || _mountWebView) {
         return;
       }
+      if (_scrollActivity?.value ?? false) {
+        _pendingMountAfterScroll = true;
+        return;
+      }
+      _pendingMountAfterScroll = false;
       setState(() {
         _mountWebView = true;
       });
@@ -3328,7 +3412,13 @@ class _DeferredHtmlBubbleWebViewState
 
   @override
   Widget build(BuildContext context) {
-    final duration = cardMotionDurationFor(context, expanding: true);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final scrolling = context.select<TranscriptScrollActivity, bool>(
+      (activity) => activity.value,
+    );
+    final duration = scrolling || reduceMotion
+        ? Duration.zero
+        : cardMotionDurationFor(context, expanding: true);
     return AnimatedSwitcher(
       duration: duration,
       transitionBuilder: (child, animation) {
@@ -4417,9 +4507,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // `_heightFloorCache`，新 State 重建后若 _height 丢失则用 floor
     // 兜底，防止 Stack 高度收缩到 estimatedHeight 导致 maxScrollExtent
     // 抖动。floor 与 cache 分离，outlier 占位估计绝不写入，避免污染。
-    // 正常运营期间（同 State 内）允许 _height 自由减小，不受 floor 限制。
     final baseDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
-    final displayHeight = floor != null && baseDisplayHeight < floor
+    final displayHeight =
+        _scrollActive && floor != null && baseDisplayHeight < floor
         ? floor
         : baseDisplayHeight;
 
@@ -4709,8 +4799,14 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
+      (activity) => activity.value,
+    );
     final body = AnimatedSwitcher(
-      duration: cardMotionDurationFor(context, expanding: !isStreaming),
+      duration: transcriptScrolling || reduceMotion
+          ? Duration.zero
+          : cardMotionDurationFor(context, expanding: !isStreaming),
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.topLeft,
