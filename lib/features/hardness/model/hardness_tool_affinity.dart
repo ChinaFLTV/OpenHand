@@ -1,4 +1,4 @@
-// Hardness Engineering phase-tool affinity configuration.
+// Harness Engineering phase-tool affinity configuration.
 //
 // This module defines which tool categories are relevant for each phase,
 // enabling intelligent tool filtering to reduce token overhead while
@@ -67,7 +67,7 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     // available across all phases without affinity filtering.
     AiBuiltinToolKind.askUserChoice => null,
     // Skill manager is Hermes-Talker-specific and is not exposed to
-    // Hardness Engineering sessions; treat as un-categorized.
+    // Harness Engineering sessions; treat as un-categorized.
     AiBuiltinToolKind.skillManager => null,
     // ToolSearch is dynamically gated by lazy-loading; not bound to any
     // phase category so it remains visible whenever the controller exposes it.

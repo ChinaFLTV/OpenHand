@@ -128,7 +128,7 @@ const ToolboxRoute = () => (
   </RequireAuth>
 );
 
-const HardnessRoute = () => (
+const HarnessRoute = () => (
   <RequireAuth>
     <Appear variant="page"><HardnessPage /></Appear>
   </RequireAuth>
@@ -173,7 +173,8 @@ export function AppRouter() {
       <Route path="/thread" component={SessionsRoute} />
       <Route path="/files" component={FilesRoute} />
       <Route path="/toolbox" component={ToolboxRoute} />
-      <Route path="/hardness" component={HardnessRoute} />
+      <Route path="/harness" component={HarnessRoute} />
+      <Route path="/hardness" component={HarnessRoute} />
       <Route path="/settings" component={SettingsRoute} />
       <Route path="/plugins" component={PluginsRoute} />
       <Route path="/ops" component={OpsRoute} />

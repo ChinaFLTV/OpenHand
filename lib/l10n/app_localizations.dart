@@ -1031,13 +1031,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsHardnessToolSearchHistoryCapLabel.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'Hardness ToolSearch 历史保留上限'**
+  /// **'Harness ToolSearch 历史保留上限'**
   String get settingsHardnessToolSearchHistoryCapLabel;
 
   /// No description provided for @settingsHardnessToolSearchHistoryCapBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。'**
+  /// **'ToolSearch 已加载列表对话框保留的 Harness phase 最大个数，超出后以 LRU 淘汰。'**
   String get settingsHardnessToolSearchHistoryCapBody;
 
   /// No description provided for @settingsHardnessToolSearchHistoryCapValue.
@@ -5321,7 +5321,7 @@ abstract class AppLocalizations {
   /// No description provided for @snackToolSearchLoadedSourceHardness.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'Hardness 阶段'**
+  /// **'Harness 阶段'**
   String get snackToolSearchLoadedSourceHardness;
 
   /// No description provided for @snackToolSearchLoadedReplayedToast.
@@ -5363,7 +5363,7 @@ abstract class AppLocalizations {
   /// No description provided for @snackToolSearchLoadedSourceFilterHardness.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'仅 Hardness'**
+  /// **'仅 Harness'**
   String get snackToolSearchLoadedSourceFilterHardness;
 
   /// No description provided for @snackToolSearchLoadedSummary.

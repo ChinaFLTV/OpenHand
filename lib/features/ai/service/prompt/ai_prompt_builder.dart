@@ -1999,7 +1999,7 @@ class AiPromptBuilder {
       'machine_expert' =>
         'You are OpenHand Machine Expert. Produce a relay-safe terminal interaction checkpoint.',
       'hardness_engineering' =>
-        'You are OpenHand Hardness Engineering. Produce a relay-safe orchestration checkpoint.',
+        'You are OpenHand Harness Engineering. Produce a relay-safe orchestration checkpoint.',
       'programming_expert' =>
         'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
       'hermes_talker' =>

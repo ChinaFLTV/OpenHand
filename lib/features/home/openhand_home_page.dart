@@ -262,7 +262,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _desktopNavigationWidth,
   );
 
-  // Active Hardness Engineering session (null when no HE session is running).
+  // Active Harness Engineering session (null when no HE session is running).
   HardnessOrchestrator? _activeHardnessOrchestrator;
   HardnessSessionConfig? _activeHardnessConfig;
   bool _heFullAccessPermission = false;
@@ -1096,13 +1096,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// Hardness ToolSearch 重放反悔窗口由
+  /// Harness ToolSearch 重放反悔窗口由
   /// [SettingsController.toolSearchReplayCancelWindowSeconds] 提供
   /// （默认 3 秒，范围 1..30）；dispatcher 自身不再持有硬编码默认。
   late final ToolSearchReplayDispatcher _toolSearchReplayDispatcher =
       ToolSearchReplayDispatcher();
 
-  /// 硬度阶段没有共享 tracker，因此本地维护一份按 phase-session 分桶的
+  /// Harness 阶段没有共享 tracker，因此本地维护一份按 phase-session 分桶的
   /// ToolSearch 历史时间线，供 dialog 展示。用 [LinkedHashMap] 的插入序
   /// 天然实现 LRU：每次写入都先 remove 再 put，让最近活跃的 phase 落在
   /// Map 末尾；新增时若超过用户配置的上限（运行时读自
@@ -1173,9 +1173,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               _hardnessToolSearchHistory[phaseSessionId] ??
                   const <AiToolSearchLoadHistoryEntry>[],
             ),
-            // Hardness phase 自身的 tool loop 是自治的，无法直接重放；
+            // Harness phase 自身的 tool loop 是自治的，无法直接重放；
             // 用户的意图通常是「我想再加载这一批」——为了不污染当前
-            // hardness 活跃会话的上下文，专门走「先建独立 AI session
+            // Harness 活跃会话的上下文，专门走「先建独立 AI session
             // 再在新 session 里发 select:」的路径。
             onReplayBatch: _replayToolSearchInFreshSession,
           ),
@@ -3351,7 +3351,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     };
   }
 
-  /// Loads the last-persisted Hardness Engineering session record from disk
+  /// Loads the last-persisted Harness Engineering session record from disk
   /// and displays it in the navigation sidebar.
   Future<void> _loadPersistedHardnessSession() async {
     try {
@@ -3561,7 +3561,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   /// Asynchronously generates a concise AI title (≤20 chars) for the
-  /// Hardness Engineering session and refreshes the navigation tile.
+  /// Harness Engineering session and refreshes the navigation tile.
   static const String _hardnessAutoTitleSystemPrompt =
       'Generate a concise title for a software engineering task. '
       'Return a single title only. Keep it within 20 characters. '
@@ -5621,8 +5621,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
-        zh: 'HE 会话',
-        en: 'HE Session',
+        zh: 'Harness 会话',
+        en: 'Harness Session',
       ),
     };
     _showHomeSnackBar(
@@ -5947,8 +5947,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       title: _localizedText(
         context,
-        zh: '重命名 Hardness Engineering 会话',
-        en: 'Rename HE Session',
+        zh: '重命名 Harness Engineering 会话',
+        en: 'Rename Harness Session',
       ),
       initialValue: record.title,
       hintText: _localizedText(
@@ -5977,8 +5977,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       title: _localizedText(
         context,
-        zh: '删除 Hardness Engineering 会话',
-        en: 'Delete HE Session',
+        zh: '删除 Harness Engineering 会话',
+        en: 'Delete Harness Session',
       ),
       content: Text(record.title),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
@@ -7042,7 +7042,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               )
             : SectionPlaceholder(
                 icon: Icons.construction_rounded,
-                title: 'Hardness Engineering',
+                title: 'Harness Engineering',
                 body: l10n.threadsEmptyBody,
                 footer: l10n.placeholderComingSoon,
                 actionLabel: l10n.newThread,

@@ -319,8 +319,8 @@ class _HeComposer extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: Text(
                 isZh
-                    ? 'Hardness Engineering 使用自动化流水线，不支持手动输入'
-                    : 'Hardness Engineering uses an automated pipeline; manual input is not available',
+                    ? 'Harness Engineering 使用自动化流水线，不支持手动输入'
+                    : 'Harness Engineering uses an automated pipeline; manual input is not available',
                 style: theme.textTheme.bodyMedium?.copyWith(color: disabledFg),
               ),
             ),

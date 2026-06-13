@@ -3850,7 +3850,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// Hardness ToolSearch 历史 LRU 桶上限滑块，1..64，默认 8。
+  /// Harness ToolSearch 历史 LRU 桶上限滑块，1..64，默认 8。
   /// 与 cron retention 同款 Slider，无需 TextEditingController。
   Widget _buildHardnessToolSearchHistoryRow(
     BuildContext context,

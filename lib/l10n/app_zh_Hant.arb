@@ -212,8 +212,8 @@
   "mcpLazyLoadingThresholdSave": "儲存閾值",
   "mcpLazyLoadingThresholdSaved": "MCP 工具懶載入閾值已儲存。",
   "mcpLazyLoadingThresholdInvalid": "請填寫 1000 ~ 1000000 之間的整數。",
-  "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch 歷史保留上限",
-  "settingsHardnessToolSearchHistoryCapBody": "ToolSearch 已載入清單對話框保留的 Hardness phase 最大個數，超出後以 LRU 淘汰。",
+  "settingsHardnessToolSearchHistoryCapLabel": "Harness ToolSearch 歷史保留上限",
+  "settingsHardnessToolSearchHistoryCapBody": "ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。",
   "settingsHardnessToolSearchHistoryCapValue": "當前保留最近 {cap} 個 phase",
   "@settingsHardnessToolSearchHistoryCapValue": {
     "placeholders": {
@@ -1286,14 +1286,14 @@
   "snackToolSearchLoadedFilterHint": "依名稱過濾…",
   "snackToolSearchLoadedHistoryFilterHint": "依名稱或查詢過濾…",
   "snackToolSearchLoadedSourceAi": "AI 對話",
-  "snackToolSearchLoadedSourceHardness": "Hardness 階段",
+  "snackToolSearchLoadedSourceHardness": "Harness 階段",
   "snackToolSearchLoadedReplayedToast": "已重新發起 ToolSearch",
   "snackToolSearchLoadedReplayPendingToast": "即將發起，3 秒內可點擊「撤銷」",
   "snackToolSearchLoadedReplayCancelAction": "撤銷",
   "snackToolSearchLoadedReplayCancelledToast": "已撤銷 — composer 已清空",
   "snackToolSearchLoadedSourceFilterAll": "全部",
   "snackToolSearchLoadedSourceFilterAi": "僅 AI",
-  "snackToolSearchLoadedSourceFilterHardness": "僅 Hardness",
+  "snackToolSearchLoadedSourceFilterHardness": "僅 Harness",
   "snackToolSearchLoadedSummary": "本對話已從 {queries} 個查詢中載入 {tools} 個 MCP 工具",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {

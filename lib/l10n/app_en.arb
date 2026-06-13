@@ -213,8 +213,8 @@
   "mcpLazyLoadingThresholdSaved": "MCP lazy-loading threshold saved.",
   "mcpLazyLoadingHowItWorks": "When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.",
   "mcpLazyLoadingThresholdInvalid": "Please enter an integer between 1000 and 1000000.",
-  "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch history cap",
-  "settingsHardnessToolSearchHistoryCapBody": "Maximum number of recent Hardness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).",
+  "settingsHardnessToolSearchHistoryCapLabel": "Harness ToolSearch history cap",
+  "settingsHardnessToolSearchHistoryCapBody": "Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).",
   "settingsHardnessToolSearchHistoryCapValue": "Currently keeping the last {cap} phase(s)",
   "@settingsHardnessToolSearchHistoryCapValue": {
     "placeholders": {
@@ -1285,14 +1285,14 @@
   "snackToolSearchLoadedFilterHint": "Filter by name…",
   "snackToolSearchLoadedHistoryFilterHint": "Filter by name or query…",
   "snackToolSearchLoadedSourceAi": "AI session",
-  "snackToolSearchLoadedSourceHardness": "Hardness phase",
+  "snackToolSearchLoadedSourceHardness": "Harness phase",
   "snackToolSearchLoadedReplayedToast": "Re-issued ToolSearch with previous selection",
   "snackToolSearchLoadedReplayPendingToast": "About to dispatch — tap Cancel to abort",
   "snackToolSearchLoadedReplayCancelAction": "Cancel",
   "snackToolSearchLoadedReplayCancelledToast": "Dispatch cancelled — composer cleared",
   "snackToolSearchLoadedSourceFilterAll": "All",
   "snackToolSearchLoadedSourceFilterAi": "AI only",
-  "snackToolSearchLoadedSourceFilterHardness": "Hardness only",
+  "snackToolSearchLoadedSourceFilterHardness": "Harness only",
   "snackToolSearchLoadedSummary": "Loaded {tools} MCP tool(s) from {queries} query(ies) in this session",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {

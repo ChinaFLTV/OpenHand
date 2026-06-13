@@ -504,11 +504,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsHardnessToolSearchHistoryCapLabel =>
-      'Hardness ToolSearch 履歴の保持上限';
+      'Harness ToolSearch 履歴の保持上限';
 
   @override
   String get settingsHardnessToolSearchHistoryCapBody =>
-      'ToolSearch 読み込み済みダイアログが保持する Hardness phase の最大件数。超えた分は LRU で逆出されます。';
+      'ToolSearch 読み込み済みダイアログが保持する Harness phase の最大件数。超えた分は LRU で逆出されます。';
 
   @override
   String settingsHardnessToolSearchHistoryCapValue(int cap) {
@@ -2821,7 +2821,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedSourceAi => 'AI セッション';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Hardness フェーズ';
+  String get snackToolSearchLoadedSourceHardness => 'Harness フェーズ';
 
   @override
   String get snackToolSearchLoadedReplayedToast => '以前の選択で ToolSearch を再実行しました';
@@ -2843,7 +2843,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedSourceFilterAi => 'AI のみ';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => 'Hardness のみ';
+  String get snackToolSearchLoadedSourceFilterHardness => 'Harness のみ';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {

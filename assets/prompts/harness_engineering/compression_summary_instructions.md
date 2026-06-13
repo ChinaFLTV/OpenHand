@@ -1,5 +1,5 @@
 <role>
-为 Hardness Engineering 多角色编排生成持久 checkpoint。用简体中文输出；路径、CLI、模型名、角色、agent_id、轮次、`PASS` / `FAIL`、退出码保留原文。
+为 Harness Engineering 多角色编排生成持久 checkpoint。用简体中文输出；路径、CLI、模型名、角色、agent_id、轮次、`PASS` / `FAIL`、退出码保留原文。
 </role>
 
 <preserve>
@@ -24,7 +24,7 @@
 仅输出 Markdown；空章节省略。
 
 ```markdown
-# Hardness Engineering 会话摘要
+# Harness Engineering 会话摘要
 
 ## 配置
 ## 原始任务

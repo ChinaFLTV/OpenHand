@@ -67,7 +67,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
     <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="Programming expert" /><br/><sub><b>Programming Expert · workspace view</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="Hardness engineering" /><br/><sub><b>Hardness Engineering · phased pipeline</b></sub></td>
+    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="Harness Engineering" /><br/><sub><b>Harness Engineering · phased pipeline</b></sub></td>
     <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP servers" /><br/><sub><b>MCP server management</b></sub></td>
   </tr>
   <tr>
@@ -103,7 +103,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 - **LSP backend catalog** with auto-install for Dart / TypeScript / Python / Rust / Go and more.
 - Tool-call cards animated with a fade-in + height transition.
 
-### 6. Hardness Engineering
+### 6. Harness Engineering
 - Phased (Plan → Implement → Verify → Recap) pipeline with per-phase tool affinity.
 - Built-in CLI installer / login helper, all external processes routed through `safe_subprocess`.
 - Dashboard split into 13 `.part.dart` UI subtrees for maintainability.
@@ -160,7 +160,7 @@ For each protocol OpenHand bundles:
 |---|---|---|
 | 🪄 **Default** | General chat | Minimal toolset, cleanest context. |
 | 💻 **Programming Expert** | Read/edit/refactor code | Full toolset (Bash/LSP/Grep/Edit/...) + workspace view. |
-| 🛠 **Hardness Engineering** | Complex multi-phase tasks | Plan→Implement→Verify→Recap phased pipeline. |
+| 🛠 **Harness Engineering** | Complex multi-phase tasks | Plan→Implement→Verify→Recap phased pipeline. |
 | 💬 **Hermes Talker** | Casual self-learning chat | `memory` + `skill_manager` + background cron distillation. |
 | 🍎 **Siri Helper** | Apple-native assistant vibe | Shown only on Apple devices; keeps the default capability stack but swaps in a Siri-style system prompt. |
 | 🌐 **Web Reverse Expert** | Browser API reversing / param recovery / repro scripts | Real Chrome + CDP + 17-tab dashboard + 40+ advanced panels + JS snippet library. |
@@ -361,7 +361,7 @@ lib/
 │   │   ├── service/                # ChatService / DSML / Hook / Self-Learning…
 │   │   └── model/                  # Protocols, model catalog, token usage, templates
 │   ├── home/                       # Main UI (chat, sidebar, workspace, dialogs)
-│   ├── hardness/                   # Hardness Engineering template (13 part files)
+│   ├── hardness/                   # Harness Engineering template (13 part files)
 │   ├── mcp/                        # MCP server management
 │   ├── skills/                     # Skills market
 │   ├── memory/                     # Memory store

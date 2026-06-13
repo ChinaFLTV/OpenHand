@@ -49,7 +49,7 @@ export const dict_zhHant: Record<string, string> = {
   'home.openOps': 'Ops',
   'home.openLogs': '紀錄',
   'home.openToolbox': '工具箱',
-  'home.openHardness': 'Hardness',
+  'home.openHardness': 'Harness',
   'home.openSettings': '設定',
   'detail.remoteRunning': '另一處客戶端正在生成回覆。如本端正在編輯草稿, 建議等遠端結束後再發送, 避免順序混亂。',
   'detail.unreadSuffix': '條新訊息',

@@ -33,7 +33,7 @@ _HeAnnotation? _parseHeAnnotation(String content) {
   );
 }
 
-// ── Hardness Engineering capsule row widget ───────────────────────────────────
+// ── Harness Engineering capsule row widget ───────────────────────────────────
 
 class _HardnessAnnotationCapsuleRow extends StatelessWidget {
   const _HardnessAnnotationCapsuleRow({required this.annotation});

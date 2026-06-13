@@ -65,7 +65,7 @@
     <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="编程专家" /><br/><sub><b>编程专家 · 工作区视图</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="硬度工程模板" /><br/><sub><b>硬度工程 · 阶段化流水线</b></sub></td>
+    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="Harness Engineering 模板" /><br/><sub><b>Harness Engineering · 阶段化流水线</b></sub></td>
     <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP 服务" /><br/><sub><b>MCP 服务管理</b></sub></td>
   </tr>
   <tr>
@@ -101,7 +101,7 @@
 - 支持 **LSP 后端目录**（自动安装 / 托管），覆盖 Dart、TypeScript、Python、Rust、Go 等主流语言。
 - 工具调用卡片含 **入场淡入 + 高度过渡** 动画。
 
-### 6. 硬度工程（Hardness Engineering）
+### 6. Harness Engineering
 - 阶段化（Plan → Implement → Verify → Recap）流水线，自带工具亲和过滤。
 - 内嵌 CLI 安装与登录助手，所有外部进程通过 `safe_subprocess` 受控执行。
 - Dashboard 拆分为 13 个 `.part.dart` UI 子树，单文件可维护。
@@ -157,7 +157,7 @@
 |---|---|---|
 | 🪄 **Default** | 通用聊天 | 最小工具集、上下文最干净。 |
 | 💻 **Programming Expert** | 代码读写、重构、调试 | 完整工具集（Bash/LSP/Grep/Edit/...）+ 工作区视图。 |
-| 🛠 **Hardness Engineering** | 复杂多阶段任务 | Plan→Implement→Verify→Recap 阶段化流水线。 |
+| 🛠 **Harness Engineering** | 复杂多阶段任务 | Plan→Implement→Verify→Recap 阶段化流水线。 |
 | 💬 **Hermes Talker** | 闲聊式自学习 | `memory` + `skill_manager` + 后台 Cron 自动蒸馏长期记忆。 |
 | 🍎 **Siri 助手** | 苹果生态风格助手 | 仅在 Apple 设备显示；沿用默认模板能力栈，切换为 Siri 风格系统提示词。 |
 | 🌐 **Web Reverse Expert** | 浏览器接口逆向 / 参数还原 / 复现脚本 | 真实 Chrome + CDP + 17 Dashboard tab + 40+ 高级面板 + JS 片段库。 |
@@ -347,7 +347,7 @@ lib/
 │   │   ├── service/                # ChatService / DSML / Hook / Self-Learning…
 │   │   └── model/                  # 协议、模型目录、Token 用量、模板
 │   ├── home/                       # 主界面（聊天、侧栏、工作区、对话框）
-│   ├── hardness/                   # 硬度工程模板（13 个 part 文件）
+│   ├── hardness/                   # Harness Engineering 模板（13 个 part 文件）
 │   ├── mcp/                        # MCP 服务器管理
 │   ├── skills/                     # 技能市场
 │   ├── memory/                     # 记忆库

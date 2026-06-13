@@ -136,7 +136,7 @@ class _HardnessSessionTile extends StatelessWidget {
   }
 }
 
-/// Status badge for Hardness Engineering sessions.
+/// Status badge for Harness Engineering sessions.
 /// Uses the same [_SweepBadge] animation for the running state and a static
 /// rounded capsule for terminal states — matching the [_ActiveThreadBadge]
 /// pattern used for AI thread sessions.

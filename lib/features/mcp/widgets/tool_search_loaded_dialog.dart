@@ -999,7 +999,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 
-  /// 渲染来源标签 Chip：区分 AI 会话 / Hardness 阶段，方便用户快速辨识
+  /// 渲染来源标签 Chip：区分 AI 会话 / Harness 阶段，方便用户快速辨识
   /// 同一历史时间线中的来源。
   Widget _buildSourceChip(
     ThemeData theme,

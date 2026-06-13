@@ -1378,6 +1378,10 @@ class WebMessagePlatformService {
       '/api/hardness/session',
       (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
     );
+    router.get(
+      '/api/harness/session',
+      (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
+    );
     // Plugin Service: 列出插件状态 / 安装 / 更新 / 卸载 / 重新扫描
     router.get(
       '/api/plugins',
@@ -1688,10 +1692,10 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
 
-  /// Toolbox: 持久化的 Hardness Engineering 会话快照 (单实例)。
-  /// App 同时只跑一个 hardness session, 持久化在 SQLite 的 hardness_sessions 表;
+  /// Toolbox: 持久化的 Harness Engineering 会话快照 (单实例)。
+  /// App 同时只跑一个 Harness session, 持久化在 SQLite 的 hardness_sessions 表;
   /// orchestrator 是 home page 内部状态, 不直接暴露到 service, 故 web 走 store
-  /// 的最近一次写入。返回 `{record: null}` 表示尚未运行过 hardness。
+  /// 的最近一次写入。返回 `{record: null}` 表示尚未运行过 Harness。
   Future<shelf.Response> _hardnessSessionHandler() async {
     try {
       final record = await HardnessSessionStore().load();

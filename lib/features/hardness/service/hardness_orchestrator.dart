@@ -228,7 +228,7 @@ enum HardnessOrchestratorStatus { idle, running, completed, failed, cancelled }
 // ─────────────────────────────────────────────────────────────────────────────
 // HardnessOrchestrator
 //
-// Program-driven state machine that executes Hardness Engineering phases
+// Program-driven state machine that executes Harness Engineering phases
 // directly via CLI processes — no AI orchestration layer involved.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -532,7 +532,7 @@ class HardnessOrchestrator extends ChangeNotifier {
     await start();
   }
 
-  /// Starts the full Hardness Engineering phase pipeline.
+  /// Starts the full Harness Engineering phase pipeline.
   /// Safe to call only when [status] is [HardnessOrchestratorStatus.idle].
   Future<void> start() async {
     if (_status == HardnessOrchestratorStatus.running) return;
@@ -1059,7 +1059,7 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
       _appendLine(log, '');
     }
-    _appendLine(log, '✗ HardnessOrchestrator 内部异常：$error');
+    _appendLine(log, '✗ Harness orchestrator 内部异常：$error');
     if (log.status == HardnessPhaseStatus.running ||
         log.status == HardnessPhaseStatus.pending ||
         log.status == HardnessPhaseStatus.paused) {
@@ -1872,7 +1872,7 @@ class HardnessOrchestrator extends ChangeNotifier {
 
     // 构建阶段提示词（语言策略已在系统指令中定义，此处仅引用）
     final sb = StringBuffer()
-      ..writeln('# Hardness Engineering - ${phase.displayNameZh}阶段')
+      ..writeln('# Harness Engineering - ${phase.displayNameZh}阶段')
       ..writeln()
       ..writeln()
       ..writeln('> 遵循系统语言策略：所有输出使用简体中文，技术标识保留原文。')
@@ -2191,8 +2191,7 @@ class HardnessOrchestrator extends ChangeNotifier {
     final process = await startTrackedProcess(
       resolveHardnessCliShellExecutable(),
       buildHardnessCliShellArgs(fullCmd),
-      environment: SystemProxyResolver.instance
-          .resolveSubprocessEnvironment(),
+      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
     _activeProcess = process;
 

@@ -1,4 +1,4 @@
-// Hardness Engineering prompt builder service.
+// Harness Engineering prompt builder service.
 //
 // This module provides specialized prompt construction for Hardness
 // Engineering phases, implementing:

@@ -1,5 +1,5 @@
 <role>
-本文档定义 Hardness Engineering 多角色编排在每个阶段中的开发执行细节。语言策略与角色定义已在系统指令中规定，此处不重复。
+本文档定义 Harness Engineering 多角色编排在每个阶段中的开发执行细节。语言策略与角色定义已在系统指令中规定，此处不重复。
 
 阶段循环：metaCollection → reading → planning → implementing → reviewing → handoff（按需）。
 </role>

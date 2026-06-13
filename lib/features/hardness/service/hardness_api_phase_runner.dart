@@ -33,11 +33,11 @@ String? validateHardnessHandoffDocument(String content) {
     return '内容过短';
   }
   final h1Pattern = RegExp(
-    r'^#\s+Hardness Engineering\s+(?:交接文档|会话摘要)\s*$',
+    r'^#\s+(?:Harness|Hardness) Engineering\s+(?:交接文档|会话摘要)\s*$',
     multiLine: true,
   );
   if (!h1Pattern.hasMatch(normalized)) {
-    return '缺少 # Hardness Engineering 会话摘要';
+    return '缺少 # Harness Engineering 会话摘要';
   }
   final sectionBodyByHeading = _markdownSectionBodies(normalized);
   String? requireSection(String label, List<String> headings) {
@@ -112,9 +112,9 @@ Map<String, Object?> buildHardnessHandoffFailureRecord({
   };
 }
 
-/// Executes a single Hardness Engineering phase using an API-based model
+/// Executes a single Harness Engineering phase using an API-based model
 /// (URL mode) instead of a CLI tool. This bridges the gap between the
-/// Hardness phase orchestration protocol and the standard AI session
+/// Harness phase orchestration protocol and the standard AI session
 /// infrastructure (chat service, protocol adapters, tool runtime, MCP,
 /// memory, skills).
 ///
@@ -1178,7 +1178,7 @@ class HardnessApiPhaseRunner {
 
   /// System prompt for the handoff document generation.
   static const String _handoffSystemPrompt = '''
-你是 Hardness Engineering 会话的交接摘要器。只输出 Markdown 正文，不调用工具，不输出解释前后缀。
+你是 Harness Engineering 会话的交接摘要器。只输出 Markdown 正文，不调用工具，不输出解释前后缀。
 
 目标：把对话历史压缩为持久化、信息密度高、可接力执行的会话摘要。全文使用简体中文；路径、命令、文件名、CLI 名、模型名、PASS/FAIL、退出码、轮次编号保留原文。
 
@@ -1187,7 +1187,7 @@ class HardnessApiPhaseRunner {
 请严格使用以下章节顺序；没有事实的章节也要写“暂无已确认事项”，不要省略关键章节：
 
 ```markdown
-# Hardness Engineering 会话摘要
+# Harness Engineering 会话摘要
 
 ## 配置
 - 工作目录：{path}

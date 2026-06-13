@@ -278,7 +278,7 @@ class AppSettingsSnapshot {
   static const int minCronAutoCleanupRetentionDays = 1;
   static const int maxCronAutoCleanupRetentionDays = 365;
 
-  /// Hardness ToolSearch 历史按 phase-session 分桶存储，同时保留
+  /// Harness ToolSearch 历史按 phase-session 分桶存储，同时保留
   /// 的最近 phase 个数（LRU 淘汰）。默认 8，允许 1..64，避免
   /// 长会话内存膨胀。
   static const int defaultHardnessToolSearchHistoryMaxPhases = 8;
@@ -847,7 +847,7 @@ class AppSettingsSnapshot {
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;
 
-  /// Hardness ToolSearch 加载历史 LRU 桶上限，但到该上限后会从
+  /// Harness ToolSearch 加载历史 LRU 桶上限，但到该上限后会从
   /// 「全会话」维度淘汰最早的 phase 桶。默认 8。
   final int hardnessToolSearchHistoryMaxPhases;
 

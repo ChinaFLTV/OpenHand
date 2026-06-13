@@ -1,7 +1,7 @@
 # Hardness feature（widget-bundle 形态）
 
 ## 职责
-"Hardness Engineering" 工作流：把 AI 会话拆成 phase × role，编排 prompt 与 CLI 工具链。
+"Harness Engineering" 工作流：把 AI 会话拆成 phase × role，编排 prompt 与 CLI 工具链。
 
 ## 形态
 无自身全局 Controller；状态在 `service/hardness_orchestrator` + `data/hardness_session_store` 内自托管，由入口 dialog/dashboard 内部 Provider 树持有。不挂在 main.dart 全局 providers 上。

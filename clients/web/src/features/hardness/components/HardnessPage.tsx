@@ -1,4 +1,4 @@
-// HardnessPage —— 本机最近一次 Hardness Engineering 会话的只读浏览。
+// HardnessPage —— 本机最近一次 Harness Engineering 会话的只读浏览。
 //
 // App 端的 hardness_session_dashboard.dart 用 5 个折叠卡片串行展示
 // metaCollection → reading → planning → implementing → reviewing,
@@ -90,7 +90,7 @@ export function HardnessPage() {
       style={{ background: 'var(--m3-background)', color: 'var(--m3-on-surface)' }}
     >
       <TopBar
-        title={t('hardness.title', 'Hardness Engineering')}
+        title={t('hardness.title', 'Harness Engineering')}
         subtitle={t('hardness.subtitle', '查看本机最近一次工程化会话快照')}
       />
 
@@ -122,7 +122,7 @@ export function HardnessPage() {
                 border: '1px dashed var(--m3-outline-variant)',
               }}
             >
-              {t('hardness.empty', '本机尚未运行过 Hardness Engineering 会话')}
+              {t('hardness.empty', '本机尚未运行过 Harness Engineering 会话')}
             </div>
           </Appear>
         ) : (

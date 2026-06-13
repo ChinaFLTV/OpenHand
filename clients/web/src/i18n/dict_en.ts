@@ -51,7 +51,7 @@ export const dict_en: Record<string, string> = {
   'home.openOps': 'Ops',
   'home.openLogs': 'Logs',
   'home.openToolbox': 'Toolbox',
-  'home.openHardness': 'Hardness',
+  'home.openHardness': 'Harness',
   'home.openSettings': 'Settings',
   'detail.remoteRunning': 'Another client is generating a reply. If you are drafting locally, wait for it to finish before sending to avoid out-of-order messages.',
   'detail.unreadSuffix': 'new',

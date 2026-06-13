@@ -5139,7 +5139,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     const config = asRecord(metadata['hardness_config']);
     const roleKeys = ['profiler', 'reader', 'planner', 'implementer', 'reviewer'];
     return (
-      <Section title="Hardness Engineering 配置">
+      <Section title="Harness Engineering 配置">
         {Object.keys(config).length === 0 ? (
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
             配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。

@@ -611,7 +611,7 @@ class SettingsController extends ChangeNotifier {
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
 
-  /// Hardness ToolSearch 加载历史按 phase-session 分桶保留的上限
+  /// Harness ToolSearch 加载历史按 phase-session 分桶保留的上限
   /// （LRU 阐出最早者）。默认 8，范围 [1, 64]。
   int get hardnessToolSearchHistoryMaxPhases =>
       _hardnessToolSearchHistoryMaxPhases;
@@ -2370,7 +2370,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 调整 Hardness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
+  /// 调整 Harness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
   /// clamp；快递中快递重复写入只会走 successNoChange 路径。
   Future<bool> updateHardnessToolSearchHistoryMaxPhases(int value) async {
     final clamped = value.clamp(

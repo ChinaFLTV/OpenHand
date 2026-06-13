@@ -501,11 +501,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsHardnessToolSearchHistoryCapLabel =>
-      'Hardness ToolSearch 历史保留上限';
+      'Harness ToolSearch 历史保留上限';
 
   @override
   String get settingsHardnessToolSearchHistoryCapBody =>
-      'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。';
+      'ToolSearch 已加载列表对话框保留的 Harness phase 最大个数，超出后以 LRU 淘汰。';
 
   @override
   String settingsHardnessToolSearchHistoryCapValue(int cap) {
@@ -2789,7 +2789,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedSourceAi => 'AI 会话';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
+  String get snackToolSearchLoadedSourceHardness => 'Harness 阶段';
 
   @override
   String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
@@ -2810,7 +2810,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedSourceFilterAi => '仅 AI';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+  String get snackToolSearchLoadedSourceFilterHardness => '仅 Harness';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {
@@ -8377,11 +8377,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsHardnessToolSearchHistoryCapLabel =>
-      'Hardness ToolSearch 历史保留上限';
+      'Harness ToolSearch 历史保留上限';
 
   @override
   String get settingsHardnessToolSearchHistoryCapBody =>
-      'ToolSearch 已加载列表对话框保留的 Hardness phase 最大个数，超出后以 LRU 淘汰。';
+      'ToolSearch 已加载列表对话框保留的 Harness phase 最大个数，超出后以 LRU 淘汰。';
 
   @override
   String settingsHardnessToolSearchHistoryCapValue(int cap) {
@@ -10665,7 +10665,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedSourceAi => 'AI 会话';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Hardness 阶段';
+  String get snackToolSearchLoadedSourceHardness => 'Harness 阶段';
 
   @override
   String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
@@ -10686,7 +10686,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get snackToolSearchLoadedSourceFilterAi => '仅 AI';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => '仅 Hardness';
+  String get snackToolSearchLoadedSourceFilterHardness => '仅 Harness';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {
@@ -16252,11 +16252,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsHardnessToolSearchHistoryCapLabel =>
-      'Hardness ToolSearch 歷史保留上限';
+      'Harness ToolSearch 歷史保留上限';
 
   @override
   String get settingsHardnessToolSearchHistoryCapBody =>
-      'ToolSearch 已載入清單對話框保留的 Hardness phase 最大個數，超出後以 LRU 淘汰。';
+      'ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。';
 
   @override
   String settingsHardnessToolSearchHistoryCapValue(int cap) {
@@ -18540,7 +18540,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedSourceAi => 'AI 對話';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Hardness 階段';
+  String get snackToolSearchLoadedSourceHardness => 'Harness 階段';
 
   @override
   String get snackToolSearchLoadedReplayedToast => '已重新發起 ToolSearch';
@@ -18561,7 +18561,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedSourceFilterAi => '僅 AI';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => '僅 Hardness';
+  String get snackToolSearchLoadedSourceFilterHardness => '僅 Harness';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {

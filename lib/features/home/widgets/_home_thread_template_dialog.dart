@@ -259,8 +259,8 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final colorScheme = theme.colorScheme;
   final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
   final sectionTitle = isZh
-      ? 'Hardness Engineering 配置'
-      : 'Hardness Engineering Config';
+      ? 'Harness Engineering 配置'
+      : 'Harness Engineering Config';
   final rawConfig = session.metadata['hardness_config'];
 
   final Map<String, Object?> configMap;
@@ -611,7 +611,7 @@ String _localizedMetadataField(BuildContext context, String field) {
   };
 }
 
-// ── Hardness Engineering annotation parsing ───────────────────────────────────
+// ── Harness Engineering annotation parsing ───────────────────────────────────
 
 final RegExp _heAgentPattern = RegExp(r'\[HE_AGENT:(\w+)\|([^\]]+)\]');
 final RegExp _hePhasePattern = RegExp(r'\[HE_PHASE:(\w+)\]');

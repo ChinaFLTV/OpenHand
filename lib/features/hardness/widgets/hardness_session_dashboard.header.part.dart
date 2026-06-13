@@ -42,7 +42,7 @@ class _HePaneHeader extends StatelessWidget {
 
   String get _effectiveTitle => (sessionTitle?.trim().isNotEmpty == true)
       ? sessionTitle!
-      : (isZh ? 'Hardness Engineering 会话' : 'Hardness Engineering Session');
+      : (isZh ? 'Harness Engineering 会话' : 'Harness Engineering Session');
 
   /// Returns a label like "元数据采集 1/3" describing current execution position.
   String _phaseProgressLabel() {
@@ -227,7 +227,7 @@ class _HePaneHeader extends StatelessWidget {
                         const _HePill(
                           icon: Icons.layers_rounded,
                           label:
-                              'Hardness Engineering · v$kHardnessOrchestratorDisplayVersion',
+                              'Harness Engineering · v$kHardnessOrchestratorDisplayVersion',
                         ),
                         const SizedBox(width: 8),
                         _HePill(
@@ -473,7 +473,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           _HeMetadataEntryRow(
                             label: isZh ? '模板' : 'Template',
-                            value: 'Hardness Engineering',
+                            value: 'Harness Engineering',
                           ),
                           _HeMetadataEntryRow(
                             label: isZh ? '创建时间' : 'Created At',

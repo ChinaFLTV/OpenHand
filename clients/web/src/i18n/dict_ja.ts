@@ -49,7 +49,7 @@ export const dict_ja: Record<string, string> = {
   'home.openOps': 'Ops',
   'home.openLogs': 'ログ',
   'home.openToolbox': 'ツールボックス',
-  'home.openHardness': 'Hardness',
+  'home.openHardness': 'Harness',
   'home.openSettings': '設定',
   'detail.remoteRunning': '他のクライアントが応答を生成中です。草稿を編集中の場合は、順序の乱れを避けるため、完了を待って送信してください。',
   'detail.unreadSuffix': '件の新着',

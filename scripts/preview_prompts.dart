@@ -13,7 +13,7 @@ import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.
 const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'default', dir: 'assets/prompts/default'),
   (id: 'machine_expert', dir: 'assets/prompts/machine_expert'),
-  (id: 'hardness_engineering', dir: 'assets/prompts/hardness_engineering'),
+  (id: 'hardness_engineering', dir: 'assets/prompts/harness_engineering'),
   (id: 'programming_expert', dir: 'assets/prompts/programming_expert'),
   (id: 'hermes_talker', dir: 'assets/prompts/hermes_talker'),
   (id: 'siri_helper', dir: 'assets/prompts/siri_helper'),

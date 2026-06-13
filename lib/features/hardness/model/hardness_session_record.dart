@@ -4,7 +4,7 @@ import 'hardness_session_config.dart';
 
 const Object _hardnessSessionRecordUnset = Object();
 
-/// Persisted metadata for a single Hardness Engineering session.
+/// Persisted metadata for a single Harness Engineering session.
 /// Saved to disk so the session survives app restarts.
 class HardnessSessionRecord {
   const HardnessSessionRecord({

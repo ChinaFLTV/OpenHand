@@ -54,7 +54,7 @@ flutter:
     - assets/prompts/_shared/
     - assets/prompts/common/
     - assets/prompts/default/
-    - assets/prompts/hardness_engineering/
+    - assets/prompts/harness_engineering/
     - assets/prompts/hermes_talker/
     - assets/prompts/machine_expert/
     - assets/prompts/programming_expert/

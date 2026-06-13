@@ -128,7 +128,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     if (trimmedWorkingDirectory.isEmpty) {
       return '';
     }
-    return p.join(trimmedWorkingDirectory, 'hardness');
+    return p.join(trimmedWorkingDirectory, 'harness');
   }
 
   void _applyWorkingDirectorySelection(String workingDirectory) {
@@ -397,11 +397,12 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       } else if (Platform.isLinux) {
         launched = await runDetachedSystemOpen('xdg-open', [normalizedUrl]);
       } else if (Platform.isWindows) {
-        launched = await runDetachedSystemOpen(
-          'cmd',
-          ['/c', 'start', '', normalizedUrl],
-          runInShell: true,
-        );
+        launched = await runDetachedSystemOpen('cmd', [
+          '/c',
+          'start',
+          '',
+          normalizedUrl,
+        ], runInShell: true);
       }
       if (!launched) {
         await Clipboard.setData(ClipboardData(text: normalizedUrl));
@@ -543,8 +544,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                 children: [
                   Text(
                     isZh
-                        ? 'Hardness Engineering 配置'
-                        : 'Hardness Engineering Setup',
+                        ? 'Harness Engineering 配置'
+                        : 'Harness Engineering Setup',
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 20),
@@ -1563,7 +1564,7 @@ class _RoleConfigRow extends StatelessWidget {
                 const SizedBox(width: 6),
                 Tooltip(
                   message: isZh
-                      ? '此工具为 GUI 应用，不支持无交互调用，Hardness Engineering 将跳过此角色阶段'
+                      ? '此工具为 GUI 应用，不支持无交互调用，Harness Engineering 将跳过此角色阶段'
                       : 'GUI-only app: non-interactive invocation is not supported. This role phase will be skipped.',
                   child: Icon(
                     Icons.monitor_rounded,

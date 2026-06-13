@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-/// Execution mode for a Hardness Engineering agent role.
+/// Execution mode for a Harness Engineering agent role.
 ///
 /// - [cli]: Invoke an external CLI tool (claude, codex, gemini, etc.)
 /// - [url]: Use an API-based model from OpenHand settings via HTTP

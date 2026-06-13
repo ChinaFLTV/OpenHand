@@ -213,8 +213,8 @@
   "mcpLazyLoadingThresholdSaved": "Seuil de chargement différé MCP enregistré.",
   "mcpLazyLoadingHowItWorks": "Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l'ensemble chargé de la session afin que le tour suivant les appelle directement.",
   "mcpLazyLoadingThresholdInvalid": "Veuillez saisir un entier entre 1000 et 1000000.",
-  "settingsHardnessToolSearchHistoryCapLabel": "Limite d'historique ToolSearch Hardness",
-  "settingsHardnessToolSearchHistoryCapBody": "Nombre maximum de phases Hardness récentes pour lesquelles la boîte de dialogue de l'historique ToolSearch conserve les entrées. Les anciennes phases sont supprimées (LRU).",
+  "settingsHardnessToolSearchHistoryCapLabel": "Limite d'historique ToolSearch Harness",
+  "settingsHardnessToolSearchHistoryCapBody": "Nombre maximum de phases Harness récentes pour lesquelles la boîte de dialogue de l'historique ToolSearch conserve les entrées. Les anciennes phases sont supprimées (LRU).",
   "settingsHardnessToolSearchHistoryCapValue": "Conserve actuellement les {cap} dernière(s) phase(s)",
   "@settingsHardnessToolSearchHistoryCapValue": {
     "placeholders": {
@@ -1285,14 +1285,14 @@
   "snackToolSearchLoadedFilterHint": "Filtrer par nom…",
   "snackToolSearchLoadedHistoryFilterHint": "Filtrer par nom ou requête…",
   "snackToolSearchLoadedSourceAi": "Session IA",
-  "snackToolSearchLoadedSourceHardness": "Phase Hardness",
+  "snackToolSearchLoadedSourceHardness": "Phase Harness",
   "snackToolSearchLoadedReplayedToast": "ToolSearch relancé avec la sélection précédente",
   "snackToolSearchLoadedReplayPendingToast": "Envoi imminent — appuyez sur Annuler pour interrompre",
   "snackToolSearchLoadedReplayCancelAction": "Annuler",
   "snackToolSearchLoadedReplayCancelledToast": "Envoi annulé — composer vidé",
   "snackToolSearchLoadedSourceFilterAll": "Tous",
   "snackToolSearchLoadedSourceFilterAi": "IA seulement",
-  "snackToolSearchLoadedSourceFilterHardness": "Hardness uniquement",
+  "snackToolSearchLoadedSourceFilterHardness": "Harness uniquement",
   "snackToolSearchLoadedSummary": "{tools} outil(s) MCP chargé(s) depuis {queries} requête(s) dans cette session",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {

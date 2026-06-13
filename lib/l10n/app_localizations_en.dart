@@ -520,11 +520,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsHardnessToolSearchHistoryCapLabel =>
-      'Hardness ToolSearch history cap';
+      'Harness ToolSearch history cap';
 
   @override
   String get settingsHardnessToolSearchHistoryCapBody =>
-      'Maximum number of recent Hardness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).';
+      'Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).';
 
   @override
   String settingsHardnessToolSearchHistoryCapValue(int cap) {
@@ -2937,7 +2937,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedSourceAi => 'AI session';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Hardness phase';
+  String get snackToolSearchLoadedSourceHardness => 'Harness phase';
 
   @override
   String get snackToolSearchLoadedReplayedToast =>
@@ -2961,7 +2961,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedSourceFilterAi => 'AI only';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => 'Hardness only';
+  String get snackToolSearchLoadedSourceFilterHardness => 'Harness only';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {

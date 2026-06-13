@@ -52,12 +52,12 @@ class AiPromptTemplateRepository {
     ),
     AiThreadTemplate(
       id: 'hardness_engineering',
-      name: 'Hardness Engineering',
+      name: 'Harness Engineering',
       iconName: 'hub_rounded',
       description:
           '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
       internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/hardness_engineering',
+      promptAssetDirectory: 'assets/prompts/harness_engineering',
     ),
     AiThreadTemplate(
       id: 'programming_expert',

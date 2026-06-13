@@ -1,4 +1,4 @@
-// Hardness Engineering phase context configuration.
+// Harness Engineering phase context configuration.
 //
 // This module defines which context elements (architecture, conventions,
 // plan, feedback, lessons, handoff) should be included in each phase's

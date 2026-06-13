@@ -372,7 +372,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final markdownBuilders = _cachedBuilders!;
     final inlineSyntaxes = _cachedInlineSyntaxes!;
 
-    // Parse Hardness Engineering agent/phase annotations from message content.
+    // Parse Harness Engineering agent/phase annotations from message content.
     // Only assistant-role messages can carry these markers.
     final heAnnotation =
         (!isUser &&

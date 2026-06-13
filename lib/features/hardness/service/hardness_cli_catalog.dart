@@ -8,7 +8,7 @@ import '../../../app/support/system_proxy.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
-/// Describes a known AI CLI client usable in Hardness Engineering.
+/// Describes a known AI CLI client usable in Harness Engineering.
 class HardnessCli {
   const HardnessCli({
     required this.name,
@@ -828,7 +828,7 @@ Future<ProcessResult> runHardnessCliShellCommand(
   );
   if (result == null) {
     throw TimeoutException(
-      'Hardness CLI shell command timed out or failed to start.',
+      'Harness CLI shell command timed out or failed to start.',
       timeout,
     );
   }

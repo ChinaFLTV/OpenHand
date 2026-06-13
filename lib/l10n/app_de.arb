@@ -213,8 +213,8 @@
   "mcpLazyLoadingThresholdSaved": "MCP-Lazy-Loading-Schwelle gespeichert.",
   "mcpLazyLoadingHowItWorks": "Bei aktivem Lazy Loading werden MCP-Tool-Beschreibungen zu einem Namensindex zusammengefaltet. Das eingebaute ToolSearch-Tool ruft das vollständige JSON-Schema bei Bedarf über drei Abfrageformen ab:\n• select:NAME (direkte Auswahl, mehrfach durch Leerzeichen getrennt)\n• Stichwort (bewertet gegen name/description)\n• +STICHWORT (Pflichtwort zum Filtern)\nAufgelöste Tools werden dem geladenen Set der Sitzung hinzugefügt, sodass der nächste Zug sie direkt aufruft.",
   "mcpLazyLoadingThresholdInvalid": "Bitte eine Ganzzahl zwischen 1000 und 1000000 eingeben.",
-  "settingsHardnessToolSearchHistoryCapLabel": "Hardness ToolSearch Verlaufslimit",
-  "settingsHardnessToolSearchHistoryCapBody": "Maximale Anzahl letzter Hardness-Phasen, für die der ToolSearch-Verlauf im Dialog „Geladene Liste“ gespeichert bleibt. Ältere Phasen werden per LRU verworfen.",
+  "settingsHardnessToolSearchHistoryCapLabel": "Harness ToolSearch Verlaufslimit",
+  "settingsHardnessToolSearchHistoryCapBody": "Maximale Anzahl letzter Harness-Phasen, für die der ToolSearch-Verlauf im Dialog „Geladene Liste“ gespeichert bleibt. Ältere Phasen werden per LRU verworfen.",
   "settingsHardnessToolSearchHistoryCapValue": "Zurzeit werden die letzten {cap} Phase(n) gespeichert",
   "@settingsHardnessToolSearchHistoryCapValue": {
     "placeholders": {
@@ -1285,14 +1285,14 @@
   "snackToolSearchLoadedFilterHint": "Nach Name filtern…",
   "snackToolSearchLoadedHistoryFilterHint": "Nach Name oder Anfrage filtern…",
   "snackToolSearchLoadedSourceAi": "KI-Sitzung",
-  "snackToolSearchLoadedSourceHardness": "Hardness-Phase",
+  "snackToolSearchLoadedSourceHardness": "Harness-Phase",
   "snackToolSearchLoadedReplayedToast": "ToolSearch mit vorheriger Auswahl erneut ausgelöst",
   "snackToolSearchLoadedReplayPendingToast": "Wird gesendet — auf Abbrechen tippen, um zu stoppen",
   "snackToolSearchLoadedReplayCancelAction": "Abbrechen",
   "snackToolSearchLoadedReplayCancelledToast": "Versand abgebrochen — Composer geleert",
   "snackToolSearchLoadedSourceFilterAll": "Alle",
   "snackToolSearchLoadedSourceFilterAi": "Nur KI",
-  "snackToolSearchLoadedSourceFilterHardness": "Nur Hardness",
+  "snackToolSearchLoadedSourceFilterHardness": "Nur Harness",
   "snackToolSearchLoadedSummary": "{tools} MCP-Tool(s) aus {queries} Anfrage(n) in dieser Sitzung geladen",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {
