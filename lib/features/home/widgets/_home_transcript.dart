@@ -668,6 +668,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   void dispose() {
+    _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
+    _scrollActivity = null;
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
     super.dispose();
@@ -704,19 +706,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     bool highlight = false,
   }) async {
     if (!mounted) return false;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    // Q 弹滚动：680 ms + easeOutQuint。前段快速给出"已响应"反馈，
-    // 末段长尾减速形成"落子"质感；reduce-motion 退化为瞬移。
-    final smoothDuration = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 680);
-    const smoothCurve = Curves.easeOutQuint;
-    // 中长距离逼近：使用 emphasized 曲线（M3 推荐）让大跨度滚动既快又柔。
-    final approachDuration = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 480);
-    const approachCurve = Curves.easeInOutCubicEmphasized;
-
     void flashTarget() {
       if (!highlight || !mounted) return;
       setState(() => _highlightedMessageId = messageId);
@@ -728,8 +717,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       await Scrollable.ensureVisible(
         ctx,
         alignment: 0.18,
-        duration: smoothDuration,
-        curve: smoothCurve,
+        duration: Duration.zero,
+        curve: Curves.linear,
       );
       flashTarget();
       return true;
@@ -767,8 +756,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     final approached = await _approachRenderIndexBySingleAnimation(
       renderIndex: renderIndex,
-      duration: approachDuration,
-      curve: approachCurve,
+      duration: Duration.zero,
+      curve: Curves.linear,
     );
     if (!mounted) return false;
     if (approached) {
@@ -782,9 +771,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!mounted || !scrollController.hasClients) return false;
         final stepped = await _approachRenderIndexBySingleAnimation(
           renderIndex: renderIndex,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          dampening: 0.5,
+          duration: Duration.zero,
+          curve: Curves.linear,
+          dampening: 1.0,
         );
         if (!mounted) return false;
         if (!stepped) break;
@@ -884,13 +873,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return 0;
     }
     return math.max(0, messageCount - _transcriptInitialWindowSize);
-  }
-
-  @override
-  void dispose() {
-    _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
-    _scrollActivity = null;
-    super.dispose();
   }
 
   void _handleRevealScrollActivityChanged() {
@@ -1509,9 +1491,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // highlighting are deferred, so the initial window should track
               // the real viewport closely and expand as the user scrolls.
               cacheExtent: _transcriptListCacheExtent,
-              physics: const ClampingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
+              physics: kOpenHandClampingPhysics,
               itemCount: listItemCount,
               itemBuilder: (context, index) {
                 if (hiddenLoadMoreCount > 0 && index == 0) {

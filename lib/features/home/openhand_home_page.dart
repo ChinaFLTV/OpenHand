@@ -200,7 +200,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _transcriptLayoutAutoFollowQueued = false;
   bool _scrollToBottomAwaitingPosition = false;
   int _scrollToBottomPositionRetryCounter = 0;
-  int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
   DateTime? _lastRevealOlderMessagesAt;
   DateTime? _lastPointerSignalScrollAt;
@@ -222,7 +221,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _pointerSignalScrollActivityWindow = Duration(
     milliseconds: 500,
   );
-  int _pendingScrollToBottomSettlePasses = 0;
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -759,7 +757,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _pendingForcedScrollToBottom = false;
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
-    _pendingScrollToBottomSettlePasses = 0;
     _scrollToBottomAwaitingPosition = false;
     _scrollToBottomPositionRetryCounter = 0;
   }
@@ -5123,17 +5120,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _queuedForcedScrollToBottom = true;
     }
     _pendingAnimatedScrollToBottom = _pendingAnimatedScrollToBottom || animated;
-    if (allowSettlePasses) {
-      // 2026-04-29: 之前 force 路径用 30 次 settle pass，与流式中的
-      // 自主学习卡片（位于消息列表中段、随 token 持续增高）叠加时会导致
-      // 滚动反复触底→重排→再触底的"抽搐"。将 force 上限收紧到 8 已经
-      // 足以覆盖一次用户消息发出后的 1–2 帧 layout settle，避免与中段
-      // 流式卡片的高度增长产生共振。
-      _pendingScrollToBottomSettlePasses = math.max(
-        _pendingScrollToBottomSettlePasses,
-        force ? 8 : (animated ? 4 : 3),
-      );
-    }
     if (_isProgrammaticMessageScrollInProgress()) {
       _debugAutoFollowLog(
         'scroll-bottom-skip',
@@ -5172,7 +5158,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) {
         _queuedForcedScrollToBottom = false;
         _pendingAnimatedScrollToBottom = false;
-        _pendingScrollToBottomSettlePasses = 0;
         return;
       }
       if (_userScrollInProgress) {
@@ -5190,7 +5175,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           'reason=callback-state force=$shouldForce animated=$shouldAnimate',
         );
         _pendingAnimatedScrollToBottom = false;
-        _pendingScrollToBottomSettlePasses = 0;
         return;
       }
       // 跨会话 AnimatedSwitcher cross-fade 期间，新旧两个 _SessionTranscript
@@ -5212,7 +5196,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _scrollToBottomPositionRetryCounter = 0;
           _queuedForcedScrollToBottom = false;
           _pendingAnimatedScrollToBottom = false;
-          _pendingScrollToBottomSettlePasses = 0;
           return;
         }
         _scrollToBottomAwaitingPosition = true;
@@ -5242,35 +5225,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _queuedForcedScrollToBottom = false;
       _pendingAnimatedScrollToBottom = false;
       final activePosition = positions.single;
-      // 2026-05-24 (修复): 不与正在进行的物理模拟（弹簧回弹/fling 减速）抢
-      // scroll position。jumpTo/animateTo 在物理模拟阶段执行会与
-      // BouncingScrollPhysics 的弹簧产生对抗，导致 overshoot→回弹→再 jumpTo
-      // 的闭环振荡。用 isScrollingNotifier + _userDragActive 判定弹道阶段：
-      // isScrolling 为 true 但无活跃拖拽手势 → 大概率是弹簧/fling 减速。
-      // 此时不执行 jumpTo，而是延迟一帧重试——弹簧回弹（stiffness 180）通常
-      // 1–2 帧内结束；若 8 帧后仍未结束则放弃，避免无限重试。
-      if (activePosition.isScrollingNotifier.value && !_userDragActive) {
-        _debugAutoFollowLog(
-          'scroll-bottom-retry',
-          'reason=ballistic retry=${(_ballisticRetryCounter ?? 0) + 1} '
-              'force=$shouldForce animated=$shouldAnimate',
-        );
-        _scrollToBottomCallbackQueued = false;
-        final retryCount = (_ballisticRetryCounter ?? 0) + 1;
-        if (retryCount <= 8) {
-          _ballisticRetryCounter = retryCount;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _ballisticRetryCounter = null;
-            if (!mounted) return;
-            _scheduleScrollToBottom(
-              force: shouldForce,
-              animated: shouldAnimate,
-              allowSettlePasses: allowSettlePasses,
-            );
-          });
-        }
-        return;
-      }
       final targetOffset = activePosition.maxScrollExtent
           .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
           .toDouble();
@@ -5280,20 +5234,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
 
       void scheduleSettlePass() {
-        if (!mounted) {
-          return;
-        }
-        if (_pendingScrollToBottomSettlePasses <= 0) {
-          return;
-        }
-        _pendingScrollToBottomSettlePasses -= 1;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _userScrollInProgress) {
-            _pendingScrollToBottomSettlePasses = 0;
-            return;
-          }
-          _scheduleScrollToBottom(allowSettlePasses: false);
-        });
+        return;
       }
 
       if (distance >= 1) {
