@@ -179,7 +179,9 @@ class _WorkspaceView extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           Expanded(
-                            child: transcriptHydrating
+                            child:
+                                transcriptHydrating ||
+                                    currentSession!.hasMoreHistoricalMessages
                                 ? _TranscriptHydratingPlaceholder(
                                     key: ValueKey<String>(
                                       'hydrating-${currentSession!.id}',

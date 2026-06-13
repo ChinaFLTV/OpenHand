@@ -274,6 +274,8 @@ class AiSessionController extends ChangeNotifier {
   /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
   /// 拒绝触发，避免「0% 占比下也强行压缩」。
   static const int _manualCompactionRefusePercentLeftAbove = 85;
+  static const int _initialMessageHydrationWindowSize = 96;
+  static const int _olderMessageHydrationBatchSize = 96;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -602,6 +604,10 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
   final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
+      <String, Future<AiSession?>>{};
+  final Map<String, Future<AiSession?>> _sessionMessageWindowHydrationTasks =
+      <String, Future<AiSession?>>{};
+  final Map<String, Future<AiSession?>> _sessionOlderMessageHydrationTasks =
       <String, Future<AiSession?>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
   final Map<String, Future<void> Function()> _sessionCancelHandlers =
@@ -1204,6 +1210,12 @@ class AiSessionController extends ChangeNotifier {
     _approvalPreviousPhases.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    _sessionMessageWindowHydrationTasks.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _sessionOlderMessageHydrationTasks.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
     // Remove stale entries from _deletedSessionIds that no longer have
     // in-flight operations.  An entry is safe to remove when no session
     // operation queue is pending for that id.
@@ -1316,8 +1328,8 @@ class AiSessionController extends ChangeNotifier {
     if (_currentSessionId == sessionId) {
       final selectedSession = _sessionById(sessionId);
       if (selectedSession != null &&
-          _sessionNeedsMessageHydration(selectedSession)) {
-        unawaited(ensureSessionMessagesHydrated(sessionId));
+          _sessionNeedsInitialMessageWindow(selectedSession)) {
+        unawaited(ensureSessionMessageWindowHydrated(sessionId));
       }
       return;
     }
@@ -1329,18 +1341,47 @@ class AiSessionController extends ChangeNotifier {
       return;
     }
     unawaited(
-      ensureSessionMessagesHydrated(sessionId).then((hydratedSession) {
+      ensureSessionMessageWindowHydrated(sessionId).then((hydratedSession) {
         final sessionForSideEffects = hydratedSession ?? selectedSession;
         // 标题重试补偿：如果标题未成功获取且重试次数未超限，则尝试重新生成。
-        unawaited(_retryAutoTitleIfNeeded(sessionForSideEffects));
-        unawaited(
-          _emitSessionStartHook(
-            session: sessionForSideEffects,
-            source: 'resume',
-          ).catchError((Object _, StackTrace stackTrace) {}),
-        );
+        if (sessionForSideEffects.hasCompleteMessages) {
+          unawaited(_retryAutoTitleIfNeeded(sessionForSideEffects));
+          unawaited(
+            _emitSessionStartHook(
+              session: sessionForSideEffects,
+              source: 'resume',
+            ).catchError((Object _, StackTrace stackTrace) {}),
+          );
+        }
       }),
     );
+  }
+
+  Future<AiSession?> ensureSessionMessageWindowHydrated(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) {
+      return Future<AiSession?>.value();
+    }
+    final current = _sessionById(normalizedSessionId);
+    if (current == null ||
+        current.hasCompleteMessages ||
+        current.messageLoadState == AiSessionMessageLoadState.windowed) {
+      return Future<AiSession?>.value(current);
+    }
+    final fullTask = _sessionMessageHydrationTasks[normalizedSessionId];
+    if (fullTask != null) {
+      return fullTask;
+    }
+    final existingTask =
+        _sessionMessageWindowHydrationTasks[normalizedSessionId];
+    if (existingTask != null) {
+      return existingTask;
+    }
+    _hydratingSessionMessageIds.add(normalizedSessionId);
+    notifyListeners();
+    final task = _hydrateSessionMessageWindow(normalizedSessionId);
+    _sessionMessageWindowHydrationTasks[normalizedSessionId] = task;
+    return task;
   }
 
   Future<AiSession?> ensureSessionMessagesHydrated(String sessionId) {
@@ -1351,6 +1392,12 @@ class AiSessionController extends ChangeNotifier {
     final current = _sessionById(normalizedSessionId);
     if (current == null || !_sessionNeedsMessageHydration(current)) {
       return Future<AiSession?>.value(current);
+    }
+    final windowTask = _sessionMessageWindowHydrationTasks[normalizedSessionId];
+    if (windowTask != null) {
+      return windowTask.then(
+        (_) => ensureSessionMessagesHydrated(normalizedSessionId),
+      );
     }
     final existingTask = _sessionMessageHydrationTasks[normalizedSessionId];
     if (existingTask != null) {
@@ -1363,8 +1410,163 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
+  Future<AiSession?> loadOlderSessionMessages(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) {
+      return Future<AiSession?>.value();
+    }
+    final existingTask =
+        _sessionOlderMessageHydrationTasks[normalizedSessionId];
+    if (existingTask != null) {
+      return existingTask;
+    }
+    final task = _loadOlderSessionMessages(normalizedSessionId);
+    _sessionOlderMessageHydrationTasks[normalizedSessionId] = task;
+    return task;
+  }
+
+  bool _sessionNeedsInitialMessageWindow(AiSession session) {
+    return session.messageLoadState == AiSessionMessageLoadState.header &&
+        session.messageTotalCount > 0;
+  }
+
   bool _sessionNeedsMessageHydration(AiSession session) {
-    return session.messages.isEmpty && session.statistics.totalMessageCount > 0;
+    return !session.hasCompleteMessages && session.messageTotalCount > 0;
+  }
+
+  Future<AiSession?> _loadOlderSessionMessages(String sessionId) async {
+    try {
+      var current = _sessionById(sessionId);
+      if (current == null || current.hasCompleteMessages) {
+        return current;
+      }
+      if (current.messageLoadState == AiSessionMessageLoadState.header) {
+        current = await ensureSessionMessageWindowHydrated(sessionId);
+        if (current == null || current.hasCompleteMessages) {
+          return current;
+        }
+      }
+      if (current.messageWindowStartIndex <= 0) {
+        final completed = current.copyWith(
+          messageLoadState: AiSessionMessageLoadState.complete,
+          messageWindowStartIndex: 0,
+          messageTotalCount: current.messages.length,
+        );
+        _replaceSessionInMemory(completed, sortSessions: false);
+        notifyListeners();
+        return completed;
+      }
+      _hydratingSessionMessageIds.add(sessionId);
+      notifyListeners();
+      final offset = math.max(
+        0,
+        current.messageWindowStartIndex - _olderMessageHydrationBatchSize,
+      );
+      final limit = current.messageWindowStartIndex - offset;
+      if (limit <= 0) {
+        return current;
+      }
+      final page = await _store.loadMessages(
+        sessionId,
+        limit: limit,
+        offset: offset,
+      );
+      if (_deletedSessionIds.contains(sessionId)) {
+        return null;
+      }
+      final live = _sessionById(sessionId);
+      if (live == null || live.hasCompleteMessages) {
+        return live;
+      }
+      final seenIds = <String>{for (final message in page.messages) message.id};
+      final mergedMessages = <AiSessionMessage>[
+        ...page.messages,
+        for (final message in live.messages)
+          if (!seenIds.contains(message.id)) message,
+      ];
+      final nextStart = offset;
+      final nextTotal = math.max(page.totalCount, live.messageTotalCount);
+      final nextLoadState = nextStart == 0 && mergedMessages.length >= nextTotal
+          ? AiSessionMessageLoadState.complete
+          : AiSessionMessageLoadState.windowed;
+      final updatedSession = live.copyWith(
+        messages: List<AiSessionMessage>.unmodifiable(mergedMessages),
+        messageLoadState: nextLoadState,
+        messageWindowStartIndex:
+            nextLoadState == AiSessionMessageLoadState.complete ? 0 : nextStart,
+        messageTotalCount: nextTotal,
+      );
+      final replaced = _replaceSessionInMemory(
+        updatedSession,
+        sortSessions: false,
+      );
+      if (replaced) {
+        notifyListeners();
+      }
+      return _sessionById(sessionId) ?? updatedSession;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'load older session messages',
+        error,
+        stack,
+      );
+      _setLastSendErrorMessage(
+        sessionId,
+        _friendlyAiSessionPersistenceError(error, operation: 'load'),
+      );
+      return null;
+    } finally {
+      _sessionOlderMessageHydrationTasks.remove(sessionId);
+      if (!_sessionMessageHydrationTasks.containsKey(sessionId) &&
+          !_sessionMessageWindowHydrationTasks.containsKey(sessionId) &&
+          _hydratingSessionMessageIds.remove(sessionId)) {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<AiSession?> _hydrateSessionMessageWindow(String sessionId) async {
+    try {
+      final loaded = await _store.loadSessionTailWindow(
+        sessionId,
+        limit: _initialMessageHydrationWindowSize,
+      );
+      if (loaded == null || _deletedSessionIds.contains(sessionId)) {
+        return null;
+      }
+      final liveSession = _sessionById(sessionId);
+      if (liveSession != null && liveSession.hasCompleteMessages) {
+        return liveSession;
+      }
+      final normalized = _normalizeStaleCompletedPlanState(
+        loaded,
+        normalizedAt: loaded.updatedAt,
+      );
+      final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
+      if (replaced) {
+        notifyListeners();
+      }
+      return _sessionById(sessionId) ?? normalized;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'hydrate session message window',
+        error,
+        stack,
+      );
+      _setLastSendErrorMessage(
+        sessionId,
+        _friendlyAiSessionPersistenceError(error, operation: 'load'),
+      );
+      return null;
+    } finally {
+      _sessionMessageWindowHydrationTasks.remove(sessionId);
+      if (!_sessionMessageHydrationTasks.containsKey(sessionId) &&
+          _hydratingSessionMessageIds.remove(sessionId)) {
+        notifyListeners();
+      }
+    }
   }
 
   Future<AiSession?> _hydrateSessionMessages(String sessionId) async {
@@ -1379,7 +1581,7 @@ class AiSessionController extends ChangeNotifier {
       );
       final liveSession = _sessionById(sessionId);
       if (liveSession != null &&
-          liveSession.messages.isNotEmpty &&
+          liveSession.hasCompleteMessages &&
           liveSession.updatedAt.isAfter(normalized.updatedAt)) {
         return liveSession;
       }
@@ -2233,7 +2435,9 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     return _enqueueSessionOperation(resolvedSessionId, () async {
-      final session = _sessionById(resolvedSessionId);
+      final session =
+          await ensureSessionMessagesHydrated(resolvedSessionId) ??
+          _sessionById(resolvedSessionId);
       if (session == null) {
         return false;
       }
@@ -2257,7 +2461,9 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     return _enqueueSessionOperation(resolvedSessionId, () async {
-      final session = _sessionById(resolvedSessionId);
+      final session =
+          await ensureSessionMessagesHydrated(resolvedSessionId) ??
+          _sessionById(resolvedSessionId);
       if (session == null) {
         return false;
       }
@@ -2406,7 +2612,13 @@ class AiSessionController extends ChangeNotifier {
   >
   beginEditingMessage(String messageId) async {
     return _enqueueOperation(() async {
-      final session = currentSession;
+      final currentSessionId = _currentSessionId;
+      if (currentSessionId == null) {
+        return null;
+      }
+      final session =
+          await ensureSessionMessagesHydrated(currentSessionId) ??
+          _sessionById(currentSessionId);
       if (session == null) {
         return null;
       }
@@ -7750,6 +7962,9 @@ $tail''';
             liveSession.latestCompressionCheckpointMessageId,
         latestCompressionAt:
             session.latestCompressionAt ?? liveSession.latestCompressionAt,
+        messageLoadState: liveSession.messageLoadState,
+        messageWindowStartIndex: liveSession.messageWindowStartIndex,
+        messageTotalCount: liveSession.messageTotalCount,
       );
     }
     final updatedSessions = List<AiSession>.from(_sessions);
@@ -7867,6 +8082,9 @@ $tail''';
             updatedAt: live.updatedAt.isAfter(header.updatedAt)
                 ? live.updatedAt
                 : header.updatedAt,
+            messageLoadState: live.messageLoadState,
+            messageWindowStartIndex: live.messageWindowStartIndex,
+            messageTotalCount: live.messageTotalCount,
           );
         })
         .toList(growable: false);
@@ -8245,7 +8463,7 @@ $tail''';
       'session_file_path': _store.sessionFilePath(sessionId),
       'session_created_at': session?.createdAt.toIso8601String() ?? '',
       'session_updated_at': session?.updatedAt.toIso8601String() ?? '',
-      'session_message_count': session?.messages.length ?? 0,
+      'session_message_count': session?.messageTotalCount ?? 0,
       'session_mode': session?.mode.storageValue ?? '',
 
       // ── Model info ──

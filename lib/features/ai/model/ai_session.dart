@@ -11,6 +11,29 @@ Map<String, Object?> _aiSessionRequireMap(Object? value, String label) {
   throw FormatException('Invalid $label payload.');
 }
 
+int _clampNonNegative(int? value) {
+  if (value == null || value < 0) {
+    return 0;
+  }
+  return value;
+}
+
+int _max3(int a, int b, int c) {
+  var result = a > b ? a : b;
+  if (c > result) {
+    result = c;
+  }
+  return result;
+}
+
+int _resolveMessageTotalCount(
+  int? explicitCount,
+  int statisticsCount,
+  int loadedCount,
+) {
+  return _max3(explicitCount ?? 0, statisticsCount, loadedCount);
+}
+
 enum AiSessionMode {
   chat('chat'),
   plan('plan');
@@ -26,6 +49,8 @@ enum AiSessionMode {
     );
   }
 }
+
+enum AiSessionMessageLoadState { complete, header, windowed }
 
 class AiSessionTodoItem {
   const AiSessionTodoItem({
@@ -262,6 +287,9 @@ class AiSession {
                 )
                 .toList(growable: false)
           : const <AiSessionTodoItem>[],
+      messageLoadState: AiSessionMessageLoadState.complete,
+      messageWindowStartIndex: 0,
+      messageTotalCount: messagesJson.length,
     );
   }
   AiSession({
@@ -295,7 +323,20 @@ class AiSession {
     this.planHistory = const <AiSessionPlanRecord>[],
     this.fullAccessPermission = false,
     this.metadata = const <String, Object?>{},
-  });
+    AiSessionMessageLoadState? messageLoadState,
+    int? messageWindowStartIndex,
+    int? messageTotalCount,
+  }) : messageLoadState =
+           messageLoadState ??
+           (messages.isEmpty && statistics.totalMessageCount > 0
+               ? AiSessionMessageLoadState.header
+               : AiSessionMessageLoadState.complete),
+       messageWindowStartIndex = _clampNonNegative(messageWindowStartIndex),
+       messageTotalCount = _resolveMessageTotalCount(
+         messageTotalCount,
+         statistics.totalMessageCount,
+         messages.length,
+       );
 
   static const int schemaVersion = 5;
 
@@ -337,6 +378,9 @@ class AiSession {
   final List<AiSessionPlanRecord> planHistory;
   final bool fullAccessPermission;
   final Map<String, Object?> metadata;
+  final AiSessionMessageLoadState messageLoadState;
+  final int messageWindowStartIndex;
+  final int messageTotalCount;
   late final int? _latestCompressionPointIndexCache =
       _computeLatestCompressionPointIndex();
   late final List<AiSessionMessage> _visibleMessagesCache = messages
@@ -373,7 +417,35 @@ class AiSession {
     bool clearPendingPlan = false,
     bool? fullAccessPermission,
     Map<String, Object?>? metadata,
+    AiSessionMessageLoadState? messageLoadState,
+    int? messageWindowStartIndex,
+    int? messageTotalCount,
   }) {
+    final nextMessages = messages ?? this.messages;
+    final nextStatistics = statistics ?? this.statistics;
+    final nextLoadState =
+        messageLoadState ??
+        (messages == null
+            ? this.messageLoadState
+            : AiSessionMessageLoadState.complete);
+    final nextWindowStartIndex =
+        messageWindowStartIndex ??
+        switch (nextLoadState) {
+          AiSessionMessageLoadState.complete ||
+          AiSessionMessageLoadState.header => 0,
+          AiSessionMessageLoadState.windowed => this.messageWindowStartIndex,
+        };
+    final nextTotalCount =
+        messageTotalCount ??
+        switch (nextLoadState) {
+          AiSessionMessageLoadState.complete => nextMessages.length,
+          AiSessionMessageLoadState.header => nextStatistics.totalMessageCount,
+          AiSessionMessageLoadState.windowed => _max3(
+            this.messageTotalCount,
+            nextStatistics.totalMessageCount,
+            nextWindowStartIndex + nextMessages.length,
+          ),
+        };
     return AiSession(
       id: id,
       title: title ?? this.title,
@@ -413,7 +485,33 @@ class AiSession {
       planHistory: planHistory ?? this.planHistory,
       fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
       metadata: metadata ?? this.metadata,
+      messageLoadState: nextLoadState,
+      messageWindowStartIndex: nextWindowStartIndex,
+      messageTotalCount: nextTotalCount,
     );
+  }
+
+  bool get hasCompleteMessages =>
+      messageLoadState == AiSessionMessageLoadState.complete;
+
+  bool get hasPartialMessages => !hasCompleteMessages;
+
+  bool get hasLoadedMessages => messages.isNotEmpty;
+
+  bool get hasMoreHistoricalMessages {
+    return messageLoadState == AiSessionMessageLoadState.header ||
+        (messageLoadState == AiSessionMessageLoadState.windowed &&
+            messageWindowStartIndex > 0);
+  }
+
+  int get hiddenHistoricalMessageCount {
+    if (messageLoadState == AiSessionMessageLoadState.complete) {
+      return 0;
+    }
+    if (messageLoadState == AiSessionMessageLoadState.header) {
+      return messageTotalCount;
+    }
+    return messageWindowStartIndex;
   }
 
   AiSessionMessage? get latestCompressionPoint {

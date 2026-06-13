@@ -409,9 +409,30 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
-      _syncWindowStartIndex();
+      final prependedHistoricalMessages =
+          oldWidget.session.messageLoadState ==
+              AiSessionMessageLoadState.windowed &&
+          widget.session.messageLoadState != AiSessionMessageLoadState.header &&
+          widget.session.messageWindowStartIndex <
+              oldWidget.session.messageWindowStartIndex;
+      if (prependedHistoricalMessages) {
+        final oldDisplayLength = oldWidget.session.displayMessages.length;
+        final newDisplayLength = widget.session.displayMessages.length;
+        final addedDisplayCount = math.max(
+          0,
+          newDisplayLength - oldDisplayLength,
+        );
+        _windowStartIndex = math.max(
+          0,
+          _windowStartIndex + addedDisplayCount - _transcriptWindowIncrement,
+        );
+      } else {
+        _syncWindowStartIndex();
+      }
       _syncRenderEntries(
-        forceReset: previousWindowStartIndex != _windowStartIndex,
+        forceReset:
+            previousWindowStartIndex != _windowStartIndex ||
+            prependedHistoricalMessages,
       );
     }
     if (oldWidget.session.id != widget.session.id ||
@@ -680,7 +701,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       (display.length / _transcriptWindowIncrement).ceil() + 2,
     );
     while (mounted && targetDisplayIndex < _windowStartIndex && safety-- > 0) {
-      await _revealOlderMessages(display.length);
+      await _revealOlderMessages();
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
     }
@@ -817,8 +838,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return math.max(0, messageCount - _transcriptInitialWindowSize);
   }
 
-  Future<void> _revealOlderMessages(int totalMessageCount) async {
-    if (_windowStartIndex <= 0 || _loadingOlderMessages) {
+  Future<void> _revealOlderMessages() async {
+    if (_loadingOlderMessages ||
+        (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
       return;
     }
 
@@ -838,14 +860,30 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
 
-    setState(() {
-      _windowStartIndex = math.max(
-        0,
-        _windowStartIndex - _transcriptWindowIncrement,
+    if (_windowStartIndex > 0) {
+      setState(() {
+        _windowStartIndex = math.max(
+          0,
+          _windowStartIndex - _transcriptWindowIncrement,
+        );
+        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        _loadingOlderMessages = false;
+      });
+    } else {
+      await context.read<AiSessionController>().loadOlderSessionMessages(
+        widget.session.id,
       );
-      _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-      _loadingOlderMessages = false;
-    });
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loadingOlderMessages = false;
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+    }
 
     // 单帧 jumpTo 一次性把视口拉到"插入前内容"位置。线程会话窗口
     // 不再走多帧 settle 循环（弹跳源头），scroll physics 已改为
@@ -1032,7 +1070,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
-    final hiddenMessageCount = clampedWindowStartIndex;
+    final hiddenMessageCount =
+        session.hiddenHistoricalMessageCount + clampedWindowStartIndex;
     final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
     // 阶段㉓d build-stage 同步首屏 fallback —
     // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
@@ -1193,7 +1232,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       loading: _loadingOlderMessages,
                       onPressed: () {
                         widget.onRevealOlderMessages();
-                        unawaited(_revealOlderMessages(displayMessages.length));
+                        unawaited(_revealOlderMessages());
                       },
                     ),
                   );

@@ -251,6 +251,9 @@ class AiSessionStore {
         totalMessageCount: session.statistics.totalMessageCount + 1,
         compressionPointCount: session.statistics.compressionPointCount + 1,
       ),
+      messageLoadState: session.messageLoadState,
+      messageWindowStartIndex: session.messageWindowStartIndex,
+      messageTotalCount: session.messageTotalCount + 1,
     );
   }
 
@@ -378,7 +381,13 @@ class AiSessionStore {
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
       try {
-        sessions.add(_sessionFromRow(row, const <Map<String, Object?>>[]));
+        sessions.add(
+          _sessionFromRow(
+            row,
+            const <Map<String, Object?>>[],
+            messageLoadState: AiSessionMessageLoadState.header,
+          ),
+        );
       } catch (error) {
         issues.add(
           AiSessionPersistenceIssue(
@@ -573,6 +582,58 @@ class AiSessionStore {
     return restoreCompressionCheckpointFromSidecar(session);
   }
 
+  /// Loads a single session with only the newest [limit] message rows.
+  ///
+  /// This is the fast path used by the APP transcript when opening an
+  /// existing long thread. It keeps the first interactive frame independent of
+  /// total transcript size; callers can later promote to [loadSession] when
+  /// full prompt history is required.
+  Future<AiSession?> loadSessionTailWindow(
+    String sessionId, {
+    required int limit,
+  }) async {
+    final normalizedId = sessionId.trim();
+    if (!_isSafeStorageIdentifier(normalizedId)) return null;
+    final rows = await _db.query(
+      'sessions',
+      where: 'id = ?',
+      whereArgs: <Object?>[normalizedId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final totalCount = await _countMessages(normalizedId);
+    if (totalCount <= 0) {
+      return await _sessionFromRowCooperatively(
+        rows.first,
+        const <Map<String, Object?>>[],
+        messageTotalCount: 0,
+      );
+    }
+    final effectiveLimit = limit <= 0
+        ? totalCount
+        : math.min(limit, totalCount);
+    final offset = math.max(0, totalCount - effectiveLimit);
+    final messageRows = await _db.query(
+      'messages',
+      where: 'session_id = ?',
+      whereArgs: <Object?>[normalizedId],
+      orderBy: 'sort_order ASC',
+      limit: effectiveLimit,
+      offset: offset,
+    );
+    final loadState = offset == 0 && messageRows.length >= totalCount
+        ? AiSessionMessageLoadState.complete
+        : AiSessionMessageLoadState.windowed;
+    final session = await _sessionFromRowCooperatively(
+      rows.first,
+      messageRows,
+      messageLoadState: loadState,
+      messageWindowStartIndex: offset,
+      messageTotalCount: totalCount,
+    );
+    return restoreCompressionCheckpointFromSidecar(session);
+  }
+
   /// Loads all sessions (with messages) that belong to the given [templateId]
   /// AND whose `created_at` is on or after [minCreatedAt].
   ///
@@ -628,11 +689,7 @@ class AiSessionStore {
     int limit = 50,
     int offset = 0,
   }) async {
-    final countResult = await _db.rawQuery(
-      'SELECT COUNT(*) AS cnt FROM messages WHERE session_id = ?',
-      <Object?>[sessionId],
-    );
-    final totalCount = (countResult.first['cnt'] as int?) ?? 0;
+    final totalCount = await _countMessages(sessionId);
 
     final rows = await _db.query(
       'messages',
@@ -761,18 +818,38 @@ class AiSessionStore {
 
   AiSession _sessionFromRow(
     Map<String, Object?> row,
-    List<Map<String, Object?>> messageRows,
-  ) {
+    List<Map<String, Object?>> messageRows, {
+    AiSessionMessageLoadState messageLoadState =
+        AiSessionMessageLoadState.complete,
+    int messageWindowStartIndex = 0,
+    int? messageTotalCount,
+  }) {
     final messages = messageRows.map(_messageFromRow).toList(growable: false);
-    return _sessionFromRowWithMessages(row, messages);
+    return _sessionFromRowWithMessages(
+      row,
+      messages,
+      messageLoadState: messageLoadState,
+      messageWindowStartIndex: messageWindowStartIndex,
+      messageTotalCount: messageTotalCount,
+    );
   }
 
   Future<AiSession> _sessionFromRowCooperatively(
     Map<String, Object?> row,
-    List<Map<String, Object?>> messageRows,
-  ) async {
+    List<Map<String, Object?>> messageRows, {
+    AiSessionMessageLoadState messageLoadState =
+        AiSessionMessageLoadState.complete,
+    int messageWindowStartIndex = 0,
+    int? messageTotalCount,
+  }) async {
     final messages = await _decodeMessagesCooperatively(messageRows);
-    return _sessionFromRowWithMessages(row, messages);
+    return _sessionFromRowWithMessages(
+      row,
+      messages,
+      messageLoadState: messageLoadState,
+      messageWindowStartIndex: messageWindowStartIndex,
+      messageTotalCount: messageTotalCount,
+    );
   }
 
   Future<List<AiSessionMessage>> _decodeMessagesCooperatively(
@@ -802,9 +879,15 @@ class AiSessionStore {
 
   AiSession _sessionFromRowWithMessages(
     Map<String, Object?> row,
-    List<AiSessionMessage> messages,
-  ) {
+    List<AiSessionMessage> messages, {
+    required AiSessionMessageLoadState messageLoadState,
+    required int messageWindowStartIndex,
+    required int? messageTotalCount,
+  }) {
     final now = DateTime.now().toUtc();
+    final statistics = AiSessionStatistics.fromJson(
+      _decodeJsonMap(row['statistics_json']),
+    );
 
     return AiSession(
       id: (row['id'] as String?) ?? '',
@@ -824,9 +907,7 @@ class AiSessionStore {
       environment: AiSessionEnvironment.fromJson(
         _decodeJsonMap(row['environment_json']),
       ),
-      statistics: AiSessionStatistics.fromJson(
-        _decodeJsonMap(row['statistics_json']),
-      ),
+      statistics: statistics,
       recentErrors: _decodeJsonList(row['recent_errors_json'])
           .map(
             (item) => AiSessionErrorRecord.fromJson(
@@ -878,11 +959,15 @@ class AiSessionStore {
             ),
           )
           .toList(growable: false),
+      messageLoadState: messageLoadState,
+      messageWindowStartIndex: messageWindowStartIndex,
+      messageTotalCount: messageTotalCount ?? statistics.totalMessageCount,
     );
   }
 
   bool _isMetadataOnlySessionSnapshot(AiSession session) {
-    return session.messages.isEmpty && session.statistics.totalMessageCount > 0;
+    return session.hasPartialMessages ||
+        (session.messages.isEmpty && session.statistics.totalMessageCount > 0);
   }
 
   Map<String, Object?> _sessionToRow(AiSession session) {
@@ -1018,6 +1103,15 @@ class AiSessionStore {
   static DateTime? _parseNullableDateTime(String? value) {
     if (value == null || value.isEmpty || value == 'null') return null;
     return DateTime.tryParse(value)?.toUtc();
+  }
+
+  Future<int> _countMessages(String sessionId) async {
+    final countResult = await _db.rawQuery(
+      'SELECT COUNT(*) AS cnt FROM messages WHERE session_id = ?',
+      <Object?>[sessionId],
+    );
+    final count = countResult.isEmpty ? null : countResult.first['cnt'];
+    return count is int ? count : 0;
   }
 }
 
