@@ -538,9 +538,14 @@ String _friendlyAiSessionPersistenceError(
     'save' => 'save conversation',
     _ => operation,
   };
-  // sqflite DatabaseException 通过 toString 暴露 "DatabaseException(...)"
-  // 前缀；FileSystemException / PathExistsException 同理。
-  final isDb = raw.startsWith('DatabaseException');
+  // sqflite DatabaseException / SqfliteFfiException 都会把 SQL 与参数拼进
+  // toString；不要把完整原文塞进 Snackbar，否则超长消息体会直接泄露到 UI。
+  final isDb =
+      raw.startsWith('DatabaseException') ||
+      raw.startsWith('SqfliteFfiException') ||
+      raw.contains('sqlite_error:') ||
+      raw.contains('UNIQUE constraint failed') ||
+      raw.contains('FOREIGN KEY constraint failed');
   final isFs =
       raw.startsWith('FileSystemException') ||
       raw.startsWith('PathExistsException') ||
@@ -599,6 +604,31 @@ String _friendlyAiSessionPersistenceError(
                 '· Close external programs that may be holding the file\n'
                 '· Restart the app and try again',
     ),
-    raw: raw,
+    raw: _compactPersistenceRawDetail(raw),
   );
+}
+
+String? _compactPersistenceRawDetail(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) {
+    return null;
+  }
+  final sqliteError = RegExp(r'sqlite_error:\s*\d+').firstMatch(text);
+  final unique = RegExp(
+    r'UNIQUE constraint failed:\s*[^,\)]+',
+  ).firstMatch(text);
+  final foreignKey = RegExp(r'FOREIGN KEY constraint failed').firstMatch(text);
+  final parts = <String>[
+    if (sqliteError != null) sqliteError.group(0)!,
+    if (unique != null) unique.group(0)!,
+    if (foreignKey != null) foreignKey.group(0)!,
+  ];
+  if (parts.isNotEmpty) {
+    return parts.join('；');
+  }
+  const maxRawCharacters = 600;
+  if (text.length <= maxRawCharacters) {
+    return text;
+  }
+  return '${text.substring(0, maxRawCharacters)}...';
 }

@@ -247,6 +247,77 @@ class AiAttachmentService {
     return attachments;
   }
 
+  Future<List<AiMessageAttachment>> copyAttachmentsForFork({
+    required String targetSessionId,
+    required String targetMessageId,
+    required List<AiMessageAttachment> attachments,
+    required String Function() idGenerator,
+  }) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      targetSessionId,
+      label: 'target session id',
+    );
+    final normalizedMessageId = _requireSafeStorageIdentifier(
+      targetMessageId,
+      label: 'target message id',
+    );
+    if (attachments.isEmpty) {
+      return const <AiMessageAttachment>[];
+    }
+    final targetDirectory = Directory(
+      _resolveTargetDirectoryPath(
+        sessionId: normalizedSessionId,
+        messageId: normalizedMessageId,
+      ),
+    );
+    await targetDirectory.create(recursive: true);
+    final copied = <AiMessageAttachment>[];
+    final usedAttachmentIds = <String>{};
+    for (var index = 0; index < attachments.length; index += 1) {
+      final attachment = attachments[index];
+      final sourcePath = attachment.storagePath.trim();
+      final sourceFile = File(sourcePath);
+      if (sourcePath.isEmpty || !await sourceFile.exists()) {
+        copied.add(attachment);
+        continue;
+      }
+      try {
+        final attachmentId = _safeForkAttachmentId(
+          attachment.id,
+          idGenerator,
+          usedAttachmentIds,
+        );
+        final targetName = _composeForkTargetName(
+          sequence: index + 1,
+          attachment: attachment,
+          messageId: normalizedMessageId,
+          attachmentId: attachmentId,
+        );
+        final targetFile = await _copyFile(
+          sourceFile: sourceFile,
+          targetDirectory: targetDirectory,
+          targetName: targetName,
+        );
+        copied.add(
+          attachment.copyWith(
+            id: attachmentId,
+            storagePath: targetFile.path,
+            sizeBytes: await targetFile.length(),
+          ),
+        );
+      } catch (error, stack) {
+        silentLog(
+          'ai_attachment_service',
+          'copy fork attachment',
+          error,
+          stack,
+        );
+        copied.add(attachment);
+      }
+    }
+    return List<AiMessageAttachment>.unmodifiable(copied);
+  }
+
   Future<AiMessageAttachment> _importSingleAttachment({
     required File sourceFile,
     required Directory targetDirectory,
@@ -617,6 +688,55 @@ class AiAttachmentService {
       return '$messageId-$attachmentId$ext';
     }
     return _targetFileName(sequence, sourceName);
+  }
+
+  String _composeForkTargetName({
+    required int sequence,
+    required AiMessageAttachment attachment,
+    required String messageId,
+    required String attachmentId,
+  }) {
+    final sourceName = attachment.name.trim().isEmpty
+        ? p.basename(attachment.storagePath)
+        : attachment.name.trim();
+    if (_useModernLayout) {
+      final extension = _attachmentExtension(attachment, sourceName);
+      return '$messageId-$attachmentId$extension';
+    }
+    return _targetFileName(sequence, sourceName);
+  }
+
+  String _attachmentExtension(
+    AiMessageAttachment attachment,
+    String sourceName,
+  ) {
+    final fromStorage = p.extension(attachment.storagePath).trim();
+    if (fromStorage.isNotEmpty) {
+      return fromStorage;
+    }
+    return p.extension(sourceName).trim();
+  }
+
+  String _safeForkAttachmentId(
+    String preferredId,
+    String Function() idGenerator,
+    Set<String> usedAttachmentIds,
+  ) {
+    final preferred = preferredId.trim();
+    if (_isSafeStorageIdentifier(preferred) &&
+        usedAttachmentIds.add(preferred)) {
+      return preferred;
+    }
+    for (var attempt = 0; attempt < 32; attempt += 1) {
+      final generated = idGenerator().trim();
+      if (_isSafeStorageIdentifier(generated) &&
+          usedAttachmentIds.add(generated)) {
+        return generated;
+      }
+    }
+    throw const AiAttachmentException(
+      'Unable to allocate a unique attachment id.',
+    );
   }
 
   img.Image _resizeImageIfNeeded(img.Image source) {
@@ -1182,11 +1302,16 @@ final RegExp _unsafeAttachmentStorageIdentifierPattern = RegExp(
 
 String _requireSafeStorageIdentifier(String value, {required String label}) {
   final normalizedValue = value.trim();
-  if (normalizedValue.isEmpty ||
-      normalizedValue == '.' ||
-      normalizedValue == '..' ||
-      _unsafeAttachmentStorageIdentifierPattern.hasMatch(normalizedValue)) {
+  if (!_isSafeStorageIdentifier(normalizedValue)) {
     throw AiAttachmentException('Invalid $label: $value');
   }
   return normalizedValue;
+}
+
+bool _isSafeStorageIdentifier(String value) {
+  final normalizedValue = value.trim();
+  return normalizedValue.isNotEmpty &&
+      normalizedValue != '.' &&
+      normalizedValue != '..' &&
+      !_unsafeAttachmentStorageIdentifierPattern.hasMatch(normalizedValue);
 }

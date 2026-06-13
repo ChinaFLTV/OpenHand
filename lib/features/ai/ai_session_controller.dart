@@ -128,6 +128,25 @@ class AiSessionController extends ChangeNotifier {
        _clock = clock,
        _userHooksExecutor = userHooksExecutor;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
+  static const String _forkedFromOriginalSessionIdKey =
+      'forked_from_original_session_id';
+  static const String _forkedFromOriginalMessageIdKey =
+      'forked_from_original_message_id';
+  static const String _forkedFromOriginalMessageCreatedAtKey =
+      'forked_from_original_message_created_at';
+  static const String _telemetryInFlightKey = 'telemetry_in_flight';
+  static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
+    _editRollbackMarkerKey,
+    'claude_code_docs_prefetch_for_user_message_id',
+    'previous_checkpoint_message_id',
+    'round_summary_anchor_user_id',
+  };
+  static const Set<String> _forkMessageIdListMetadataKeys = <String>{
+    'source_message_ids',
+    'compressed_message_ids',
+    'discarded_message_ids_due_to_context_limit',
+    'retained_message_ids_after_checkpoint',
+  };
   // Inline fallback used when the bundled asset cannot be loaded
   // (`assets/prompts/common/auto_title_system_prompt.md` — see
   // [AiPromptTemplateRepository.loadAutoTitleSystemPrompt]). The asset is
@@ -2505,157 +2524,353 @@ class AiSessionController extends ChangeNotifier {
       return null;
     }
     return _enqueueSessionOperation(resolvedSessionId, () async {
-      final sourceSession =
-          await ensureSessionMessagesHydrated(resolvedSessionId) ??
-          _sessionById(resolvedSessionId);
-      if (sourceSession == null) {
-        return null;
-      }
-      final forkIndex = sourceSession.messages.indexWhere(
-        (message) => message.id == normalizedMessageId && !message.isDeleted,
-      );
-      if (forkIndex == -1) {
-        return null;
-      }
-      final forkMessage = sourceSession.messages[forkIndex];
-      final retainedMessages = List<AiSessionMessage>.unmodifiable(
-        sourceSession.messages.take(forkIndex + 1),
-      );
-      if (retainedMessages.isEmpty) {
-        return null;
-      }
-      final isForkingAtTail = !_hasVisibleMessageAfter(
-        sourceSession,
-        forkIndex,
-      );
-      final now = _clock().toUtc();
-      final latestCompressionPoint = _latestCompressionPointIn(
-        retainedMessages,
-      );
-      final retainedUsage = _usageFromRetainedMessages(retainedMessages);
-      final retainedPromptBuildCount = _promptBuildCountFromRetainedMessages(
-        retainedMessages,
-      );
-      final retainedCompressionRunCount = retainedMessages
-          .where(
-            (message) =>
-                !message.isDeleted &&
-                message.kind == AiSessionMessageKind.compressionPoint,
-          )
-          .length;
-      final retainedPlanHistory = isForkingAtTail
-          ? sourceSession.planHistory
-          : sourceSession.planHistory
-                .where(
-                  (record) => !record.createdAt.isAfter(forkMessage.createdAt),
-                )
-                .toList(growable: false);
-      final retainedMetadata = <String, Object?>{
-        ...sourceSession.metadata,
-        ...extraMetadata,
-        'is_forked': true,
-        'forked_from_session_id': sourceSession.id,
-        'forked_from_message_id': forkMessage.id,
-        'forked_from_message_created_at': forkMessage.createdAt
-            .toUtc()
-            .toIso8601String(),
-        'forked_at': now.toIso8601String(),
-        'forked_retained_message_count': retainedMessages
-            .where((message) => !message.isDeleted)
-            .length,
-        'forked_discarded_message_count': sourceSession.messages
-            .skip(forkIndex + 1)
-            .where((message) => !message.isDeleted)
-            .length,
-      };
-      final autoTitleSourceMessageId =
-          retainedMessages.any(
-            (message) => message.id == sourceSession.autoTitleSourceMessageId,
-          )
-          ? sourceSession.autoTitleSourceMessageId
-          : null;
-      final autoTitleStateRetained =
-          autoTitleSourceMessageId != null ||
-          sourceSession.autoTitleSourceMessageId == null;
-      final derivedSession = AiSession(
-        id: _idGenerator(),
-        title: sourceSession.title,
-        templateId: sourceSession.templateId,
-        templateName: sourceSession.templateName,
-        templateIconName: sourceSession.templateIconName,
-        templateInternalVersion: sourceSession.templateInternalVersion,
-        createdAt: now,
-        updatedAt: now,
-        messages: retainedMessages,
-        environment: sourceSession.environment,
-        statistics: const AiSessionStatistics.initial(),
-        recentErrors: isForkingAtTail
-            ? sourceSession.recentErrors
-            : sourceSession.recentErrors
-                  .where(
-                    (error) => !error.createdAt.isAfter(forkMessage.createdAt),
-                  )
-                  .toList(growable: false),
-        lastUsedModelId: sourceSession.lastUsedModelId,
-        lastUsedModelLabel: sourceSession.lastUsedModelLabel,
-        isTitleManuallyEdited: sourceSession.isTitleManuallyEdited,
-        autoTitleAcquired:
-            autoTitleStateRetained && sourceSession.autoTitleAcquired,
-        autoTitleRetryCount: autoTitleStateRetained
-            ? sourceSession.autoTitleRetryCount
-            : 0,
-        autoTitleFirstUserContent: autoTitleStateRetained
-            ? sourceSession.autoTitleFirstUserContent
-            : null,
-        autoTitleGeneratedAt: autoTitleStateRetained
-            ? sourceSession.autoTitleGeneratedAt
-            : null,
-        autoTitleSourceMessageId: autoTitleSourceMessageId,
-        latestCompressionCheckpointMessageId: latestCompressionPoint?.id,
-        latestCompressionAt: latestCompressionPoint?.createdAt,
-        lastPromptMetadata: isForkingAtTail
-            ? sourceSession.lastPromptMetadata
-            : const <String, Object?>{},
-        todoItems: isForkingAtTail
-            ? sourceSession.todoItems
-            : const <AiSessionTodoItem>[],
-        mode: sourceSession.mode,
-        awaitingPlanApproval: isForkingAtTail
-            ? sourceSession.awaitingPlanApproval
-            : false,
-        pendingPlan: isForkingAtTail ? sourceSession.pendingPlan : null,
-        planHistory: retainedPlanHistory,
-        fullAccessPermission: sourceSession.fullAccessPermission,
-        metadata: retainedMetadata,
-      );
-      final rebuiltSession = _rebuildSession(
-        derivedSession,
-        totalPromptCharacters: isForkingAtTail
-            ? sourceSession.statistics.totalPromptCharacters
-            : 0,
-        promptBuildCount: retainedPromptBuildCount,
-        compressionRunCount: retainedCompressionRunCount,
-        totalUsage: retainedUsage,
-        lastPromptSystemMessageCount: isForkingAtTail
-            ? sourceSession.statistics.lastPromptSystemMessageCount
-            : 0,
-        lastPromptHistoryMessageCount: isForkingAtTail
-            ? sourceSession.statistics.lastPromptHistoryMessageCount
-            : 0,
-      );
-      _deletedSessionIds.remove(rebuiltSession.id);
       final previousCurrentSessionId = _currentSessionId;
-      _currentSessionId = rebuiltSession.id;
-      _editingMessageId = null;
-      final committed = await _commitSessionLocked(rebuiltSession);
-      if (committed) {
+      final previousEditingMessageId = _editingMessageId;
+      try {
+        final sourceSession =
+            await ensureSessionMessagesHydrated(resolvedSessionId) ??
+            _sessionById(resolvedSessionId);
+        if (sourceSession == null) {
+          return null;
+        }
+        final forkIndex = sourceSession.messages.indexWhere(
+          (message) => message.id == normalizedMessageId && !message.isDeleted,
+        );
+        if (forkIndex == -1) {
+          return null;
+        }
+        final forkMessage = sourceSession.messages[forkIndex];
+        final sourceRetainedMessages = List<AiSessionMessage>.unmodifiable(
+          sourceSession.messages.take(forkIndex + 1),
+        );
+        if (sourceRetainedMessages.isEmpty) {
+          return null;
+        }
+        final derivedSessionId = _generateUniqueForkSessionId();
+        final forkedMessageIdBySourceId = _forkedMessageIdMap(
+          sourceRetainedMessages,
+        );
+        final retainedMessages = await _forkMessagesForSession(
+          sourceMessages: sourceRetainedMessages,
+          sourceSessionId: sourceSession.id,
+          targetSessionId: derivedSessionId,
+          forkedMessageIdBySourceId: forkedMessageIdBySourceId,
+        );
+        final isForkingAtTail = !_hasVisibleMessageAfter(
+          sourceSession,
+          forkIndex,
+        );
+        final now = _clock().toUtc();
+        final latestCompressionPoint = _latestCompressionPointIn(
+          retainedMessages,
+        );
+        final retainedUsage = _usageFromRetainedMessages(retainedMessages);
+        final retainedPromptBuildCount = _promptBuildCountFromRetainedMessages(
+          retainedMessages,
+        );
+        final retainedCompressionRunCount = retainedMessages
+            .where(
+              (message) =>
+                  !message.isDeleted &&
+                  message.kind == AiSessionMessageKind.compressionPoint,
+            )
+            .length;
+        final retainedPlanHistory = isForkingAtTail
+            ? sourceSession.planHistory
+            : sourceSession.planHistory
+                  .where(
+                    (record) =>
+                        !record.createdAt.isAfter(forkMessage.createdAt),
+                  )
+                  .toList(growable: false);
+        final retainedMetadata = <String, Object?>{
+          ...sourceSession.metadata,
+          ...extraMetadata,
+          'is_forked': true,
+          'forked_from_session_id': sourceSession.id,
+          'forked_from_message_id': forkMessage.id,
+          'forked_message_id': forkedMessageIdBySourceId[forkMessage.id],
+          'forked_from_message_created_at': forkMessage.createdAt
+              .toUtc()
+              .toIso8601String(),
+          'forked_at': now.toIso8601String(),
+          'forked_retained_message_count': retainedMessages
+              .where((message) => !message.isDeleted)
+              .length,
+          'forked_discarded_message_count': sourceSession.messages
+              .skip(forkIndex + 1)
+              .where((message) => !message.isDeleted)
+              .length,
+        };
+        final autoTitleSourceMessageId =
+            forkedMessageIdBySourceId[sourceSession.autoTitleSourceMessageId];
+        final autoTitleStateRetained =
+            autoTitleSourceMessageId != null ||
+            sourceSession.autoTitleSourceMessageId == null;
+        final derivedSession = AiSession(
+          id: derivedSessionId,
+          title: sourceSession.title,
+          templateId: sourceSession.templateId,
+          templateName: sourceSession.templateName,
+          templateIconName: sourceSession.templateIconName,
+          templateInternalVersion: sourceSession.templateInternalVersion,
+          createdAt: now,
+          updatedAt: now,
+          messages: retainedMessages,
+          environment: sourceSession.environment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: isForkingAtTail
+              ? sourceSession.recentErrors
+              : sourceSession.recentErrors
+                    .where(
+                      (error) =>
+                          !error.createdAt.isAfter(forkMessage.createdAt),
+                    )
+                    .toList(growable: false),
+          lastUsedModelId: sourceSession.lastUsedModelId,
+          lastUsedModelLabel: sourceSession.lastUsedModelLabel,
+          isTitleManuallyEdited: sourceSession.isTitleManuallyEdited,
+          autoTitleAcquired:
+              autoTitleStateRetained && sourceSession.autoTitleAcquired,
+          autoTitleRetryCount: autoTitleStateRetained
+              ? sourceSession.autoTitleRetryCount
+              : 0,
+          autoTitleFirstUserContent: autoTitleStateRetained
+              ? sourceSession.autoTitleFirstUserContent
+              : null,
+          autoTitleGeneratedAt: autoTitleStateRetained
+              ? sourceSession.autoTitleGeneratedAt
+              : null,
+          autoTitleSourceMessageId: autoTitleSourceMessageId,
+          latestCompressionCheckpointMessageId: latestCompressionPoint?.id,
+          latestCompressionAt: latestCompressionPoint?.createdAt,
+          todoItems: isForkingAtTail
+              ? sourceSession.todoItems
+              : const <AiSessionTodoItem>[],
+          mode: sourceSession.mode,
+          awaitingPlanApproval: isForkingAtTail
+              ? sourceSession.awaitingPlanApproval
+              : false,
+          pendingPlan: isForkingAtTail ? sourceSession.pendingPlan : null,
+          planHistory: retainedPlanHistory,
+          fullAccessPermission: sourceSession.fullAccessPermission,
+          metadata: retainedMetadata,
+        );
+        final rebuiltSession = _rebuildSession(
+          derivedSession,
+          totalPromptCharacters: isForkingAtTail
+              ? sourceSession.statistics.totalPromptCharacters
+              : 0,
+          promptBuildCount: retainedPromptBuildCount,
+          compressionRunCount: retainedCompressionRunCount,
+          totalUsage: retainedUsage,
+          lastPromptSystemMessageCount: 0,
+          lastPromptHistoryMessageCount: 0,
+        );
+        _deletedSessionIds.remove(rebuiltSession.id);
+        _currentSessionId = rebuiltSession.id;
+        _editingMessageId = null;
+        final committed = await _commitSessionLocked(rebuiltSession);
+        if (committed) {
+          notifyListeners();
+          return _sessionById(rebuiltSession.id) ?? rebuiltSession;
+        }
+        _currentSessionId = previousCurrentSessionId;
+        _editingMessageId = previousEditingMessageId;
         notifyListeners();
-        return _sessionById(rebuiltSession.id) ?? rebuiltSession;
+        return null;
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'fork session from message',
+          error,
+          stack,
+        );
+        _lastErrorMessage = _friendlyAiSessionPersistenceError(
+          error,
+          operation: 'save',
+        );
+        _currentSessionId = previousCurrentSessionId;
+        _editingMessageId = previousEditingMessageId;
+        notifyListeners();
+        return null;
       }
-      _currentSessionId = previousCurrentSessionId;
-      notifyListeners();
-      return null;
     });
+  }
+
+  Map<String, String> _forkedMessageIdMap(
+    List<AiSessionMessage> sourceMessages,
+  ) {
+    final usedIds = sourceMessages.map((message) => message.id).toSet();
+    return <String, String>{
+      for (final message in sourceMessages)
+        message.id: _generateUniqueForkMessageId(usedIds),
+    };
+  }
+
+  String _generateUniqueForkSessionId() {
+    for (var attempt = 0; attempt < 64; attempt += 1) {
+      final id = _idGenerator().trim();
+      if (id.isNotEmpty &&
+          !_sessionsById.containsKey(id) &&
+          !_deletedSessionIds.contains(id)) {
+        return id;
+      }
+    }
+    throw StateError(
+      'Unable to allocate a unique session id for forked session.',
+    );
+  }
+
+  String _generateUniqueForkMessageId(Set<String> usedIds) {
+    for (var attempt = 0; attempt < 64; attempt += 1) {
+      final id = _idGenerator().trim();
+      if (id.isNotEmpty && usedIds.add(id)) {
+        return id;
+      }
+    }
+    throw StateError(
+      'Unable to allocate a unique message id for forked session.',
+    );
+  }
+
+  Future<List<AiSessionMessage>> _forkMessagesForSession({
+    required List<AiSessionMessage> sourceMessages,
+    required String sourceSessionId,
+    required String targetSessionId,
+    required Map<String, String> forkedMessageIdBySourceId,
+  }) async {
+    final forkedMessages = <AiSessionMessage>[];
+    for (final sourceMessage in sourceMessages) {
+      final forkedMessageId = forkedMessageIdBySourceId[sourceMessage.id];
+      if (forkedMessageId == null || forkedMessageId.isEmpty) {
+        continue;
+      }
+      final metadata = _forkedMessageMetadata(
+        sourceMessage: sourceMessage,
+        sourceSessionId: sourceSessionId,
+        forkedMessageIdBySourceId: forkedMessageIdBySourceId,
+      );
+      final attachments = AiMessageAttachment.listFromMetadata(
+        metadata[aiSessionMessageAttachmentsMetadataKey],
+      );
+      if (attachments.isNotEmpty) {
+        final copiedAttachments = await _attachmentService
+            .copyAttachmentsForFork(
+              targetSessionId: targetSessionId,
+              targetMessageId: forkedMessageId,
+              attachments: attachments,
+              idGenerator: _idGenerator,
+            );
+        metadata[aiSessionMessageAttachmentsMetadataKey] =
+            AiMessageAttachment.listToMetadata(copiedAttachments);
+      }
+      forkedMessages.add(
+        sourceMessage.copyWith(id: forkedMessageId, metadata: metadata),
+      );
+    }
+    return List<AiSessionMessage>.unmodifiable(forkedMessages);
+  }
+
+  Map<String, Object?> _forkedMessageMetadata({
+    required AiSessionMessage sourceMessage,
+    required String sourceSessionId,
+    required Map<String, String> forkedMessageIdBySourceId,
+  }) {
+    final metadata = Map<String, Object?>.from(sourceMessage.metadata)
+      ..remove(aiSessionMessageMetadataStreamingKey)
+      ..remove(_telemetryInFlightKey);
+    for (final key in _forkSingleMessageIdMetadataKeys) {
+      final rewritten = _rewriteForkedMessageId(
+        metadata[key],
+        forkedMessageIdBySourceId,
+      );
+      if (rewritten == null) {
+        metadata.remove(key);
+      } else {
+        metadata[key] = rewritten;
+      }
+    }
+    for (final key in _forkMessageIdListMetadataKeys) {
+      final rewritten = _rewriteForkedMessageIdList(
+        metadata[key],
+        forkedMessageIdBySourceId,
+      );
+      if (rewritten.isEmpty) {
+        metadata.remove(key);
+      } else {
+        metadata[key] = rewritten;
+      }
+    }
+    final roundSummarySourceIds = _rewriteForkedMessageIdMapValues(
+      metadata['round_summary_source_message_ids'],
+      forkedMessageIdBySourceId,
+    );
+    if (roundSummarySourceIds == null) {
+      metadata.remove('round_summary_source_message_ids');
+    } else {
+      metadata['round_summary_source_message_ids'] = roundSummarySourceIds;
+    }
+    metadata[_forkedFromOriginalSessionIdKey] = sourceSessionId;
+    metadata[_forkedFromOriginalMessageIdKey] = sourceMessage.id;
+    metadata[_forkedFromOriginalMessageCreatedAtKey] = sourceMessage.createdAt
+        .toUtc()
+        .toIso8601String();
+    return metadata;
+  }
+
+  String? _rewriteForkedMessageId(
+    Object? value,
+    Map<String, String> forkedMessageIdBySourceId,
+  ) {
+    final sourceId = '${value ?? ''}'.trim();
+    if (sourceId.isEmpty) {
+      return null;
+    }
+    return forkedMessageIdBySourceId[sourceId];
+  }
+
+  List<String> _rewriteForkedMessageIdList(
+    Object? value,
+    Map<String, String> forkedMessageIdBySourceId,
+  ) {
+    if (value is! List) {
+      return const <String>[];
+    }
+    final rewritten = <String>[];
+    for (final item in value) {
+      final forkedId = _rewriteForkedMessageId(item, forkedMessageIdBySourceId);
+      if (forkedId != null && forkedId.isNotEmpty) {
+        rewritten.add(forkedId);
+      }
+    }
+    return List<String>.unmodifiable(rewritten);
+  }
+
+  Map<String, String>? _rewriteForkedMessageIdMapValues(
+    Object? value,
+    Map<String, String> forkedMessageIdBySourceId,
+  ) {
+    if (value is! Map) {
+      return null;
+    }
+    final rewritten = <String, String>{};
+    for (final entry in value.entries) {
+      final toolCallId = '${entry.key}'.trim();
+      final forkedMessageId = _rewriteForkedMessageId(
+        entry.value,
+        forkedMessageIdBySourceId,
+      );
+      if (toolCallId.isNotEmpty &&
+          forkedMessageId != null &&
+          forkedMessageId.isNotEmpty) {
+        rewritten[toolCallId] = forkedMessageId;
+      }
+    }
+    if (rewritten.isEmpty) {
+      return null;
+    }
+    return Map<String, String>.unmodifiable(rewritten);
   }
 
   Future<bool> _deleteMessagesLocked({

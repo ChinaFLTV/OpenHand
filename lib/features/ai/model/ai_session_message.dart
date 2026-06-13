@@ -360,6 +360,7 @@ class AiSessionMessage {
   }
 
   AiSessionMessage copyWith({
+    String? id,
     AiSessionMessageKind? kind,
     AiSessionMessageRole? role,
     String? content,
@@ -373,7 +374,7 @@ class AiSessionMessage {
   }) {
     final nextContent = content ?? this.content;
     return AiSessionMessage(
-      id: id,
+      id: id ?? this.id,
       kind: kind ?? this.kind,
       role: role ?? this.role,
       content: nextContent,
