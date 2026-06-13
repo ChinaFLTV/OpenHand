@@ -338,6 +338,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
   int _revealDebugSequence = 0;
+  TranscriptScrollActivity? _scrollActivity;
+  _PendingRevealRestore? _pendingRevealRestore;
 
   String _debugScrollSnapshot(ScrollController controller) {
     if (!controller.hasClients || controller.positions.isEmpty) {
@@ -385,6 +387,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 线程会话窗口已下线所有 settle 循环（弹跳源头），首屏贴底由调用方
     // jumpToBottomOnInit 路径在 ListView 挂载后做单帧 jumpTo，不再走
     // 多帧 addPostFrameCallback 链 + lastAdjustedOffset 比较。
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activity = context.read<TranscriptScrollActivity>();
+    if (identical(activity, _scrollActivity)) {
+      return;
+    }
+    _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
+    _scrollActivity = activity;
+    activity.addListener(_handleRevealScrollActivityChanged);
   }
 
   @override
@@ -872,6 +886,49 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return math.max(0, messageCount - _transcriptInitialWindowSize);
   }
 
+  @override
+  void dispose() {
+    _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
+    _scrollActivity = null;
+    super.dispose();
+  }
+
+  void _handleRevealScrollActivityChanged() {
+    final activity = _scrollActivity;
+    final pending = _pendingRevealRestore;
+    if (!mounted || activity == null || pending == null || activity.value) {
+      return;
+    }
+    if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
+      return;
+    }
+    final position = widget.controller.positions.last;
+    if (position.isScrollingNotifier.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _handleRevealScrollActivityChanged();
+        }
+      });
+      return;
+    }
+    final target = pending.targetPixels.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    _debugRevealLog(
+      'reveal#${pending.debugId} trigger-restore-resume',
+      'from=${_debugScrollNumber(position.pixels)} '
+          'to=${_debugScrollNumber(target)} '
+          'scrollActive=${activity.value}',
+    );
+    _pendingRevealRestore = null;
+    if ((target - position.pixels).abs() <
+        _transcriptPrependAnchorMinCorrection) {
+      return;
+    }
+    widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+  }
+
   Future<void> _revealOlderMessages() async {
     if (_loadingOlderMessages ||
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
@@ -973,11 +1030,25 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
         }
       } else {
+        _pendingRevealRestore = position == null
+            ? null
+            : _PendingRevealRestore(
+                debugId: revealDebugId,
+                targetPixels: previousPixels,
+              );
         _debugRevealLog(
           'reveal#$revealDebugId trigger-restore-skip',
           'hasPosition=${position != null} scrollActive=$scrollActive '
-              'isScrolling=${position?.isScrollingNotifier.value ?? false}',
+              'isScrolling=${position?.isScrollingNotifier.value ?? false} '
+              'queued=${_pendingRevealRestore != null}',
         );
+        if (_pendingRevealRestore != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _handleRevealScrollActivityChanged();
+            }
+          });
+        }
       }
       return;
     }
@@ -1666,6 +1737,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       ],
     );
   }
+}
+
+class _PendingRevealRestore {
+  const _PendingRevealRestore({
+    required this.debugId,
+    required this.targetPixels,
+  });
+
+  final int debugId;
+  final double targetPixels;
 }
 
 class _TranscriptLoadEarlierButton extends StatelessWidget {
