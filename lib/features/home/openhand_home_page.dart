@@ -215,8 +215,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _pendingScrollToBottomSettlePasses = 0;
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
-  // 跟踪最近一次 maxScrollExtent，用于检测「底部向上收缩」导致的伪贴底。
-  double? _lastMessageScrollMaxExtent;
   // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
   // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
@@ -1798,9 +1796,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 等精确元数据。此后 listener 不再越俎代庖做暂停/恢复决策，该职责完全交给
     // _handleMessageScrollNotification，它拥有完整的用户意图分类信息。
     //
-    // listener 仅保留两个职责：
-    //   1. 跟踪 _lastMessageScrollPixels / _lastMessageScrollMaxExtent（调试/分析用）
-    //   2. 同步 _syncAutoFollowPausedState（UI 状态一致性）
+    // listener 仅保留同步 _syncAutoFollowPausedState（UI 状态一致性）职责。
     //
     // 物理模拟期间（isScrollingNotifier && !_userDragActive）完全跳过，避免
     // 弹簧回弹/fling 减速产生的像素变化触发不必要的 UI 刷新。
@@ -1898,15 +1894,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
-    final currentMaxExtent = notification.metrics.maxScrollExtent;
-    final maxExtentShrunkSignificantly =
-        _lastMessageScrollMaxExtent != null &&
-        currentMaxExtent <
-            _lastMessageScrollMaxExtent! - _autoFollowPauseHysteresis;
-    final isNearBottom =
-        distanceToBottom >= -1.0 &&
-        distanceToBottom <= _autoFollowDistanceThreshold;
-    _lastMessageScrollMaxExtent = currentMaxExtent;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
@@ -1956,62 +1943,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
       return false;
-    }
-    if (userScrollEnded &&
-        _autoFollowEnabled &&
-        (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
-      if (_autoFollowEnabled &&
-          _shouldAutoFollowMessages &&
-          !_userScrollInProgress) {
-        // 2026-06-06（线程模板抽搐 bug 真凶）：此分支原在 userScrollEnded
-        // 且 _userScrollInProgress=false（即 800 ms 宽限期已过）时强行
-        // animateTo(maxScrollExtent)。在用户做了"轻滑即停"动作后，
-        // 800 ms 之后视口被拽回底部 —— 与用户的"我在读旧消息"心智
-        // 模型相冲突，频繁触发时被感知为"消息上下抽"。删除 scheduleSTB：
-        // auto-follow 的贴底由 _armAutoFollowToBottom + jumpToBottomOnInit
-        // （初始化 / 会话切换）已完整覆盖，resume 路径不再抢 animateTo。
-      }
-    }
-    // 2026-05-01: Resume gating tightened.
-    //
-    // Previously this branch re-armed `_shouldAutoFollowMessages` on
-    // EVERY scroll notification whose pixels happened to land within the
-    // 96 px bottom window — including transient ScrollUpdateNotifications
-    // emitted while the user was still actively dragging. The result was
-    // that a momentary swipe down toward (but not to) the bottom would
-    // silently resume auto-follow, contradicting the user's mental model
-    // that "I have to actively park at the bottom to resume".
-    //
-    // The new contract requires *both*:
-    //   1. The viewport pixel position settled within the bottom window.
-    //   2. The notification is a terminal scroll-end (or an idle
-    //      UserScrollNotification), proving the user finished the gesture.
-    // Programmatic scrolls are excluded because the early-return at the
-    // top of this method skips them entirely.
-    //
-    // 2026-05-26 修复：当 maxScrollExtent 大幅收缩（HTML 气泡高度测量
-    // 值变小、图片解码后实际尺寸小于占位等），pixels 即使不变也会在数值上
-    // "靠近底部"——但这是底部向用户靠近，而非用户向底部滚动。此时不应恢复
-    // 自动跟随，否则视口会被强行拽回新底部，与用户上滑意图直接冲突。
-    //
-    // 2026-06-06（线程模板抽搐 bug 真凶）：实测日志显示 trackpad 在
-    // 0-32 px 滞回带内反复"轻滑-停-轻滑"，每次 release 都在 800 ms
-    // 宽限期内命中此分支，把视口强制 animateTo(maxScrollExtent) 拽回
-    // 底部。scheduleSTB(force=true, animated=true) 是此处的真凶 —— 移除
-    // 它。auto-follow 仍由 _armAutoFollowToBottom 接管"初始化 / 切会话
-    // / layout 高度回流"三个本就该贴底的场景；用户中途上滑后即便回到
-    // 32 px 滞回带内也不再被强行拉回，需要主动跳到 bottom 才能重新贴底。
-    if (isNearBottom &&
-        _autoFollowEnabled &&
-        userScrollEnded &&
-        _userScrollInProgress &&
-        !maxExtentShrunkSignificantly) {
-      _userScrollGraceTimer?.cancel();
-      _userScrollGraceTimer = null;
-      _userScrollInProgress = false;
-      // 同步广播 inactive：早结束分支不再等宽限定时器，HTML WebView
-      // 应当立即获知滚动已停止。
-      _transcriptScrollActivity.markInactive();
     }
     _syncAutoFollowPausedState();
     return false;

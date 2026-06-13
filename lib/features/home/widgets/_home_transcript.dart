@@ -1294,6 +1294,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         errorBannerCount +
         pendingPlaceholderCount +
         failureCardCount;
+    final transcriptScrollActive = context
+        .select<TranscriptScrollActivity, bool>((activity) => activity.value);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1471,6 +1473,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           isLastVisibleMessage: isLastVisibleMessage,
                         ),
                     onLayoutChanged: widget.onLayoutChanged,
+                    transcriptScrollActive: transcriptScrollActive,
                     isSelected: isSelected,
                     isScrollHighlighted: _highlightedMessageId == message.id,
                     onSelect: () {
@@ -1540,10 +1543,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     : bubble;
                 return AnimatedSize(
                   key: ValueKey<String>('transcript-entry-${message.id}'),
-                  duration: cardMotionDurationFor(
-                    context,
-                    expanding: isSelected,
-                  ),
+                  duration: isSelected && !transcriptScrollActive
+                      ? cardMotionDurationFor(context, expanding: true)
+                      : Duration.zero,
                   curve: kCardMotionCurve,
                   alignment: isSelected
                       ? Alignment.topLeft

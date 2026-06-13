@@ -9,6 +9,7 @@ class _MessageBubble extends StatefulWidget {
     required this.showReasoningSweep,
     required this.trackLayoutChanges,
     required this.onLayoutChanged,
+    required this.transcriptScrollActive,
     required this.isSelected,
     required this.isScrollHighlighted,
     required this.onSelect,
@@ -29,6 +30,7 @@ class _MessageBubble extends StatefulWidget {
   final bool showReasoningSweep;
   final bool trackLayoutChanges;
   final VoidCallback onLayoutChanged;
+  final bool transcriptScrollActive;
   final bool isSelected;
   final bool isScrollHighlighted;
   final VoidCallback onSelect;
@@ -701,12 +703,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ),
                   ],
                 );
+                final allowBubbleSizeMotion =
+                    !widget.transcriptScrollActive &&
+                    (widget.isSelected ||
+                        _reasoningExpandedOverride != null ||
+                        _showRawContent != widget.initiallyShowRawContent);
                 return ClipRect(
                   child: AnimatedSize(
-                    duration: cardMotionDurationFor(
-                      context,
-                      expanding: widget.isSelected || reasoningExpanded,
-                    ),
+                    duration: allowBubbleSizeMotion
+                        ? cardMotionDurationFor(
+                            context,
+                            expanding:
+                                widget.isSelected ||
+                                (_reasoningExpandedOverride != null &&
+                                    reasoningExpanded) ||
+                                _showRawContent,
+                          )
+                        : Duration.zero,
                     curve: kCardMotionCurve,
                     alignment: Alignment.topLeft,
                     child: bubbleContent,

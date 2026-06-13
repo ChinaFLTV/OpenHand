@@ -34,18 +34,21 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
       final double delta = maxScrollExtent - this.maxScrollExtent;
       final double oldMax = this.maxScrollExtent;
 
-      // 2026-06-06（线程模板抽搐 bug）：用户主动 drag 期间绝对不能让
+      // 2026-06-06（线程模板抽搐 bug）：用户主动滚动期间绝对不能让
       // correctPixels 干扰视口位置 —— contentDimensions 变化是异步回流
       // 产物（HTML 气泡 re-measure / markdown 高亮 / cacheExtent 扫过
-      // 新条目），而 drag 时 ScrollController 的 overscroll 弹簧正按
+      // 新条目），而滚动时 ScrollController 的 overscroll 弹簧正按
       // 用户意图驱动 pixels；此刻 correctPixels 会让 drag 看到"目标
-      // 突然移动"，与 drag 形成 ~50ms 周期正反馈，肉眼呈"小幅上下弹跳"。
+      // 突然移动"，与滚动形成 ~50ms 周期正反馈，肉眼呈"小幅上下弹跳"。
       // 守卫同时覆盖两个纠偏分支（overscroll 跟随 + 读顶部 content 收缩
-      // 比例缩放）。drag 结束后下一帧守卫自动放行，super 仍走，行为完全保持。
-      final bool userDragging = activity is DragScrollActivity ||
-          (activity is! IdleScrollActivity && activity is! BallisticScrollActivity);
+      // 比例缩放）。滚动结束后下一帧守卫自动放行，super 仍走，行为完全保持。
+      final bool userScrolling =
+          isScrollingNotifier.value ||
+          activity is DragScrollActivity ||
+          (activity is! IdleScrollActivity &&
+              activity is! BallisticScrollActivity);
 
-      if (!userDragging) {
+      if (!userScrolling) {
         if (pixels > oldMax) {
           // 处于 overscroll 区：保持 overscroll 距离不变，避免弹簧看到
           // "目标突然移动" 而产生抽搐。drag 期间不干扰用户 overscroll 手势。
@@ -68,8 +71,10 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
           _transientRejectCount = 0;
           if (oldMax > 0) {
             final double ratio = (pixels / oldMax).clamp(0.0, 1.0);
-            final double newPixels =
-                (ratio * maxScrollExtent).clamp(0.0, maxScrollExtent);
+            final double newPixels = (ratio * maxScrollExtent).clamp(
+              0.0,
+              maxScrollExtent,
+            );
             correctPixels(newPixels);
           }
         } else {
@@ -112,5 +117,6 @@ class OpenHandStableScrollController extends ScrollController {
 /// 无 rubber-band / 无 Q 弹），始终可滚。搭配
 /// [OpenHandStableScrollController] 使用可获得 [ScrollPosition] 层
 /// 的 maxScrollExtent 收缩保护。
-const ClampingScrollPhysics kOpenHandClampingPhysics =
-    ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+const ClampingScrollPhysics kOpenHandClampingPhysics = ClampingScrollPhysics(
+  parent: AlwaysScrollableScrollPhysics(),
+);
