@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
 import { ApiError, UnauthorizedError, apiRequest } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -1138,6 +1138,7 @@ export function SessionDetailPage() {
     message: SessionMessage;
     cascade: boolean;
   } | null>(null);
+  const [pendingForkMessage, setPendingForkMessage] = useState<SessionMessage | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
@@ -1145,6 +1146,7 @@ export function SessionDetailPage() {
   const [webReverseDashboardOpen, setWebReverseDashboardOpen] = useState(false);
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [forkBusy, setForkBusy] = useState(false);
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
 
@@ -1178,6 +1180,8 @@ export function SessionDetailPage() {
     setStopping(false);
     setPendingDeleteAction(null);
     setDeleteBusy(false);
+    setPendingForkMessage(null);
+    setForkBusy(false);
     setPendingSessionDelete(false);
     setSessionDeleteBusy(false);
     setPermissionSaving(false);
@@ -1401,6 +1405,9 @@ export function SessionDetailPage() {
   const handleDeleteMessageCascade = useCallback((m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: true });
   }, []);
+  const handleForkMessage = useCallback((m: SessionMessage) => {
+    setPendingForkMessage(m);
+  }, []);
   const confirmDeleteMessage = async () => {
     if (!sessionId || !pendingDeleteAction || deleteBusy) return;
     const requestSessionId = sessionId;
@@ -1425,6 +1432,33 @@ export function SessionDetailPage() {
       });
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setDeleteBusy(false);
+    }
+  };
+  const confirmForkMessage = async () => {
+    if (!sessionId || !pendingForkMessage || forkBusy) return;
+    const requestSessionId = sessionId;
+    const message = pendingForkMessage;
+    setForkBusy(true);
+    try {
+      const res = await forkSessionFromMessage(requestSessionId, message.id);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      setPendingForkMessage(null);
+      showSnackbar(t('detail.fork.ok', '已派生新会话'), { tone: 'success' });
+      const nextId = res.session?.id;
+      if (nextId) {
+        location.route(`/threads/${encodeURIComponent(nextId)}`);
+      }
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const messageText = e instanceof Error ? e.message : String(e);
+      setError(messageText);
+      showSnackbar(`${t('detail.fork.failed', '派生会话失败')}：${messageText}`, {
+        tone: 'error',
+      });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setForkBusy(false);
     }
   };
 
@@ -3447,7 +3481,7 @@ export function SessionDetailPage() {
                     <ul class="flex flex-col gap-3">
                       {sortedMessages.map((m) => (
                         <li key={m.id}>
-                          <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} />
+                          <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} onFork={handleForkMessage} />
                         </li>
                       ))}
                     </ul>
@@ -3980,6 +4014,19 @@ export function SessionDetailPage() {
           onConfirm={confirmDeleteMessage}
         />
       ) : null}
+      {pendingForkMessage ? (
+        <ConfirmDialog
+          title={t('detail.fork.confirmTitle', '派生新会话?')}
+          body={t('detail.fork.confirmBody', '将从当前会话的这条消息之后派生出一个新会话。新会话会保留这条消息及之前的内容，并丢弃之后的消息。')}
+          busy={forkBusy}
+          confirmLabel={forkBusy ? t('detail.fork.creating', '派生中…') : t('common.fork', '派生')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!forkBusy) setPendingForkMessage(null);
+          }}
+          onConfirm={confirmForkMessage}
+        />
+      ) : null}
       {pendingSessionDelete ? (
         <ConfirmDialog
           title={t('topbar.deleteConfirmTitle', '删除该会话?')}
@@ -4317,42 +4364,28 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
   const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
   const promptTokens = Math.max(0, promptTokensTotal - firstPrompt);
   const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
-  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
-  const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? promptTokensTotal + completionTokens);
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
-  const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
   // 2026-06-08 — WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
-  const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
-  const cacheHitRatio = backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
-  const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
-  const trendData = useMemo<{
-    points: TrendPoint[];
-    averageRatio: number;
-  } | null>(() => {
-    if (!backendTrendPoints || backendTrendPoints.length === 0) return null;
-    return {
-      points: backendTrendPoints.map((p) => ({
-        turnIndex: p.turn_index,
-        hitRatio: p.hit_ratio,
-        idleGapSeconds: p.idle_gap_seconds ?? null,
-      })),
-      averageRatio: backendHitRatio,
-    };
-  }, [backendTrendPoints, backendHitRatio]);
+  const cacheHit = buildSessionCacheHitDisplay(session, stats as Record<string, unknown>);
+  const {
+    cacheReadTokens,
+    cacheWriteTokens,
+    cacheHitRatio,
+    readWeight,
+    writeWeight,
+    missWeight,
+    trendData,
+    claudeStyle,
+  } = cacheHit;
   // Stacked-bar weights (read / write / unCached prompt)。与 APP 端
   // _CacheHitBar 同口径：使用 backend 预计算的 cacheHitRatio（由
   // SessionCacheHitTrend.displayData 生成），而非客户端聚合公式。
-  const cacheHitFrac = cacheHitRatio / 100;
-  const hasWrite = cacheWriteTokens > 0;
-  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0 ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens)) : cacheHitFrac;
-  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0 ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens)) : 0;
-  const missWeight = 1 - cacheHitFrac;
   return (
     <DialogFrame
       closing={closing}
@@ -4869,6 +4902,59 @@ interface TrendPoint {
   idleGapSeconds?: number | null;
 }
 
+interface SessionCacheHitDisplay {
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  cacheHitRatio: number;
+  readWeight: number;
+  writeWeight: number;
+  missWeight: number;
+  claudeStyle: boolean;
+  trendData: {
+    points: TrendPoint[];
+    averageRatio: number;
+  } | null;
+}
+
+function buildSessionCacheHitDisplay(
+  session: SessionSummary,
+  stats: Record<string, unknown>,
+): SessionCacheHitDisplay {
+  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
+  const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
+  const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
+  const cacheHitRatio = backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
+  const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
+  const trendData = backendTrendPoints && backendTrendPoints.length > 0
+    ? {
+      points: backendTrendPoints.map((p) => ({
+        turnIndex: p.turn_index,
+        hitRatio: p.hit_ratio,
+        idleGapSeconds: p.idle_gap_seconds ?? null,
+      })),
+      averageRatio: backendHitRatio,
+    }
+    : null;
+  const cacheHitFrac = cacheHitRatio / 100;
+  const hasWrite = cacheWriteTokens > 0;
+  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
+    ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens))
+    : cacheHitFrac;
+  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
+    ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens))
+    : 0;
+  return {
+    cacheReadTokens,
+    cacheWriteTokens,
+    cacheHitRatio,
+    readWeight,
+    writeWeight,
+    missWeight: 1 - cacheHitFrac,
+    claudeStyle: usesClaudeStyleCacheMath(session.last_used_model_protocol),
+    trendData,
+  };
+}
+
 function formatDialogDate(value?: string | null): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -5021,9 +5107,11 @@ function runtimeGateReasonLabel(reason: string): string {
 
 function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
+  const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
   const stats = asRecord(session.statistics);
+  const cacheHit = buildSessionCacheHitDisplay(session, stats);
   const metadata = asRecord(session.metadata);
   const environment = asRecord(session.environment);
   const lastPromptMetadata = asRecord(session.last_prompt_metadata);
@@ -5115,6 +5203,41 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     </pre>
   );
 
+  const renderCacheHitPanel = (withTopMargin: boolean) => {
+    if (cacheHit.cacheReadTokens <= 0 && cacheHit.cacheWriteTokens <= 0 && (!cacheHit.trendData || cacheHit.trendData.points.length === 0)) {
+      return null;
+    }
+    return (
+      <div
+        class={`${withTopMargin ? 'mt-4 ' : ''}rounded-m3-md p-3`}
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+      >
+        <EntryRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={`${cacheHit.cacheHitRatio}%`} />
+        <div class="flex flex-wrap gap-2 mb-2">
+          <Chip label={`${t('tokenPopup.cacheRead', 'Cache 命中')} ${cacheHit.cacheReadTokens}`} />
+          <Chip label={`${t('tokenPopup.cacheWrite', 'Cache 写入')} ${cacheHit.cacheWriteTokens}`} />
+        </div>
+        <CacheHitBar readWeight={cacheHit.readWeight} writeWeight={cacheHit.writeWeight} missWeight={cacheHit.missWeight} />
+        {cacheHit.trendData && cacheHit.trendData.points.length > 0 ? (
+          <div class="mt-3">
+            <CacheHitTrendChart
+              points={cacheHit.trendData.points}
+              averageRatio={cacheHit.trendData.averageRatio}
+              claudeStyle={cacheHit.claudeStyle}
+              height={136}
+              displayMode={metadataTrendDisplayMode}
+              onDisplayModeChange={setMetadataTrendDisplayMode}
+              t={t}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderProgrammingConfig = () => {
     const config = asRecord(metadata['programming_expert_config']);
     return (
@@ -5163,6 +5286,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     );
   };
 
+  const cacheHitPanel = renderCacheHitPanel(promptBudgetTokens > 0);
+
   return (
     <DialogFrame
       closing={closing}
@@ -5182,6 +5307,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       }}
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
+      <div class="overflow-auto pr-1 flex-1 min-h-0">
       <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div class="min-w-0">
           <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
@@ -5236,8 +5362,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
         <SummaryTile label="当前模式" value={runtimeModeLabel} />
         <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
       </div>
-      <div class="overflow-auto pr-1 flex-1 min-h-0">
-        <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-4">
           <Section title="会话概览">
             <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
             <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
@@ -5273,27 +5398,32 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label={metadataFieldLabel('last_prompt_system_message_count')} value={`${stats.last_prompt_system_message_count ?? 0}`} />
             <EntryRow label={metadataFieldLabel('last_prompt_history_message_count')} value={`${stats.last_prompt_history_message_count ?? 0}`} />
           </Section>
-          {promptBudgetTokens > 0 ? (
+          {promptBudgetTokens > 0 || cacheHitPanel ? (
             <Section title="上下文预算">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="h-2 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--m3-surface-container-highest)' }}>
-                  <div
-                    class="h-full rounded-full"
-                    style={{
-                      width: `${usageValue}%`,
-                      background: contextStatus === 'critical' ? 'var(--m3-error)' : 'var(--m3-primary)',
-                    }}
-                  />
-                </div>
-                <Chip label={contextStatusLabel} />
-              </div>
-              <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
-              <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
-              <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
-              <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
-              <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
-              <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
-              <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
+              {promptBudgetTokens > 0 ? (
+                <>
+                  <div class="flex items-center gap-3 mb-3">
+                    <div class="h-2 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--m3-surface-container-highest)' }}>
+                      <div
+                        class="h-full rounded-full"
+                        style={{
+                          width: `${usageValue}%`,
+                          background: contextStatus === 'critical' ? 'var(--m3-error)' : 'var(--m3-primary)',
+                        }}
+                      />
+                    </div>
+                    <Chip label={contextStatusLabel} />
+                  </div>
+                  <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
+                  <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
+                  <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
+                  <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
+                  <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
+                  <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
+                  <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
+                </>
+              ) : null}
+              {cacheHitPanel}
             </Section>
           ) : null}
           {Object.keys(rehydration).length > 0 ? (
@@ -5468,8 +5598,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <JsonPanel content={lastPromptMetadata} />
           </Section>
         </div>
-      </div>
-      <footer class="flex justify-end pt-4">
+        <footer class="flex justify-end pt-4">
         <button
           type="button"
           class="oh-tap-press px-5 py-2 rounded-m3-sm text-sm font-bold"
@@ -5481,7 +5610,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
         >
           {t('common.close', '关闭')}
         </button>
-      </footer>
+        </footer>
+      </div>
     </DialogFrame>
   );
 }

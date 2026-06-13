@@ -89,658 +89,581 @@ class _SessionMetadataDialog extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppLocalizations.of(
+                              context,
+                            )!.sessMetaCurrentSessionMetadata,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            session.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+                ..._buildSessionCostSection(context, theme, colorScheme),
+                const SizedBox(height: 18),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaSessionOverview,
+                  children: [
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'session_id'),
+                      value: session.id,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'template'),
+                      value:
+                          '${session.templateName} · v${session.templateInternalVersion}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'created_at'),
+                      value: _formatDateTime(session.createdAt),
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'updated_at'),
+                      value: _formatDateTime(session.updatedAt),
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'last_model'),
+                      value:
+                          session.lastUsedModelLabel ??
+                          session.lastUsedModelId ??
+                          '-',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'auto_title_acquired',
+                      ),
+                      value: session.autoTitleAcquired
+                          ? '✓ ${_localizedText(context, zh: '已获取', en: 'Acquired')}'
+                          : '✗ ${_localizedText(context, zh: '未获取', en: 'Not acquired')}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'auto_title_retry_count',
+                      ),
+                      value: '${session.autoTitleRetryCount}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'compression_checkpoint',
+                      ),
+                      value:
+                          session.latestCompressionCheckpointMessageId ?? '-',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'latest_compression_at',
+                      ),
+                      value: session.latestCompressionAt == null
+                          ? '-'
+                          : _formatDateTime(session.latestCompressionAt!),
+                    ),
+                  ],
+                ),
+                if (session.templateId == 'hardness_engineering') ...[
+                  const SizedBox(height: 16),
+                  _buildHardnessConfigSection(context, session),
+                ],
+                if (session.templateId == 'programming_expert') ...[
+                  const SizedBox(height: 16),
+                  _buildProgrammingExpertConfigSection(context, session),
+                ],
+                if (session.templateId == 'web_reverse_expert') ...[
+                  const SizedBox(height: 16),
+                  _buildWebReverseConfigSection(context, session),
+                ],
+                if (session.metadata.entries
+                    .where(
+                      (e) =>
+                          !(session.templateId == 'hardness_engineering' &&
+                              e.key == 'hardness_config') &&
+                          !(session.templateId == 'programming_expert' &&
+                              e.key == 'programming_expert_config') &&
+                          !(session.templateId == 'web_reverse_expert' &&
+                              e.key == 'web_reverse_config'),
+                    )
+                    .isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _MetadataSection(
+                    title: AppLocalizations.of(
+                      context,
+                    )!.sessMetaExtendedMetadata,
+                    children: session.metadata.entries
+                        .where(
+                          (e) =>
+                              !(session.templateId == 'hardness_engineering' &&
+                                  e.key == 'hardness_config') &&
+                              !(session.templateId == 'programming_expert' &&
+                                  e.key == 'programming_expert_config') &&
+                              !(session.templateId == 'web_reverse_expert' &&
+                                  e.key == 'web_reverse_config'),
+                        )
+                        .map((entry) {
+                          return _MetadataEntryRow(
+                            label: entry.key,
+                            value: '${entry.value}',
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaStatistics,
+                  children: [
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.sessMetaCurrentSessionMetadata,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        _MetadataChip(
+                          label:
+                              '${AppLocalizations.of(context)!.sessMetaUser} ${statistics.userMessageCount}',
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          session.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        _MetadataChip(
+                          label:
+                              '${AppLocalizations.of(context)!.sessMetaAssistant} ${statistics.assistantMessageCount}',
+                        ),
+                        _MetadataChip(
+                          label:
+                              '${AppLocalizations.of(context)!.sessMetaTool} ${statistics.toolMessageCount}',
+                        ),
+                        _MetadataChip(
+                          label: 'MCP ${statistics.mcpMessageCount}',
+                        ),
+                        _MetadataChip(
+                          label:
+                              '${AppLocalizations.of(context)!.sessMetaSkill} ${statistics.skillMessageCount}',
+                        ),
+                        _MetadataChip(
+                          label:
+                              '${AppLocalizations.of(context)!.sessMetaCompression} ${statistics.compressionPointCount}',
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
-              ..._buildCacheHitTrendSection(context, theme, colorScheme),
-              ..._buildSessionCostSection(context, theme, colorScheme),
-              const SizedBox(height: 18),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaSessionOverview,
-                        children: [
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'session_id',
-                            ),
-                            value: session.id,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(context, 'template'),
-                            value:
-                                '${session.templateName} · v${session.templateInternalVersion}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'created_at',
-                            ),
-                            value: _formatDateTime(session.createdAt),
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'updated_at',
-                            ),
-                            value: _formatDateTime(session.updatedAt),
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'last_model',
-                            ),
-                            value:
-                                session.lastUsedModelLabel ??
-                                session.lastUsedModelId ??
-                                '-',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'auto_title_acquired',
-                            ),
-                            value: session.autoTitleAcquired
-                                ? '✓ ${_localizedText(context, zh: '已获取', en: 'Acquired')}'
-                                : '✗ ${_localizedText(context, zh: '未获取', en: 'Not acquired')}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'auto_title_retry_count',
-                            ),
-                            value: '${session.autoTitleRetryCount}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'compression_checkpoint',
-                            ),
-                            value:
-                                session.latestCompressionCheckpointMessageId ??
-                                '-',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'latest_compression_at',
-                            ),
-                            value: session.latestCompressionAt == null
-                                ? '-'
-                                : _formatDateTime(session.latestCompressionAt!),
-                          ),
-                        ],
-                      ),
-                      if (session.templateId == 'hardness_engineering') ...[
-                        const SizedBox(height: 16),
-                        _buildHardnessConfigSection(context, session),
-                      ],
-                      if (session.templateId == 'programming_expert') ...[
-                        const SizedBox(height: 16),
-                        _buildProgrammingExpertConfigSection(context, session),
-                      ],
-                      if (session.templateId == 'web_reverse_expert') ...[
-                        const SizedBox(height: 16),
-                        _buildWebReverseConfigSection(context, session),
-                      ],
-                      if (session.metadata.entries
-                          .where(
-                            (e) =>
-                                !(session.templateId ==
-                                        'hardness_engineering' &&
-                                    e.key == 'hardness_config') &&
-                                !(session.templateId == 'programming_expert' &&
-                                    e.key == 'programming_expert_config') &&
-                                !(session.templateId == 'web_reverse_expert' &&
-                                    e.key == 'web_reverse_config'),
-                          )
-                          .isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        _MetadataSection(
-                          title: AppLocalizations.of(
-                            context,
-                          )!.sessMetaExtendedMetadata,
-                          children: session.metadata.entries
-                              .where(
-                                (e) =>
-                                    !(session.templateId ==
-                                            'hardness_engineering' &&
-                                        e.key == 'hardness_config') &&
-                                    !(session.templateId ==
-                                            'programming_expert' &&
-                                        e.key == 'programming_expert_config') &&
-                                    !(session.templateId ==
-                                            'web_reverse_expert' &&
-                                        e.key == 'web_reverse_config'),
-                              )
-                              .map((entry) {
-                                return _MetadataEntryRow(
-                                  label: entry.key,
-                                  value: '${entry.value}',
-                                );
-                              })
-                              .toList(growable: false),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaStatistics,
-                        children: [
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _MetadataChip(
-                                label:
-                                    '${AppLocalizations.of(context)!.sessMetaUser} ${statistics.userMessageCount}',
-                              ),
-                              _MetadataChip(
-                                label:
-                                    '${AppLocalizations.of(context)!.sessMetaAssistant} ${statistics.assistantMessageCount}',
-                              ),
-                              _MetadataChip(
-                                label:
-                                    '${AppLocalizations.of(context)!.sessMetaTool} ${statistics.toolMessageCount}',
-                              ),
-                              _MetadataChip(
-                                label: 'MCP ${statistics.mcpMessageCount}',
-                              ),
-                              _MetadataChip(
-                                label:
-                                    '${AppLocalizations.of(context)!.sessMetaSkill} ${statistics.skillMessageCount}',
-                              ),
-                              _MetadataChip(
-                                label:
-                                    '${AppLocalizations.of(context)!.sessMetaCompression} ${statistics.compressionPointCount}',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'total_input_characters',
-                            ),
-                            value: '${statistics.totalInputCharacters}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'total_output_characters',
-                            ),
-                            value: '${statistics.totalOutputCharacters}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'total_prompt_characters',
-                            ),
-                            value: '${statistics.totalPromptCharacters}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'last_prompt_system_message_count',
-                            ),
-                            value: '${statistics.lastPromptSystemMessageCount}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'last_prompt_history_message_count',
-                            ),
-                            value:
-                                '${statistics.lastPromptHistoryMessageCount}',
-                          ),
-                        ],
-                      ),
-                      ..._buildContextBudgetSection(
+                    const SizedBox(height: 12),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
                         context,
-                        theme,
-                        colorScheme,
-                        lastPromptMetadata,
+                        'total_input_characters',
                       ),
-                      ..._buildPostCompactRehydrationSection(
+                      value: '${statistics.totalInputCharacters}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
                         context,
-                        lastPromptMetadata,
+                        'total_output_characters',
                       ),
-                      ..._buildCompactMemorySection(
+                      value: '${statistics.totalOutputCharacters}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
                         context,
-                        lastPromptMetadata,
+                        'total_prompt_characters',
                       ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaEnvironment,
-                        children: [
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'locale_tag',
-                            ),
-                            value: environment.localeTag,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(context, 'platform'),
-                            value: environment.platform,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'app_version',
-                            ),
-                            value:
-                                '${environment.appVersion} (${environment.appBuildNumber})',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'compression_threshold_chars',
-                            ),
-                            value: '${environment.compressionThresholdChars}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'single_round_tool_call_limit',
-                            ),
-                            value: '${environment.singleRoundToolCallLimit}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'sequential_tool_round_limit',
-                            ),
-                            value: '${environment.sequentialToolRoundLimit}',
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'application_directory',
-                            ),
-                            value: environment.applicationDirectory,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'home_directory',
-                            ),
-                            value: environment.homeDirectory,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'settings_file',
-                            ),
-                            value: environment.settingsFilePath,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'skills_storage',
-                            ),
-                            value: environment.skillsStoragePath,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'mcp_servers_file',
-                            ),
-                            value: environment.mcpServersFilePath,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'user_memory_file',
-                            ),
-                            value: environment.userMemoryFilePath,
-                          ),
-                          _MetadataEntryRow(
-                            label: _localizedMetadataField(
-                              context,
-                              'sessions_directory',
-                            ),
-                            value: environment.sessionsDirectoryPath,
-                          ),
-                        ],
+                      value: '${statistics.totalPromptCharacters}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'last_prompt_system_message_count',
                       ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaCommandPolicy,
-                        children: !hasPromptMetadata
-                            ? [
-                                Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaPromptMetadataIsNotAvailableYet,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ]
-                            : [
-                                _MetadataEntryRow(
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaWriteConfirmation,
-                                  value: writeCommandConfirmationEnabled
-                                      ? AppLocalizations.of(
-                                          context,
-                                        )!.sessMetaRequired
-                                      : AppLocalizations.of(
-                                          context,
-                                        )!.sessMetaNotRequired,
-                                ),
-                                _MetadataEntryRow(
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaAllowRules,
-                                  value: '$allowCommandRuleCount',
-                                ),
-                                if (allowCommandRules.isEmpty)
-                                  Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.sessMetaThereAreNoSurfacedAllowCommand,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  )
-                                else
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: allowCommandRules
-                                        .map((rule) {
-                                          final pattern =
-                                              '${rule['pattern'] ?? ''}'.trim();
-                                          final matchMode =
-                                              '${rule['match_mode'] ?? ''}'
-                                                  .trim();
-                                          if (pattern.isEmpty) {
-                                            return null;
-                                          }
-                                          final prefix = matchMode.isEmpty
-                                              ? ''
-                                              : '$matchMode: ';
-                                          return _MetadataChip(
-                                            label: '$prefix$pattern',
-                                          );
-                                        })
-                                        .whereType<Widget>()
-                                        .toList(growable: false),
-                                  ),
-                              ],
+                      value: '${statistics.lastPromptSystemMessageCount}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'last_prompt_history_message_count',
                       ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaRuntimeOrchestration,
-                        children: [
+                      value: '${statistics.lastPromptHistoryMessageCount}',
+                    ),
+                  ],
+                ),
+                ..._buildContextBudgetSection(
+                  context,
+                  theme,
+                  colorScheme,
+                  lastPromptMetadata,
+                ),
+                ..._buildPostCompactRehydrationSection(
+                  context,
+                  lastPromptMetadata,
+                ),
+                ..._buildCompactMemorySection(context, lastPromptMetadata),
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaEnvironment,
+                  children: [
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'locale_tag'),
+                      value: environment.localeTag,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'platform'),
+                      value: environment.platform,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'app_version'),
+                      value:
+                          '${environment.appVersion} (${environment.appBuildNumber})',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'compression_threshold_chars',
+                      ),
+                      value: '${environment.compressionThresholdChars}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'single_round_tool_call_limit',
+                      ),
+                      value: '${environment.singleRoundToolCallLimit}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'sequential_tool_round_limit',
+                      ),
+                      value: '${environment.sequentialToolRoundLimit}',
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'application_directory',
+                      ),
+                      value: environment.applicationDirectory,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'home_directory'),
+                      value: environment.homeDirectory,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'settings_file'),
+                      value: environment.settingsFilePath,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(context, 'skills_storage'),
+                      value: environment.skillsStoragePath,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'mcp_servers_file',
+                      ),
+                      value: environment.mcpServersFilePath,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'user_memory_file',
+                      ),
+                      value: environment.userMemoryFilePath,
+                    ),
+                    _MetadataEntryRow(
+                      label: _localizedMetadataField(
+                        context,
+                        'sessions_directory',
+                      ),
+                      value: environment.sessionsDirectoryPath,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaCommandPolicy,
+                  children: !hasPromptMetadata
+                      ? [
+                          Text(
+                            AppLocalizations.of(
+                              context,
+                            )!.sessMetaPromptMetadataIsNotAvailableYet,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ]
+                      : [
                           _MetadataEntryRow(
                             label: AppLocalizations.of(
                               context,
-                            )!.sessMetaStateSource,
-                            value: runtimeStatus.isLivePreview
-                                ? AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaGeneratedFromTheCurrentModelMcp
+                            )!.sessMetaWriteConfirmation,
+                            value: writeCommandConfirmationEnabled
+                                ? AppLocalizations.of(context)!.sessMetaRequired
                                 : AppLocalizations.of(
                                     context,
-                                  )!.sessMetaTheLastPersistedRuntimeSnapshot,
-                          ),
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaMode,
-                            value: _runtimeModeLabel(context, runtimeStatus),
+                                  )!.sessMetaNotRequired,
                           ),
                           _MetadataEntryRow(
                             label: AppLocalizations.of(
                               context,
-                            )!.sessMetaToolCatalogState,
-                            value: _runtimeToolCatalogStatusLabel(
-                              context,
-                              runtimeStatus,
-                            ),
+                            )!.sessMetaAllowRules,
+                            value: '$allowCommandRuleCount',
                           ),
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaGateReason,
-                            value: _runtimeToolGateReasonLabel(
-                              context,
-                              runtimeStatus.gateReason,
-                            ),
-                          ),
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaRuntimeToolCount,
-                            value:
-                                runtimeStatus.hasSnapshot &&
-                                    !runtimeStatus.stale
-                                ? '${runtimeStatus.toolCount}'
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaRefreshesNextRound,
-                          ),
-                          if (runtimeStatus.notices.isNotEmpty) ...[
-                            const SizedBox(height: 12),
+                          if (allowCommandRules.isEmpty)
                             Text(
                               AppLocalizations.of(
                                 context,
-                              )!.sessMetaRuntimeNotices,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
+                              )!.sessMetaThereAreNoSurfacedAllowCommand,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                            const SizedBox(height: 10),
+                            )
+                          else
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: runtimeStatus.notices
-                                  .map((item) => _MetadataChip(label: item))
-                                  .toList(growable: false),
-                            ),
-                          ],
-                          if (runtimeStatus.toolNames.isNotEmpty &&
-                              !runtimeStatus.stale) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              AppLocalizations.of(
-                                context,
-                              )!.sessMetaCurrentRuntimeTools,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: runtimeStatus.toolNames
-                                  .map((item) => _MetadataChip(label: item))
-                                  .toList(growable: false),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaTaskTracking,
-                        children: [
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaCurrentTodos,
-                            value: '${currentTodos.length}',
-                          ),
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaPlanRecords,
-                            value: '${planHistory.length}',
-                          ),
-                          _MetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaTodowriteReminder,
-                            value: hasPromptMetadata
-                                ? (todoWriteRecommended
-                                      ? AppLocalizations.of(
-                                          context,
-                                        )!.sessMetaTriggered
-                                      : AppLocalizations.of(
-                                          context,
-                                        )!.sessMetaNotTriggered)
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaUnavailable,
-                          ),
-                          if (todoWriteReason.isNotEmpty)
-                            _MetadataEntryRow(
-                              label: AppLocalizations.of(
-                                context,
-                              )!.sessMetaReminderReason,
-                              value: todoWriteReason,
-                            ),
-                          if (currentTodos.isNotEmpty)
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: currentTodos
-                                  .map((todo) {
-                                    final id = '${todo['id'] ?? ''}'.trim();
-                                    final content = '${todo['content'] ?? ''}'
+                              children: allowCommandRules
+                                  .map((rule) {
+                                    final pattern = '${rule['pattern'] ?? ''}'
                                         .trim();
-                                    final status = '${todo['status'] ?? ''}'
-                                        .trim();
-                                    if (content.isEmpty) {
+                                    final matchMode =
+                                        '${rule['match_mode'] ?? ''}'.trim();
+                                    if (pattern.isEmpty) {
                                       return null;
                                     }
-                                    final prefix = status.isEmpty
+                                    final prefix = matchMode.isEmpty
                                         ? ''
-                                        : '[$status] ';
-                                    final idPrefix = id.isEmpty ? '' : '$id: ';
+                                        : '$matchMode: ';
                                     return _MetadataChip(
-                                      label: '$prefix$idPrefix$content',
+                                      label: '$prefix$pattern',
                                     );
                                   })
                                   .whereType<Widget>()
                                   .toList(growable: false),
                             ),
-                          if (planHistory.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              AppLocalizations.of(context)!.sessMetaPlanHistory,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            ...planHistory.asMap().entries.map(
-                              (entry) => _MetadataPlanRecordCard(
-                                planIndex: planHistory.length - entry.key,
-                                planRecord: entry.value,
-                              ),
-                            ),
-                          ],
                         ],
+                ),
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(
+                    context,
+                  )!.sessMetaRuntimeOrchestration,
+                  children: [
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaStateSource,
+                      value: runtimeStatus.isLivePreview
+                          ? AppLocalizations.of(
+                              context,
+                            )!.sessMetaGeneratedFromTheCurrentModelMcp
+                          : AppLocalizations.of(
+                              context,
+                            )!.sessMetaTheLastPersistedRuntimeSnapshot,
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaMode,
+                      value: _runtimeModeLabel(context, runtimeStatus),
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.sessMetaToolCatalogState,
+                      value: _runtimeToolCatalogStatusLabel(
+                        context,
+                        runtimeStatus,
                       ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaRecentErrors,
-                        children: recentErrors.isEmpty
-                            ? [
-                                Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaThereAreNoSessionErrorsTo,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ]
-                            : recentErrors
-                                  .map(
-                                    (error) => _MetadataErrorCard(error: error),
-                                  )
-                                  .toList(growable: false),
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaGateReason,
+                      value: _runtimeToolGateReasonLabel(
+                        context,
+                        runtimeStatus.gateReason,
                       ),
-                      const SizedBox(height: 16),
-                      _MetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaLastPromptMetadata,
-                        children: [
-                          _MetadataJsonPanel(
-                            content: const JsonEncoder.withIndent(
-                              '  ',
-                            ).convert(session.lastPromptMetadata),
-                          ),
-                        ],
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.sessMetaRuntimeToolCount,
+                      value: runtimeStatus.hasSnapshot && !runtimeStatus.stale
+                          ? '${runtimeStatus.toolCount}'
+                          : AppLocalizations.of(
+                              context,
+                            )!.sessMetaRefreshesNextRound,
+                    ),
+                    if (runtimeStatus.notices.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        AppLocalizations.of(context)!.sessMetaRuntimeNotices,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: runtimeStatus.notices
+                            .map((item) => _MetadataChip(label: item))
+                            .toList(growable: false),
                       ),
                     ],
-                  ),
+                    if (runtimeStatus.toolNames.isNotEmpty &&
+                        !runtimeStatus.stale) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.sessMetaCurrentRuntimeTools,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: runtimeStatus.toolNames
+                            .map((item) => _MetadataChip(label: item))
+                            .toList(growable: false),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: AppLocalizations.of(context)!.sessMetaClose,
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaTaskTracking,
+                  children: [
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaCurrentTodos,
+                      value: '${currentTodos.length}',
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaPlanRecords,
+                      value: '${planHistory.length}',
+                    ),
+                    _MetadataEntryRow(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.sessMetaTodowriteReminder,
+                      value: hasPromptMetadata
+                          ? (todoWriteRecommended
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaTriggered
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaNotTriggered)
+                          : AppLocalizations.of(context)!.sessMetaUnavailable,
+                    ),
+                    if (todoWriteReason.isNotEmpty)
+                      _MetadataEntryRow(
+                        label: AppLocalizations.of(
+                          context,
+                        )!.sessMetaReminderReason,
+                        value: todoWriteReason,
+                      ),
+                    if (currentTodos.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: currentTodos
+                            .map((todo) {
+                              final id = '${todo['id'] ?? ''}'.trim();
+                              final content = '${todo['content'] ?? ''}'.trim();
+                              final status = '${todo['status'] ?? ''}'.trim();
+                              if (content.isEmpty) {
+                                return null;
+                              }
+                              final prefix = status.isEmpty ? '' : '[$status] ';
+                              final idPrefix = id.isEmpty ? '' : '$id: ';
+                              return _MetadataChip(
+                                label: '$prefix$idPrefix$content',
+                              );
+                            })
+                            .whereType<Widget>()
+                            .toList(growable: false),
+                      ),
+                    if (planHistory.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        AppLocalizations.of(context)!.sessMetaPlanHistory,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...planHistory.asMap().entries.map(
+                        (entry) => _MetadataPlanRecordCard(
+                          planIndex: planHistory.length - entry.key,
+                          planRecord: entry.value,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(context)!.sessMetaRecentErrors,
+                  children: recentErrors.isEmpty
+                      ? [
+                          Text(
+                            AppLocalizations.of(
+                              context,
+                            )!.sessMetaThereAreNoSessionErrorsTo,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ]
+                      : recentErrors
+                            .map((error) => _MetadataErrorCard(error: error))
+                            .toList(growable: false),
+                ),
+                const SizedBox(height: 16),
+                _MetadataSection(
+                  title: AppLocalizations.of(
+                    context,
+                  )!.sessMetaLastPromptMetadata,
+                  children: [
+                    _MetadataJsonPanel(
+                      content: const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(session.lastPromptMetadata),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: () => Navigator.of(context).pop(),
+                      label: AppLocalizations.of(context)!.sessMetaClose,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -940,10 +863,15 @@ class _SessionMetadataDialog extends StatelessWidget {
     ColorScheme colorScheme,
     Map<String, Object?> metadata,
   ) {
+    final cacheHitTrendWidgets = _buildCacheHitTrendSection(
+      context,
+      theme,
+      colorScheme,
+    );
     final estimatedTokens = _metadataInt(
       metadata['context_budget_estimated_prompt_tokens'],
     );
-    if (estimatedTokens <= 0) {
+    if (estimatedTokens <= 0 && cacheHitTrendWidgets.isEmpty) {
       return const <Widget>[];
     }
     final maxTokens = _metadataInt(metadata['context_budget_model_max_tokens']);
@@ -982,73 +910,79 @@ class _SessionMetadataDialog extends StatelessWidget {
       _MetadataSection(
         title: _localizedText(context, zh: '上下文预算', en: 'Context Budget'),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: LinearProgressIndicator(
-                  value: usageValue ?? 0,
-                  minHeight: 8,
-                  borderRadius: _borderRadius999,
-                  color: statusColor,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
+          if (estimatedTokens > 0) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: usageValue ?? 0,
+                    minHeight: 8,
+                    borderRadius: _borderRadius999,
+                    color: statusColor,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                  ),
                 ),
+                const SizedBox(width: 12),
+                _MetadataChip(label: statusLabel),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_estimated_prompt_tokens',
               ),
-              const SizedBox(width: 12),
-              _MetadataChip(label: statusLabel),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_estimated_prompt_tokens',
+              value: '$estimatedTokens',
             ),
-            value: '$estimatedTokens',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_model_max_tokens',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_model_max_tokens',
+              ),
+              value: maxTokens > 0 ? '$maxTokens' : '-',
             ),
-            value: maxTokens > 0 ? '$maxTokens' : '-',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_effective_window_tokens',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_effective_window_tokens',
+              ),
+              value: effectiveWindowTokens > 0 ? '$effectiveWindowTokens' : '-',
             ),
-            value: effectiveWindowTokens > 0 ? '$effectiveWindowTokens' : '-',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_auto_compact_threshold_tokens',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_auto_compact_threshold_tokens',
+              ),
+              value: autoCompactThresholdTokens > 0
+                  ? '$autoCompactThresholdTokens'
+                  : '-',
             ),
-            value: autoCompactThresholdTokens > 0
-                ? '$autoCompactThresholdTokens'
-                : '-',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_remaining_tokens',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_remaining_tokens',
+              ),
+              value: maxTokens > 0 ? '$remainingTokens' : '-',
             ),
-            value: maxTokens > 0 ? '$remainingTokens' : '-',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_percent_left',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_percent_left',
+              ),
+              value: maxTokens > 0 ? '$percentLeft%' : '-',
             ),
-            value: maxTokens > 0 ? '$percentLeft%' : '-',
-          ),
-          _MetadataEntryRow(
-            label: _localizedMetadataField(
-              context,
-              'context_budget_usage_percent',
+            _MetadataEntryRow(
+              label: _localizedMetadataField(
+                context,
+                'context_budget_usage_percent',
+              ),
+              value: maxTokens > 0 ? '$usagePercent%' : '-',
             ),
-            value: maxTokens > 0 ? '$usagePercent%' : '-',
-          ),
+          ],
+          if (cacheHitTrendWidgets.isNotEmpty) ...[
+            if (estimatedTokens > 0) const SizedBox(height: 4),
+            ...cacheHitTrendWidgets,
+          ],
         ],
       ),
     ];

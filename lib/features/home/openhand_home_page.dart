@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:file_selector/file_selector.dart';
@@ -6427,6 +6428,63 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return false;
   }
 
+  Future<void> _forkMessage(AiSessionMessage message) async {
+    final controller = context.read<AiSessionController>();
+    final sourceSessionId = controller.currentSessionId;
+    if (sourceSessionId == null || sourceSessionId.trim().isEmpty) {
+      return;
+    }
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: _localizedText(context, zh: '派生新会话', en: 'Fork Session'),
+      message: _localizedText(
+        context,
+        zh: '将从当前会话的这条消息之后派生出一个新会话。新会话会保留这条消息及之前的内容，并舍弃之后的消息。',
+        en: 'Create a new session from this point. The new session keeps this message and everything before it, and drops later messages.',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: _localizedText(context, zh: '派生', en: 'Fork'),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    final forked = await controller.forkSessionFromMessage(
+      message.id,
+      sessionId: sourceSessionId,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (forked == null) {
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            controller.lastErrorMessage ??
+                _localizedText(
+                  context,
+                  zh: '派生会话失败。',
+                  en: 'Failed to fork session.',
+                ),
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _selectedSection = AppSection.workspace;
+      _armAutoFollowToBottom(notifyPausedState: false);
+    });
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          _localizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _cancelEditingMessage() async {
     final controller = context.read<AiSessionController>();
     final cancelled = await controller.cancelEditingMessage();
@@ -6953,6 +7011,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onCopyMessage: _copyMessage,
         onDeleteMessage: _deleteMessage,
         onDeleteMessageFromHere: _deleteMessageFromHere,
+        onForkMessage: _forkMessage,
         onDismissError: _dismissSessionError,
         // Signal the transcript list to jump to the bottom on its first frame
         // whenever a forced-scroll-to-bottom is pending (i.e. a session was

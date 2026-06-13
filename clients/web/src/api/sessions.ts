@@ -6,6 +6,7 @@
 //   PATCH  /api/sessions/:id {title}
 //   DELETE /api/sessions/:id
 //   GET    /api/sessions/:id/messages?limit=&offset=
+//   POST   /api/sessions/:id/messages/:messageId/fork
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
@@ -450,6 +451,17 @@ export async function deleteMessageCascade(
   return apiRequest<{ ok: boolean }>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/cascade`,
     { method: 'DELETE' },
+  );
+}
+
+/// 从指定消息派生新会话：保留该消息及之前的消息，丢弃之后的消息。
+export async function forkSessionFromMessage(
+  sessionId: string,
+  messageId: string,
+): Promise<{ ok: boolean; session: SessionSummary }> {
+  return apiRequest<{ ok: boolean; session: SessionSummary }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/fork`,
+    { method: 'POST' },
   );
 }
 

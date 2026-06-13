@@ -1282,6 +1282,14 @@ class WebMessagePlatformService {
         (req, auth) => _deleteMessage(req, auth, sessionId, messageId),
       ),
     );
+    // 从指定消息派生新会话：新会话保留该消息及之前的消息，后续消息不进入派生线程。
+    router.post(
+      '/api/sessions/<sessionId>/messages/<messageId>/fork',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _forkSessionFromMessage(req, auth, sessionId, messageId),
+      ),
+    );
     // 删除该消息及其之后的全部消息（对齐 APP 端「删除此条及后续」）。
     router.delete(
       '/api/sessions/<sessionId>/messages/<messageId>/cascade',
@@ -3113,6 +3121,60 @@ class WebMessagePlatformService {
       <String, Object?>{'device_id': auth.deviceId},
     );
     return _json(HttpStatus.ok, <String, Object?>{'ok': ok});
+  }
+
+  /// 从指定消息派生出新的会话（对齐 Codex 的 Fork/派生语义）。
+  Future<shelf.Response> _forkSessionFromMessage(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    if (!_config.sessionManagementEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'session_management_disabled',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final metadata = _metadataForRequest(auth, request, <String, Object?>{
+      'created_via': 'web_api',
+      'derived_via': 'web_api',
+      'source_session_id': session.id,
+      'source_message_id': messageId,
+    });
+    final forked = await _sessionController.forkSessionFromMessage(
+      messageId,
+      sessionId: session.id,
+      extraMetadata: metadata,
+    );
+    if (forked == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found_or_fork_failed',
+      });
+    }
+    _log(
+      WebGatewayLogLevel.success,
+      'SESSION',
+      'Web 派生会话 ${session.id}@$messageId → ${forked.id}',
+      <String, Object?>{
+        'device_id': auth.deviceId,
+        'source_session_id': session.id,
+        'source_message_id': messageId,
+        'forked_session_id': forked.id,
+      },
+    );
+    return _json(HttpStatus.created, <String, Object?>{
+      'ok': true,
+      'session': await _sessionSummaryWithStoredMessages(
+        forked,
+        includeDetails: true,
+      ),
+    });
   }
 
   /// 删除该消息及之后所有消息（对齐 APP 端「删除此条及后续」）。

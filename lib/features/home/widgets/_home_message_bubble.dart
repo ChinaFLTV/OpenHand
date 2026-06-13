@@ -15,6 +15,7 @@ class _MessageBubble extends StatefulWidget {
     required this.onDeselect,
     required this.onCopy,
     required this.onDelete,
+    required this.onFork,
     this.onDeleteFromHere,
     this.onEdit,
     this.onAudit,
@@ -34,6 +35,7 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback onDeselect;
   final Future<void> Function() onCopy;
   final Future<void> Function() onDelete;
+  final Future<void> Function() onFork;
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
   final VoidCallback? onAudit;
@@ -755,6 +757,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             label: AppLocalizations.of(context)!.commonEdit,
                           ),
                         _MessageActionButton(
+                          onPressed: widget.onFork,
+                          icon: Icons.call_merge_rounded,
+                          label: _localizedText(context, zh: '派生', en: 'Fork'),
+                        ),
+                        _MessageActionButton(
                           onPressed: widget.onDelete,
                           icon: Icons.delete_outline_rounded,
                           label: AppLocalizations.of(context)!.commonDelete,
@@ -1103,8 +1110,109 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
   }
 }
 
-/// Opens a message attachment: images are shown in an in-app preview dialog;
-/// other file types are opened with the system default application.
+const Duration _mediaClipboardOperationTimeout = Duration(seconds: 15);
+const Duration _mediaClipboardNetworkTimeout = Duration(seconds: 25);
+const int _imageClipboardMaxBytes = 64 * 1024 * 1024;
+
+void _showMediaClipboardSnack(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  bool isError = false,
+}) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  final message = _localizedText(context, zh: zh, en: en);
+  OpenHandSnackBar.show(
+    context,
+    messenger,
+    isError
+        ? OpenHandSnackBar.error(context, message, maxLines: 2)
+        : OpenHandSnackBar.success(context, message),
+  );
+}
+
+Future<bool> _copyLocalFileToPasteboard(String filePath) async {
+  var ok = false;
+  try {
+    ok = await Pasteboard.writeFiles(<String>[
+      filePath,
+    ]).timeout(_mediaClipboardOperationTimeout);
+  } catch (_) {
+    ok = false;
+  } finally {
+    await Clipboard.setData(
+      ClipboardData(text: filePath),
+    ).timeout(_mediaClipboardOperationTimeout);
+  }
+  return ok;
+}
+
+Future<Uint8List> _readLocalClipboardBytes(
+  String filePath, {
+  required int maxBytes,
+}) async {
+  final file = File(filePath);
+  final stat = await file.stat().timeout(_mediaClipboardOperationTimeout);
+  if (stat.size > maxBytes) {
+    throw FileSystemException('File is too large for clipboard.', filePath);
+  }
+  return file.readAsBytes().timeout(_mediaClipboardOperationTimeout);
+}
+
+Future<Uint8List> _downloadClipboardBytes(
+  Uri uri, {
+  required int maxBytes,
+  String? expectedPrimaryType,
+}) async {
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' && scheme != 'https') {
+    throw FileSystemException('Unsupported URI scheme: ${uri.scheme}', '$uri');
+  }
+  final client = SystemProxyResolver.instance.createRawHttpClient(
+    connectionTimeout: _mediaClipboardNetworkTimeout,
+  );
+  try {
+    final request = await client
+        .getUrl(uri)
+        .timeout(_mediaClipboardNetworkTimeout);
+    final response = await request.close().timeout(
+      _mediaClipboardNetworkTimeout,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+    final contentType = response.headers.contentType;
+    if (expectedPrimaryType != null &&
+        contentType != null &&
+        contentType.primaryType != expectedPrimaryType &&
+        contentType.mimeType != 'application/octet-stream') {
+      throw HttpException(
+        'Unexpected content type: ${contentType.mimeType}',
+        uri: uri,
+      );
+    }
+    final contentLength = response.contentLength;
+    if (contentLength > maxBytes) {
+      throw HttpException('Response is too large for clipboard.', uri: uri);
+    }
+    final bytes = BytesBuilder(copy: false);
+    var received = 0;
+    await for (final chunk in response.timeout(_mediaClipboardNetworkTimeout)) {
+      received += chunk.length;
+      if (received > maxBytes) {
+        throw HttpException('Response is too large for clipboard.', uri: uri);
+      }
+      bytes.add(chunk);
+    }
+    return bytes.takeBytes();
+  } finally {
+    client.close(force: true);
+  }
+}
+
+/// Opens a message attachment inside the app preview surface. Images render
+/// directly; other files show a lightweight file preview with copy/open actions.
 Future<void> _openAttachment(
   BuildContext context,
   AiMessageAttachment attachment,
@@ -1143,8 +1251,16 @@ Future<void> _openAttachment(
     return;
   }
 
-  // Non-image files: open with system default application.
-  await _openLocalPathWithSystemApp(context, storagePath);
+  if (!context.mounted) return;
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) => _FilePreviewDialog(
+      filePath: storagePath,
+      title: attachment.name,
+      sizeBytes: attachment.sizeBytes,
+      kind: attachment.kind,
+    ),
+  );
 }
 
 Future<void> _openLocalPathWithSystemApp(
@@ -1219,8 +1335,8 @@ Future<void> _openLocalPathWithSystemApp(
   }
 }
 
-/// Opens a composer attachment draft: images are shown in an in-app preview
-/// dialog; other file types are opened with the system default application.
+/// Opens a composer attachment draft through the same in-app preview path as
+/// persisted message attachments.
 Future<void> _openComposerAttachment(
   BuildContext context,
   _ComposerAttachmentDraft draft,
@@ -1236,6 +1352,278 @@ Future<void> _openComposerAttachment(
       sizeBytes: draft.sizeBytes,
     ),
   );
+}
+
+class _FilePreviewDialog extends StatefulWidget {
+  const _FilePreviewDialog({
+    required this.filePath,
+    required this.title,
+    required this.sizeBytes,
+    required this.kind,
+  });
+
+  final String filePath;
+  final String title;
+  final int sizeBytes;
+  final AiAttachmentKind kind;
+
+  @override
+  State<_FilePreviewDialog> createState() => _FilePreviewDialogState();
+}
+
+class _FilePreviewDialogState extends State<_FilePreviewDialog> {
+  bool _copying = false;
+  bool _opening = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final fileName = widget.title.trim().isEmpty
+        ? p.basename(widget.filePath)
+        : widget.title.trim();
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          Navigator.of(context).pop();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: math.min(MediaQuery.sizeOf(context).width * 0.92, 560),
+            maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      _iconForAttachmentKind(widget.kind),
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        fileName,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.content_copy_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '复制文件',
+                          en: 'Copy File',
+                        ),
+                        onPressed: _copying ? null : () => _copyFile(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.open_in_new_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '使用系统应用打开',
+                          en: 'Open with System App',
+                        ),
+                        onPressed: _opening ? null : () => _openFile(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.52,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.52,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 54,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                _iconForAttachmentKind(widget.kind),
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fileName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    aiFormatBytes(widget.sizeBytes),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SelectableText(
+                                    widget.filePath,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _copying
+                                ? null
+                                : () => _copyFile(context),
+                            icon: const Icon(
+                              Icons.content_copy_outlined,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _copying
+                                  ? _localizedText(
+                                      context,
+                                      zh: '复制中…',
+                                      en: 'Copying…',
+                                    )
+                                  : _localizedText(
+                                      context,
+                                      zh: '复制',
+                                      en: 'Copy',
+                                    ),
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _opening
+                                ? null
+                                : () => _openFile(context),
+                            icon: const Icon(
+                              Icons.open_in_new_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _localizedText(context, zh: '打开', en: 'Open'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _copyFile(BuildContext context) async {
+    if (_copying) return;
+    setState(() => _copying = true);
+    try {
+      final file = File(widget.filePath);
+      if (!await file.exists().timeout(_mediaClipboardOperationTimeout)) {
+        throw FileSystemException('File not found.', widget.filePath);
+      }
+      final ok = await _copyLocalFileToPasteboard(widget.filePath);
+      if (!context.mounted) return;
+      _showMediaClipboardSnack(
+        context,
+        zh: ok ? '已复制文件到剪贴板。' : '当前平台不支持直接复制文件，已复制文件路径。',
+        en: ok
+            ? 'Copied file to clipboard.'
+            : 'Direct file copy is unavailable on this platform. Copied the file path.',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      _showMediaClipboardSnack(
+        context,
+        zh: '复制失败：$error',
+        en: 'Copy failed: $error',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
+  }
+
+  Future<void> _openFile(BuildContext context) async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await _openLocalPathWithSystemApp(context, widget.filePath);
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
 }
 
 /// Shimmer / skeleton placeholder shown while an image frame is loading.
@@ -1353,8 +1741,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   /// 头部下方分隔线高度。
   static const double _kDividerH = 1.0;
 
-  /// 弹窗最小宽度, 确保头部 3 个图标按钮 + 标题省略号始终能够放下。
-  static const double _kMinDialogW = 280.0;
+  /// 弹窗最小宽度, 确保头部图标按钮 + 标题省略号始终能够放下。
+  static const double _kMinDialogW = 324.0;
 
   /// 加载中 / 解析失败 / 来源缺失时的方形占位边长。
   static const double _kFallbackSide = 320.0;
@@ -1362,6 +1750,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
   Size? _naturalSize;
+  bool _isCopying = false;
 
   @override
   void initState() {
@@ -1520,6 +1909,23 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                       MicroPressFeedback(
                         child: IconButton(
                           icon: Icon(
+                            Icons.content_copy_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '复制图片',
+                            en: 'Copy Image',
+                          ),
+                          onPressed: _isCopying
+                              ? null
+                              : () => _copyImageToClipboard(context),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          icon: Icon(
                             Icons.download_rounded,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1562,6 +1968,84 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         ),
       ),
     );
+  }
+
+  Future<void> _copyImageToClipboard(BuildContext context) async {
+    if (_isCopying) return;
+    setState(() => _isCopying = true);
+    try {
+      final sourceFilePath = widget.filePath;
+      if (sourceFilePath != null) {
+        final bytes = await _readLocalClipboardBytes(
+          sourceFilePath,
+          maxBytes: _imageClipboardMaxBytes,
+        );
+        try {
+          await Pasteboard.writeImage(
+            bytes,
+          ).timeout(_mediaClipboardOperationTimeout);
+          if (!context.mounted) return;
+          _showMediaClipboardSnack(
+            context,
+            zh: '已复制图片到剪贴板。',
+            en: 'Copied image to clipboard.',
+          );
+          return;
+        } catch (_) {
+          final ok = await _copyLocalFileToPasteboard(sourceFilePath);
+          if (!context.mounted) return;
+          _showMediaClipboardSnack(
+            context,
+            zh: ok ? '已复制图片文件到剪贴板。' : '当前平台不支持直接复制图片文件，已复制文件路径。',
+            en: ok
+                ? 'Copied image file to clipboard.'
+                : 'Direct image file copy is unavailable on this platform. Copied the file path.',
+          );
+          return;
+        }
+      }
+
+      final sourceUri = widget.imageUri;
+      if (sourceUri == null) {
+        throw const FileSystemException('Image source is unavailable.');
+      }
+      try {
+        final bytes = await _downloadClipboardBytes(
+          sourceUri,
+          maxBytes: _imageClipboardMaxBytes,
+          expectedPrimaryType: 'image',
+        );
+        await Pasteboard.writeImage(
+          bytes,
+        ).timeout(_mediaClipboardOperationTimeout);
+        if (!context.mounted) return;
+        _showMediaClipboardSnack(
+          context,
+          zh: '已复制图片到剪贴板。',
+          en: 'Copied image to clipboard.',
+        );
+      } catch (_) {
+        await Clipboard.setData(
+          ClipboardData(text: sourceUri.toString()),
+        ).timeout(_mediaClipboardOperationTimeout);
+        if (!context.mounted) return;
+        _showMediaClipboardSnack(
+          context,
+          zh: '无法复制图片数据，已复制图片地址。',
+          en: 'Unable to copy image data. Copied the image URL.',
+        );
+      }
+    } catch (error) {
+      if (!context.mounted) return;
+      _showMediaClipboardSnack(
+        context,
+        zh: '复制失败：$error',
+        en: 'Copy failed: $error',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isCopying = false);
+    }
   }
 
   Widget _buildPreviewImage(BuildContext context) {
@@ -2353,6 +2837,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   // the output file and pinning the WebView event loop.
   bool _isSaving = false;
   bool _isOpeningExternal = false;
+  bool _isCopyingMedia = false;
   bool _disposed = false;
   // Cancel signal for the in-flight save. Completed when the user dismisses
   // the dialog mid-download so we stop pulling bytes and clean up the
@@ -2683,6 +3168,23 @@ $mediaTag
                           ),
                         ),
                         const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.content_copy_outlined,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '复制媒体',
+                              en: 'Copy Media',
+                            ),
+                            onPressed: _isCopyingMedia
+                                ? null
+                                : () => _copyMediaToClipboard(context),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         if (isVideo) ...[
                           MicroPressFeedback(
                             child: IconButton(
@@ -2782,6 +3284,49 @@ $mediaTag
       await _openMessageLinkUri(context, widget.source.uri);
     } finally {
       if (!_disposed) _isOpeningExternal = false;
+    }
+  }
+
+  Future<void> _copyMediaToClipboard(BuildContext context) async {
+    if (_isCopyingMedia) return;
+    setState(() => _isCopyingMedia = true);
+    try {
+      final filePath = widget.source.filePath;
+      if (filePath != null) {
+        final file = File(filePath);
+        if (!await file.exists().timeout(_mediaClipboardOperationTimeout)) {
+          throw FileSystemException('Media source file is missing.', filePath);
+        }
+        final ok = await _copyLocalFileToPasteboard(filePath);
+        if (!context.mounted) return;
+        _showMediaClipboardSnack(
+          context,
+          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制文件路径。',
+          en: ok
+              ? 'Copied media file to clipboard.'
+              : 'Direct media file copy is unavailable on this platform. Copied the file path.',
+        );
+        return;
+      }
+      await Clipboard.setData(
+        ClipboardData(text: widget.source.uri.toString()),
+      ).timeout(_mediaClipboardOperationTimeout);
+      if (!context.mounted) return;
+      _showMediaClipboardSnack(
+        context,
+        zh: '已复制媒体地址。',
+        en: 'Copied media URL.',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      _showMediaClipboardSnack(
+        context,
+        zh: '复制失败：$error',
+        en: 'Copy failed: $error',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isCopyingMedia = false);
     }
   }
 

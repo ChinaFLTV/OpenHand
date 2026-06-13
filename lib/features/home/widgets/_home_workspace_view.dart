@@ -50,6 +50,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onCopyMessage,
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
+    required this.onForkMessage,
     required this.onDismissError,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
@@ -116,6 +117,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
+  final Future<void> Function(AiSessionMessage message) onForkMessage;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
@@ -241,6 +243,7 @@ class _WorkspaceView extends StatelessWidget {
                                           onDeleteMessage: onDeleteMessage,
                                           onDeleteMessageFromHere:
                                               onDeleteMessageFromHere,
+                                          onForkMessage: onForkMessage,
                                           onDismissError: onDismissError,
                                           // Jump to the very bottom on the first
                                           // frame when the session was just

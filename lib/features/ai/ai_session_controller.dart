@@ -2488,6 +2488,176 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
+  Future<AiSession?> forkSessionFromMessage(
+    String messageId, {
+    String? sessionId,
+    Map<String, Object?> extraMetadata = const <String, Object?>{},
+  }) async {
+    final normalizedMessageId = messageId.trim();
+    if (normalizedMessageId.isEmpty) {
+      return null;
+    }
+    final normalizedSessionId = sessionId?.trim() ?? '';
+    final resolvedSessionId = normalizedSessionId.isEmpty
+        ? _currentSessionId
+        : normalizedSessionId;
+    if (resolvedSessionId == null || resolvedSessionId.isEmpty) {
+      return null;
+    }
+    return _enqueueSessionOperation(resolvedSessionId, () async {
+      final sourceSession =
+          await ensureSessionMessagesHydrated(resolvedSessionId) ??
+          _sessionById(resolvedSessionId);
+      if (sourceSession == null) {
+        return null;
+      }
+      final forkIndex = sourceSession.messages.indexWhere(
+        (message) => message.id == normalizedMessageId && !message.isDeleted,
+      );
+      if (forkIndex == -1) {
+        return null;
+      }
+      final forkMessage = sourceSession.messages[forkIndex];
+      final retainedMessages = List<AiSessionMessage>.unmodifiable(
+        sourceSession.messages.take(forkIndex + 1),
+      );
+      if (retainedMessages.isEmpty) {
+        return null;
+      }
+      final isForkingAtTail = !_hasVisibleMessageAfter(
+        sourceSession,
+        forkIndex,
+      );
+      final now = _clock().toUtc();
+      final latestCompressionPoint = _latestCompressionPointIn(
+        retainedMessages,
+      );
+      final retainedUsage = _usageFromRetainedMessages(retainedMessages);
+      final retainedPromptBuildCount = _promptBuildCountFromRetainedMessages(
+        retainedMessages,
+      );
+      final retainedCompressionRunCount = retainedMessages
+          .where(
+            (message) =>
+                !message.isDeleted &&
+                message.kind == AiSessionMessageKind.compressionPoint,
+          )
+          .length;
+      final retainedPlanHistory = isForkingAtTail
+          ? sourceSession.planHistory
+          : sourceSession.planHistory
+                .where(
+                  (record) => !record.createdAt.isAfter(forkMessage.createdAt),
+                )
+                .toList(growable: false);
+      final retainedMetadata = <String, Object?>{
+        ...sourceSession.metadata,
+        ...extraMetadata,
+        'is_forked': true,
+        'forked_from_session_id': sourceSession.id,
+        'forked_from_message_id': forkMessage.id,
+        'forked_from_message_created_at': forkMessage.createdAt
+            .toUtc()
+            .toIso8601String(),
+        'forked_at': now.toIso8601String(),
+        'forked_retained_message_count': retainedMessages
+            .where((message) => !message.isDeleted)
+            .length,
+        'forked_discarded_message_count': sourceSession.messages
+            .skip(forkIndex + 1)
+            .where((message) => !message.isDeleted)
+            .length,
+      };
+      final autoTitleSourceMessageId =
+          retainedMessages.any(
+            (message) => message.id == sourceSession.autoTitleSourceMessageId,
+          )
+          ? sourceSession.autoTitleSourceMessageId
+          : null;
+      final autoTitleStateRetained =
+          autoTitleSourceMessageId != null ||
+          sourceSession.autoTitleSourceMessageId == null;
+      final derivedSession = AiSession(
+        id: _idGenerator(),
+        title: sourceSession.title,
+        templateId: sourceSession.templateId,
+        templateName: sourceSession.templateName,
+        templateIconName: sourceSession.templateIconName,
+        templateInternalVersion: sourceSession.templateInternalVersion,
+        createdAt: now,
+        updatedAt: now,
+        messages: retainedMessages,
+        environment: sourceSession.environment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: isForkingAtTail
+            ? sourceSession.recentErrors
+            : sourceSession.recentErrors
+                  .where(
+                    (error) => !error.createdAt.isAfter(forkMessage.createdAt),
+                  )
+                  .toList(growable: false),
+        lastUsedModelId: sourceSession.lastUsedModelId,
+        lastUsedModelLabel: sourceSession.lastUsedModelLabel,
+        isTitleManuallyEdited: sourceSession.isTitleManuallyEdited,
+        autoTitleAcquired:
+            autoTitleStateRetained && sourceSession.autoTitleAcquired,
+        autoTitleRetryCount: autoTitleStateRetained
+            ? sourceSession.autoTitleRetryCount
+            : 0,
+        autoTitleFirstUserContent: autoTitleStateRetained
+            ? sourceSession.autoTitleFirstUserContent
+            : null,
+        autoTitleGeneratedAt: autoTitleStateRetained
+            ? sourceSession.autoTitleGeneratedAt
+            : null,
+        autoTitleSourceMessageId: autoTitleSourceMessageId,
+        latestCompressionCheckpointMessageId: latestCompressionPoint?.id,
+        latestCompressionAt: latestCompressionPoint?.createdAt,
+        lastPromptMetadata: isForkingAtTail
+            ? sourceSession.lastPromptMetadata
+            : const <String, Object?>{},
+        todoItems: isForkingAtTail
+            ? sourceSession.todoItems
+            : const <AiSessionTodoItem>[],
+        mode: sourceSession.mode,
+        awaitingPlanApproval: isForkingAtTail
+            ? sourceSession.awaitingPlanApproval
+            : false,
+        pendingPlan: isForkingAtTail ? sourceSession.pendingPlan : null,
+        planHistory: retainedPlanHistory,
+        fullAccessPermission: sourceSession.fullAccessPermission,
+        metadata: retainedMetadata,
+      );
+      final rebuiltSession = _rebuildSession(
+        derivedSession,
+        totalPromptCharacters: isForkingAtTail
+            ? sourceSession.statistics.totalPromptCharacters
+            : 0,
+        promptBuildCount: retainedPromptBuildCount,
+        compressionRunCount: retainedCompressionRunCount,
+        totalUsage: retainedUsage,
+        lastPromptSystemMessageCount: isForkingAtTail
+            ? sourceSession.statistics.lastPromptSystemMessageCount
+            : 0,
+        lastPromptHistoryMessageCount: isForkingAtTail
+            ? sourceSession.statistics.lastPromptHistoryMessageCount
+            : 0,
+      );
+      _deletedSessionIds.remove(rebuiltSession.id);
+      final previousCurrentSessionId = _currentSessionId;
+      _currentSessionId = rebuiltSession.id;
+      _editingMessageId = null;
+      final committed = await _commitSessionLocked(rebuiltSession);
+      if (committed) {
+        notifyListeners();
+        return _sessionById(rebuiltSession.id) ?? rebuiltSession;
+      }
+      _currentSessionId = previousCurrentSessionId;
+      notifyListeners();
+      return null;
+    });
+  }
+
   Future<bool> _deleteMessagesLocked({
     required AiSession session,
     required Set<String> messageIds,
@@ -8763,6 +8933,54 @@ $tail''';
       cacheReadTokens: statistics.cacheReadTokens,
       reasoningTokens: statistics.reasoningTokens,
     );
+  }
+
+  bool _hasVisibleMessageAfter(AiSession session, int index) {
+    for (var i = index + 1; i < session.messages.length; i += 1) {
+      if (!session.messages[i].isDeleted) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  AiSessionMessage? _latestCompressionPointIn(List<AiSessionMessage> messages) {
+    for (var index = messages.length - 1; index >= 0; index -= 1) {
+      final message = messages[index];
+      if (!message.isDeleted &&
+          message.kind == AiSessionMessageKind.compressionPoint) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  bool _messageUsageCountsForSessionTotal(AiSessionMessage message) {
+    if (message.usage == null) {
+      return false;
+    }
+    return message.kind == AiSessionMessageKind.assistant ||
+        message.kind == AiSessionMessageKind.compressionPoint;
+  }
+
+  int _promptBuildCountFromRetainedMessages(List<AiSessionMessage> messages) {
+    return messages
+        .where(
+          (message) =>
+              !message.isDeleted && _messageUsageCountsForSessionTotal(message),
+        )
+        .length;
+  }
+
+  AiTokenUsage _usageFromRetainedMessages(List<AiSessionMessage> messages) {
+    var usage = const AiTokenUsage();
+    for (final message in messages) {
+      if (message.isDeleted || !_messageUsageCountsForSessionTotal(message)) {
+        continue;
+      }
+      usage = usage.merge(message.usage ?? const AiTokenUsage());
+    }
+    return usage;
   }
 
   bool _shouldCompressSessionHistory(

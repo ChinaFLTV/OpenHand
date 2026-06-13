@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import {
@@ -41,6 +42,7 @@ interface MediaEntry {
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.heic', '.svg'];
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
+const MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS = 30_000;
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
@@ -280,6 +282,23 @@ async function saveMediaAsset(item: MediaItem, url: string, signal?: AbortSignal
   await saveBlobWithPicker(blob, item.name, pickerTypesForMedia(item));
 }
 
+async function fetchMediaBlob(url: string, signal?: AbortSignal): Promise<Blob> {
+  const res = await fetch(url, { credentials: 'same-origin', signal });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return res.blob();
+}
+
+function createTimedAbortController(timeoutMs: number): { controller: AbortController; clear: () => void } {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    controller,
+    clear: () => window.clearTimeout(timer),
+  };
+}
+
 function mediaKindLabel(kind: MediaKind): string {
   switch (kind) {
     case 'image':
@@ -337,15 +356,25 @@ export interface MediaPreviewDialogProps {
 export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);
+  const copyAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
+  const [copying, setCopying] = useState(false);
   const abortSave = useCallback(() => {
     saveAbortRef.current?.abort();
     saveAbortRef.current = null;
   }, []);
+  const abortCopy = useCallback(() => {
+    copyAbortRef.current?.abort();
+    copyAbortRef.current = null;
+  }, []);
+  const abortTransfers = useCallback(() => {
+    abortSave();
+    abortCopy();
+  }, [abortCopy, abortSave]);
   const { closing, requestClose } = useDialogExitMotion(onClose, {
-    onBeforeClose: abortSave,
+    onBeforeClose: abortTransfers,
   });
-  useEffect(() => () => abortSave(), [abortSave]);
+  useEffect(() => () => abortTransfers(), [abortTransfers]);
   const requestFullscreen = async () => {
     try {
       await stageRef.current?.requestFullscreen?.();
@@ -375,6 +404,47 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
         if (!ctrl.signal.aborted) setSaving(false);
       }
     }
+  };
+  const handleCopy = async () => {
+    if (copying) return;
+    copyAbortRef.current?.abort();
+    const timed = createTimedAbortController(MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS);
+    copyAbortRef.current = timed.controller;
+    setCopying(true);
+    let richCopied = false;
+    try {
+      const blob = await fetchMediaBlob(url, timed.controller.signal);
+      if (!timed.controller.signal.aborted) {
+        richCopied = await copyBlobToClipboard(blob);
+      }
+    } catch {
+      richCopied = false;
+    } finally {
+      timed.clear();
+    }
+    if (timed.controller.signal.aborted) {
+      if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
+      setCopying(false);
+      return;
+    }
+    if (richCopied) {
+      showSnackbar(t('detail.media.copyOk', '已复制到剪贴板'), { tone: 'success' });
+      if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
+      setCopying(false);
+      return;
+    }
+    const sourceText = item.path.trim() || url;
+    const textCopied = await copyTextToClipboard(sourceText);
+    showSnackbar(
+      textCopied
+        ? item.kind === 'file'
+          ? t('detail.media.copyPathOk', '浏览器不支持直接复制该文件，已复制文件路径')
+          : t('detail.media.copySourceOk', '已复制媒体来源')
+        : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+      { tone: textCopied ? 'success' : 'error' },
+    );
+    if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
+    setCopying(false);
   };
 
   if (typeof document === 'undefined') return null;
@@ -407,13 +477,24 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
               {mediaKindLabel(item.kind)}
             </p>
           </div>
+          {item.kind !== 'file' ? (
+            <button
+              type="button"
+              onClick={requestFullscreen}
+              class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+            >
+              {t('detail.media.fullscreen', '全屏')}
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={requestFullscreen}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
-            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
+            onClick={() => void handleCopy()}
+            disabled={copying}
+            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
+            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
           >
-            {t('detail.media.fullscreen', '全屏')}
+            {copying ? t('detail.media.copying', '复制中…') : t('common.copy', '复制')}
           </button>
           <button
             type="button"
@@ -461,7 +542,41 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
               <p class="text-sm font-medium truncate mb-3">{item.name}</p>
               <audio src={url} controls autoPlay preload="metadata" style={{ width: '100%' }} />
             </div>
-          ) : null}
+          ) : (
+            <div class="w-full max-w-2xl rounded-m3-md p-5" style={{ background: 'var(--m3-surface-container-high)' }}>
+              <div class="flex items-start gap-3">
+                <div
+                  class="shrink-0 rounded-m3-md p-3"
+                  style={{
+                    color: 'var(--m3-primary)',
+                    background: 'var(--m3-surface-container-highest)',
+                  }}
+                >
+                  <MediaKindIcon kind="file" size={30} />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-bold truncate">{item.name}</p>
+                  <p class="mt-1 text-xs break-all" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    {item.path}
+                  </p>
+                  <div class="mt-4 flex flex-wrap gap-2">
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
+                      style={{
+                        background: 'var(--m3-primary)',
+                        color: 'var(--m3-on-primary)',
+                      }}
+                    >
+                      {t('detail.media.open', '打开')}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
     </DialogFrame>
   );
@@ -481,7 +596,6 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
     ? message.role === 'user' ? 'attachmentList' : 'preview'
     : presentation;
   const openPreview = (item: MediaItem, url: string) => {
-    if (item.kind === 'file') return;
     setPreview({ item, url });
   };
 
@@ -503,20 +617,6 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
                 <span class="oh-user-attachment-kind truncate">{label}</span>
               </>
             );
-            if (item.kind === 'file') {
-              return (
-                <a
-                  key={key}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  class="oh-user-attachment-pill oh-tap-press"
-                  title={item.path}
-                >
-                  {content}
-                </a>
-              );
-            }
             return (
               <button
                 key={key}
@@ -661,11 +761,10 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
         }
         // 通用文件 pill
         return (
-          <a
+          <button
             key={key}
-            href={url}
-            target="_blank"
-            rel="noreferrer noopener"
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
             class="oh-media-card text-xs inline-flex items-center gap-2 px-3 py-1.5 rounded-md oh-tap-press"
             style={{
               border: '1px solid var(--m3-outline)',
@@ -675,6 +774,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
             }}
             title={item.path}
           >
+            <MediaKindIcon kind="file" size={15} />
             <span class="truncate">{item.name}</span>
             {item.hintLabel ? (
               <span
@@ -684,7 +784,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
                 {t('detail.media.kind.' + item.hintLabel, item.hintLabel)}
               </span>
             ) : null}
-          </a>
+          </button>
         );
       })}
     </div>

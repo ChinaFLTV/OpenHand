@@ -100,6 +100,7 @@ type MessageIconName =
   | 'copy'
   | 'edit'
   | 'audit'
+  | 'fork'
   | 'code'
   | 'codeOff'
   | 'trash'
@@ -173,6 +174,8 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M4 20h4.4L19 9.4a2.1 2.1 0 0 0-3-3L5.4 17H4z" /><path d="m14.8 7.6 1.6 1.6" /></svg>;
     case 'audit':
       return <svg {...common}><path d="M9 4h6l1 2h2v14H6V6h2z" /><path d="M9 12h6M9 16h4" /></svg>;
+    case 'fork':
+      return <svg {...common}><path d="M4 7h4c3.5 0 5 5 8.2 5H20" /><path d="M4 17h4c2.2 0 3.8-2 5.4-3.4" /><path d="m17 9 3 3-3 3" /></svg>;
     case 'trash':
       return <svg {...common}><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14" /><path d="M9 7V4h6v3" /></svg>;
     case 'cascade':
@@ -1082,6 +1085,8 @@ export interface MessageCardProps {
   onEdit?: (m: SessionMessage) => void;
   /// 打开消息审计弹窗（展示 metadata / 原始 JSON）。
   onAudit?: (m: SessionMessage) => void;
+  /// 从当前消息派生新会话。
+  onFork?: (m: SessionMessage) => void;
   onActiveChange?: (m: SessionMessage, active: boolean) => void;
 }
 
@@ -1097,6 +1102,7 @@ function MessageCardImpl({
   onDeleteAfter,
   onEdit,
   onAudit,
+  onFork,
   onActiveChange,
 }: MessageCardProps) {
   const reduceMotion = useReducedMotion();
@@ -1228,7 +1234,7 @@ function MessageCardImpl({
     ? ` oh-appear-up${appearanceStaggerIndex > 0 ? ` oh-appear-stagger-${appearanceStaggerIndex}` : ''}`
     : '';
 
-  const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit);
+  const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit || onFork);
   const actionsVisible = hasAnyAction && active;
   // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
   // 优先级：metadata.content_format > global contentFormat。
@@ -1521,6 +1527,9 @@ function MessageCardImpl({
           ) : null}
           {onAudit ? (
             <ActionBtn icon="audit" label={t('common.audit')} onClick={() => onAudit(message)} />
+          ) : null}
+          {onFork ? (
+            <ActionBtn icon="fork" label={t('common.fork', '派生')} onClick={() => onFork(message)} />
           ) : null}
           {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' ? (
             <ActionBtn

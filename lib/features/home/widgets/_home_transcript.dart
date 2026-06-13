@@ -242,6 +242,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onCopyMessage,
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
+    required this.onForkMessage,
     required this.onDismissError,
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
@@ -263,6 +264,7 @@ class _SessionTranscript extends StatefulWidget {
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
+  final Future<void> Function(AiSessionMessage message) onForkMessage;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   // When true, the list will jump to the very bottom on its first frame.
   // This eliminates the visible scroll-from-top animation that would otherwise
@@ -1375,6 +1377,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ? () => widget.onEditMessage(message)
                         : null,
                     onCopy: () => widget.onCopyMessage(message),
+                    onFork: () => widget.onForkMessage(message),
                     onDelete: () async {
                       if (entry.exiting) {
                         return;

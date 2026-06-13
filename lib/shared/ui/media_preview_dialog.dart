@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../util/byte_size_format.dart';
@@ -18,7 +20,7 @@ import 'openhand_snack_bar.dart';
 ///
 /// 与 home page 的 `_ImagePreviewDialog` 视觉一致：
 ///   - 弹窗外圈圆角 16，clipped Antialias
-///   - 头部标题 + 关闭按钮 + 复制 URL 按钮
+///   - 头部标题 + 关闭按钮 + 复制按钮
 ///   - 图片体积按真实宽高比动态贴合，四周 12px 统一留白；
 ///     不再因 `BoxFit.contain` 在固定容器内产生不均匀的上下 / 左右白边
 ///   - 音视频走 webview_flutter 沙箱，避免引入新依赖
@@ -94,12 +96,16 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   static const double _kInsetPadding = 24.0;
   static const double _kHeaderEstimate = 70.0;
   static const double _kDividerH = 1.0;
-  static const double _kMinDialogW = 280.0;
+  static const double _kMinDialogW = 324.0;
   static const double _kFallbackSide = 320.0;
+  static const Duration _kClipboardTimeout = Duration(seconds: 15);
+  static const Duration _kNetworkTimeout = Duration(seconds: 25);
+  static const int _kClipboardMaxBytes = 64 * kBytesPerMiB;
 
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
   Size? _naturalSize;
+  bool _copying = false;
 
   @override
   void initState() {
@@ -249,28 +255,13 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                           style: theme.textTheme.titleMedium,
                         ),
                       ),
-                      if (widget.onCopyUrl != null)
-                        IconButton(
-                          tooltip: isZh ? '复制源地址' : 'Copy source URL',
-                          onPressed: () {
-                            widget.onCopyUrl!();
-                            final messenger = ScaffoldMessenger.maybeOf(
-                              context,
-                            );
-                            if (messenger != null) {
-                              OpenHandSnackBar.show(
-                                context,
-                                messenger,
-                                OpenHandSnackBar.success(
-                                  context,
-                                  isZh ? '已复制' : 'Copied',
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.link_rounded),
-                        ),
+                      IconButton(
+                        tooltip: isZh ? '复制' : 'Copy',
+                        onPressed: _copying
+                            ? null
+                            : () => _copyToClipboard(context),
+                        icon: const Icon(Icons.content_copy_outlined),
+                      ),
                       IconButton(
                         tooltip: isZh ? '关闭' : 'Close',
                         onPressed: () => Navigator.of(context).pop(),
@@ -304,6 +295,219 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _copyToClipboard(BuildContext context) async {
+    if (_copying) return;
+    setState(() => _copying = true);
+    try {
+      if (widget.kind == MediaPreviewKind.image) {
+        final copiedImageData = await _copyImageSource();
+        if (!context.mounted) return;
+        _showCopySnack(
+          context,
+          zh: copiedImageData ? '已复制图片到剪贴板。' : '已复制图片文件或路径到剪贴板。',
+          en: copiedImageData
+              ? 'Copied image to clipboard.'
+              : 'Copied image file or path to clipboard.',
+        );
+        return;
+      }
+      final filePath = widget.filePath;
+      if (filePath != null) {
+        final ok = await _copyFilePathToClipboard(filePath);
+        if (!context.mounted) return;
+        _showCopySnack(
+          context,
+          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制文件路径。',
+          en: ok
+              ? 'Copied media file to clipboard.'
+              : 'Direct media file copy is unavailable on this platform. Copied the file path.',
+        );
+        return;
+      }
+      final url = widget.networkUrl;
+      if (url != null) {
+        widget.onCopyUrl?.call();
+        await Clipboard.setData(
+          ClipboardData(text: url),
+        ).timeout(_kClipboardTimeout);
+        if (!context.mounted) return;
+        _showCopySnack(context, zh: '已复制媒体地址。', en: 'Copied media URL.');
+        return;
+      }
+      final bytes = widget.bytes;
+      if (bytes != null) {
+        final tempPath = await _writeBytesToClipboardTempFile(bytes);
+        final ok = await _copyFilePathToClipboard(tempPath);
+        if (!context.mounted) return;
+        _showCopySnack(
+          context,
+          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制临时文件路径。',
+          en: ok
+              ? 'Copied media file to clipboard.'
+              : 'Direct media file copy is unavailable on this platform. Copied the temporary file path.',
+        );
+        return;
+      }
+      throw const FileSystemException('Media source is unavailable.');
+    } catch (error) {
+      final url = widget.networkUrl;
+      if (url != null) {
+        try {
+          widget.onCopyUrl?.call();
+          await Clipboard.setData(
+            ClipboardData(text: url),
+          ).timeout(_kClipboardTimeout);
+          if (!context.mounted) return;
+          _showCopySnack(
+            context,
+            zh: '无法复制媒体数据，已复制来源地址。',
+            en: 'Unable to copy media data. Copied the source URL.',
+          );
+          return;
+        } catch (_) {
+          // Fall through to the error snackbar below.
+        }
+      }
+      if (!context.mounted) return;
+      _showCopySnack(
+        context,
+        zh: '复制失败：$error',
+        en: 'Copy failed: $error',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
+  }
+
+  Future<bool> _copyImageSource() async {
+    final bytes = widget.bytes;
+    if (bytes != null) {
+      await Pasteboard.writeImage(bytes).timeout(_kClipboardTimeout);
+      return true;
+    }
+    final filePath = widget.filePath;
+    if (filePath != null) {
+      final file = File(filePath);
+      final stat = await file.stat().timeout(_kClipboardTimeout);
+      if (stat.size > _kClipboardMaxBytes) {
+        throw FileSystemException(
+          'Image is too large for clipboard.',
+          filePath,
+        );
+      }
+      try {
+        await Pasteboard.writeImage(
+          await file.readAsBytes().timeout(_kClipboardTimeout),
+        ).timeout(_kClipboardTimeout);
+        return true;
+      } catch (_) {
+        await _copyFilePathToClipboard(filePath);
+        return false;
+      }
+    }
+    final url = widget.networkUrl;
+    if (url != null) {
+      final downloaded = await _downloadNetworkBytes(
+        Uri.parse(url),
+        expectedPrimaryType: 'image',
+      );
+      await Pasteboard.writeImage(downloaded).timeout(_kClipboardTimeout);
+      return true;
+    }
+    throw const FileSystemException('Image source is unavailable.');
+  }
+
+  Future<bool> _copyFilePathToClipboard(String filePath) async {
+    var ok = false;
+    try {
+      ok = await Pasteboard.writeFiles(<String>[
+        filePath,
+      ]).timeout(_kClipboardTimeout);
+    } catch (_) {
+      ok = false;
+    } finally {
+      await Clipboard.setData(
+        ClipboardData(text: filePath),
+      ).timeout(_kClipboardTimeout);
+    }
+    return ok;
+  }
+
+  Future<Uint8List> _downloadNetworkBytes(
+    Uri uri, {
+    String? expectedPrimaryType,
+  }) async {
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') {
+      throw FileSystemException(
+        'Unsupported URI scheme: ${uri.scheme}',
+        '$uri',
+      );
+    }
+    final client = HttpClient()..connectionTimeout = _kNetworkTimeout;
+    try {
+      final request = await client.getUrl(uri).timeout(_kNetworkTimeout);
+      final response = await request.close().timeout(_kNetworkTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException('HTTP ${response.statusCode}', uri: uri);
+      }
+      final contentType = response.headers.contentType;
+      if (expectedPrimaryType != null &&
+          contentType != null &&
+          contentType.primaryType != expectedPrimaryType &&
+          contentType.mimeType != 'application/octet-stream') {
+        throw HttpException(
+          'Unexpected content type: ${contentType.mimeType}',
+          uri: uri,
+        );
+      }
+      if (response.contentLength > _kClipboardMaxBytes) {
+        throw HttpException('Response is too large for clipboard.', uri: uri);
+      }
+      final builder = BytesBuilder(copy: false);
+      var received = 0;
+      await for (final chunk in response.timeout(_kNetworkTimeout)) {
+        received += chunk.length;
+        if (received > _kClipboardMaxBytes) {
+          throw HttpException('Response is too large for clipboard.', uri: uri);
+        }
+        builder.add(chunk);
+      }
+      return builder.takeBytes();
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<String> _writeBytesToClipboardTempFile(Uint8List bytes) async {
+    final dir = Directory.systemTemp;
+    final ext = widget.kind == MediaPreviewKind.video ? 'mp4' : 'mp3';
+    final file = File(
+      '${dir.path}/oh-media-copy-${DateTime.now().microsecondsSinceEpoch}.$ext',
+    );
+    await file.writeAsBytes(bytes, flush: true).timeout(_kClipboardTimeout);
+    return file.path;
+  }
+
+  void _showCopySnack(
+    BuildContext context, {
+    required String zh,
+    required String en,
+    bool isError = false,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    OpenHandSnackBar.show(
+      context,
+      messenger,
+      isError
+          ? OpenHandSnackBar.error(context, isZh ? zh : en, maxLines: 2)
+          : OpenHandSnackBar.success(context, isZh ? zh : en),
     );
   }
 
