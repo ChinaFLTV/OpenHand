@@ -3916,6 +3916,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final isActive = activity.value;
     if (isActive == _scrollActive) return;
     _safeSetState(() => _scrollActive = isActive);
+    if (isActive) {
+      _heightDebounceTimer?.cancel();
+      _heightDebounceTimer = null;
+      _hasPendingHeightAfterScroll = _pendingHeight != null;
+      return;
+    }
     if (!isActive && _hasPendingHeightAfterScroll) {
       _hasPendingHeightAfterScroll = false;
       _applyPendingHeightIfAny();
@@ -4086,8 +4092,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           if (timer == null || !timer.isActive) {
             _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
               if (!mounted) return;
-              final pending = _pendingHeight;
               _heightDebounceTimer = null;
+              if (_scrollActive) {
+                _hasPendingHeightAfterScroll = _pendingHeight != null;
+                return;
+              }
+              final pending = _pendingHeight;
               _pendingHeight = null;
               if (pending == null) return;
               if (_height != null &&
@@ -4114,8 +4124,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (timer == null || !timer.isActive) {
       _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
         if (!mounted) return;
-        final pending = _pendingHeight;
         _heightDebounceTimer = null;
+        if (_scrollActive) {
+          _hasPendingHeightAfterScroll = _pendingHeight != null;
+          return;
+        }
+        final pending = _pendingHeight;
         _pendingHeight = null;
         if (pending == null) return;
         if (_height != null && (pending - _height!).abs() < _kMinHeightDelta) {

@@ -38,10 +38,9 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
       final double delta = maxScrollExtent - this.maxScrollExtent;
       final double oldMax = this.maxScrollExtent;
 
-      // 用户主动滚动期间冻结 maxScrollExtent：历史消息展开后，SliverList
-      // 会在缓存窗口扫过气泡时上报 ±数百像素的中间态 extent。若此时放行，
-      // ScrollPosition 会在用户手势和布局回流之间反复 clamp，表现为消息列表
-      // 小幅上下弹跳。滚动结束后的下一次布局再接收真实 extent。
+      // 用户主动滚动期间不做像素纠偏。这里仍然接收新的 maxScrollExtent，
+      // 否则真实内容高度已经收缩时会保留一段虚假的可滚范围，表现为消息
+      // 底部出现空白。滚动中的高度应用由上层 HTML/布局协调逻辑延后处理。
       final bool userScrolling =
           (userScrollActivity?.value ?? false) ||
           isScrollingNotifier.value ||
@@ -51,7 +50,7 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
 
       if (userScrolling) {
         _transientRejectCount = 0;
-        return super.applyContentDimensions(minScrollExtent, oldMax);
+        return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
       }
 
       if (pixels > oldMax) {
