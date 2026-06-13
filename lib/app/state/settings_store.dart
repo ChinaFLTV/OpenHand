@@ -891,128 +891,68 @@ class SettingsStore {
     }
 
     // Animation settings.
-    final rawDialogAnim = json['dialog_animation_settings'];
-    const dialogAnimationDefault = OpenHandMotionDefaults.dialog;
-    var dialogAnimationSettings = dialogAnimationDefault;
-    if (rawDialogAnim is Map) {
-      dialogAnimationSettings = _dialogAnimationFromValue(
-        rawDialogAnim,
-        fallback: dialogAnimationDefault,
-      );
-      final isLegacyDialogDefault = _matchesMotionSettings(
-        dialogAnimationSettings,
-        entranceStyle: DialogAnimationStyle.fadeScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 320,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      final isPreviousDialogDefault = _matchesMotionSettings(
-        dialogAnimationSettings,
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 360,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      if (isLegacyDialogDefault || isPreviousDialogDefault) {
-        dialogAnimationSettings = dialogAnimationDefault;
-      }
-    }
-    final rawMenuAnim = json['menu_animation_settings'];
-    const menuAnimationDefault = OpenHandMotionDefaults.menu;
-    var menuAnimationSettings = menuAnimationDefault;
-    if (rawMenuAnim is Map) {
-      menuAnimationSettings = _dialogAnimationFromValue(
-        rawMenuAnim,
-        fallback: menuAnimationDefault,
-      );
-      final isLegacyMenuDefault = _matchesMotionSettings(
-        menuAnimationSettings,
-        entranceStyle: DialogAnimationStyle.fadeScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 320,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      final isPreviousMenuDefault = _matchesMotionSettings(
-        menuAnimationSettings,
-        entranceStyle: DialogAnimationStyle.springScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 260,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      if (isLegacyMenuDefault || isPreviousMenuDefault) {
-        menuAnimationSettings = menuAnimationDefault;
-      }
-    }
-    final rawPageAnim = json['page_animation_settings'];
-    const pageAnimationDefault = OpenHandMotionDefaults.page;
-    var pageAnimationSettings = pageAnimationDefault;
-    if (rawPageAnim is Map) {
-      pageAnimationSettings = _dialogAnimationFromValue(
-        rawPageAnim,
-        fallback: pageAnimationDefault,
-      );
-      final isAllNone =
-          pageAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
-          pageAnimationSettings.exitStyle == DialogAnimationStyle.none;
-      final isLegacyDefaultV1 = _matchesMotionSettings(
-        pageAnimationSettings,
-        entranceStyle: DialogAnimationStyle.fade,
-        exitStyle: DialogAnimationStyle.fade,
-        durationMs: 240,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      final isLegacyDefaultV2 = _matchesMotionSettings(
-        pageAnimationSettings,
-        entranceStyle: DialogAnimationStyle.fade,
-        exitStyle: DialogAnimationStyle.fade,
-        durationMs: 420,
-        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
-      );
-      if (isAllNone || isLegacyDefaultV1 || isLegacyDefaultV2) {
-        pageAnimationSettings = pageAnimationDefault;
-      }
-    }
-    final rawPanelAnim = json['panel_animation_settings'];
-    const panelAnimationDefault = OpenHandMotionDefaults.panel;
-    var panelAnimationSettings = panelAnimationDefault;
-    if (rawPanelAnim is Map) {
-      panelAnimationSettings = _dialogAnimationFromValue(
-        rawPanelAnim,
-        fallback: panelAnimationDefault,
-      );
-      final isAllNonePanel =
-          panelAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
-          panelAnimationSettings.exitStyle == DialogAnimationStyle.none;
-      final isLegacyPanelDefault = _matchesMotionSettings(
-        panelAnimationSettings,
-        entranceStyle: DialogAnimationStyle.fadeScale,
-        exitStyle: DialogAnimationStyle.fadeScale,
-        durationMs: 320,
-        curve: DialogAnimationCurve.easeOutCubic,
-      );
-      if (isAllNonePanel || isLegacyPanelDefault) {
-        panelAnimationSettings = panelAnimationDefault;
-      }
-    }
-
-    const chipAnimationDefault = OpenHandMotionDefaults.chip;
-    var chipAnimationSettings = chipAnimationDefault;
-    final rawChipAnim = json['chip_animation_settings'];
-    if (rawChipAnim is Map) {
-      chipAnimationSettings = _dialogAnimationFromValue(
-        rawChipAnim,
-        fallback: chipAnimationDefault,
-      );
-    }
-    const listItemAnimationDefault = OpenHandMotionDefaults.listItem;
-    var listItemAnimationSettings = listItemAnimationDefault;
-    final rawListItemAnim = json['list_item_animation_settings'];
-    if (rawListItemAnim is Map) {
-      listItemAnimationSettings = _dialogAnimationFromValue(
-        rawListItemAnim,
-        fallback: listItemAnimationDefault,
-      );
-    }
+    final dialogAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'dialog_animation_settings',
+      fallback: OpenHandMotionDefaults.dialog,
+      legacyDefaults: const <DialogAnimationSettings>[
+        DialogAnimationSettings(),
+        DialogAnimationSettings(
+          entranceStyle: DialogAnimationStyle.springScale,
+          durationMs: 360,
+        ),
+      ],
+    );
+    final menuAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'menu_animation_settings',
+      fallback: OpenHandMotionDefaults.menu,
+      legacyDefaults: const <DialogAnimationSettings>[
+        DialogAnimationSettings(),
+        DialogAnimationSettings(
+          entranceStyle: DialogAnimationStyle.springScale,
+          durationMs: 260,
+        ),
+      ],
+    );
+    final pageAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'page_animation_settings',
+      fallback: OpenHandMotionDefaults.page,
+      replaceDisabledWithFallback: true,
+      legacyDefaults: const <DialogAnimationSettings>[
+        DialogAnimationSettings(
+          entranceStyle: DialogAnimationStyle.fade,
+          exitStyle: DialogAnimationStyle.fade,
+          durationMs: 240,
+        ),
+        DialogAnimationSettings(
+          entranceStyle: DialogAnimationStyle.fade,
+          exitStyle: DialogAnimationStyle.fade,
+          durationMs: 420,
+          curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+        ),
+      ],
+    );
+    final panelAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'panel_animation_settings',
+      fallback: OpenHandMotionDefaults.panel,
+      replaceDisabledWithFallback: true,
+      legacyDefaults: const <DialogAnimationSettings>[
+        DialogAnimationSettings(),
+      ],
+    );
+    final chipAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'chip_animation_settings',
+      fallback: OpenHandMotionDefaults.chip,
+    );
+    final listItemAnimationSettings = _animationSettingsFromStorage(
+      json,
+      'list_item_animation_settings',
+      fallback: OpenHandMotionDefaults.listItem,
+    );
 
     // Builtin tool configs.
     final rawBuiltinToolConfigs = json['builtin_tool_configs'];
@@ -1263,17 +1203,24 @@ DialogAnimationSettings _dialogAnimationFromValue(
   return DialogAnimationSettings.fromJson(Map<String, Object?>.from(value));
 }
 
-bool _matchesMotionSettings(
-  DialogAnimationSettings settings, {
-  required DialogAnimationStyle entranceStyle,
-  required DialogAnimationStyle exitStyle,
-  required int durationMs,
-  required DialogAnimationCurve curve,
+DialogAnimationSettings _animationSettingsFromStorage(
+  Map<String, Object?> json,
+  String key, {
+  required DialogAnimationSettings fallback,
+  Iterable<DialogAnimationSettings> legacyDefaults =
+      const <DialogAnimationSettings>[],
+  bool replaceDisabledWithFallback = false,
 }) {
-  return settings.entranceStyle == entranceStyle &&
-      settings.exitStyle == exitStyle &&
-      settings.durationMs == durationMs &&
-      settings.curve == curve;
+  final settings = _dialogAnimationFromValue(json[key], fallback: fallback);
+  if (replaceDisabledWithFallback && settings.disablesAnimation) {
+    return fallback;
+  }
+  for (final legacyDefault in legacyDefaults) {
+    if (settings == legacyDefault) {
+      return fallback;
+    }
+  }
+  return settings;
 }
 
 ThemeMode _themeModeFromStorage(String? value) {

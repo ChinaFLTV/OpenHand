@@ -2170,6 +2170,7 @@ class _WebGatewayOpsDialog extends StatefulWidget {
 class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     with WidgetsBindingObserver {
   static const Duration _refreshInterval = Duration(seconds: 2);
+  static const Duration _refreshCallbackTimeout = Duration(seconds: 8);
   static const int _trendLimit = 40;
 
   final ScrollController _scrollController = ScrollController();
@@ -2218,6 +2219,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     _timer = startNonOverlappingPeriodicTimer(
       _refreshInterval,
       (_) => _tick(),
+      callbackTimeout: _refreshCallbackTimeout,
       onError: (error, stack) =>
           silentLog('message_gateway', 'runtime snapshot tick', error, stack),
     );

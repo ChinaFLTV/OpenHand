@@ -440,6 +440,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
     _refreshTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 3),
       (_) => _loadInfo(),
+      callbackTimeout: const Duration(seconds: 10),
       onError: (error, stack) =>
           silentLog('mcp_stdio_dialog', 'refresh runtime info', error, stack),
     );

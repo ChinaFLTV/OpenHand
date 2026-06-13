@@ -216,6 +216,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           }
         }
       },
+      callbackTimeout: const Duration(seconds: 5),
       onError: (error, stack) =>
           silentLog('web_reverse_dashboard', 'poll current url', error, stack),
     );

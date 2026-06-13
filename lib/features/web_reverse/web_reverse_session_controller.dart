@@ -2214,7 +2214,7 @@ class WebReverseSessionController extends ChangeNotifier {
               .getUrl(Uri.parse('http://127.0.0.1:$port/json/version'))
               .timeout(const Duration(seconds: 1));
           final res = await req.close().timeout(const Duration(seconds: 1));
-          await res.drain<void>();
+          await res.drain<void>().timeout(const Duration(seconds: 1));
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',

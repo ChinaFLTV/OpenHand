@@ -2,6 +2,8 @@ import 'dart:async';
 
 const Duration kOpenHandMinPeriodicTimerInterval = Duration(milliseconds: 250);
 const Duration kOpenHandMaxPeriodicTimerInterval = Duration(hours: 24);
+const Duration kOpenHandMinPeriodicCallbackTimeout = Duration(milliseconds: 1);
+const Duration kOpenHandMaxPeriodicCallbackTimeout = Duration(hours: 24);
 
 typedef OpenHandTimerErrorHandler =
     void Function(Object error, StackTrace stackTrace);
@@ -44,25 +46,69 @@ Timer startNonOverlappingPeriodicTimer(
   FutureOr<void> Function(Timer timer) callback, {
   Duration min = kOpenHandMinPeriodicTimerInterval,
   Duration max = kOpenHandMaxPeriodicTimerInterval,
+  Duration? callbackTimeout,
+  bool cancelOnCallbackTimeout = true,
   OpenHandTimerErrorHandler? onError,
 }) {
   final zone = Zone.current;
+  final effectiveCallbackTimeout = _safeOptionalTimerDuration(
+    callbackTimeout,
+    min: kOpenHandMinPeriodicCallbackTimeout,
+    max: kOpenHandMaxPeriodicCallbackTimeout,
+  );
   var running = false;
   return startSafePeriodicTimer(
     interval,
     (timer) {
       if (running) return;
       running = true;
-      Future.sync(() => callback(timer))
-          .catchError((Object error, StackTrace stack) {
-            _reportTimerError(error, stack, zone, onError);
-          })
-          .whenComplete(() => running = false);
+      unawaited(() async {
+        var timedOut = false;
+        try {
+          final pending = Future<void>.sync(() => callback(timer));
+          if (effectiveCallbackTimeout == null) {
+            await pending;
+          } else {
+            await pending.timeout(
+              effectiveCallbackTimeout,
+              onTimeout: () {
+                timedOut = true;
+                throw TimeoutException(
+                  'Periodic timer callback exceeded '
+                  '$effectiveCallbackTimeout',
+                  effectiveCallbackTimeout,
+                );
+              },
+            );
+          }
+        } catch (error, stack) {
+          if (timedOut && cancelOnCallbackTimeout) {
+            timer.cancel();
+          }
+          _reportTimerError(error, stack, zone, onError);
+        } finally {
+          running = false;
+        }
+      }());
     },
     min: min,
     max: max,
     onError: onError,
   );
+}
+
+Duration? _safeOptionalTimerDuration(
+  Duration? requested, {
+  required Duration min,
+  required Duration max,
+}) {
+  if (requested == null) return null;
+  final lower = min > Duration.zero ? min : kOpenHandMinPeriodicCallbackTimeout;
+  final upper = max < lower ? lower : max;
+  if (requested <= Duration.zero) return lower;
+  if (requested < lower) return lower;
+  if (requested > upper) return upper;
+  return requested;
 }
 
 void _reportTimerError(

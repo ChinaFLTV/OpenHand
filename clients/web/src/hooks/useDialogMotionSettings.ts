@@ -5,7 +5,7 @@ export interface ApiDialogAnimationSettings {
   curve?: string;
 }
 
-const styleValues = new Set([
+export const DIALOG_MOTION_STYLE_VALUES = [
   'none',
   'fade',
   'fade_scale',
@@ -18,9 +18,11 @@ const styleValues = new Set([
   'elastic',
   'spring_scale',
   'flip_x',
-]);
+] as const;
 
-const curveValues = new Set([
+export type DialogMotionStyle = (typeof DIALOG_MOTION_STYLE_VALUES)[number];
+
+export const DIALOG_MOTION_CURVE_VALUES = [
   'ease_in_out',
   'ease_out',
   'ease_out_cubic',
@@ -28,36 +30,65 @@ const curveValues = new Set([
   'elastic_out',
   'bounce_out',
   'decelerate',
-]);
+] as const;
+
+export type DialogMotionCurve = (typeof DIALOG_MOTION_CURVE_VALUES)[number];
 
 export const DIALOG_MOTION_DEFAULT_DURATION_MS = 360;
 export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
 export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
+export const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
+export const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';
 
-const defaultSettings = {
-  entranceStyle: 'spring_scale',
-  exitStyle: 'spring_scale',
+interface DialogMotionSettings {
+  entranceStyle: DialogMotionStyle;
+  exitStyle: DialogMotionStyle;
+  durationMs: number;
+  curve: DialogMotionCurve;
+}
+
+const styleValues = new Set<string>(DIALOG_MOTION_STYLE_VALUES);
+const curveValues = new Set<string>(DIALOG_MOTION_CURVE_VALUES);
+
+const defaultSettings: DialogMotionSettings = {
+  entranceStyle: DIALOG_MOTION_DEFAULT_STYLE,
+  exitStyle: DIALOG_MOTION_DEFAULT_STYLE,
   durationMs: DIALOG_MOTION_DEFAULT_DURATION_MS,
-  curve: 'ease_out_cubic',
+  curve: DIALOG_MOTION_DEFAULT_CURVE,
 };
 
 let currentSettings = { ...defaultSettings };
 
-function normalizeStyle(value: string | undefined, fallback: string): string {
-  return value && styleValues.has(value) ? value : fallback;
+function isDialogMotionStyle(value: string | undefined): value is DialogMotionStyle {
+  return value != null && styleValues.has(value);
 }
 
-function normalizeCurve(value: string | undefined): string {
-  return value && curveValues.has(value) ? value : defaultSettings.curve;
+function isDialogMotionCurve(value: string | undefined): value is DialogMotionCurve {
+  return value != null && curveValues.has(value);
+}
+
+function normalizeStyle(
+  value: string | undefined,
+  fallback: DialogMotionStyle,
+): DialogMotionStyle {
+  return isDialogMotionStyle(value) ? value : fallback;
+}
+
+function normalizeCurve(value: string | undefined): DialogMotionCurve {
+  return isDialogMotionCurve(value) ? value : defaultSettings.curve;
 }
 
 function normalizeDuration(
   value: number | string | undefined,
-  entranceStyle: string,
-  exitStyle: string,
+  entranceStyle: DialogMotionStyle,
+  exitStyle: DialogMotionStyle,
 ): number {
   const numericValue =
-    typeof value === 'string' ? Number(value.trim()) : value;
+    typeof value === 'string'
+      ? value.trim() === ''
+        ? undefined
+        : Number(value.trim())
+      : value;
   if (typeof numericValue !== 'number' || !Number.isFinite(numericValue)) {
     return entranceStyle === 'none' && exitStyle === 'none'
       ? 0
@@ -70,7 +101,7 @@ function normalizeDuration(
   );
 }
 
-function curveToCss(curve: string): string {
+function curveToCss(curve: DialogMotionCurve): string {
   switch (curve) {
     case 'ease_in_out':
       return 'ease-in-out';
@@ -90,7 +121,7 @@ function curveToCss(curve: string): string {
   }
 }
 
-function reverseCurveToCss(curve: string): string {
+function reverseCurveToCss(curve: DialogMotionCurve): string {
   switch (curve) {
     case 'ease_in_out':
       return 'ease-in-out';
@@ -123,7 +154,7 @@ export function initDialogMotionSettingsAttribute(): void {
 }
 
 export function syncRemoteDialogMotionSettings(
-  raw: ApiDialogAnimationSettings | undefined,
+  raw: ApiDialogAnimationSettings | null | undefined,
 ): void {
   const entranceStyle = normalizeStyle(
     raw?.entrance_style,
