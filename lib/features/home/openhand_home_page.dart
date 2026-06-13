@@ -198,6 +198,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _userScrollInProgress = false;
   bool _userDragActive = false;
   bool _transcriptLayoutAutoFollowQueued = false;
+  bool _scrollToBottomAwaitingPosition = false;
+  int _scrollToBottomPositionRetryCounter = 0;
   int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
   DateTime? _lastPointerSignalScrollAt;
@@ -757,6 +759,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
     _pendingScrollToBottomSettlePasses = 0;
+    _scrollToBottomAwaitingPosition = false;
+    _scrollToBottomPositionRetryCounter = 0;
   }
 
   bool _isProgrammaticMessageScrollInProgress() {
@@ -5066,6 +5070,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_userScrollInProgress) {
       return;
     }
+    if (_scrollToBottomAwaitingPosition) {
+      return;
+    }
     if (_scrollToBottomCallbackQueued) {
       return;
     }
@@ -5083,17 +5090,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       final shouldForce = _queuedForcedScrollToBottom;
       final shouldAnimate = _pendingAnimatedScrollToBottom;
-      _queuedForcedScrollToBottom = false;
-      _pendingAnimatedScrollToBottom = false;
       if (!shouldForce &&
           (!_autoFollowEnabled ||
               !_shouldAutoFollowMessages ||
               _userScrollInProgress)) {
-        _pendingScrollToBottomSettlePasses = 0;
-        return;
-      }
-      final activePosition = _activeMessageScrollPosition();
-      if (activePosition == null) {
+        _pendingAnimatedScrollToBottom = false;
         _pendingScrollToBottomSettlePasses = 0;
         return;
       }
@@ -5102,10 +5103,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // controller.positions.length > 1。此时 jumpTo/animateTo 会触发
       // Scrollbar 的 _debugCheckHasValidScrollPosition 断言。跳过本次滚动，
       // 等 transition 完成后旧 position 自然 detach，后续帧会重新 follow。
-      if (_messageScrollController.positions.length > 1) {
-        _pendingScrollToBottomSettlePasses = 0;
+      final positions = _messageScrollController.positions.toList(
+        growable: false,
+      );
+      if (positions.length != 1) {
+        if (_scrollToBottomPositionRetryCounter >=
+            _scrollToBottomPositionRetryLimit) {
+          _scrollToBottomPositionRetryCounter = 0;
+          _queuedForcedScrollToBottom = false;
+          _pendingAnimatedScrollToBottom = false;
+          _pendingScrollToBottomSettlePasses = 0;
+          return;
+        }
+        _scrollToBottomAwaitingPosition = true;
+        _scrollToBottomPositionRetryCounter += 1;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _scrollToBottomAwaitingPosition = false;
+          if (_userScrollInProgress) {
+            return;
+          }
+          _scheduleScrollToBottom(
+            force: shouldForce,
+            animated: shouldAnimate,
+            allowSettlePasses: false,
+          );
+        });
         return;
       }
+      _scrollToBottomPositionRetryCounter = 0;
+      _queuedForcedScrollToBottom = false;
+      _pendingAnimatedScrollToBottom = false;
+      final activePosition = positions.single;
       // 2026-05-24 (修复): 不与正在进行的物理模拟（弹簧回弹/fling 减速）抢
       // scroll position。jumpTo/animateTo 在物理模拟阶段执行会与
       // BouncingScrollPhysics 的弹簧产生对抗，导致 overshoot→回弹→再 jumpTo

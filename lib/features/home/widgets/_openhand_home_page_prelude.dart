@@ -39,8 +39,9 @@ const int _transcriptWindowingThreshold = 8;
 const int _transcriptPreparationThreshold = 12;
 const int _transcriptStagedMaterializationThreshold = 24;
 const double _transcriptListCacheExtent = 240;
-const int _transcriptPrependAnchorSettleFrameCount = 18;
+const int _transcriptPrependAnchorSettleFrameCount = 6;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
+const int _scrollToBottomPositionRetryLimit = 16;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Frame-driven reveal keeps long transcript switches smooth without a fixed
 // blank delay.

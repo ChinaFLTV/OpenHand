@@ -523,14 +523,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       'openhand.session.materialize',
       arguments: <String, Object?>{'count': visibleMessages.length},
     );
-    if (!animate) {
-      _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
+    try {
+      if (!animate) {
+        _animatedMessageIds.addAll(
+          visibleMessages.map((message) => message.id),
+        );
+      }
+      _renderEntries = <_TranscriptRenderEntry>[
+        for (final message in visibleMessages)
+          _TranscriptRenderEntry(message: message),
+      ];
+    } finally {
+      developer.Timeline.finishSync();
     }
-    _renderEntries = <_TranscriptRenderEntry>[
-      for (final message in visibleMessages)
-        _TranscriptRenderEntry(message: message),
-    ];
-    developer.Timeline.finishSync();
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
