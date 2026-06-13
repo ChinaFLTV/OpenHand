@@ -337,6 +337,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
+  int _revealDebugSequence = 0;
+
+  String _debugScrollSnapshot(ScrollController controller) {
+    if (!controller.hasClients || controller.positions.isEmpty) {
+      return 'positions=${controller.positions.length} px=n/a max=n/a viewport=n/a';
+    }
+    final position = controller.positions.last;
+    return 'positions=${controller.positions.length} '
+        'px=${_debugScrollNumber(position.pixels)} '
+        'max=${_debugScrollNumber(position.maxScrollExtent)} '
+        'viewport=${_debugScrollNumber(position.viewportDimension)}';
+  }
 
   @override
   void initState() {
@@ -869,10 +881,25 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // Remember current scroll metrics so we can restore visual position later.
     final scrollController = widget.controller;
     final hadClients = scrollController.hasClients;
+    final revealDebugId = ++_revealDebugSequence;
+    final displayMessagesBefore = widget.session.displayMessages.length;
+    final hiddenBefore =
+        widget.session.hiddenHistoricalMessageCount + _windowStartIndex;
+    final previousPixels = hadClients ? scrollController.position.pixels : 0.0;
     final currentMaxExtent = hadClients
         ? scrollController.position.maxScrollExtent
         : 0.0;
     final anchor = _capturePrependAnchor();
+    final preserveTriggerOffset = hiddenBefore > 0;
+    _debugRevealLog(
+      'reveal#$revealDebugId begin',
+      'mode=${_windowStartIndex > 0 ? 'local-window' : 'load-store'} '
+          'windowStart=$_windowStartIndex hidden=$hiddenBefore '
+          'display=$displayMessagesBefore preserveTrigger=$preserveTriggerOffset '
+          'anchor=${_debugShortId(anchor?.messageId)} '
+          'anchorOffset=${anchor == null ? 'n/a' : _debugScrollNumber(anchor.viewportOffset)} '
+          '${_debugScrollSnapshot(scrollController)}',
+    );
 
     setState(() {
       _loadingOlderMessages = true;
@@ -884,6 +911,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
 
     if (_windowStartIndex > 0) {
+      final previousWindowStart = _windowStartIndex;
       setState(() {
         _windowStartIndex = math.max(
           0,
@@ -892,6 +920,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         _loadingOlderMessages = false;
       });
+      _debugRevealLog(
+        'reveal#$revealDebugId materialized',
+        'mode=local-window windowStart=$previousWindowStart->$_windowStartIndex '
+            'render=${_renderEntries.length} '
+            '${_debugScrollSnapshot(scrollController)}',
+      );
     } else {
       await context.read<AiSessionController>().loadOlderSessionMessages(
         widget.session.id,
@@ -902,13 +936,57 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       setState(() {
         _loadingOlderMessages = false;
       });
+      _debugRevealLog(
+        'reveal#$revealDebugId materialized',
+        'mode=load-store display=$displayMessagesBefore->${widget.session.displayMessages.length} '
+            'hidden=${widget.session.hiddenHistoricalMessageCount} '
+            '${_debugScrollSnapshot(scrollController)}',
+      );
     }
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) {
       return;
     }
 
+    if (preserveTriggerOffset && hadClients) {
+      final position = scrollController.positions.isNotEmpty
+          ? scrollController.positions.last
+          : null;
+      final scrollActive = context.read<TranscriptScrollActivity>().value;
+      if (position != null &&
+          !scrollActive &&
+          !position.isScrollingNotifier.value) {
+        final target = previousPixels.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        );
+        _debugRevealLog(
+          'reveal#$revealDebugId trigger-restore',
+          'from=${_debugScrollNumber(position.pixels)} '
+              'to=${_debugScrollNumber(target)} '
+              'oldMax=${_debugScrollNumber(currentMaxExtent)} '
+              'newMax=${_debugScrollNumber(position.maxScrollExtent)} '
+              'skipAnchor=true',
+        );
+        if ((target - position.pixels).abs() >=
+            _transcriptPrependAnchorMinCorrection) {
+          widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+        }
+      } else {
+        _debugRevealLog(
+          'reveal#$revealDebugId trigger-restore-skip',
+          'hasPosition=${position != null} scrollActive=$scrollActive '
+              'isScrolling=${position?.isScrollingNotifier.value ?? false}',
+        );
+      }
+      return;
+    }
+
     final restoredByAnchor = anchor != null && _restorePrependAnchor(anchor);
+    _debugRevealLog(
+      'reveal#$revealDebugId anchor-result',
+      'restored=$restoredByAnchor ${_debugScrollSnapshot(scrollController)}',
+    );
     if (anchor != null) {
       _startPrependAnchorStabilization(anchor);
     }
@@ -925,6 +1003,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           final target = (position.pixels + delta).clamp(
             position.minScrollExtent,
             newMaxExtent,
+          );
+          _debugRevealLog(
+            'reveal#$revealDebugId fallback-jump',
+            'delta=${_debugScrollNumber(delta)} '
+                'from=${_debugScrollNumber(position.pixels)} '
+                'to=${_debugScrollNumber(target)} '
+                'oldMax=${_debugScrollNumber(currentMaxExtent)} '
+                'newMax=${_debugScrollNumber(newMaxExtent)}',
           );
           widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
         }
@@ -992,6 +1078,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _transcriptPrependAnchorMinCorrection) {
         return;
       }
+      _debugRevealLog(
+        'anchor-restore',
+        'id=${_debugShortId(anchor.messageId)} '
+            'delta=${_debugScrollNumber(delta)} '
+            'from=${_debugScrollNumber(position.pixels)} '
+            'to=${_debugScrollNumber(target)} '
+            'max=${_debugScrollNumber(position.maxScrollExtent)}',
+      );
       position.jumpTo(target);
     });
     return true;

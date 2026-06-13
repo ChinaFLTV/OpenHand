@@ -43,6 +43,8 @@ const int _transcriptPrependAnchorSettleFrameCount = 6;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 const int _scrollToBottomPositionRetryLimit = 16;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
+const bool _kTranscriptRevealDebug = true;
+const Duration _transcriptRevealDebugWindow = Duration(seconds: 8);
 // Frame-driven reveal keeps long transcript switches smooth without a fixed
 // blank delay.
 const int _transcriptPreparationFrameBudget = 10;
@@ -83,6 +85,22 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 // 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
+
+String _debugScrollNumber(num value) => value.toStringAsFixed(1);
+
+String _debugShortId(String? id) {
+  if (id == null || id.isEmpty) {
+    return 'none';
+  }
+  return id.length <= 8 ? id : id.substring(0, 8);
+}
+
+void _debugRevealLog(String event, String message) {
+  if (!kDebugMode || !_kTranscriptRevealDebug) {
+    return;
+  }
+  debugPrint('[oh-reveal-debug] $event $message');
+}
 
 Widget _buildWorkspaceSidebarTransition({
   required Widget child,

@@ -202,6 +202,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _scrollToBottomPositionRetryCounter = 0;
   int? _ballisticRetryCounter;
   bool _composerScrollCompensationInProgress = false;
+  DateTime? _lastRevealOlderMessagesAt;
   DateTime? _lastPointerSignalScrollAt;
   // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
   // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
@@ -763,6 +764,42 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _scrollToBottomPositionRetryCounter = 0;
   }
 
+  bool _isRevealDebugWindowActive() {
+    if (!_kTranscriptRevealDebug || !kDebugMode) {
+      return false;
+    }
+    final last = _lastRevealOlderMessagesAt;
+    if (last == null) {
+      return false;
+    }
+    return DateTime.now().difference(last) <= _transcriptRevealDebugWindow;
+  }
+
+  String _debugAutoFollowPositionSnapshot() {
+    if (!_messageScrollController.hasClients ||
+        _messageScrollController.positions.isEmpty) {
+      return 'positions=${_messageScrollController.positions.length} px=n/a max=n/a';
+    }
+    final position = _messageScrollController.positions.last;
+    return 'positions=${_messageScrollController.positions.length} '
+        'px=${_debugScrollNumber(position.pixels)} '
+        'max=${_debugScrollNumber(position.maxScrollExtent)} '
+        'viewport=${_debugScrollNumber(position.viewportDimension)}';
+  }
+
+  void _debugAutoFollowLog(String event, String message, {bool force = false}) {
+    if (!force && !_isRevealDebugWindowActive()) {
+      return;
+    }
+    _debugRevealLog(
+      event,
+      '$message autoEnabled=$_autoFollowEnabled shouldFollow=$_shouldAutoFollowMessages '
+      'pending=$_pendingForcedScrollToBottom queued=$_queuedForcedScrollToBottom '
+      'userScroll=$_userScrollInProgress programmatic=${_isProgrammaticMessageScrollInProgress()} '
+      '${_debugAutoFollowPositionSnapshot()}',
+    );
+  }
+
   bool _isProgrammaticMessageScrollInProgress() {
     return _programmaticAutoFollowScrollInProgress ||
         _programmaticTranscriptScrollCorrectionDepth > 0 ||
@@ -771,6 +808,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _runProgrammaticTranscriptScrollCorrection(VoidCallback correction) {
     if (!mounted) return;
+    _debugAutoFollowLog(
+      'programmatic-correction',
+      'begin depth=$_programmaticTranscriptScrollCorrectionDepth',
+    );
     _programmaticTranscriptScrollCorrectionDepth += 1;
     try {
       correction();
@@ -780,6 +821,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _programmaticTranscriptScrollCorrectionDepth = math.max(
           0,
           _programmaticTranscriptScrollCorrectionDepth - 1,
+        );
+        _debugAutoFollowLog(
+          'programmatic-correction',
+          'end depth=$_programmaticTranscriptScrollCorrectionDepth',
         );
       });
     }
@@ -1652,6 +1697,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _shouldAutoFollowMessages = true;
     _pendingForcedScrollToBottom = true;
     _autoFollowPaused = false;
+    _debugAutoFollowLog(
+      'auto-follow-arm',
+      'notifyPaused=$notifyPausedState previousPaused=$previousPaused',
+    );
     if (!notifyPausedState || !mounted || previousPaused == _autoFollowPaused) {
       return;
     }
@@ -1771,17 +1820,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool allowSettlePasses = true,
   }) {
     if (_shouldDeferAutoFollowScheduling()) {
+      _debugAutoFollowLog(
+        'auto-follow-skip',
+        'reason=defer consume=$consumePendingRequest animated=$animated',
+      );
       return;
     }
     final shouldForce = consumePendingRequest
         ? _consumePendingAutoFollowRequest()
         : _pendingForcedScrollToBottom;
     if (!_autoFollowEnabled && !shouldForce) {
+      _debugAutoFollowLog(
+        'auto-follow-skip',
+        'reason=disabled force=$shouldForce consume=$consumePendingRequest',
+      );
       return;
     }
     if (!_shouldAutoFollowMessages && !shouldForce) {
+      _debugAutoFollowLog(
+        'auto-follow-skip',
+        'reason=paused force=$shouldForce consume=$consumePendingRequest',
+      );
       return;
     }
+    _debugAutoFollowLog(
+      'auto-follow-schedule',
+      'force=$shouldForce consume=$consumePendingRequest animated=$animated '
+          'settle=$allowSettlePasses',
+    );
     _scheduleScrollToBottom(
       force: shouldForce,
       animated: animated,
@@ -5046,6 +5112,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (!_autoFollowEnabled ||
             !_shouldAutoFollowMessages ||
             _userScrollInProgress)) {
+      _debugAutoFollowLog(
+        'scroll-bottom-skip',
+        'reason=entry force=$force animated=$animated',
+      );
       return;
     }
     if (force) {
@@ -5065,18 +5135,38 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     if (_isProgrammaticMessageScrollInProgress()) {
+      _debugAutoFollowLog(
+        'scroll-bottom-skip',
+        'reason=programmatic force=$force animated=$animated',
+      );
       return;
     }
     if (_userScrollInProgress) {
+      _debugAutoFollowLog(
+        'scroll-bottom-skip',
+        'reason=user-active force=$force animated=$animated',
+      );
       return;
     }
     if (_scrollToBottomAwaitingPosition) {
+      _debugAutoFollowLog(
+        'scroll-bottom-skip',
+        'reason=awaiting-position force=$force animated=$animated',
+      );
       return;
     }
     if (_scrollToBottomCallbackQueued) {
+      _debugAutoFollowLog(
+        'scroll-bottom-skip',
+        'reason=already-queued force=$force animated=$animated',
+      );
       return;
     }
     _scrollToBottomCallbackQueued = true;
+    _debugAutoFollowLog(
+      'scroll-bottom-queue',
+      'force=$force animated=$animated settle=$allowSettlePasses',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottomCallbackQueued = false;
       if (!mounted) {
@@ -5086,6 +5176,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (_userScrollInProgress) {
+        _debugAutoFollowLog('scroll-bottom-abort', 'reason=callback-user');
         return;
       }
       final shouldForce = _queuedForcedScrollToBottom;
@@ -5094,6 +5185,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           (!_autoFollowEnabled ||
               !_shouldAutoFollowMessages ||
               _userScrollInProgress)) {
+        _debugAutoFollowLog(
+          'scroll-bottom-abort',
+          'reason=callback-state force=$shouldForce animated=$shouldAnimate',
+        );
         _pendingAnimatedScrollToBottom = false;
         _pendingScrollToBottomSettlePasses = 0;
         return;
@@ -5109,6 +5204,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (positions.length != 1) {
         if (_scrollToBottomPositionRetryCounter >=
             _scrollToBottomPositionRetryLimit) {
+          _debugAutoFollowLog(
+            'scroll-bottom-abort',
+            'reason=position-retry-limit count=$_scrollToBottomPositionRetryCounter '
+                'positions=${positions.length}',
+          );
           _scrollToBottomPositionRetryCounter = 0;
           _queuedForcedScrollToBottom = false;
           _pendingAnimatedScrollToBottom = false;
@@ -5117,6 +5217,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         _scrollToBottomAwaitingPosition = true;
         _scrollToBottomPositionRetryCounter += 1;
+        _debugAutoFollowLog(
+          'scroll-bottom-wait-position',
+          'count=$_scrollToBottomPositionRetryCounter positions=${positions.length} '
+              'force=$shouldForce animated=$shouldAnimate',
+        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) {
             return;
@@ -5145,6 +5250,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // 此时不执行 jumpTo，而是延迟一帧重试——弹簧回弹（stiffness 180）通常
       // 1–2 帧内结束；若 8 帧后仍未结束则放弃，避免无限重试。
       if (activePosition.isScrollingNotifier.value && !_userDragActive) {
+        _debugAutoFollowLog(
+          'scroll-bottom-retry',
+          'reason=ballistic retry=${(_ballisticRetryCounter ?? 0) + 1} '
+              'force=$shouldForce animated=$shouldAnimate',
+        );
         _scrollToBottomCallbackQueued = false;
         final retryCount = (_ballisticRetryCounter ?? 0) + 1;
         if (retryCount <= 8) {
@@ -5188,6 +5298,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
       if (distance >= 1) {
         _programmaticAutoFollowScrollInProgress = true;
+        _debugAutoFollowLog(
+          'scroll-bottom-jump',
+          'distance=${_debugScrollNumber(distance)} '
+              'target=${_debugScrollNumber(targetOffset)} '
+              'force=$shouldForce animated=$shouldAnimate',
+        );
         activePosition.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
@@ -5195,6 +5311,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         });
         return;
       }
+      _debugAutoFollowLog(
+        'scroll-bottom-settled',
+        'distance=${_debugScrollNumber(distance)} force=$shouldForce',
+      );
       scheduleSettlePass();
     });
   }
@@ -5213,6 +5333,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (nextSignature == null) {
       return;
     }
+    _debugAutoFollowLog(
+      'session-signature',
+      'session=${session == null ? 'none' : _debugShortId(session.id)} '
+          'changed=${previousSignature != nextSignature} '
+          'previousNull=${previousSignature == null} '
+          'nextLength=${session?.displayMessages.length ?? 0}',
+    );
     // 2026-05-04 (修复): 仅当用户当前仍处于"贴底跟随"状态时，才在新消息
     // 到达时重新装填强制滚到底的请求。如果用户已经手动上滑导致
     // `_shouldAutoFollowMessages` 被置为 false（自动跟随暂停），
@@ -5238,6 +5365,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionIdChanged =
         previousSignature == null ||
         !previousSignature.startsWith('${session!.id}|');
+    _debugAutoFollowLog(
+      'session-autofollow-route',
+      'sessionIdChanged=$sessionIdChanged',
+    );
     if (sessionIdChanged) {
       // 会话切换：transcript 内部已通过 jumpToBottomOnInit + 16 帧 settle
       // 自行贴底；这里再额外发一个 *jump*（非 animate） 兜底，避免与
@@ -5382,9 +5513,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleRevealOlderMessages() {
+    _lastRevealOlderMessagesAt = DateTime.now();
+    _debugAutoFollowLog('reveal-parent', 'pause-before-reveal', force: true);
     _shouldAutoFollowMessages = false;
     _clearPendingAutoFollowState();
     _syncAutoFollowPausedState();
+    _debugAutoFollowLog('reveal-parent', 'pause-after-clear', force: true);
   }
 
   String? _sessionAutoScrollSignature(AiSession? session) {
