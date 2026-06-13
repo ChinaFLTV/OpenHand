@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// 线程会话窗口专用的稳定 maxScrollExtent ScrollPosition。
@@ -17,11 +18,14 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
   _StableMaxExtentScrollPosition({
     required super.physics,
     required super.context,
+    required this.userScrollActivity,
     super.initialPixels,
     super.keepScrollOffset,
     super.oldPosition,
     super.debugLabel,
   });
+
+  final ValueListenable<bool>? userScrollActivity;
 
   /// 连续拒绝瞬态近零 extent 更新的次数，防止无限拒绝。
   int _transientRejectCount = 0;
@@ -43,6 +47,7 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
       // 守卫同时覆盖两个纠偏分支（overscroll 跟随 + 读顶部 content 收缩
       // 比例缩放）。滚动结束后下一帧守卫自动放行，super 仍走，行为完全保持。
       final bool userScrolling =
+          (userScrollActivity?.value ?? false) ||
           isScrollingNotifier.value ||
           activity is DragScrollActivity ||
           (activity is! IdleScrollActivity &&
@@ -91,10 +96,13 @@ class _StableMaxExtentScrollPosition extends ScrollPositionWithSingleContext {
 /// 收缩时用户的相对阅读位置被 clamp 掉。
 class OpenHandStableScrollController extends ScrollController {
   OpenHandStableScrollController({
+    ValueListenable<bool>? userScrollActivity,
     super.initialScrollOffset,
     super.keepScrollOffset,
     super.debugLabel,
-  });
+  }) : _userScrollActivity = userScrollActivity;
+
+  final ValueListenable<bool>? _userScrollActivity;
 
   @override
   ScrollPosition createScrollPosition(
@@ -105,6 +113,7 @@ class OpenHandStableScrollController extends ScrollController {
     return _StableMaxExtentScrollPosition(
       physics: physics,
       context: context,
+      userScrollActivity: _userScrollActivity,
       initialPixels: initialScrollOffset,
       keepScrollOffset: keepScrollOffset,
       oldPosition: oldPosition,

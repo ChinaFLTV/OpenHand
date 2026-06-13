@@ -146,8 +146,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static _OpenHandHomePageState? _activeHomeState;
 
   final TextEditingController _composerController = SafeTextEditingController();
-  final ScrollController _messageScrollController =
-      OpenHandStableScrollController();
+  // HTML WebView 异步测高协调信号——见 [TranscriptScrollActivity] 注释。
+  // 在 ListView build 树顶层用 ListenableProvider 注入，供深层的
+  // `_HtmlBubbleWebView` 订阅，实现"用户滚动期间冻结高度应用"。
+  final TranscriptScrollActivity _transcriptScrollActivity =
+      TranscriptScrollActivity();
+  late final ScrollController _messageScrollController =
+      OpenHandStableScrollController(
+        userScrollActivity: _transcriptScrollActivity,
+      );
   final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
   _ComposerPanelState? _composerPanelState; // 直接引用，替代 GlobalKey.currentState
@@ -220,11 +227,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
   DateTime? _lastScrollActivityAt;
   static const Duration _scrollActivityWindow = Duration(milliseconds: 250);
-  // HTML WebView 异步测高协调信号——见 [TranscriptScrollActivity] 注释。
-  // 在 ListView build 树顶层用 ListenableProvider 注入，供深层的
-  // `_HtmlBubbleWebView` 订阅，实现"用户滚动期间冻结高度应用"。
-  final TranscriptScrollActivity _transcriptScrollActivity =
-      TranscriptScrollActivity();
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
