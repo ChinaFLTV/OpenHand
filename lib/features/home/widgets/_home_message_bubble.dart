@@ -708,18 +708,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     (widget.isSelected ||
                         _reasoningExpandedOverride != null ||
                         _showRawContent != widget.initiallyShowRawContent);
+                final bubbleSizeDuration = allowBubbleSizeMotion
+                    ? cardMotionDurationFor(
+                        context,
+                        expanding:
+                            widget.isSelected ||
+                            (_reasoningExpandedOverride != null &&
+                                reasoningExpanded) ||
+                            _showRawContent,
+                      )
+                    : Duration.zero;
                 return ClipRect(
-                  child: AnimatedSize(
-                    duration: allowBubbleSizeMotion
-                        ? cardMotionDurationFor(
-                            context,
-                            expanding:
-                                widget.isSelected ||
-                                (_reasoningExpandedOverride != null &&
-                                    reasoningExpanded) ||
-                                _showRawContent,
-                          )
-                        : Duration.zero,
+                  child: maybeAnimatedSize(
+                    duration: bubbleSizeDuration,
                     curve: kCardMotionCurve,
                     alignment: Alignment.topLeft,
                     child: bubbleContent,
@@ -750,7 +751,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  AnimatedSize(
+                  maybeAnimatedSize(
                     duration: cardMotionDurationFor(context, expanding: true),
                     curve: kCardMotionCurve,
                     alignment: isUser ? Alignment.topRight : Alignment.topLeft,

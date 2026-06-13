@@ -1541,11 +1541,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ),
                       )
                     : bubble;
-                return AnimatedSize(
+                final entrySizeDuration = isSelected && !transcriptScrollActive
+                    ? cardMotionDurationFor(context, expanding: true)
+                    : Duration.zero;
+                return maybeAnimatedSize(
                   key: ValueKey<String>('transcript-entry-${message.id}'),
-                  duration: isSelected && !transcriptScrollActive
-                      ? cardMotionDurationFor(context, expanding: true)
-                      : Duration.zero,
+                  duration: entrySizeDuration,
                   curve: kCardMotionCurve,
                   alignment: isSelected
                       ? Alignment.topLeft

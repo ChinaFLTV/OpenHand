@@ -32,3 +32,24 @@ Duration cardMotionDurationFor(
   }
   return expanding ? kCardMotionDurationExpand : kCardMotionDurationCollapse;
 }
+
+Widget maybeAnimatedSize({
+  Key? key,
+  required Duration duration,
+  required Curve curve,
+  required AlignmentGeometry alignment,
+  required Widget child,
+}) {
+  // RenderAnimatedSize may synchronously restart a zero-duration animation
+  // during layout and trip "mutated in performLayout"; skip the render object.
+  if (duration <= Duration.zero) {
+    return key == null ? child : KeyedSubtree(key: key, child: child);
+  }
+  return AnimatedSize(
+    key: key,
+    duration: duration,
+    curve: curve,
+    alignment: alignment,
+    child: child,
+  );
+}
