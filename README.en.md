@@ -1,4 +1,16 @@
+<div align="center">
+  <img src="assets/branding/openhand_logo.png" alt="OpenHand Logo" width="128" />
+
 # OpenHand
+
+[![Flutter](https://img.shields.io/badge/Flutter-%3E=3.27-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.11-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-555)](#requirements)
+[![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
+[![中文](https://img.shields.io/badge/lang-简体中文-red)](README.md)
+[![English](https://img.shields.io/badge/lang-English-blue)](README.en.md)
+
+</div>
 
 OpenHand is a local-first, cross-platform desktop workbench for AI agents. It brings model protocols, tool execution, MCP, skills, hooks, scheduled jobs, memory, and thread templates into one native Flutter app for developers and teams that need controllable, extensible, and auditable AI workflows.
 

@@ -1,4 +1,16 @@
+<div align="center">
+  <img src="assets/branding/openhand_logo.png" alt="OpenHand Logo" width="128" />
+
 # OpenHand
+
+[![Flutter](https://img.shields.io/badge/Flutter-%3E=3.27-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.11-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-555)](#运行环境)
+[![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
+[![中文](https://img.shields.io/badge/lang-简体中文-red)](README.md)
+[![English](https://img.shields.io/badge/lang-English-blue)](README.en.md)
+
+</div>
 
 OpenHand 是一款本地优先的跨平台桌面 AI 智能体工作台。它将多模型协议、工具调用、MCP、技能、钩子、定时任务、记忆和线程模板整合到一个 Flutter 原生应用中，面向需要可控、可扩展、可审计 AI 工作流的开发者与团队。
 
