@@ -61,6 +61,11 @@ _programmingExpertExtensionSections = <AiPromptSharedSectionSpec>[
         'assets/prompts/programming_expert/sections/project_resource_trust.md',
   ),
   AiPromptSharedSectionSpec(
+    tag: 'resource_adaptation_workflow',
+    assetPath:
+        'assets/prompts/programming_expert/sections/resource_adaptation_workflow.md',
+  ),
+  AiPromptSharedSectionSpec(
     tag: 'context_recovery',
     assetPath: 'assets/prompts/programming_expert/sections/context_recovery.md',
   ),
