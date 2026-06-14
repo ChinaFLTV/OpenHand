@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../app/support/silent_log.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
 import 'openhand_snack_bar.dart';
@@ -641,7 +642,7 @@ $tag{width:100%;max-height:100%;outline:none;border-radius:10px;background:#000}
       if (!mounted) return;
       setState(() => _controller = controller);
     } catch (error, stack) {
-      debugPrint('media_preview bootstrap fail: $error\n$stack');
+      silentLog('media_preview', 'bootstrap webview host', error, stack);
       if (!mounted) return;
       setState(() => _error = '$error');
     }

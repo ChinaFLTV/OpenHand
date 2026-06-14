@@ -21,7 +21,7 @@
 - `web_reverse_dashboard_dialog` — Dashboard 入口、`exportSnapshot/importSnapshot`、性能 trace 写入
 - `web_reverse_artifacts` — HAR/Console artifact 持久化
 - `web_reverse_har_persistence` / `web_reverse_har_replay_server` — HAR 离线导入回放
-- `web_reverse_websocket_dialog` (现为 `web-reverse` 中 `ws.*`) — WS 帧重放/复制（**TODO: 收敛到 `web_reverse_websocket_dialog`**）
+- `web_reverse_websocket_dialog` (现为 `web-reverse` 中 `ws.*`) — WS 帧重放/复制；迁移时按下方旧通配 tag 清单逐面板收敛
 - `web_reverse_coverage_dialog` / `web_reverse_css_coverage_dialog` — JS / CSS 覆盖率
 - `web_reverse_jwt`, `web_reverse_ws_inject`, `web_reverse_pm`, `web_reverse_geo_override`, `web_reverse_webauthn`, `web_reverse_ai_crypto`, `web_reverse_callgraph`, `web_reverse_dom_mutation`, `web_reverse_account_snapshots_dialog`, `web_reverse_collection_export`, `web_reverse_mock_rules`, `web_reverse_waterfall_dialog`, `web_reverse_resend_request_dialog`, `web_reverse_headless_batch`, `web_reverse_mitmproxy_bridge`, `web_reverse_lsp_client`
 

@@ -69,13 +69,13 @@ import 'package:flutter/foundation.dart';
 
 /// $pascal feature controller.
 ///
-/// TODO: 描述该 controller 的职责与生命周期。
+/// 补充该 controller 的职责与生命周期。
 class ${pascal}Controller extends ChangeNotifier {
   ${pascal}Controller._();
 
   static Future<${pascal}Controller> create() async {
     final controller = ${pascal}Controller._();
-    // TODO: 异步初始化（加载持久化、订阅依赖等）。
+    // 如需加载持久化或订阅依赖，在这里完成异步初始化。
     return controller;
   }
 }
@@ -117,14 +117,14 @@ String _readmeTemplate(String snake) =>
 # $snake
 
 ## 职责
-TODO: 描述该 feature 在 OpenHand 中负责的领域。
+描述该 feature 在 OpenHand 中负责的领域。
 
 ## 对外 API
-TODO: 列出 controller / module 暴露给其他 feature 的方法与事件。
+列出 controller / module 暴露给其他 feature 的方法与事件。
 
 ## 依赖
-TODO: 列出依赖的 service / repository / 其他 feature。
+列出依赖的 service / repository / 其他 feature。
 
 ## 不变量
-TODO: 描述该 feature 必须维持的不变量与禁忌。
+描述该 feature 必须维持的不变量与禁忌。
 ''';

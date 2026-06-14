@@ -307,16 +307,12 @@ class McpStdioProcessManager extends ChangeNotifier {
     _ManagedProcess? managed = _processes[serverName];
     // 完全不存在 entry — 调用方应先触发 startServer
     if (managed == null) {
-      debugPrint(
-        '[mcp.borrow] $serverName: no entry in _processes, returning null',
-      );
+      _debugBorrow(serverName, 'no entry in _processes, returning null');
       return null;
     }
     // 已停止（非启动中）— 没有可复用的进程
     if (managed.info.isStopped && managed.process == null) {
-      debugPrint(
-        '[mcp.borrow] $serverName: stopped and no process, returning null',
-      );
+      _debugBorrow(serverName, 'stopped and no process, returning null');
       return null;
     }
 
@@ -327,8 +323,9 @@ class McpStdioProcessManager extends ChangeNotifier {
     var waitIterations = 0;
     while (!managed!.handshakeCompleted || managed.process == null) {
       if (DateTime.now().isAfter(deadline)) {
-        debugPrint(
-          '[mcp.borrow] $serverName: handshake wait timeout after ${waitIterations * 200}ms',
+        _debugBorrow(
+          serverName,
+          'handshake wait timeout after ${waitIterations * 200}ms',
         );
         return null;
       }
@@ -336,23 +333,22 @@ class McpStdioProcessManager extends ChangeNotifier {
       waitIterations++;
       managed = _processes[serverName];
       if (managed == null) {
-        debugPrint('[mcp.borrow] $serverName: entry removed during wait');
+        _debugBorrow(serverName, 'entry removed during wait');
         return null;
       }
       if (managed.info.isStopped && managed.process == null) {
-        debugPrint('[mcp.borrow] $serverName: became stopped during wait');
+        _debugBorrow(serverName, 'became stopped during wait');
         return null;
       }
     }
 
     if (managed.responseRouter == null) {
-      debugPrint(
-        '[mcp.borrow] $serverName: responseRouter is null, returning null',
-      );
+      _debugBorrow(serverName, 'responseRouter is null, returning null');
       return null;
     }
-    debugPrint(
-      '[mcp.borrow] $serverName: SUCCESS, borrowing session (waited ${waitIterations * 200}ms)',
+    _debugBorrow(
+      serverName,
+      'SUCCESS, borrowing session (waited ${waitIterations * 200}ms)',
     );
     _sessionBorrowCount[serverName] =
         (_sessionBorrowCount[serverName] ?? 0) + 1;
@@ -967,6 +963,11 @@ String? _findBinEntry(String packageDir) {
     }
   } catch (_) {}
   return null;
+}
+
+void _debugBorrow(String serverName, String message) {
+  if (!kDebugMode) return;
+  debugPrint('[mcp.borrow] $serverName: $message');
 }
 
 int _compareVersions(String a, String b) {
