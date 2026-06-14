@@ -1974,6 +1974,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _selectSection(AppSection section) {
+    if (section != AppSection.workspace) {
+      unawaited(_ttsPlaybackService.stop());
+    }
     setState(() {
       _selectedSection = section;
       // 2026-05-19 — 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
@@ -6496,244 +6499,252 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 顶层注入滚动活动信号：让 transcript 子树里的 `_HtmlBubbleWebView`
     // 通过 `context.read<TranscriptScrollActivity>()` 订阅，滚动期间冻结
     // 高度应用，滚动结束再一次性应用累积的最新值。
-    final homeContent = Focus(
-      focusNode: _globalShortcutFocusNode,
-      autofocus: true,
-      child: Scaffold(
-        body: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [palette.canvasStart, palette.canvasEnd],
+    final homeContent = Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [palette.canvasStart, palette.canvasEnd],
+              ),
             ),
-          ),
-          child: SafeArea(
-            minimum: const EdgeInsets.all(20),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final stackedLayout =
-                    constraints.maxWidth < _sideBySideLayoutMinWidth;
-                final stackedNavigationHeight = (constraints.maxHeight * 0.34)
-                    .clamp(
-                      _stackedNavigationMinHeight,
-                      _stackedNavigationMaxHeight,
-                    )
-                    .toDouble();
-                final sessionSendPhases = _navigationSendPhases(
-                  sessionController,
-                );
-                final navigationPane = _NavigationPane(
-                  selectedSection: _selectedSection,
-                  sessions: sessionController.sessions,
-                  sessionSendPhases: sessionSendPhases,
-                  currentSessionId: sessionController.currentSessionId,
-                  onCreateThreadRequested: _createSessionFromDialog,
-                  onSessionSelected: _activateSession,
-                  onRenameSession: _renameSession,
-                  onDeleteSession: _deleteSession,
-                  onExportSession: _exportSession,
-                  onGenerateTitleForSession: _generateTitleForSession,
-                  onSectionSelected: _selectSection,
-                  activeHardnessOrchestrator: _activeHardnessOrchestrator,
-                  hardnessSessionRecord: _persistedHardnessSession,
-                  onHardnessSessionSelected:
-                      _persistedHardnessSession != null ||
-                          _activeHardnessOrchestrator != null
-                      ? () => _selectSection(AppSection.hardnessSession)
-                      : null,
-                  onRenameHardnessSession: _persistedHardnessSession != null
-                      ? _renameHardnessSession
-                      : null,
-                  onDeleteHardnessSession: _persistedHardnessSession != null
-                      ? _deleteHardnessSession
-                      : null,
-                  onExportHardnessSession: _persistedHardnessSession != null
-                      ? _exportHardnessSession
-                      : null,
-                );
-
-                // Swap left pane to file explorer when toggled for
-                // programming_expert sessions.
-                final currentSession = sessionController.currentSession;
-                final projectRoot = _programmingExpertProjectRoot(
-                  currentSession,
-                );
-                final showFileExplorer =
-                    _fileExplorerVisible &&
-                    projectRoot != null &&
-                    _selectedSection == AppSection.workspace;
-                final panelSettings = context
-                    .read<SettingsController>()
-                    .panelAnimationSettings;
-                final leftPaneDuration = Duration(
-                  milliseconds: math.max(
-                    _effectiveSwitchDuration(panelSettings).inMilliseconds,
-                    240,
-                  ),
-                );
-                final Widget leftPane = ClipRect(
-                  child: AnimatedSwitcher(
-                    duration: leftPaneDuration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    transitionBuilder: (child, animation) {
-                      return _buildWorkspaceSidebarTransition(
-                        child: child,
-                        animation: animation,
-                        settings: panelSettings,
-                      );
-                    },
-                    child: showFileExplorer
-                        ? _ContentPane(
-                            key: const ValueKey<String>('file-explorer-pane'),
-                            child: _FileExplorerPanel(
-                              rootPath: projectRoot,
-                              onFileSelected: _openFileInEditor,
-                              activeFilePath: _activeFilePath,
-                              onCloseRequested: _toggleFileExplorer,
-                            ),
-                          )
-                        : KeyedSubtree(
-                            key: const ValueKey<String>('navigation-pane'),
-                            child: navigationPane,
-                          ),
-                  ),
-                );
-
-                // Swap right pane to code editor when files are open.
-                final showEditor =
-                    _selectedSection == AppSection.workspace &&
-                    _activeFilePath != null &&
-                    _openFilePaths.isNotEmpty;
-                final pageSettings = context
-                    .read<SettingsController>()
-                    .pageAnimationSettings;
-                final rightPaneDuration = Duration(
-                  milliseconds: math.max(
-                    _effectiveSwitchDuration(pageSettings).inMilliseconds,
-                    280,
-                  ),
-                );
-                final Widget rightPane = ClipRect(
-                  child: AnimatedSwitcher(
-                    duration: rightPaneDuration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    transitionBuilder: (child, animation) {
-                      return _buildWorkspaceContentTransition(
-                        child: child,
-                        animation: animation,
-                        settings: pageSettings,
-                      );
-                    },
-                    child: showEditor
-                        ? Padding(
-                            key: const ValueKey<String>('editor-pane'),
-                            padding: const EdgeInsets.all(4),
-                            child: _CodeEditorView(
-                              openFiles: _openFilePaths,
-                              activeFilePath: _activeFilePath!,
-                              projectLanguage: _programmingExpertLanguage(
-                                currentSession,
-                              ),
-                              projectSdkPath: _programmingExpertSdkPath(
-                                currentSession,
-                              ),
-                              projectLspPath: _programmingExpertLspPath(
-                                currentSession,
-                              ),
-                              onOpenFile: _openFileInEditor,
-                              onTabSelected: _selectFileTab,
-                              onTabClosed: _closeFileTab,
-                              onCloseAll: _closeAllFileTabs,
-                              onReorderTabs: _reorderFileTabs,
-                              fileExplorerVisible: _fileExplorerVisible,
-                              onToggleFileExplorer: _toggleFileExplorer,
-                            ),
-                          )
-                        : _ContentPane(
-                            key: ValueKey<String>(
-                              'section-${_selectedSection.name}',
-                            ),
-                            child: _buildSectionContent(context),
-                          ),
-                  ),
-                );
-
-                if (stackedLayout) {
-                  return Column(
-                    children: [
-                      SizedBox(
-                        height: stackedNavigationHeight,
-                        child: leftPane,
-                      ),
-                      // Match the horizontal pane gap and SafeArea outer
-                      // inset so the spacing between stacked panes is
-                      // visually consistent with every other gutter.
-                      const SizedBox(height: _contentPaneGap),
-                      Expanded(child: rightPane),
-                    ],
+            child: SafeArea(
+              minimum: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final stackedLayout =
+                      constraints.maxWidth < _sideBySideLayoutMinWidth;
+                  final stackedNavigationHeight = (constraints.maxHeight * 0.34)
+                      .clamp(
+                        _stackedNavigationMinHeight,
+                        _stackedNavigationMaxHeight,
+                      )
+                      .toDouble();
+                  final sessionSendPhases = _navigationSendPhases(
+                    sessionController,
                   );
-                }
+                  final navigationPane = _NavigationPane(
+                    selectedSection: _selectedSection,
+                    sessions: sessionController.sessions,
+                    sessionSendPhases: sessionSendPhases,
+                    currentSessionId: sessionController.currentSessionId,
+                    onCreateThreadRequested: _createSessionFromDialog,
+                    onSessionSelected: _activateSession,
+                    onRenameSession: _renameSession,
+                    onDeleteSession: _deleteSession,
+                    onExportSession: _exportSession,
+                    onGenerateTitleForSession: _generateTitleForSession,
+                    onSectionSelected: _selectSection,
+                    activeHardnessOrchestrator: _activeHardnessOrchestrator,
+                    hardnessSessionRecord: _persistedHardnessSession,
+                    onHardnessSessionSelected:
+                        _persistedHardnessSession != null ||
+                            _activeHardnessOrchestrator != null
+                        ? () => _selectSection(AppSection.hardnessSession)
+                        : null,
+                    onRenameHardnessSession: _persistedHardnessSession != null
+                        ? _renameHardnessSession
+                        : null,
+                    onDeleteHardnessSession: _persistedHardnessSession != null
+                        ? _deleteHardnessSession
+                        : null,
+                    onExportHardnessSession: _persistedHardnessSession != null
+                        ? _exportHardnessSession
+                        : null,
+                  );
 
-                return ValueListenableBuilder<double>(
-                  valueListenable: _navigationWidthNotifier,
-                  builder: (context, navWidth, _) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(width: navWidth, child: leftPane),
-                        MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanUpdate: (details) {
-                              var nextWidth = navWidth + details.delta.dx;
-                              const minWidth = 240.0;
-                              final maxWidth = constraints.maxWidth * 0.7;
-                              if (nextWidth < minWidth) {
-                                nextWidth = minWidth;
-                              } else if (nextWidth > maxWidth) {
-                                nextWidth = maxWidth;
-                              }
-                              if (nextWidth != navWidth) {
-                                _navigationWidthNotifier.value = nextWidth;
-                              }
-                            },
-                            child: const SizedBox(
-                              width: _contentPaneGap,
-                              height: double.infinity,
+                  // Swap left pane to file explorer when toggled for
+                  // programming_expert sessions.
+                  final currentSession = sessionController.currentSession;
+                  final projectRoot = _programmingExpertProjectRoot(
+                    currentSession,
+                  );
+                  final showFileExplorer =
+                      _fileExplorerVisible &&
+                      projectRoot != null &&
+                      _selectedSection == AppSection.workspace;
+                  final panelSettings = context
+                      .read<SettingsController>()
+                      .panelAnimationSettings;
+                  final leftPaneDuration = Duration(
+                    milliseconds: math.max(
+                      _effectiveSwitchDuration(panelSettings).inMilliseconds,
+                      240,
+                    ),
+                  );
+                  final Widget leftPane = ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: leftPaneDuration,
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
+                      transitionBuilder: (child, animation) {
+                        return _buildWorkspaceSidebarTransition(
+                          child: child,
+                          animation: animation,
+                          settings: panelSettings,
+                        );
+                      },
+                      child: showFileExplorer
+                          ? _ContentPane(
+                              key: const ValueKey<String>('file-explorer-pane'),
+                              child: _FileExplorerPanel(
+                                rootPath: projectRoot,
+                                onFileSelected: _openFileInEditor,
+                                activeFilePath: _activeFilePath,
+                                onCloseRequested: _toggleFileExplorer,
+                              ),
+                            )
+                          : KeyedSubtree(
+                              key: const ValueKey<String>('navigation-pane'),
+                              child: navigationPane,
                             ),
-                          ),
+                    ),
+                  );
+
+                  // Swap right pane to code editor when files are open.
+                  final showEditor =
+                      _selectedSection == AppSection.workspace &&
+                      _activeFilePath != null &&
+                      _openFilePaths.isNotEmpty;
+                  final pageSettings = context
+                      .read<SettingsController>()
+                      .pageAnimationSettings;
+                  final rightPaneDuration = Duration(
+                    milliseconds: math.max(
+                      _effectiveSwitchDuration(pageSettings).inMilliseconds,
+                      280,
+                    ),
+                  );
+                  final Widget rightPane = ClipRect(
+                    child: AnimatedSwitcher(
+                      duration: rightPaneDuration,
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
+                      transitionBuilder: (child, animation) {
+                        return _buildWorkspaceContentTransition(
+                          child: child,
+                          animation: animation,
+                          settings: pageSettings,
+                        );
+                      },
+                      child: showEditor
+                          ? Padding(
+                              key: const ValueKey<String>('editor-pane'),
+                              padding: const EdgeInsets.all(4),
+                              child: _CodeEditorView(
+                                openFiles: _openFilePaths,
+                                activeFilePath: _activeFilePath!,
+                                projectLanguage: _programmingExpertLanguage(
+                                  currentSession,
+                                ),
+                                projectSdkPath: _programmingExpertSdkPath(
+                                  currentSession,
+                                ),
+                                projectLspPath: _programmingExpertLspPath(
+                                  currentSession,
+                                ),
+                                onOpenFile: _openFileInEditor,
+                                onTabSelected: _selectFileTab,
+                                onTabClosed: _closeFileTab,
+                                onCloseAll: _closeAllFileTabs,
+                                onReorderTabs: _reorderFileTabs,
+                                fileExplorerVisible: _fileExplorerVisible,
+                                onToggleFileExplorer: _toggleFileExplorer,
+                              ),
+                            )
+                          : _ContentPane(
+                              key: ValueKey<String>(
+                                'section-${_selectedSection.name}',
+                              ),
+                              child: _buildSectionContent(context),
+                            ),
+                    ),
+                  );
+
+                  if (stackedLayout) {
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: stackedNavigationHeight,
+                          child: leftPane,
                         ),
+                        // Match the horizontal pane gap and SafeArea outer
+                        // inset so the spacing between stacked panes is
+                        // visually consistent with every other gutter.
+                        const SizedBox(height: _contentPaneGap),
                         Expanded(child: rightPane),
                       ],
                     );
-                  },
-                );
-              },
+                  }
+
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _navigationWidthNotifier,
+                    builder: (context, navWidth, _) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(width: navWidth, child: leftPane),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.resizeColumn,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onPanUpdate: (details) {
+                                var nextWidth = navWidth + details.delta.dx;
+                                const minWidth = 240.0;
+                                final maxWidth = constraints.maxWidth * 0.7;
+                                if (nextWidth < minWidth) {
+                                  nextWidth = minWidth;
+                                } else if (nextWidth > maxWidth) {
+                                  nextWidth = maxWidth;
+                                }
+                                if (nextWidth != navWidth) {
+                                  _navigationWidthNotifier.value = nextWidth;
+                                }
+                              },
+                              child: const SizedBox(
+                                width: _contentPaneGap,
+                                height: double.infinity,
+                              ),
+                            ),
+                          ),
+                          Expanded(child: rightPane),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
-        ),
+          Focus(
+            focusNode: _globalShortcutFocusNode,
+            autofocus: true,
+            canRequestFocus: true,
+            skipTraversal: true,
+            child: const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
     return ListenableProvider<TranscriptScrollActivity>.value(

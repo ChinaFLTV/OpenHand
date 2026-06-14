@@ -753,6 +753,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               showModelLabel: !isUser,
               actions: [
                 _MessageActionSpec(
+                  id: 'copy',
                   onPressed: widget.onCopy,
                   icon: Icons.content_copy_outlined,
                   label: _localizedText(context, zh: '复制', en: 'Copy'),
@@ -761,6 +762,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     !isUser &&
                     widget.onToggleSpeech != null)
                   _MessageActionSpec(
+                    id: 'speech',
                     onPressed: widget.onToggleSpeech,
                     icon: widget.speechPlaying
                         ? Icons.stop_circle_outlined
@@ -771,22 +773,26 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 if (widget.onEdit != null)
                   _MessageActionSpec(
+                    id: 'edit',
                     onPressed: widget.onEdit,
                     icon: Icons.edit_outlined,
                     label: AppLocalizations.of(context)!.commonEdit,
                   ),
                 _MessageActionSpec(
+                  id: 'fork',
                   onPressed: widget.onFork,
                   icon: Icons.call_merge_rounded,
                   label: _localizedText(context, zh: '派生', en: 'Fork'),
                 ),
                 _MessageActionSpec(
+                  id: 'delete',
                   onPressed: widget.onDelete,
                   icon: Icons.delete_outline_rounded,
                   label: AppLocalizations.of(context)!.commonDelete,
                 ),
                 if (widget.onDeleteFromHere != null)
                   _MessageActionSpec(
+                    id: 'delete-from-here',
                     onPressed: widget.onDeleteFromHere,
                     icon: Icons.delete_sweep_outlined,
                     label: _localizedText(
@@ -797,6 +803,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 if (widget.onAudit != null)
                   _MessageActionSpec(
+                    id: 'audit',
                     onPressed: () async => widget.onAudit!.call(),
                     icon: Icons.fact_check_outlined,
                     label: _localizedText(context, zh: '审计', en: 'Audit'),
@@ -807,6 +814,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     !isCompressionPoint &&
                     !isStatus)
                   _MessageActionSpec(
+                    id: 'raw-toggle',
                     onPressed: () async {
                       setState(() => _showRawContent = !_showRawContent);
                       widget.onShowRawContentChanged?.call(_showRawContent);
@@ -832,6 +840,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         AiMessageContentFormat.html &&
                     _looksLikeHtml(effectiveContent))
                   _MessageActionSpec(
+                    id: 'open-html',
                     onPressed: () async {
                       await showAnimatedDialog<void>(
                         context: context,
@@ -1005,11 +1014,13 @@ ButtonStyle _messageActionChipStyle(BuildContext context) {
 
 class _MessageActionSpec {
   const _MessageActionSpec({
+    required this.id,
     required this.onPressed,
     required this.icon,
     required this.label,
   });
 
+  final String id;
   final Future<void> Function()? onPressed;
   final IconData icon;
   final String label;
@@ -1040,25 +1051,40 @@ class _SelectedMessageActionPanelState
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _motion;
+  bool _entranceStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: cardMotionDurationFor(context, expanding: true),
-    );
+    _controller = AnimationController(vsync: this);
     _motion = CurvedAnimation(parent: _controller, curve: kCardMotionCurve);
-    _controller.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotionDuration();
+    if (!_entranceStarted) {
+      _entranceStarted = true;
+      _controller.forward();
+    }
   }
 
   @override
   void didUpdateWidget(covariant _SelectedMessageActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncMotionDuration();
     if (oldWidget.message.id != widget.message.id) {
       _controller
         ..value = 0
         ..forward();
+    }
+  }
+
+  void _syncMotionDuration() {
+    final duration = cardMotionDurationFor(context, expanding: true);
+    if (_controller.duration != duration) {
+      _controller.duration = duration;
     }
   }
 
@@ -1086,6 +1112,7 @@ class _SelectedMessageActionPanelState
             children: [
               for (final action in widget.actions)
                 _MessageActionButton(
+                  key: ValueKey<String>(action.id),
                   onPressed: action.onPressed,
                   icon: action.icon,
                   label: action.label,
@@ -1121,6 +1148,7 @@ class _SelectedMessageActionPanelState
 
 class _MessageActionButton extends StatelessWidget {
   const _MessageActionButton({
+    super.key,
     required this.onPressed,
     required this.icon,
     required this.label,

@@ -1564,6 +1564,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final showSelfLearningMessages = context.select<SettingsController, bool>(
       (controller) => controller.showSelfLearningMessages,
     );
+    final ttsSettings = context.select<SettingsController, AiTtsSettings>(
+      (settings) => settings.aiTtsSettings,
+    );
     final aiSessionController = context.read<AiSessionController>();
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
@@ -1690,165 +1693,165 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ),
         const SizedBox(height: 14),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: widget.onScrollNotification,
-            child: ListView.builder(
-              key: const ValueKey<String>('session-transcript-list'),
-              controller: widget.controller,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.only(bottom: 12),
-              // `ListView.builder` keeps already-built bubbles alive when
-              // they scroll just outside the viewport (framework default).
-              // We previously disabled this to limit memory; the cost of
-              // re-parsing markdown / re-tokenising large code blocks on
-              // every fling turned out to dominate scroll jank for long
-              // sessions, so we now rely on the default keep-alive.
-              // Repaint boundaries are essential for a message list: without
-              // them a single bubble's internal animation (e.g. streaming
-              // reasoning shimmer, tool-call progress) dirties the entire
-              // visible window and repaints every neighbour on every frame,
-              // which is the dominant source of first-paint jank when a
-              // session has many tool-call / code-block bubbles.
-              // (Leaving this at the framework default, which is already
-              // `true`, keeps the call site lint-clean and the intent
-              // explicit via the comment above.)
-              // Keep the cache band narrow on first open. Extra cached
-              // bubbles still pay wrapper/layout cost even when markdown and
-              // highlighting are deferred, so the initial window should track
-              // the real viewport closely and expand as the user scrolls.
-              cacheExtent: _transcriptListCacheExtent,
-              physics: kOpenHandClampingPhysics,
-              itemCount: listItemCount,
-              itemBuilder: (context, index) {
-                if (hiddenLoadMoreCount > 0 && index == 0) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: listItemCount == 1 ? 0 : 14,
-                    ),
-                    child: _TranscriptLoadEarlierButton(
-                      hiddenMessageCount: hiddenMessageCount,
-                      loading: _loadingOlderMessages,
-                      onPressed: () {
-                        widget.onRevealOlderMessages();
-                        unawaited(_revealOlderMessages());
-                      },
-                    ),
-                  );
-                }
-                final messageIndex = index - hiddenLoadMoreCount;
-                if (messageIndex >= _renderEntries.length) {
-                  final afterMessagesIndex =
-                      messageIndex - _renderEntries.length;
-                  if (afterMessagesIndex < pendingPlaceholderCount) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _PendingCreationPlaceholderCard(
-                        request: pendingCreationRequest!,
-                      ),
-                    );
-                  }
-                  if (afterMessagesIndex <
-                      pendingPlaceholderCount + failureCardCount) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: 1),
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 360),
-                        curve: Curves.easeOutBack,
-                        builder: (_, t, child) {
-                          final clamped = t.clamp(0.0, 1.0);
-                          return Opacity(
-                            opacity: clamped,
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - clamped) * -8),
-                              child: Transform.scale(
-                                scale: 0.94 + 0.06 * clamped,
-                                child: child,
-                              ),
-                            ),
-                          );
-                        },
-                        child: _CreationFailureCard(
-                          request: failedCreationRequest!,
-                          error: userVisibleError!,
-                          onDismiss: () async {
-                            _dismissedErrorIds.add(userVisibleError.id);
-                            setState(() {
-                              if (_visibleErrorId == userVisibleError.id) {
-                                _visibleErrorId = null;
-                              }
-                              if (_pendingPresentedErrorId ==
-                                  userVisibleError.id) {
-                                _pendingPresentedErrorId = null;
-                              }
-                            });
-                            await widget.onDismissError(userVisibleError);
+          child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
+            valueListenable: widget.ttsPlaybackService.state,
+            builder: (context, ttsSnapshot, _) {
+              if (!ttsSettings.enabled && ttsSnapshot.playing) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  unawaited(widget.ttsPlaybackService.stop());
+                });
+              }
+              return NotificationListener<ScrollNotification>(
+                onNotification: widget.onScrollNotification,
+                child: ListView.builder(
+                  key: const ValueKey<String>('session-transcript-list'),
+                  controller: widget.controller,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.only(bottom: 12),
+                  // `ListView.builder` keeps already-built bubbles alive when
+                  // they scroll just outside the viewport (framework default).
+                  // We previously disabled this to limit memory; the cost of
+                  // re-parsing markdown / re-tokenising large code blocks on
+                  // every fling turned out to dominate scroll jank for long
+                  // sessions, so we now rely on the default keep-alive.
+                  // Repaint boundaries are essential for a message list: without
+                  // them a single bubble's internal animation (e.g. streaming
+                  // reasoning shimmer, tool-call progress) dirties the entire
+                  // visible window and repaints every neighbour on every frame,
+                  // which is the dominant source of first-paint jank when a
+                  // session has many tool-call / code-block bubbles.
+                  // (Leaving this at the framework default, which is already
+                  // `true`, keeps the call site lint-clean and the intent
+                  // explicit via the comment above.)
+                  // Keep the cache band narrow on first open. Extra cached
+                  // bubbles still pay wrapper/layout cost even when markdown and
+                  // highlighting are deferred, so the initial window should track
+                  // the real viewport closely and expand as the user scrolls.
+                  cacheExtent: _transcriptListCacheExtent,
+                  physics: kOpenHandClampingPhysics,
+                  itemCount: listItemCount,
+                  itemBuilder: (context, index) {
+                    if (hiddenLoadMoreCount > 0 && index == 0) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: listItemCount == 1 ? 0 : 14,
+                        ),
+                        child: _TranscriptLoadEarlierButton(
+                          hiddenMessageCount: hiddenMessageCount,
+                          loading: _loadingOlderMessages,
+                          onPressed: () {
+                            widget.onRevealOlderMessages();
+                            unawaited(_revealOlderMessages());
                           },
                         ),
-                      ),
-                    );
-                  }
-                  return _SessionErrorBanner(
-                    error: userVisibleError!,
-                    onDismiss: () async {
-                      _dismissedErrorIds.add(userVisibleError.id);
-                      setState(() {
-                        if (_visibleErrorId == userVisibleError.id) {
-                          _visibleErrorId = null;
-                        }
-                        if (_pendingPresentedErrorId == userVisibleError.id) {
-                          _pendingPresentedErrorId = null;
-                        }
-                      });
-                      await widget.onDismissError(userVisibleError);
-                    },
-                  );
-                }
-                final entry = _renderEntries[messageIndex];
-                final message = entry.message;
-                // Optional UI filter (independent of background learning):
-                // the 'Show self-learning messages' setting hides these cards
-                // in the transcript while keeping them persisted for audit.
-                if (!showSelfLearningMessages &&
-                    message.kind == AiSessionMessageKind.selfLearning) {
-                  return const SizedBox.shrink();
-                }
-                final visibleMessageIndex = visibleMessageIndexById[message.id];
-                final isSelected =
-                    !entry.exiting && _selectedMessageId == message.id;
-                final isLastVisibleMessage =
-                    visibleMessageIndex != null &&
-                    visibleMessageIndex == visibleMessages.length - 1;
-                final hasLaterVisibleMessages =
-                    visibleMessageIndex != null &&
-                    visibleMessageIndex < visibleMessages.length - 1;
-                final shouldAnimateAppearance =
-                    !entry.exiting &&
-                    widget.sendPhase != AiSendPhase.idle &&
-                    isLastVisibleMessage &&
-                    !_animatedMessageIds.contains(message.id);
-                final bubble = _TranscriptBubbleRegistrar(
-                  messageId: message.id,
-                  registry: _bubbleRegistry,
-                  child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
-                    valueListenable: widget.ttsPlaybackService.state,
-                    builder: (context, ttsSnapshot, _) {
-                      final ttsSettings = context
-                          .select<SettingsController, AiTtsSettings>(
-                            (settings) => settings.aiTtsSettings,
-                          );
-                      if (!ttsSettings.enabled && ttsSnapshot.playing) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) return;
-                          unawaited(widget.ttsPlaybackService.stop());
-                        });
+                      );
+                    }
+                    final messageIndex = index - hiddenLoadMoreCount;
+                    if (messageIndex >= _renderEntries.length) {
+                      final afterMessagesIndex =
+                          messageIndex - _renderEntries.length;
+                      if (afterMessagesIndex < pendingPlaceholderCount) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _PendingCreationPlaceholderCard(
+                            request: pendingCreationRequest!,
+                          ),
+                        );
                       }
-                      final speechPlaying =
-                          ttsSnapshot.playing &&
-                          ttsSnapshot.messageId == message.id;
-                      return _MessageBubble(
+                      if (afterMessagesIndex <
+                          pendingPlaceholderCount + failureCardCount) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0, end: 1),
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 360),
+                            curve: Curves.easeOutBack,
+                            builder: (_, t, child) {
+                              final clamped = t.clamp(0.0, 1.0);
+                              return Opacity(
+                                opacity: clamped,
+                                child: Transform.translate(
+                                  offset: Offset(0, (1 - clamped) * -8),
+                                  child: Transform.scale(
+                                    scale: 0.94 + 0.06 * clamped,
+                                    child: child,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: _CreationFailureCard(
+                              request: failedCreationRequest!,
+                              error: userVisibleError!,
+                              onDismiss: () async {
+                                _dismissedErrorIds.add(userVisibleError.id);
+                                setState(() {
+                                  if (_visibleErrorId == userVisibleError.id) {
+                                    _visibleErrorId = null;
+                                  }
+                                  if (_pendingPresentedErrorId ==
+                                      userVisibleError.id) {
+                                    _pendingPresentedErrorId = null;
+                                  }
+                                });
+                                await widget.onDismissError(userVisibleError);
+                              },
+                            ),
+                          ),
+                        );
+                      }
+                      return _SessionErrorBanner(
+                        error: userVisibleError!,
+                        onDismiss: () async {
+                          _dismissedErrorIds.add(userVisibleError.id);
+                          setState(() {
+                            if (_visibleErrorId == userVisibleError.id) {
+                              _visibleErrorId = null;
+                            }
+                            if (_pendingPresentedErrorId ==
+                                userVisibleError.id) {
+                              _pendingPresentedErrorId = null;
+                            }
+                          });
+                          await widget.onDismissError(userVisibleError);
+                        },
+                      );
+                    }
+                    final entry = _renderEntries[messageIndex];
+                    final message = entry.message;
+                    // Optional UI filter (independent of background learning):
+                    // the 'Show self-learning messages' setting hides these cards
+                    // in the transcript while keeping them persisted for audit.
+                    if (!showSelfLearningMessages &&
+                        message.kind == AiSessionMessageKind.selfLearning) {
+                      return const SizedBox.shrink();
+                    }
+                    final visibleMessageIndex =
+                        visibleMessageIndexById[message.id];
+                    final isSelected =
+                        !entry.exiting && _selectedMessageId == message.id;
+                    final isLastVisibleMessage =
+                        visibleMessageIndex != null &&
+                        visibleMessageIndex == visibleMessages.length - 1;
+                    final hasLaterVisibleMessages =
+                        visibleMessageIndex != null &&
+                        visibleMessageIndex < visibleMessages.length - 1;
+                    final shouldAnimateAppearance =
+                        !entry.exiting &&
+                        widget.sendPhase != AiSendPhase.idle &&
+                        isLastVisibleMessage &&
+                        !_animatedMessageIds.contains(message.id);
+                    final speechPlaying =
+                        ttsSettings.enabled &&
+                        ttsSnapshot.playing &&
+                        ttsSnapshot.messageId == message.id;
+                    final bubble = _TranscriptBubbleRegistrar(
+                      messageId: message.id,
+                      registry: _bubbleRegistry,
+                      child: _MessageBubble(
                         key: ValueKey<String>(message.id),
                         message: message,
                         sessionTitle: session.title,
@@ -1933,43 +1936,46 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         onShowRawContentChanged: (visible) {
                           _rawContentVisibleByMessageId[message.id] = visible;
                         },
-                      );
-                    },
-                  ),
-                );
-                final content = shouldAnimateAppearance
-                    ? SettingsAwareAppearOnce(
-                        child: Builder(
-                          builder: (context) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _animatedMessageIds.add(message.id);
-                            });
-                            return bubble;
-                          },
+                      ),
+                    );
+                    final content = shouldAnimateAppearance
+                        ? SettingsAwareAppearOnce(
+                            child: Builder(
+                              builder: (context) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  _animatedMessageIds.add(message.id);
+                                });
+                                return bubble;
+                              },
+                            ),
+                          )
+                        : bubble;
+                    final entrySizeDuration =
+                        isSelected && !transcriptScrollActive
+                        ? cardMotionDurationFor(context, expanding: true)
+                        : Duration.zero;
+                    return maybeAnimatedSize(
+                      key: ValueKey<String>('transcript-entry-${message.id}'),
+                      duration: entrySizeDuration,
+                      curve: kCardMotionCurve,
+                      alignment: isSelected
+                          ? Alignment.topLeft
+                          : Alignment.bottomLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: messageIndex == _renderEntries.length - 1
+                              ? 0
+                              : 14,
                         ),
-                      )
-                    : bubble;
-                final entrySizeDuration = isSelected && !transcriptScrollActive
-                    ? cardMotionDurationFor(context, expanding: true)
-                    : Duration.zero;
-                return maybeAnimatedSize(
-                  key: ValueKey<String>('transcript-entry-${message.id}'),
-                  duration: entrySizeDuration,
-                  curve: kCardMotionCurve,
-                  alignment: isSelected
-                      ? Alignment.topLeft
-                      : Alignment.bottomLeft,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      bottom: messageIndex == _renderEntries.length - 1
-                          ? 0
-                          : 14,
-                    ),
-                    child: content,
-                  ),
-                );
-              },
-            ),
+                        child: content,
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ],
