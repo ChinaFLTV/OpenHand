@@ -2,6 +2,10 @@ part of 'settings_view.dart';
 
 const int _aiModelChipPreviewLimit = 8;
 const String _settingsZeroDurationLabel = '0s';
+const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
+const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
+const double _aiTtsDragHandleSize = 34;
+const double _aiTtsDragFeedbackWidth = 220;
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -334,7 +338,7 @@ class _AiTtsSettingsPanel extends StatelessWidget {
   }
 }
 
-class _AiTtsProviderDeck extends StatelessWidget {
+class _AiTtsProviderDeck extends StatefulWidget {
   const _AiTtsProviderDeck({
     required this.settings,
     required this.onChanged,
@@ -344,6 +348,13 @@ class _AiTtsProviderDeck extends StatelessWidget {
   final AiTtsSettings settings;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
+
+  @override
+  State<_AiTtsProviderDeck> createState() => _AiTtsProviderDeckState();
+}
+
+class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
+  AiTtsProvider? _draggingProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -367,64 +378,124 @@ class _AiTtsProviderDeck extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Theme(
-          data: theme.copyWith(
-            canvasColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-          ),
-          child: ReorderableListView.builder(
-            buildDefaultDragHandles: false,
-            primary: false,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            proxyDecorator: (child, index, animation) {
-              return AnimatedBuilder(
-                animation: animation,
-                builder: (context, _) {
-                  final t = Curves.easeOutBack.transform(
-                    animation.value.clamp(0.0, 1.0),
-                  );
-                  return Transform.scale(
-                    scale: 1 + 0.018 * t,
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: child,
-                    ),
-                  );
-                },
-              );
-            },
-            itemCount: settings.providerPriority.length,
-            onReorder: (oldIndex, newIndex) {
-              final next = List<AiTtsProvider>.from(settings.providerPriority);
-              var target = newIndex;
-              if (target > oldIndex) target -= 1;
-              if (oldIndex == target) return;
-              final item = next.removeAt(oldIndex);
-              next.insert(target, item);
-              onChanged(settings.copyWith(providerPriority: next));
-            },
-            itemBuilder: (context, index) {
-              final provider = settings.providerPriority[index];
-              return Padding(
-                key: ValueKey<String>('tts-provider-${provider.storageKey}'),
-                padding: EdgeInsets.only(
-                  bottom: index == settings.providerPriority.length - 1
-                      ? 0
-                      : 12,
+        Column(
+          children: [
+            for (
+              var index = 0;
+              index < widget.settings.providerPriority.length;
+              index++
+            )
+              _AiTtsProviderDropTarget(
+                key: ValueKey<String>(
+                  'tts-provider-drop-${widget.settings.providerPriority[index].storageKey}',
                 ),
-                child: _AiTtsProviderCard(
-                  settings: settings,
-                  provider: provider,
-                  priorityIndex: index,
-                  onChanged: onChanged,
-                  playbackService: playbackService,
+                target: widget.settings.providerPriority[index],
+                onMove: _moveProvider,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == widget.settings.providerPriority.length - 1
+                        ? 0
+                        : 12,
+                  ),
+                  child: _AiTtsProviderCard(
+                    settings: widget.settings,
+                    provider: widget.settings.providerPriority[index],
+                    priorityIndex: index,
+                    dragging:
+                        _draggingProvider ==
+                        widget.settings.providerPriority[index],
+                    onDragStarted: () {
+                      if (!mounted) return;
+                      setState(
+                        () => _draggingProvider =
+                            widget.settings.providerPriority[index],
+                      );
+                    },
+                    onDragEnded: () {
+                      if (!mounted) return;
+                      if (_draggingProvider != null) {
+                        setState(() => _draggingProvider = null);
+                      }
+                    },
+                    onChanged: widget.onChanged,
+                    playbackService: widget.playbackService,
+                  ),
                 ),
-              );
-            },
-          ),
+              ),
+          ],
         ),
       ],
+    );
+  }
+
+  void _moveProvider(
+    AiTtsProvider source,
+    AiTtsProvider target, {
+    required bool after,
+  }) {
+    if (source == target) return;
+    final next = List<AiTtsProvider>.from(widget.settings.providerPriority);
+    final oldIndex = next.indexOf(source);
+    if (oldIndex < 0) return;
+    final item = next.removeAt(oldIndex);
+    var targetIndex = next.indexOf(target);
+    if (targetIndex < 0) return;
+    if (after) targetIndex += 1;
+    next.insert(targetIndex.clamp(0, next.length), item);
+    widget.onChanged(widget.settings.copyWith(providerPriority: next));
+  }
+}
+
+class _AiTtsProviderDropTarget extends StatefulWidget {
+  const _AiTtsProviderDropTarget({
+    super.key,
+    required this.target,
+    required this.onMove,
+    required this.child,
+  });
+
+  final AiTtsProvider target;
+  final void Function(
+    AiTtsProvider source,
+    AiTtsProvider target, {
+    required bool after,
+  })
+  onMove;
+  final Widget child;
+
+  @override
+  State<_AiTtsProviderDropTarget> createState() =>
+      _AiTtsProviderDropTargetState();
+}
+
+class _AiTtsProviderDropTargetState extends State<_AiTtsProviderDropTarget> {
+  final GlobalKey _targetKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<AiTtsProvider>(
+      onWillAcceptWithDetails: (details) => details.data != widget.target,
+      onAcceptWithDetails: (details) {
+        final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
+        final localOffset = box?.globalToLocal(details.offset);
+        final after =
+            box != null &&
+            localOffset != null &&
+            localOffset.dy > box.size.height / 2;
+        widget.onMove(details.data, widget.target, after: after);
+      },
+      builder: (context, candidates, rejected) {
+        final hovered = candidates.isNotEmpty;
+        return AnimatedScale(
+          key: _targetKey,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : _aiTtsDragHoverDuration,
+          curve: Curves.easeOutCubic,
+          scale: hovered ? 1.006 : 1,
+          child: widget.child,
+        );
+      },
     );
   }
 }
@@ -434,6 +505,9 @@ class _AiTtsProviderCard extends StatefulWidget {
     required this.settings,
     required this.provider,
     required this.priorityIndex,
+    required this.dragging,
+    required this.onDragStarted,
+    required this.onDragEnded,
     required this.onChanged,
     required this.playbackService,
   });
@@ -441,6 +515,9 @@ class _AiTtsProviderCard extends StatefulWidget {
   final AiTtsSettings settings;
   final AiTtsProvider provider;
   final int priorityIndex;
+  final bool dragging;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
 
@@ -457,7 +534,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final provider = widget.provider;
     final providerSettings = widget.settings.provider(provider);
     final catalog = AiTtsProviderCatalogs.of(provider);
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -479,31 +556,12 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ReorderableDragStartListener(
-                index: widget.priorityIndex,
-                child: Tooltip(
-                  message: _localizedText(context, zh: '拖动调整优先级', en: 'Drag'),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    margin: const EdgeInsets.only(right: 10, top: 1),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: theme.colorScheme.surfaceContainerHigh,
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withValues(
-                          alpha: 0.74,
-                        ),
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.drag_indicator_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
+              _AiTtsDragHandle(
+                provider: provider,
+                priorityIndex: widget.priorityIndex,
+                label: _ttsProviderLabel(context, provider),
+                onDragStarted: widget.onDragStarted,
+                onDragEnded: widget.onDragEnded,
               ),
               Expanded(
                 child: Column(
@@ -762,6 +820,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ],
       ),
     );
+    return AnimatedOpacity(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : _aiTtsDragOpacityDuration,
+      opacity: widget.dragging ? 0.58 : 1,
+      child: card,
+    );
   }
 
   Future<void> _testProvider() async {
@@ -823,6 +888,153 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final extra = Map<String, Object?>.from(current.extra);
     extra[key] = value;
     await _update(current.copyWith(extra: extra));
+  }
+}
+
+class _AiTtsDragHandle extends StatefulWidget {
+  const _AiTtsDragHandle({
+    required this.provider,
+    required this.priorityIndex,
+    required this.label,
+    required this.onDragStarted,
+    required this.onDragEnded,
+  });
+
+  final AiTtsProvider provider;
+  final int priorityIndex;
+  final String label;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+
+  @override
+  State<_AiTtsDragHandle> createState() => _AiTtsDragHandleState();
+}
+
+class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final handle = _buildHandle(context, opacity: _dragging ? 0.42 : 1);
+    return Draggable<AiTtsProvider>(
+      data: widget.provider,
+      maxSimultaneousDrags: 1,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      onDragStarted: _startDrag,
+      onDragEnd: (_) => _finishDrag(),
+      onDraggableCanceled: (_, _) => _finishDrag(),
+      feedback: Directionality(
+        textDirection: Directionality.of(context),
+        child: Theme(
+          data: theme,
+          child: Material(
+            color: Colors.transparent,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: theme.colorScheme.surfaceContainerHigh,
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.shadow.withValues(alpha: 0.14),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: SizedBox(
+                width: _aiTtsDragFeedbackWidth,
+                height: 42,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.drag_indicator_rounded,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '#${widget.priorityIndex + 1}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: _buildHandle(context, opacity: 0.42),
+      child: handle,
+    );
+  }
+
+  Widget _buildHandle(BuildContext context, {required double opacity}) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: _localizedText(context, zh: '拖动调整优先级', en: 'Drag'),
+      child: AnimatedOpacity(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : _aiTtsDragOpacityDuration,
+        opacity: opacity,
+        child: Container(
+          width: _aiTtsDragHandleSize,
+          height: _aiTtsDragHandleSize,
+          margin: const EdgeInsets.only(right: 10, top: 1),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: theme.colorScheme.surfaceContainerHigh,
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.drag_indicator_rounded,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _startDrag() {
+    if (_dragging) return;
+    setState(() => _dragging = true);
+    HapticFeedback.selectionClick();
+    widget.onDragStarted();
+  }
+
+  void _finishDrag() {
+    if (!_dragging) return;
+    if (mounted) {
+      setState(() => _dragging = false);
+    } else {
+      _dragging = false;
+    }
+    widget.onDragEnded();
   }
 }
 
