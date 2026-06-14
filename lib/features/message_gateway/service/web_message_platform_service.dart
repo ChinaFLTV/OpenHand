@@ -229,9 +229,11 @@ class WebMessagePlatformService {
   static const int _maxTimestampBuffer = 600;
   static const int _maxObservationBuffer = 600;
   static const int _maxMessageWindowLimit = 200;
-  static const int _sseMessageWindowSize = 80;
+  static const int _sseMessageWindowSize = 32;
   static const int _sessionSummaryMessageWindowSize = 10;
-  static const int _maxStoredDisplayScanMessages = 10000;
+  static const int _maxStoredDisplayScanMessages = 320;
+  static const int _storedMessageWindowScanMultiplier = 4;
+  static const int _storedMessageWindowScanContext = 24;
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -3367,11 +3369,9 @@ class WebMessagePlatformService {
           final tokenStatsSig = stats == null
               ? '0:0:0:0:0:0:0'
               : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
+          final messagesPayload = snapshot['messages'] as List;
           final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${(snapshot['messages'] as List).length}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|${(snapshot['messages'] as List).map((m) {
-                final mm = m as Map<String, Object?>;
-                return '${mm['id']}:${(mm['content'] as String?)?.length ?? 0}';
-              }).join(',')}';
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
           if (hash == lastSnapshotHash) return;
           lastSnapshotHash = hash;
           emit('snapshot', snapshot);
@@ -4416,10 +4416,8 @@ class WebMessagePlatformService {
     final resolvedOffset = tail
         ? math.max(0, total - safeLimit)
         : math.min(math.max(0, offset), total);
-    final messages = displayMessages
-        .skip(resolvedOffset)
-        .take(safeLimit)
-        .toList(growable: false);
+    final endOffset = math.min(total, resolvedOffset + safeLimit);
+    final messages = displayMessages.sublist(resolvedOffset, endOffset);
     return (
       messages: messages,
       offset: resolvedOffset,
@@ -4500,38 +4498,35 @@ class WebMessagePlatformService {
         );
       }
 
-      final rawOffset = tail ? math.max(0, rawTotal - safeLimit) : offset;
+      final scanLimit = math.min(
+        rawTotal,
+        math.max(
+          safeLimit,
+          safeLimit * _storedMessageWindowScanMultiplier +
+              _storedMessageWindowScanContext,
+        ),
+      );
+      final requestedOffset = math.min(math.max(0, offset), rawTotal);
+      final rawOffset = tail
+          ? math.max(0, rawTotal - scanLimit)
+          : math.max(
+              0,
+              math.min(requestedOffset, rawTotal) -
+                  _storedMessageWindowScanContext,
+            );
       final page = await _sessionController.store.loadMessages(
         session.id,
-        limit: safeLimit,
-        offset: math.max(0, rawOffset),
+        limit: scanLimit,
+        offset: rawOffset,
       );
-      final mergedMessages = _mergeStoredAndLiveMessages(
-        page.messages,
-        session.messages,
-      );
-      final messages = session
-          .copyWith(messages: mergedMessages)
-          .displayMessages;
-      final totalHint = math.max(
-        session.statistics.totalMessageCount,
-        session.displayMessages.length,
-      );
-      final total = math.max(totalHint, messages.length);
-      final resolvedOffset = tail
-          ? math.max(0, total - messages.length)
-          : math.min(math.max(0, offset), total);
-      return (
-        messages: messages,
-        offset: resolvedOffset,
-        limit: safeLimit,
-        total: total,
-        hasMore: tail
-            ? resolvedOffset > 0
-            : resolvedOffset + messages.length < total,
-        hasOlder: resolvedOffset > 0,
-        hasNewer: resolvedOffset + messages.length < total,
-        window: tail ? 'tail' : 'offset',
+      return _boundedStoredMessageWindow(
+        session: session,
+        storedMessages: page.messages,
+        rawOffset: rawOffset,
+        rawTotal: rawTotal,
+        safeLimit: safeLimit,
+        requestedOffset: requestedOffset,
+        tail: tail,
       );
     } catch (error, stack) {
       silentLog('WebGateway', 'load stored message window', error, stack);
@@ -4542,6 +4537,87 @@ class WebMessagePlatformService {
         tail: tail,
       );
     }
+  }
+
+  _WebSessionMessageWindow _boundedStoredMessageWindow({
+    required AiSession session,
+    required List<AiSessionMessage> storedMessages,
+    required int rawOffset,
+    required int rawTotal,
+    required int safeLimit,
+    required int requestedOffset,
+    required bool tail,
+  }) {
+    final rawIndexByMessageId = <String, int>{};
+    for (var index = 0; index < storedMessages.length; index += 1) {
+      final id = storedMessages[index].id.trim();
+      if (id.isNotEmpty) {
+        rawIndexByMessageId[id] = rawOffset + index;
+      }
+    }
+    final mergedMessages = _mergeStoredAndLiveMessages(
+      storedMessages,
+      session.messages,
+    );
+    var syntheticRawIndex = math.max(
+      rawTotal,
+      rawOffset + storedMessages.length,
+    );
+    for (final message in mergedMessages) {
+      final id = message.id.trim();
+      if (id.isNotEmpty && !rawIndexByMessageId.containsKey(id)) {
+        rawIndexByMessageId[id] = syntheticRawIndex;
+        syntheticRawIndex += 1;
+      }
+    }
+
+    final displayMessages = session
+        .copyWith(messages: mergedMessages)
+        .displayMessages;
+    final List<AiSessionMessage> selectedMessages;
+    if (displayMessages.isEmpty) {
+      selectedMessages = const <AiSessionMessage>[];
+    } else if (tail) {
+      final startIndex = math.max(0, displayMessages.length - safeLimit);
+      selectedMessages = displayMessages.sublist(startIndex);
+    } else {
+      var startIndex = displayMessages.indexWhere((message) {
+        return (rawIndexByMessageId[message.id.trim()] ?? rawTotal) >=
+            requestedOffset;
+      });
+      if (startIndex < 0) {
+        startIndex = displayMessages.length;
+      }
+      final endIndex = math.min(displayMessages.length, startIndex + safeLimit);
+      selectedMessages = displayMessages.sublist(startIndex, endIndex);
+    }
+
+    final total = math.max(
+      rawTotal,
+      math.max(session.statistics.totalMessageCount, syntheticRawIndex),
+    );
+    final fallbackOffset = tail
+        ? math.max(0, rawTotal - safeLimit)
+        : math.min(math.max(0, requestedOffset), total);
+    final firstRawIndex = selectedMessages.isEmpty
+        ? fallbackOffset
+        : rawIndexByMessageId[selectedMessages.first.id.trim()] ??
+              fallbackOffset;
+    final lastRawIndex = selectedMessages.isEmpty
+        ? firstRawIndex - 1
+        : rawIndexByMessageId[selectedMessages.last.id.trim()] ??
+              firstRawIndex + selectedMessages.length - 1;
+    final hasNewer = selectedMessages.isNotEmpty && lastRawIndex + 1 < total;
+    return (
+      messages: selectedMessages,
+      offset: math.max(0, math.min(firstRawIndex, total)),
+      limit: safeLimit,
+      total: total,
+      hasMore: tail ? firstRawIndex > 0 : hasNewer,
+      hasOlder: firstRawIndex > 0,
+      hasNewer: hasNewer,
+      window: tail ? 'tail' : 'offset',
+    );
   }
 
   Future<Map<String, Object?>> _sessionSummaryWithStoredMessages(
@@ -4661,6 +4737,33 @@ class WebMessagePlatformService {
       if (usage != null) 'usage': usage.toJson(),
       'metadata': message.metadata,
     };
+  }
+
+  String _messagePayloadWindowSignature(List<Object?> messages) {
+    if (messages.isEmpty) {
+      return '0';
+    }
+
+    String itemSignature(Object? value) {
+      final Map<String, Object?>? message = switch (value) {
+        final Map<String, Object?> typed => typed,
+        final Map raw => Map<String, Object?>.from(raw),
+        _ => null,
+      };
+      if (message == null) {
+        return '?';
+      }
+      final content = message['content'];
+      final contentLength = content is String ? content.length : 0;
+      return '${message['id']}:${message['role']}:${message['kind']}:$contentLength:${message['character_count'] ?? 0}';
+    }
+
+    final first = itemSignature(messages.first);
+    final previousTail = messages.length > 1
+        ? itemSignature(messages[messages.length - 2])
+        : '';
+    final tail = itemSignature(messages.last);
+    return '${messages.length}|$first|$previousTail|$tail';
   }
 
   String _resolveEffectiveBrightness() {

@@ -293,9 +293,9 @@ class AiSessionController extends ChangeNotifier {
   /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
   /// 拒绝触发，避免「0% 占比下也强行压缩」。
   static const int _manualCompactionRefusePercentLeftAbove = 85;
-  static const int _initialMessageHydrationWindowSize = 96;
-  static const int _initialMessageHydrationCharacterBudget = 180000;
-  static const int _olderMessageHydrationBatchSize = 96;
+  static const int _initialMessageHydrationWindowSize = 36;
+  static const int _initialMessageHydrationCharacterBudget = 90000;
+  static const int _olderMessageHydrationBatchSize = 72;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -1356,6 +1356,10 @@ class AiSessionController extends ChangeNotifier {
     _currentSessionId = sessionId;
     _editingMessageId = null;
     final selectedSession = _sessionById(sessionId);
+    if (selectedSession != null &&
+        _sessionNeedsInitialMessageWindow(selectedSession)) {
+      _hydratingSessionMessageIds.add(sessionId);
+    }
     notifyListeners();
     if (selectedSession == null) {
       return;
@@ -1397,8 +1401,9 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    _hydratingSessionMessageIds.add(normalizedSessionId);
-    notifyListeners();
+    if (_hydratingSessionMessageIds.add(normalizedSessionId)) {
+      notifyListeners();
+    }
     final task = _hydrateSessionMessageWindow(normalizedSessionId);
     _sessionMessageWindowHydrationTasks[normalizedSessionId] = task;
     return task;
@@ -1423,8 +1428,9 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    _hydratingSessionMessageIds.add(normalizedSessionId);
-    notifyListeners();
+    if (_hydratingSessionMessageIds.add(normalizedSessionId)) {
+      notifyListeners();
+    }
     final task = _hydrateSessionMessages(normalizedSessionId);
     _sessionMessageHydrationTasks[normalizedSessionId] = task;
     return task;
@@ -1476,8 +1482,9 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return completed;
       }
-      _hydratingSessionMessageIds.add(sessionId);
-      notifyListeners();
+      if (_hydratingSessionMessageIds.add(sessionId)) {
+        notifyListeners();
+      }
       final offset = math.max(
         0,
         current.messageWindowStartIndex - _olderMessageHydrationBatchSize,

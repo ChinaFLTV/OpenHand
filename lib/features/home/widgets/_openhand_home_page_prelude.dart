@@ -46,8 +46,8 @@ const int _scrollToBottomPositionRetryLimit = 16;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Frame-driven reveal keeps long transcript switches smooth without a fixed
 // blank delay.
-const int _transcriptPreparationFrameBudget = 10;
-const Duration _transcriptPreparationHardTimeout = Duration(seconds: 3);
+const int _transcriptPreparationFrameBudget = 6;
+const Duration _transcriptPreparationHardTimeout = Duration(milliseconds: 1600);
 const Duration _hardnessSessionPersistenceDebounce = Duration(
   milliseconds: 320,
 );
