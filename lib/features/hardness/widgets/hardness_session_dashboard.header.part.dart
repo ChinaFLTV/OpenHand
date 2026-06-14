@@ -419,50 +419,52 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Title row ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isZh ? '当前会话元数据' : 'Current Session Metadata',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          sessionTitle,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-
-              // ── Summary tiles ──
-              Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
-              const SizedBox(height: 18),
-
-              // ── Scrollable sections ──
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ── Title row ──
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isZh ? '当前会话元数据' : 'Current Session Metadata',
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  sessionTitle,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // ── Summary tiles ──
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: summaryBlocks,
+                      ),
+                      const SizedBox(height: 18),
+
                       // ── Session overview ──
                       _HeMetadataSection(
                         title: isZh ? '会话概览' : 'Session Overview',
@@ -568,6 +570,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             ),
                         ],
                       ),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
