@@ -6,7 +6,6 @@ enum OpenHandSlashCommandKind {
   stop,
   settings,
   workspace,
-  automations,
   skills,
   memory,
   mcp,
@@ -41,7 +40,6 @@ OpenHandSlashCommand? parseOpenHandSlashCommand(String rawInput) {
     '/workspace' ||
     '/sessions' ||
     '/chat' => OpenHandSlashCommandKind.workspace,
-    '/automations' => OpenHandSlashCommandKind.automations,
     '/skills' => OpenHandSlashCommandKind.skills,
     '/memory' => OpenHandSlashCommandKind.memory,
     '/mcp' => OpenHandSlashCommandKind.mcp,

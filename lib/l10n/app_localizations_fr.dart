@@ -19,9 +19,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get newThread => 'Nouveau fil';
 
   @override
-  String get automations => 'Automatisations';
-
-  @override
   String get skills => 'Compétences';
 
   @override
@@ -75,13 +72,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get quickActionPlanModules => 'Planifier les modules futurs';
-
-  @override
-  String get automationHeadline => 'Ossature du module d\'automatisation';
-
-  @override
-  String get automationBody =>
-      'Cette zone est réservée aux tâches planifiées, aux flux de travail et aux déclencheurs d\'outils.';
 
   @override
   String get skillsHeadline => 'Ossature du centre de compétences';

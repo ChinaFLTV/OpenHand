@@ -327,11 +327,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
             ),
             const SizedBox(height: 12),
             NavigationDrawerDestination(
-              icon: const Icon(Icons.history_toggle_off_outlined),
-              selectedIcon: const Icon(Icons.schedule_rounded),
-              label: Text(l10n.automations),
-            ),
-            NavigationDrawerDestination(
               icon: const Icon(Icons.extension_outlined),
               selectedIcon: const Icon(Icons.extension_rounded),
               label: Text(l10n.skills),

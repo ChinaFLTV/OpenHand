@@ -18,9 +18,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get newThread => '新規スレッド';
 
   @override
-  String get automations => '自動化';
-
-  @override
   String get skills => 'スキル';
 
   @override
@@ -72,12 +69,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get quickActionPlanModules => '今後のモジュールを計画';
-
-  @override
-  String get automationHeadline => '自動化モジュールの骨格';
-
-  @override
-  String get automationBody => 'この領域は定期タスク、ワークフロー、ツールチェーントリガーのために予約されています。';
 
   @override
   String get skillsHeadline => 'スキルセンターの骨格';

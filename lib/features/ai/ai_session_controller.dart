@@ -514,6 +514,77 @@ class AiSessionController extends ChangeNotifier {
     return _cachedAvailableModels.firstOrNull;
   }
 
+  /// APP 端用：为非标准 [AiSession] 载体生成自动标题。
+  ///
+  /// Harness Engineering 等外部会话容器也应复用普通线程的标题提示词、
+  /// 模型降级、结果清洗与内容兜底，避免维护第二套互相漂移的标题逻辑。
+  Future<String?> generateStandaloneAutoTitle({
+    required String content,
+    required AiModelConfig model,
+  }) async {
+    final normalizedContent = content.trim();
+    if (normalizedContent.isEmpty) {
+      return null;
+    }
+    final autoTitleSystemPrompt = await _resolveAutoTitleSystemPrompt();
+    final promptMessages = <AiChatTurn>[
+      AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
+      AiChatTurn(
+        role: AiChatRole.user,
+        content: '<description>\n$normalizedContent\n</description>',
+      ),
+    ];
+    final requestModels = _autoTitleRequestModels(model);
+    Object? lastError;
+    for (
+      var attemptIndex = 0;
+      attemptIndex < requestModels.length;
+      attemptIndex++
+    ) {
+      final requestModel = requestModels[attemptIndex];
+      final isLastAttempt = attemptIndex == requestModels.length - 1;
+      try {
+        final completion = await _backgroundChatClient.sendMessage(
+          model: requestModel,
+          messages: promptMessages,
+          timeout: _autoTitleRequestTimeout,
+        );
+        final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
+        if (_isMeaningfulAutoTitle(generatedTitle)) {
+          return generatedTitle;
+        }
+        if (isLastAttempt) {
+          final fallbackTitle = _deriveReadableTitleFromContent(
+            normalizedContent,
+            maxCharacters: _generatedTitleMaxCharacters,
+          );
+          if (fallbackTitle.isNotEmpty) {
+            return fallbackTitle;
+          }
+          if (generatedTitle.isNotEmpty) {
+            return generatedTitle;
+          }
+        }
+      } catch (error) {
+        lastError = error;
+        if (!isLastAttempt) {
+          continue;
+        }
+      }
+    }
+    final fallbackTitle = _deriveReadableTitleFromContent(
+      normalizedContent,
+      maxCharacters: _generatedTitleMaxCharacters,
+    );
+    if (fallbackTitle.isNotEmpty) {
+      return fallbackTitle;
+    }
+    if (lastError != null) {
+      return null;
+    }
+    return null;
+  }
+
   /// APP 端用：手动触发标题生成。
   Future<void> generateTitleManually({
     required String sessionId,

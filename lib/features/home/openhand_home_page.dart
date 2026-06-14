@@ -2860,7 +2860,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _selectedSection = AppSection.hardnessSession;
       });
       unawaited(orchestrator.start());
-      unawaited(_generateHardnessAutoTitle(record.id, config.task));
+      unawaited(
+        _generateHardnessAutoTitle(
+          record.id,
+          config,
+          expectedCurrentTitle: record.title,
+        ),
+      );
       return true;
     }
     if (templateId == 'web_reverse_expert') {
@@ -3561,52 +3567,76 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return '${firstLine.substring(0, 45)}…';
   }
 
-  /// Asynchronously generates a concise AI title (≤20 chars) for the
-  /// Harness Engineering session and refreshes the navigation tile.
-  static const String _hardnessAutoTitleSystemPrompt =
-      'Generate a concise title for a software engineering task. '
-      'Return a single title only. Keep it within 20 characters. '
-      'No quotes. No markdown. No punctuation at the end.\n'
-      'Summarize the task into a specific, human-friendly thread title.\n'
-      'Prefer concrete task names over vague summaries.\n'
-      'Avoid generic labels like "任务", "工程", "优化", "Task", "Engineering".';
-
-  Future<void> _generateHardnessAutoTitle(String sessionId, String task) async {
+  Future<void> _generateHardnessAutoTitle(
+    String sessionId,
+    HardnessSessionConfig config, {
+    required String expectedCurrentTitle,
+  }) async {
     final settingsController = context.read<SettingsController>();
-    final model = settingsController.selectedAiModel;
+    if (!settingsController.aiAutoTitleEnabled) {
+      return;
+    }
+    final model = _resolveHardnessAutoTitleModel(
+      config: config,
+      settingsController: settingsController,
+    );
     if (model == null) return;
-
-    final client = AiChatService();
     try {
-      final completion = await client.sendMessage(
-        model: model,
-        messages: <AiChatTurn>[
-          const AiChatTurn(
-            role: AiChatRole.system,
-            content: _hardnessAutoTitleSystemPrompt,
-          ),
-          AiChatTurn(role: AiChatRole.user, content: 'Task:\n$task'),
-        ],
-        timeout: const Duration(seconds: 20),
-      );
-      if (!mounted) return;
+      final generatedTitle = await context
+          .read<AiSessionController>()
+          .generateStandaloneAutoTitle(content: config.task, model: model);
+      if (!mounted || generatedTitle == null || generatedTitle.isEmpty) {
+        return;
+      }
       final current = _persistedHardnessSession;
       if (current == null || current.id != sessionId) return;
-
-      final rawTitle = completion.reply.trim();
-      if (rawTitle.isEmpty) return;
-      // Truncate to 20 characters maximum.
-      final sanitized = rawTitle.characters.take(20).toString();
-      final updated = current.copyWith(title: sanitized);
+      if (current.title != expectedCurrentTitle) {
+        return;
+      }
+      final updated = current.copyWith(
+        title: generatedTitle,
+        updatedAt: DateTime.now().toUtc(),
+      );
       unawaited(_hardnessSessionStore.save(updated).catchError((_) {}));
       setState(() {
         _persistedHardnessSession = updated;
       });
-    } catch (_) {
-      // Silent fail — title generation is non-critical.
-    } finally {
-      client.dispose();
+    } catch (error, stack) {
+      silentLog('openhand_home_page', 'generate HE auto title', error, stack);
     }
+  }
+
+  AiModelConfig? _resolveHardnessAutoTitleModel({
+    required HardnessSessionConfig config,
+    required SettingsController settingsController,
+  }) {
+    for (final roleConfig in <HardnessRoleConfig>[
+      config.profilerConfig,
+      config.readerConfig,
+      config.plannerConfig,
+      config.implementerConfig,
+      config.reviewerConfig,
+    ]) {
+      if (!roleConfig.isUrlMode) {
+        continue;
+      }
+      final configId = roleConfig.aiModelConfigId?.trim();
+      if (configId == null || configId.isEmpty) {
+        continue;
+      }
+      final baseModel = settingsController.aiModels
+          .where((model) => model.id == configId)
+          .firstOrNull;
+      if (baseModel == null) {
+        continue;
+      }
+      final overrideModelId = roleConfig.urlModeModelId?.trim();
+      return overrideModelId != null && overrideModelId.isNotEmpty
+          ? baseModel.copyWith(modelId: overrideModelId)
+          : baseModel;
+    }
+    return settingsController.selectedAiModel ??
+        settingsController.aiModels.firstOrNull;
   }
 
   void _toggleInstructionSkip(String id) {
@@ -5540,9 +5570,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.workspace:
         _activateSlashCommandSection(AppSection.workspace);
         return;
-      case OpenHandSlashCommandKind.automations:
-        _activateSlashCommandSection(AppSection.automations);
-        return;
       case OpenHandSlashCommandKind.skills:
         _activateSlashCommandSection(AppSection.skills);
         return;
@@ -5567,11 +5594,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context,
         zh: '工作区',
         en: 'Workspace',
-      ),
-      AppSection.automations => _localizedText(
-        context,
-        zh: '自动化',
-        en: 'Automations',
       ),
       AppSection.skills => _localizedText(context, zh: '技能', en: 'Skills'),
       AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
@@ -5634,7 +5656,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       '/workspace',
       '/sessions',
       '/chat',
-      '/automations',
       '/skills',
       '/memory',
       '/mcp',
@@ -7018,14 +7039,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         },
         skippedInstructionIds: _skippedInstructionIds,
         onToggleInstructionSkip: _toggleInstructionSkip,
-      ),
-      AppSection.automations => SectionPlaceholder(
-        icon: Icons.schedule_send_outlined,
-        title: l10n.automationHeadline,
-        body: l10n.automationBody,
-        footer: l10n.placeholderComingSoon,
-        actionLabel: l10n.newThread,
-        onAction: _createSessionFromDialog,
       ),
       AppSection.skills => const SkillsView(),
       AppSection.memory => const MemoryView(),

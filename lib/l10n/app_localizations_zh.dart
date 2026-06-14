@@ -18,9 +18,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get newThread => '新线程';
 
   @override
-  String get automations => '自动化';
-
-  @override
   String get skills => '技能';
 
   @override
@@ -71,12 +68,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get quickActionPlanModules => '规划功能模块';
-
-  @override
-  String get automationHeadline => '自动化模块骨架';
-
-  @override
-  String get automationBody => '后续可在这里编排定时任务、工作流和工具链触发逻辑。';
 
   @override
   String get skillsHeadline => '技能中心骨架';
@@ -7894,9 +7885,6 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get newThread => '新线程';
 
   @override
-  String get automations => '自动化';
-
-  @override
   String get skills => '技能';
 
   @override
@@ -7947,12 +7935,6 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get quickActionPlanModules => '规划功能模块';
-
-  @override
-  String get automationHeadline => '自动化模块骨架';
-
-  @override
-  String get automationBody => '后续可在这里编排定时任务、工作流和工具链触发逻辑。';
 
   @override
   String get skillsHeadline => '技能中心骨架';
@@ -15770,9 +15752,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get newThread => '新執行緒';
 
   @override
-  String get automations => '自動化';
-
-  @override
   String get skills => '技能';
 
   @override
@@ -15822,12 +15801,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get quickActionPlanModules => '規劃功能模組';
-
-  @override
-  String get automationHeadline => '自動化模組骨架';
-
-  @override
-  String get automationBody => '後續可在這裡編排定時任務、工作流與工具鏈觸發邏輯。';
 
   @override
   String get skillsHeadline => '技能中心骨架';

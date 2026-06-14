@@ -18,9 +18,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newThread => 'New Thread';
 
   @override
-  String get automations => 'Automations';
-
-  @override
   String get skills => 'Skills';
 
   @override
@@ -74,13 +71,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get quickActionPlanModules => 'Plan future modules';
-
-  @override
-  String get automationHeadline => 'Automation module shell';
-
-  @override
-  String get automationBody =>
-      'This area is reserved for scheduled tasks, workflows, and toolchain triggers.';
 
   @override
   String get skillsHeadline => 'Skills center shell';

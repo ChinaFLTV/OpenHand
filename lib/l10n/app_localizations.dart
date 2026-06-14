@@ -124,12 +124,6 @@ abstract class AppLocalizations {
   /// **'新线程'**
   String get newThread;
 
-  /// No description provided for @automations.
-  ///
-  /// In zh_Hans, this message translates to:
-  /// **'自动化'**
-  String get automations;
-
   /// No description provided for @skills.
   ///
   /// In zh_Hans, this message translates to:
@@ -231,18 +225,6 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'规划功能模块'**
   String get quickActionPlanModules;
-
-  /// No description provided for @automationHeadline.
-  ///
-  /// In zh_Hans, this message translates to:
-  /// **'自动化模块骨架'**
-  String get automationHeadline;
-
-  /// No description provided for @automationBody.
-  ///
-  /// In zh_Hans, this message translates to:
-  /// **'后续可在这里编排定时任务、工作流和工具链触发逻辑。'**
-  String get automationBody;
 
   /// No description provided for @skillsHeadline.
   ///

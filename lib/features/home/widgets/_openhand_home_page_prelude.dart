@@ -2,7 +2,6 @@ part of '../openhand_home_page.dart';
 
 enum AppSection {
   workspace,
-  automations,
   skills,
   memory,
   mcp,

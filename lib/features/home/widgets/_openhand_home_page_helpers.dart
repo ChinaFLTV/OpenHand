@@ -21,7 +21,6 @@ class _QueuedMessage {
   final Map<String, Object?>? skillMetadata;
 }
 
-
 extension on AppSection {
   /// Returns the drawer index for this section, or -1 if this section
   /// does not correspond to a NavigationDrawerDestination (e.g. workspace
@@ -32,32 +31,30 @@ extension on AppSection {
     return switch (this) {
       AppSection.workspace => -1,
       AppSection.hardnessSession => -1,
-      AppSection.automations => 0,
-      AppSection.skills => 1,
-      AppSection.memory => 2,
-      AppSection.mcp => 3,
-      AppSection.hooks => 4,
-      AppSection.crons => 5,
-      AppSection.instructions => 6,
-      AppSection.messageGateway => 7,
-      AppSection.pluginService => 8,
-      AppSection.settings => 9,
+      AppSection.skills => 0,
+      AppSection.memory => 1,
+      AppSection.mcp => 2,
+      AppSection.hooks => 3,
+      AppSection.crons => 4,
+      AppSection.instructions => 5,
+      AppSection.messageGateway => 6,
+      AppSection.pluginService => 7,
+      AppSection.settings => 8,
     };
   }
 }
 
 AppSection _sectionFromDrawerIndex(int index) {
   return switch (index) {
-    0 => AppSection.automations,
-    1 => AppSection.skills,
-    2 => AppSection.memory,
-    3 => AppSection.mcp,
-    4 => AppSection.hooks,
-    5 => AppSection.crons,
-    6 => AppSection.instructions,
-    7 => AppSection.messageGateway,
-    8 => AppSection.pluginService,
-    9 => AppSection.settings,
+    0 => AppSection.skills,
+    1 => AppSection.memory,
+    2 => AppSection.mcp,
+    3 => AppSection.hooks,
+    4 => AppSection.crons,
+    5 => AppSection.instructions,
+    6 => AppSection.messageGateway,
+    7 => AppSection.pluginService,
+    8 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

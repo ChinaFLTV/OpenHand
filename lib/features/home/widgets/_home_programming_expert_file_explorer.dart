@@ -6,6 +6,11 @@ part of '../openhand_home_page.dart';
 
 enum _UnsavedCloseAction { save, discard, cancel }
 
+const double _kFileTreeIndentBase = 16;
+const double _kFileTreeIndentPerLevel = 16;
+const double _kFileTreeActiveBorderWidth = 2.5;
+const double _kFileTreeRowTrailingPadding = 16;
+
 class _FileExplorerPanel extends StatefulWidget {
   const _FileExplorerPanel({
     required this.rootPath,
@@ -27,6 +32,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   late _FileNode _rootNode;
   bool _loading = true;
   final ScrollController _treeScrollController = ScrollController();
+  final ScrollController _treeHorizontalScrollController = ScrollController();
 
   // Clipboard state for cut/copy/paste operations.
   String? _clipboardPath;
@@ -94,6 +100,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   void dispose() {
     _searchDebounce?.cancel();
     _treeScrollController.dispose();
+    _treeHorizontalScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -844,17 +851,43 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         Expanded(
           child: _searchActive && _searchController.text.trim().isNotEmpty
               ? _buildSearchResults(theme, colorScheme)
-              : SingleChildScrollView(
-                  controller: _treeScrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _buildTree(_rootNode.children, 0),
-                  ),
-                ),
+              : _buildScrollableTree(),
         ),
       ],
+    );
+  }
+
+  Widget _buildScrollableTree() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          controller: _treeHorizontalScrollController,
+          thumbVisibility: true,
+          notificationPredicate: (notification) =>
+              notification.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _treeHorizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: SingleChildScrollView(
+                controller: _treeScrollController,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _buildTree(
+                    _rootNode.children,
+                    0,
+                    constraints.maxWidth,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -950,7 +983,11 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     );
   }
 
-  List<Widget> _buildTree(List<_FileNode> nodes, int depth) {
+  List<Widget> _buildTree(
+    List<_FileNode> nodes,
+    int depth,
+    double visibleMinWidth,
+  ) {
     final result = <Widget>[];
     for (final node in nodes) {
       result.add(
@@ -958,6 +995,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           key: _treeItemKey(node.path),
           node: node,
           depth: depth,
+          visibleMinWidth: visibleMinWidth,
           isActive: widget.activeFilePath == node.path,
           isSelected: _selectedNodePath == node.path,
           hasClipboard: _clipboardPath != null,
@@ -975,7 +1013,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ),
       );
       if (node.isDirectory && node.isExpanded) {
-        result.addAll(_buildTree(node.children, depth + 1));
+        result.addAll(_buildTree(node.children, depth + 1, visibleMinWidth));
       }
     }
     return result;
@@ -1002,6 +1040,7 @@ class _FileTreeTile extends StatelessWidget {
     super.key,
     required this.node,
     required this.depth,
+    required this.visibleMinWidth,
     required this.onTap,
     required this.onContextMenuAction,
     required this.rootPath,
@@ -1012,6 +1051,7 @@ class _FileTreeTile extends StatelessWidget {
 
   final _FileNode node;
   final int depth;
+  final double visibleMinWidth;
   final VoidCallback onTap;
   final void Function(String action, Offset position) onContextMenuAction;
   final String rootPath;
@@ -1023,8 +1063,27 @@ class _FileTreeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final indent = 16.0 + depth * 16.0;
+    final indent = _kFileTreeIndentBase + depth * _kFileTreeIndentPerLevel;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+      fontWeight: node.isDirectory
+          ? FontWeight.w600
+          : isActive
+          ? FontWeight.w600
+          : FontWeight.w400,
+      color: isActive ? colorScheme.onPrimaryContainer : null,
+    );
+    final rowMinWidth =
+        indent +
+        16 +
+        4 +
+        16 +
+        6 +
+        _measureFileTreeLabelWidth(context, node.name, labelStyle) +
+        _kFileTreeRowTrailingPadding;
+    final effectiveRowMinWidth = rowMinWidth > visibleMinWidth
+        ? rowMinWidth
+        : visibleMinWidth;
 
     Offset? lastTapPosition;
     return GestureDetector(
@@ -1140,11 +1199,15 @@ class _FileTreeTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Container(
+            constraints: BoxConstraints(minWidth: effectiveRowMinWidth),
             decoration: isActive
                 ? BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.35),
                     border: Border(
-                      left: BorderSide(color: colorScheme.primary, width: 2.5),
+                      left: BorderSide(
+                        color: colorScheme.primary,
+                        width: _kFileTreeActiveBorderWidth,
+                      ),
                     ),
                   )
                 : isSelected
@@ -1155,12 +1218,13 @@ class _FileTreeTile extends StatelessWidget {
                   )
                 : null,
             padding: EdgeInsets.only(
-              left: isActive ? indent - 2.5 : indent,
+              left: isActive ? indent - _kFileTreeActiveBorderWidth : indent,
               right: 8,
               top: 4,
               bottom: 4,
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (node.isDirectory)
                   AnimatedRotation(
@@ -1190,20 +1254,11 @@ class _FileTreeTile extends StatelessWidget {
                       : colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    node.name,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: node.isDirectory
-                          ? FontWeight.w600
-                          : isActive
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: isActive ? colorScheme.onPrimaryContainer : null,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Text(
+                  node.name,
+                  style: labelStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
                 ),
               ],
             ),
@@ -1212,6 +1267,19 @@ class _FileTreeTile extends StatelessWidget {
       ),
     );
   }
+}
+
+double _measureFileTreeLabelWidth(
+  BuildContext context,
+  String label,
+  TextStyle? style,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: Directionality.of(context),
+    maxLines: 1,
+  )..layout();
+  return painter.width.ceilToDouble();
 }
 
 IconData _fileExplorerIcon(_FileNode node) {
