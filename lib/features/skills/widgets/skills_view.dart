@@ -1,10 +1,9 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -14,6 +13,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../model/local_skill.dart';
@@ -609,7 +609,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     if (_selectedEmoji == null &&
         widget.skill.hasIcon &&
         widget.skill.iconPath != null &&
-        File(widget.skill.iconPath!).existsSync()) {
+        localFileExists(widget.skill.iconPath!)) {
       _existingIconPath = widget.skill.iconPath;
       _existingIconKind = widget.skill.iconKind;
     }
@@ -909,7 +909,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
         widget.skill.hasIcon &&
         widget.skill.iconPath != null &&
         widget.skill.iconKind != null &&
-        File(widget.skill.iconPath!).existsSync();
+        localFileExists(widget.skill.iconPath!);
     if (_selectedImageBytes != null) {
       return true;
     }
@@ -931,9 +931,9 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     }
     final existingIconPath = _existingIconPath;
     if (existingIconPath != null) {
-      final segments = File(existingIconPath).uri.pathSegments;
-      if (segments.isNotEmpty) {
-        return segments.last;
+      final fileName = p.basename(existingIconPath).trim();
+      if (fileName.isNotEmpty && fileName != '.') {
+        return fileName;
       }
       return l10n.skillsCreateImageSelected;
     }
@@ -950,19 +950,17 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     final existingIconPath = _existingIconPath;
     final existingIconKind = _existingIconKind;
     if (existingIconPath != null && existingIconKind != null) {
-      final iconFile = File(existingIconPath);
       final fallback = Text(widget.skill.initials);
       return switch (existingIconKind) {
-        LocalSkillIconKind.svg => SvgPicture.file(
-          iconFile,
+        LocalSkillIconKind.svg => buildLocalSvgPicture(
+          existingIconPath,
           fit: BoxFit.cover,
-          placeholderBuilder: (context) => fallback,
-          errorBuilder: (context, error, stackTrace) => fallback,
+          fallback: fallback,
         ),
-        LocalSkillIconKind.raster => Image.file(
-          iconFile,
+        LocalSkillIconKind.raster => buildLocalRasterImage(
+          existingIconPath,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => fallback,
+          fallback: fallback,
         ),
       };
     }
@@ -1585,16 +1583,15 @@ class _SkillCardIcon extends StatelessWidget {
 
     return SizedBox.expand(
       child: switch (iconKind) {
-        LocalSkillIconKind.svg => SvgPicture.file(
-          File(iconPath),
+        LocalSkillIconKind.svg => buildLocalSvgPicture(
+          iconPath,
           fit: BoxFit.cover,
-          placeholderBuilder: (context) => fallback,
-          errorBuilder: (context, error, stackTrace) => fallback,
+          fallback: fallback,
         ),
-        LocalSkillIconKind.raster => Image.file(
-          File(iconPath),
+        LocalSkillIconKind.raster => buildLocalRasterImage(
+          iconPath,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => fallback,
+          fallback: fallback,
         ),
       },
     );

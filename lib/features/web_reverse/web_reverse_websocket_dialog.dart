@@ -18,6 +18,11 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
+const int _kJsonFuzzMaxSafeInteger = 9007199254740991;
+const int _kJsonFuzzMinSafeInteger = -_kJsonFuzzMaxSafeInteger;
+const String _kJsonFuzzUnsafeIntegerText = '9007199254740993';
+final String _jsonFuzzLongString = 'A' * 1024;
+
 Future<void> showWebReverseWebSocketDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -445,14 +450,16 @@ class _WsDialogState extends State<_WsDialog> {
       1,
       2147483647,
       -2147483648,
-      9007199254740993,
+      _kJsonFuzzMaxSafeInteger,
+      _kJsonFuzzMinSafeInteger,
+      _kJsonFuzzUnsafeIntegerText,
       1.7e308,
       double.nan,
       double.infinity,
       '',
       '<script>alert(1)</script>',
       "' OR 1=1--",
-      'A' * 1024,
+      _jsonFuzzLongString,
       true,
       false,
       <Object?>[],
