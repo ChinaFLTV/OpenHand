@@ -10,11 +10,15 @@
 [![中文](https://img.shields.io/badge/lang-简体中文-red)](README.md)
 [![English](https://img.shields.io/badge/lang-English-blue)](README.en.md)
 
+<p>
+  <a href="README.md">简体中文</a>
+  ·
+  <a href="README.en.md">English</a>
+</p>
+
 </div>
 
 OpenHand is a local-first, cross-platform desktop workbench for AI agents, built for developers, researchers, and teams that need controllable AI workflows. It brings multi-model chats, tool execution, MCP, skills, memory, hooks, scheduled jobs, and thread templates into one native Flutter app for extensible, auditable, and maintainable desktop AI work.
-
-[简体中文](README.md)
 
 ## Introduction
 

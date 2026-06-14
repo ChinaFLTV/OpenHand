@@ -10,11 +10,15 @@
 [![中文](https://img.shields.io/badge/lang-简体中文-red)](README.md)
 [![English](https://img.shields.io/badge/lang-English-blue)](README.en.md)
 
+<p>
+  <a href="README.md">简体中文</a>
+  ·
+  <a href="README.en.md">English</a>
+</p>
+
 </div>
 
 OpenHand 是一款本地优先的跨平台桌面 AI 智能体工作台，面向开发者、研究人员和需要可控 AI 工作流的团队。它将多模型会话、工具调用、MCP、技能、记忆、钩子、定时任务和线程模板整合到一个 Flutter 原生应用中，用于构建可扩展、可审计、可长期维护的 AI 桌面工作环境。
-
-[English](README.en.md)
 
 ## 项目介绍
 
