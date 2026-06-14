@@ -11,6 +11,9 @@ class _MessageBubble extends StatefulWidget {
     required this.onLayoutChanged,
     required this.transcriptScrollActive,
     required this.isSelected,
+    required this.actionPanelEntranceMotionKey,
+    required this.animateActionPanelEntrance,
+    required this.onActionPanelEntranceConsumed,
     required this.isScrollHighlighted,
     required this.onSelect,
     required this.onDeselect,
@@ -35,6 +38,9 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback onLayoutChanged;
   final bool transcriptScrollActive;
   final bool isSelected;
+  final int actionPanelEntranceMotionKey;
+  final bool animateActionPanelEntrance;
+  final ValueChanged<int> onActionPanelEntranceConsumed;
   final bool isScrollHighlighted;
   final VoidCallback onSelect;
   final VoidCallback onDeselect;
@@ -748,6 +754,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
             padding: const EdgeInsets.only(top: 8),
             child: _SelectedMessageActionPanel(
               alignEnd: isUser,
+              motionKey: widget.actionPanelEntranceMotionKey,
+              animateEntrance: widget.animateActionPanelEntrance,
+              onEntranceConsumed: widget.onActionPanelEntranceConsumed,
               message: message,
               textColor: textColor,
               showModelLabel: !isUser,
@@ -832,7 +841,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 if (!isUser &&
                     !isToolCall &&
-                    !isReasoning &&
                     !isSelfLearning &&
                     !isCompressionPoint &&
                     !isStatus &&
@@ -1029,6 +1037,9 @@ class _MessageActionSpec {
 class _SelectedMessageActionPanel extends StatefulWidget {
   const _SelectedMessageActionPanel({
     required this.alignEnd,
+    required this.motionKey,
+    required this.animateEntrance,
+    required this.onEntranceConsumed,
     required this.actions,
     required this.message,
     required this.textColor,
@@ -1036,6 +1047,9 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   });
 
   final bool alignEnd;
+  final int motionKey;
+  final bool animateEntrance;
+  final ValueChanged<int> onEntranceConsumed;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
   final Color textColor;
@@ -1051,29 +1065,42 @@ class _SelectedMessageActionPanelState
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _motion;
-  bool _entranceStarted = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
     _motion = CurvedAnimation(parent: _controller, curve: kCardMotionCurve);
+    _prepareEntrance();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncMotionDuration();
-    if (!_entranceStarted) {
-      _entranceStarted = true;
-      _controller.forward();
-    }
   }
 
   @override
   void didUpdateWidget(covariant _SelectedMessageActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncMotionDuration();
+    if (oldWidget.motionKey != widget.motionKey) {
+      _prepareEntrance();
+    }
+  }
+
+  void _prepareEntrance() {
+    if (widget.animateEntrance) {
+      _controller.value = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (!widget.animateEntrance) return;
+        widget.onEntranceConsumed(widget.motionKey);
+        _controller.forward(from: 0);
+      });
+      return;
+    }
+    _controller.value = 1;
   }
 
   void _syncMotionDuration() {

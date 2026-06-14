@@ -158,6 +158,18 @@ class AiTtsProviderCatalogs {
           provider: AiTtsProvider.bing,
           voiceOptions: _bingVoices,
           languageOptions: _commonLanguages,
+          formatOptions: <AiTtsCatalogOption>[
+            AiTtsCatalogOption(
+              'audio-24khz-48kbitrate-mono-mp3',
+              'MP3 24kHz 48kbps',
+            ),
+            AiTtsCatalogOption(
+              'audio-16khz-32kbitrate-mono-mp3',
+              'MP3 16kHz 32kbps',
+            ),
+            AiTtsCatalogOption('riff-24khz-16bit-mono-pcm', 'WAV 24kHz PCM'),
+            AiTtsCatalogOption('ogg-24khz-16bit-mono-opus', 'OGG Opus 24kHz'),
+          ],
         ),
         AiTtsProvider.google: AiTtsProviderCatalog(
           provider: AiTtsProvider.google,

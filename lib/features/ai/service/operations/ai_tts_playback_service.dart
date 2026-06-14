@@ -86,6 +86,7 @@ class AiTtsPlaybackService {
         return;
       } catch (error, stack) {
         if (error is _AiTtsPlaybackCancelled) return;
+        if (generation != _generation) return;
         silentLog('tts', 'provider ${provider.storageKey}', error, stack);
         await _stopActiveResources(clearState: false);
       }
@@ -154,13 +155,11 @@ class AiTtsPlaybackService {
       case AiTtsProvider.doubao:
         return _speakWithDoubao(provider, text, timeout: timeout);
       case AiTtsProvider.youdao:
+        return _speakWithYoudao(provider, text, timeout: timeout);
       case AiTtsProvider.bing:
+        return _speakWithBing(provider, text, timeout: timeout);
       case AiTtsProvider.google:
-        return Future<void>.error(
-          UnsupportedError(
-            '${provider.provider.storageKey} TTS requires configured audio playback integration.',
-          ),
-        );
+        return _speakWithGoogle(provider, text, timeout: timeout);
     }
   }
 
@@ -252,6 +251,7 @@ class AiTtsPlaybackService {
       await _playAudioBytes(
         audioBytes.takeBytes(),
         extension: _audioExtension(audioFormat),
+        volume: settings.volume,
         timeout: timeout,
       );
     } finally {
@@ -266,12 +266,10 @@ class AiTtsPlaybackService {
     required Duration timeout,
   }) async {
     if (Platform.isMacOS) {
-      final args = <String>[];
-      if (settings.voice.isNotEmpty) {
-        args.addAll(<String>['-v', settings.voice]);
-      }
-      args.addAll(<String>['-r', '${_systemRate(settings.speed)}', text]);
-      await _runSpeechProcess('say', args, timeout: timeout);
+      await _runSpeechProcess('osascript', <String>[
+        '-e',
+        _macOsSpeechScript(text, settings),
+      ], timeout: timeout);
       return;
     }
     if (Platform.isWindows) {
@@ -356,6 +354,7 @@ class AiTtsPlaybackService {
     await _playAudioBytes(
       audioBytes.takeBytes(),
       extension: '${settings.extra['aue'] ?? 'mp3'}' == 'raw' ? '.pcm' : '.mp3',
+      volume: settings.volume,
       timeout: timeout,
     );
   }
@@ -365,16 +364,16 @@ class AiTtsPlaybackService {
     String text, {
     required Duration timeout,
   }) async {
-    if (settings.accessToken.isEmpty) {
-      throw StateError('Baidu TTS access_token is empty.');
-    }
+    final accessToken = settings.accessToken.isNotEmpty
+        ? settings.accessToken
+        : await _fetchBaiduAccessToken(settings, timeout: timeout);
     final endpoint = settings.endpoint.isEmpty
         ? AiTtsProviderSettings.defaults(AiTtsProvider.baidu).endpoint
         : settings.endpoint;
     final uri = Uri.parse(endpoint).replace(
       queryParameters: <String, String>{
         'tex': text,
-        'tok': settings.accessToken,
+        'tok': accessToken,
         'cuid': 'openhand',
         'ctp': '1',
         'lan': settings.language.isEmpty ? 'zh' : settings.language,
@@ -399,6 +398,202 @@ class AiTtsPlaybackService {
       await _playAudioBytes(
         response.bodyBytes,
         extension: '.mp3',
+        volume: settings.volume,
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
+  Future<void> _speakWithGoogle(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty) {
+      throw StateError('Google TTS API key is empty.');
+    }
+    final endpoint = settings.endpoint.isEmpty
+        ? AiTtsProviderSettings.defaults(AiTtsProvider.google).endpoint
+        : settings.endpoint;
+    final uri = Uri.parse(endpoint).replace(
+      queryParameters: <String, String>{
+        ...Uri.parse(endpoint).queryParameters,
+        'key': settings.apiKey,
+      },
+    );
+    final audioEncoding = _extraString(
+      settings,
+      'audioEncoding',
+      fallback: 'MP3',
+    );
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client
+          .post(
+            uri,
+            headers: const <String, String>{
+              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+              HttpHeaders.acceptHeader: 'application/json',
+            },
+            body: jsonEncode(<String, Object?>{
+              'input': <String, Object?>{'text': text},
+              'voice': <String, Object?>{
+                'languageCode': settings.language.isEmpty
+                    ? 'zh-CN'
+                    : settings.language,
+                if (settings.voice.isNotEmpty) 'name': settings.voice,
+              },
+              'audioConfig': <String, Object?>{
+                'audioEncoding': audioEncoding,
+                'speakingRate': settings.speed.clamp(0.25, 4.0),
+                'pitch': settings.pitch.clamp(-20.0, 20.0),
+                'volumeGainDb': settings.volume.clamp(-96.0, 16.0),
+              },
+            }),
+          )
+          .timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Google TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+          uri: uri,
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['audioContent'] is! String) {
+        throw StateError('Google TTS returned invalid audio payload.');
+      }
+      await _playAudioBytes(
+        base64Decode(decoded['audioContent'] as String),
+        extension: _googleAudioExtension(audioEncoding),
+        volume: 1,
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
+  Future<void> _speakWithBing(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty) {
+      throw StateError('Bing TTS subscription key is empty.');
+    }
+    final region = settings.region.trim();
+    if (region.isEmpty && settings.endpoint.trim().isEmpty) {
+      throw StateError('Bing TTS region is empty.');
+    }
+    final endpoint = settings.endpoint.trim().isNotEmpty
+        ? settings.endpoint.trim()
+        : 'https://$region.tts.speech.microsoft.com/cognitiveservices/v1';
+    final uri = Uri.parse(endpoint);
+    final outputFormat = _extraString(
+      settings,
+      'outputFormat',
+      fallback: 'audio-24khz-48kbitrate-mono-mp3',
+    );
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client
+          .post(
+            uri,
+            headers: <String, String>{
+              HttpHeaders.contentTypeHeader: 'application/ssml+xml',
+              HttpHeaders.acceptHeader: 'audio/*',
+              'Ocp-Apim-Subscription-Key': settings.apiKey,
+              'X-Microsoft-OutputFormat': outputFormat,
+              'User-Agent': 'OpenHand',
+            },
+            body: _bingSsml(text, settings),
+          )
+          .timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Bing TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+          uri: uri,
+        );
+      }
+      await _playAudioBytes(
+        response.bodyBytes,
+        extension: _bingAudioExtension(outputFormat),
+        volume: settings.volume,
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
+  Future<void> _speakWithYoudao(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
+      throw StateError('Youdao TTS credentials are incomplete.');
+    }
+    final endpoint = settings.endpoint.isEmpty
+        ? AiTtsProviderSettings.defaults(AiTtsProvider.youdao).endpoint
+        : settings.endpoint;
+    final salt = DateTime.now().microsecondsSinceEpoch.toString();
+    final input = _youdaoSignInput(text);
+    final curtime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final sign = sha256
+        .convert(
+          utf8.encode(
+            '${settings.apiKey}$input$salt$curtime${settings.apiSecret}',
+          ),
+        )
+        .toString();
+    final uri = Uri.parse(endpoint);
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client
+          .post(
+            uri,
+            headers: const <String, String>{
+              HttpHeaders.contentTypeHeader:
+                  'application/x-www-form-urlencoded; charset=utf-8',
+            },
+            body: <String, String>{
+              'q': text,
+              'langType': settings.language.isEmpty
+                  ? 'zh-CHS'
+                  : settings.language,
+              'appKey': settings.apiKey,
+              'salt': salt,
+              'sign': sign,
+              'signType': 'v3',
+              'curtime': '$curtime',
+              if (settings.voice.isNotEmpty) 'voice': settings.voice,
+              'format': 'mp3',
+            },
+          )
+          .timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Youdao TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+          uri: uri,
+        );
+      }
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.startsWith('audio/')) {
+        throw StateError('Youdao TTS returned non-audio response.');
+      }
+      await _playAudioBytes(
+        response.bodyBytes,
+        extension: '.mp3',
+        volume: settings.volume,
         timeout: timeout,
       );
     } finally {
@@ -410,6 +605,7 @@ class AiTtsPlaybackService {
   Future<void> _playAudioBytes(
     List<int> bytes, {
     required String extension,
+    required double volume,
     required Duration timeout,
   }) async {
     if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
@@ -428,7 +624,11 @@ class AiTtsPlaybackService {
     );
     await file.writeAsBytes(bytes, flush: true);
     try {
-      await _runSpeechProcess('afplay', <String>[file.path], timeout: timeout);
+      await _runSpeechProcess('afplay', <String>[
+        '-v',
+        '${_afplayVolume(volume)}',
+        file.path,
+      ], timeout: timeout);
     } finally {
       unawaited(file.delete().catchError((_) => file));
     }
@@ -506,6 +706,41 @@ class AiTtsPlaybackService {
     );
   }
 
+  Future<String> _fetchBaiduAccessToken(
+    AiTtsProviderSettings settings, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
+      throw StateError('Baidu TTS API key or secret is empty.');
+    }
+    final uri = Uri.parse('https://aip.baidubce.com/oauth/2.0/token').replace(
+      queryParameters: <String, String>{
+        'grant_type': 'client_credentials',
+        'client_id': settings.apiKey,
+        'client_secret': settings.apiSecret,
+      },
+    );
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client.post(uri).timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Baidu token HTTP ${response.statusCode}: ${_shortBody(response)}',
+          uri: uri,
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['access_token'] is! String) {
+        throw StateError('Baidu token response is invalid.');
+      }
+      return decoded['access_token'] as String;
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
   static String _normalizeText(String text, int maxCharacters) {
     final trimmed = text
         .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
@@ -519,6 +754,37 @@ class AiTtsPlaybackService {
   static int _systemRate(double speed) {
     if (speed > 10) return speed.round().clamp(80, 420);
     return (175 * speed.clamp(0.5, 2.0)).round();
+  }
+
+  static String _macOsSpeechScript(
+    String text,
+    AiTtsProviderSettings settings,
+  ) {
+    final buffer = StringBuffer('say ${_appleScriptString(text)}');
+    if (settings.voice.isNotEmpty) {
+      buffer.write(' using ${_appleScriptString(settings.voice)}');
+    }
+    buffer
+      ..write(' speaking rate ${_systemRate(settings.speed)}')
+      ..write(' pitch ${_systemPitch(settings.pitch)}')
+      ..write(' volume ${_systemVolume(settings.volume)}');
+    return buffer.toString();
+  }
+
+  static int _systemPitch(double pitch) {
+    if (pitch > 10) return pitch.round().clamp(0, 100);
+    return (50 * pitch.clamp(0.5, 2.0)).round().clamp(0, 100);
+  }
+
+  static double _systemVolume(double volume) {
+    return volume <= 1
+        ? volume.clamp(0, 1).toDouble()
+        : (volume / 100).clamp(0, 1).toDouble();
+  }
+
+  static double _afplayVolume(double volume) {
+    if (volume <= 1) return volume.clamp(0.0, 1.0).toDouble();
+    return (volume / 100).clamp(0.0, 2.0).toDouble();
   }
 
   static int _linuxRate(double speed) {
@@ -617,6 +883,71 @@ class AiTtsPlaybackService {
       default:
         return '.mp3';
     }
+  }
+
+  static String _googleAudioExtension(String encoding) {
+    switch (encoding.trim().toUpperCase()) {
+      case 'LINEAR16':
+        return '.wav';
+      case 'OGG_OPUS':
+        return '.ogg';
+      case 'MP3':
+      default:
+        return '.mp3';
+    }
+  }
+
+  static String _bingAudioExtension(String outputFormat) {
+    final normalized = outputFormat.trim().toLowerCase();
+    if (normalized.startsWith('riff')) return '.wav';
+    if (normalized.startsWith('ogg')) return '.ogg';
+    return '.mp3';
+  }
+
+  static String _bingSsml(String text, AiTtsProviderSettings settings) {
+    final language = settings.language.isEmpty ? 'zh-CN' : settings.language;
+    final voice = settings.voice.isEmpty
+        ? 'zh-CN-XiaoxiaoNeural'
+        : settings.voice;
+    final rate = settings.speed > 10
+        ? '${(settings.speed - 100).round().clamp(-50, 100)}%'
+        : '${((settings.speed - 1) * 100).round().clamp(-50, 100)}%';
+    final pitch = settings.pitch > 10
+        ? '${(settings.pitch - 50).round().clamp(-50, 50)}%'
+        : '${((settings.pitch - 1) * 100).round().clamp(-50, 50)}%';
+    final volume = settings.volume <= 1
+        ? '${(settings.volume * 100).round().clamp(0, 100)}%'
+        : '${settings.volume.round().clamp(0, 100)}%';
+    return '''
+<speak version="1.0" xml:lang="${_xmlEscape(language)}">
+  <voice xml:lang="${_xmlEscape(language)}" name="${_xmlEscape(voice)}">
+    <prosody rate="$rate" pitch="$pitch" volume="$volume">${_xmlEscape(text)}</prosody>
+  </voice>
+</speak>''';
+  }
+
+  static String _youdaoSignInput(String text) {
+    if (text.length <= 20) return text;
+    return '${text.substring(0, 10)}${text.length}${text.substring(text.length - 10)}';
+  }
+
+  static String _shortBody(http.Response response) {
+    final body = response.body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (body.length <= 180) return body;
+    return '${body.substring(0, 180)}...';
+  }
+
+  static String _appleScriptString(String value) {
+    return '"${value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"';
+  }
+
+  static String _xmlEscape(String value) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
   }
 
   static String _extraString(

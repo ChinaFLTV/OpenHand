@@ -5,7 +5,8 @@ const String _settingsZeroDurationLabel = '0s';
 const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
 const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
-const double _aiTtsDragFeedbackWidth = 220;
+const double _aiTtsCardActionSize = 48;
+const double _aiTtsDragFeedbackMaxHeight = 240;
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -527,12 +528,32 @@ class _AiTtsProviderCard extends StatefulWidget {
 
 class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   bool _testing = false;
+  AiTtsProviderSettings? _latestProviderSettings;
+
+  AiTtsProviderSettings get _effectiveProviderSettings =>
+      (_latestProviderSettings ?? widget.settings.provider(widget.provider))
+          .normalized();
+
+  @override
+  void didUpdateWidget(covariant _AiTtsProviderCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) {
+      _latestProviderSettings = null;
+      return;
+    }
+    final latest = _latestProviderSettings;
+    if (latest == null) return;
+    final persisted = widget.settings.provider(widget.provider).normalized();
+    if (latest.toJson().toString() == persisted.toJson().toString()) {
+      _latestProviderSettings = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = widget.provider;
-    final providerSettings = widget.settings.provider(provider);
+    final providerSettings = _effectiveProviderSettings;
     final catalog = AiTtsProviderCatalogs.of(provider);
     final card = Container(
       padding: const EdgeInsets.all(14),
@@ -560,6 +581,8 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 provider: provider,
                 priorityIndex: widget.priorityIndex,
                 label: _ttsProviderLabel(context, provider),
+                enabled: providerSettings.enabled,
+                feedbackWidth: _ttsDragFeedbackWidth(context),
                 onDragStarted: widget.onDragStarted,
                 onDragEnded: widget.onDragEnded,
               ),
@@ -648,18 +671,21 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '语速', en: 'Speed'),
                         value: providerSettings.speed,
+                        range: _ttsNumberRange(provider, _TtsNumberKind.speed),
                         onChanged: (value) =>
                             _update(providerSettings.copyWith(speed: value)),
                       ),
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '音量', en: 'Volume'),
                         value: providerSettings.volume,
+                        range: _ttsNumberRange(provider, _TtsNumberKind.volume),
                         onChanged: (value) =>
                             _update(providerSettings.copyWith(volume: value)),
                       ),
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '音调', en: 'Pitch'),
                         value: providerSettings.pitch,
+                        range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
                         onChanged: (value) =>
                             _update(providerSettings.copyWith(pitch: value)),
                       ),
@@ -685,9 +711,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                               providerSettings.copyWith(endpoint: value),
                             ),
                           ),
-                        if (_providerNeedsCredentials(provider) &&
-                            provider != AiTtsProvider.baidu &&
-                            provider != AiTtsProvider.doubao)
+                        if (_needsAppIdCredential(provider))
                           _AiTtsProviderTextField(
                             label: 'App ID',
                             value: providerSettings.appId,
@@ -697,33 +721,44 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                           ),
                         if (_providerNeedsCredentials(provider))
                           _AiTtsProviderTextField(
-                            label: provider == AiTtsProvider.baidu
-                                ? 'Access Token'
-                                : 'API Key',
-                            value: provider == AiTtsProvider.baidu
-                                ? providerSettings.accessToken
-                                : providerSettings.apiKey,
+                            label: _primaryCredentialLabel(provider),
+                            value: _primaryCredentialValue(providerSettings),
                             obscure: true,
-                            onSubmitted: (value) =>
-                                provider == AiTtsProvider.baidu
-                                ? _update(
-                                    providerSettings.copyWith(
-                                      accessToken: value,
-                                    ),
-                                  )
-                                : _update(
-                                    providerSettings.copyWith(apiKey: value),
-                                  ),
+                            onSubmitted: (value) => _update(
+                              _primaryCredentialUpdated(
+                                providerSettings,
+                                value,
+                              ),
+                            ),
                           ),
-                        if (_providerNeedsCredentials(provider) &&
-                            provider != AiTtsProvider.baidu &&
-                            provider != AiTtsProvider.doubao)
+                        if (_needsSecondaryCredential(provider))
                           _AiTtsProviderTextField(
-                            label: 'API Secret / Token',
+                            label: _secondaryCredentialLabel(provider),
                             value: providerSettings.apiSecret,
                             obscure: true,
                             onSubmitted: (value) => _update(
                               providerSettings.copyWith(apiSecret: value),
+                            ),
+                          ),
+                        if (provider == AiTtsProvider.baidu)
+                          _AiTtsProviderTextField(
+                            label: 'Access Token',
+                            value: providerSettings.accessToken,
+                            obscure: true,
+                            onSubmitted: (value) => _update(
+                              providerSettings.copyWith(accessToken: value),
+                            ),
+                          ),
+                        if (provider == AiTtsProvider.bing)
+                          _AiTtsProviderTextField(
+                            label: _localizedText(
+                              context,
+                              zh: '区域 Region',
+                              en: 'Region',
+                            ),
+                            value: providerSettings.region,
+                            onSubmitted: (value) => _update(
+                              providerSettings.copyWith(region: value),
                             ),
                           ),
                       ],
@@ -789,7 +824,8 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       ],
                     ),
                   ),
-                ] else if (provider == AiTtsProvider.google) ...[
+                ] else if (provider == AiTtsProvider.google ||
+                    provider == AiTtsProvider.bing) ...[
                   const SizedBox(height: 12),
                   _AiTtsProviderSection(
                     title: _localizedText(context, zh: '音频编码', en: 'Audio'),
@@ -802,11 +838,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                             en: 'Format',
                           ),
                           value:
-                              '${providerSettings.extra['audioEncoding'] ?? 'MP3'}',
+                              '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
                           options: catalog.formatOptions,
                           onChanged: (value) => _updateExtra(
                             providerSettings,
-                            'audioEncoding',
+                            _audioEncodingExtraKey(provider),
                             value,
                           ),
                         ),
@@ -831,10 +867,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
 
   Future<void> _testProvider() async {
     if (_testing) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
     setState(() => _testing = true);
     try {
       await widget.playbackService.testProvider(
-        settings: widget.settings.copyWith(enabled: true),
+        settings: _settingsWithProvider(
+          _effectiveProviderSettings,
+        ).copyWith(enabled: true),
         provider: widget.provider,
       );
       if (!mounted) return;
@@ -873,11 +914,17 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   }
 
   Future<void> _update(AiTtsProviderSettings next) async {
+    _latestProviderSettings = next.normalized();
+    if (mounted) setState(() {});
+    await widget.onChanged(_settingsWithProvider(next));
+  }
+
+  AiTtsSettings _settingsWithProvider(AiTtsProviderSettings next) {
     final providers = Map<AiTtsProvider, AiTtsProviderSettings>.from(
       widget.settings.providers,
     );
     providers[widget.provider] = next.normalized();
-    await widget.onChanged(widget.settings.copyWith(providers: providers));
+    return widget.settings.copyWith(providers: providers);
   }
 
   Future<void> _updateExtra(
@@ -896,6 +943,8 @@ class _AiTtsDragHandle extends StatefulWidget {
     required this.provider,
     required this.priorityIndex,
     required this.label,
+    required this.enabled,
+    required this.feedbackWidth,
     required this.onDragStarted,
     required this.onDragEnded,
   });
@@ -903,6 +952,8 @@ class _AiTtsDragHandle extends StatefulWidget {
   final AiTtsProvider provider;
   final int priorityIndex;
   final String label;
+  final bool enabled;
+  final double feedbackWidth;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
 
@@ -930,56 +981,11 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
           data: theme,
           child: Material(
             color: Colors.transparent,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.shadow.withValues(alpha: 0.14),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: _aiTtsDragFeedbackWidth,
-                height: 42,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.drag_indicator_rounded,
-                        size: 20,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '#${widget.priorityIndex + 1}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            child: _AiTtsProviderDragFeedbackCard(
+              priorityIndex: widget.priorityIndex,
+              label: widget.label,
+              enabled: widget.enabled,
+              width: widget.feedbackWidth,
             ),
           ),
         ),
@@ -1040,6 +1046,113 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
       _dragging = false;
     }
     widget.onDragEnded();
+  }
+}
+
+class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
+  const _AiTtsProviderDragFeedbackCard({
+    required this.priorityIndex,
+    required this.label,
+    required this.enabled,
+    required this.width,
+  });
+
+  final int priorityIndex;
+  final String label;
+  final bool enabled;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: math.min(360, width),
+        maxWidth: width,
+        maxHeight: _aiTtsDragFeedbackMaxHeight,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Color.alphaBlend(
+            colorScheme.primary.withValues(alpha: enabled ? 0.055 : 0),
+            colorScheme.surfaceContainerHigh,
+          ),
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.30),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.18),
+              blurRadius: 28,
+              spreadRadius: 1,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: _aiTtsDragHandleSize,
+                    height: _aiTtsDragHandleSize,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: colorScheme.primaryContainer.withValues(
+                        alpha: 0.68,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.drag_indicator_rounded,
+                      size: 20,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _AiTtsPriorityBadge(index: priorityIndex),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  _AiTtsStatusBadge(enabled: enabled),
+                ],
+              ),
+              const SizedBox(height: 12),
+              for (var row = 0; row < 3; row++) ...[
+                FractionallySizedBox(
+                  widthFactor: row == 2 ? 0.56 : 1,
+                  child: Container(
+                    height: 18,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.86 - row * 0.12,
+                      ),
+                    ),
+                  ),
+                ),
+                if (row != 2) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1107,25 +1220,30 @@ class _AiTtsTestButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Tooltip(
       message: _localizedText(context, zh: '测试 TTS 服务', en: 'Test TTS'),
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 34),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-        ),
-        icon: testing
-            ? const SizedBox.square(
-                dimension: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.play_circle_outline_rounded, size: 17),
-        label: Text(
-          testing
-              ? _localizedText(context, zh: '测试中', en: 'Testing')
-              : _localizedText(context, zh: '测试', en: 'Test'),
+      child: SizedBox.square(
+        dimension: _aiTtsCardActionSize,
+        child: IconButton.filledTonal(
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            shape: const CircleBorder(),
+            backgroundColor: theme.colorScheme.secondaryContainer.withValues(
+              alpha: 0.76,
+            ),
+            foregroundColor: theme.colorScheme.onSecondaryContainer,
+            disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.48),
+            disabledForegroundColor: theme.colorScheme.onSurfaceVariant
+                .withValues(alpha: 0.54),
+          ),
+          icon: testing
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.play_arrow_rounded, size: 22),
         ),
       ),
     );
@@ -1303,12 +1421,15 @@ class _AiTtsProviderTextField extends StatefulWidget {
 
 class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  Timer? _debounce;
   String? _lastCommittedValue;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value);
+    _focusNode = FocusNode()..addListener(_handleFocusChanged);
   }
 
   @override
@@ -1321,6 +1442,9 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _focusNode.removeListener(_handleFocusChanged);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -1329,16 +1453,28 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   Widget build(BuildContext context) {
     return TextField(
       controller: _controller,
+      focusNode: _focusNode,
       decoration: InputDecoration(labelText: widget.label),
       obscureText: widget.obscure,
       enableSuggestions: !widget.obscure,
       autocorrect: !widget.obscure,
+      onChanged: _scheduleCommit,
       onSubmitted: _commit,
       onEditingComplete: () => _commit(_controller.text),
     );
   }
 
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) _commit(_controller.text);
+  }
+
+  void _scheduleCommit(String raw) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 420), () => _commit(raw));
+  }
+
   void _commit(String raw) {
+    _debounce?.cancel();
     final value = raw.trim();
     if (value == _lastCommittedValue || value == widget.value) return;
     _lastCommittedValue = value;
@@ -1346,30 +1482,99 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   }
 }
 
-class _AiTtsProviderNumberField extends StatelessWidget {
+class _AiTtsProviderNumberField extends StatefulWidget {
   const _AiTtsProviderNumberField({
     required this.label,
     required this.value,
+    required this.range,
     required this.onChanged,
   });
 
   final String label;
   final double value;
+  final _TtsNumberRange range;
   final ValueChanged<double> onChanged;
 
   @override
+  State<_AiTtsProviderNumberField> createState() =>
+      _AiTtsProviderNumberFieldState();
+}
+
+class _AiTtsProviderNumberFieldState extends State<_AiTtsProviderNumberField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: _formatValue(widget.value));
+    _focusNode = FocusNode()..addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AiTtsProviderNumberField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && !_focusNode.hasFocus) {
+      _syncControllerText(_controller, _formatValue(widget.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _focusNode.removeListener(_handleFocusChanged);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      initialValue: value.toStringAsFixed(
-        value.truncateToDouble() == value ? 0 : 2,
-      ),
+    return TextField(
+      controller: _controller,
+      focusNode: _focusNode,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: label),
-      onFieldSubmitted: (raw) {
-        final parsed = double.tryParse(raw.trim());
-        if (parsed != null) onChanged(parsed);
-      },
+      decoration: InputDecoration(
+        labelText: widget.label,
+        helperText:
+            '${_formatValue(widget.range.min)} - ${_formatValue(widget.range.max)}',
+      ),
+      onChanged: _scheduleCommit,
+      onSubmitted: _commit,
+      onEditingComplete: () => _commit(_controller.text),
     );
+  }
+
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) _commit(_controller.text);
+  }
+
+  void _scheduleCommit(String raw) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 260), () => _commit(raw));
+  }
+
+  void _commit(String raw) {
+    _debounce?.cancel();
+    final parsed = double.tryParse(raw.trim());
+    if (parsed == null) {
+      if (!_focusNode.hasFocus) {
+        _syncControllerText(_controller, _formatValue(widget.value));
+      }
+      return;
+    }
+    final clamped = parsed.clamp(widget.range.min, widget.range.max).toDouble();
+    final formatted = _formatValue(clamped);
+    if (_controller.text != formatted && !_focusNode.hasFocus) {
+      _syncControllerText(_controller, formatted);
+    }
+    if ((clamped - widget.value).abs() < 0.0001) return;
+    widget.onChanged(clamped);
+  }
+
+  String _formatValue(double value) {
+    return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
   }
 }
 
@@ -1445,6 +1650,108 @@ String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
         en: 'Doubao V3 online TTS with API key, resource ID, and speaker.',
       );
   }
+}
+
+enum _TtsNumberKind { speed, volume, pitch }
+
+class _TtsNumberRange {
+  const _TtsNumberRange(this.min, this.max);
+
+  final double min;
+  final double max;
+}
+
+_TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
+  switch (provider) {
+    case AiTtsProvider.xfyun:
+      return const _TtsNumberRange(0, 100);
+    case AiTtsProvider.baidu:
+      return const _TtsNumberRange(0, 15);
+    case AiTtsProvider.doubao:
+      return kind == _TtsNumberKind.pitch
+          ? const _TtsNumberRange(-12, 12)
+          : const _TtsNumberRange(-50, 100);
+    case AiTtsProvider.google:
+      return switch (kind) {
+        _TtsNumberKind.speed => const _TtsNumberRange(0.25, 4),
+        _TtsNumberKind.volume => const _TtsNumberRange(-96, 16),
+        _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
+      };
+    case AiTtsProvider.bing:
+      return switch (kind) {
+        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2),
+        _TtsNumberKind.volume => const _TtsNumberRange(0, 100),
+        _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
+      };
+    case AiTtsProvider.system:
+    case AiTtsProvider.apple:
+    case AiTtsProvider.youdao:
+      return switch (kind) {
+        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2),
+        _TtsNumberKind.volume => const _TtsNumberRange(0, 1),
+        _TtsNumberKind.pitch => const _TtsNumberRange(0.5, 2),
+      };
+  }
+}
+
+String _primaryCredentialLabel(AiTtsProvider provider) {
+  switch (provider) {
+    case AiTtsProvider.baidu:
+      return 'API Key';
+    case AiTtsProvider.bing:
+      return 'Subscription Key';
+    case AiTtsProvider.google:
+      return 'API Key';
+    default:
+      return 'API Key';
+  }
+}
+
+String _primaryCredentialValue(AiTtsProviderSettings settings) {
+  switch (settings.provider) {
+    case AiTtsProvider.baidu:
+    case AiTtsProvider.bing:
+    case AiTtsProvider.google:
+      return settings.apiKey;
+    default:
+      return settings.apiKey;
+  }
+}
+
+AiTtsProviderSettings _primaryCredentialUpdated(
+  AiTtsProviderSettings settings,
+  String value,
+) {
+  return settings.copyWith(apiKey: value);
+}
+
+String _secondaryCredentialLabel(AiTtsProvider provider) {
+  return provider == AiTtsProvider.baidu ? 'Secret Key' : 'API Secret / Token';
+}
+
+bool _needsSecondaryCredential(AiTtsProvider provider) {
+  return provider == AiTtsProvider.xfyun ||
+      provider == AiTtsProvider.youdao ||
+      provider == AiTtsProvider.baidu;
+}
+
+bool _needsAppIdCredential(AiTtsProvider provider) {
+  return provider == AiTtsProvider.xfyun;
+}
+
+double _ttsDragFeedbackWidth(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width - 96;
+  return width.clamp(360.0, 960.0).toDouble();
+}
+
+String _audioEncodingExtraKey(AiTtsProvider provider) {
+  return provider == AiTtsProvider.bing ? 'outputFormat' : 'audioEncoding';
+}
+
+String _defaultAudioEncoding(AiTtsProvider provider) {
+  return provider == AiTtsProvider.bing
+      ? 'audio-24khz-48kbitrate-mono-mp3'
+      : 'MP3';
 }
 
 String _friendlyTtsError(Object error) {

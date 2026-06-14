@@ -335,6 +335,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
   final Set<String> _animatedMessageIds = <String>{};
+  int _messageActionPanelMotionKey = 0;
+  int _consumedMessageActionPanelMotionKey = 0;
   // 2026-06-07: 保存每条消息的【显示原始】状态，避免 ListView.builder
   // 回收重建后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
@@ -413,6 +415,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _materializationGeneration += 1;
       _warmupGeneration += 1;
       _warmupScheduler.clear();
+      _selectedMessageId = null;
+      _messageActionPanelMotionKey += 1;
+      _consumedMessageActionPanelMotionKey = _messageActionPanelMotionKey;
       _TranscriptScrollDispatcher.instance.unregister(
         oldWidget.session.id,
         this,
@@ -1870,6 +1875,21 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         onLayoutChanged: widget.onLayoutChanged,
                         transcriptScrollActive: transcriptScrollActive,
                         isSelected: isSelected,
+                        actionPanelEntranceMotionKey:
+                            _messageActionPanelMotionKey,
+                        animateActionPanelEntrance:
+                            isSelected &&
+                            _consumedMessageActionPanelMotionKey !=
+                                _messageActionPanelMotionKey,
+                        onActionPanelEntranceConsumed: (motionKey) {
+                          if (!mounted ||
+                              motionKey != _messageActionPanelMotionKey ||
+                              _consumedMessageActionPanelMotionKey ==
+                                  motionKey) {
+                            return;
+                          }
+                          _consumedMessageActionPanelMotionKey = motionKey;
+                        },
                         isScrollHighlighted:
                             _highlightedMessageId == message.id,
                         onSelect: () {
@@ -1878,6 +1898,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           }
                           setState(() {
                             _selectedMessageId = message.id;
+                            _messageActionPanelMotionKey += 1;
                           });
                         },
                         onDeselect: () {
