@@ -991,29 +991,34 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
 
   Widget _buildHandle(BuildContext context, {required double opacity}) {
     final theme = Theme.of(context);
-    return Tooltip(
-      message: _localizedText(context, zh: '拖动调整优先级', en: 'Drag'),
-      child: AnimatedOpacity(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : _aiTtsDragOpacityDuration,
-        opacity: opacity,
-        child: Container(
-          width: _aiTtsDragHandleSize,
-          height: _aiTtsDragHandleSize,
-          margin: const EdgeInsets.only(right: 10, top: 1),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: theme.colorScheme.surfaceContainerHigh,
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
+    final label = _localizedText(context, zh: '拖动调整优先级', en: 'Drag');
+    return Semantics(
+      button: true,
+      label: label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: AnimatedOpacity(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : _aiTtsDragOpacityDuration,
+          opacity: opacity,
+          child: Container(
+            width: _aiTtsDragHandleSize,
+            height: _aiTtsDragHandleSize,
+            margin: const EdgeInsets.only(right: 10, top: 1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
+              ),
             ),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.drag_indicator_rounded,
-            size: 20,
-            color: theme.colorScheme.onSurfaceVariant,
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),

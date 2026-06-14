@@ -85,6 +85,7 @@ class AiTtsPlaybackService {
         if (generation == _generation) await stop();
         return;
       } catch (error, stack) {
+        if (error is _AiTtsPlaybackCancelled) return;
         silentLog('tts', 'provider ${provider.storageKey}', error, stack);
         await _stopActiveResources(clearState: false);
       }
@@ -118,6 +119,8 @@ class AiTtsPlaybackService {
         content,
         timeout: Duration(seconds: normalized.timeoutSeconds),
       );
+    } on _AiTtsPlaybackCancelled {
+      return;
     } finally {
       if (generation == _generation) {
         await _stopActiveResources(clearState: true);
@@ -441,7 +444,15 @@ class AiTtsPlaybackService {
     try {
       final exitCode = await process.exitCode.timeout(timeout);
       if (exitCode != 0) {
-        throw ProcessException(executable, args, 'exit $exitCode', exitCode);
+        if (!identical(_activeProcess, process)) {
+          throw const _AiTtsPlaybackCancelled();
+        }
+        throw ProcessException(
+          executable,
+          const <String>[],
+          'TTS process exited with code $exitCode',
+          exitCode,
+        );
       }
     } on TimeoutException {
       process.kill();
@@ -655,4 +666,8 @@ class AiTtsPlaybackService {
         "\$s.Volume = $volume; \$s.Rate = $rate; "
         "\$s.Speak('$escaped'); \$s.Dispose();";
   }
+}
+
+class _AiTtsPlaybackCancelled implements Exception {
+  const _AiTtsPlaybackCancelled();
 }

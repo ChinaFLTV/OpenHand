@@ -2086,9 +2086,28 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   void pushHandleLayers(LayerLink? startHandle, LayerLink? endHandle) {
+    final handleTargets = _resolveHandleTargets();
     for (final selectable in _selectables) {
-      selectable.pushHandleLayers(startHandle, endHandle);
+      selectable.pushHandleLayers(
+        selectable == handleTargets.$1 ? startHandle : null,
+        selectable == handleTargets.$2 ? endHandle : null,
+      );
     }
+  }
+
+  (Selectable?, Selectable?) _resolveHandleTargets() {
+    Selectable? startSelectable;
+    Selectable? endSelectable;
+    for (final selectable in _selectables) {
+      final geometry = selectable.value;
+      if (geometry.hasContent &&
+          (geometry.startSelectionPoint != null ||
+              geometry.endSelectionPoint != null)) {
+        startSelectable ??= selectable;
+        endSelectable = selectable;
+      }
+    }
+    return (startSelectable, endSelectable);
   }
 
   @override
