@@ -294,6 +294,7 @@ class AiSessionController extends ChangeNotifier {
   /// 拒绝触发，避免「0% 占比下也强行压缩」。
   static const int _manualCompactionRefusePercentLeftAbove = 85;
   static const int _initialMessageHydrationWindowSize = 96;
+  static const int _initialMessageHydrationCharacterBudget = 180000;
   static const int _olderMessageHydrationBatchSize = 96;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
@@ -1550,6 +1551,7 @@ class AiSessionController extends ChangeNotifier {
       final loaded = await _store.loadSessionTailWindow(
         sessionId,
         limit: _initialMessageHydrationWindowSize,
+        characterBudget: _initialMessageHydrationCharacterBudget,
       );
       if (loaded == null || _deletedSessionIds.contains(sessionId)) {
         return null;

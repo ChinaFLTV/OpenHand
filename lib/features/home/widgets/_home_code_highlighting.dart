@@ -38,8 +38,9 @@ class _HighlightFrameScheduler {
   _HighlightFrameScheduler._();
   static final instance = _HighlightFrameScheduler._();
 
-  final List<VoidCallback> _pending = [];
-  bool _draining = false;
+  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
+    maxPerFrame: _maxPerFrame,
+  );
 
   /// 每帧最多执行的 highlight 任务数。
   /// 阶段㉒：3 → 1。一些大段 bash/log 输出 tokenize 单次可能 ~30ms，
@@ -47,34 +48,7 @@ class _HighlightFrameScheduler {
   /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
   static const int _maxPerFrame = 1;
 
-  void schedule(VoidCallback task) {
-    _pending.add(task);
-    if (!_draining) {
-      _draining = true;
-      WidgetsBinding.instance.addPostFrameCallback(_drain);
-    }
-  }
-
-  void _drain(Duration _) {
-    if (_pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    // 取出本帧要执行的任务（最多 _maxPerFrame 个）
-    final batch = _pending.length <= _maxPerFrame
-        ? List<VoidCallback>.from(_pending)
-        : _pending.sublist(0, _maxPerFrame);
-    _pending.removeRange(0, batch.length);
-    for (final task in batch) {
-      task();
-    }
-    // 如果还有剩余，继续调度下一帧
-    if (_pending.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback(_drain);
-    } else {
-      _draining = false;
-    }
-  }
+  void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
 class _HighlightSpanCache {

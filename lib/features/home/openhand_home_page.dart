@@ -1442,6 +1442,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return messageCount >= _transcriptPreparationThreshold;
   }
 
+  bool _isTranscriptReadyForReveal(String sessionId) {
+    final controller = _observedSessionController;
+    if (controller == null) {
+      return true;
+    }
+    final session = controller.sessionById(sessionId);
+    if (session == null) {
+      return true;
+    }
+    if (controller.isSessionMessagesHydrating(sessionId)) {
+      return false;
+    }
+    return session.messages.isNotEmpty ||
+        session.statistics.totalMessageCount <= 0 ||
+        !session.hasMoreHistoricalMessages;
+  }
+
   bool _isPreparingTranscriptForSession(AiSession? session) {
     return session != null && _preparingTranscriptSessionId == session.id;
   }
@@ -1472,13 +1489,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  // Frame-driven placeholder dismissal. Instead of a wall-clock delay we
-  // wait for [_transcriptPreparationFrameBudget] consecutive post-frame
-  // callbacks — by that point the ListView has completed its first layout
-  // and the forced scroll-to-bottom has executed, so the transition fades
-  // exactly when there is something real to reveal. A hard timeout still
-  // forces the reveal after [_transcriptPreparationMaxWait] to guarantee
-  // the UI never hangs in the placeholder state.
+  // Frame-driven placeholder dismissal. We wait for both the selected
+  // session's initial message window to hydrate and a few rendered frames to
+  // pass; only then do we mount the real transcript tree.  This keeps slow
+  // SQLite / very long sessions from dropping the mask while the expensive
+  // first transcript build is still queued.
   void _scheduleTranscriptReveal({
     required int generation,
     required String expectedSessionId,
@@ -1505,22 +1520,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _preparingTranscriptSessionId != expectedSessionId) {
           return;
         }
-        if (remainingFrames <= 0 ||
-            stopwatch.elapsed >= _transcriptPreparationMaxWait) {
+        final ready = _isTranscriptReadyForReveal(expectedSessionId);
+        if (ready && remainingFrames <= 0) {
           finish();
           return;
         }
-        scheduleNextFrame(remainingFrames - 1);
+        if (stopwatch.elapsed >= _transcriptPreparationHardTimeout) {
+          finish();
+          return;
+        }
+        scheduleNextFrame(ready ? remainingFrames - 1 : remainingFrames);
       });
     }
 
     scheduleNextFrame(_transcriptPreparationFrameBudget);
 
-    // Safety net in case post-frame callbacks stop firing (e.g. the route
-    // is in the background). Use the scheduler's timeout guarantees via a
-    // microtask-driven timer. This never fires before the frame callbacks
-    // unless the frame pipeline truly stalls.
-    Future<void>.delayed(_transcriptPreparationMaxWait, finish);
+    // Safety net in case post-frame callbacks stop firing (e.g. the route is
+    // backgrounded) or a storage fault leaves hydration stuck.  It is long
+    // enough not to mask ordinary slow-disk hydration, but prevents a
+    // permanent overlay.
+    Future<void>.delayed(_transcriptPreparationHardTimeout, finish);
   }
 
   String _composerDraftKeyForSessionId(String? sessionId) {

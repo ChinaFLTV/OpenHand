@@ -1276,8 +1276,9 @@ class _MarkdownFrameScheduler {
   _MarkdownFrameScheduler._();
   static final instance = _MarkdownFrameScheduler._();
 
-  final List<VoidCallback> _pending = <VoidCallback>[];
-  bool _draining = false;
+  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
+    maxPerFrame: _maxPerFrame,
+  );
 
   /// 每帧最多执行的 markdown 解析任务数。1 条足以让首屏视觉焦点
   /// (最新消息) 第一时间从纯文本占位升级到完整 markdown 渲染，剩余
@@ -1285,32 +1286,7 @@ class _MarkdownFrameScheduler {
   /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
   static const int _maxPerFrame = 1;
 
-  void schedule(VoidCallback task) {
-    _pending.add(task);
-    if (!_draining) {
-      _draining = true;
-      WidgetsBinding.instance.addPostFrameCallback(_drain);
-    }
-  }
-
-  void _drain(Duration _) {
-    if (_pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    final batch = _pending.length <= _maxPerFrame
-        ? List<VoidCallback>.from(_pending)
-        : _pending.sublist(0, _maxPerFrame);
-    _pending.removeRange(0, batch.length);
-    for (final task in batch) {
-      task();
-    }
-    if (_pending.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback(_drain);
-    } else {
-      _draining = false;
-    }
-  }
+  void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
@@ -3451,33 +3427,11 @@ class _HtmlWebViewFrameScheduler {
       _HtmlWebViewFrameScheduler._();
 
   static const int _maxPerFrame = 1;
-  final List<VoidCallback> _pending = <VoidCallback>[];
-  bool _draining = false;
+  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
+    maxPerFrame: _maxPerFrame,
+  );
 
-  void schedule(VoidCallback task) {
-    _pending.add(task);
-    if (_draining) return;
-    _draining = true;
-    WidgetsBinding.instance.addPostFrameCallback(_drain);
-  }
-
-  void _drain(Duration _) {
-    if (_pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    final batchSize = math.min(_pending.length, _maxPerFrame);
-    final batch = _pending.sublist(0, batchSize);
-    _pending.removeRange(0, batchSize);
-    for (final task in batch) {
-      task();
-    }
-    if (_pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback(_drain);
-  }
+  void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
 class _DeferredHtmlBubbleWebView extends StatefulWidget {

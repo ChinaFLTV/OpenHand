@@ -38,6 +38,7 @@ const int _transcriptWindowIncrement = 18;
 const int _transcriptWindowingThreshold = 8;
 const int _transcriptPreparationThreshold = 12;
 const int _transcriptStagedMaterializationThreshold = 24;
+const int _transcriptWarmupMaxPerFrame = 1;
 const double _transcriptListCacheExtent = 240;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
@@ -46,7 +47,7 @@ const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Frame-driven reveal keeps long transcript switches smooth without a fixed
 // blank delay.
 const int _transcriptPreparationFrameBudget = 10;
-const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 640);
+const Duration _transcriptPreparationHardTimeout = Duration(seconds: 3);
 const Duration _hardnessSessionPersistenceDebounce = Duration(
   milliseconds: 320,
 );
@@ -83,6 +84,61 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 // 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
+
+/// Tiny frame-budgeted task queue used by transcript render warmups.
+///
+/// Markdown parsing, syntax highlighting and platform-view mounting are all
+/// UI-thread work.  Keeping their schedulers on one implementation avoids
+/// each feature accidentally draining several tasks in the same frame.
+class _FrameTaskScheduler {
+  _FrameTaskScheduler({required this.maxPerFrame});
+
+  final int maxPerFrame;
+  final List<VoidCallback> _pending = <VoidCallback>[];
+  bool _draining = false;
+  int _generation = 0;
+
+  void schedule(VoidCallback task) {
+    _pending.add(task);
+    if (_draining) {
+      return;
+    }
+    _draining = true;
+    final generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (timestamp) => _drain(timestamp, generation),
+    );
+  }
+
+  void clear() {
+    _pending.clear();
+    _draining = false;
+    _generation += 1;
+  }
+
+  void _drain(Duration _, int generation) {
+    if (generation != _generation) {
+      return;
+    }
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    final batchSize = math.min(_pending.length, math.max(1, maxPerFrame));
+    final batch = _pending.sublist(0, batchSize);
+    _pending.removeRange(0, batchSize);
+    for (final task in batch) {
+      task();
+    }
+    if (_pending.isEmpty) {
+      _draining = false;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (timestamp) => _drain(timestamp, generation),
+    );
+  }
+}
 
 Widget _buildWorkspaceSidebarTransition({
   required Widget child,

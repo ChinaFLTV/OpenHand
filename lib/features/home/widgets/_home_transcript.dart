@@ -300,6 +300,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _windowStartIndex = 0;
   bool _loadingOlderMessages = false;
   bool _initialMaterializationPending = false;
+  bool _materializationTaskQueued = false;
+  int _materializationGeneration = 0;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
   // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
@@ -343,6 +345,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
   bool _warmupDependenciesReady = false;
+  final _FrameTaskScheduler _warmupScheduler = _FrameTaskScheduler(
+    maxPerFrame: _transcriptWarmupMaxPerFrame,
+  );
+  int _warmupGeneration = 0;
 
   @override
   void initState() {
@@ -402,6 +408,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
+      _materializationGeneration += 1;
+      _warmupGeneration += 1;
+      _warmupScheduler.clear();
       _TranscriptScrollDispatcher.instance.unregister(
         oldWidget.session.id,
         this,
@@ -418,6 +427,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialMaterializationPending = false;
+      _materializationTaskQueued = false;
       // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -527,15 +537,63 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (!_initialMaterializationPending) {
       return;
     }
+    _queueMaterializationCompletionStep();
+  }
+
+  void _queueMaterializationCompletionStep() {
+    if (_materializationTaskQueued || !_initialMaterializationPending) {
+      return;
+    }
+    _materializationTaskQueued = true;
+    final generation = ++_materializationGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_initialMaterializationPending) {
+      _materializationTaskQueued = false;
+      if (!mounted ||
+          !_initialMaterializationPending ||
+          generation != _materializationGeneration) {
+        return;
+      }
+      final allVisibleMessages = _visibleMessagesForWindow();
+      if (allVisibleMessages.isEmpty) {
+        setState(() {
+          _initialMaterializationPending = false;
+          _renderEntries = const <_TranscriptRenderEntry>[];
+        });
+        return;
+      }
+      final nextVisibleMessages = _nextMaterializedMessageBatch(
+        allVisibleMessages,
+      );
+      if (nextVisibleMessages.length <= _renderEntries.length) {
+        setState(() {
+          _initialMaterializationPending = false;
+          _replaceRenderEntries(allVisibleMessages, animate: false);
+        });
         return;
       }
       setState(() {
-        _initialMaterializationPending = false;
-        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        _initialMaterializationPending =
+            nextVisibleMessages.length < allVisibleMessages.length;
+        _replaceRenderEntries(nextVisibleMessages, animate: false);
       });
+      if (_initialMaterializationPending) {
+        _queueMaterializationCompletionStep();
+      }
     });
+  }
+
+  List<AiSessionMessage> _nextMaterializedMessageBatch(
+    List<AiSessionMessage> allVisibleMessages,
+  ) {
+    final currentCount = _renderEntries.length;
+    if (currentCount <= 0) {
+      return _initialVisibleMessagesForFirstFrame();
+    }
+    final targetCount = math.min(
+      allVisibleMessages.length,
+      currentCount + _transcriptWindowIncrement,
+    );
+    return allVisibleMessages.sublist(allVisibleMessages.length - targetCount);
   }
 
   void _replaceRenderEntries(
@@ -547,7 +605,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       arguments: <String, Object?>{'count': visibleMessages.length},
     );
     try {
-      _warmRichRenderEntries(visibleMessages);
+      _scheduleWarmRichRenderEntries(visibleMessages);
       if (!animate) {
         _animatedMessageIds.addAll(
           visibleMessages.map((message) => message.id),
@@ -566,12 +624,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (!_warmupDependenciesReady || _renderEntries.isEmpty) {
       return;
     }
-    _warmRichRenderEntries(
+    _scheduleWarmRichRenderEntries(
       _renderEntries.map((entry) => entry.message).toList(growable: false),
     );
   }
 
-  void _warmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
+  void _scheduleWarmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
     final theme = _warmupTheme;
     final settings = _warmupSettings;
     if (!_warmupDependenciesReady ||
@@ -592,13 +650,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     );
     final startIndex = math.max(0, staged.length - warmCount);
     final warmMessages = staged.sublist(startIndex);
+    final generation = ++_warmupGeneration;
+    _warmupScheduler.clear();
     for (final message in warmMessages) {
-      _warmRichRenderForMessage(
-        session: session,
-        message: message,
-        theme: theme,
-        settings: settings,
-      );
+      _warmupScheduler.schedule(() {
+        if (!mounted ||
+            generation != _warmupGeneration ||
+            widget.session.id != session.id) {
+          return;
+        }
+        _warmRichRenderForMessage(
+          session: session,
+          message: message,
+          theme: theme,
+          settings: settings,
+        );
+      });
     }
   }
 
@@ -898,6 +965,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void dispose() {
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
+    _materializationGeneration += 1;
+    _warmupGeneration += 1;
+    _warmupScheduler.clear();
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
     super.dispose();

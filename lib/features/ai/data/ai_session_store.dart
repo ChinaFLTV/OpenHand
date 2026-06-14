@@ -591,6 +591,7 @@ class AiSessionStore {
   Future<AiSession?> loadSessionTailWindow(
     String sessionId, {
     required int limit,
+    int? characterBudget,
   }) async {
     final normalizedId = sessionId.trim();
     if (!_isSafeStorageIdentifier(normalizedId)) return null;
@@ -612,14 +613,20 @@ class AiSessionStore {
     final effectiveLimit = limit <= 0
         ? totalCount
         : math.min(limit, totalCount);
-    final offset = math.max(0, totalCount - effectiveLimit);
-    final messageRows = await _db.query(
+    final rawRows = await _db.query(
       'messages',
       where: 'session_id = ?',
       whereArgs: <Object?>[normalizedId],
-      orderBy: 'sort_order ASC',
+      orderBy: 'sort_order DESC',
       limit: effectiveLimit,
-      offset: offset,
+    );
+    final messageRows = _trimTailRowsToBudget(
+      rawRows,
+      characterBudget: characterBudget,
+    );
+    final offset = _messageWindowStartOffset(
+      messageRows,
+      fallback: math.max(0, totalCount - messageRows.length),
     );
     final loadState = offset == 0 && messageRows.length >= totalCount
         ? AiSessionMessageLoadState.complete
@@ -632,6 +639,43 @@ class AiSessionStore {
       messageTotalCount: totalCount,
     );
     return restoreCompressionCheckpointFromSidecar(session);
+  }
+
+  int _messageWindowStartOffset(
+    List<Map<String, Object?>> rows, {
+    required int fallback,
+  }) {
+    if (rows.isEmpty) {
+      return fallback;
+    }
+    final sortOrder = rows.first['sort_order'];
+    return sortOrder is int ? math.max(0, sortOrder) : fallback;
+  }
+
+  List<Map<String, Object?>> _trimTailRowsToBudget(
+    List<Map<String, Object?>> rows, {
+    required int? characterBudget,
+  }) {
+    if (rows.isEmpty) {
+      return const <Map<String, Object?>>[];
+    }
+    final budget = characterBudget == null ? 0 : math.max(0, characterBudget);
+    final selected = <Map<String, Object?>>[];
+    var totalCharacters = 0;
+    for (final row in rows) {
+      final rawCount = row['character_count'];
+      final characterCount = rawCount is int
+          ? math.max(0, rawCount)
+          : '${row['content'] ?? ''}'.length;
+      if (budget > 0 &&
+          selected.isNotEmpty &&
+          totalCharacters + characterCount > budget) {
+        break;
+      }
+      selected.add(row);
+      totalCharacters += characterCount;
+    }
+    return selected.reversed.toList(growable: false);
   }
 
   /// Loads all sessions (with messages) that belong to the given [templateId]
