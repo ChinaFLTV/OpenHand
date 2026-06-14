@@ -54,8 +54,8 @@ class AiTtsProviderCatalogs {
   static const List<AiTtsCatalogOption> _browserVoices = <AiTtsCatalogOption>[
     AiTtsCatalogOption('', '自动匹配系统默认音色'),
     AiTtsCatalogOption('Tingting', 'macOS Tingting'),
-    AiTtsCatalogOption('Sin-ji', 'macOS Sin-ji'),
-    AiTtsCatalogOption('Mei-Jia', 'macOS Mei-Jia'),
+    AiTtsCatalogOption('Sinji', 'macOS Sinji'),
+    AiTtsCatalogOption('Meijia', 'macOS Meijia'),
     AiTtsCatalogOption('Samantha', 'macOS Samantha'),
     AiTtsCatalogOption('Microsoft Xiaoxiao', 'Windows Xiaoxiao'),
     AiTtsCatalogOption('Microsoft Yunxi', 'Windows Yunxi'),

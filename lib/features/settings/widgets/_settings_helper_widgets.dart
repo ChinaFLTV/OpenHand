@@ -5,8 +5,9 @@ const String _settingsZeroDurationLabel = '0s';
 const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
 const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
-const double _aiTtsCardActionSize = 48;
+const double _aiTtsCardActionSize = 40;
 const double _aiTtsDragFeedbackMaxHeight = 240;
+const double _settingsStandardFieldWidth = 360;
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -300,9 +301,11 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                     value: settings.timeoutSeconds,
                     min: AiTtsSettings.minTimeoutSeconds,
                     max: AiTtsSettings.maxTimeoutSeconds,
+                    dense: false,
                     onChanged: (value) =>
                         onChanged(settings.copyWith(timeoutSeconds: value)),
                   ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
                 ),
                 const SizedBox(height: 16),
                 _ResponsiveSettingRow(
@@ -320,9 +323,11 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                     value: settings.maxTextCharacters,
                     min: AiTtsSettings.minMaxTextCharacters,
                     max: AiTtsSettings.maxMaxTextCharacters,
+                    dense: false,
                     onChanged: (value) =>
                         onChanged(settings.copyWith(maxTextCharacters: value)),
                   ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
                 ),
                 const SizedBox(height: 16),
                 _AiTtsProviderDeck(
@@ -1229,10 +1234,13 @@ class _AiTtsTestButton extends StatelessWidget {
           onPressed: onPressed,
           style: IconButton.styleFrom(
             shape: const CircleBorder(),
-            backgroundColor: theme.colorScheme.secondaryContainer.withValues(
-              alpha: 0.76,
-            ),
-            foregroundColor: theme.colorScheme.onSecondaryContainer,
+            padding: EdgeInsets.zero,
+            minimumSize: const Size.square(_aiTtsCardActionSize),
+            fixedSize: const Size.square(_aiTtsCardActionSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.74),
+            foregroundColor: theme.colorScheme.onSurfaceVariant,
             disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
                 .withValues(alpha: 0.48),
             disabledForegroundColor: theme.colorScheme.onSurfaceVariant
@@ -1779,12 +1787,14 @@ class _SettingsIntField extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.dense = true,
   });
 
   final int value;
   final int min;
   final int max;
   final ValueChanged<int> onChanged;
+  final bool dense;
 
   @override
   State<_SettingsIntField> createState() => _SettingsIntFieldState();
@@ -1840,12 +1850,16 @@ class _SettingsIntFieldState extends State<_SettingsIntField> {
     return TextField(
       controller: _controller,
       keyboardType: TextInputType.number,
-      textAlign: TextAlign.right,
-      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-      decoration: const InputDecoration(
-        isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        border: OutlineInputBorder(),
+      textAlign: widget.dense ? TextAlign.right : TextAlign.left,
+      style: widget.dense
+          ? const TextStyle(fontSize: 12, fontFamily: 'monospace')
+          : null,
+      decoration: InputDecoration(
+        isDense: widget.dense,
+        contentPadding: widget.dense
+            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 6)
+            : null,
+        border: const OutlineInputBorder(),
       ),
       onSubmitted: _commit,
       onEditingComplete: () => _commit(_controller.text),

@@ -38,6 +38,7 @@ class AiTtsPlaybackService {
   Process? _activeProcess;
   WebSocket? _activeWebSocket;
   http.Client? _activeClient;
+  Future<Set<String>>? _macOsVoiceNamesFuture;
 
   bool isPlayingMessage(String messageId) {
     final snapshot = state.value;
@@ -266,6 +267,19 @@ class AiTtsPlaybackService {
     required Duration timeout,
   }) async {
     if (Platform.isMacOS) {
+      final voice = await _resolveMacOsVoice(
+        settings.voice,
+      ).timeout(const Duration(seconds: 2), onTimeout: () => '');
+      if (voice.isNotEmpty) {
+        await _runSpeechProcess('say', <String>[
+          '-v',
+          voice,
+          '-r',
+          '${_systemRate(settings.speed)}',
+          text,
+        ], timeout: timeout);
+        return;
+      }
       await _runSpeechProcess('osascript', <String>[
         '-e',
         _macOsSpeechScript(text, settings),
@@ -641,16 +655,28 @@ class AiTtsPlaybackService {
   }) async {
     final process = await startTrackedProcess(executable, args);
     _activeProcess = process;
+    final stderrBuffer = StringBuffer();
+    final stderrDone = process.stderr.transform(utf8.decoder).listen((chunk) {
+      if (stderrBuffer.length < 1000) stderrBuffer.write(chunk);
+    }).asFuture<void>();
+    final stdoutDone = process.stdout.drain<void>();
     try {
       final exitCode = await process.exitCode.timeout(timeout);
+      await Future.wait<void>([
+        stderrDone.timeout(const Duration(milliseconds: 300), onTimeout: () {}),
+        stdoutDone.timeout(const Duration(milliseconds: 300), onTimeout: () {}),
+      ]);
       if (exitCode != 0) {
         if (!identical(_activeProcess, process)) {
           throw const _AiTtsPlaybackCancelled();
         }
+        final stderrText = stderrBuffer.toString().trim();
         throw ProcessException(
           executable,
           const <String>[],
-          'TTS process exited with code $exitCode',
+          stderrText.isEmpty
+              ? 'TTS process exited with code $exitCode'
+              : 'TTS process exited with code $exitCode: $stderrText',
           exitCode,
         );
       }
@@ -741,6 +767,36 @@ class AiTtsPlaybackService {
     }
   }
 
+  Future<String> _resolveMacOsVoice(String configuredVoice) async {
+    final normalized = _macOsVoiceAlias(configuredVoice.trim());
+    if (normalized.isEmpty || !Platform.isMacOS) return '';
+    final voices = await (_macOsVoiceNamesFuture ??= _loadMacOsVoiceNames());
+    if (voices.contains(normalized)) return normalized;
+    final lower = normalized.toLowerCase();
+    for (final voice in voices) {
+      if (voice.toLowerCase() == lower) return voice;
+    }
+    return '';
+  }
+
+  Future<Set<String>> _loadMacOsVoiceNames() async {
+    try {
+      final result = await Process.run('say', const <String>[
+        '-v',
+        '?',
+      ]).timeout(const Duration(seconds: 2));
+      if (result.exitCode != 0) return const <String>{};
+      final output = '${result.stdout}';
+      return output
+          .split('\n')
+          .map((line) => line.trimLeft().split(RegExp(r'\s{2,}')).first.trim())
+          .where((voice) => voice.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return const <String>{};
+    }
+  }
+
   static String _normalizeText(String text, int maxCharacters) {
     final trimmed = text
         .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
@@ -761,9 +817,6 @@ class AiTtsPlaybackService {
     AiTtsProviderSettings settings,
   ) {
     final buffer = StringBuffer('say ${_appleScriptString(text)}');
-    if (settings.voice.isNotEmpty) {
-      buffer.write(' using ${_appleScriptString(settings.voice)}');
-    }
     buffer
       ..write(' speaking rate ${_systemRate(settings.speed)}')
       ..write(' pitch ${_systemPitch(settings.pitch)}')
@@ -774,6 +827,17 @@ class AiTtsPlaybackService {
   static int _systemPitch(double pitch) {
     if (pitch > 10) return pitch.round().clamp(0, 100);
     return (50 * pitch.clamp(0.5, 2.0)).round().clamp(0, 100);
+  }
+
+  static String _macOsVoiceAlias(String voice) {
+    switch (voice) {
+      case 'Mei-Jia':
+        return 'Meijia';
+      case 'Sin-ji':
+        return 'Sinji';
+      default:
+        return voice;
+    }
   }
 
   static double _systemVolume(double volume) {
