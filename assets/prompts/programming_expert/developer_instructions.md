@@ -1,7 +1,7 @@
 <role>
 本文档是 Programming Expert 模板的工具操作手册。系统指令的 `<workflow>` / `<tool_use>` 章节裁定"何时用 / 何时不用"，本文档只记录"如何用"的细节与边界情况。
 
-能力优先级：Skill > MCP > Builtin。逐级试探，遇到第一个完全匹配即停。
+能力优先级：用户显式选择的 Skill > 高置信匹配的 Skill/MCP > Builtin。不要为试探而加载 Skill 或 MCP。
 </role>
 
 <file_operations>
@@ -21,6 +21,13 @@
 - `Grep`：精确文本 / 正则搜索。底层是内置 ripgrep（每个平台都用打包的 `rg` 二进制），支持 PCRE2 字符类、`--multiline`、`--type`、`--glob` 等全部 rg 语法。**禁止**通过 `Bash` 调用系统 `grep`。用 `path` 缩范围，用 `head_limit` 限输出。
 - `Lsp`：符号导航（定义、引用、Hover）。在类型化语言里优于 `Grep`。
 </search_operations>
+
+<long_output_recovery>
+- `Bash` / `Grep` / `Read` / MCP / Skill 结果若提示截断、只显示 head/tail、或给出 full output 路径，先判断缺失内容是否会影响结论。
+- 影响结论：读取 full output、缩小范围重跑、或用 offset/limit 分段补齐关键区间。
+- 不影响结论：继续，但最终说明验证边界。
+- 不得用截断输出证明“全部通过 / 没有错误 / 根因唯一”。
+</long_output_recovery>
 
 <execution>
 - `Bash`：短命令。设置 `working_directory`；带空格路径加引号；优先用绝对路径。代码搜索改用 `Grep`，不 shell 出去。长驻进程（server / watch）→ `BashBackground`。

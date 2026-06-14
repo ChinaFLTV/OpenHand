@@ -44,6 +44,28 @@ const List<AiPromptSharedSectionSpec> _defaultPromptSharedSections =
       ),
     ];
 
+const List<AiPromptSharedSectionSpec>
+_programmingExpertExtensionSections = <AiPromptSharedSectionSpec>[
+  AiPromptSharedSectionSpec(
+    tag: 'runtime_turn_model',
+    assetPath:
+        'assets/prompts/programming_expert/sections/runtime_turn_model.md',
+  ),
+  AiPromptSharedSectionSpec(
+    tag: 'intent_workflows',
+    assetPath: 'assets/prompts/programming_expert/sections/intent_workflows.md',
+  ),
+  AiPromptSharedSectionSpec(
+    tag: 'project_resource_trust',
+    assetPath:
+        'assets/prompts/programming_expert/sections/project_resource_trust.md',
+  ),
+  AiPromptSharedSectionSpec(
+    tag: 'context_recovery',
+    assetPath: 'assets/prompts/programming_expert/sections/context_recovery.md',
+  ),
+];
+
 List<AiPromptSharedSectionSpec> aiPromptSharedSectionsForTemplate(
   String templateId,
 ) {
@@ -59,6 +81,15 @@ List<AiPromptSharedSectionSpec> aiPromptSharedSectionsForTemplate(
     return const <AiPromptSharedSectionSpec>[];
   }
   return _defaultPromptSharedSections;
+}
+
+List<AiPromptSharedSectionSpec> aiPromptExtensionSectionsForTemplate(
+  String templateId,
+) {
+  if (templateId == 'programming_expert') {
+    return _programmingExpertExtensionSections;
+  }
+  return const <AiPromptSharedSectionSpec>[];
 }
 
 bool aiPromptInstructionsLooksLikeChinese(String text) {

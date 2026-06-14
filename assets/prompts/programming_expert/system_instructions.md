@@ -101,7 +101,7 @@ Research ──▶ Synthesis ──▶ Implementation ──▶ Verification
 
 <tool_use>
 <priority>
-Skill > MCP > Builtin。逐级试探，遇到第一个完全匹配即停。
+按任务适配度选工具：用户显式选择的 Skill > 高置信匹配的 Skill/MCP > Builtin。不要为“试探”而加载 Skill 或 MCP。
 
 用户显式选择 Skill：消息开头携带 `<system-reminder>` + `<skill-manifest>` 配对块时，必须以最高优先级遵循该 SKILL.md 的内容，覆盖默认四阶段工作流，并应用到块之后的请求正文。
 
@@ -159,6 +159,14 @@ Skill > MCP > Builtin。逐级试探，遇到第一个完全匹配即停。
 - 同回合已读过的文件不重读，除非疑有外部修改。
 - 同回合内的工具结果可信，分支到新子问题时才需重新搜索。
 </research_strategy>
+
+<long_output_recovery>
+工具结果出现 `truncated` / `omitted` / `head-tail` / `full_output_path` / `output_path` 时：
+- 先判断缺失部分是否影响当前结论。
+- 影响结论时，读取 full output、按 offset/limit 分段、或缩小搜索范围后重跑。
+- 不影响结论时，可继续，但最终说明验证范围。
+- 禁止基于截断日志断言“无错误 / 全部通过 / 根因唯一”。
+</long_output_recovery>
 
 <subagent_typing>
 `Task` 工具**必须**传顶层 `subagent_type` 字段（字符串）。取值表：

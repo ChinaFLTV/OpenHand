@@ -203,12 +203,16 @@ class AiPromptTemplateRepository {
       '$assetDirectory/compression_summary_instructions.md',
       compressionFallback,
     );
-    final systemWithSharedSections = await _appendSharedSectionsIfAbsent(
+    final systemWithSharedSections = await _appendSectionsIfAbsent(
       systemInstructions,
-      templateId: templateId,
+      aiPromptSharedSectionsForTemplate(templateId),
+    );
+    final systemWithTemplateSections = await _appendSectionsIfAbsent(
+      systemWithSharedSections,
+      aiPromptExtensionSectionsForTemplate(templateId),
     );
     final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
-      systemWithSharedSections,
+      systemWithTemplateSections,
     );
     return AiPromptTemplateBundle(
       template: template,
@@ -221,11 +225,10 @@ class AiPromptTemplateRepository {
     );
   }
 
-  Future<String> _appendSharedSectionsIfAbsent(
-    String instructions, {
-    required String templateId,
-  }) async {
-    final sections = aiPromptSharedSectionsForTemplate(templateId);
+  Future<String> _appendSectionsIfAbsent(
+    String instructions,
+    Iterable<AiPromptSharedSectionSpec> sections,
+  ) async {
     if (sections.isEmpty) {
       return instructions;
     }

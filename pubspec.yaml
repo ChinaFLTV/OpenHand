@@ -58,6 +58,7 @@ flutter:
     - assets/prompts/hermes_talker/
     - assets/prompts/machine_expert/
     - assets/prompts/programming_expert/
+    - assets/prompts/programming_expert/sections/
     - assets/prompts/siri_helper/
     - assets/prompts/web_reverse_expert/
     - assets/prompts/web_reverse_expert/snippets/

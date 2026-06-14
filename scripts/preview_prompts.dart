@@ -20,8 +20,11 @@ const List<({String id, String dir})> _templates = <({String id, String dir})>[
   (id: 'web_reverse_expert', dir: 'assets/prompts/web_reverse_expert'),
 ];
 
-String _appendSharedSectionsIfAbsent(String instructions, String templateId) {
-  final sections = aiPromptSharedSectionsForTemplate(templateId)
+String _appendSectionsIfAbsent(
+  String instructions,
+  Iterable<AiPromptSharedSectionSpec> specs,
+) {
+  final sections = specs
       .map(
         (section) => AiPromptLoadedSection(
           tag: section.tag,
@@ -34,6 +37,17 @@ String _appendSharedSectionsIfAbsent(String instructions, String templateId) {
     return instructions;
   }
   return appendAiPromptSharedSectionsIfAbsent(instructions, sections);
+}
+
+String _appendTemplateSectionsIfAbsent(String instructions, String templateId) {
+  final withShared = _appendSectionsIfAbsent(
+    instructions,
+    aiPromptSharedSectionsForTemplate(templateId),
+  );
+  return _appendSectionsIfAbsent(
+    withShared,
+    aiPromptExtensionSectionsForTemplate(templateId),
+  );
 }
 
 String _appendV4DisciplineIfAbsent(String instructions) {
@@ -86,7 +100,9 @@ void main() {
     final cjkRatio = _cjkRatioPct(system);
 
     final assembled = _appendMemoryTonePolicyIfAbsent(
-      _appendV4DisciplineIfAbsent(_appendSharedSectionsIfAbsent(system, t.id)),
+      _appendV4DisciplineIfAbsent(
+        _appendTemplateSectionsIfAbsent(system, t.id),
+      ),
     );
 
     File(

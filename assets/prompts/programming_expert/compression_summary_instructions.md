@@ -14,6 +14,7 @@
 - **Git State**：分支与未提交文件清单，不展开 diff。
 - **Context Gap**：若 payload 标记有被丢弃消息，记录缺口范围、数量和风险。
 - **Resource Recovery**：保留 `Resource Recovery Manifest` 中可重载的文件 / URL 锚点。
+- **Anchors**：已读文件、已改文件、关键命令、调用过的 Skill/MCP、外部 URL。
 </preserve>
 
 <remove>
@@ -36,6 +37,22 @@
 ## Git State
 ## Open Questions
 ## Risks
+
+<read-files>
+path/to/file
+</read-files>
+
+<modified-files>
+path/to/file
+</modified-files>
+
+<commands-run>
+command -> exit/status
+</commands-run>
+
+<resources>
+skill:mcp:url:path
+</resources>
 ```
 </output_format>
 
@@ -45,4 +62,6 @@
 3. 若已有更早 checkpoint，增量整合，不原文复读。
 4. 关键代码只保留必要片段或行号引用。
 5. 简洁但足以让下一轮直接继续实现、验证或提交。
+6. XML 锚点为空时省略；路径一行一个，不加解释。
+7. 截断输出只记录为“截断/需补读”，不要据此给通过结论。
 </rules>
