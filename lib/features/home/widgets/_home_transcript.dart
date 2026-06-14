@@ -342,6 +342,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
+  bool _warmupDependenciesReady = false;
 
   @override
   void initState() {
@@ -383,17 +384,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _warmupTheme = Theme.of(context);
+    _warmupSettings ??= context.read<SettingsController>();
+    _warmupDependenciesReady = _warmupSettings != null;
     final activity = context.read<TranscriptScrollActivity>();
     if (identical(activity, _scrollActivity)) {
-      _warmupTheme = Theme.of(context);
-      _warmupSettings ??= context.read<SettingsController>();
+      _warmCurrentRenderEntriesIfReady();
       return;
     }
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = activity;
     activity.addListener(_handleRevealScrollActivityChanged);
-    _warmupTheme = Theme.of(context);
-    _warmupSettings ??= context.read<SettingsController>();
+    _warmCurrentRenderEntriesIfReady();
   }
 
   @override
@@ -560,13 +562,25 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
   }
 
-  void _warmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
-    final theme = _warmupTheme ?? Theme.of(context);
-    final settings = _warmupSettings ?? context.read<SettingsController>();
-    final session = widget.session;
-    if (visibleMessages.isEmpty) {
+  void _warmCurrentRenderEntriesIfReady() {
+    if (!_warmupDependenciesReady || _renderEntries.isEmpty) {
       return;
     }
+    _warmRichRenderEntries(
+      _renderEntries.map((entry) => entry.message).toList(growable: false),
+    );
+  }
+
+  void _warmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
+    final theme = _warmupTheme;
+    final settings = _warmupSettings;
+    if (!_warmupDependenciesReady ||
+        theme == null ||
+        settings == null ||
+        visibleMessages.isEmpty) {
+      return;
+    }
+    final session = widget.session;
     final staged =
         _initialMaterializationPending &&
             visibleMessages.length <= _transcriptFirstFrameWindowSize
