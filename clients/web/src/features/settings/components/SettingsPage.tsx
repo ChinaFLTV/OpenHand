@@ -132,13 +132,15 @@ function ttsProviderLabel(provider: TtsProvider): string {
       return 'Google TTS';
     case 'baidu':
       return t('settings.tts.provider.baidu', '百度 TTS');
+    case 'doubao':
+      return t('settings.tts.provider.doubao', '豆包 TTS');
     case 'apple':
       return t('settings.tts.provider.apple', '苹果 TTS');
   }
 }
 
 function providerNeedsEndpoint(provider: TtsProvider): boolean {
-  return provider === 'xfyun' || provider === 'baidu';
+  return provider === 'xfyun' || provider === 'baidu' || provider === 'doubao';
 }
 
 function providerNeedsCredentials(provider: TtsProvider): boolean {
@@ -155,6 +157,8 @@ function providerHint(provider: TtsProvider): string {
       return t('settings.tts.provider.xfyun.desc', '官方在线 TTS 使用 WebSocket 与 HMAC 鉴权；App 端可按凭据调用。');
     case 'baidu':
       return t('settings.tts.provider.baidu.desc', '填写 access token 后 App 端可调用百度语音合成接口。');
+    case 'doubao':
+      return t('settings.tts.provider.doubao.desc', 'HTTP 单向流式语音合成，需填写 API Key、Resource ID 与音色 ID。');
     case 'youdao':
     case 'bing':
     case 'google':
@@ -775,22 +779,60 @@ function TtsProviderCard(props: {
           ) : null}
           {providerNeedsCredentials(props.provider) ? (
             <>
+              {props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                <TextSetting
+                  label="App ID"
+                  value={props.settings.appId}
+                  onCommit={(appId) => props.onChange({ appId })}
+                />
+              ) : null}
               <TextSetting
-                label="App ID"
-                value={props.settings.appId}
-                onCommit={(appId) => props.onChange({ appId })}
-              />
-              <TextSetting
-                label="API Key"
-                value={props.settings.apiKey}
-                onCommit={(apiKey) => props.onChange({ apiKey })}
-              />
-              <TextSetting
-                label={props.provider === 'baidu' ? 'Access Token' : 'API Secret / Token'}
-                value={props.provider === 'baidu' ? props.settings.accessToken : props.settings.apiSecret}
+                label={props.provider === 'baidu' ? 'Access Token' : 'API Key'}
+                value={props.provider === 'baidu' ? props.settings.accessToken : props.settings.apiKey}
                 onCommit={(value) => props.onChange(props.provider === 'baidu'
                   ? { accessToken: value }
-                  : { apiSecret: value })}
+                  : { apiKey: value })}
+              />
+              {props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                <TextSetting
+                  label="API Secret / Token"
+                  value={props.settings.apiSecret}
+                  onCommit={(apiSecret) => props.onChange({ apiSecret })}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {props.provider === 'doubao' ? (
+            <>
+              <TextSetting
+                label="Resource ID"
+                value={String(props.settings.extra.resource_id ?? 'seed-tts-2.0')}
+                onCommit={(value) => props.onChange({
+                  extra: {
+                    ...props.settings.extra,
+                    resource_id: value || 'seed-tts-2.0',
+                  },
+                })}
+              />
+              <TextSetting
+                label={t('settings.tts.model', '模型')}
+                value={String(props.settings.extra.model ?? 'seed-tts-2.0-standard')}
+                onCommit={(value) => props.onChange({
+                  extra: {
+                    ...props.settings.extra,
+                    model: value || 'seed-tts-2.0-standard',
+                  },
+                })}
+              />
+              <TextSetting
+                label={t('settings.tts.format', '音频格式')}
+                value={String(props.settings.extra.format ?? 'mp3')}
+                onCommit={(value) => props.onChange({
+                  extra: {
+                    ...props.settings.extra,
+                    format: value || 'mp3',
+                  },
+                })}
               />
             </>
           ) : null}

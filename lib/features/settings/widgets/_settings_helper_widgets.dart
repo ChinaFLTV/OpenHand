@@ -517,28 +517,70 @@ class _AiTtsProviderCard extends StatelessWidget {
                 ],
                 if (_providerNeedsCredentials(provider)) ...[
                   const SizedBox(height: 10),
+                  if (provider != AiTtsProvider.baidu &&
+                      provider != AiTtsProvider.doubao) ...[
+                    _AiTtsProviderTextField(
+                      label: 'App ID',
+                      value: providerSettings.appId,
+                      onSubmitted: (value) =>
+                          _update(providerSettings.copyWith(appId: value)),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   _AiTtsProviderTextField(
-                    label: 'App ID',
-                    value: providerSettings.appId,
-                    onSubmitted: (value) =>
-                        _update(providerSettings.copyWith(appId: value)),
-                  ),
-                  const SizedBox(height: 10),
-                  _AiTtsProviderTextField(
-                    label: 'API Key',
-                    value: providerSettings.apiKey,
-                    onSubmitted: (value) =>
-                        _update(providerSettings.copyWith(apiKey: value)),
-                  ),
-                  const SizedBox(height: 10),
-                  _AiTtsProviderTextField(
-                    label: 'API Secret / Token',
-                    value: providerSettings.apiSecret.isNotEmpty
-                        ? providerSettings.apiSecret
-                        : providerSettings.accessToken,
+                    label: provider == AiTtsProvider.baidu
+                        ? 'Access Token'
+                        : 'API Key',
+                    value: provider == AiTtsProvider.baidu
+                        ? providerSettings.accessToken
+                        : providerSettings.apiKey,
                     onSubmitted: (value) => provider == AiTtsProvider.baidu
                         ? _update(providerSettings.copyWith(accessToken: value))
-                        : _update(providerSettings.copyWith(apiSecret: value)),
+                        : _update(providerSettings.copyWith(apiKey: value)),
+                  ),
+                  if (provider != AiTtsProvider.baidu &&
+                      provider != AiTtsProvider.doubao) ...[
+                    const SizedBox(height: 10),
+                    _AiTtsProviderTextField(
+                      label: 'API Secret / Token',
+                      value: providerSettings.apiSecret,
+                      onSubmitted: (value) =>
+                          _update(providerSettings.copyWith(apiSecret: value)),
+                    ),
+                  ],
+                ],
+                if (provider == AiTtsProvider.doubao) ...[
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: 'Resource ID',
+                    value:
+                        '${providerSettings.extra['resource_id'] ?? 'seed-tts-2.0'}',
+                    onSubmitted: (value) => _updateExtra(
+                      providerSettings,
+                      'resource_id',
+                      value.isEmpty ? 'seed-tts-2.0' : value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: _localizedText(context, zh: '模型', en: 'Model'),
+                    value:
+                        '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
+                    onSubmitted: (value) => _updateExtra(
+                      providerSettings,
+                      'model',
+                      value.isEmpty ? 'seed-tts-2.0-standard' : value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                    value: '${providerSettings.extra['format'] ?? 'mp3'}',
+                    onSubmitted: (value) => _updateExtra(
+                      providerSettings,
+                      'format',
+                      value.isEmpty ? 'mp3' : value,
+                    ),
                   ),
                 ],
               ],
@@ -555,6 +597,16 @@ class _AiTtsProviderCard extends StatelessWidget {
     );
     providers[provider] = next.normalized();
     await onChanged(settings.copyWith(providers: providers));
+  }
+
+  Future<void> _updateExtra(
+    AiTtsProviderSettings current,
+    String key,
+    Object? value,
+  ) async {
+    final extra = Map<String, Object?>.from(current.extra);
+    extra[key] = value;
+    await _update(current.copyWith(extra: extra));
   }
 }
 
@@ -690,13 +742,17 @@ String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
       return 'Google TTS';
     case AiTtsProvider.baidu:
       return _localizedText(context, zh: '百度 TTS', en: 'Baidu TTS');
+    case AiTtsProvider.doubao:
+      return _localizedText(context, zh: '豆包 TTS', en: 'Doubao TTS');
     case AiTtsProvider.apple:
       return _localizedText(context, zh: '苹果 TTS', en: 'Apple TTS');
   }
 }
 
 bool _providerNeedsEndpoint(AiTtsProvider provider) {
-  return provider == AiTtsProvider.xfyun || provider == AiTtsProvider.baidu;
+  return provider == AiTtsProvider.xfyun ||
+      provider == AiTtsProvider.baidu ||
+      provider == AiTtsProvider.doubao;
 }
 
 bool _providerNeedsCredentials(AiTtsProvider provider) {

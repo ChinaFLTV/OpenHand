@@ -5,6 +5,7 @@ enum AiTtsProvider {
   bing('bing'),
   google('google'),
   baidu('baidu'),
+  doubao('doubao'),
   apple('apple');
 
   const AiTtsProvider(this.storageKey);
@@ -144,6 +145,30 @@ class AiTtsProviderSettings {
           accessToken: '',
           region: '',
           extra: <String, Object?>{},
+        );
+      case AiTtsProvider.doubao:
+        return const AiTtsProviderSettings(
+          provider: AiTtsProvider.doubao,
+          enabled: false,
+          voice: '',
+          language: 'zh-CN',
+          speed: 0,
+          volume: 0,
+          pitch: 0,
+          endpoint:
+              'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
+          appId: '',
+          apiKey: '',
+          apiSecret: '',
+          accessToken: '',
+          region: '',
+          extra: <String, Object?>{
+            'resource_id': 'seed-tts-2.0',
+            'model': 'seed-tts-2.0-standard',
+            'format': 'mp3',
+            'sample_rate': 24000,
+            'bit_rate': 128000,
+          },
         );
       case AiTtsProvider.apple:
         return const AiTtsProviderSettings(
@@ -339,6 +364,7 @@ class AiTtsSettings {
     AiTtsProvider.bing,
     AiTtsProvider.google,
     AiTtsProvider.baidu,
+    AiTtsProvider.doubao,
     AiTtsProvider.youdao,
   ];
 

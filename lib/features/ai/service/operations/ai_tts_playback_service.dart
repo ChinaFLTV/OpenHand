@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
@@ -113,6 +114,8 @@ class AiTtsPlaybackService {
         return _speakWithXfyun(provider, text, timeout: timeout);
       case AiTtsProvider.baidu:
         return _speakWithBaidu(provider, text, timeout: timeout);
+      case AiTtsProvider.doubao:
+        return _speakWithDoubao(provider, text, timeout: timeout);
       case AiTtsProvider.youdao:
       case AiTtsProvider.bing:
       case AiTtsProvider.google:
@@ -121,6 +124,102 @@ class AiTtsPlaybackService {
             '${provider.provider.storageKey} TTS requires configured audio playback integration.',
           ),
         );
+    }
+  }
+
+  Future<void> _speakWithDoubao(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty) {
+      throw StateError('Doubao TTS API key is empty.');
+    }
+    final speaker = settings.voice.trim();
+    if (speaker.isEmpty) {
+      throw StateError('Doubao TTS speaker is empty.');
+    }
+    final endpoint = settings.endpoint.isEmpty
+        ? AiTtsProviderSettings.defaults(AiTtsProvider.doubao).endpoint
+        : settings.endpoint;
+    final uri = Uri.parse(endpoint);
+    final resourceId = _extraString(
+      settings,
+      'resource_id',
+      fallback: 'seed-tts-2.0',
+    );
+    final requestId = _extraString(settings, 'request_id').isEmpty
+        ? const Uuid().v4()
+        : _extraString(settings, 'request_id');
+    final audioFormat = _extraString(settings, 'format', fallback: 'mp3');
+    final request = http.Request('POST', uri)
+      ..headers.addAll(<String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.acceptHeader: 'application/json',
+        'X-Api-Key': settings.apiKey,
+        'X-Api-Resource-Id': resourceId,
+        'X-Api-Request-Id': requestId,
+      })
+      ..body = jsonEncode(<String, Object?>{
+        'req_params': <String, Object?>{
+          'text': text,
+          'speaker': speaker,
+          if (_extraString(settings, 'model').isNotEmpty)
+            'model': _extraString(settings, 'model'),
+          'audio_params': <String, Object?>{
+            'format': audioFormat,
+            'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
+            'bit_rate': _extraInt(settings, 'bit_rate', fallback: 128000),
+            'speech_rate': settings.speed.round().clamp(-50, 100),
+            'loudness_rate': settings.volume.round().clamp(-50, 100),
+          },
+          'additions': jsonEncode(<String, Object?>{
+            'disable_markdown_filter': _extraBool(
+              settings,
+              'disable_markdown_filter',
+            ),
+            'disable_emoji_filter': _extraBool(
+              settings,
+              'disable_emoji_filter',
+            ),
+            if (settings.language.trim().isNotEmpty)
+              'explicit_language': settings.language.trim().toLowerCase(),
+          }),
+          'post_process': <String, Object?>{
+            'pitch': settings.pitch.round().clamp(-12, 12),
+          },
+        },
+      });
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final streamed = await client.send(request).timeout(timeout);
+      if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+        throw HttpException('Doubao TTS HTTP ${streamed.statusCode}', uri: uri);
+      }
+      final audioBytes = BytesBuilder(copy: false);
+      final pending = StringBuffer();
+      await for (final chunk in streamed.stream.timeout(timeout)) {
+        final textChunk = utf8.decode(chunk, allowMalformed: true);
+        pending.write(textChunk);
+        _drainDoubaoJsonLines(
+          pending,
+          onAudio: (audio) => audioBytes.add(base64Decode(audio)),
+        );
+      }
+      _drainDoubaoJsonLines(
+        pending,
+        flush: true,
+        onAudio: (audio) => audioBytes.add(base64Decode(audio)),
+      );
+      await _playAudioBytes(
+        audioBytes.takeBytes(),
+        extension: _audioExtension(audioFormat),
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
     }
   }
 
@@ -380,6 +479,129 @@ class AiTtsPlaybackService {
   static int _linuxRate(double speed) {
     if (speed > 10) return ((speed - 50) * 2).round().clamp(-100, 100);
     return ((speed - 1.0) * 100).round().clamp(-100, 100);
+  }
+
+  static void _drainDoubaoJsonLines(
+    StringBuffer pending, {
+    bool flush = false,
+    required void Function(String audioBase64) onAudio,
+  }) {
+    final source = pending.toString();
+    final payloads = <String>[];
+    var start = -1;
+    var depth = 0;
+    var inString = false;
+    var escaped = false;
+    for (var i = 0; i < source.length; i++) {
+      final code = source.codeUnitAt(i);
+      if (start < 0) {
+        if (code == 123) {
+          start = i;
+          depth = 1;
+        }
+        continue;
+      }
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (code == 92) {
+          escaped = true;
+        } else if (code == 34) {
+          inString = false;
+        }
+        continue;
+      }
+      if (code == 34) {
+        inString = true;
+      } else if (code == 123) {
+        depth += 1;
+      } else if (code == 125) {
+        depth -= 1;
+        if (depth == 0) {
+          payloads.add(source.substring(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+
+    final remaining = start >= 0 ? source.substring(start) : '';
+    pending
+      ..clear()
+      ..write(remaining);
+    for (final payload in payloads) {
+      _handleDoubaoPayload(payload, onAudio: onAudio);
+    }
+    if (!flush) return;
+    final tail = pending.toString().trim();
+    if (tail.isEmpty) return;
+    _handleDoubaoPayload(tail, onAudio: onAudio);
+    pending.clear();
+  }
+
+  static void _handleDoubaoPayload(
+    String payload, {
+    required void Function(String audioBase64) onAudio,
+  }) {
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map) return;
+    final code = decoded['code'];
+    if (code is int && code != 0) {
+      throw StateError('Doubao TTS failed: ${decoded['message'] ?? code}');
+    }
+    final data = decoded['data'];
+    if (data is String && data.isNotEmpty) {
+      onAudio(data);
+      return;
+    }
+    if (data is Map) {
+      final audio = data['audio'] ?? data['data'];
+      if (audio is String && audio.isNotEmpty) onAudio(audio);
+    }
+  }
+
+  static String _audioExtension(String format) {
+    switch (format.trim().toLowerCase()) {
+      case 'pcm':
+        return '.pcm';
+      case 'wav':
+        return '.wav';
+      case 'ogg':
+      case 'ogg_opus':
+        return '.ogg';
+      case 'mp3':
+      default:
+        return '.mp3';
+    }
+  }
+
+  static String _extraString(
+    AiTtsProviderSettings settings,
+    String key, {
+    String fallback = '',
+  }) {
+    final value = settings.extra[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    if (value is num || value is bool) return '$value';
+    return fallback;
+  }
+
+  static int _extraInt(
+    AiTtsProviderSettings settings,
+    String key, {
+    required int fallback,
+  }) {
+    final value = settings.extra[key];
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) return int.tryParse(value.trim()) ?? fallback;
+    return fallback;
+  }
+
+  static bool _extraBool(AiTtsProviderSettings settings, String key) {
+    final value = settings.extra[key];
+    if (value is bool) return value;
+    if (value is String) return value.trim().toLowerCase() == 'true';
+    return false;
   }
 
   static String _windowsSpeechScript(

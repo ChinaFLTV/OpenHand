@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 
-export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'apple';
+export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'doubao' | 'apple';
 
 export interface TtsProviderSettings {
   enabled: boolean;
@@ -48,6 +48,7 @@ export const TTS_PROVIDERS: readonly TtsProvider[] = [
   'bing',
   'google',
   'baidu',
+  'doubao',
   'youdao',
 ];
 
@@ -189,6 +190,28 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
         accessToken: '',
         region: '',
         extra: {},
+      };
+    case 'doubao':
+      return {
+        enabled: false,
+        voice: '',
+        language: 'zh-CN',
+        speed: 0,
+        volume: 0,
+        pitch: 0,
+        endpoint: 'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
+        appId: '',
+        apiKey: '',
+        apiSecret: '',
+        accessToken: '',
+        region: '',
+        extra: {
+          resource_id: 'seed-tts-2.0',
+          model: 'seed-tts-2.0-standard',
+          format: 'mp3',
+          sample_rate: 24000,
+          bit_rate: 128000,
+        },
       };
     case 'apple':
       return {
