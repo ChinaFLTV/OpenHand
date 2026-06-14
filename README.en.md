@@ -67,7 +67,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
     <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="Programming expert" /><br/><sub><b>Programming Expert · workspace view</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="Harness Engineering" /><br/><sub><b>Harness Engineering · phased pipeline</b></sub></td>
+    <td align="center"><img src="docs/screenshots/03-harness.png" alt="Harness Engineering" /><br/><sub><b>Harness Engineering · phased pipeline</b></sub></td>
     <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP servers" /><br/><sub><b>MCP server management</b></sub></td>
   </tr>
   <tr>
@@ -108,7 +108,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 - Built-in CLI installer / login helper, all external processes routed through `safe_subprocess`.
 - Dashboard split into 13 `.part.dart` UI subtrees for maintainability.
 - ToolSearch load history is bucketed per phase-session as an LRU cache; the
-  cap is adjustable under **Settings → MCP** (`hardnessToolSearchHistoryMaxPhases`,
+  cap is adjustable under **Settings → MCP** (`harnessToolSearchHistoryMaxPhases`,
   default 8, range 1..64). Older phase buckets are evicted automatically so
   long sessions never grow unbounded.
 
@@ -233,7 +233,7 @@ content-addressed (SHA-256) before/after blobs plus metadata.
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                            Flutter UI (lib/features)                       │
-│  home · ai · hardness · settings · mcp · skills · memory · crons · hooks   │
+│  home · ai · harness · settings · mcp · skills · memory · crons · hooks   │
 └──────────────┬─────────────────────────────────────────────┬───────────────┘
                │                                             │
         ┌──────▼──────┐                              ┌───────▼────────┐
@@ -361,7 +361,7 @@ lib/
 │   │   ├── service/                # ChatService / DSML / Hook / Self-Learning…
 │   │   └── model/                  # Protocols, model catalog, token usage, templates
 │   ├── home/                       # Main UI (chat, sidebar, workspace, dialogs)
-│   ├── hardness/                   # Harness Engineering template (13 part files)
+│   ├── harness/                   # Harness Engineering template (13 part files)
 │   ├── mcp/                        # MCP server management
 │   ├── skills/                     # Skills market
 │   ├── memory/                     # Memory store

@@ -65,7 +65,7 @@
     <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="编程专家" /><br/><sub><b>编程专家 · 工作区视图</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/03-hardness-engineering.png" alt="Harness Engineering 模板" /><br/><sub><b>Harness Engineering · 阶段化流水线</b></sub></td>
+    <td align="center"><img src="docs/screenshots/03-harness.png" alt="Harness Engineering 模板" /><br/><sub><b>Harness Engineering · 阶段化流水线</b></sub></td>
     <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP 服务" /><br/><sub><b>MCP 服务管理</b></sub></td>
   </tr>
   <tr>
@@ -106,7 +106,7 @@
 - 内嵌 CLI 安装与登录助手，所有外部进程通过 `safe_subprocess` 受控执行。
 - Dashboard 拆分为 13 个 `.part.dart` UI 子树，单文件可维护。
 - ToolSearch 加载历史按 phase-session 分桶 LRU 缓存，上限可在 **设置 → MCP**
-  调整（`hardnessToolSearchHistoryMaxPhases`，默认 8、范围 1..64）；超过上限
+  调整（`harnessToolSearchHistoryMaxPhases`，默认 8、范围 1..64）；超过上限
   时自动淘汰最早的 phase 桶，长会话不会无界增长。
 
 ### 7. 桌面级人机协作
@@ -219,7 +219,7 @@ OpenHand 内置 Codex-parity 的「文件变动账本」：每当 `Write` / `Edi
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                            Flutter UI (lib/features)                       │
-│  home · ai · hardness · settings · mcp · skills · memory · crons · hooks   │
+│  home · ai · harness · settings · mcp · skills · memory · crons · hooks   │
 └──────────────┬─────────────────────────────────────────────┬───────────────┘
                │                                             │
         ┌──────▼──────┐                              ┌───────▼────────┐
@@ -347,7 +347,7 @@ lib/
 │   │   ├── service/                # ChatService / DSML / Hook / Self-Learning…
 │   │   └── model/                  # 协议、模型目录、Token 用量、模板
 │   ├── home/                       # 主界面（聊天、侧栏、工作区、对话框）
-│   ├── hardness/                   # Harness Engineering 模板（13 个 part 文件）
+│   ├── harness/                   # Harness Engineering 模板（13 个 part 文件）
 │   ├── mcp/                        # MCP 服务器管理
 │   ├── skills/                     # 技能市场
 │   ├── memory/                     # 记忆库
