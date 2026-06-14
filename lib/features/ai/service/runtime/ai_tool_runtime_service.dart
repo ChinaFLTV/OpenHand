@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
@@ -1356,13 +1357,12 @@ class AiToolRuntimeService {
     }
     final buffer = StringBuffer();
     for (final linkedPath in linkedPaths) {
-      final resolvedPath = p.normalize(
-        p.isAbsolute(linkedPath)
-            ? linkedPath
-            : p.join(skillDirectoryPath, linkedPath),
-      );
-      if (!p.isWithin(skillDirectoryPath, resolvedPath) &&
-          resolvedPath != skillDirectoryPath) {
+      if (p.isAbsolute(linkedPath) ||
+          safeRelativePathError(linkedPath) != null) {
+        continue;
+      }
+      final resolvedPath = p.normalize(p.join(skillDirectoryPath, linkedPath));
+      if (!isPathWithinOrEqual(skillDirectoryPath, resolvedPath)) {
         continue;
       }
       final entityType = FileSystemEntity.typeSync(resolvedPath);
@@ -1371,7 +1371,9 @@ class AiToolRuntimeService {
       }
       buffer.writeln('- path: $linkedPath');
       if (entityType == FileSystemEntityType.directory) {
-        final entries = await Directory(resolvedPath).list().toList();
+        final entries = await Directory(
+          resolvedPath,
+        ).list(followLinks: false).toList();
         entries.sort((left, right) => left.path.compareTo(right.path));
         for (final entry in entries.take(20)) {
           buffer.writeln('  - ${p.basename(entry.path)}');

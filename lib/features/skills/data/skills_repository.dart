@@ -9,6 +9,7 @@ import 'package:yaml/yaml.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/path_safety.dart';
 import '../model/local_skill.dart';
 
 class SkillsRepository {
@@ -95,7 +96,7 @@ class SkillsRepository {
     final templateContent = _buildTemplate(skillName);
 
     try {
-      await manifestFile.writeAsString(templateContent, flush: true);
+      await writeFileAtomically(manifestFile, templateContent);
       await _writeOpenAiMetadata(
         targetDirectory.path,
         displayName: skillName,
@@ -154,14 +155,14 @@ class SkillsRepository {
     );
 
     try {
-      await manifestFile.writeAsString(
+      await writeFileAtomically(
+        manifestFile,
         _buildSkillDocument(
           skillName: normalizedName,
           emojiIcon: normalizedEmojiIcon,
           description: normalizedShortDescription,
           rawContent: manifestContent,
         ),
-        flush: true,
       );
       await _writeOpenAiMetadata(
         targetDirectory.path,
@@ -278,7 +279,7 @@ class SkillsRepository {
     final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
 
     try {
-      await manifestFile.writeAsString(normalizedContent, flush: true);
+      await writeFileAtomically(manifestFile, normalizedContent);
       await _syncOpenAiMetadataWithManifest(
         skillDirectoryPath: skillDirectoryPath,
         content: normalizedContent,
@@ -287,7 +288,7 @@ class SkillsRepository {
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       silentLog('skills_repository', 'update skill manifest', error, stack);
-      await manifestFile.writeAsString(previousManifestContent, flush: true);
+      await writeFileAtomically(manifestFile, previousManifestContent);
       await _restoreOptionalFile(
         metadataPath,
         previousMetadataBytes,
@@ -362,7 +363,7 @@ class SkillsRepository {
     );
 
     try {
-      await manifestFile.writeAsString(rebuiltContent, flush: true);
+      await writeFileAtomically(manifestFile, rebuiltContent);
       if (preserveExistingIcon) {
         await _syncOpenAiMetadataWithManifest(
           skillDirectoryPath: skillDirectoryPath,
@@ -385,7 +386,7 @@ class SkillsRepository {
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       silentLog('skills_repository', 'update skill', error, stack);
-      await manifestFile.writeAsString(previousManifestContent, flush: true);
+      await writeFileAtomically(manifestFile, previousManifestContent);
       await _restoreOptionalFile(
         metadataPath,
         previousMetadataBytes,
@@ -644,8 +645,8 @@ class SkillsRepository {
       p.normalize(p.join(skillDirectoryPath, sanitizedPath)),
     ];
     for (final candidatePath in candidatePaths) {
-      if (!_isPathWithinDirectory(candidatePath, skillDirectoryPath) &&
-          !_isPathWithinDirectory(candidatePath, metadataDirectoryPath)) {
+      if (!isPathWithinOrEqual(skillDirectoryPath, candidatePath) &&
+          !isPathWithinOrEqual(metadataDirectoryPath, candidatePath)) {
         continue;
       }
       final iconFile = File(candidatePath);
@@ -783,15 +784,16 @@ class SkillsRepository {
           await assetsDirectory.create(recursive: true);
         }
         final iconFile = File(generatedEmojiIconPath);
-        await iconFile.writeAsString(
+        await writeFileAtomically(
+          iconFile,
           _buildEmojiIconSvg(normalizedEmojiIcon),
-          flush: true,
         );
         iconRelativePath = './assets/$_generatedEmojiIconFileName';
       }
     }
 
-    await metadataFile.writeAsString(
+    await writeFileAtomically(
+      metadataFile,
       _buildOpenAiMetadataDocument(
         displayName: displayName,
         shortDescription: shortDescription,
@@ -799,7 +801,6 @@ class SkillsRepository {
         iconLargeRelativePath: iconRelativePath,
         defaultPrompt: defaultPrompt,
       ),
-      flush: true,
     );
   }
 
@@ -836,7 +837,8 @@ class SkillsRepository {
       p.join(skillDirectoryPath, _openAiMetadataRelativePath),
     );
 
-    await metadataFile.writeAsString(
+    await writeFileAtomically(
+      metadataFile,
       _buildOpenAiMetadataDocument(
         displayName: resolvedName,
         shortDescription: resolvedDescription,
@@ -844,7 +846,6 @@ class SkillsRepository {
         iconLargeRelativePath: existingMetadata.iconLargePath,
         defaultPrompt: defaultPrompt,
       ),
-      flush: true,
     );
   }
 
@@ -941,13 +942,6 @@ class SkillsRepository {
         .replaceAll("'", '&apos;');
   }
 
-  bool _isPathWithinDirectory(String candidatePath, String directoryPath) {
-    final normalizedDirectoryPath = p.normalize(directoryPath);
-    final normalizedCandidatePath = p.normalize(candidatePath);
-    return p.equals(normalizedCandidatePath, normalizedDirectoryPath) ||
-        p.isWithin(normalizedDirectoryPath, normalizedCandidatePath);
-  }
-
   Future<Directory> _createUniqueSkillDirectory(
     Directory rootDirectory, {
     String? preferredSlug,
@@ -1028,7 +1022,7 @@ class SkillsRepository {
       final destinationPath = p.normalize(
         p.joinAll(<String>[targetDirectory.path, ...relativeParts]),
       );
-      if (!_isPathWithinDirectory(destinationPath, targetDirectory.path)) {
+      if (!isPathWithinOrEqual(targetDirectory.path, destinationPath)) {
         throw const FileSystemException('Skill archive path is unsafe.');
       }
 
@@ -1145,10 +1139,7 @@ class SkillsRepository {
     Set<String> loadedSkillDirectories,
   ) {
     for (final loadedSkillDirectory in loadedSkillDirectories) {
-      if (p.equals(directoryPath, loadedSkillDirectory)) {
-        return true;
-      }
-      if (p.isWithin(loadedSkillDirectory, directoryPath)) {
+      if (isPathWithinOrEqual(loadedSkillDirectory, directoryPath)) {
         return true;
       }
     }
@@ -1193,7 +1184,8 @@ class SkillsRepository {
   }) async {
     final normalizedRootPath = p.normalize(rootDirectoryPath);
     var currentPath = p.normalize(directory.path);
-    while (p.isWithin(normalizedRootPath, currentPath)) {
+    while (!p.equals(normalizedRootPath, currentPath) &&
+        isPathWithinOrEqual(normalizedRootPath, currentPath)) {
       final currentDirectory = Directory(currentPath);
       if (!await currentDirectory.exists()) {
         currentPath = p.dirname(currentPath);

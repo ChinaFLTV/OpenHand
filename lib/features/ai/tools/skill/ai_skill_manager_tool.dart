@@ -1,10 +1,11 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -32,6 +33,8 @@ class AiSkillManagerTool extends AiTool {
   static const String _toolName = 'SkillManager';
   static const int _maxNameLength = 64;
   static const int _maxDescriptionLength = 1024;
+  static const int _maxSkillScanEntities = 5000;
+  static const int _maxSidecarContentLength = 2 * 1024 * 1024;
   int maxSkillContentLength = 100000;
   static final RegExp _nameRegex = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
   static const Set<String> _allowedWriteSubdirs = <String>{
@@ -147,8 +150,7 @@ class AiSkillManagerTool extends AiTool {
       );
     }
 
-    await Directory(skillDir).create(recursive: true);
-    await _atomicWriteString(skillFile, content);
+    await writeFileAtomically(skillFile, content);
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager create $name',
@@ -187,27 +189,25 @@ class AiSkillManagerTool extends AiTool {
       return AiToolUtils.invalidResult(_toolName, frontmatterError);
     }
 
-    final skillFile = await _locateSkillFile(skillsRoot, name);
-    if (skillFile == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill "$name" not found under $skillsRoot.',
-      );
+    final skillContextResult = await _locateSkillContext(skillsRoot, name);
+    if (skillContextResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
     }
+    final skillContext = skillContextResult.context!;
 
-    await _atomicWriteString(skillFile, content);
+    await writeFileAtomically(skillContext.skillFile, content);
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager edit $name',
-      output: 'Rewrote SKILL.md at ${skillFile.path}',
+      output: 'Rewrote SKILL.md at ${skillContext.skillFile.path}',
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: skillFile.parent.path,
+      workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
         'skill_action': 'edit',
         'skill_name': name,
-        'skill_path': skillFile.path,
+        'skill_path': skillContext.skillFile.path,
       },
     );
   }
@@ -223,16 +223,14 @@ class AiSkillManagerTool extends AiTool {
       return AiToolUtils.invalidResult(_toolName, nameError);
     }
 
-    final skillFile = await _locateSkillFile(skillsRoot, name);
-    if (skillFile == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill "$name" not found under $skillsRoot.',
-      );
+    final skillContextResult = await _locateSkillContext(skillsRoot, name);
+    if (skillContextResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
     }
+    final skillContext = skillContextResult.context!;
 
-    final skillDir = skillFile.parent;
-    if (!_isWithinOrEqual(skillsRoot, skillDir.path) ||
+    final skillDir = skillContext.skillDir;
+    if (!isPathWithinOrEqual(skillsRoot, skillDir.path) ||
         p.equals(skillDir.path, skillsRoot)) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -241,22 +239,11 @@ class AiSkillManagerTool extends AiTool {
     }
 
     await skillDir.delete(recursive: true);
-    // Clean up empty category parent, if applicable.
-    final parent = skillDir.parent;
-    if (!p.equals(parent.path, skillsRoot) &&
-        _isWithinOrEqual(skillsRoot, parent.path) &&
-        await _isDirEmpty(parent)) {
-      try {
-        await parent.delete();
-      } catch (error, stack) {
-        silentLog(
-          'ai_skill_manager_tool',
-          'delete empty parent category dir',
-          error,
-          stack,
-        );
-      }
-    }
+    await _deleteEmptyAncestorDirs(
+      start: skillDir.parent,
+      stopAt: Directory(skillsRoot),
+      logContext: 'delete empty parent category dir',
+    );
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager delete $name',
@@ -301,35 +288,24 @@ class AiSkillManagerTool extends AiTool {
       );
     }
 
-    final skillFile = await _locateSkillFile(skillsRoot, name);
-    if (skillFile == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill "$name" not found under $skillsRoot.',
-      );
+    final skillContextResult = await _locateSkillContext(skillsRoot, name);
+    if (skillContextResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
     }
-    final skillDir = skillFile.parent.path;
+    final skillContext = skillContextResult.context!;
 
     final File targetFile;
     final bool patchingSkillMd;
     if (filePathArg.isEmpty) {
-      targetFile = skillFile;
+      targetFile = skillContext.skillFile;
       patchingSkillMd = true;
     } else {
-      final subPathError = _validateSkillSubPath(filePathArg);
-      if (subPathError != null) {
-        return AiToolUtils.invalidResult(_toolName, subPathError);
+      final resolved = _resolveSkillSubFile(skillContext, filePathArg);
+      if (resolved.error != null) {
+        return AiToolUtils.invalidResult(_toolName, resolved.error!);
       }
-      final resolved = p.normalize(p.join(skillDir, filePathArg));
-      if (!_isWithinOrEqual(skillDir, resolved) ||
-          p.equals(skillDir, resolved)) {
-        return AiToolUtils.invalidResult(
-          _toolName,
-          'file_path must resolve within the skill directory.',
-        );
-      }
-      targetFile = File(resolved);
-      patchingSkillMd = p.equals(resolved, skillFile.path);
+      targetFile = resolved.file!;
+      patchingSkillMd = false;
       if (!await targetFile.exists()) {
         return AiToolUtils.invalidResult(
           _toolName,
@@ -338,12 +314,16 @@ class AiSkillManagerTool extends AiTool {
       }
     }
 
-    final original = await targetFile.readAsString();
+    final readResult = await _readPatchTarget(targetFile, patchingSkillMd);
+    if (readResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, readResult.error!);
+    }
+    final original = readResult.content!;
     final occurrences = _countOccurrences(original, oldString);
     if (occurrences == 0) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'old_string not found in ${p.relative(targetFile.path, from: skillDir)}.',
+        'old_string not found in ${safeRelativePathForDisplay(targetFile.path, from: skillContext.skillDir.path)}.',
       );
     }
     if (occurrences > 1 && !replaceAll) {
@@ -377,7 +357,7 @@ class AiSkillManagerTool extends AiTool {
       }
     }
 
-    await _atomicWriteString(targetFile, updated);
+    await writeFileAtomically(targetFile, updated);
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager patch $name',
@@ -385,7 +365,7 @@ class AiSkillManagerTool extends AiTool {
           'Patched ${targetFile.path} ($occurrences replacement'
           '${occurrences == 1 ? '' : 's'}).',
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: skillDir,
+      workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
@@ -410,45 +390,31 @@ class AiSkillManagerTool extends AiTool {
     if (nameError != null) {
       return AiToolUtils.invalidResult(_toolName, nameError);
     }
+    final contentSizeError = _validateSidecarContentSize(content);
+    if (contentSizeError != null) {
+      return AiToolUtils.invalidResult(_toolName, contentSizeError);
+    }
     if (filePathArg.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
     }
-    final subPathError = _validateSkillSubPath(filePathArg);
-    if (subPathError != null) {
-      return AiToolUtils.invalidResult(_toolName, subPathError);
+    final skillContextResult = await _locateSkillContext(skillsRoot, name);
+    if (skillContextResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
+    }
+    final skillContext = skillContextResult.context!;
+    final resolved = _resolveSkillSubFile(skillContext, filePathArg);
+    if (resolved.error != null) {
+      return AiToolUtils.invalidResult(_toolName, resolved.error!);
     }
 
-    final skillFile = await _locateSkillFile(skillsRoot, name);
-    if (skillFile == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill "$name" not found under $skillsRoot.',
-      );
-    }
-    final skillDir = skillFile.parent.path;
-    final resolved = p.normalize(p.join(skillDir, filePathArg));
-    if (!_isWithinOrEqual(skillDir, resolved) || p.equals(skillDir, resolved)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'file_path must resolve within the skill directory.',
-      );
-    }
-    if (p.equals(resolved, skillFile.path)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Use edit/patch instead of write_file for SKILL.md.',
-      );
-    }
-
-    final target = File(resolved);
-    await target.parent.create(recursive: true);
-    await _atomicWriteString(target, content);
+    final target = resolved.file!;
+    await writeFileAtomically(target, content);
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager write_file $name',
       output: 'Wrote ${target.path}',
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: skillDir,
+      workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
@@ -474,34 +440,17 @@ class AiSkillManagerTool extends AiTool {
     if (filePathArg.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
     }
-    final subPathError = _validateSkillSubPath(filePathArg);
-    if (subPathError != null) {
-      return AiToolUtils.invalidResult(_toolName, subPathError);
+    final skillContextResult = await _locateSkillContext(skillsRoot, name);
+    if (skillContextResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
+    }
+    final skillContext = skillContextResult.context!;
+    final resolved = _resolveSkillSubFile(skillContext, filePathArg);
+    if (resolved.error != null) {
+      return AiToolUtils.invalidResult(_toolName, resolved.error!);
     }
 
-    final skillFile = await _locateSkillFile(skillsRoot, name);
-    if (skillFile == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill "$name" not found under $skillsRoot.',
-      );
-    }
-    final skillDir = skillFile.parent.path;
-    final resolved = p.normalize(p.join(skillDir, filePathArg));
-    if (!_isWithinOrEqual(skillDir, resolved) || p.equals(skillDir, resolved)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'file_path must resolve within the skill directory.',
-      );
-    }
-    if (p.equals(resolved, skillFile.path)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Refusing to remove SKILL.md; use delete to remove the whole skill.',
-      );
-    }
-
-    final target = File(resolved);
+    final target = resolved.file!;
     if (!await target.exists()) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -510,24 +459,17 @@ class AiSkillManagerTool extends AiTool {
     }
     await target.delete();
 
-    // Clean up empty parent dirs up to (but never including) skillDir.
-    Directory cursor = target.parent;
-    while (!p.equals(cursor.path, skillDir) &&
-        _isWithinOrEqual(skillDir, cursor.path) &&
-        await _isDirEmpty(cursor)) {
-      try {
-        await cursor.delete();
-      } catch (_) {
-        break;
-      }
-      cursor = cursor.parent;
-    }
+    await _deleteEmptyAncestorDirs(
+      start: target.parent,
+      stopAt: skillContext.skillDir,
+      logContext: 'delete empty skill sidecar parent dir',
+    );
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager remove_file $name',
       output: 'Removed ${target.path}',
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: skillDir,
+      workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
       metadata: <String, Object?>{
         'tool_source': 'builtin',
@@ -556,62 +498,107 @@ class AiSkillManagerTool extends AiTool {
   }
 
   Future<String?> _checkNameCollision(String skillsRoot, String name) async {
+    final searchResult = await _findSkillFile(skillsRoot, name);
+    if (searchResult.error != null) return searchResult.error;
+    final file = searchResult.file;
+    if (file == null) return null;
+    return 'A skill named "$name" already exists at ${file.path}.';
+  }
+
+  Future<_SkillContextResult> _locateSkillContext(
+    String skillsRoot,
+    String name,
+  ) async {
+    final searchResult = await _findSkillFile(skillsRoot, name);
+    if (searchResult.error != null) {
+      return _SkillContextResult(error: searchResult.error);
+    }
+    final skillFile = searchResult.file;
+    if (skillFile == null) {
+      return _SkillContextResult(
+        error: 'Skill "$name" not found under $skillsRoot.',
+      );
+    }
+    final skillDir = skillFile.parent;
+    if (!isPathWithinOrEqual(skillsRoot, skillDir.path) ||
+        p.equals(p.normalize(skillsRoot), p.normalize(skillDir.path))) {
+      return _SkillContextResult(
+        error: 'Skill "$name" resolves outside skills directory.',
+      );
+    }
+    return _SkillContextResult(
+      context: _SkillFileContext(skillFile: skillFile, skillDir: skillDir),
+    );
+  }
+
+  Future<_SkillFileSearchResult> _findSkillFile(
+    String skillsRoot,
+    String name,
+  ) async {
     final rootDir = Directory(skillsRoot);
-    if (!await rootDir.exists()) return null;
-    await for (final entity in rootDir.list(recursive: true)) {
-      if (entity is! File) continue;
-      if (p.basename(entity.path) != 'SKILL.md') continue;
-      final dirName = p.basename(p.dirname(entity.path));
-      if (dirName == name) {
-        return 'A skill named "$name" already exists at ${entity.path}.';
+    if (!await rootDir.exists()) return const _SkillFileSearchResult();
+
+    var scanned = 0;
+    try {
+      await for (final entity in rootDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        scanned += 1;
+        if (scanned > _maxSkillScanEntities) {
+          return _SkillFileSearchResult(
+            error:
+                'Skill scan exceeded $_maxSkillScanEntities entries under $skillsRoot.',
+          );
+        }
+        if (entity is! File) continue;
+        if (p.basename(entity.path) != 'SKILL.md') continue;
+        final dirName = p.basename(p.dirname(entity.path));
+        if (dirName == name) return _SkillFileSearchResult(file: entity);
       }
+    } on FileSystemException catch (error) {
+      return _SkillFileSearchResult(
+        error: 'Unable to scan skills directory $skillsRoot: ${error.message}',
+      );
     }
-    return null;
+    return const _SkillFileSearchResult();
   }
 
-  /// Locates the SKILL.md file for a skill named [name] anywhere under
-  /// [skillsRoot]. Returns null if not found.
-  Future<File?> _locateSkillFile(String skillsRoot, String name) async {
-    final rootDir = Directory(skillsRoot);
-    if (!await rootDir.exists()) return null;
-    await for (final entity in rootDir.list(recursive: true)) {
-      if (entity is! File) continue;
-      if (p.basename(entity.path) != 'SKILL.md') continue;
-      final dirName = p.basename(p.dirname(entity.path));
-      if (dirName == name) return entity;
+  _SkillSubFileResolution _resolveSkillSubFile(
+    _SkillFileContext skillContext,
+    String relativePath,
+  ) {
+    final validationError = _validateSkillSubPath(relativePath);
+    if (validationError != null) {
+      return _SkillSubFileResolution(error: validationError);
     }
-    return null;
-  }
-
-  bool _isWithinOrEqual(String parent, String child) {
-    final np = p.normalize(parent);
-    final nc = p.normalize(child);
-    return p.equals(np, nc) || p.isWithin(np, nc);
-  }
-
-  Future<bool> _isDirEmpty(Directory dir) async {
-    if (!await dir.exists()) return false;
-    await for (final _ in dir.list()) {
-      return false;
+    final resolved = p.normalize(
+      p.join(skillContext.skillDir.path, relativePath),
+    );
+    if (!isPathWithinOrEqual(skillContext.skillDir.path, resolved) ||
+        p.equals(skillContext.skillDir.path, resolved)) {
+      return const _SkillSubFileResolution(
+        error: 'file_path must resolve within the skill directory.',
+      );
     }
-    return true;
+    if (p.equals(resolved, skillContext.skillFile.path)) {
+      return const _SkillSubFileResolution(
+        error: 'Use edit/patch/delete for SKILL.md.',
+      );
+    }
+    return _SkillSubFileResolution(file: File(resolved));
   }
 
   /// Validates a sub-path relative to a skill directory. Allowed values are
   /// within `{references, templates, scripts, assets}/...` and must not
   /// traverse outside via `..`.
   String? _validateSkillSubPath(String relativePath) {
-    final normalized = p.normalize(relativePath);
-    if (p.isAbsolute(normalized)) {
-      return 'file_path must be a relative path within the skill directory.';
+    final pathError = safeRelativePathError(relativePath);
+    if (pathError != null) {
+      return 'file_path $pathError';
     }
+    final normalized = p.normalize(relativePath.trim());
     final segments = p.split(normalized);
-    if (segments.isEmpty) {
-      return 'file_path must not be empty.';
-    }
-    if (segments.contains('..')) {
-      return 'file_path must not traverse parent directories.';
-    }
     final head = segments.first;
     if (!_allowedWriteSubdirs.contains(head)) {
       return 'file_path first segment must be one of '
@@ -621,6 +608,53 @@ class AiSkillManagerTool extends AiTool {
       return 'file_path must point to a file inside $head/, not the directory itself.';
     }
     return null;
+  }
+
+  Future<_TextFileReadResult> _readPatchTarget(
+    File file,
+    bool isSkillManifest,
+  ) async {
+    final stat = await file.stat();
+    if (stat.type != FileSystemEntityType.file &&
+        stat.type != FileSystemEntityType.link) {
+      return _TextFileReadResult(error: 'Target is not a file: ${file.path}');
+    }
+    if (!isSkillManifest && stat.size > _maxSidecarContentLength) {
+      return _TextFileReadResult(
+        error:
+            'Target file is too large to patch safely '
+            '(${stat.size} bytes, limit $_maxSidecarContentLength).',
+      );
+    }
+    return _TextFileReadResult(content: await file.readAsString());
+  }
+
+  Future<void> _deleteEmptyAncestorDirs({
+    required Directory start,
+    required Directory stopAt,
+    required String logContext,
+  }) async {
+    Directory cursor = start;
+    final stopPath = p.normalize(stopAt.path);
+    while (!p.equals(p.normalize(cursor.path), stopPath) &&
+        isPathWithinOrEqual(stopPath, cursor.path) &&
+        await _isDirEmpty(cursor)) {
+      try {
+        await cursor.delete();
+      } catch (error, stack) {
+        silentLog('ai_skill_manager_tool', logContext, error, stack);
+        break;
+      }
+      cursor = cursor.parent;
+    }
+  }
+
+  Future<bool> _isDirEmpty(Directory dir) async {
+    if (!await dir.exists()) return false;
+    await for (final _ in dir.list(followLinks: false)) {
+      return false;
+    }
+    return true;
   }
 
   int _countOccurrences(String haystack, String needle) {
@@ -669,6 +703,14 @@ class AiSkillManagerTool extends AiTool {
     return null;
   }
 
+  String? _validateSidecarContentSize(String content) {
+    if (content.length > _maxSidecarContentLength) {
+      return 'file content exceeds the maximum allowed size '
+          '(${content.length} chars, limit $_maxSidecarContentLength).';
+    }
+    return null;
+  }
+
   /// Returns `null` when the content has valid frontmatter; otherwise returns
   /// an error message.
   String? _validateFrontmatter(String content) {
@@ -706,35 +748,39 @@ class AiSkillManagerTool extends AiTool {
     }
     return null;
   }
+}
 
-  /// Writes [content] to [file] atomically via a same-directory temp file
-  /// plus `rename`.
-  Future<void> _atomicWriteString(File file, String content) async {
-    await file.parent.create(recursive: true);
-    final random = Random().nextInt(1 << 32).toRadixString(16);
-    final temp = File(
-      p.join(
-        file.parent.path,
-        '.tmp_${DateTime.now().microsecondsSinceEpoch}_$random',
-      ),
-    );
-    try {
-      await temp.writeAsString(content, flush: true);
-      await temp.rename(file.path);
-    } catch (error) {
-      if (await temp.exists()) {
-        try {
-          await temp.delete();
-        } catch (cleanupError, cleanupStack) {
-          silentLog(
-            'ai_skill_manager_tool',
-            'cleanup temp file after failed atomic write',
-            cleanupError,
-            cleanupStack,
-          );
-        }
-      }
-      rethrow;
-    }
-  }
+class _SkillFileContext {
+  const _SkillFileContext({required this.skillFile, required this.skillDir});
+
+  final File skillFile;
+  final Directory skillDir;
+}
+
+class _SkillContextResult {
+  const _SkillContextResult({this.context, this.error});
+
+  final _SkillFileContext? context;
+  final String? error;
+}
+
+class _SkillFileSearchResult {
+  const _SkillFileSearchResult({this.file, this.error});
+
+  final File? file;
+  final String? error;
+}
+
+class _SkillSubFileResolution {
+  const _SkillSubFileResolution({this.file, this.error});
+
+  final File? file;
+  final String? error;
+}
+
+class _TextFileReadResult {
+  const _TextFileReadResult({this.content, this.error});
+
+  final String? content;
+  final String? error;
 }
