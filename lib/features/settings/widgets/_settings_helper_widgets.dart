@@ -297,11 +297,12 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                     zh: '单次朗读或服务调用的最长等待秒数，防止无限等待。',
                     en: 'Maximum seconds for one read attempt.',
                   ),
-                  control: _SettingsIntField(
+                  control: _SettingsIntSlider(
                     value: settings.timeoutSeconds,
                     min: AiTtsSettings.minTimeoutSeconds,
                     max: AiTtsSettings.maxTimeoutSeconds,
-                    dense: false,
+                    step: 1,
+                    suffix: 's',
                     onChanged: (value) =>
                         onChanged(settings.copyWith(timeoutSeconds: value)),
                   ),
@@ -319,11 +320,11 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                     zh: '超出后自动截断，避免长消息占用朗读资源过久。',
                     en: 'Long messages are truncated to keep playback bounded.',
                   ),
-                  control: _SettingsIntField(
+                  control: _SettingsIntSlider(
                     value: settings.maxTextCharacters,
                     min: AiTtsSettings.minMaxTextCharacters,
                     max: AiTtsSettings.maxMaxTextCharacters,
-                    dense: false,
+                    step: 20,
                     onChanged: (value) =>
                         onChanged(settings.copyWith(maxTextCharacters: value)),
                   ),
@@ -634,8 +635,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   ),
                   _SettingsSwitch(
                     value: providerSettings.enabled,
-                    onChanged: (value) =>
-                        _update(providerSettings.copyWith(enabled: value)),
+                    onChanged: (value) => _updateCurrent((current) {
+                      return current.copyWith(enabled: value);
+                    }),
                   ),
                 ],
               ),
@@ -659,8 +661,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                         ),
                         value: providerSettings.voice,
                         options: catalog.voiceOptions,
-                        onChanged: (value) =>
-                            _update(providerSettings.copyWith(voice: value)),
+                        onChanged: (value) => _updateCurrent((current) {
+                          return current.copyWith(voice: value);
+                        }),
                       ),
                       _AiTtsDropdown(
                         label: _localizedText(
@@ -670,29 +673,33 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                         ),
                         value: providerSettings.language,
                         options: catalog.languageOptions,
-                        onChanged: (value) =>
-                            _update(providerSettings.copyWith(language: value)),
+                        onChanged: (value) => _updateCurrent((current) {
+                          return current.copyWith(language: value);
+                        }),
                       ),
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '语速', en: 'Speed'),
                         value: providerSettings.speed,
                         range: _ttsNumberRange(provider, _TtsNumberKind.speed),
-                        onChanged: (value) =>
-                            _update(providerSettings.copyWith(speed: value)),
+                        onChanged: (value) => _updateCurrent((current) {
+                          return current.copyWith(speed: value);
+                        }),
                       ),
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '音量', en: 'Volume'),
                         value: providerSettings.volume,
                         range: _ttsNumberRange(provider, _TtsNumberKind.volume),
-                        onChanged: (value) =>
-                            _update(providerSettings.copyWith(volume: value)),
+                        onChanged: (value) => _updateCurrent((current) {
+                          return current.copyWith(volume: value);
+                        }),
                       ),
                       _AiTtsProviderNumberField(
                         label: _localizedText(context, zh: '音调', en: 'Pitch'),
                         value: providerSettings.pitch,
                         range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
-                        onChanged: (value) =>
-                            _update(providerSettings.copyWith(pitch: value)),
+                        onChanged: (value) => _updateCurrent((current) {
+                          return current.copyWith(pitch: value);
+                        }),
                       ),
                     ],
                   ),
@@ -712,47 +719,44 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                               en: 'Endpoint',
                             ),
                             value: providerSettings.endpoint,
-                            onSubmitted: (value) => _update(
-                              providerSettings.copyWith(endpoint: value),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return current.copyWith(endpoint: value);
+                            }),
                           ),
                         if (_needsAppIdCredential(provider))
                           _AiTtsProviderTextField(
                             label: 'App ID',
                             value: providerSettings.appId,
-                            onSubmitted: (value) => _update(
-                              providerSettings.copyWith(appId: value),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return current.copyWith(appId: value);
+                            }),
                           ),
                         if (_providerNeedsCredentials(provider))
                           _AiTtsProviderTextField(
                             label: _primaryCredentialLabel(provider),
                             value: _primaryCredentialValue(providerSettings),
                             obscure: true,
-                            onSubmitted: (value) => _update(
-                              _primaryCredentialUpdated(
-                                providerSettings,
-                                value,
-                              ),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return _primaryCredentialUpdated(current, value);
+                            }),
                           ),
                         if (_needsSecondaryCredential(provider))
                           _AiTtsProviderTextField(
                             label: _secondaryCredentialLabel(provider),
                             value: providerSettings.apiSecret,
                             obscure: true,
-                            onSubmitted: (value) => _update(
-                              providerSettings.copyWith(apiSecret: value),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return current.copyWith(apiSecret: value);
+                            }),
                           ),
                         if (provider == AiTtsProvider.baidu)
                           _AiTtsProviderTextField(
                             label: 'Access Token',
                             value: providerSettings.accessToken,
                             obscure: true,
-                            onSubmitted: (value) => _update(
-                              providerSettings.copyWith(accessToken: value),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return current.copyWith(accessToken: value);
+                            }),
                           ),
                         if (provider == AiTtsProvider.bing)
                           _AiTtsProviderTextField(
@@ -762,9 +766,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                               en: 'Region',
                             ),
                             value: providerSettings.region,
-                            onSubmitted: (value) => _update(
-                              providerSettings.copyWith(region: value),
-                            ),
+                            onSubmitted: (value) => _updateCurrent((current) {
+                              return current.copyWith(region: value);
+                            }),
                           ),
                       ],
                     ),
@@ -781,19 +785,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                           value:
                               '${providerSettings.extra['resource_id'] ?? 'seed-tts-2.0'}',
                           options: catalog.resourceIdOptions,
-                          onChanged: (value) => _updateExtra(
-                            providerSettings,
-                            'resource_id',
-                            value,
-                          ),
+                          onChanged: (value) =>
+                              _updateExtra('resource_id', value),
                         ),
                         _AiTtsExtraDropdown(
                           label: _localizedText(context, zh: '模型', en: 'Model'),
                           value:
                               '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
                           options: catalog.modelOptions,
-                          onChanged: (value) =>
-                              _updateExtra(providerSettings, 'model', value),
+                          onChanged: (value) => _updateExtra('model', value),
                         ),
                         _AiTtsExtraDropdown(
                           label: _localizedText(
@@ -803,8 +803,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                           ),
                           value: '${providerSettings.extra['format'] ?? 'mp3'}',
                           options: catalog.formatOptions,
-                          onChanged: (value) =>
-                              _updateExtra(providerSettings, 'format', value),
+                          onChanged: (value) => _updateExtra('format', value),
                         ),
                       ],
                     ),
@@ -823,8 +822,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                           ),
                           value: '${providerSettings.extra['aue'] ?? 'lame'}',
                           options: catalog.formatOptions,
-                          onChanged: (value) =>
-                              _updateExtra(providerSettings, 'aue', value),
+                          onChanged: (value) => _updateExtra('aue', value),
                         ),
                       ],
                     ),
@@ -846,7 +844,6 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                               '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
                           options: catalog.formatOptions,
                           onChanged: (value) => _updateExtra(
-                            providerSettings,
                             _audioEncodingExtraKey(provider),
                             value,
                           ),
@@ -875,6 +872,18 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     FocusManager.instance.primaryFocus?.unfocus();
     await Future<void>.delayed(const Duration(milliseconds: 80));
     if (!mounted) return;
+    final readinessError = _ttsProviderReadinessError(
+      context,
+      _effectiveProviderSettings,
+    );
+    if (readinessError != null) {
+      OpenHandSnackBar.show(
+        context,
+        ScaffoldMessenger.of(context),
+        OpenHandSnackBar.error(context, readinessError, maxLines: 3),
+      );
+      return;
+    }
     setState(() => _testing = true);
     try {
       await widget.playbackService.testProvider(
@@ -893,12 +902,14 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'tts-settings',
-        'test ${widget.provider.storageKey}',
-        error,
-        stack,
-      );
+      if (!_isTtsConfigurationError(error)) {
+        silentLog(
+          'tts-settings',
+          'test ${widget.provider.storageKey}',
+          error,
+          stack,
+        );
+      }
       if (!mounted) return;
       OpenHandSnackBar.show(
         context,
@@ -924,6 +935,12 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     await widget.onChanged(_settingsWithProvider(next));
   }
 
+  Future<void> _updateCurrent(
+    AiTtsProviderSettings Function(AiTtsProviderSettings current) patch,
+  ) {
+    return _update(patch(_effectiveProviderSettings));
+  }
+
   AiTtsSettings _settingsWithProvider(AiTtsProviderSettings next) {
     final providers = Map<AiTtsProvider, AiTtsProviderSettings>.from(
       widget.settings.providers,
@@ -932,11 +949,8 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     return widget.settings.copyWith(providers: providers);
   }
 
-  Future<void> _updateExtra(
-    AiTtsProviderSettings current,
-    String key,
-    Object? value,
-  ) async {
+  Future<void> _updateExtra(String key, Object? value) async {
+    final current = _effectiveProviderSettings;
     final extra = Map<String, Object?>.from(current.extra);
     extra[key] = value;
     await _update(current.copyWith(extra: extra));
@@ -1509,80 +1523,120 @@ class _AiTtsProviderNumberField extends StatefulWidget {
 }
 
 class _AiTtsProviderNumberFieldState extends State<_AiTtsProviderNumberField> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-  Timer? _debounce;
+  double? _draftValue;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: _formatValue(widget.value));
-    _focusNode = FocusNode()..addListener(_handleFocusChanged);
+  double get _effectiveValue {
+    return (_draftValue ?? widget.value)
+        .clamp(widget.range.min, widget.range.max)
+        .toDouble();
   }
 
   @override
   void didUpdateWidget(covariant _AiTtsProviderNumberField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value && !_focusNode.hasFocus) {
-      _syncControllerText(_controller, _formatValue(widget.value));
+    if (oldWidget.value != widget.value || oldWidget.range != widget.range) {
+      _draftValue = null;
     }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _focusNode.removeListener(_handleFocusChanged);
-    _focusNode.dispose();
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      focusNode: _focusNode,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    final theme = Theme.of(context);
+    final clamped = _effectiveValue;
+    final range = widget.range;
+    return InputDecorator(
       decoration: InputDecoration(
         labelText: widget.label,
-        helperText:
-            '${_formatValue(widget.range.min)} - ${_formatValue(widget.range.max)}',
+        helperText: '${_formatValue(range.min)} - ${_formatValue(range.max)}',
       ),
-      onChanged: _scheduleCommit,
-      onSubmitted: _commit,
-      onEditingComplete: () => _commit(_controller.text),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _AiTtsStepperButton(
+                icon: Icons.remove_rounded,
+                onPressed: clamped <= range.min
+                    ? null
+                    : () => _commit(clamped - range.step),
+              ),
+              Expanded(
+                child: Slider(
+                  min: range.min,
+                  max: range.max,
+                  divisions: range.divisions,
+                  value: clamped,
+                  label: _formatValue(clamped),
+                  onChanged: _preview,
+                  onChangeEnd: _commit,
+                ),
+              ),
+              _AiTtsStepperButton(
+                icon: Icons.add_rounded,
+                onPressed: clamped >= range.max
+                    ? null
+                    : () => _commit(clamped + range.step),
+              ),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 54),
+                child: Text(
+                  _formatValue(clamped),
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const <ui.FontFeature>[
+                      ui.FontFeature.tabularFigures(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  void _handleFocusChanged() {
-    if (!_focusNode.hasFocus) _commit(_controller.text);
+  void _preview(double raw) {
+    setState(() => _draftValue = widget.range.snap(raw));
   }
 
-  void _scheduleCommit(String raw) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 260), () => _commit(raw));
+  void _commit(double raw) {
+    final next = widget.range.snap(raw);
+    setState(() => _draftValue = null);
+    if ((next - widget.value).abs() < 0.0001) return;
+    widget.onChanged(next);
   }
 
-  void _commit(String raw) {
-    _debounce?.cancel();
-    final parsed = double.tryParse(raw.trim());
-    if (parsed == null) {
-      if (!_focusNode.hasFocus) {
-        _syncControllerText(_controller, _formatValue(widget.value));
-      }
-      return;
-    }
-    final clamped = parsed.clamp(widget.range.min, widget.range.max).toDouble();
-    final formatted = _formatValue(clamped);
-    if (_controller.text != formatted && !_focusNode.hasFocus) {
-      _syncControllerText(_controller, formatted);
-    }
-    if ((clamped - widget.value).abs() < 0.0001) return;
-    widget.onChanged(clamped);
-  }
-
-  String _formatValue(double value) {
+  static String _formatValue(double value) {
     return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
+  }
+}
+
+class _AiTtsStepperButton extends StatelessWidget {
+  const _AiTtsStepperButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 30,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        style: IconButton.styleFrom(
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        ),
+      ),
+    );
   }
 }
 
@@ -1663,10 +1717,24 @@ String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
 enum _TtsNumberKind { speed, volume, pitch }
 
 class _TtsNumberRange {
-  const _TtsNumberRange(this.min, this.max);
+  const _TtsNumberRange(this.min, this.max, {this.step = 1});
 
   final double min;
   final double max;
+  final double step;
+
+  int? get divisions {
+    if (step <= 0) return null;
+    final count = ((max - min) / step).round();
+    return count > 0 && count <= 1000 ? count : null;
+  }
+
+  double snap(double raw) {
+    final clamped = raw.clamp(min, max).toDouble();
+    if (step <= 0) return clamped;
+    final snapped = min + ((clamped - min) / step).round() * step;
+    return snapped.clamp(min, max).toDouble();
+  }
 }
 
 _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
@@ -1681,13 +1749,13 @@ _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
           : const _TtsNumberRange(-50, 100);
     case AiTtsProvider.google:
       return switch (kind) {
-        _TtsNumberKind.speed => const _TtsNumberRange(0.25, 4),
+        _TtsNumberKind.speed => const _TtsNumberRange(0.25, 4, step: 0.05),
         _TtsNumberKind.volume => const _TtsNumberRange(-96, 16),
         _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
       };
     case AiTtsProvider.bing:
       return switch (kind) {
-        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2),
+        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
         _TtsNumberKind.volume => const _TtsNumberRange(0, 100),
         _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
       };
@@ -1695,9 +1763,9 @@ _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
     case AiTtsProvider.apple:
     case AiTtsProvider.youdao:
       return switch (kind) {
-        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2),
-        _TtsNumberKind.volume => const _TtsNumberRange(0, 1),
-        _TtsNumberKind.pitch => const _TtsNumberRange(0.5, 2),
+        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
+        _TtsNumberKind.volume => const _TtsNumberRange(0, 1, step: 0.05),
+        _TtsNumberKind.pitch => const _TtsNumberRange(0.5, 2, step: 0.05),
       };
   }
 }
@@ -1747,6 +1815,55 @@ bool _needsAppIdCredential(AiTtsProvider provider) {
   return provider == AiTtsProvider.xfyun;
 }
 
+String? _ttsProviderReadinessError(
+  BuildContext context,
+  AiTtsProviderSettings settings,
+) {
+  final missing = <String>[];
+  void requireField(String value, String label) {
+    if (value.trim().isEmpty) missing.add(label);
+  }
+
+  switch (settings.provider) {
+    case AiTtsProvider.system:
+    case AiTtsProvider.apple:
+      break;
+    case AiTtsProvider.xfyun:
+      requireField(settings.appId, 'App ID');
+      requireField(settings.apiKey, 'API Key');
+      requireField(settings.apiSecret, 'API Secret');
+      break;
+    case AiTtsProvider.youdao:
+      requireField(settings.apiKey, 'API Key');
+      requireField(settings.apiSecret, 'API Secret');
+      break;
+    case AiTtsProvider.bing:
+      requireField(settings.apiKey, 'Subscription Key');
+      if (settings.region.trim().isEmpty && settings.endpoint.trim().isEmpty) {
+        missing.add(_localizedText(context, zh: '区域 Region', en: 'Region'));
+      }
+      break;
+    case AiTtsProvider.google:
+      requireField(settings.apiKey, 'API Key');
+      break;
+    case AiTtsProvider.baidu:
+      if (settings.accessToken.trim().isEmpty) {
+        requireField(settings.apiKey, 'API Key');
+        requireField(settings.apiSecret, 'Secret Key');
+      }
+      break;
+    case AiTtsProvider.doubao:
+      requireField(settings.apiKey, 'API Key');
+      break;
+  }
+  if (missing.isEmpty) return null;
+  return _localizedText(
+    context,
+    zh: '请先补全 ${_ttsProviderLabel(context, settings.provider)} 配置：${missing.join('、')}',
+    en: 'Complete ${_ttsProviderLabel(context, settings.provider)} first: ${missing.join(', ')}',
+  );
+}
+
 double _ttsDragFeedbackWidth(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width - 96;
   return width.clamp(360.0, 960.0).toDouble();
@@ -1771,6 +1888,17 @@ String _friendlyTtsError(Object error) {
   return '${normalized.substring(0, maxLength)}...';
 }
 
+bool _isTtsConfigurationError(Object error) {
+  if (error is! StateError) return false;
+  final message = error.message;
+  return message.contains('credentials are incomplete') ||
+      message.contains('API key is empty') ||
+      message.contains('subscription key is empty') ||
+      message.contains('region is empty') ||
+      message.contains('speaker is empty') ||
+      message.contains('API key or secret is empty');
+}
+
 bool _providerNeedsEndpoint(AiTtsProvider provider) {
   return provider == AiTtsProvider.xfyun ||
       provider == AiTtsProvider.baidu ||
@@ -1787,14 +1915,12 @@ class _SettingsIntField extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
-    this.dense = true,
   });
 
   final int value;
   final int min;
   final int max;
   final ValueChanged<int> onChanged;
-  final bool dense;
 
   @override
   State<_SettingsIntField> createState() => _SettingsIntFieldState();
@@ -1850,20 +1976,140 @@ class _SettingsIntFieldState extends State<_SettingsIntField> {
     return TextField(
       controller: _controller,
       keyboardType: TextInputType.number,
-      textAlign: widget.dense ? TextAlign.right : TextAlign.left,
-      style: widget.dense
-          ? const TextStyle(fontSize: 12, fontFamily: 'monospace')
-          : null,
-      decoration: InputDecoration(
-        isDense: widget.dense,
-        contentPadding: widget.dense
-            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 6)
-            : null,
-        border: const OutlineInputBorder(),
+      textAlign: TextAlign.right,
+      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        border: OutlineInputBorder(),
       ),
       onSubmitted: _commit,
       onEditingComplete: () => _commit(_controller.text),
     );
+  }
+}
+
+class _SettingsIntSlider extends StatefulWidget {
+  const _SettingsIntSlider({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.step,
+    required this.onChanged,
+    this.suffix = '',
+  });
+
+  final int value;
+  final int min;
+  final int max;
+  final int step;
+  final ValueChanged<int> onChanged;
+  final String suffix;
+
+  @override
+  State<_SettingsIntSlider> createState() => _SettingsIntSliderState();
+}
+
+class _SettingsIntSliderState extends State<_SettingsIntSlider> {
+  int? _draftValue;
+
+  int get _effectiveValue => _snap(_draftValue ?? widget.value);
+
+  @override
+  void didUpdateWidget(covariant _SettingsIntSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value ||
+        oldWidget.min != widget.min ||
+        oldWidget.max != widget.max ||
+        oldWidget.step != widget.step) {
+      _draftValue = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final clamped = _effectiveValue;
+    final divisions = _divisions;
+    final formatted = widget.suffix.isEmpty
+        ? '$clamped'
+        : '$clamped${widget.suffix}';
+    return InputDecorator(
+      decoration: InputDecoration(
+        helperText: '${widget.min} - ${widget.max}',
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+      ),
+      child: Row(
+        children: [
+          _AiTtsStepperButton(
+            icon: Icons.remove_rounded,
+            onPressed: clamped <= widget.min
+                ? null
+                : () => _commit(clamped - widget.step),
+          ),
+          Expanded(
+            child: Slider(
+              min: widget.min.toDouble(),
+              max: widget.max.toDouble(),
+              divisions: divisions,
+              value: clamped.toDouble(),
+              label: formatted,
+              onChanged: _preview,
+              onChangeEnd: (raw) => _commit(raw.round()),
+            ),
+          ),
+          _AiTtsStepperButton(
+            icon: Icons.add_rounded,
+            onPressed: clamped >= widget.max
+                ? null
+                : () => _commit(clamped + widget.step),
+          ),
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 58),
+            child: Text(
+              formatted,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const <ui.FontFeature>[
+                  ui.FontFeature.tabularFigures(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int? get _divisions {
+    if (widget.step <= 0) return null;
+    final count = ((widget.max - widget.min) / widget.step).round();
+    return count > 0 && count <= 1000 ? count : null;
+  }
+
+  int _snap(int raw) {
+    final clamped = raw.clamp(widget.min, widget.max).toInt();
+    if (widget.step <= 0) return clamped;
+    final snapped =
+        widget.min +
+        ((clamped - widget.min) / widget.step).round() * widget.step;
+    return snapped.clamp(widget.min, widget.max).toInt();
+  }
+
+  void _preview(double raw) {
+    setState(() => _draftValue = _snap(raw.round()));
+  }
+
+  void _commit(int raw) {
+    final next = _snap(raw);
+    setState(() => _draftValue = null);
+    if (next == widget.value) return;
+    widget.onChanged(next);
   }
 }
 

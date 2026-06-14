@@ -767,9 +767,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   icon: Icons.content_copy_outlined,
                   label: _localizedText(context, zh: '复制', en: 'Copy'),
                 ),
-                if (widget.speechEnabled &&
-                    !isUser &&
-                    widget.onToggleSpeech != null)
+                if (widget.speechEnabled && widget.onToggleSpeech != null)
                   _MessageActionSpec(
                     id: 'speech',
                     onPressed: widget.onToggleSpeech,

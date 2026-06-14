@@ -88,7 +88,9 @@ class AiTtsPlaybackService {
       } catch (error, stack) {
         if (error is _AiTtsPlaybackCancelled) return;
         if (generation != _generation) return;
-        silentLog('tts', 'provider ${provider.storageKey}', error, stack);
+        if (!_isTtsConfigurationError(error)) {
+          silentLog('tts', 'provider ${provider.storageKey}', error, stack);
+        }
         await _stopActiveResources(clearState: false);
       }
     }
@@ -1060,6 +1062,17 @@ class AiTtsPlaybackService {
         "\$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
         "\$s.Volume = $volume; \$s.Rate = $rate; "
         "\$s.Speak('$escaped'); \$s.Dispose();";
+  }
+
+  static bool _isTtsConfigurationError(Object error) {
+    if (error is! StateError) return false;
+    final message = error.message;
+    return message.contains('credentials are incomplete') ||
+        message.contains('API key is empty') ||
+        message.contains('subscription key is empty') ||
+        message.contains('region is empty') ||
+        message.contains('speaker is empty') ||
+        message.contains('API key or secret is empty');
   }
 }
 
