@@ -3,11 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
-import '../../app/state/settings_controller.dart';
 import 'bounded_animation.dart';
+import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
 Color resolveAnimatedDialogBarrierColor(
@@ -192,10 +191,12 @@ Future<T?> showAnimatedDialog<T>({
     dismissOnEscape: dismissOnEscape,
     alignment: alignment,
   );
-  final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
-      ? OpenHandMotionDefaults.disabled
-      : (settings ?? _resolveDialogAnimationSettings(context)).normalized();
-  if (effectiveSettings.disablesAnimation) {
+  final effectiveSettings = openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.dialog,
+    override: settings,
+  );
+  if (openHandMotionDisabled(effectiveSettings)) {
     return showDialog<T>(
       context: context,
       builder: themedBuilder,
@@ -235,14 +236,6 @@ Future<T?> showAnimatedDialog<T>({
     pageBuilder: (context, animation, secondaryAnimation) =>
         themedBuilder(context),
   );
-}
-
-DialogAnimationSettings _resolveDialogAnimationSettings(BuildContext context) {
-  try {
-    return context.read<SettingsController>().dialogAnimationSettings;
-  } catch (_) {
-    return OpenHandMotionDefaults.dialog;
-  }
 }
 
 Future<void> showOpenHandInfoDialog({

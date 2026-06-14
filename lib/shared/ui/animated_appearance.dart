@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
 import 'bounded_animation.dart';
+import 'motion_preference.dart';
 
 /// Reusable enter/exit animation wrapper that consumes a
 /// [DialogAnimationSettings] (the same struct that drives dialogs,
@@ -165,8 +166,7 @@ class AnimatedListAppearance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    final effectiveSettings = disableAnimations
+    final effectiveSettings = openHandReduceMotionOf(context)
         ? OpenHandMotionDefaults.disabled
         : settings;
     final style = switch (phase) {

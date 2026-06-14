@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
-import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
+import 'motion_preference.dart';
 
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
@@ -24,12 +23,13 @@ Future<T?> showAnimatedMenu<T>({
   bool useRootNavigator = false,
   bool enableBidirectionalScroll = false,
 }) {
-  final effectiveSettings = MediaQuery.maybeDisableAnimationsOf(context) == true
-      ? OpenHandMotionDefaults.disabled
-      : (settings ?? _resolveMenuAnimationSettings(context)).normalized();
+  final effectiveSettings = openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.menu,
+    override: settings,
+  );
 
-  if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
-      effectiveSettings.exitStyle == DialogAnimationStyle.none) {
+  if (openHandMotionDisabled(effectiveSettings)) {
     return showMenu<T>(
       context: context,
       position: position,
@@ -63,14 +63,6 @@ Future<T?> showAnimatedMenu<T>({
       ),
     ),
   );
-}
-
-DialogAnimationSettings _resolveMenuAnimationSettings(BuildContext context) {
-  try {
-    return context.read<SettingsController>().menuAnimationSettings;
-  } catch (_) {
-    return OpenHandMotionDefaults.menu;
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

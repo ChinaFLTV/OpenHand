@@ -2,12 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
@@ -174,10 +173,10 @@ class _TokenPopupCacheHitTrendChartState
 
   /// Hover tooltip uses spring-scale while inheriting global duration / curve.
   DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return OpenHandMotionDefaults.disabled;
-    }
-    final global = context.read<SettingsController>().dialogAnimationSettings;
+    final global = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     return global.copyWith(
       entranceStyle: DialogAnimationStyle.springScale,
       exitStyle: DialogAnimationStyle.springScale,

@@ -69,10 +69,10 @@ class _TokenDialState extends State<_TokenDial>
   bool _webClickPinned = false;
 
   DialogAnimationSettings _dialogSettings(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return OpenHandMotionDefaults.disabled;
-    }
-    return context.read<SettingsController>().dialogAnimationSettings;
+    return openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
   }
 
   @override

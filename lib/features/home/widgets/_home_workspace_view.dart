@@ -401,11 +401,10 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
   late Animation<Offset> _slide;
 
   DialogAnimationSettings _resolveSettings() {
-    try {
-      return context.read<SettingsController>().dialogAnimationSettings;
-    } catch (_) {
-      return OpenHandMotionDefaults.dialog;
-    }
+    return openHandMotionSettingsFallbackOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
   }
 
   @override
@@ -549,12 +548,10 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DialogAnimationSettings settings;
-    try {
-      settings = context.read<SettingsController>().pageAnimationSettings;
-    } catch (_) {
-      settings = OpenHandMotionDefaults.page;
-    }
+    final settings = openHandMotionSettingsFallbackOf(
+      context,
+      OpenHandMotionSettingsScope.page,
+    );
     final baseDuration = _effectiveSwitchDuration(settings);
     return AnimatedSwitcher(
       duration: Duration(

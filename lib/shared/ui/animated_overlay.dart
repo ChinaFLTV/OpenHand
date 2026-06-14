@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
-import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
@@ -74,18 +72,10 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       return widget.customSettings!;
     }
     if (widget.useMenuSettings) {
-      try {
-        final settings = context
-            .read<SettingsController>()
-            .menuAnimationSettings;
-        return settings.copyWith(
-          durationMs: widget.customDuration?.inMilliseconds,
-        );
-      } catch (_) {
-        return OpenHandMotionDefaults.menu.copyWith(
-          durationMs: widget.customDuration?.inMilliseconds,
-        );
-      }
+      return openHandMotionSettingsFallbackOf(
+        context,
+        OpenHandMotionSettingsScope.menu,
+      ).copyWith(durationMs: widget.customDuration?.inMilliseconds);
     }
     return DialogAnimationSettings(
       entranceStyle: widget.enableScaleAnimation
@@ -102,8 +92,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     final resolved = _resolveSettings();
     final disabled =
         !openHandTickerMotionEnabled(context) ||
-        (resolved.entranceStyle == DialogAnimationStyle.none &&
-            resolved.exitStyle == DialogAnimationStyle.none);
+        openHandMotionDisabled(resolved);
     _settings = resolved;
     _animationsDisabled = disabled;
     _controller

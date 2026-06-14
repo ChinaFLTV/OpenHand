@@ -2,12 +2,11 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
-import '../../app/state/settings_controller.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import 'animated_dialog.dart';
+import 'motion_preference.dart';
 
 enum OpenHandSnackKind { info, success, error }
 
@@ -85,9 +84,6 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
   }
 
   DialogAnimationSettings _resolveMotionSettings() {
-    if (MediaQuery.maybeDisableAnimationsOf(context) == true) {
-      return OpenHandMotionDefaults.disabled;
-    }
     return OpenHandSnackBar._resolveMotionSettings(context);
   }
 
@@ -113,7 +109,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     _controller.duration = settings.duration;
     _controller.reverseDuration = settings.duration;
     setState(() => _currentSnackBar = next);
-    if (OpenHandSnackBar._motionDisabled(settings)) {
+    if (openHandMotionDisabled(settings)) {
       _controller.value = 1;
       _visibleNotified = true;
       next.onVisible?.call();
@@ -149,7 +145,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (current == null || _isDismissing) return;
     _dismissTimer?.cancel();
     final settings = _resolveMotionSettings();
-    if (OpenHandSnackBar._motionDisabled(settings) || _controller.value <= 0) {
+    if (openHandMotionDisabled(settings) || _controller.value <= 0) {
       _removeCurrentAndContinue();
       return;
     }
@@ -195,28 +191,10 @@ class OpenHandSnackBar {
 
   static const Duration _maximumDisplayDuration = Duration(seconds: 8);
 
-  static bool _motionDisabled(DialogAnimationSettings settings) {
-    return settings.entranceStyle == DialogAnimationStyle.none &&
-        settings.exitStyle == DialogAnimationStyle.none;
-  }
-
   static DialogAnimationSettings _resolveMotionSettings(BuildContext context) {
-    try {
-      return context.read<SettingsController>().dialogAnimationSettings;
-    } catch (_) {
-      return OpenHandMotionDefaults.dialog;
-    }
-  }
-
-  static AnimationStyle _resolveRouteAnimationStyle(
-    DialogAnimationSettings settings,
-  ) {
-    if (_motionDisabled(settings)) return AnimationStyle.noAnimation;
-    return AnimationStyle(
-      duration: settings.duration,
-      reverseDuration: settings.duration,
-      curve: settings.curve.curve,
-      reverseCurve: settings.curve.reverseCurve,
+    return openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
     );
   }
 
@@ -290,15 +268,11 @@ class OpenHandSnackBar {
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {
-    final animationsDisabled =
-        MediaQuery.maybeDisableAnimationsOf(context) == true;
-    final motionSettings = animationsDisabled
-        ? OpenHandMotionDefaults.disabled
-        : _resolveMotionSettings(context);
+    final motionSettings = _resolveMotionSettings(context);
     final wrapped = _ensureMotionWrapped(context, snackBar, motionSettings);
     messenger.showSnackBar(
       wrapped,
-      snackBarAnimationStyle: _resolveRouteAnimationStyle(motionSettings),
+      snackBarAnimationStyle: openHandAnimationStyle(motionSettings),
     );
   }
 
@@ -689,8 +663,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
       ),
     );
 
-    if (!_OpenHandGlobalSnackBarEntry._motionDisabled(settings) &&
-        animation.value >= 0) {
+    if (!openHandMotionDisabled(settings) && animation.value >= 0) {
       child = AnimatedBuilder(
         animation: animation,
         child: child,
@@ -724,11 +697,6 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     }
 
     return child;
-  }
-
-  static bool _motionDisabled(DialogAnimationSettings settings) {
-    return settings.entranceStyle == DialogAnimationStyle.none &&
-        settings.exitStyle == DialogAnimationStyle.none;
   }
 }
 
@@ -858,8 +826,7 @@ class _OpenHandSnackBarMotion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context) ||
-        OpenHandSnackBar._motionDisabled(settings)) {
+    if (openHandReduceMotionOf(context) || openHandMotionDisabled(settings)) {
       return child;
     }
     final animation = context

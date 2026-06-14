@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -4504,11 +4503,10 @@ bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
 }
 
 DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
-  try {
-    return context.read<SettingsController>().menuAnimationSettings;
-  } catch (_) {
-    return OpenHandMotionDefaults.menu;
-  }
+  return openHandMotionSettingsFallbackOf(
+    context,
+    OpenHandMotionSettingsScope.menu,
+  );
 }
 
 class _GatewayRoundIconActionButton extends StatelessWidget {

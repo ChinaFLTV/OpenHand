@@ -8,13 +8,13 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/cron_config.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -2132,9 +2132,11 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
   @override
   void initState() {
     super.initState();
-    final settings = context.read<SettingsController>().dialogAnimationSettings;
-    final isNone = settings.entranceStyle.name == 'none';
-    final duration = isNone
+    final settings = openHandMotionSettingsFallbackOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final duration = openHandMotionDisabled(settings)
         ? Duration.zero
         : Duration(milliseconds: (settings.durationMs * 0.8).round());
     _animController = AnimationController(
