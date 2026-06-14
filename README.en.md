@@ -12,18 +12,41 @@
 
 </div>
 
-OpenHand is a local-first, cross-platform desktop workbench for AI agents. It brings model protocols, tool execution, MCP, skills, hooks, scheduled jobs, memory, and thread templates into one native Flutter app for developers and teams that need controllable, extensible, and auditable AI workflows.
+OpenHand is a local-first, cross-platform desktop workbench for AI agents, built for developers, researchers, and teams that need controllable AI workflows. It brings multi-model chats, tool execution, MCP, skills, memory, hooks, scheduled jobs, and thread templates into one native Flutter app for extensible, auditable, and maintainable desktop AI work.
 
 [简体中文](README.md)
 
-## Core Capabilities
+## Introduction
 
-- Model protocols: OpenAI, Claude, Gemini, DeepSeek, Qwen, Kimi, GLM, Grok, Ollama, vLLM, SGLang, MiniMax, and more.
-- Agent toolchain: file read/write/edit/search, Bash, Git, LSP, WebFetch, WebSearch, Todo, Memory, Skill Manager, and related tools.
-- DSML fallback: models without native function calling can still drive tools through a structured text protocol.
-- Local data: sessions, memories, skills, MCP configuration, and settings are stored on the local machine by default.
-- Safe execution: command rules, sandbox settings, process timeouts, and forced termination are managed consistently.
-- Desktop experience: multi-thread sessions, attachments, syntax highlighting, Markdown, KaTeX, shortcuts, themes, and localization.
+OpenHand is designed to be more than a chat window. It provides a local AI workbench where users can manage models, engineering workflows, file operations, browser debugging, MCP servers, reusable skills, long-term memory, and automation in one application.
+
+It is useful for:
+
+- Daily AI conversations, knowledge organization, and long-term memory.
+- Code reading, editing, debugging, project context analysis, and engineering execution.
+- Web reverse engineering, browser debugging, API analysis, and page behavior inspection.
+- Unified management of MCP servers, tools, skills, prompt templates, and local settings.
+- AI-assisted workflows that need local-first storage, explicit permissions, and traceable execution.
+
+## Main Features
+
+- Multi-model access: OpenAI, Claude, Gemini, DeepSeek, Qwen, Kimi, GLM, Grok, Ollama, vLLM, SGLang, MiniMax, and more.
+- Agent toolchain: file read/write/edit/search, Bash, Git, LSP, WebFetch, WebSearch, Todo, Memory, Skill Manager, and related capabilities.
+- Thread templates: regular chat, Programming Expert, Harness Engineering, Web Reverse Expert, Hermes Talker, and other workflow entry points.
+- MCP management: centralized management for Model Context Protocol servers, tool catalogs, runtime status, and configuration.
+- Skill system: manage local skills, prompt templates, and reusable capability packages.
+- Memory system: maintain retrievable user profiles, preferences, project background, and long-term knowledge.
+- Automation: use Hooks and Crons for session lifecycle actions, background maintenance, and scheduled workflows.
+- Desktop interaction: multi-thread sessions, attachments, syntax highlighting, Markdown, KaTeX, shortcuts, themes, and localization.
+
+## Product Traits
+
+- Local-first: sessions, memories, skills, MCP configuration, and settings are stored locally by default.
+- Extensible: model protocols, tools, MCP, skills, hooks, and thread templates are organized as maintainable modules.
+- Controlled execution: command rules, sandbox settings, process timeouts, cancellation, and forced termination are managed consistently.
+- Compatible fallback: models without native function calling can still drive tools through the DSML structured text protocol.
+- Engineering-focused: project workflows include file browsing, context collection, task planning, execution records, and review.
+- Native desktop: built with Flutter for macOS, Windows, and Linux with consistent performance and interaction.
 
 ## Screenshots
 

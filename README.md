@@ -12,18 +12,41 @@
 
 </div>
 
-OpenHand 是一款本地优先的跨平台桌面 AI 智能体工作台。它将多模型协议、工具调用、MCP、技能、钩子、定时任务、记忆和线程模板整合到一个 Flutter 原生应用中，面向需要可控、可扩展、可审计 AI 工作流的开发者与团队。
+OpenHand 是一款本地优先的跨平台桌面 AI 智能体工作台，面向开发者、研究人员和需要可控 AI 工作流的团队。它将多模型会话、工具调用、MCP、技能、记忆、钩子、定时任务和线程模板整合到一个 Flutter 原生应用中，用于构建可扩展、可审计、可长期维护的 AI 桌面工作环境。
 
 [English](README.en.md)
 
-## 核心能力
+## 项目介绍
 
-- 多模型协议：支持 OpenAI、Claude、Gemini、DeepSeek、Qwen、Kimi、GLM、Grok、Ollama、vLLM、SGLang、MiniMax 等多类接口。
-- 智能体工具链：内置文件读写、编辑、搜索、Bash、Git、LSP、WebFetch、WebSearch、Todo、Memory、Skill Manager 等工具。
-- DSML 降级：模型不支持原生 function calling 时，可通过结构化文本协议驱动工具调用。
-- 本地数据：会话、记忆、技能、MCP 配置和设置默认保存在本机。
-- 安全执行：命令规则、沙箱配置、外部进程超时与强制终止策略统一管理。
-- 桌面体验：支持多线程会话、附件、代码高亮、Markdown、KaTeX、快捷键、主题与多语言界面。
+OpenHand 的目标不是只做一个聊天窗口，而是提供一个可以承载真实任务的本地 AI 工作台。用户可以在同一个应用中完成模型配置、工程协作、文件操作、浏览器调试、MCP 服务管理、技能沉淀、长期记忆维护和自动化任务编排。
+
+它适合以下场景：
+
+- 日常 AI 对话、知识整理和长期记忆沉淀。
+- 代码阅读、修改、调试、项目上下文分析和工程任务推进。
+- Web 逆向、浏览器调试、接口分析和页面行为排查。
+- MCP 服务、工具、技能、提示模板和本地配置的统一管理。
+- 需要本地优先、权限可控、过程可追踪的 AI 辅助工作流。
+
+## 主要功能
+
+- 多模型接入：支持 OpenAI、Claude、Gemini、DeepSeek、Qwen、Kimi、GLM、Grok、Ollama、vLLM、SGLang、MiniMax 等多类接口。
+- 智能体工具链：内置文件读写、编辑、搜索、Bash、Git、LSP、WebFetch、WebSearch、Todo、Memory、Skill Manager 等能力。
+- 线程模板：提供普通会话、Programming Expert、Harness Engineering、Web Reverse Expert、Hermes Talker 等工作流入口。
+- MCP 管理：集中管理 Model Context Protocol 服务、工具清单、启停状态和运行配置。
+- 技能系统：管理本地技能、提示模板和可复用能力包，支持将经验沉淀为可复用资产。
+- 记忆系统：维护可检索的用户资料、偏好、项目背景和长期知识。
+- 自动任务：通过 Hooks 和 Crons 执行会话生命周期动作、后台维护任务和定时工作流。
+- 桌面交互：支持多线程会话、附件、代码高亮、Markdown、KaTeX、快捷键、主题和多语言界面。
+
+## 产品特性
+
+- 本地优先：会话、记忆、技能、MCP 配置和设置默认保存在本机，便于掌控数据边界。
+- 可扩展：模型协议、工具、MCP、技能、钩子和线程模板按模块组织，便于持续扩展。
+- 可控执行：命令规则、沙箱配置、外部进程超时、取消和强制终止策略统一管理。
+- 兼容降级：模型不支持原生 function calling 时，可通过 DSML 结构化文本协议驱动工具调用。
+- 工程化体验：面向真实项目协作设计，提供文件浏览、上下文收集、任务规划、执行记录和结果验收能力。
+- 原生桌面：基于 Flutter 构建，覆盖 macOS、Windows 和 Linux，兼顾性能、稳定性和一致体验。
 
 ## 应用截图
 
