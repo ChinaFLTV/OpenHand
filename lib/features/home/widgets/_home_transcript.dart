@@ -340,6 +340,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
 
+  ThemeData? _warmupTheme;
+  SettingsController? _warmupSettings;
+
   @override
   void initState() {
     super.initState();
@@ -382,11 +385,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.didChangeDependencies();
     final activity = context.read<TranscriptScrollActivity>();
     if (identical(activity, _scrollActivity)) {
+      _warmupTheme = Theme.of(context);
+      _warmupSettings ??= context.read<SettingsController>();
       return;
     }
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = activity;
     activity.addListener(_handleRevealScrollActivityChanged);
+    _warmupTheme = Theme.of(context);
+    _warmupSettings ??= context.read<SettingsController>();
   }
 
   @override
@@ -538,6 +545,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       arguments: <String, Object?>{'count': visibleMessages.length},
     );
     try {
+      _warmRichRenderEntries(visibleMessages);
       if (!animate) {
         _animatedMessageIds.addAll(
           visibleMessages.map((message) => message.id),
@@ -549,6 +557,224 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       ];
     } finally {
       developer.Timeline.finishSync();
+    }
+  }
+
+  void _warmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
+    final theme = _warmupTheme ?? Theme.of(context);
+    final settings = _warmupSettings ?? context.read<SettingsController>();
+    final session = widget.session;
+    if (visibleMessages.isEmpty) {
+      return;
+    }
+    final staged =
+        _initialMaterializationPending &&
+            visibleMessages.length <= _transcriptFirstFrameWindowSize
+        ? _visibleMessagesForWindow()
+        : visibleMessages;
+    final warmCount = math.min(
+      staged.length,
+      math.max(_transcriptInitialWindowSize, _transcriptWindowIncrement),
+    );
+    final startIndex = math.max(0, staged.length - warmCount);
+    final warmMessages = staged.sublist(startIndex);
+    for (final message in warmMessages) {
+      _warmRichRenderForMessage(
+        session: session,
+        message: message,
+        theme: theme,
+        settings: settings,
+      );
+    }
+  }
+
+  void _warmRichRenderForMessage({
+    required AiSession session,
+    required AiSessionMessage message,
+    required ThemeData theme,
+    required SettingsController settings,
+  }) {
+    final kind = message.kind;
+    final isUser = kind == AiSessionMessageKind.user;
+    final isCompressionPoint = kind == AiSessionMessageKind.compressionPoint;
+    final isReasoning = kind == AiSessionMessageKind.reasoning;
+    final isStreamingReasoning = _isStreamingReasoningMessage(message);
+    final isStreamingAssistant =
+        kind == AiSessionMessageKind.assistant &&
+        message.metadata[aiSessionMessageMetadataStreamingKey] == true;
+    final isToolCall =
+        kind == AiSessionMessageKind.toolCall ||
+        kind == AiSessionMessageKind.hook;
+    final isToolResult =
+        kind == AiSessionMessageKind.tool ||
+        kind == AiSessionMessageKind.mcp ||
+        kind == AiSessionMessageKind.skill;
+    final isStatus = kind == AiSessionMessageKind.status;
+    final isSelfLearning = kind == AiSessionMessageKind.selfLearning;
+    final isRoundFileMutationSummary =
+        kind == AiSessionMessageKind.fileMutationSummary ||
+        (isStatus && message.metadata['round_file_mutation_summary'] == true);
+    if (isUser || isToolCall || isSelfLearning || isRoundFileMutationSummary) {
+      return;
+    }
+
+    final colorScheme = theme.colorScheme;
+    final backgroundColor = isCompressionPoint
+        ? colorScheme.tertiaryContainer
+        : isReasoning
+        ? const Color(0xFF18181B)
+        : isToolResult
+        ? colorScheme.surfaceContainerHighest
+        : isStatus
+        ? colorScheme.surfaceContainer
+        : colorScheme.surfaceContainerHigh;
+    final textColor = isCompressionPoint
+        ? colorScheme.onTertiaryContainer
+        : isReasoning
+        ? Colors.white
+        : colorScheme.onSurface;
+    final useDarkCodeSurface = isReasoning || isToolCall;
+    final pathRoots = messageFilePathRoots(
+      session.environment,
+      workingDirectory: _toolExecutionWorkingDirectory(message),
+    );
+    final parseKey = pathRoots.join('|');
+    final markdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
+      theme: theme,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      useDarkCodeSurface: useDarkCodeSurface,
+    );
+    final inlineSyntaxes = <md.InlineSyntax>[
+      _GeneratedMediaLinkSyntax.byExtension(pathRoots: pathRoots),
+      _GeneratedMediaLinkSyntax.byGeneratedLabel(pathRoots: pathRoots),
+      MessagePathCodeSyntax(candidateRoots: pathRoots),
+      MessageFilePathSyntax(candidateRoots: pathRoots),
+    ];
+    final resolvedFormat = () {
+      final storedKey = message.metadata[aiSessionMessageContentFormatKey];
+      if (storedKey is String && storedKey.isNotEmpty) {
+        return AiMessageContentFormat.fromStorageKey(storedKey);
+      }
+      return settings.aiMessageContentFormat;
+    }();
+    final heAnnotation = (!isCompressionPoint && !isToolResult && !isStatus)
+        ? _parseHeAnnotation(message.content)
+        : null;
+    final effectiveContent = heAnnotation?.strippedContent ?? message.content;
+    final normalizedContent = effectiveContent.isEmpty ? ' ' : effectiveContent;
+
+    if (isCompressionPoint) {
+      if (_messageShouldCollapse(
+        normalizedContent,
+        charThreshold: _messageMarkdownCollapseCharThreshold,
+        lineThreshold: _messageMarkdownCollapseLineThreshold,
+      )) {
+        _warmMarkdownRenderPath(
+          data: normalizedContent,
+          parseKey: '$parseKey|compression-preview',
+          inlineSyntaxes: inlineSyntaxes,
+          theme: theme,
+          textColor: textColor,
+          useDarkCodeSurface: useDarkCodeSurface,
+        );
+      } else {
+        _warmMarkdownRenderPath(
+          data: normalizedContent,
+          parseKey: parseKey,
+          inlineSyntaxes: inlineSyntaxes,
+          theme: theme,
+          textColor: textColor,
+          useDarkCodeSurface: useDarkCodeSurface,
+        );
+      }
+      return;
+    }
+
+    if (isReasoning) {
+      if (isStreamingReasoning) {
+        return;
+      }
+      if (_shouldDefaultExpandReasoning(message)) {
+        _warmMarkdownRenderPath(
+          data: normalizedContent,
+          parseKey: parseKey,
+          inlineSyntaxes: inlineSyntaxes,
+          theme: theme,
+          textColor: textColor,
+          useDarkCodeSurface: true,
+        );
+      } else {
+        _warmMarkdownRenderPath(
+          data: normalizedContent,
+          parseKey: '$parseKey|reasoning-preview',
+          inlineSyntaxes: inlineSyntaxes,
+          theme: theme,
+          textColor: textColor,
+          useDarkCodeSurface: true,
+        );
+      }
+      return;
+    }
+
+    if (isStreamingAssistant) {
+      return;
+    }
+
+    final collapseCharThreshold = isToolResult
+        ? _toolResultMarkdownCollapseCharThreshold
+        : _messageMarkdownCollapseCharThreshold;
+    final collapseLineThreshold = isToolResult
+        ? _toolResultMarkdownCollapseLineThreshold
+        : _messageMarkdownCollapseLineThreshold;
+    final hasHtmlLikeTags = _looksLikeHtml(normalizedContent);
+    final hasTagStructure =
+        !hasHtmlLikeTags && _hasHtmlTagStructure(normalizedContent);
+    final containsMarkdownFence =
+        _startsWithFencedMermaidBlock(normalizedContent.trim()) ||
+        _containsMarkdownCodeFence(normalizedContent.trim());
+
+    void warmMarkdownBody() {
+      final collapsed = _messageShouldCollapse(
+        normalizedContent,
+        charThreshold: collapseCharThreshold,
+        lineThreshold: collapseLineThreshold,
+      );
+      _warmMarkdownRenderPath(
+        data: normalizedContent,
+        parseKey: collapsed ? '$parseKey|message-preview' : parseKey,
+        inlineSyntaxes: inlineSyntaxes,
+        theme: theme,
+        textColor: textColor,
+        useDarkCodeSurface: useDarkCodeSurface,
+      );
+    }
+
+    switch (resolvedFormat) {
+      case AiMessageContentFormat.plainText:
+        return;
+      case AiMessageContentFormat.html:
+        if (hasHtmlLikeTags || hasTagStructure) {
+          _warmHtmlBubbleMetrics(
+            normalizedContent,
+            markdownThemeData.styleSheet.p,
+          );
+          return;
+        }
+        if (settings.aiHtmlRenderFallback == AiHtmlRenderFallback.markdown) {
+          warmMarkdownBody();
+        }
+        return;
+      case AiMessageContentFormat.markdown:
+        if (!containsMarkdownFence && (hasHtmlLikeTags || hasTagStructure)) {
+          _warmHtmlBubbleMetrics(
+            normalizedContent,
+            markdownThemeData.styleSheet.p,
+          );
+          return;
+        }
+        warmMarkdownBody();
+        return;
     }
   }
 

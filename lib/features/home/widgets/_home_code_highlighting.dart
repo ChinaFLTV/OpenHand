@@ -28,6 +28,7 @@ const int _highlightDeferThresholdChars = 256;
 final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
   maxEntries: 512,
 );
+final Set<int> _pendingHighlightWarmups = <int>{};
 
 /// 阶段⑳：全局帧分散调度器。当一条消息含 N 个代码块同时展开时，
 /// 所有代码块的 highlight 回调都注册到同一个 addPostFrameCallback，
@@ -97,6 +98,142 @@ class _HighlightSpanCache {
       _entries.remove(_entries.keys.first);
     }
   }
+}
+
+int _highlightSignatureForInputs({
+  required String content,
+  required String? effectiveLanguage,
+  required bool allowAutoDetection,
+  required Color baseColor,
+  required bool useDarkPalette,
+  required ThemeData theme,
+}) {
+  return Object.hashAll(<Object?>[
+    content,
+    effectiveLanguage,
+    allowAutoDetection,
+    baseColor.toARGB32(),
+    useDarkPalette,
+    theme.textTheme.bodyMedium?.fontSize,
+    theme.textTheme.bodyMedium?.fontFamily,
+    theme.textTheme.bodyMedium?.height,
+  ]);
+}
+
+TextStyle _baseCodeStyleForTheme({
+  required ThemeData theme,
+  required Color baseColor,
+  required bool useDarkPalette,
+}) {
+  return theme.textTheme.bodyMedium?.copyWith(
+        color: baseColor,
+        fontFamily: 'monospace',
+        height: 1.48,
+      ) ??
+      TextStyle(color: baseColor, fontFamily: 'monospace', height: 1.48);
+}
+
+TextSpan _computeHighlightedCodeSpan({
+  required String content,
+  required String? effectiveLanguage,
+  required bool allowAutoDetection,
+  required ThemeData theme,
+  required Color baseColor,
+  required bool useDarkPalette,
+  required int signature,
+}) {
+  final cached = _highlightSpanCache.get(signature);
+  if (cached != null) {
+    return cached;
+  }
+  final baseStyle = _baseCodeStyleForTheme(
+    theme: theme,
+    baseColor: baseColor,
+    useDarkPalette: useDarkPalette,
+  );
+  if (content.length > _highlightSkipThresholdChars) {
+    final span = TextSpan(text: content, style: baseStyle);
+    _highlightSpanCache.put(signature, span);
+    return span;
+  }
+  final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
+      ? 'highlight(auto, ${content.length}c)'
+      : 'highlight($effectiveLanguage, ${content.length}c)';
+  final span = developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
+    final highlighter = _CodeSyntaxHighlighter(
+      baseStyle: baseStyle,
+      darkSurface: useDarkPalette,
+    );
+    return highlighter.build(
+      content,
+      language: effectiveLanguage,
+      allowAutoDetection: allowAutoDetection,
+    );
+  });
+  _highlightSpanCache.put(signature, span);
+  return span;
+}
+
+void _warmHighlightedCodeSpan({
+  required String content,
+  required ThemeData theme,
+  required Color baseColor,
+  required bool forceDarkSurface,
+  String? language,
+  bool allowAutoDetection = false,
+}) {
+  final effectiveLanguage = _normalizeCodeLanguage(language);
+  final useDarkPalette =
+      forceDarkSurface || theme.brightness == Brightness.dark;
+  final signature = _highlightSignatureForInputs(
+    content: content,
+    effectiveLanguage: effectiveLanguage,
+    allowAutoDetection: allowAutoDetection,
+    baseColor: baseColor,
+    useDarkPalette: useDarkPalette,
+    theme: theme,
+  );
+  if (_highlightSpanCache.get(signature) != null) {
+    return;
+  }
+  if (content.length > _highlightSkipThresholdChars) {
+    _highlightSpanCache.put(
+      signature,
+      TextSpan(
+        text: content,
+        style: _baseCodeStyleForTheme(
+          theme: theme,
+          baseColor: baseColor,
+          useDarkPalette: useDarkPalette,
+        ),
+      ),
+    );
+    return;
+  }
+  if (!_pendingHighlightWarmups.add(signature)) {
+    return;
+  }
+  void warmup() {
+    try {
+      _computeHighlightedCodeSpan(
+        content: content,
+        effectiveLanguage: effectiveLanguage,
+        allowAutoDetection: allowAutoDetection,
+        theme: theme,
+        baseColor: baseColor,
+        useDarkPalette: useDarkPalette,
+        signature: signature,
+      );
+    } finally {
+      _pendingHighlightWarmups.remove(signature);
+    }
+  }
+
+  if (content.length > _highlightDeferThresholdChars) {
+    _HighlightFrameScheduler.instance.schedule(warmup);
+    return;
+  }
+  warmup();
 }
 
 class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
@@ -564,29 +701,22 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     required String? effectiveLanguage,
     required bool useDarkPalette,
   }) {
-    return Object.hashAll(<Object?>[
-      widget.content,
-      effectiveLanguage,
-      widget.allowAutoDetection,
-      widget.baseColor.toARGB32(),
-      useDarkPalette,
-      widget.theme.textTheme.bodyMedium?.fontSize,
-      widget.theme.textTheme.bodyMedium?.fontFamily,
-      widget.theme.textTheme.bodyMedium?.height,
-    ]);
+    return _highlightSignatureForInputs(
+      content: widget.content,
+      effectiveLanguage: effectiveLanguage,
+      allowAutoDetection: widget.allowAutoDetection,
+      baseColor: widget.baseColor,
+      useDarkPalette: useDarkPalette,
+      theme: widget.theme,
+    );
   }
 
   TextStyle _baseStyleForCurrentTheme(bool useDarkPalette) {
-    return widget.theme.textTheme.bodyMedium?.copyWith(
-          color: widget.baseColor,
-          fontFamily: 'monospace',
-          height: 1.48,
-        ) ??
-        TextStyle(
-          color: widget.baseColor,
-          fontFamily: 'monospace',
-          height: 1.48,
-        );
+    return _baseCodeStyleForTheme(
+      theme: widget.theme,
+      baseColor: widget.baseColor,
+      useDarkPalette: useDarkPalette,
+    );
   }
 
   TextSpan _runHighlight(
@@ -594,25 +724,15 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     bool useDarkPalette,
     int signature,
   ) {
-    // 阶段⑲ — 给 highlight tokenizer 加 Timeline 标记，方便 devtools
-    // 性能面板按帧定位耗时来源（仅 debug/profile 模式可见，release 由
-    // dart:developer 自身 tree-shake 掉）。
-    final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
-        ? 'highlight(auto, ${widget.content.length}c)'
-        : 'highlight($effectiveLanguage, ${widget.content.length}c)';
-    return developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
-      final highlighter = _CodeSyntaxHighlighter(
-        baseStyle: _baseStyleForCurrentTheme(useDarkPalette),
-        darkSurface: useDarkPalette,
-      );
-      final span = highlighter.build(
-        widget.content,
-        language: effectiveLanguage,
-        allowAutoDetection: widget.allowAutoDetection,
-      );
-      _highlightSpanCache.put(signature, span);
-      return span;
-    });
+    return _computeHighlightedCodeSpan(
+      content: widget.content,
+      effectiveLanguage: effectiveLanguage,
+      allowAutoDetection: widget.allowAutoDetection,
+      theme: widget.theme,
+      baseColor: widget.baseColor,
+      useDarkPalette: useDarkPalette,
+      signature: signature,
+    );
   }
 
   Widget _buildToolPill({

@@ -361,19 +361,11 @@ class _CollapsibleMessageMarkdownBodyState
   }
 
   bool _shouldCollapse(String value) {
-    if (value.length > widget.collapseCharThreshold) {
-      return true;
-    }
-    var lineCount = 1;
-    for (final unit in value.codeUnits) {
-      if (unit == 0x0A) {
-        lineCount += 1;
-        if (lineCount > widget.collapseLineThreshold) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return _messageShouldCollapse(
+      value,
+      charThreshold: widget.collapseCharThreshold,
+      lineThreshold: widget.collapseLineThreshold,
+    );
   }
 
   @override
@@ -474,6 +466,26 @@ class _CollapsibleMessageMarkdownBodyState
       ],
     );
   }
+}
+
+bool _messageShouldCollapse(
+  String value, {
+  required int charThreshold,
+  required int lineThreshold,
+}) {
+  if (value.length > charThreshold) {
+    return true;
+  }
+  var lineCount = 1;
+  for (final unit in value.codeUnits) {
+    if (unit == 0x0A) {
+      lineCount += 1;
+      if (lineCount > lineThreshold) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 class _MarkdownPreviewBody extends StatefulWidget {
@@ -957,6 +969,300 @@ class _MarkdownAstCache {
 }
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
+final Set<int> _pendingMarkdownWarmups = <int>{};
+
+int _markdownAstCacheKeyForInputs({
+  required String normalizedSource,
+  required String parseKey,
+  required List<md.InlineSyntax> inlineSyntaxes,
+}) {
+  return Object.hashAll(<Object?>[
+    normalizedSource,
+    parseKey,
+    inlineSyntaxes.length,
+    for (final syn in inlineSyntaxes) syn.runtimeType,
+  ]);
+}
+
+int _markdownAstCacheKeyFor(String normalizedSource, _SafeMarkdownBody widget) {
+  return _markdownAstCacheKeyForInputs(
+    normalizedSource: normalizedSource,
+    parseKey: widget.parseKey,
+    inlineSyntaxes: widget.inlineSyntaxes,
+  );
+}
+
+final RegExp _markdownSetextEscapePattern = RegExp(
+  r'(^|\n)(\s*)(=+|\^+)(?=\n|$)',
+);
+final RegExp _markdownInlineFencedBlockLinePattern = RegExp(
+  r'^( {0,3})(`{3,}|~{3,})([^\n]*)$',
+);
+final RegExp _markdownFenceInfoTokenPattern = RegExp(
+  r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)',
+);
+
+/// Matches scaffolding lines that sometimes leak from models into the
+/// visible markdown body, e.g. a bare `Tool: Bash`, `工具: Bash`,
+/// `工具调用：xxx`, `[tool_call] ...`, or `function_calls: ...`.
+///
+/// These come from the model's own chain-of-thought / training data and
+/// should be rendered by the structured tool-call bubble, not as plain text.
+/// We strip them before markdown parsing to keep transcripts clean.
+final RegExp _markdownToolScaffoldingLinePattern = RegExp(
+  r'^\s*(?:'
+  r'tool\s*:\s*\w[\w\-\.]*'
+  r'|工具\s*[:：]\s*\w[\w\-\.]*'
+  r'|工具调用\s*[:：].*'
+  r'|\[?tool_call\]?\s*[:：]?\s*.*'
+  r'|function_calls?\s*[:：].*'
+  r'|<?function_calls?>?\s*$'
+  r'|</?invoke[^>]*>\s*$'
+  r')\s*$',
+  caseSensitive: false,
+  multiLine: true,
+);
+
+String _sanitizeMarkdownSource(String source) {
+  final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final normalizedFences = _normalizeInlineFencedCodeBlocks(normalized);
+  final stripped = _stripToolScaffoldingFromMarkdown(normalizedFences);
+  return _closeUnterminatedFencedCodeBlock(stripped).replaceAllMapped(
+    _markdownSetextEscapePattern,
+    (match) => '${match[1]}${match[2]}\\${match[3]}',
+  );
+}
+
+String _normalizeInlineFencedCodeBlocks(String source) {
+  if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
+    return source;
+  }
+  final lines = source.split('\n');
+  var changed = false;
+  final normalizedLines = <String>[];
+  for (final line in lines) {
+    final match = _markdownInlineFencedBlockLinePattern.firstMatch(line);
+    if (match == null) {
+      normalizedLines.add(line);
+      continue;
+    }
+    final indent = match.group(1)!;
+    final fence = match.group(2)!;
+    final afterFence = match.group(3)!;
+    final closingIndex = afterFence.lastIndexOf(fence);
+    if (closingIndex <= 0) {
+      normalizedLines.add(line);
+      continue;
+    }
+    final inlineSegment = afterFence.substring(0, closingIndex).trimLeft();
+    final trailingSegment = afterFence.substring(closingIndex + fence.length);
+    if (inlineSegment.isEmpty) {
+      normalizedLines.add(line);
+      continue;
+    }
+    String openingFence = '$indent$fence';
+    var codeBody = inlineSegment;
+    final infoMatch = _markdownFenceInfoTokenPattern.firstMatch(inlineSegment);
+    if (infoMatch != null) {
+      final infoToken = infoMatch.group(1)!;
+      final remainder = inlineSegment.substring(infoMatch.end).trimLeft();
+      if (remainder.isNotEmpty) {
+        openingFence = '$openingFence$infoToken';
+        codeBody = remainder;
+      }
+    }
+    if (codeBody.trim().isEmpty) {
+      normalizedLines.add(line);
+      continue;
+    }
+    changed = true;
+    normalizedLines.add(openingFence);
+    normalizedLines.add(codeBody.trimRight());
+    normalizedLines.add('$indent$fence');
+    final trailing = trailingSegment.trimLeft();
+    if (trailing.isNotEmpty) {
+      normalizedLines.add(trailing);
+    }
+  }
+  if (!changed) {
+    return source;
+  }
+  return normalizedLines.join('\n');
+}
+
+String _stripToolScaffoldingFromMarkdown(String source) {
+  if (!_markdownToolScaffoldingLinePattern.hasMatch(source)) {
+    return source;
+  }
+  final lines = source.split('\n');
+  final buffer = StringBuffer();
+  var inFence = false;
+  String? fenceMarker;
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final trimmed = line.trimLeft();
+    if (inFence) {
+      if (fenceMarker != null && trimmed.startsWith(fenceMarker)) {
+        inFence = false;
+        fenceMarker = null;
+      }
+      buffer.write(line);
+      if (i != lines.length - 1) buffer.write('\n');
+      continue;
+    }
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = true;
+      fenceMarker = trimmed.startsWith('```') ? '```' : '~~~';
+      buffer.write(line);
+      if (i != lines.length - 1) buffer.write('\n');
+      continue;
+    }
+    if (_markdownToolScaffoldingLinePattern.hasMatch(line)) {
+      continue;
+    }
+    buffer.write(line);
+    if (i != lines.length - 1) buffer.write('\n');
+  }
+  return buffer.toString();
+}
+
+void _sanitizeMarkdownAst(List<md.Node> nodes) {
+  for (final node in nodes) {
+    if (node is! md.Element) {
+      continue;
+    }
+    final attributes = node.attributes;
+    if (node.tag == 'ol') {
+      final start = attributes['start'];
+      if (start == null || int.tryParse(start.trim()) == null) {
+        attributes.remove('start');
+      } else {
+        attributes['start'] = int.parse(start.trim()).toString();
+      }
+    }
+    final children = node.children;
+    if (children != null && children.isNotEmpty) {
+      _sanitizeMarkdownAst(children);
+    }
+  }
+}
+
+void _warmMarkdownAst({
+  required String data,
+  required String parseKey,
+  required List<md.InlineSyntax> inlineSyntaxes,
+  void Function(List<md.Node> astNodes)? onReady,
+}) {
+  if (data.length > _markdownPlainTextSkipThresholdChars ||
+      _canRenderMarkdownAsPlainText(data)) {
+    return;
+  }
+  final normalizedSource = _sanitizeMarkdownSource(data.isEmpty ? ' ' : data);
+  final astCacheKey = _markdownAstCacheKeyForInputs(
+    normalizedSource: normalizedSource,
+    parseKey: parseKey,
+    inlineSyntaxes: inlineSyntaxes,
+  );
+  final cachedAst = _markdownAstCache.get(astCacheKey);
+  if (cachedAst != null) {
+    onReady?.call(cachedAst);
+    return;
+  }
+  if (!_pendingMarkdownWarmups.add(astCacheKey)) {
+    return;
+  }
+  void warmup() {
+    try {
+      final document = md.Document(
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        inlineSyntaxes: inlineSyntaxes,
+        encodeHtml: false,
+      );
+      final astNodes = document.parseLines(
+        const LineSplitter().convert(normalizedSource),
+      );
+      _sanitizeMarkdownAst(astNodes);
+      _markdownAstCache.put(astCacheKey, astNodes);
+      onReady?.call(astNodes);
+    } finally {
+      _pendingMarkdownWarmups.remove(astCacheKey);
+    }
+  }
+
+  if (data.length > _markdownDeferredParseThresholdChars) {
+    _MarkdownFrameScheduler.instance.schedule(warmup);
+    return;
+  }
+  warmup();
+}
+
+md.Element? _findMarkdownCodeElement(md.Element element) {
+  for (final child in element.children ?? const <md.Node>[]) {
+    if (child is md.Element && child.tag == 'code') {
+      return child;
+    }
+  }
+  return null;
+}
+
+void _warmHighlightedCodeBlocksFromMarkdownAst({
+  required List<md.Node> nodes,
+  required ThemeData theme,
+  required Color textColor,
+  required bool useDarkCodeSurface,
+}) {
+  for (final node in nodes) {
+    if (node is! md.Element) {
+      continue;
+    }
+    if (node.tag == 'pre') {
+      final codeElement = _findMarkdownCodeElement(node);
+      final rawCode = (codeElement?.textContent ?? node.textContent)
+          .replaceFirst(_trailingNewlineCodeBlockPattern, '');
+      final content = rawCode.isEmpty ? ' ' : rawCode;
+      _warmHighlightedCodeSpan(
+        content: content,
+        theme: theme,
+        baseColor: textColor,
+        forceDarkSurface: useDarkCodeSurface,
+        language: _extractCodeLanguage(codeElement),
+        allowAutoDetection: true,
+      );
+    }
+    final children = node.children;
+    if (children != null && children.isNotEmpty) {
+      _warmHighlightedCodeBlocksFromMarkdownAst(
+        nodes: children,
+        theme: theme,
+        textColor: textColor,
+        useDarkCodeSurface: useDarkCodeSurface,
+      );
+    }
+  }
+}
+
+void _warmMarkdownRenderPath({
+  required String data,
+  required String parseKey,
+  required List<md.InlineSyntax> inlineSyntaxes,
+  required ThemeData theme,
+  required Color textColor,
+  required bool useDarkCodeSurface,
+}) {
+  _warmMarkdownAst(
+    data: data,
+    parseKey: parseKey,
+    inlineSyntaxes: inlineSyntaxes,
+    onReady: (astNodes) {
+      _warmHighlightedCodeBlocksFromMarkdownAst(
+        nodes: astNodes,
+        theme: theme,
+        textColor: textColor,
+        useDarkCodeSurface: useDarkCodeSurface,
+      );
+    },
+  );
+}
 
 /// 阶段㉑：全局帧节流的 markdown 解析调度器。
 ///
@@ -1095,9 +1401,15 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// 多个 bubble 一起注册时，每帧只跑 2 个 markdown 解析，剩余排队到
   /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
+    final normalizedSource = _sanitizeMarkdownSource(
+      widget.data.isEmpty ? ' ' : widget.data,
+    );
+    final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
+    final hasWarmAst = _markdownAstCache.get(astCacheKey) != null;
     if (widget.data.length > _markdownDeferredParseThresholdChars &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
-        !_canRenderMarkdownAsPlainText(widget.data)) {
+        !_canRenderMarkdownAsPlainText(widget.data) &&
+        !hasWarmAst) {
       // 2026-05-25 — 流式抽搐修复：仅在「真·首挂载」（_children == null）
       // 时铺纯文本占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
@@ -1207,12 +1519,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // `md.Document.parseLines` + `_sanitizeMarkdownAst`。MarkdownBuilder
       // 的 widget 构造仍按当前主题样式 fresh 跑一次，避免主题切换时
       // 残留旧色。
-      final astCacheKey = Object.hashAll(<Object?>[
-        normalizedSource,
-        widget.parseKey,
-        widget.inlineSyntaxes.length,
-        for (final syn in widget.inlineSyntaxes) syn.runtimeType,
-      ]);
+      final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
       final cachedAst = _markdownAstCache.get(astCacheKey);
       final List<md.Node> astNodes;
       if (cachedAst != null) {
@@ -1268,172 +1575,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   String _builderSignature() {
     final keys = widget.builders.keys.toList(growable: false)..sort();
     return keys.join('|');
-  }
-
-  static final RegExp _setextEscapePattern = RegExp(
-    r'(^|\n)(\s*)(=+|\^+)(?=\n|$)',
-  );
-
-  /// Matches scaffolding lines that sometimes leak from models into the
-  /// visible markdown body, e.g. a bare `Tool: Bash`, `工具: Bash`,
-  /// `工具调用：xxx`, `[tool_call] ...`, or `function_calls: ...`.
-  ///
-  /// These come from the model's own chain-of-thought / training data and
-  /// should be rendered by the structured tool-call bubble, not as plain text.
-  /// We strip them before markdown parsing to keep transcripts clean.
-  static final RegExp _toolScaffoldingLinePattern = RegExp(
-    r'^\s*(?:'
-    r'tool\s*:\s*\w[\w\-\.]*'
-    r'|工具\s*[:：]\s*\w[\w\-\.]*'
-    r'|工具调用\s*[:：].*'
-    r'|\[?tool_call\]?\s*[:：]?\s*.*'
-    r'|function_calls?\s*[:：].*'
-    r'|<?function_calls?>?\s*$'
-    r'|</?invoke[^>]*>\s*$'
-    r')\s*$',
-    caseSensitive: false,
-    multiLine: true,
-  );
-
-  String _sanitizeMarkdownSource(String source) {
-    final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final normalizedFences = _normalizeInlineFencedCodeBlocks(normalized);
-    final stripped = _stripToolScaffolding(normalizedFences);
-    return _closeUnterminatedFencedCodeBlock(stripped).replaceAllMapped(
-      _setextEscapePattern,
-      (match) => '${match[1]}${match[2]}\\${match[3]}',
-    );
-  }
-
-  static final RegExp _inlineFencedBlockLinePattern = RegExp(
-    r'^( {0,3})(`{3,}|~{3,})([^\n]*)$',
-  );
-  static final RegExp _fenceInfoTokenPattern = RegExp(
-    r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)',
-  );
-
-  String _normalizeInlineFencedCodeBlocks(String source) {
-    if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
-      return source;
-    }
-    final lines = source.split('\n');
-    var changed = false;
-    final normalizedLines = <String>[];
-    for (final line in lines) {
-      final match = _inlineFencedBlockLinePattern.firstMatch(line);
-      if (match == null) {
-        normalizedLines.add(line);
-        continue;
-      }
-      final indent = match.group(1)!;
-      final fence = match.group(2)!;
-      final afterFence = match.group(3)!;
-      final closingIndex = afterFence.lastIndexOf(fence);
-      if (closingIndex <= 0) {
-        normalizedLines.add(line);
-        continue;
-      }
-      final inlineSegment = afterFence.substring(0, closingIndex).trimLeft();
-      final trailingSegment = afterFence.substring(closingIndex + fence.length);
-      if (inlineSegment.isEmpty) {
-        normalizedLines.add(line);
-        continue;
-      }
-      String openingFence = '$indent$fence';
-      var codeBody = inlineSegment;
-      final infoMatch = _fenceInfoTokenPattern.firstMatch(inlineSegment);
-      if (infoMatch != null) {
-        final infoToken = infoMatch.group(1)!;
-        final remainder = inlineSegment.substring(infoMatch.end).trimLeft();
-        if (remainder.isNotEmpty) {
-          openingFence = '$openingFence$infoToken';
-          codeBody = remainder;
-        }
-      }
-      if (codeBody.trim().isEmpty) {
-        normalizedLines.add(line);
-        continue;
-      }
-      changed = true;
-      normalizedLines.add(openingFence);
-      normalizedLines.add(codeBody.trimRight());
-      normalizedLines.add('$indent$fence');
-      final trailing = trailingSegment.trimLeft();
-      if (trailing.isNotEmpty) {
-        normalizedLines.add(trailing);
-      }
-    }
-    if (!changed) {
-      return source;
-    }
-    return normalizedLines.join('\n');
-  }
-
-  /// Removes scaffolding-only lines while **preserving** any line inside a
-  /// fenced code block — users may legitimately write `Tool: Bash` inside
-  /// a code sample. We track fence state (``` / ~~~) and only strip in prose.
-  String _stripToolScaffolding(String source) {
-    if (!_toolScaffoldingLinePattern.hasMatch(source)) {
-      return source;
-    }
-    final lines = source.split('\n');
-    final buffer = StringBuffer();
-    var inFence = false;
-    String? fenceMarker;
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final trimmed = line.trimLeft();
-      if (inFence) {
-        if (fenceMarker != null && trimmed.startsWith(fenceMarker)) {
-          inFence = false;
-          fenceMarker = null;
-        }
-        buffer.write(line);
-        if (i != lines.length - 1) buffer.write('\n');
-        continue;
-      }
-      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
-        inFence = true;
-        fenceMarker = trimmed.startsWith('```') ? '```' : '~~~';
-        buffer.write(line);
-        if (i != lines.length - 1) buffer.write('\n');
-        continue;
-      }
-      if (_toolScaffoldingLinePattern.hasMatch(line)) {
-        // Drop the scaffolding line entirely (including its newline).
-        continue;
-      }
-      buffer.write(line);
-      if (i != lines.length - 1) buffer.write('\n');
-    }
-    return buffer.toString();
-  }
-
-  void _sanitizeMarkdownAst(List<md.Node> nodes) {
-    for (final node in nodes) {
-      if (node is! md.Element) {
-        continue;
-      }
-      final attributes = node.attributes;
-      // Defensively scrub any attribute whose value is consumed by
-      // flutter_markdown_plus via `int.parse(...)` (currently only `start`
-      // on ordered lists). If upstream ever widens the set we simply add the
-      // attribute name here.
-      if (node.tag == 'ol') {
-        final start = attributes['start'];
-        if (start == null || int.tryParse(start.trim()) == null) {
-          attributes.remove('start');
-        } else {
-          // Normalize to a trimmed decimal representation so int.parse
-          // cannot choke on stray whitespace or leading '+' signs.
-          attributes['start'] = int.parse(start.trim()).toString();
-        }
-      }
-      final children = node.children;
-      if (children != null && children.isNotEmpty) {
-        _sanitizeMarkdownAst(children);
-      }
-    }
   }
 
   void _disposeRecognizers() {
@@ -3275,6 +3416,35 @@ double _estimateHtmlBubbleHeight(String data) {
       .toDouble();
 }
 
+int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
+  return Object.hash(data, baseTextStyle?.fontSize, baseTextStyle?.height);
+}
+
+void _warmHtmlBubbleMetrics(String data, TextStyle? baseTextStyle) {
+  final cacheKey = _htmlBubbleHeightCacheKey(data, baseTextStyle);
+  final cachedHeight = _HtmlBubbleWebViewState._heightCache[cacheKey];
+  final cachedFloor = _HtmlBubbleWebViewState._heightFloorCache[cacheKey];
+  final estimate = _estimateHtmlBubbleHeight(data);
+  if (cachedHeight == null) {
+    _HtmlBubbleWebViewState._heightCache[cacheKey] = estimate;
+    if (_HtmlBubbleWebViewState._heightCache.length >
+        _HtmlBubbleWebViewState._kHeightCacheMaxSize) {
+      _HtmlBubbleWebViewState._heightCache.remove(
+        _HtmlBubbleWebViewState._heightCache.keys.first,
+      );
+    }
+  }
+  if (cachedFloor == null) {
+    _HtmlBubbleWebViewState._heightFloorCache[cacheKey] = estimate;
+    if (_HtmlBubbleWebViewState._heightFloorCache.length >
+        _HtmlBubbleWebViewState._kHeightCacheMaxSize) {
+      _HtmlBubbleWebViewState._heightFloorCache.remove(
+        _HtmlBubbleWebViewState._heightFloorCache.keys.first,
+      );
+    }
+  }
+}
+
 class _HtmlWebViewFrameScheduler {
   _HtmlWebViewFrameScheduler._();
   static final _HtmlWebViewFrameScheduler instance =
@@ -3336,10 +3506,22 @@ class _DeferredHtmlBubbleWebViewState
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
 
+  bool _hasWarmWebViewMetrics() {
+    final cacheKey = _htmlBubbleHeightCacheKey(
+      widget.data,
+      widget.baseTextStyle,
+    );
+    return _HtmlBubbleWebViewState._heightCache[cacheKey] != null ||
+        _HtmlBubbleWebViewState._heightFloorCache[cacheKey] != null;
+  }
+
   @override
   void initState() {
     super.initState();
-    _scheduleMount();
+    _mountWebView = _hasWarmWebViewMetrics();
+    if (!_mountWebView) {
+      _scheduleMount();
+    }
   }
 
   @override
@@ -3349,8 +3531,11 @@ class _DeferredHtmlBubbleWebViewState
         oldWidget.textColor != widget.textColor ||
         oldWidget.backgroundColor != widget.backgroundColor ||
         oldWidget.baseTextStyle != widget.baseTextStyle) {
-      _mountWebView = false;
-      _scheduleMount();
+      _pendingMountAfterScroll = false;
+      _mountWebView = _hasWarmWebViewMetrics();
+      if (!_mountWebView) {
+        _scheduleMount();
+      }
     }
   }
 
@@ -3390,7 +3575,7 @@ class _DeferredHtmlBubbleWebViewState
     if (_mountWebView) {
       return;
     }
-    if (_scrollActivity?.value ?? false) {
+    if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
       _pendingMountAfterScroll = true;
       return;
     }
