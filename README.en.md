@@ -25,6 +25,23 @@ OpenHand is a local-first, cross-platform desktop workbench for AI agents. It br
 - Safe execution: command rules, sandbox settings, process timeouts, and forced termination are managed consistently.
 - Desktop experience: multi-thread sessions, attachments, syntax highlighting, Markdown, KaTeX, shortcuts, themes, and localization.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-main-chat.png" alt="Main chat" /><br/><sub><b>Main Chat</b></sub></td>
+    <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="Programming Expert" /><br/><sub><b>Programming Expert</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/03-harness.png" alt="Harness Engineering" /><br/><sub><b>Harness Engineering</b></sub></td>
+    <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP servers" /><br/><sub><b>MCP Servers</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/05-skills-market.png" alt="Skills market" /><br/><sub><b>Skills Market</b></sub></td>
+    <td align="center"><img src="docs/screenshots/06-settings.png" alt="Settings" /><br/><sub><b>Settings</b></sub></td>
+  </tr>
+</table>
+
 ## Thread Templates
 
 OpenHand includes reusable thread templates for common workflows.

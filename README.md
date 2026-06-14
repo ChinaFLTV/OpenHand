@@ -25,6 +25,23 @@ OpenHand 是一款本地优先的跨平台桌面 AI 智能体工作台。它将�
 - 安全执行：命令规则、沙箱配置、外部进程超时与强制终止策略统一管理。
 - 桌面体验：支持多线程会话、附件、代码高亮、Markdown、KaTeX、快捷键、主题与多语言界面。
 
+## 应用截图
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-main-chat.png" alt="主聊天界面" /><br/><sub><b>主聊天</b></sub></td>
+    <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="编程专家" /><br/><sub><b>编程专家</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/03-harness.png" alt="Harness Engineering" /><br/><sub><b>Harness Engineering</b></sub></td>
+    <td align="center"><img src="docs/screenshots/04-mcp-servers.png" alt="MCP 服务" /><br/><sub><b>MCP 服务</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/05-skills-market.png" alt="技能市场" /><br/><sub><b>技能市场</b></sub></td>
+    <td align="center"><img src="docs/screenshots/06-settings.png" alt="设置中心" /><br/><sub><b>设置中心</b></sub></td>
+  </tr>
+</table>
+
 ## 线程模板
 
 OpenHand 提供可复用的线程模板，用于快速切换不同工作流。
