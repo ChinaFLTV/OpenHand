@@ -9,6 +9,15 @@ import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
+const double kOpenHandDialogViewportFraction = 0.95;
+const double kOpenHandDialogDefaultMaxWidth = 520;
+const double kOpenHandDialogDefaultRadius = 28;
+const double kOpenHandDialogFormRadius = 16;
+const double kOpenHandDialogActionSpacing = 8;
+const double kOpenHandModalSheetMaxWidth = 980;
+const double kOpenHandModalSheetDragHandleWidth = 36;
+const double kOpenHandModalSheetDragHandleHeight = 4;
+
 Color resolveAnimatedDialogBarrierColor(
   BuildContext context, {
   Color? override,
@@ -328,6 +337,7 @@ Widget buildOpenHandDialogFooter({
     child: Row(
       children: [
         Expanded(child: leading),
+        const SizedBox(width: kOpenHandDialogActionSpacing),
         action,
       ],
     ),
@@ -338,7 +348,7 @@ Widget buildOpenHandDialogActionsBar({
   required List<Widget> actions,
   Widget? leading,
   EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
-  double spacing = 8,
+  double spacing = kOpenHandDialogActionSpacing,
 }) {
   final actionsRow = Wrap(
     alignment: WrapAlignment.center,
@@ -351,12 +361,32 @@ Widget buildOpenHandDialogActionsBar({
   }
   return Padding(
     padding: padding,
-    child: Row(
-      children: [
-        Expanded(child: leading),
-        const SizedBox(width: 8),
-        actionsRow,
-      ],
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.maxWidth.isFinite && constraints.maxWidth < 420;
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              leading,
+              SizedBox(height: spacing),
+              Align(alignment: Alignment.centerRight, child: actionsRow),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: leading),
+            SizedBox(width: spacing),
+            Flexible(
+              flex: 0,
+              child: Align(alignment: Alignment.centerRight, child: actionsRow),
+            ),
+          ],
+        );
+      },
     ),
   );
 }
@@ -377,36 +407,79 @@ Widget buildOpenHandDialogFormShell({
     backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
     shape:
         shape ??
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandDialogFormRadius),
+        ),
     child: ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth ?? 520),
-      child: Padding(
-        padding: padding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            content,
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < actions.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  actions[i],
-                ],
-              ],
-            ),
-          ],
+      constraints: BoxConstraints(
+        maxWidth:
+            _validDialogMaxWidth(maxWidth) ?? kOpenHandDialogDefaultMaxWidth,
+      ),
+      child: IntrinsicWidth(
+        child: Padding(
+          padding: padding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(child: content),
+              const SizedBox(height: 12),
+              buildOpenHandDialogActionsBar(
+                actions: actions,
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
         ),
       ),
     ),
   );
+}
+
+Widget buildOpenHandDialogScrollableContent({
+  required Widget child,
+  EdgeInsetsGeometry padding = EdgeInsets.zero,
+}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final boundedHeight =
+          constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
+      final content = Padding(padding: padding, child: child);
+      if (!boundedHeight) {
+        return SingleChildScrollView(child: content);
+      }
+      return SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: content,
+        ),
+      );
+    },
+  );
+}
+
+BoxConstraints openHandDialogViewportConstraints(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  return BoxConstraints(
+    maxWidth: size.width * kOpenHandDialogViewportFraction,
+    maxHeight: size.height * kOpenHandDialogViewportFraction,
+  );
+}
+
+double openHandModalSheetWidth(BuildContext context) {
+  final viewportWidth =
+      MediaQuery.sizeOf(context).width * kOpenHandDialogViewportFraction;
+  return viewportWidth > kOpenHandModalSheetMaxWidth
+      ? kOpenHandModalSheetMaxWidth
+      : viewportWidth;
 }
 
 Widget buildOpenHandDialogValidationMessage(
@@ -505,12 +578,12 @@ Future<T?> showAnimatedModalSheet<T>({
     builder: (sheetContext) {
       final theme = Theme.of(sheetContext);
       final colorScheme = theme.colorScheme;
-      final size = MediaQuery.sizeOf(sheetContext);
-      final viewportWidth = size.width * 0.95;
-      final sheetWidth = viewportWidth > 980 ? 980.0 : viewportWidth;
+      final sheetWidth = openHandModalSheetWidth(sheetContext);
       final sheetShape =
           shape ??
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28));
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+          );
       final content = builder(sheetContext);
       final body = showDragHandle
           ? Column(
@@ -558,7 +631,7 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
           backgroundColor: colorScheme.surfaceContainerHigh,
           surfaceTintColor: colorScheme.surfaceTint,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
           ),
         ),
       ),
@@ -583,13 +656,10 @@ class _ViewportClamp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final maxW = size.width * 0.95;
-    final maxH = size.height * 0.95;
     return Align(
       alignment: alignment,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+        constraints: openHandDialogViewportConstraints(context),
         child: child,
       ),
     );
@@ -609,7 +679,10 @@ class _ModalSheetDragHandle extends StatelessWidget {
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.36),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: const SizedBox(width: 36, height: 4),
+        child: const SizedBox(
+          width: kOpenHandModalSheetDragHandleWidth,
+          height: kOpenHandModalSheetDragHandleHeight,
+        ),
       ),
     );
   }

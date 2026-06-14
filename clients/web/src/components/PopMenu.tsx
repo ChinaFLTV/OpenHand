@@ -10,9 +10,8 @@
 
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
+import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useRafScheduler } from '../hooks/useRafScheduler';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
@@ -73,45 +72,11 @@ function PopMenuCheckIcon() {
 }
 
 export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right', width }: PopMenuProps) {
-  const reduceMotion = useReducedMotion();
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const menuMotion = useDelayedVisibility();
+  const { open, closing, visible: menuVisible, hide: hideMenu, toggle: toggleMenu } = menuMotion;
   const [pos, setPos] = useState<MenuPos | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const closeTimerRef = useRef<number | null>(null);
-  const menuVisible = open || closing;
-
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current == null) return;
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
-  };
-
-  const openMenu = () => {
-    clearCloseTimer();
-    setClosing(false);
-    setOpen(true);
-  };
-
-  const requestClose = () => {
-    if (!open || closing) return;
-    setClosing(true);
-    clearCloseTimer();
-    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
-    if (closeMs <= 0) {
-      setOpen(false);
-      setClosing(false);
-      return;
-    }
-    closeTimerRef.current = window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-      closeTimerRef.current = null;
-    }, closeMs);
-  };
-
-  useEffect(() => () => clearCloseTimer(), []);
 
   // 关闭：点击外部 / Esc。
   useEffect(() => {
@@ -121,10 +86,10 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
       if (!target) return;
       if (wrapRef.current?.contains(target)) return;
       if (menuRef.current?.contains(target)) return;
-      requestClose();
+      hideMenu();
     };
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') requestClose();
+      if (ev.key === 'Escape') hideMenu();
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
@@ -132,7 +97,7 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, closing]);
+  }, [open, closing, hideMenu]);
 
   // 计算菜单坐标：fixed 定位 + 视口内夹紧。
   const recompute = useCallback(() => {
@@ -214,7 +179,7 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
               onClick={(e) => {
                 e.stopPropagation();
                 if (item.disabled) return;
-                requestClose();
+                hideMenu();
                 item.onClick();
               }}
               class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between gap-2"
@@ -260,13 +225,7 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
     >
       {trigger({
         open: open && !closing,
-        toggle: () => {
-          if (open && !closing) {
-            requestClose();
-          } else {
-            openMenu();
-          }
-        },
+        toggle: toggleMenu,
       })}
       {menuNode}
     </div>

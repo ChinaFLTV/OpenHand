@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OverlayPortal } from './OverlayPortal';
 
@@ -19,6 +19,13 @@ interface SnackbarItem {
 
 const listeners = new Set<(item: SnackbarItem) => void>();
 let nextId = 1;
+const DEFAULT_SNACKBAR_DURATION_MS = 2600;
+const SNACKBAR_EXIT_DURATION_MS = 180;
+
+function normalizeSnackbarDurationMs(value: number | undefined): number {
+  if (value == null || !Number.isFinite(value)) return DEFAULT_SNACKBAR_DURATION_MS;
+  return Math.max(0, Math.round(value));
+}
 
 export function showSnackbar(message: string, options: SnackbarOptions = {}): void {
   const trimmed = message.trim();
@@ -27,7 +34,7 @@ export function showSnackbar(message: string, options: SnackbarOptions = {}): vo
     id: nextId++,
     message: trimmed,
     tone: options.tone ?? 'default',
-    durationMs: options.durationMs ?? 2600,
+    durationMs: normalizeSnackbarDurationMs(options.durationMs),
   };
   for (const listener of listeners) listener(item);
 }
@@ -64,28 +71,57 @@ function toneStyle(tone: SnackbarTone) {
 export function SnackbarHost() {
   const [items, setItems] = useState<SnackbarItem[]>([]);
   const reduceMotion = useReducedMotion();
+  const timerRefs = useRef<Set<number>>(new Set());
+
+  const clearManagedTimeout = useCallback((timer: number) => {
+    if (typeof window !== 'undefined') {
+      window.clearTimeout(timer);
+    }
+    timerRefs.current.delete(timer);
+  }, []);
+
+  const setManagedTimeout = useCallback((callback: () => void, delayMs: number) => {
+    if (typeof window === 'undefined') return null;
+    const timer = window.setTimeout(() => {
+      timerRefs.current.delete(timer);
+      callback();
+    }, Math.max(0, Math.round(delayMs)));
+    timerRefs.current.add(timer);
+    return timer;
+  }, []);
+
+  const dismissItem = useCallback((item: SnackbarItem) => {
+    if (reduceMotion) {
+      setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+      return;
+    }
+    setItems((prev) => prev.map((cur) => (
+      cur.id === item.id ? { ...cur, closing: true } : cur
+    )));
+    setManagedTimeout(() => {
+      setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+    }, SNACKBAR_EXIT_DURATION_MS);
+  }, [reduceMotion, setManagedTimeout]);
 
   useEffect(() => {
     const onItem = (item: SnackbarItem) => {
       setItems((prev) => [...prev.slice(-2), item]);
-      window.setTimeout(() => {
-        if (reduceMotion) {
-          setItems((prev) => prev.filter((cur) => cur.id !== item.id));
-          return;
-        }
-        setItems((prev) => prev.map((cur) => (
-          cur.id === item.id ? { ...cur, closing: true } : cur
-        )));
-        window.setTimeout(() => {
-          setItems((prev) => prev.filter((cur) => cur.id !== item.id));
-        }, 180);
-      }, item.durationMs);
+      setManagedTimeout(() => dismissItem(item), item.durationMs);
     };
     listeners.add(onItem);
     return () => {
       listeners.delete(onItem);
     };
-  }, [reduceMotion]);
+  }, [dismissItem, setManagedTimeout]);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of timerRefs.current) {
+        clearManagedTimeout(timer);
+      }
+      timerRefs.current.clear();
+    };
+  }, [clearManagedTimeout]);
 
   if (items.length === 0) return null;
 

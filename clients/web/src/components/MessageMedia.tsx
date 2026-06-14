@@ -11,6 +11,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
+import { createTimedAbortController } from '../utils/timed_abort';
 import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
@@ -288,15 +289,6 @@ async function fetchMediaBlob(url: string, signal?: AbortSignal): Promise<Blob> 
     throw new Error(`HTTP ${res.status}`);
   }
   return res.blob();
-}
-
-function createTimedAbortController(timeoutMs: number): { controller: AbortController; clear: () => void } {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    controller,
-    clear: () => window.clearTimeout(timer),
-  };
 }
 
 function mediaKindLabel(kind: MediaKind): string {

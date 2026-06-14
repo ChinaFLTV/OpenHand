@@ -2,6 +2,8 @@ import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { DialogFrame } from './DialogFrame';
 
+type ConfirmCloseReason = 'cancel' | 'dismiss' | 'escape';
+
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = {
     width: 20,
@@ -56,19 +58,26 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
-  // 让 Esc / 按钮取消走不同的 close 路径，但共用同一动效 hook：
-  // - 点击「取消」按钮：触发 onCancel
-  // - 按 Esc：若提供 onDismiss 则走 onDismiss，否则回退到 onCancel
-  const cancelMotion = useDialogExitMotion(onCancel, { closeOnEscape: false });
-  const dismissMotion = useDialogExitMotion(onDismiss ?? onCancel, {
-    closeOnEscape: !busy,
-  });
-  const closing = cancelMotion.closing || dismissMotion.closing;
+  const { closing, requestCloseWithReason } =
+    useDialogExitMotion<ConfirmCloseReason>(
+    (reason) => {
+      if (reason === 'escape') {
+        (onDismiss ?? onCancel)();
+        return;
+      }
+      onCancel();
+    },
+    {
+      closeOnEscape: !busy,
+    },
+  );
+  const requestCancel = () => requestCloseWithReason('cancel');
+  const requestDismiss = () => requestCloseWithReason('dismiss');
 
   return (
     <DialogFrame
       closing={closing}
-      onRequestClose={cancelMotion.requestClose}
+      onRequestClose={requestDismiss}
       closeOnBackdrop={!busy && !closing && !disableBackdropClose}
       overlayClassName="oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4"
       panelClassName={`oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
@@ -116,7 +125,7 @@ export function ConfirmDialog({
               background: 'transparent',
             }}
             disabled={busy || closing}
-            onClick={cancelMotion.requestClose}
+            onClick={requestCancel}
           >
             {cancelLabel}
           </button>

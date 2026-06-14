@@ -10,9 +10,8 @@
 
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
+import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useRafScheduler } from '../hooks/useRafScheduler';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 import { clampNumber } from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
@@ -53,23 +52,25 @@ const VIEWPORT_GAP = 8;
 const MENU_OFFSET = 4;
 
 export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>): JSX.Element {
-  const reduceMotion = useReducedMotion();
   const {
     options, value, onChange, label, minWidth = 160, menuMaxHeight = 280,
     className, ariaLabel, disabled,
   } = props;
 
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const {
+    open,
+    closing,
+    visible: menuVisible,
+    show: showMenu,
+    hide: hideMenu,
+  } = useDelayedVisibility();
   const [highlight, setHighlight] = useState<number>(() =>
     Math.max(0, options.findIndex((o) => o.value === value)),
   );
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<number | null>(null);
   const listboxId = useId();
-  const menuVisible = open || closing;
 
   const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
@@ -104,37 +105,10 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   const { schedule: scheduleMenuPosition, flush: updateMenuPositionNow, cancel: cancelMenuPosition } =
     useRafScheduler(updateMenuPosition);
 
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current == null) return;
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
-  };
-
-  const openMenu = () => {
-    clearCloseTimer();
-    setClosing(false);
+  const openMenu = useCallback(() => {
     setMenuPosition(computeMenuPosition());
-    setOpen(true);
-  };
-
-  const requestClose = () => {
-    if (!open || closing) return;
-    setClosing(true);
-    clearCloseTimer();
-    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
-    if (closeMs <= 0) {
-      setOpen(false);
-      setClosing(false);
-      return;
-    }
-    closeTimerRef.current = window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-      closeTimerRef.current = null;
-    }, closeMs);
-  };
-
-  useEffect(() => () => clearCloseTimer(), []);
+    showMenu();
+  }, [computeMenuPosition, showMenu]);
 
   useEffect(() => {
     if (!open || closing) return;
@@ -168,11 +142,11 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       if (!target) return;
       if (triggerRef.current?.contains(target)) return;
       if (menuRef.current?.contains(target)) return;
-      requestClose();
+      hideMenu();
     };
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') {
-        requestClose();
+        hideMenu();
         triggerRef.current?.focus();
         return;
       }
@@ -201,7 +175,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         if (opt && !opt.disabled) {
           ev.preventDefault();
           onChange(opt.value);
-          requestClose();
+          hideMenu();
           triggerRef.current?.focus();
         }
         return;
@@ -226,7 +200,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open, closing, highlight, options, onChange]);
+  }, [open, closing, highlight, options, onChange, hideMenu]);
 
   const menuNode = menuVisible ? (
     <div
@@ -262,7 +236,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
             onClick={() => {
               if (opt.disabled) return;
               onChange(opt.value);
-              requestClose();
+              hideMenu();
               triggerRef.current?.focus();
             }}
             class="px-3 py-2 text-sm flex items-center gap-2"
@@ -314,7 +288,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         onClick={() => {
           if (disabled) return;
           if (open && !closing) {
-            requestClose();
+            hideMenu();
           } else {
             openMenu();
           }

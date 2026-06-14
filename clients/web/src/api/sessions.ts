@@ -16,6 +16,7 @@ import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
+import { createTimedAbortController } from '../utils/timed_abort';
 
 export interface SessionTodoItem {
   id: string;
@@ -528,15 +529,14 @@ export async function exportSessionDownload(
   };
   const token = readToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), EXPORT_SESSION_TIMEOUT_MS);
+  const timed = createTimedAbortController(EXPORT_SESSION_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
       method: 'GET',
       headers,
       credentials: 'same-origin',
-      signal: controller.signal,
+      signal: timed.controller.signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -544,7 +544,7 @@ export async function exportSessionDownload(
     }
     throw error;
   } finally {
-    window.clearTimeout(timeout);
+    timed.clear();
   }
   if (res.status === 401) {
     clearAuthStorage();
