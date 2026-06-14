@@ -1359,6 +1359,17 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
+    final ttsSettings = settingsController.aiTtsSettings;
+    final ttsEnabledControl = Align(
+      alignment: Alignment.centerLeft,
+      child: _SettingsSwitch(
+        key: const ValueKey<String>('settingsAiTtsEnabledSwitch'),
+        value: ttsSettings.enabled,
+        onChanged: (value) async {
+          await settingsController.updateAiTtsEnabled(value);
+        },
+      ),
+    );
     final toolResultCompressionHeadTailWindowControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2576,6 +2587,30 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '开启文本转语音',
+                  en: 'Enable Text To Speech',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '开启后，聚焦消息卡片时会显示“朗读”胶囊。默认优先使用系统 TTS，服务不可用时按优先级回退。',
+                  en: 'When enabled, focused message cards show a Read pill. System TTS is the default fallback.',
+                ),
+                control: ttsEnabledControl,
+              ),
+              _AnimatedSettingReveal(
+                visible: ttsSettings.enabled,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: _AiTtsSettingsPanel(
+                    settings: ttsSettings,
+                    onChanged: settingsController.updateAiTtsSettings,
+                  ),
                 ),
               ),
             ],

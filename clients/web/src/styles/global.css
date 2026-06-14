@@ -912,6 +912,181 @@ html, body, #root {
   background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
 }
 
+.oh-settings-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.985);
+  transform-origin: top center;
+  transition:
+    grid-template-rows 380ms var(--oh-motion-spring),
+    opacity 220ms var(--oh-motion-emphasized),
+    transform 320ms var(--oh-motion-spring);
+}
+
+.oh-settings-reveal.is-visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.oh-settings-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.oh-settings-tts-panel {
+  max-height: 560px;
+  margin-top: 16px;
+  padding: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 76%, transparent);
+}
+
+.oh-settings-tts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.oh-settings-tts-section,
+.oh-settings-tts-provider-card {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 68%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--m3-surface-container) 72%, transparent);
+}
+
+.oh-settings-tts-section h4,
+.oh-settings-tts-provider-card h4 {
+  margin: 0;
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.oh-settings-tts-section p,
+.oh-settings-tts-provider-card p {
+  margin: 5px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.oh-settings-tts-priority {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.oh-settings-tts-priority-chip {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface-container-high) 70%, transparent);
+  color: var(--m3-on-surface);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.oh-settings-tts-priority-chip button {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms var(--oh-motion-spring),
+    background-color 180ms var(--oh-motion-emphasized);
+}
+
+.oh-settings-tts-priority-chip button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.oh-settings-tts-priority-chip button:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.oh-settings-tts-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.oh-settings-tts-provider-card {
+  margin-top: 0;
+}
+
+.oh-settings-tts-provider-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.oh-settings-tts-provider-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  padding-top: 12px;
+}
+
+.oh-settings-tts-number,
+.oh-settings-tts-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.oh-settings-tts-number input,
+.oh-settings-tts-text input {
+  min-height: 34px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  border-radius: 11px;
+  outline: none;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 80%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  font-size: 12px;
+}
+
+.oh-settings-tts-number input:focus,
+.oh-settings-tts-text input:focus {
+  border-color: color-mix(in srgb, var(--m3-primary) 68%, var(--m3-outline-variant));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-primary) 14%, transparent);
+}
+
+@media (max-width: 720px) {
+  .oh-settings-tts-grid,
+  .oh-settings-tts-provider-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .oh-toolbox-tabs {
   display: flex;
   flex-wrap: wrap;

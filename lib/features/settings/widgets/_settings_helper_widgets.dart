@@ -248,6 +248,461 @@ class _SettingsSwitch extends StatelessWidget {
   }
 }
 
+class _AiTtsSettingsPanel extends StatelessWidget {
+  const _AiTtsSettingsPanel({required this.settings, required this.onChanged});
+
+  final AiTtsSettings settings;
+  final Future<bool> Function(AiTtsSettings settings) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 560),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest.withValues(
+            alpha: 0.72,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
+          ),
+        ),
+        child: OpenHandSafeScrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '朗读超时',
+                    en: 'Read Timeout',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '单次朗读或服务调用的最长等待秒数，防止无限等待。',
+                    en: 'Maximum seconds for one read attempt.',
+                  ),
+                  control: _SettingsIntField(
+                    value: settings.timeoutSeconds,
+                    min: AiTtsSettings.minTimeoutSeconds,
+                    max: AiTtsSettings.maxTimeoutSeconds,
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(timeoutSeconds: value)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '最大朗读字符',
+                    en: 'Max Read Characters',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '超出后自动截断，避免长消息占用朗读资源过久。',
+                    en: 'Long messages are truncated to keep playback bounded.',
+                  ),
+                  control: _SettingsIntField(
+                    value: settings.maxTextCharacters,
+                    min: AiTtsSettings.minMaxTextCharacters,
+                    max: AiTtsSettings.maxMaxTextCharacters,
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(maxTextCharacters: value)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _AiTtsPriorityEditor(settings: settings, onChanged: onChanged),
+                const SizedBox(height: 16),
+                for (final provider in settings.providerPriority) ...[
+                  _AiTtsProviderCard(
+                    settings: settings,
+                    provider: provider,
+                    onChanged: onChanged,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiTtsPriorityEditor extends StatelessWidget {
+  const _AiTtsPriorityEditor({required this.settings, required this.onChanged});
+
+  final AiTtsSettings settings;
+  final Future<bool> Function(AiTtsSettings settings) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _localizedText(context, zh: 'TTS 服务优先级', en: 'TTS Priority'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _localizedText(
+            context,
+            zh: '排在前面的服务优先尝试；不可用或超时时自动回退。',
+            en: 'Earlier services are tried first; unavailable services fall back.',
+          ),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < settings.providerPriority.length; i++)
+              _AiTtsPriorityChip(
+                index: i,
+                provider: settings.providerPriority[i],
+                canMoveUp: i > 0,
+                canMoveDown: i < settings.providerPriority.length - 1,
+                onMove: (delta) {
+                  final next = List<AiTtsProvider>.from(
+                    settings.providerPriority,
+                  );
+                  final target = i + delta;
+                  final item = next.removeAt(i);
+                  next.insert(target, item);
+                  onChanged(settings.copyWith(providerPriority: next));
+                },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AiTtsPriorityChip extends StatelessWidget {
+  const _AiTtsPriorityChip({
+    required this.index,
+    required this.provider,
+    required this.canMoveUp,
+    required this.canMoveDown,
+    required this.onMove,
+  });
+
+  final int index;
+  final AiTtsProvider provider;
+  final bool canMoveUp;
+  final bool canMoveDown;
+  final ValueChanged<int> onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: theme.colorScheme.surfaceContainerHigh,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${index + 1}. ${_ttsProviderLabel(context, provider)}',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: _localizedText(context, zh: '上移', en: 'Move Up'),
+            onPressed: canMoveUp ? () => onMove(-1) : null,
+            icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 18),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: _localizedText(context, zh: '下移', en: 'Move Down'),
+            onPressed: canMoveDown ? () => onMove(1) : null,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiTtsProviderCard extends StatelessWidget {
+  const _AiTtsProviderCard({
+    required this.settings,
+    required this.provider,
+    required this.onChanged,
+  });
+
+  final AiTtsSettings settings;
+  final AiTtsProvider provider;
+  final Future<bool> Function(AiTtsSettings settings) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final providerSettings = settings.provider(provider);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: theme.colorScheme.surfaceContainer,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _ttsProviderLabel(context, provider),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _SettingsSwitch(
+                value: providerSettings.enabled,
+                onChanged: (value) =>
+                    _update(providerSettings.copyWith(enabled: value)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _AnimatedSettingReveal(
+            visible: providerSettings.enabled,
+            child: Column(
+              children: [
+                _AiTtsProviderTextField(
+                  label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+                  value: providerSettings.voice,
+                  onSubmitted: (value) =>
+                      _update(providerSettings.copyWith(voice: value)),
+                ),
+                const SizedBox(height: 10),
+                _AiTtsProviderTextField(
+                  label: _localizedText(context, zh: '语言', en: 'Language'),
+                  value: providerSettings.language,
+                  onSubmitted: (value) =>
+                      _update(providerSettings.copyWith(language: value)),
+                ),
+                const SizedBox(height: 10),
+                _AiTtsProviderNumberRow(
+                  settings: providerSettings,
+                  onChanged: _update,
+                ),
+                if (_providerNeedsEndpoint(provider)) ...[
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: _localizedText(context, zh: '接口地址', en: 'Endpoint'),
+                    value: providerSettings.endpoint,
+                    onSubmitted: (value) =>
+                        _update(providerSettings.copyWith(endpoint: value)),
+                  ),
+                ],
+                if (_providerNeedsCredentials(provider)) ...[
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: 'App ID',
+                    value: providerSettings.appId,
+                    onSubmitted: (value) =>
+                        _update(providerSettings.copyWith(appId: value)),
+                  ),
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: 'API Key',
+                    value: providerSettings.apiKey,
+                    onSubmitted: (value) =>
+                        _update(providerSettings.copyWith(apiKey: value)),
+                  ),
+                  const SizedBox(height: 10),
+                  _AiTtsProviderTextField(
+                    label: 'API Secret / Token',
+                    value: providerSettings.apiSecret.isNotEmpty
+                        ? providerSettings.apiSecret
+                        : providerSettings.accessToken,
+                    onSubmitted: (value) => provider == AiTtsProvider.baidu
+                        ? _update(providerSettings.copyWith(accessToken: value))
+                        : _update(providerSettings.copyWith(apiSecret: value)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _update(AiTtsProviderSettings next) async {
+    final providers = Map<AiTtsProvider, AiTtsProviderSettings>.from(
+      settings.providers,
+    );
+    providers[provider] = next.normalized();
+    await onChanged(settings.copyWith(providers: providers));
+  }
+}
+
+class _AiTtsProviderTextField extends StatefulWidget {
+  const _AiTtsProviderTextField({
+    required this.label,
+    required this.value,
+    required this.onSubmitted,
+  });
+
+  final String label;
+  final String value;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  State<_AiTtsProviderTextField> createState() =>
+      _AiTtsProviderTextFieldState();
+}
+
+class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
+  late final TextEditingController _controller;
+  String? _lastCommittedValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AiTtsProviderTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _syncControllerText(_controller, widget.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      decoration: InputDecoration(labelText: widget.label),
+      onSubmitted: _commit,
+      onEditingComplete: () => _commit(_controller.text),
+    );
+  }
+
+  void _commit(String raw) {
+    final value = raw.trim();
+    if (value == _lastCommittedValue || value == widget.value) return;
+    _lastCommittedValue = value;
+    widget.onSubmitted(value);
+  }
+}
+
+class _AiTtsProviderNumberRow extends StatelessWidget {
+  const _AiTtsProviderNumberRow({
+    required this.settings,
+    required this.onChanged,
+  });
+
+  final AiTtsProviderSettings settings;
+  final ValueChanged<AiTtsProviderSettings> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _numberField(
+          context,
+          label: _localizedText(context, zh: '语速', en: 'Speed'),
+          value: settings.speed,
+          onChanged: (value) => onChanged(settings.copyWith(speed: value)),
+        ),
+        _numberField(
+          context,
+          label: _localizedText(context, zh: '音量', en: 'Volume'),
+          value: settings.volume,
+          onChanged: (value) => onChanged(settings.copyWith(volume: value)),
+        ),
+        _numberField(
+          context,
+          label: _localizedText(context, zh: '音调', en: 'Pitch'),
+          value: settings.pitch,
+          onChanged: (value) => onChanged(settings.copyWith(pitch: value)),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField(
+    BuildContext context, {
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return SizedBox(
+      width: 128,
+      child: TextFormField(
+        initialValue: value.toStringAsFixed(
+          value.truncateToDouble() == value ? 0 : 2,
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label),
+        onFieldSubmitted: (raw) {
+          final parsed = double.tryParse(raw.trim());
+          if (parsed != null) onChanged(parsed);
+        },
+      ),
+    );
+  }
+}
+
+String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
+  switch (provider) {
+    case AiTtsProvider.system:
+      return _localizedText(context, zh: '系统 TTS', en: 'System TTS');
+    case AiTtsProvider.xfyun:
+      return _localizedText(context, zh: '讯飞 TTS', en: 'Xfyun TTS');
+    case AiTtsProvider.youdao:
+      return _localizedText(context, zh: '有道 TTS', en: 'Youdao TTS');
+    case AiTtsProvider.bing:
+      return 'Bing TTS';
+    case AiTtsProvider.google:
+      return 'Google TTS';
+    case AiTtsProvider.baidu:
+      return _localizedText(context, zh: '百度 TTS', en: 'Baidu TTS');
+    case AiTtsProvider.apple:
+      return _localizedText(context, zh: '苹果 TTS', en: 'Apple TTS');
+  }
+}
+
+bool _providerNeedsEndpoint(AiTtsProvider provider) {
+  return provider == AiTtsProvider.xfyun || provider == AiTtsProvider.baidu;
+}
+
+bool _providerNeedsCredentials(AiTtsProvider provider) {
+  return provider != AiTtsProvider.system && provider != AiTtsProvider.apple;
+}
+
 class _SettingsIntField extends StatefulWidget {
   const _SettingsIntField({
     required this.value,

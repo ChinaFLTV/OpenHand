@@ -161,6 +161,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiWorkspaceInstructionService _workspaceInstructionService =
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
+  final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
@@ -642,6 +643,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      unawaited(_ttsPlaybackService.stop());
       final pendingHardnessRecord = _persistedHardnessSession;
       if (pendingHardnessRecord != null) {
         // Cancel debounced timer and flush immediately.
@@ -703,6 +705,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
+    unawaited(_ttsPlaybackService.dispose());
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
@@ -2514,6 +2517,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
+    await _ttsPlaybackService.stop();
     // Devtools / Timeline marker: lets us measure first-open latency on
     // real sessions without sprinkling debug prints. Pairs with the
     // `openhand.boot.*` markers in main.dart.
@@ -6980,6 +6984,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onDeleteMessage: _deleteMessage,
         onDeleteMessageFromHere: _deleteMessageFromHere,
         onForkMessage: _forkMessage,
+        ttsPlaybackService: _ttsPlaybackService,
         onDismissError: _dismissSessionError,
         // Signal the transcript list to jump to the bottom on its first frame
         // whenever a forced-scroll-to-bottom is pending (i.e. a session was

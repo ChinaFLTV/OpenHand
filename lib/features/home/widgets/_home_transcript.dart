@@ -254,6 +254,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
     required this.onForkMessage,
+    required this.ttsPlaybackService,
     required this.onDismissError,
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
@@ -277,6 +278,7 @@ class _SessionTranscript extends StatefulWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionMessage message) onForkMessage;
+  final AiTtsPlaybackService ttsPlaybackService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   // When true, the list will jump to the very bottom on its first frame.
   // This eliminates the visible scroll-from-top animation that would otherwise
@@ -1830,76 +1832,108 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 final bubble = _TranscriptBubbleRegistrar(
                   messageId: message.id,
                   registry: _bubbleRegistry,
-                  child: _MessageBubble(
-                    key: ValueKey<String>(message.id),
-                    message: message,
-                    sessionTitle: session.title,
-                    sessionEnvironment: session.environment,
-                    showReasoningSweep:
-                        !entry.exiting &&
-                        widget.sendPhase == AiSendPhase.responding &&
-                        _isStreamingReasoningMessage(message),
-                    trackLayoutChanges:
-                        !entry.exiting &&
-                        _shouldTrackMessageLayout(
-                          message: message,
-                          sendPhase: widget.sendPhase,
-                          isLastVisibleMessage: isLastVisibleMessage,
-                        ),
-                    onLayoutChanged: widget.onLayoutChanged,
-                    transcriptScrollActive: transcriptScrollActive,
-                    isSelected: isSelected,
-                    isScrollHighlighted: _highlightedMessageId == message.id,
-                    onSelect: () {
-                      if (_selectedMessageId == message.id) {
-                        return;
+                  child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
+                    valueListenable: widget.ttsPlaybackService.state,
+                    builder: (context, ttsSnapshot, _) {
+                      final ttsSettings = context
+                          .select<SettingsController, AiTtsSettings>(
+                            (settings) => settings.aiTtsSettings,
+                          );
+                      if (!ttsSettings.enabled && ttsSnapshot.playing) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          unawaited(widget.ttsPlaybackService.stop());
+                        });
                       }
-                      setState(() {
-                        _selectedMessageId = message.id;
-                      });
-                    },
-                    onDeselect: () {
-                      if (_selectedMessageId != message.id) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedMessageId = null;
-                      });
-                    },
-                    onEdit:
-                        !entry.exiting &&
-                            message.kind == AiSessionMessageKind.user
-                        ? () => widget.onEditMessage(message)
-                        : null,
-                    onCopy: () => widget.onCopyMessage(message),
-                    onFork: () => widget.onForkMessage(message),
-                    onDelete: () async {
-                      if (entry.exiting) {
-                        return;
-                      }
-                      await _runDeleteAction(message, widget.onDeleteMessage);
-                    },
-                    onDeleteFromHere: !entry.exiting && hasLaterVisibleMessages
-                        ? () => _runDeleteAction(
-                            message,
-                            widget.onDeleteMessageFromHere,
-                          )
-                        : null,
-                    onAudit: telemetryDebugEnabled
-                        ? () {
-                            _showMessageAuditDialog(
-                              context,
+                      final speechPlaying =
+                          ttsSnapshot.playing &&
+                          ttsSnapshot.messageId == message.id;
+                      return _MessageBubble(
+                        key: ValueKey<String>(message.id),
+                        message: message,
+                        sessionTitle: session.title,
+                        sessionEnvironment: session.environment,
+                        showReasoningSweep:
+                            !entry.exiting &&
+                            widget.sendPhase == AiSendPhase.responding &&
+                            _isStreamingReasoningMessage(message),
+                        trackLayoutChanges:
+                            !entry.exiting &&
+                            _shouldTrackMessageLayout(
                               message: message,
-                              session: session,
-                              controller: aiSessionController,
-                              claudeStyle: widget.claudeStyle,
-                            );
+                              sendPhase: widget.sendPhase,
+                              isLastVisibleMessage: isLastVisibleMessage,
+                            ),
+                        onLayoutChanged: widget.onLayoutChanged,
+                        transcriptScrollActive: transcriptScrollActive,
+                        isSelected: isSelected,
+                        isScrollHighlighted:
+                            _highlightedMessageId == message.id,
+                        onSelect: () {
+                          if (_selectedMessageId == message.id) {
+                            return;
                           }
-                        : null,
-                    initiallyShowRawContent:
-                        _rawContentVisibleByMessageId[message.id] ?? false,
-                    onShowRawContentChanged: (visible) {
-                      _rawContentVisibleByMessageId[message.id] = visible;
+                          setState(() {
+                            _selectedMessageId = message.id;
+                          });
+                        },
+                        onDeselect: () {
+                          if (_selectedMessageId != message.id) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedMessageId = null;
+                          });
+                        },
+                        onEdit:
+                            !entry.exiting &&
+                                message.kind == AiSessionMessageKind.user
+                            ? () => widget.onEditMessage(message)
+                            : null,
+                        onCopy: () => widget.onCopyMessage(message),
+                        onFork: () => widget.onForkMessage(message),
+                        speechEnabled: ttsSettings.enabled,
+                        speechPlaying: speechPlaying,
+                        onToggleSpeech: ttsSettings.enabled
+                            ? () => widget.ttsPlaybackService.toggleMessage(
+                                messageId: message.id,
+                                text: message.content,
+                                settings: ttsSettings,
+                              )
+                            : null,
+                        onDelete: () async {
+                          if (entry.exiting) {
+                            return;
+                          }
+                          await _runDeleteAction(
+                            message,
+                            widget.onDeleteMessage,
+                          );
+                        },
+                        onDeleteFromHere:
+                            !entry.exiting && hasLaterVisibleMessages
+                            ? () => _runDeleteAction(
+                                message,
+                                widget.onDeleteMessageFromHere,
+                              )
+                            : null,
+                        onAudit: telemetryDebugEnabled
+                            ? () {
+                                _showMessageAuditDialog(
+                                  context,
+                                  message: message,
+                                  session: session,
+                                  controller: aiSessionController,
+                                  claudeStyle: widget.claudeStyle,
+                                );
+                              }
+                            : null,
+                        initiallyShowRawContent:
+                            _rawContentVisibleByMessageId[message.id] ?? false,
+                        onShowRawContentChanged: (visible) {
+                          _rawContentVisibleByMessageId[message.id] = visible;
+                        },
+                      );
                     },
                   ),
                 );

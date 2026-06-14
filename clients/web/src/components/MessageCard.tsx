@@ -25,6 +25,11 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
 import {
+  toggleTtsPlayback,
+  useTtsPlaybackState,
+  useTtsSettings,
+} from '../hooks/useTtsSettings';
+import {
   useStreamingReveal,
   useStreamingStagedText,
 } from '../hooks/useStreamingReveal';
@@ -112,7 +117,9 @@ type MessageIconName =
   | 'mutate'
   | 'globe'
   | 'model'
-  | 'clock';
+  | 'clock'
+  | 'speech'
+  | 'stop';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = {
@@ -200,6 +207,10 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><rect x="5" y="5" width="14" height="14" rx="3" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /><path d="M9 12h6" /></svg>;
     case 'clock':
       return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>;
+    case 'speech':
+      return <svg {...common}><path d="M4 10v4h3l5 4V6l-5 4z" /><path d="M16 9.5a3.2 3.2 0 0 1 0 5" /><path d="M18.5 7a6.5 6.5 0 0 1 0 10" /></svg>;
+    case 'stop':
+      return <svg {...common}><rect x="7" y="7" width="10" height="10" rx="2" /><circle cx="12" cy="12" r="9" /></svg>;
   }
 }
 
@@ -1107,6 +1118,8 @@ function MessageCardImpl({
 }: MessageCardProps) {
   const reduceMotion = useReducedMotion();
   const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
+  const ttsSettings = useTtsSettings();
+  const ttsPlayback = useTtsPlaybackState();
   const [showRawContent, setShowRawContent] = useState(false);
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
@@ -1234,7 +1247,17 @@ function MessageCardImpl({
     ? ` oh-appear-up${appearanceStaggerIndex > 0 ? ` oh-appear-stagger-${appearanceStaggerIndex}` : ''}`
     : '';
 
-  const hasAnyAction = Boolean(onCopy || onDelete || onDeleteAfter || onEdit || onAudit || onFork);
+  const ttsPlaying = ttsPlayback.playing && ttsPlayback.messageId === message.id;
+  const canReadMessage = ttsSettings.enabled && !isUserBubble && content.trim().length > 0;
+  const hasAnyAction = Boolean(
+    onCopy ||
+    canReadMessage ||
+    onDelete ||
+    onDeleteAfter ||
+    onEdit ||
+    onAudit ||
+    onFork,
+  );
   const actionsVisible = hasAnyAction && active;
   // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
   // 优先级：metadata.content_format > global contentFormat。
@@ -1282,7 +1305,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
+  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 外层卡片只承接折叠 / 展开 / 操作栏显隐这类语义级尺寸变化。
   // 流式正文自身在 StreamingMarkdownReveal / StreamingPlainTextReveal 内
   // 用可见文本信号做局部高度 FLIP，避免整张卡被高频 WAAPI 裁剪。
@@ -1451,7 +1474,9 @@ function MessageCardImpl({
           // 显式选了 plain_text 才走打字机型纯文本流；其余一律按 format
           // 走 markdown / html 渲染，markdown 组件内部的 deferred parse
           // + 帧节流已经能扛住 SSE 80ms 一 tick 的解析开销。
-          activelyStreaming && effectiveFormat === 'plain_text' ? (
+          activelyStreaming &&
+          effectiveFormat === 'plain_text' &&
+          message.kind !== 'reasoning' ? (
             <StreamingPlainTextReveal
               content={visibleContent}
               streaming
@@ -1465,7 +1490,13 @@ function MessageCardImpl({
               reduceMotion={reduceMotion}
               raw={showRawContent || style.mono === true}
               mono={style.mono === true}
-              format={isUserBubble || useToolBody || message.kind === 'reasoning' ? 'markdown' : effectiveFormat}
+              format={
+                isUserBubble || useToolBody
+                  ? 'markdown'
+                  : message.kind === 'reasoning'
+                    ? (showRawContent ? 'plain_text' : 'markdown')
+                    : effectiveFormat
+              }
               htmlFallback={contentHtmlFallback}
             />
           )
@@ -1522,6 +1553,17 @@ function MessageCardImpl({
           {onCopy ? (
             <ActionBtn icon="copy" label={t('common.copy')} onClick={() => onCopy(message)} />
           ) : null}
+          {canReadMessage ? (
+            <ActionBtn
+              icon={ttsPlaying ? 'stop' : 'speech'}
+              label={ttsPlaying
+                ? t('message.tts.stop', '停止')
+                : t('message.tts.read', '朗读')}
+              onClick={() => {
+                void toggleTtsPlayback(message.id, content, ttsSettings);
+              }}
+            />
+          ) : null}
           {onEdit && message.role === 'user' ? (
             <ActionBtn icon="edit" label={t('common.edit')} onClick={() => onEdit(message)} />
           ) : null}
@@ -1531,7 +1573,7 @@ function MessageCardImpl({
           {onFork ? (
             <ActionBtn icon="fork" label={t('common.fork', '派生')} onClick={() => onFork(message)} />
           ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' ? (
+          {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' ? (
             <ActionBtn
               icon={showRawContent ? 'codeOff' : 'code'}
               label={showRawContent

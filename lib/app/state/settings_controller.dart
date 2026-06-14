@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -153,6 +155,7 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiMaxWorkspaceDocumentCharacters,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
+       _aiTtsSettings = snapshot.aiTtsSettings.normalized(),
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
        _aiAllowCommandRules = List<AiAllowCommandRule>.from(
@@ -297,6 +300,7 @@ class SettingsController extends ChangeNotifier {
   int _aiMaxWorkspaceDocumentCharacters;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
+  AiTtsSettings _aiTtsSettings;
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
@@ -465,6 +469,7 @@ class SettingsController extends ChangeNotifier {
   int get aiMaxWorkspaceDocumentCharacters => _aiMaxWorkspaceDocumentCharacters;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
+  AiTtsSettings get aiTtsSettings => _aiTtsSettings;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> get aiAllowCommandRules =>
@@ -1505,6 +1510,39 @@ class SettingsController extends ChangeNotifier {
       _aiImageSizeLimitBytes = normalizedValue;
       return _MutationDisposition.apply;
     });
+  }
+
+  Future<bool> updateAiTtsSettings(AiTtsSettings value) async {
+    final normalized = value.normalized();
+    return _commitMutation(() {
+      if (jsonEncode(_aiTtsSettings.toJson()) ==
+          jsonEncode(normalized.toJson())) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiTtsSettings = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiTtsEnabled(bool value) async {
+    return updateAiTtsSettings(_aiTtsSettings.copyWith(enabled: value));
+  }
+
+  Future<bool> updateAiTtsProviderSettings(
+    AiTtsProvider provider,
+    AiTtsProviderSettings value,
+  ) async {
+    final providers = Map<AiTtsProvider, AiTtsProviderSettings>.from(
+      _aiTtsSettings.providers,
+    );
+    providers[provider] = value.normalized();
+    return updateAiTtsSettings(_aiTtsSettings.copyWith(providers: providers));
+  }
+
+  Future<bool> updateAiTtsProviderPriority(List<AiTtsProvider> value) async {
+    return updateAiTtsSettings(
+      _aiTtsSettings.copyWith(providerPriority: value),
+    );
   }
 
   Future<bool> updateAiWriteCommandConfirmationEnabled(bool value) async {
@@ -2648,6 +2686,7 @@ class SettingsController extends ChangeNotifier {
       aiMaxWorkspaceDocumentCharacters: _aiMaxWorkspaceDocumentCharacters,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
+      aiTtsSettings: _aiTtsSettings,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
@@ -2776,6 +2815,7 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiMaxWorkspaceDocumentCharacters;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
+    _aiTtsSettings = snapshot.aiTtsSettings.normalized();
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;
     _aiAllowCommandRules = List<AiAllowCommandRule>.from(

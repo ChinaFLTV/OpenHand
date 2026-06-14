@@ -24,6 +24,15 @@ import {
   setHtmlRenderFallback,
 } from '../../../hooks/useMessageContentFormat';
 import {
+  normalizeTtsSettings,
+  saveTtsSettings,
+  stopTtsPlayback,
+  type TtsProvider,
+  type TtsProviderSettings,
+  type TtsSettings,
+  useTtsSettings,
+} from '../../../hooks/useTtsSettings';
+import {
   DIALOG_MOTION_DEFAULT_DURATION_MS,
   syncRemoteDialogMotionSettings,
 } from '../../../hooks/useDialogMotionSettings';
@@ -109,6 +118,50 @@ function htmlFallbackLabel(value: 'markdown' | 'plain_text'): string {
   return t('settings.messageContentFormat.markdown', 'Markdown');
 }
 
+function ttsProviderLabel(provider: TtsProvider): string {
+  switch (provider) {
+    case 'system':
+      return t('settings.tts.provider.system', '系统 TTS');
+    case 'xfyun':
+      return t('settings.tts.provider.xfyun', '讯飞 TTS');
+    case 'youdao':
+      return t('settings.tts.provider.youdao', '有道 TTS');
+    case 'bing':
+      return 'Bing TTS';
+    case 'google':
+      return 'Google TTS';
+    case 'baidu':
+      return t('settings.tts.provider.baidu', '百度 TTS');
+    case 'apple':
+      return t('settings.tts.provider.apple', '苹果 TTS');
+  }
+}
+
+function providerNeedsEndpoint(provider: TtsProvider): boolean {
+  return provider === 'xfyun' || provider === 'baidu';
+}
+
+function providerNeedsCredentials(provider: TtsProvider): boolean {
+  return provider !== 'system' && provider !== 'apple';
+}
+
+function providerHint(provider: TtsProvider): string {
+  switch (provider) {
+    case 'system':
+      return t('settings.tts.provider.system.desc', '默认使用浏览器或系统原生语音能力，无需密钥。');
+    case 'apple':
+      return t('settings.tts.provider.apple.desc', '在 Apple 平台优先匹配系统语音；Web 端会回退到浏览器语音。');
+    case 'xfyun':
+      return t('settings.tts.provider.xfyun.desc', '官方在线 TTS 使用 WebSocket 与 HMAC 鉴权；App 端可按凭据调用。');
+    case 'baidu':
+      return t('settings.tts.provider.baidu.desc', '填写 access token 后 App 端可调用百度语音合成接口。');
+    case 'youdao':
+    case 'bing':
+    case 'google':
+      return t('settings.tts.provider.generic.desc', '保留服务参数与优先级配置，服务不可用时自动回退。');
+  }
+}
+
 export function SettingsPage() {
   const [prefs, setPrefs] = useState<RemotePreferences | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +170,7 @@ export function SettingsPage() {
   const [savedSignal, setSavedSignal] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { format: messageContentFormat, htmlFallback: htmlRenderFallback } = useMessageContentFormat();
+  const ttsSettings = useTtsSettings();
 
   const [thresholdInput, setThresholdInput] = useState('');
   const applyPreferences = (next: RemotePreferences) => {
@@ -452,6 +506,36 @@ export function SettingsPage() {
                 </SettingRow>
               </Appear>
             ) : null}
+
+            <Appear variant="up">
+              <SettingRow
+                title={t('settings.tts.title', '开启文本转语音')}
+                description={t('settings.tts.desc', '开启后，聚焦非用户消息卡片时显示朗读胶囊。默认走系统 TTS，服务不可用时按优先级回退。')}
+                meta={<SavingPill active={false} value={ttsSettings.enabled ? t('common.on', '开') : t('common.off', '关')} />}
+              >
+                <label class="oh-settings-switch">
+                  <input
+                    type="checkbox"
+                    checked={ttsSettings.enabled}
+                    onChange={(event) => {
+                      const enabled = (event.currentTarget as HTMLInputElement).checked;
+                      if (!enabled) stopTtsPlayback();
+                      saveTtsSettings({
+                        ...ttsSettings,
+                        enabled,
+                      });
+                    }}
+                  />
+                  <span class="oh-settings-switch-track"><span /></span>
+                  <span class="oh-settings-control-label">
+                    {ttsSettings.enabled ? t('common.on', '开') : t('common.off', '关')}
+                  </span>
+                </label>
+                <AnimatedReveal visible={ttsSettings.enabled}>
+                  <TtsSettingsPanel settings={ttsSettings} />
+                </AnimatedReveal>
+              </SettingRow>
+            </Appear>
           </section>
         </div>
       </div>
@@ -503,5 +587,245 @@ function SettingRow(props: {
         {props.children}
       </div>
     </section>
+  );
+}
+
+function AnimatedReveal(props: { visible: boolean; children: ComponentChildren }) {
+  return (
+    <div class={`oh-settings-reveal${props.visible ? ' is-visible' : ''}`} aria-hidden={props.visible ? 'false' : 'true'}>
+      <div class="oh-settings-reveal-inner">
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+function TtsSettingsPanel(props: { settings: TtsSettings }) {
+  const update = (patch: Partial<TtsSettings>) => {
+    saveTtsSettings(normalizeTtsSettings({ ...props.settings, ...patch }));
+  };
+  const updateProvider = (provider: TtsProvider, patch: Partial<TtsProviderSettings>) => {
+    saveTtsSettings(normalizeTtsSettings({
+      ...props.settings,
+      providers: {
+        ...props.settings.providers,
+        [provider]: {
+          ...props.settings.providers[provider],
+          ...patch,
+        },
+      },
+    }));
+  };
+  const moveProvider = (index: number, delta: number) => {
+    const next = [...props.settings.providerPriority];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    const [item] = next.splice(index, 1);
+    if (!item) return;
+    next.splice(target, 0, item);
+    update({ providerPriority: next });
+  };
+
+  return (
+    <div class="oh-settings-tts-panel">
+      <div class="oh-settings-tts-grid">
+        <NumberSetting
+          label={t('settings.tts.timeout', '朗读超时')}
+          value={props.settings.timeoutSeconds}
+          min={3}
+          max={120}
+          onCommit={(value) => update({ timeoutSeconds: value })}
+        />
+        <NumberSetting
+          label={t('settings.tts.maxChars', '最大朗读字符')}
+          value={props.settings.maxTextCharacters}
+          min={20}
+          max={20000}
+          onCommit={(value) => update({ maxTextCharacters: value })}
+        />
+      </div>
+      <div class="oh-settings-tts-section">
+        <h4>{t('settings.tts.priority', 'TTS 服务优先级')}</h4>
+        <p>{t('settings.tts.priority.desc', '排在前面的服务优先尝试；不可用、超时或未配置时自动回退。')}</p>
+        <div class="oh-settings-tts-priority">
+          {props.settings.providerPriority.map((provider, index) => (
+            <span class="oh-settings-tts-priority-chip" key={provider}>
+              <span>{index + 1}. {ttsProviderLabel(provider)}</span>
+              <button type="button" disabled={index === 0} onClick={() => moveProvider(index, -1)} aria-label={t('settings.tts.moveUp', '上移')}>↑</button>
+              <button type="button" disabled={index === props.settings.providerPriority.length - 1} onClick={() => moveProvider(index, 1)} aria-label={t('settings.tts.moveDown', '下移')}>↓</button>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div class="oh-settings-tts-providers">
+        {props.settings.providerPriority.map((provider) => (
+          <TtsProviderCard
+            key={provider}
+            provider={provider}
+            settings={props.settings.providers[provider]}
+            onChange={(patch) => updateProvider(provider, patch)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NumberSetting(props: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (value: number) => void;
+}) {
+  const [value, setValue] = useState(String(props.value));
+  useEffect(() => {
+    setValue(String(props.value));
+  }, [props.value]);
+  const commit = () => {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) {
+      setValue(String(props.value));
+      return;
+    }
+    const next = clamp(parsed, props.min, props.max);
+    const display = Number.isInteger(next) ? String(next) : String(Number(next.toFixed(2)));
+    setValue(display);
+    if (next !== props.value) props.onCommit(next);
+  };
+  return (
+    <label class="oh-settings-tts-number">
+      <span>{props.label}</span>
+      <input
+        type="number"
+        min={props.min}
+        max={props.max}
+        step="any"
+        value={value}
+        onInput={(event) => setValue((event.currentTarget as HTMLInputElement).value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.currentTarget as HTMLInputElement).blur();
+        }}
+      />
+    </label>
+  );
+}
+
+function TtsProviderCard(props: {
+  provider: TtsProvider;
+  settings: TtsProviderSettings;
+  onChange: (patch: Partial<TtsProviderSettings>) => void;
+}) {
+  return (
+    <section class="oh-settings-tts-provider-card">
+      <div class="oh-settings-tts-provider-head">
+        <div>
+          <h4>{ttsProviderLabel(props.provider)}</h4>
+          <p>{providerHint(props.provider)}</p>
+        </div>
+        <label class="oh-settings-switch">
+          <input
+            type="checkbox"
+            checked={props.settings.enabled}
+            onChange={(event) => props.onChange({ enabled: (event.currentTarget as HTMLInputElement).checked })}
+          />
+          <span class="oh-settings-switch-track"><span /></span>
+        </label>
+      </div>
+      <AnimatedReveal visible={props.settings.enabled}>
+        <div class="oh-settings-tts-provider-fields">
+          <TextSetting
+            label={t('settings.tts.voice', '音色/发音人')}
+            value={props.settings.voice}
+            onCommit={(voice) => props.onChange({ voice })}
+          />
+          <TextSetting
+            label={t('settings.tts.language', '语言')}
+            value={props.settings.language}
+            onCommit={(language) => props.onChange({ language })}
+          />
+          <NumberSetting
+            label={t('settings.tts.speed', '语速')}
+            value={props.settings.speed}
+            min={0}
+            max={200}
+            onCommit={(speed) => props.onChange({ speed })}
+          />
+          <NumberSetting
+            label={t('settings.tts.volume', '音量')}
+            value={props.settings.volume}
+            min={0}
+            max={100}
+            onCommit={(volume) => props.onChange({ volume })}
+          />
+          <NumberSetting
+            label={t('settings.tts.pitch', '音调')}
+            value={props.settings.pitch}
+            min={-20}
+            max={100}
+            onCommit={(pitch) => props.onChange({ pitch })}
+          />
+          {providerNeedsEndpoint(props.provider) ? (
+            <TextSetting
+              label={t('settings.tts.endpoint', '接口地址')}
+              value={props.settings.endpoint}
+              onCommit={(endpoint) => props.onChange({ endpoint })}
+            />
+          ) : null}
+          {providerNeedsCredentials(props.provider) ? (
+            <>
+              <TextSetting
+                label="App ID"
+                value={props.settings.appId}
+                onCommit={(appId) => props.onChange({ appId })}
+              />
+              <TextSetting
+                label="API Key"
+                value={props.settings.apiKey}
+                onCommit={(apiKey) => props.onChange({ apiKey })}
+              />
+              <TextSetting
+                label={props.provider === 'baidu' ? 'Access Token' : 'API Secret / Token'}
+                value={props.provider === 'baidu' ? props.settings.accessToken : props.settings.apiSecret}
+                onCommit={(value) => props.onChange(props.provider === 'baidu'
+                  ? { accessToken: value }
+                  : { apiSecret: value })}
+              />
+            </>
+          ) : null}
+        </div>
+      </AnimatedReveal>
+    </section>
+  );
+}
+
+function TextSetting(props: {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [value, setValue] = useState(props.value);
+  useEffect(() => {
+    setValue(props.value);
+  }, [props.value]);
+  const commit = () => {
+    const next = value.trim();
+    setValue(next);
+    if (next !== props.value) props.onCommit(next);
+  };
+  return (
+    <label class="oh-settings-tts-text">
+      <span>{props.label}</span>
+      <input
+        type="text"
+        value={value}
+        onInput={(event) => setValue((event.currentTarget as HTMLInputElement).value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.currentTarget as HTMLInputElement).blur();
+        }}
+      />
+    </label>
   );
 }

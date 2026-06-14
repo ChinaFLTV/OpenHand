@@ -7,6 +7,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -91,6 +92,7 @@ class AppSettingsSnapshot {
       aiMaxSkillContentLength: defaultAiMaxSkillContentLength,
       aiMaxWorkspaceDocumentCharacters: defaultAiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
+      aiTtsSettings: AiTtsSettings.defaults(),
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
@@ -131,7 +133,7 @@ class AppSettingsSnapshot {
       proxySettings: AppProxySettings.defaults(),
     );
   }
-  const AppSettingsSnapshot({
+  AppSettingsSnapshot({
     required this.themeMode,
     required this.themePreset,
     required this.language,
@@ -195,6 +197,7 @@ class AppSettingsSnapshot {
     required this.aiMaxSkillContentLength,
     required this.aiMaxWorkspaceDocumentCharacters,
     required this.aiImageSizeLimitBytes,
+    AiTtsSettings? aiTtsSettings,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
@@ -259,7 +262,8 @@ class AppSettingsSnapshot {
              username: '',
              password: '',
              exceptions: <String>[],
-           );
+           ),
+       aiTtsSettings = aiTtsSettings ?? AiTtsSettings.defaults();
 
   /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
   static const int defaultSelfLearningConcurrency = 5;
@@ -750,6 +754,7 @@ class AppSettingsSnapshot {
   /// Group E — 工作区指令文档字符上限。
   final int aiMaxWorkspaceDocumentCharacters;
   final int aiImageSizeLimitBytes;
+  final AiTtsSettings aiTtsSettings;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
@@ -941,6 +946,7 @@ class AppSettingsSnapshot {
     int? aiMaxSkillContentLength,
     int? aiMaxWorkspaceDocumentCharacters,
     int? aiImageSizeLimitBytes,
+    AiTtsSettings? aiTtsSettings,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
@@ -1110,6 +1116,7 @@ class AppSettingsSnapshot {
           this.aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
+      aiTtsSettings: aiTtsSettings ?? this.aiTtsSettings,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??
           this.aiWriteCommandConfirmationEnabled,

@@ -33,6 +33,7 @@ export 'model/ai_session_runtime_context.dart';
 export 'model/ai_stream_throttle_override.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
+export 'model/ai_tts_settings.dart';
 export 'model/ai_web_fetch_settings.dart';
 export 'model/ai_web_search_settings.dart';
 
@@ -66,6 +67,7 @@ export 'service/operations/ai_moderations_service.dart';
 export 'service/operations/ai_realtime_service.dart';
 export 'service/operations/ai_rerank_service.dart';
 export 'service/operations/ai_responses_service.dart';
+export 'service/operations/ai_tts_playback_service.dart';
 export 'service/prompt/ai_output_format_prompts.dart';
 export 'service/prompt/ai_prompt_builder.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';

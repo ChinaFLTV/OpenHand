@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -228,6 +229,7 @@ class SettingsStore {
           snapshot.aiMaxWorkspaceDocumentCharacters,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
+      'ai_tts': snapshot.aiTtsSettings.toJson(),
       'ai_write_command_confirmation_enabled':
           snapshot.aiWriteCommandConfirmationEnabled,
       'ai_allow_command_rules': snapshot.aiAllowCommandRules
@@ -685,6 +687,7 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiImageSizeLimitBytes,
       max: AppSettingsSnapshot.maxAiImageSizeLimitBytes,
     );
+    final aiTtsSettings = AiTtsSettings.fromJson(json['ai_tts']);
     final aiWriteCommandConfirmationEnabled =
         json['ai_write_command_confirmation_enabled'] is bool
         ? json['ai_write_command_confirmation_enabled'] as bool
@@ -1142,6 +1145,7 @@ class SettingsStore {
       aiMaxSkillContentLength: aiMaxSkillContentLength,
       aiMaxWorkspaceDocumentCharacters: aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
+      aiTtsSettings: aiTtsSettings,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules,

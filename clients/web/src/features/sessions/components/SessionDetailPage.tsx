@@ -42,6 +42,7 @@ import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { getDialogExitDurationMs } from '../../../hooks/useDialogMotionSettings';
 import { useEventCallback } from '../../../hooks/useEventCallback';
+import { stopTtsPlayback } from '../../../hooks/useTtsSettings';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
@@ -1170,6 +1171,7 @@ export function SessionDetailPage() {
   }, [queuedComposerMessages]);
 
   useEffect(() => {
+    stopTtsPlayback();
     queueDispatchingRef.current = false;
     setQueuedComposerMessages([]);
     setExitingQueuedMessageIds([]);
@@ -1204,6 +1206,8 @@ export function SessionDetailPage() {
     // 避免上一会话的跳过状态泄漏到新会话。
     setSkippedInstructionIds(new Set());
   }, [sessionId]);
+
+  useEffect(() => () => stopTtsPlayback(), []);
 
   useEffect(
     () => () => {
