@@ -956,9 +956,9 @@ html, body, #root {
 .oh-settings-tts-provider-card {
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 68%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--m3-surface-container) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 66%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--m3-surface-container) 74%, transparent);
 }
 
 .oh-settings-tts-section h4,
@@ -977,53 +977,6 @@ html, body, #root {
   line-height: 1.5;
 }
 
-.oh-settings-tts-priority {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.oh-settings-tts-priority-chip {
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 5px 3px 10px;
-  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 76%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--m3-surface-container-high) 70%, transparent);
-  color: var(--m3-on-surface);
-  font-size: 12px;
-  font-weight: 720;
-}
-
-.oh-settings-tts-priority-chip button {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 9%, transparent);
-  color: inherit;
-  cursor: pointer;
-  transition:
-    transform 160ms var(--oh-motion-spring),
-    background-color 180ms var(--oh-motion-emphasized);
-}
-
-.oh-settings-tts-priority-chip button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.oh-settings-tts-priority-chip button:not(:disabled):hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, currentColor 15%, transparent);
-}
-
 .oh-settings-tts-providers {
   display: flex;
   flex-direction: column;
@@ -1033,24 +986,154 @@ html, body, #root {
 
 .oh-settings-tts-provider-card {
   margin-top: 0;
+  cursor: grab;
+  transition:
+    transform 260ms var(--oh-motion-spring),
+    border-color 220ms var(--oh-motion-emphasized),
+    background-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    opacity 180ms var(--oh-motion-emphasized);
+}
+
+.oh-settings-tts-provider-card.is-enabled {
+  border-color: color-mix(in srgb, var(--m3-primary) 34%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 16%, var(--m3-surface-container));
+}
+
+.oh-settings-tts-provider-card.is-dragging {
+  opacity: 0.58;
+  transform: scale(0.992);
+  box-shadow: var(--m3-elev-2);
 }
 
 .oh-settings-tts-provider-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
+}
+
+.oh-settings-tts-drag-handle {
+  width: 30px;
+  min-width: 30px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 76%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--m3-surface-container-high) 76%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+}
+
+.oh-settings-tts-provider-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.oh-settings-tts-provider-title-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.oh-settings-tts-rank,
+.oh-settings-tts-state {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.oh-settings-tts-rank {
+  color: var(--m3-on-primary-container);
+  background: color-mix(in srgb, var(--m3-primary-container) 82%, transparent);
+}
+
+.oh-settings-tts-state {
+  color: var(--m3-on-surface-variant);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 74%, transparent);
+}
+
+.oh-settings-tts-state.is-on {
+  color: var(--m3-on-primary-container);
+  background: color-mix(in srgb, var(--m3-primary-container) 72%, transparent);
+}
+
+.oh-settings-tts-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.oh-settings-tts-test {
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 74%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    transform 180ms var(--oh-motion-spring),
+    background-color 180ms var(--oh-motion-emphasized),
+    opacity 160ms var(--oh-motion-emphasized);
+}
+
+.oh-settings-tts-test:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--m3-primary) 10%, var(--m3-surface-container-lowest));
+}
+
+.oh-settings-tts-test:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.oh-settings-tts-provider-body {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  padding-top: 12px;
+}
+
+.oh-settings-tts-provider-section {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 58%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--m3-surface-container-lowest) 62%, transparent);
+}
+
+.oh-settings-tts-provider-section h5 {
+  margin: 0 0 10px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  font-weight: 820;
 }
 
 .oh-settings-tts-provider-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 12px;
-  padding-top: 12px;
 }
 
 .oh-settings-tts-number,
-.oh-settings-tts-text {
+.oh-settings-tts-text,
+.oh-settings-tts-select {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1061,7 +1144,8 @@ html, body, #root {
 }
 
 .oh-settings-tts-number input,
-.oh-settings-tts-text input {
+.oh-settings-tts-text input,
+.oh-settings-tts-select select {
   min-height: 34px;
   width: 100%;
   min-width: 0;
@@ -1074,8 +1158,13 @@ html, body, #root {
   font-size: 12px;
 }
 
+.oh-settings-tts-select select {
+  cursor: pointer;
+}
+
 .oh-settings-tts-number input:focus,
-.oh-settings-tts-text input:focus {
+.oh-settings-tts-text input:focus,
+.oh-settings-tts-select select:focus {
   border-color: color-mix(in srgb, var(--m3-primary) 68%, var(--m3-outline-variant));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-primary) 14%, transparent);
 }
@@ -1084,6 +1173,12 @@ html, body, #root {
   .oh-settings-tts-grid,
   .oh-settings-tts-provider-fields {
     grid-template-columns: 1fr;
+  }
+  .oh-settings-tts-provider-head {
+    flex-wrap: wrap;
+  }
+  .oh-settings-tts-card-actions {
+    width: 100%;
   }
 }
 

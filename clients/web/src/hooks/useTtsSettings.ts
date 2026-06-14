@@ -194,7 +194,7 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
     case 'doubao':
       return {
         enabled: false,
-        voice: '',
+        voice: 'zh_female_vv_uranus_bigtts',
         language: 'zh-CN',
         speed: 0,
         volume: 0,
@@ -256,10 +256,12 @@ function normalizeProviderSettings(
   const raw = asRecord(value);
   if (!raw) return defaults;
   const extra = asRecord(raw.extra) ?? defaults.extra;
+  const voice = stringField(raw, 'voice', defaults.voice);
+  const language = stringField(raw, 'language', defaults.language);
   return {
     enabled: asBoolean(raw.enabled, defaults.enabled),
-    voice: stringField(raw, 'voice', defaults.voice),
-    language: stringField(raw, 'language', defaults.language) || defaults.language,
+    voice: voice || defaults.voice,
+    language: language || defaults.language,
     speed: clamp(asNumber(raw.speed, defaults.speed), 0.1, 200),
     volume: clamp(asNumber(raw.volume, defaults.volume), 0, 100),
     pitch: clamp(asNumber(raw.pitch, defaults.pitch), -20, 100),
@@ -522,6 +524,32 @@ export async function toggleTtsPlayback(
   if (generation === speechGeneration) {
     emitPlaybackState({ playing: false, messageId: null, provider: null });
   }
+}
+
+export async function testTtsProvider(
+  provider: TtsProvider,
+  settings: TtsSettings,
+  text = '这是一段文本转语音测试。',
+): Promise<void> {
+  stopTtsPlayback();
+  const normalized = normalizeTtsSettings({
+    ...settings,
+    enabled: true,
+  });
+  const speechText = normalizeSpeechText(
+    text,
+    normalized.maxTextCharacters,
+  );
+  if (!speechText) throw new Error('TTS test text is empty.');
+  const generation = ++speechGeneration;
+  await speakWithProvider(
+    '__settings_tts_test__',
+    speechText,
+    provider,
+    normalized.providers[provider],
+    normalized.timeoutSeconds * 1000,
+    generation,
+  );
 }
 
 export function useTtsPlaybackState(): TtsPlaybackState {

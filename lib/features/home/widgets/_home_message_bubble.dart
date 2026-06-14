@@ -1074,11 +1074,6 @@ class _SelectedMessageActionPanelState
   void didUpdateWidget(covariant _SelectedMessageActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncMotionDuration();
-    if (oldWidget.message.id != widget.message.id) {
-      _controller
-        ..value = 0
-        ..forward();
-    }
   }
 
   void _syncMotionDuration() {

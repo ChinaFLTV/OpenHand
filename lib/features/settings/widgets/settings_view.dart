@@ -286,6 +286,8 @@ class _SettingsViewState extends State<SettingsView> {
   GlobalKey<AnimatedListState> _aiModelListKey = GlobalKey<AnimatedListState>();
   final Set<String> _mutatingAiModelIds = <String>{};
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
+  final AiTtsPlaybackService _ttsSettingsPlaybackService =
+      AiTtsPlaybackService();
 
   @override
   void initState() {
@@ -606,6 +608,7 @@ class _SettingsViewState extends State<SettingsView> {
     _mcpLazyLoadingThresholdFocusNode.dispose();
     _mcpAutoProbeConcurrencyController.dispose();
     _mcpAutoProbeConcurrencyFocusNode.dispose();
+    unawaited(_ttsSettingsPlaybackService.dispose());
     super.dispose();
   }
 
@@ -2610,6 +2613,7 @@ class _SettingsViewState extends State<SettingsView> {
                   child: _AiTtsSettingsPanel(
                     settings: ttsSettings,
                     onChanged: settingsController.updateAiTtsSettings,
+                    playbackService: _ttsSettingsPlaybackService,
                   ),
                 ),
               ),

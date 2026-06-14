@@ -150,7 +150,7 @@ class AiTtsProviderSettings {
         return const AiTtsProviderSettings(
           provider: AiTtsProvider.doubao,
           enabled: false,
-          voice: '',
+          voice: 'zh_female_vv_uranus_bigtts',
           language: 'zh-CN',
           speed: 0,
           volume: 0,
@@ -267,9 +267,14 @@ class AiTtsProviderSettings {
   }
 
   AiTtsProviderSettings normalized() {
+    final defaults = AiTtsProviderSettings.defaults(provider);
+    final normalizedVoice = voice.trim();
+    final normalizedLanguage = language.trim();
     return copyWith(
-      voice: voice.trim(),
-      language: language.trim().isEmpty ? 'zh-CN' : language.trim(),
+      voice: normalizedVoice.isEmpty ? defaults.voice : normalizedVoice,
+      language: normalizedLanguage.isEmpty
+          ? defaults.language
+          : normalizedLanguage,
       speed: speed.clamp(0.1, 200.0).toDouble(),
       volume: volume.clamp(0.0, 100.0).toDouble(),
       pitch: pitch.clamp(-20.0, 100.0).toDouble(),

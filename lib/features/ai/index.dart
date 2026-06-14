@@ -33,6 +33,7 @@ export 'model/ai_session_runtime_context.dart';
 export 'model/ai_stream_throttle_override.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
+export 'model/ai_tts_provider_catalog.dart';
 export 'model/ai_tts_settings.dart';
 export 'model/ai_web_fetch_settings.dart';
 export 'model/ai_web_search_settings.dart';

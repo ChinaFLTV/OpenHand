@@ -29,6 +29,9 @@ class AiTtsPlaybackSnapshot {
 class AiTtsPlaybackService {
   AiTtsPlaybackService();
 
+  static const String settingsTestMessageId = '__settings_tts_test__';
+  static const String settingsTestText = '这是一段文本转语音测试。';
+
   final ValueNotifier<AiTtsPlaybackSnapshot> state =
       ValueNotifier<AiTtsPlaybackSnapshot>(const AiTtsPlaybackSnapshot());
   int _generation = 0;
@@ -88,6 +91,37 @@ class AiTtsPlaybackService {
     }
     if (generation == _generation) {
       state.value = const AiTtsPlaybackSnapshot();
+    }
+  }
+
+  Future<void> testProvider({
+    required AiTtsSettings settings,
+    required AiTtsProvider provider,
+    String text = settingsTestText,
+  }) async {
+    await stop();
+    final normalized = settings.normalized();
+    final content = _normalizeText(text, normalized.maxTextCharacters);
+    if (content.isEmpty) {
+      throw StateError('TTS test text is empty.');
+    }
+    final providerSettings = normalized.provider(provider);
+    final generation = ++_generation;
+    state.value = AiTtsPlaybackSnapshot(
+      playing: true,
+      messageId: settingsTestMessageId,
+      provider: provider,
+    );
+    try {
+      await _speakWithProvider(
+        providerSettings,
+        content,
+        timeout: Duration(seconds: normalized.timeoutSeconds),
+      );
+    } finally {
+      if (generation == _generation) {
+        await _stopActiveResources(clearState: true);
+      }
     }
   }
 

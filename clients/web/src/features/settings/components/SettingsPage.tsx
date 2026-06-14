@@ -27,6 +27,7 @@ import {
   normalizeTtsSettings,
   saveTtsSettings,
   stopTtsPlayback,
+  testTtsProvider,
   type TtsProvider,
   type TtsProviderSettings,
   type TtsSettings,
@@ -118,6 +119,151 @@ function htmlFallbackLabel(value: 'markdown' | 'plain_text'): string {
   return t('settings.messageContentFormat.markdown', 'Markdown');
 }
 
+interface TtsCatalogOption {
+  value: string;
+  label: string;
+}
+
+interface TtsProviderCatalog {
+  voices: TtsCatalogOption[];
+  languages: TtsCatalogOption[];
+  resourceIds?: TtsCatalogOption[];
+  models?: TtsCatalogOption[];
+  formats?: TtsCatalogOption[];
+}
+
+const COMMON_TTS_LANGUAGES: TtsCatalogOption[] = [
+  { value: 'zh-CN', label: '简体中文 zh-CN' },
+  { value: 'zh-TW', label: '繁体中文 zh-TW' },
+  { value: 'en-US', label: 'English en-US' },
+  { value: 'en-GB', label: 'English en-GB' },
+  { value: 'ja-JP', label: '日本語 ja-JP' },
+  { value: 'ko-KR', label: '한국어 ko-KR' },
+  { value: 'fr-FR', label: 'Français fr-FR' },
+  { value: 'de-DE', label: 'Deutsch de-DE' },
+];
+
+const BROWSER_SYSTEM_VOICES: TtsCatalogOption[] = [
+  { value: '', label: '自动匹配系统默认音色' },
+  { value: 'Tingting', label: 'macOS Tingting' },
+  { value: 'Sin-ji', label: 'macOS Sin-ji' },
+  { value: 'Mei-Jia', label: 'macOS Mei-Jia' },
+  { value: 'Samantha', label: 'macOS Samantha' },
+  { value: 'Microsoft Xiaoxiao', label: 'Windows Xiaoxiao' },
+  { value: 'Microsoft Yunxi', label: 'Windows Yunxi' },
+  { value: 'Google 普通话', label: 'Chrome 普通话' },
+];
+
+const TTS_PROVIDER_CATALOG: Record<TtsProvider, TtsProviderCatalog> = {
+  system: {
+    voices: BROWSER_SYSTEM_VOICES,
+    languages: COMMON_TTS_LANGUAGES,
+  },
+  apple: {
+    voices: BROWSER_SYSTEM_VOICES,
+    languages: COMMON_TTS_LANGUAGES,
+  },
+  xfyun: {
+    voices: [
+      { value: 'xiaoyan', label: '讯飞小燕 - 女声' },
+      { value: 'aisjiuxu', label: '讯飞许久 - 男声' },
+      { value: 'aisxping', label: '讯飞小萍 - 女声' },
+      { value: 'aisjinger', label: '讯飞小婧 - 女声' },
+      { value: 'aisbabyxu', label: '讯飞许小宝 - 童声' },
+      { value: 'x2_xiaoyan', label: '讯飞小燕 2.0 - 女声' },
+      { value: 'x2_xiaofeng', label: '讯飞小峰 2.0 - 男声' },
+    ],
+    languages: [{ value: 'zh-CN', label: '中文 zh-CN' }],
+    formats: [
+      { value: 'lame', label: 'MP3 (lame)' },
+      { value: 'raw', label: 'PCM raw' },
+    ],
+  },
+  youdao: {
+    voices: [
+      { value: '', label: '有道默认发音人' },
+      { value: '0', label: '女声' },
+      { value: '1', label: '男声' },
+    ],
+    languages: [
+      { value: 'zh-CHS', label: '中文 zh-CHS' },
+      { value: 'en', label: 'English en' },
+      { value: 'ja', label: '日本語 ja' },
+      { value: 'ko', label: '한국어 ko' },
+      { value: 'fr', label: 'Français fr' },
+      { value: 'de', label: 'Deutsch de' },
+      { value: 'es', label: 'Español es' },
+      { value: 'ru', label: 'Русский ru' },
+    ],
+  },
+  bing: {
+    voices: [
+      { value: 'zh-CN-XiaoxiaoNeural', label: '晓晓 - 中文女声' },
+      { value: 'zh-CN-YunxiNeural', label: '云希 - 中文男声' },
+      { value: 'zh-CN-YunjianNeural', label: '云健 - 中文男声' },
+      { value: 'zh-CN-XiaoyiNeural', label: '晓伊 - 中文女声' },
+      { value: 'zh-CN-YunyangNeural', label: '云扬 - 中文男声' },
+      { value: 'zh-TW-HsiaoChenNeural', label: '曉臻 - 繁中女声' },
+      { value: 'en-US-JennyNeural', label: 'Jenny - English' },
+      { value: 'en-US-GuyNeural', label: 'Guy - English' },
+      { value: 'ja-JP-NanamiNeural', label: 'Nanami - 日本語' },
+    ],
+    languages: COMMON_TTS_LANGUAGES,
+  },
+  google: {
+    voices: [
+      { value: 'zh-CN-Standard-A', label: '中文女声 Standard-A' },
+      { value: 'zh-CN-Standard-B', label: '中文男声 Standard-B' },
+      { value: 'zh-CN-Standard-C', label: '中文男声 Standard-C' },
+      { value: 'zh-CN-Standard-D', label: '中文女声 Standard-D' },
+      { value: 'zh-CN-Wavenet-A', label: '中文女声 Wavenet-A' },
+      { value: 'zh-CN-Wavenet-B', label: '中文男声 Wavenet-B' },
+      { value: 'en-US-Standard-C', label: 'English Standard-C' },
+      { value: 'en-US-Standard-D', label: 'English Standard-D' },
+      { value: 'ja-JP-Standard-A', label: '日本語 Standard-A' },
+    ],
+    languages: COMMON_TTS_LANGUAGES,
+    formats: [
+      { value: 'MP3', label: 'MP3' },
+      { value: 'LINEAR16', label: 'WAV LINEAR16' },
+      { value: 'OGG_OPUS', label: 'OGG Opus' },
+    ],
+  },
+  baidu: {
+    voices: [
+      { value: '0', label: '普通女声' },
+      { value: '1', label: '普通男声' },
+      { value: '3', label: '度逍遥' },
+      { value: '4', label: '度丫丫' },
+    ],
+    languages: [{ value: 'zh', label: '中文 zh' }],
+  },
+  doubao: {
+    voices: [
+      { value: 'zh_female_vv_uranus_bigtts', label: 'Vivi 2.0 - 女声' },
+      { value: 'zh_female_wanwanxiaohe_moon_bigtts', label: '湾湾小何 - 女声' },
+      { value: 'zh_male_beijingxiaoye_moon_bigtts', label: '北京小爷 - 男声' },
+      { value: 'zh_female_shuangkuaisisi_moon_bigtts', label: '爽快思思 - 女声' },
+      { value: 'zh_male_yangguangqingnian_moon_bigtts', label: '阳光青年 - 男声' },
+      { value: 'zh_female_tianmeixiaoyuan_moon_bigtts', label: '甜美小源 - 女声' },
+      { value: 'en_female_amanda_mars_bigtts', label: 'Amanda - English' },
+      { value: 'en_male_jackson_mars_bigtts', label: 'Jackson - English' },
+    ],
+    languages: COMMON_TTS_LANGUAGES,
+    resourceIds: [{ value: 'seed-tts-2.0', label: 'Seed TTS 2.0' }],
+    models: [
+      { value: 'seed-tts-2.0-standard', label: 'Seed TTS 2.0 标准版' },
+      { value: 'seed-tts-2.0', label: 'Seed TTS 2.0' },
+    ],
+    formats: [
+      { value: 'mp3', label: 'MP3' },
+      { value: 'wav', label: 'WAV' },
+      { value: 'ogg_opus', label: 'OGG Opus' },
+      { value: 'pcm', label: 'PCM' },
+    ],
+  },
+};
+
 function ttsProviderLabel(provider: TtsProvider): string {
   switch (provider) {
     case 'system':
@@ -164,6 +310,13 @@ function providerHint(provider: TtsProvider): string {
     case 'google':
       return t('settings.tts.provider.generic.desc', '保留服务参数与优先级配置，服务不可用时自动回退。');
   }
+}
+
+function friendlyTtsError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.replace(/\s+/g, ' ').trim();
+  if (!normalized) return 'unknown error';
+  return normalized.length > 140 ? `${normalized.slice(0, 140)}...` : normalized;
 }
 
 export function SettingsPage() {
@@ -605,6 +758,7 @@ function AnimatedReveal(props: { visible: boolean; children: ComponentChildren }
 }
 
 function TtsSettingsPanel(props: { settings: TtsSettings }) {
+  const [draggingProvider, setDraggingProvider] = useState<TtsProvider | null>(null);
   const update = (patch: Partial<TtsSettings>) => {
     saveTtsSettings(normalizeTtsSettings({ ...props.settings, ...patch }));
   };
@@ -620,13 +774,12 @@ function TtsSettingsPanel(props: { settings: TtsSettings }) {
       },
     }));
   };
-  const moveProvider = (index: number, delta: number) => {
-    const next = [...props.settings.providerPriority];
-    const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    const [item] = next.splice(index, 1);
-    if (!item) return;
-    next.splice(target, 0, item);
+  const reorderProvider = (source: TtsProvider, target: TtsProvider) => {
+    if (source === target) return;
+    const next = props.settings.providerPriority.filter((provider) => provider !== source);
+    const targetIndex = next.indexOf(target);
+    if (targetIndex < 0) return;
+    next.splice(targetIndex, 0, source);
     update({ providerPriority: next });
   };
 
@@ -650,23 +803,23 @@ function TtsSettingsPanel(props: { settings: TtsSettings }) {
       </div>
       <div class="oh-settings-tts-section">
         <h4>{t('settings.tts.priority', 'TTS 服务优先级')}</h4>
-        <p>{t('settings.tts.priority.desc', '排在前面的服务优先尝试；不可用、超时或未配置时自动回退。')}</p>
-        <div class="oh-settings-tts-priority">
-          {props.settings.providerPriority.map((provider, index) => (
-            <span class="oh-settings-tts-priority-chip" key={provider}>
-              <span>{index + 1}. {ttsProviderLabel(provider)}</span>
-              <button type="button" disabled={index === 0} onClick={() => moveProvider(index, -1)} aria-label={t('settings.tts.moveUp', '上移')}>↑</button>
-              <button type="button" disabled={index === props.settings.providerPriority.length - 1} onClick={() => moveProvider(index, 1)} aria-label={t('settings.tts.moveDown', '下移')}>↓</button>
-            </span>
-          ))}
-        </div>
+        <p>{t('settings.tts.priority.desc', '拖动下方服务卡片调整优先级；不可用、超时或未配置时自动回退。')}</p>
       </div>
       <div class="oh-settings-tts-providers">
-        {props.settings.providerPriority.map((provider) => (
+        {props.settings.providerPriority.map((provider, index) => (
           <TtsProviderCard
             key={provider}
             provider={provider}
+            priorityIndex={index}
             settings={props.settings.providers[provider]}
+            allSettings={props.settings}
+            dragging={draggingProvider === provider}
+            onDragStart={() => setDraggingProvider(provider)}
+            onDragEnd={() => setDraggingProvider(null)}
+            onDropProvider={(target) => {
+              if (draggingProvider) reorderProvider(draggingProvider, target);
+              setDraggingProvider(null);
+            }}
             onChange={(patch) => updateProvider(provider, patch)}
           />
         ))}
@@ -718,123 +871,171 @@ function NumberSetting(props: {
 
 function TtsProviderCard(props: {
   provider: TtsProvider;
+  priorityIndex: number;
   settings: TtsProviderSettings;
+  allSettings: TtsSettings;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropProvider: (target: TtsProvider) => void;
   onChange: (patch: Partial<TtsProviderSettings>) => void;
 }) {
+  const [testing, setTesting] = useState(false);
+  const catalog = TTS_PROVIDER_CATALOG[props.provider];
+  const test = async () => {
+    if (testing) return;
+    setTesting(true);
+    try {
+      await testTtsProvider(props.provider, props.allSettings);
+      showSnackbar(t('settings.tts.test.ok', 'TTS 测试播放完成'), { tone: 'success' });
+    } catch (error) {
+      showSnackbar(`${t('settings.tts.test.fail', 'TTS 测试失败')}：${friendlyTtsError(error)}`, {
+        tone: 'error',
+        durationMs: 4200,
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
   return (
-    <section class="oh-settings-tts-provider-card">
+    <section
+      class={`oh-settings-tts-provider-card${props.dragging ? ' is-dragging' : ''}${props.settings.enabled ? ' is-enabled' : ''}`}
+      draggable
+      onDragStart={(event) => {
+        const transfer = event.dataTransfer;
+        if (transfer) {
+          transfer.effectAllowed = 'move';
+          transfer.setData('text/plain', props.provider);
+        }
+        props.onDragStart();
+      }}
+      onDragEnd={props.onDragEnd}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        props.onDropProvider(props.provider);
+      }}
+    >
       <div class="oh-settings-tts-provider-head">
-        <div>
-          <h4>{ttsProviderLabel(props.provider)}</h4>
+        <span class="oh-settings-tts-drag-handle" title={t('settings.tts.drag', '拖动调整优先级')} aria-hidden="true">⋮⋮</span>
+        <div class="oh-settings-tts-provider-title">
+          <div class="oh-settings-tts-provider-title-row">
+            <span class="oh-settings-tts-rank">#{props.priorityIndex + 1}</span>
+            <h4>{ttsProviderLabel(props.provider)}</h4>
+            <span class={`oh-settings-tts-state${props.settings.enabled ? ' is-on' : ''}`}>
+              {props.settings.enabled ? t('common.on', '开') : t('common.off', '关')}
+            </span>
+          </div>
           <p>{providerHint(props.provider)}</p>
         </div>
-        <label class="oh-settings-switch">
-          <input
-            type="checkbox"
-            checked={props.settings.enabled}
-            onChange={(event) => props.onChange({ enabled: (event.currentTarget as HTMLInputElement).checked })}
-          />
-          <span class="oh-settings-switch-track"><span /></span>
-        </label>
+        <div class="oh-settings-tts-card-actions">
+          <button type="button" class="oh-settings-tts-test" onClick={() => { void test(); }} disabled={testing}>
+            {testing ? t('settings.tts.testing', '测试中') : t('settings.tts.test', '测试')}
+          </button>
+          <label class="oh-settings-switch">
+            <input
+              type="checkbox"
+              checked={props.settings.enabled}
+              onChange={(event) => props.onChange({ enabled: (event.currentTarget as HTMLInputElement).checked })}
+            />
+            <span class="oh-settings-switch-track"><span /></span>
+          </label>
+        </div>
       </div>
       <AnimatedReveal visible={props.settings.enabled}>
-        <div class="oh-settings-tts-provider-fields">
-          <TextSetting
-            label={t('settings.tts.voice', '音色/发音人')}
-            value={props.settings.voice}
-            onCommit={(voice) => props.onChange({ voice })}
-          />
-          <TextSetting
-            label={t('settings.tts.language', '语言')}
-            value={props.settings.language}
-            onCommit={(language) => props.onChange({ language })}
-          />
-          <NumberSetting
-            label={t('settings.tts.speed', '语速')}
-            value={props.settings.speed}
-            min={0}
-            max={200}
-            onCommit={(speed) => props.onChange({ speed })}
-          />
-          <NumberSetting
-            label={t('settings.tts.volume', '音量')}
-            value={props.settings.volume}
-            min={0}
-            max={100}
-            onCommit={(volume) => props.onChange({ volume })}
-          />
-          <NumberSetting
-            label={t('settings.tts.pitch', '音调')}
-            value={props.settings.pitch}
-            min={-20}
-            max={100}
-            onCommit={(pitch) => props.onChange({ pitch })}
-          />
-          {providerNeedsEndpoint(props.provider) ? (
-            <TextSetting
-              label={t('settings.tts.endpoint', '接口地址')}
-              value={props.settings.endpoint}
-              onCommit={(endpoint) => props.onChange({ endpoint })}
-            />
-          ) : null}
-          {providerNeedsCredentials(props.provider) ? (
-            <>
-              {props.provider !== 'baidu' && props.provider !== 'doubao' ? (
-                <TextSetting
-                  label="App ID"
-                  value={props.settings.appId}
-                  onCommit={(appId) => props.onChange({ appId })}
-                />
-              ) : null}
-              <TextSetting
-                label={props.provider === 'baidu' ? 'Access Token' : 'API Key'}
-                value={props.provider === 'baidu' ? props.settings.accessToken : props.settings.apiKey}
-                onCommit={(value) => props.onChange(props.provider === 'baidu'
-                  ? { accessToken: value }
-                  : { apiKey: value })}
+        <div class="oh-settings-tts-provider-body">
+          <TtsProviderSection title={t('settings.tts.voice.section', '声音参数')}>
+            <div class="oh-settings-tts-provider-fields">
+              <SelectSetting
+                label={t('settings.tts.voice', '音色/发音人')}
+                value={props.settings.voice}
+                options={catalog.voices}
+                onCommit={(voice) => props.onChange({ voice })}
               />
-              {props.provider !== 'baidu' && props.provider !== 'doubao' ? (
-                <TextSetting
-                  label="API Secret / Token"
-                  value={props.settings.apiSecret}
-                  onCommit={(apiSecret) => props.onChange({ apiSecret })}
-                />
-              ) : null}
-            </>
+              <SelectSetting
+                label={t('settings.tts.language', '语言')}
+                value={props.settings.language}
+                options={catalog.languages}
+                onCommit={(language) => props.onChange({ language })}
+              />
+              <NumberSetting label={t('settings.tts.speed', '语速')} value={props.settings.speed} min={0} max={200} onCommit={(speed) => props.onChange({ speed })} />
+              <NumberSetting label={t('settings.tts.volume', '音量')} value={props.settings.volume} min={0} max={100} onCommit={(volume) => props.onChange({ volume })} />
+              <NumberSetting label={t('settings.tts.pitch', '音调')} value={props.settings.pitch} min={-20} max={100} onCommit={(pitch) => props.onChange({ pitch })} />
+            </div>
+          </TtsProviderSection>
+          {providerNeedsEndpoint(props.provider) || providerNeedsCredentials(props.provider) ? (
+            <TtsProviderSection title={t('settings.tts.access.section', '连接与凭据')}>
+              <div class="oh-settings-tts-provider-fields">
+                {providerNeedsEndpoint(props.provider) ? (
+                  <TextSetting label={t('settings.tts.endpoint', '接口地址')} value={props.settings.endpoint} onCommit={(endpoint) => props.onChange({ endpoint })} />
+                ) : null}
+                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                  <TextSetting label="App ID" value={props.settings.appId} onCommit={(appId) => props.onChange({ appId })} />
+                ) : null}
+                {providerNeedsCredentials(props.provider) ? (
+                  <TextSetting
+                    label={props.provider === 'baidu' ? 'Access Token' : 'API Key'}
+                    value={props.provider === 'baidu' ? props.settings.accessToken : props.settings.apiKey}
+                    secret
+                    onCommit={(value) => props.onChange(props.provider === 'baidu' ? { accessToken: value } : { apiKey: value })}
+                  />
+                ) : null}
+                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                  <TextSetting label="API Secret / Token" value={props.settings.apiSecret} secret onCommit={(apiSecret) => props.onChange({ apiSecret })} />
+                ) : null}
+              </div>
+            </TtsProviderSection>
           ) : null}
           {props.provider === 'doubao' ? (
-            <>
-              <TextSetting
-                label="Resource ID"
-                value={String(props.settings.extra.resource_id ?? 'seed-tts-2.0')}
-                onCommit={(value) => props.onChange({
-                  extra: {
-                    ...props.settings.extra,
-                    resource_id: value || 'seed-tts-2.0',
-                  },
-                })}
-              />
-              <TextSetting
-                label={t('settings.tts.model', '模型')}
-                value={String(props.settings.extra.model ?? 'seed-tts-2.0-standard')}
-                onCommit={(value) => props.onChange({
-                  extra: {
-                    ...props.settings.extra,
-                    model: value || 'seed-tts-2.0-standard',
-                  },
-                })}
-              />
-              <TextSetting
-                label={t('settings.tts.format', '音频格式')}
-                value={String(props.settings.extra.format ?? 'mp3')}
-                onCommit={(value) => props.onChange({
-                  extra: {
-                    ...props.settings.extra,
-                    format: value || 'mp3',
-                  },
-                })}
-              />
-            </>
+            <TtsProviderSection title={t('settings.tts.doubao.section', '豆包参数')}>
+              <div class="oh-settings-tts-provider-fields">
+                <SelectSetting
+                  label="Resource ID"
+                  value={String(props.settings.extra.resource_id ?? 'seed-tts-2.0')}
+                  options={catalog.resourceIds ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, resource_id: value || 'seed-tts-2.0' } })}
+                />
+                <SelectSetting
+                  label={t('settings.tts.model', '模型')}
+                  value={String(props.settings.extra.model ?? 'seed-tts-2.0-standard')}
+                  options={catalog.models ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, model: value || 'seed-tts-2.0-standard' } })}
+                />
+                <SelectSetting
+                  label={t('settings.tts.format', '音频格式')}
+                  value={String(props.settings.extra.format ?? 'mp3')}
+                  options={catalog.formats ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, format: value || 'mp3' } })}
+                />
+              </div>
+            </TtsProviderSection>
+          ) : null}
+          {props.provider === 'xfyun' ? (
+            <TtsProviderSection title={t('settings.tts.audio.section', '音频编码')}>
+              <div class="oh-settings-tts-provider-fields">
+                <SelectSetting
+                  label={t('settings.tts.format', '音频格式')}
+                  value={String(props.settings.extra.aue ?? 'lame')}
+                  options={catalog.formats ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, aue: value || 'lame' } })}
+                />
+              </div>
+            </TtsProviderSection>
+          ) : null}
+          {props.provider === 'google' ? (
+            <TtsProviderSection title={t('settings.tts.audio.section', '音频编码')}>
+              <div class="oh-settings-tts-provider-fields">
+                <SelectSetting
+                  label={t('settings.tts.format', '音频格式')}
+                  value={String(props.settings.extra.audioEncoding ?? 'MP3')}
+                  options={catalog.formats ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, audioEncoding: value || 'MP3' } })}
+                />
+              </div>
+            </TtsProviderSection>
           ) : null}
         </div>
       </AnimatedReveal>
@@ -842,9 +1043,52 @@ function TtsProviderCard(props: {
   );
 }
 
+function TtsProviderSection(props: { title: string; children: ComponentChildren }) {
+  return (
+    <section class="oh-settings-tts-provider-section">
+      <h5>{props.title}</h5>
+      {props.children}
+    </section>
+  );
+}
+
+function SelectSetting(props: {
+  label: string;
+  value: string;
+  options: TtsCatalogOption[];
+  onCommit: (value: string) => void;
+}) {
+  const normalized = props.value.trim();
+  const hasCurrent = props.options.some((option) => option.value === normalized);
+  const options = hasCurrent || normalized.length === 0
+    ? props.options
+    : [{ value: normalized, label: `${t('settings.tts.current', '当前配置')}：${normalized}` }, ...props.options];
+  const safeOptions = options.length > 0 ? options : [{ value: normalized, label: normalized || t('settings.tts.default', '默认') }];
+  const value = safeOptions.some((option) => option.value === normalized)
+    ? normalized
+    : safeOptions[0]?.value ?? '';
+  return (
+    <label class="oh-settings-tts-select">
+      <span>{props.label}</span>
+      <select
+        value={value}
+        onChange={(event) => {
+          const next = (event.currentTarget as HTMLSelectElement).value;
+          if (next !== normalized) props.onCommit(next);
+        }}
+      >
+        {safeOptions.map((option) => (
+          <option key={`${props.label}-${option.value}`} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function TextSetting(props: {
   label: string;
   value: string;
+  secret?: boolean;
   onCommit: (value: string) => void;
 }) {
   const [value, setValue] = useState(props.value);
@@ -860,7 +1104,7 @@ function TextSetting(props: {
     <label class="oh-settings-tts-text">
       <span>{props.label}</span>
       <input
-        type="text"
+        type={props.secret ? 'password' : 'text'}
         value={value}
         onInput={(event) => setValue((event.currentTarget as HTMLInputElement).value)}
         onBlur={commit}
