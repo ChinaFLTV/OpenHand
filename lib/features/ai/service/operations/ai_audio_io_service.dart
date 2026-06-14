@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
-import '../chat/ai_transport_diagnostic_messages.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import 'ai_operation_http.dart';
 
 class AiAudioIoResult {
   const AiAudioIoResult({required this.text, required this.rawResponse});
@@ -60,39 +59,30 @@ class AiAudioIoService {
       method: model.requestMethod,
       transport: 'multipart',
     );
-    final headers = <String, String>{
-      'accept': 'application/json',
-      ...model.customHeaders,
-      ...endpoint.headers,
-    };
-    final token = model.token.trim();
-    if (token.isNotEmpty && model.authScheme != AiAuthScheme.none) {
-      if (model.authScheme == AiAuthScheme.apiKey) {
-        headers['x-api-key'] = model.authScheme.apply(token);
-      } else {
-        headers['authorization'] = model.authScheme.apply(token);
-      }
-    }
     final response = await _transport.sendMultipart(
       uri: Uri.parse(endpoint.url),
       method: endpoint.method,
-      headers: headers,
+      headers: AiOperationHttp.buildHeaders(
+        model: model,
+        endpointHeaders: endpoint.headers,
+        includeJsonContentType: false,
+        acceptJson: true,
+      ),
       body: <String, Object?>{
         'model': model.resolveOperationModelId(family),
         'file': AiMultipartUploadFile(filePath: filePath),
       },
       timeout: timeout,
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        AiTransportDiagnosticMessages.httpStatus(
-          response.statusCode,
-          serverMessage: response.body,
-          contextHint: family.storageValue,
-        ),
-      );
-    }
-    final decoded = jsonDecode(response.body);
+    AiOperationHttp.throwIfFailed(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: family.storageValue,
+    );
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: family.storageValue,
+    );
     final text = decoded is Map<String, Object?>
         ? '${decoded['text'] ?? decoded['output_text'] ?? ''}'.trim()
         : '';

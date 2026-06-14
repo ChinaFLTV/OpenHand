@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
-import '../chat/ai_transport_diagnostic_messages.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import 'ai_operation_http.dart';
 
 class AiCompletionResult {
   const AiCompletionResult({required this.text, required this.rawResponse});
@@ -32,23 +31,13 @@ class AiCompletionsService {
       AiApiFamily.completions,
       method: model.requestMethod,
     );
-    final headers = <String, String>{
-      'content-type': 'application/json',
-      ...model.customHeaders,
-      ...endpoint.headers,
-    };
-    final token = model.token.trim();
-    if (token.isNotEmpty && model.authScheme != AiAuthScheme.none) {
-      if (model.authScheme == AiAuthScheme.apiKey) {
-        headers['x-api-key'] = model.authScheme.apply(token);
-      } else {
-        headers['authorization'] = model.authScheme.apply(token);
-      }
-    }
     final response = await _transport.sendJson(
       uri: Uri.parse(endpoint.url),
       method: endpoint.method,
-      headers: headers,
+      headers: AiOperationHttp.buildHeaders(
+        model: model,
+        endpointHeaders: endpoint.headers,
+      ),
       body: <String, Object?>{
         'model': model.resolveOperationModelId(AiApiFamily.completions),
         'prompt': prompt,
@@ -57,16 +46,15 @@ class AiCompletionsService {
       },
       timeout: timeout,
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        AiTransportDiagnosticMessages.httpStatus(
-          response.statusCode,
-          serverMessage: response.body,
-          contextHint: 'completions',
-        ),
-      );
-    }
-    final decoded = jsonDecode(response.body);
+    AiOperationHttp.throwIfFailed(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: 'completions',
+    );
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: 'completions',
+    );
     final choices = decoded is Map<String, Object?> ? decoded['choices'] : null;
     String text = '';
     if (choices is List && choices.isNotEmpty && choices.first is Map) {

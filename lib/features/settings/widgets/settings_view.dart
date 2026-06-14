@@ -51,6 +51,7 @@ import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hardness/index.dart';
@@ -6248,11 +6249,8 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
   final VoidCallback onPersistenceFailure;
 
   TimeOfDay get _timeOfDay {
-    final parts = scheduledTimeOfDay.split(':');
-    if (parts.length != 2) return const TimeOfDay(hour: 2, minute: 0);
-    final h = int.tryParse(parts[0]) ?? 2;
-    final m = int.tryParse(parts[1]) ?? 0;
-    return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+    final parsed = parseHourMinuteOfDay(scheduledTimeOfDay, fallbackHour: 2);
+    return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
   }
 
   Future<void> _pickTime(BuildContext context) async {
@@ -6261,10 +6259,10 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
       builder: (dialogContext) => TimePickerDialog(initialTime: _timeOfDay),
     );
     if (picked == null) return;
-    final hh = picked.hour.toString().padLeft(2, '0');
-    final mm = picked.minute.toString().padLeft(2, '0');
     final saved = await settingsController
-        .updateMcpKeywordIndexScheduledTimeOfDay('$hh:$mm');
+        .updateMcpKeywordIndexScheduledTimeOfDay(
+          formatHourMinuteParts(hour: picked.hour, minute: picked.minute),
+        );
     if (!context.mounted || saved) return;
     onPersistenceFailure();
   }
@@ -6411,10 +6409,15 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
-    });
+    _timer = startSafePeriodicTimer(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted) return;
+        setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
+      },
+      onError: (error, stack) =>
+          silentLog('settings', 'auto mode fps ticker', error, stack),
+    );
   }
 
   @override

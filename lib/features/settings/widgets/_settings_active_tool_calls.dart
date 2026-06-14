@@ -48,14 +48,19 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
 
   void _maybeStartTicker() {
     if (_activeCount > 0 && _ticker == null) {
-      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted && _registry.activeRecords.isNotEmpty) {
-          setState(() {});
-        } else {
-          _ticker?.cancel();
-          _ticker = null;
-        }
-      });
+      _ticker = startSafePeriodicTimer(
+        const Duration(seconds: 1),
+        (_) {
+          if (mounted && _registry.activeRecords.isNotEmpty) {
+            setState(() {});
+          } else {
+            _ticker?.cancel();
+            _ticker = null;
+          }
+        },
+        onError: (error, stack) =>
+            silentLog('settings', 'active tool calls ticker', error, stack),
+      );
     } else if (_activeCount == 0 && _ticker != null) {
       _ticker?.cancel();
       _ticker = null;

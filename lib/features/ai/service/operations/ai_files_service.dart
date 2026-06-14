@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
-import '../chat/ai_transport_diagnostic_messages.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import 'ai_operation_http.dart';
 
 class AiFileRecord {
   const AiFileRecord({required this.id, required this.payload});
@@ -33,7 +32,10 @@ class AiFilesService {
       timeout: timeout,
     );
     _throwIfFailed(response.statusCode, response.body, 'files');
-    final decoded = jsonDecode(response.body);
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: 'files',
+    );
     final data = decoded is Map<String, Object?> ? decoded['data'] : null;
     final items = <AiFileRecord>[];
     if (data is List) {
@@ -67,10 +69,14 @@ class AiFilesService {
       timeout: timeout,
     );
     _throwIfFailed(response.statusCode, response.body, 'files/retrieve');
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, Object?>) return null;
-    final id = '${decoded['id'] ?? fileId}'.trim();
-    return id.isEmpty ? null : AiFileRecord(id: id, payload: decoded);
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: 'files/retrieve',
+    );
+    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
+    if (payload.isEmpty) return null;
+    final id = '${payload['id'] ?? fileId}'.trim();
+    return id.isEmpty ? null : AiFileRecord(id: id, payload: payload);
   }
 
   Future<AiFileRecord?> uploadFile({
@@ -91,10 +97,14 @@ class AiFilesService {
       timeout: timeout,
     );
     _throwIfFailed(response.statusCode, response.body, 'files/create');
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, Object?>) return null;
-    final id = '${decoded['id'] ?? ''}'.trim();
-    return id.isEmpty ? null : AiFileRecord(id: id, payload: decoded);
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: 'files/create',
+    );
+    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
+    if (payload.isEmpty) return null;
+    final id = '${payload['id'] ?? ''}'.trim();
+    return id.isEmpty ? null : AiFileRecord(id: id, payload: payload);
   }
 
   Future<void> deleteFile({
@@ -123,32 +133,19 @@ class AiFilesService {
     Map<String, String> endpointHeaders, {
     bool jsonContent = true,
   }) {
-    final headers = <String, String>{
-      if (jsonContent) 'content-type': 'application/json',
-      ...model.customHeaders,
-      ...endpointHeaders,
-    };
-    final token = model.token.trim();
-    if (token.isNotEmpty && model.authScheme != AiAuthScheme.none) {
-      if (model.authScheme == AiAuthScheme.apiKey) {
-        headers['x-api-key'] = model.authScheme.apply(token);
-      } else {
-        headers['authorization'] = model.authScheme.apply(token);
-      }
-    }
-    return headers;
+    return AiOperationHttp.buildHeaders(
+      model: model,
+      endpointHeaders: endpointHeaders,
+      includeJsonContentType: jsonContent,
+    );
   }
 
   void _throwIfFailed(int statusCode, String body, String hint) {
-    if (statusCode < 200 || statusCode >= 300) {
-      throw Exception(
-        AiTransportDiagnosticMessages.httpStatus(
-          statusCode,
-          serverMessage: body,
-          contextHint: hint,
-        ),
-      );
-    }
+    AiOperationHttp.throwIfFailed(
+      statusCode: statusCode,
+      body: body,
+      contextHint: hint,
+    );
   }
 
   void dispose() {

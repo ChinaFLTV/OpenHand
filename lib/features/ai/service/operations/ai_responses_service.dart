@@ -1,14 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../chat/ai_chat_service.dart';
-import '../chat/ai_transport_diagnostic_messages.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import '../session_io/ai_token_usage_parser.dart';
+import 'ai_operation_http.dart';
 
 class AiResponsesRequestBlueprint {
   const AiResponsesRequestBlueprint({
@@ -64,19 +63,6 @@ class AiResponsesService {
       AiApiFamily.responses,
       method: model.requestMethod,
     );
-    final headers = <String, String>{
-      'content-type': 'application/json',
-      ...model.customHeaders,
-      ...endpoint.headers,
-    };
-    final token = model.token.trim();
-    if (token.isNotEmpty && model.authScheme != AiAuthScheme.none) {
-      if (model.authScheme == AiAuthScheme.apiKey) {
-        headers['x-api-key'] = model.authScheme.apply(token);
-      } else {
-        headers['authorization'] = model.authScheme.apply(token);
-      }
-    }
     final body = <String, Object?>{
       'model': model.resolveOperationModelId(AiApiFamily.responses),
       'input': input,
@@ -85,7 +71,10 @@ class AiResponsesService {
     return AiResponsesRequestBlueprint(
       url: endpoint.url,
       method: endpoint.method,
-      headers: headers,
+      headers: AiOperationHttp.buildHeaders(
+        model: model,
+        endpointHeaders: endpoint.headers,
+      ),
       body: body,
     );
   }
@@ -103,16 +92,15 @@ class AiResponsesService {
       body: request.body,
       timeout: timeout,
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        AiTransportDiagnosticMessages.httpStatus(
-          response.statusCode,
-          serverMessage: response.body,
-          contextHint: 'responses',
-        ),
-      );
-    }
-    final decoded = jsonDecode(response.body);
+    AiOperationHttp.throwIfFailed(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: 'responses',
+    );
+    final decoded = AiOperationHttp.decodeJsonResponse(
+      response.body,
+      contextHint: 'responses',
+    );
     final parsed = _parseResponsePayload(decoded);
     return AiResponsesResult(
       text: parsed.text,
@@ -150,7 +138,8 @@ class AiResponsesService {
               }
             }
             if (type == 'reasoning') {
-              final partText = '${part['summary'] ?? part['text'] ?? ''}'.trim();
+              final partText = '${part['summary'] ?? part['text'] ?? ''}'
+                  .trim();
               if (partText.isNotEmpty) {
                 if (reasoningBuffer.isNotEmpty) reasoningBuffer.writeln();
                 reasoningBuffer.write(partText);
@@ -171,7 +160,11 @@ class AiResponsesService {
         );
       }
     }
-    return _ParsedResponsesPayload(text: text, reasoning: reasoning, usage: usage);
+    return _ParsedResponsesPayload(
+      text: text,
+      reasoning: reasoning,
+      usage: usage,
+    );
   }
 
   void parseSseEvent(

@@ -63,30 +63,26 @@ Timer startNonOverlappingPeriodicTimer(
       if (running) return;
       running = true;
       unawaited(() async {
-        var timedOut = false;
+        Timer? timeoutTimer;
         try {
           final pending = Future<void>.sync(() => callback(timer));
-          if (effectiveCallbackTimeout == null) {
-            await pending;
-          } else {
-            await pending.timeout(
+          if (effectiveCallbackTimeout != null) {
+            timeoutTimer = Timer(
               effectiveCallbackTimeout,
-              onTimeout: () {
-                timedOut = true;
-                throw TimeoutException(
-                  'Periodic timer callback exceeded '
-                  '$effectiveCallbackTimeout',
-                  effectiveCallbackTimeout,
-                );
-              },
+              () => _handleTimerCallbackTimeout(
+                timer: timer,
+                timeout: effectiveCallbackTimeout,
+                cancelTimer: cancelOnCallbackTimeout,
+                zone: zone,
+                onError: onError,
+              ),
             );
           }
+          await pending;
         } catch (error, stack) {
-          if (timedOut && cancelOnCallbackTimeout) {
-            timer.cancel();
-          }
           _reportTimerError(error, stack, zone, onError);
         } finally {
+          timeoutTimer?.cancel();
           running = false;
         }
       }());
@@ -94,6 +90,24 @@ Timer startNonOverlappingPeriodicTimer(
     min: min,
     max: max,
     onError: onError,
+  );
+}
+
+void _handleTimerCallbackTimeout({
+  required Timer timer,
+  required Duration timeout,
+  required bool cancelTimer,
+  required Zone zone,
+  required OpenHandTimerErrorHandler? onError,
+}) {
+  if (cancelTimer) {
+    timer.cancel();
+  }
+  _reportTimerError(
+    TimeoutException('Periodic timer callback exceeded $timeout', timeout),
+    StackTrace.current,
+    zone,
+    onError,
   );
 }
 

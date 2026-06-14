@@ -1,3 +1,5 @@
+import '../../../shared/util/date_time_format.dart';
+
 /// MCP 关键词倒排索引的更新模式。控制何时（重新）构建索引：
 ///
 ///   - [coldStart]: 仅在 App 启动期惰性加载磁盘缓存；不再主动构建。
@@ -83,23 +85,12 @@ String buildMcpKeywordIndexCronExpression({
           return '0 2 */$v * *';
       }
     case McpKeywordIndexUpdateMode.scheduled:
-      final parsed = _parseHourMinute(scheduledTimeOfDay);
-      return '${parsed.$2} ${parsed.$1} * * *';
+      final parsed = parseHourMinuteOfDay(scheduledTimeOfDay, fallbackHour: 2);
+      return '${parsed.minute} ${parsed.hour} * * *';
   }
-}
-
-(int, int) _parseHourMinute(String raw) {
-  final s = raw.trim();
-  final colon = s.indexOf(':');
-  if (colon <= 0 || colon >= s.length - 1) return (2, 0);
-  final h = int.tryParse(s.substring(0, colon));
-  final m = int.tryParse(s.substring(colon + 1));
-  if (h == null || m == null) return (2, 0);
-  return (h.clamp(0, 23), m.clamp(0, 59));
 }
 
 /// 校验 `HH:mm` 字符串。失败时返回默认 `02:00`。
 String normalizeMcpKeywordIndexScheduledTimeOfDay(String raw) {
-  final (h, m) = _parseHourMinute(raw);
-  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  return normalizeHourMinuteOfDay(raw, fallbackHour: 2);
 }
