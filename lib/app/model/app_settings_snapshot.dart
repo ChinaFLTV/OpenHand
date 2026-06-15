@@ -7,6 +7,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
@@ -92,6 +93,7 @@ class AppSettingsSnapshot {
       aiMaxSkillContentLength: defaultAiMaxSkillContentLength,
       aiMaxWorkspaceDocumentCharacters: defaultAiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
+      aiTranslationSettings: AiTranslationSettings.defaults(),
       aiTtsSettings: AiTtsSettings.defaults(),
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -197,6 +199,7 @@ class AppSettingsSnapshot {
     required this.aiMaxSkillContentLength,
     required this.aiMaxWorkspaceDocumentCharacters,
     required this.aiImageSizeLimitBytes,
+    AiTranslationSettings? aiTranslationSettings,
     AiTtsSettings? aiTtsSettings,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -248,7 +251,9 @@ class AppSettingsSnapshot {
     this.bashOutputMaxBytes = defaultBashOutputMaxBytes,
     this.maxConcurrentTools = defaultMaxConcurrentTools,
     AppProxySettings? proxySettings,
-  }) : proxySettings =
+  }) : aiTranslationSettings =
+           aiTranslationSettings ?? AiTranslationSettings.defaults(),
+       proxySettings =
            proxySettings ??
            const AppProxySettings(
              mode: AppProxyMode.automatic,
@@ -754,6 +759,7 @@ class AppSettingsSnapshot {
   /// Group E — 工作区指令文档字符上限。
   final int aiMaxWorkspaceDocumentCharacters;
   final int aiImageSizeLimitBytes;
+  final AiTranslationSettings aiTranslationSettings;
   final AiTtsSettings aiTtsSettings;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -946,6 +952,7 @@ class AppSettingsSnapshot {
     int? aiMaxSkillContentLength,
     int? aiMaxWorkspaceDocumentCharacters,
     int? aiImageSizeLimitBytes,
+    AiTranslationSettings? aiTranslationSettings,
     AiTtsSettings? aiTtsSettings,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -1116,6 +1123,8 @@ class AppSettingsSnapshot {
           this.aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
+      aiTranslationSettings:
+          aiTranslationSettings ?? this.aiTranslationSettings,
       aiTtsSettings: aiTtsSettings ?? this.aiTtsSettings,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??

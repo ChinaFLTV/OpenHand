@@ -53,6 +53,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onDeleteMessageFromHere,
     required this.onForkMessage,
     required this.ttsPlaybackService,
+    required this.translationService,
     required this.onDismissError,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
@@ -122,6 +123,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionMessage message) onForkMessage;
   final AiTtsPlaybackService ttsPlaybackService;
+  final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
@@ -252,6 +254,8 @@ class _WorkspaceView extends StatelessWidget {
                                           onForkMessage: onForkMessage,
                                           ttsPlaybackService:
                                               ttsPlaybackService,
+                                          translationService:
+                                              translationService,
                                           onDismissError: onDismissError,
                                           // Jump to the very bottom on the first
                                           // frame when the session was just

@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
@@ -229,6 +230,7 @@ class SettingsStore {
           snapshot.aiMaxWorkspaceDocumentCharacters,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
+      'ai_translation': snapshot.aiTranslationSettings.toJson(),
       'ai_tts': snapshot.aiTtsSettings.toJson(),
       'ai_write_command_confirmation_enabled':
           snapshot.aiWriteCommandConfirmationEnabled,
@@ -686,6 +688,9 @@ class SettingsStore {
       fallback: AppSettingsSnapshot.defaultAiImageSizeLimitBytes,
       min: AppSettingsSnapshot.minAiImageSizeLimitBytes,
       max: AppSettingsSnapshot.maxAiImageSizeLimitBytes,
+    );
+    final aiTranslationSettings = AiTranslationSettings.fromJson(
+      json['ai_translation'],
     );
     final aiTtsSettings = AiTtsSettings.fromJson(json['ai_tts']);
     final aiWriteCommandConfirmationEnabled =
@@ -1145,6 +1150,7 @@ class SettingsStore {
       aiMaxSkillContentLength: aiMaxSkillContentLength,
       aiMaxWorkspaceDocumentCharacters: aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
+      aiTranslationSettings: aiTranslationSettings,
       aiTtsSettings: aiTtsSettings,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,

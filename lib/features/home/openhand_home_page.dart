@@ -163,6 +163,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  final AiTranslationService _translationService = AiTranslationService();
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
@@ -707,6 +708,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
     unawaited(_ttsPlaybackService.dispose());
+    _translationService.dispose();
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
@@ -7018,6 +7020,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onDeleteMessageFromHere: _deleteMessageFromHere,
         onForkMessage: _forkMessage,
         ttsPlaybackService: _ttsPlaybackService,
+        translationService: _translationService,
         onDismissError: _dismissSessionError,
         // Signal the transcript list to jump to the bottom on its first frame
         // whenever a forced-scroll-to-bottom is pending (i.e. a session was

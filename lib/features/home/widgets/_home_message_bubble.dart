@@ -24,8 +24,13 @@ class _MessageBubble extends StatefulWidget {
     this.onEdit,
     this.onAudit,
     this.onToggleSpeech,
+    this.onToggleTranslation,
     this.speechPlaying = false,
     this.speechEnabled = false,
+    this.translationEnabled = false,
+    this.translationLoading = false,
+    this.translationVisible = false,
+    this.translatedContent,
     this.initiallyShowRawContent = false,
     this.onShowRawContentChanged,
   });
@@ -51,8 +56,13 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function()? onEdit;
   final VoidCallback? onAudit;
   final Future<void> Function()? onToggleSpeech;
+  final Future<void> Function()? onToggleTranslation;
   final bool speechPlaying;
   final bool speechEnabled;
+  final bool translationEnabled;
+  final bool translationLoading;
+  final bool translationVisible;
+  final String? translatedContent;
   final bool initiallyShowRawContent;
   final ValueChanged<bool>? onShowRawContentChanged;
 
@@ -390,6 +400,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     // Parse Harness Engineering agent/phase annotations from message content.
     // Only assistant-role messages can carry these markers.
+    final translatedContent = widget.translatedContent?.trim();
+    final showingTranslation =
+        widget.translationVisible &&
+        translatedContent != null &&
+        translatedContent.isNotEmpty;
+    final displayContent = showingTranslation
+        ? translatedContent
+        : message.content;
     final heAnnotation =
         (!isUser &&
             !isCompressionPoint &&
@@ -399,7 +417,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isSelfLearning)
         ? _parseHeAnnotation(message.content)
         : null;
-    final effectiveContent = heAnnotation?.strippedContent ?? message.content;
+    final effectiveContent = showingTranslation
+        ? displayContent
+        : heAnnotation?.strippedContent ?? message.content;
 
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
@@ -522,13 +542,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     else if (isReasoning)
                       _showRawContent
                           ? SelectableText(
-                              message.content.isEmpty ? ' ' : message.content,
+                              effectiveContent.isEmpty ? ' ' : effectiveContent,
                               style: markdownStyleSheet.styleSheet.p?.copyWith(
                                 color: textColor,
                               ),
                             )
                           : _ReasoningBody(
-                              content: message.content,
+                              content: effectiveContent,
                               expanded: reasoningExpanded,
                               streaming: isStreamingReasoning,
                               selectable: true,
@@ -777,6 +797,24 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     label: widget.speechPlaying
                         ? _localizedText(context, zh: '停止', en: 'Stop')
                         : _localizedText(context, zh: '朗读', en: 'Read'),
+                  ),
+                if (widget.translationEnabled &&
+                    widget.onToggleTranslation != null)
+                  _MessageActionSpec(
+                    id: 'translation-toggle',
+                    onPressed: widget.translationLoading
+                        ? null
+                        : widget.onToggleTranslation,
+                    icon: widget.translationLoading
+                        ? Icons.hourglass_top_rounded
+                        : widget.translationVisible
+                        ? Icons.visibility_outlined
+                        : Icons.translate_rounded,
+                    label: widget.translationLoading
+                        ? _localizedText(context, zh: '翻译中', en: 'Translating')
+                        : widget.translationVisible
+                        ? _localizedText(context, zh: '查看原始', en: 'Original')
+                        : _localizedText(context, zh: '翻译', en: 'Translate'),
                   ),
                 if (widget.onEdit != null)
                   _MessageActionSpec(

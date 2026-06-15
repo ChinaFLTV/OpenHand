@@ -255,6 +255,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onDeleteMessageFromHere,
     required this.onForkMessage,
     required this.ttsPlaybackService,
+    required this.translationService,
     required this.onDismissError,
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
@@ -279,6 +280,7 @@ class _SessionTranscript extends StatefulWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionMessage message) onForkMessage;
   final AiTtsPlaybackService ttsPlaybackService;
+  final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   // When true, the list will jump to the very bottom on its first frame.
   // This eliminates the visible scroll-from-top animation that would otherwise
@@ -291,6 +293,20 @@ class _SessionTranscript extends StatefulWidget {
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
+}
+
+class _MessageTranslationEntry {
+  const _MessageTranslationEntry({
+    required this.sourceText,
+    required this.settingsFingerprint,
+    required this.translatedText,
+    required this.provider,
+  });
+
+  final String sourceText;
+  final String settingsFingerprint;
+  final String translatedText;
+  final AiTranslationProvider provider;
 }
 
 class _SessionTranscriptState extends State<_SessionTranscript> {
@@ -340,6 +356,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 2026-06-07: 保存每条消息的【显示原始】状态，避免 ListView.builder
   // 回收重建后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
+  final Map<String, _MessageTranslationEntry> _translationCacheByMessageId =
+      <String, _MessageTranslationEntry>{};
+  final Set<String> _translationVisibleMessageIds = <String>{};
+  final Set<String> _translationLoadingMessageIds = <String>{};
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
@@ -416,6 +436,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _warmupGeneration += 1;
       _warmupScheduler.clear();
       _selectedMessageId = null;
+      _translationCacheByMessageId.clear();
+      _translationVisibleMessageIds.clear();
+      _translationLoadingMessageIds.clear();
       _messageActionPanelMotionKey += 1;
       _consumedMessageActionPanelMotionKey = _messageActionPanelMotionKey;
       _TranscriptScrollDispatcher.instance.unregister(
@@ -1204,6 +1227,156 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
   }
 
+  Future<void> _toggleMessageTranslation(
+    AiSessionMessage message,
+    AiTranslationSettings settings,
+  ) async {
+    final sourceText = _translatableMessageText(message, settings);
+    if (sourceText == null) return;
+    if (_translationVisibleMessageIds.contains(message.id)) {
+      setState(() {
+        _translationVisibleMessageIds.remove(message.id);
+      });
+      return;
+    }
+    final cached = _translationCacheByMessageId[message.id];
+    if (cached != null &&
+        cached.sourceText == sourceText &&
+        cached.settingsFingerprint == settings.cacheFingerprint) {
+      setState(() {
+        _translationVisibleMessageIds.add(message.id);
+      });
+      return;
+    }
+    if (_translationLoadingMessageIds.contains(message.id)) return;
+    setState(() {
+      _translationLoadingMessageIds.add(message.id);
+    });
+    try {
+      final settingsController = context.read<SettingsController>();
+      final result = await widget.translationService.translate(
+        text: sourceText,
+        settings: settings,
+        availableModels: settingsController.aiModels,
+        fallbackModel: _translationFallbackModel(settingsController),
+      );
+      if (!mounted) return;
+      setState(() {
+        _translationCacheByMessageId[message.id] = _MessageTranslationEntry(
+          sourceText: sourceText,
+          settingsFingerprint: settings.cacheFingerprint,
+          translatedText: result.text,
+          provider: result.provider,
+        );
+        _translationVisibleMessageIds.add(message.id);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '翻译失败：${_friendlyTranslationUiError(error)}',
+              en: 'Translation failed: ${_friendlyTranslationUiError(error)}',
+            ),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _translationLoadingMessageIds.remove(message.id);
+        });
+      }
+    }
+  }
+
+  AiModelConfig? _translationFallbackModel(SettingsController settings) {
+    final storedProviderId = widget.session.lastUsedModelId?.trim();
+    final storedModelId = widget.session.lastUsedModelLabel?.trim();
+    if (storedProviderId != null &&
+        storedProviderId.isNotEmpty &&
+        storedModelId != null &&
+        storedModelId.isNotEmpty) {
+      for (final item in settings.aiModels) {
+        if (item.id == storedProviderId &&
+            item.allModelIds.contains(storedModelId)) {
+          return item.copyWith(modelId: storedModelId);
+        }
+      }
+    }
+    return settings.selectedAiModel;
+  }
+
+  bool _isMessageTranslatable(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
+    if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+      return false;
+    }
+    if (_translatableMessageText(message, settings.aiTranslationSettings) ==
+        null) {
+      return false;
+    }
+    switch (message.kind) {
+      case AiSessionMessageKind.user:
+      case AiSessionMessageKind.reasoning:
+        return true;
+      case AiSessionMessageKind.assistant:
+        return _messageContentFormat(message, settings) !=
+            AiMessageContentFormat.html;
+      case AiSessionMessageKind.toolCall:
+      case AiSessionMessageKind.tool:
+      case AiSessionMessageKind.compressionPoint:
+      case AiSessionMessageKind.mcp:
+      case AiSessionMessageKind.skill:
+      case AiSessionMessageKind.hook:
+      case AiSessionMessageKind.selfLearning:
+      case AiSessionMessageKind.fileMutationSummary:
+      case AiSessionMessageKind.status:
+        return false;
+    }
+  }
+
+  String? _translatableMessageText(
+    AiSessionMessage message,
+    AiTranslationSettings settings,
+  ) {
+    if (!settings.enabled) return null;
+    final content = switch (message.kind) {
+      AiSessionMessageKind.assistant =>
+        _parseHeAnnotation(message.content)?.strippedContent ?? message.content,
+      AiSessionMessageKind.user ||
+      AiSessionMessageKind.reasoning => message.content,
+      _ => '',
+    }.trim();
+    return content.isEmpty ? null : content;
+  }
+
+  AiMessageContentFormat _messageContentFormat(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
+    final storedKey = message.metadata[aiSessionMessageContentFormatKey];
+    if (storedKey is String && storedKey.isNotEmpty) {
+      return AiMessageContentFormat.fromStorageKey(storedKey);
+    }
+    return settings.aiMessageContentFormat;
+  }
+
+  String _friendlyTranslationUiError(Object error) {
+    final raw = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
+    final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.isEmpty) return 'unknown error';
+    const maxLength = 140;
+    if (normalized.length <= maxLength) return normalized;
+    return '${normalized.substring(0, maxLength)}...';
+  }
+
   Future<void> _revealOlderMessages() async {
     if (_loadingOlderMessages ||
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
@@ -1572,7 +1745,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final ttsSettings = context.select<SettingsController, AiTtsSettings>(
       (settings) => settings.aiTtsSettings,
     );
+    final translationSettings = context
+        .select<SettingsController, AiTranslationSettings>(
+          (settings) => settings.aiTranslationSettings,
+        );
     final aiSessionController = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
@@ -1853,6 +2031,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ttsSettings.enabled &&
                         ttsSnapshot.playing &&
                         ttsSnapshot.messageId == message.id;
+                    final translationEntry =
+                        _translationCacheByMessageId[message.id];
+                    final translationVisible =
+                        translationEntry != null &&
+                        _translationVisibleMessageIds.contains(message.id) &&
+                        translationEntry.sourceText ==
+                            _translatableMessageText(
+                              message,
+                              translationSettings,
+                            ) &&
+                        translationEntry.settingsFingerprint ==
+                            translationSettings.cacheFingerprint;
+                    final translationLoading = _translationLoadingMessageIds
+                        .contains(message.id);
+                    final translationEnabled =
+                        translationSettings.enabled &&
+                        _isMessageTranslatable(message, settingsController);
                     final bubble = _TranscriptBubbleRegistrar(
                       messageId: message.id,
                       registry: _bubbleRegistry,
@@ -1923,6 +2118,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 messageId: message.id,
                                 text: message.content,
                                 settings: ttsSettings,
+                              )
+                            : null,
+                        translationEnabled: translationEnabled,
+                        translationLoading: translationLoading,
+                        translationVisible: translationVisible,
+                        translatedContent: translationEntry?.translatedText,
+                        onToggleTranslation: translationEnabled
+                            ? () => _toggleMessageTranslation(
+                                message,
+                                translationSettings,
                               )
                             : null,
                         onDelete: () async {

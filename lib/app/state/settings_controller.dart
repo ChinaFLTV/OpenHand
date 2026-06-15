@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
@@ -155,6 +156,7 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiMaxWorkspaceDocumentCharacters,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
+       _aiTranslationSettings = snapshot.aiTranslationSettings.normalized(),
        _aiTtsSettings = snapshot.aiTtsSettings.normalized(),
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
@@ -300,6 +302,7 @@ class SettingsController extends ChangeNotifier {
   int _aiMaxWorkspaceDocumentCharacters;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
+  AiTranslationSettings _aiTranslationSettings;
   AiTtsSettings _aiTtsSettings;
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
@@ -469,6 +472,7 @@ class SettingsController extends ChangeNotifier {
   int get aiMaxWorkspaceDocumentCharacters => _aiMaxWorkspaceDocumentCharacters;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
+  AiTranslationSettings get aiTranslationSettings => _aiTranslationSettings;
   AiTtsSettings get aiTtsSettings => _aiTtsSettings;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
@@ -1510,6 +1514,46 @@ class SettingsController extends ChangeNotifier {
       _aiImageSizeLimitBytes = normalizedValue;
       return _MutationDisposition.apply;
     });
+  }
+
+  Future<bool> updateAiTranslationSettings(AiTranslationSettings value) async {
+    final normalized = value.normalized();
+    return _commitMutation(() {
+      if (jsonEncode(_aiTranslationSettings.toJson()) ==
+          jsonEncode(normalized.toJson())) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiTranslationSettings = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiTranslationEnabled(bool value) async {
+    return updateAiTranslationSettings(
+      _aiTranslationSettings.copyWith(enabled: value),
+    );
+  }
+
+  Future<bool> updateAiTranslationProviderSettings(
+    AiTranslationProvider provider,
+    AiTranslationProviderSettings value,
+  ) async {
+    final providers =
+        Map<AiTranslationProvider, AiTranslationProviderSettings>.from(
+          _aiTranslationSettings.providers,
+        );
+    providers[provider] = value.normalized();
+    return updateAiTranslationSettings(
+      _aiTranslationSettings.copyWith(providers: providers),
+    );
+  }
+
+  Future<bool> updateAiTranslationProviderPriority(
+    List<AiTranslationProvider> value,
+  ) async {
+    return updateAiTranslationSettings(
+      _aiTranslationSettings.copyWith(providerPriority: value),
+    );
   }
 
   Future<bool> updateAiTtsSettings(AiTtsSettings value) async {
@@ -2686,6 +2730,7 @@ class SettingsController extends ChangeNotifier {
       aiMaxWorkspaceDocumentCharacters: _aiMaxWorkspaceDocumentCharacters,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
+      aiTranslationSettings: _aiTranslationSettings,
       aiTtsSettings: _aiTtsSettings,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
@@ -2815,6 +2860,7 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiMaxWorkspaceDocumentCharacters;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
+    _aiTranslationSettings = snapshot.aiTranslationSettings.normalized();
     _aiTtsSettings = snapshot.aiTtsSettings.normalized();
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;

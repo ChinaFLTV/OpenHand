@@ -345,6 +345,763 @@ class _AiTtsSettingsPanel extends StatelessWidget {
   }
 }
 
+class _AiTranslationSettingsPanel extends StatelessWidget {
+  const _AiTranslationSettingsPanel({
+    required this.settings,
+    required this.onChanged,
+    required this.availableModels,
+    required this.recentModelSelections,
+  });
+
+  final AiTranslationSettings settings;
+  final Future<bool> Function(AiTranslationSettings settings) onChanged;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 620),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest.withValues(
+            alpha: 0.72,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
+          ),
+        ),
+        child: OpenHandSafeScrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '待翻译语种',
+                    en: 'Source Language',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '默认自动检测。传统翻译接口不支持自动检测时会按服务能力兜底。',
+                    en: 'Defaults to auto-detect. Providers fall back by capability.',
+                  ),
+                  control: _SettingsStringDropdown(
+                    label: _localizedText(context, zh: '源语言', en: 'Source'),
+                    value: settings.sourceLanguage,
+                    options: _translationLanguageDropdownOptions(
+                      AiTranslationProviderCatalogs.sourceLanguageOptions,
+                    ),
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(sourceLanguage: value)),
+                  ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
+                ),
+                const SizedBox(height: 16),
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '目标语种',
+                    en: 'Target Language',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '消息卡片会翻译为该语言，原始消息不被改写。',
+                    en: 'Message cards render into this language without mutating history.',
+                  ),
+                  control: _SettingsStringDropdown(
+                    label: _localizedText(context, zh: '目标语言', en: 'Target'),
+                    value: settings.targetLanguage,
+                    options: _translationLanguageDropdownOptions(
+                      AiTranslationProviderCatalogs.targetLanguageOptions,
+                    ),
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(targetLanguage: value)),
+                  ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
+                ),
+                const SizedBox(height: 16),
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '翻译超时',
+                    en: 'Translation Timeout',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '单次翻译调用最长等待秒数，超时后按服务优先级回退。',
+                    en: 'Maximum seconds per translation attempt before fallback.',
+                  ),
+                  control: _SettingsIntSlider(
+                    value: settings.timeoutSeconds,
+                    min: AiTranslationSettings.minTimeoutSeconds,
+                    max: AiTranslationSettings.maxTimeoutSeconds,
+                    step: 1,
+                    suffix: 's',
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(timeoutSeconds: value)),
+                  ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
+                ),
+                const SizedBox(height: 16),
+                _ResponsiveSettingRow(
+                  title: _localizedText(
+                    context,
+                    zh: '最大翻译字符',
+                    en: 'Max Translation Characters',
+                  ),
+                  subtitle: _localizedText(
+                    context,
+                    zh: '长消息会被截断后翻译，避免接口长时间占用资源。',
+                    en: 'Long messages are truncated to keep translation bounded.',
+                  ),
+                  control: _SettingsIntSlider(
+                    value: settings.maxTextCharacters,
+                    min: AiTranslationSettings.minMaxTextCharacters,
+                    max: AiTranslationSettings.maxMaxTextCharacters,
+                    step: 20,
+                    onChanged: (value) =>
+                        onChanged(settings.copyWith(maxTextCharacters: value)),
+                  ),
+                  controlMaxWidth: _settingsStandardFieldWidth,
+                ),
+                const SizedBox(height: 16),
+                _AiTranslationProviderDeck(
+                  settings: settings,
+                  onChanged: onChanged,
+                  availableModels: availableModels,
+                  recentModelSelections: recentModelSelections,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiTranslationProviderDeck extends StatefulWidget {
+  const _AiTranslationProviderDeck({
+    required this.settings,
+    required this.onChanged,
+    required this.availableModels,
+    required this.recentModelSelections,
+  });
+
+  final AiTranslationSettings settings;
+  final Future<bool> Function(AiTranslationSettings settings) onChanged;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+
+  @override
+  State<_AiTranslationProviderDeck> createState() =>
+      _AiTranslationProviderDeckState();
+}
+
+class _AiTranslationProviderDeckState
+    extends State<_AiTranslationProviderDeck> {
+  AiTranslationProvider? _draggingProvider;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _localizedText(context, zh: '翻译服务优先级', en: 'Translation Priority'),
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _localizedText(
+            context,
+            zh: '拖动下方服务卡片调整优先级；不可用、缺少凭据或超时时自动回退。',
+            en: 'Drag provider cards to set priority; unavailable services fall back.',
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Column(
+          children: [
+            for (
+              var index = 0;
+              index < widget.settings.providerPriority.length;
+              index++
+            )
+              _AiTranslationProviderDropTarget(
+                key: ValueKey<String>(
+                  'translation-provider-drop-${widget.settings.providerPriority[index].storageKey}',
+                ),
+                target: widget.settings.providerPriority[index],
+                onMove: _moveProvider,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == widget.settings.providerPriority.length - 1
+                        ? 0
+                        : 12,
+                  ),
+                  child: _AiTranslationProviderCard(
+                    settings: widget.settings,
+                    provider: widget.settings.providerPriority[index],
+                    priorityIndex: index,
+                    dragging:
+                        _draggingProvider ==
+                        widget.settings.providerPriority[index],
+                    onDragStarted: () {
+                      if (!mounted) return;
+                      setState(
+                        () => _draggingProvider =
+                            widget.settings.providerPriority[index],
+                      );
+                    },
+                    onDragEnded: () {
+                      if (!mounted) return;
+                      if (_draggingProvider != null) {
+                        setState(() => _draggingProvider = null);
+                      }
+                    },
+                    onChanged: widget.onChanged,
+                    availableModels: widget.availableModels,
+                    recentModelSelections: widget.recentModelSelections,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _moveProvider(
+    AiTranslationProvider source,
+    AiTranslationProvider target, {
+    required bool after,
+  }) {
+    if (source == target) return;
+    final next = List<AiTranslationProvider>.from(
+      widget.settings.providerPriority,
+    );
+    final oldIndex = next.indexOf(source);
+    if (oldIndex < 0) return;
+    final item = next.removeAt(oldIndex);
+    var targetIndex = next.indexOf(target);
+    if (targetIndex < 0) return;
+    if (after) targetIndex += 1;
+    next.insert(targetIndex.clamp(0, next.length), item);
+    widget.onChanged(widget.settings.copyWith(providerPriority: next));
+  }
+}
+
+class _AiTranslationProviderDropTarget extends StatefulWidget {
+  const _AiTranslationProviderDropTarget({
+    super.key,
+    required this.target,
+    required this.onMove,
+    required this.child,
+  });
+
+  final AiTranslationProvider target;
+  final void Function(
+    AiTranslationProvider source,
+    AiTranslationProvider target, {
+    required bool after,
+  })
+  onMove;
+  final Widget child;
+
+  @override
+  State<_AiTranslationProviderDropTarget> createState() =>
+      _AiTranslationProviderDropTargetState();
+}
+
+class _AiTranslationProviderDropTargetState
+    extends State<_AiTranslationProviderDropTarget> {
+  final GlobalKey _targetKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<AiTranslationProvider>(
+      onWillAcceptWithDetails: (details) => details.data != widget.target,
+      onAcceptWithDetails: (details) {
+        final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
+        final localOffset = box?.globalToLocal(details.offset);
+        final after =
+            box != null &&
+            localOffset != null &&
+            localOffset.dy > box.size.height / 2;
+        widget.onMove(details.data, widget.target, after: after);
+      },
+      builder: (context, candidates, rejected) {
+        final hovered = candidates.isNotEmpty;
+        return AnimatedScale(
+          key: _targetKey,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : _aiTtsDragHoverDuration,
+          curve: Curves.easeOutCubic,
+          scale: hovered ? 1.006 : 1,
+          child: widget.child,
+        );
+      },
+    );
+  }
+}
+
+class _AiTranslationProviderCard extends StatefulWidget {
+  const _AiTranslationProviderCard({
+    required this.settings,
+    required this.provider,
+    required this.priorityIndex,
+    required this.dragging,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onChanged,
+    required this.availableModels,
+    required this.recentModelSelections,
+  });
+
+  final AiTranslationSettings settings;
+  final AiTranslationProvider provider;
+  final int priorityIndex;
+  final bool dragging;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+  final Future<bool> Function(AiTranslationSettings settings) onChanged;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+
+  @override
+  State<_AiTranslationProviderCard> createState() =>
+      _AiTranslationProviderCardState();
+}
+
+class _AiTranslationProviderCardState
+    extends State<_AiTranslationProviderCard> {
+  AiTranslationProviderSettings? _latestProviderSettings;
+
+  AiTranslationProviderSettings get _effectiveProviderSettings =>
+      (_latestProviderSettings ?? widget.settings.provider(widget.provider))
+          .normalized();
+
+  @override
+  void didUpdateWidget(covariant _AiTranslationProviderCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) {
+      _latestProviderSettings = null;
+      return;
+    }
+    final latest = _latestProviderSettings;
+    if (latest == null) return;
+    final persisted = widget.settings.provider(widget.provider).normalized();
+    if (jsonEncode(latest.toJson()) == jsonEncode(persisted.toJson())) {
+      _latestProviderSettings = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = widget.provider;
+    final providerSettings = _effectiveProviderSettings;
+    final readiness = providerSettings.enabled
+        ? _translationProviderReadinessError(
+            context,
+            providerSettings,
+            availableModels: widget.availableModels,
+          )
+        : null;
+    final card = Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: providerSettings.enabled
+              ? theme.colorScheme.primary.withValues(alpha: 0.28)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+        color: Color.alphaBlend(
+          theme.colorScheme.primary.withValues(
+            alpha: providerSettings.enabled ? 0.035 : 0,
+          ),
+          theme.colorScheme.surfaceContainer,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _AiTranslationDragHandle(
+                provider: provider,
+                priorityIndex: widget.priorityIndex,
+                label: _translationProviderLabel(context, provider),
+                enabled: providerSettings.enabled,
+                feedbackWidth: _ttsDragFeedbackWidth(context),
+                onDragStarted: widget.onDragStarted,
+                onDragEnded: widget.onDragEnded,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _AiTtsPriorityBadge(index: widget.priorityIndex),
+                        Text(
+                          _translationProviderLabel(context, provider),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        _AiTtsStatusBadge(enabled: providerSettings.enabled),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      _translationProviderHint(context, provider),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _SettingsSwitch(
+                value: providerSettings.enabled,
+                onChanged: (value) => _updateCurrent(
+                  (current) => current.copyWith(enabled: value),
+                ),
+              ),
+            ],
+          ),
+          if (readiness != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              readiness,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _AnimatedSettingReveal(
+            visible: providerSettings.enabled,
+            child: provider == AiTranslationProvider.ai
+                ? _buildAiModelSection(context, providerSettings)
+                : _buildProviderAccessSection(context, providerSettings),
+          ),
+        ],
+      ),
+    );
+    return AnimatedOpacity(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : _aiTtsDragOpacityDuration,
+      opacity: widget.dragging ? 0.58 : 1,
+      child: card,
+    );
+  }
+
+  Widget _buildAiModelSection(
+    BuildContext context,
+    AiTranslationProviderSettings providerSettings,
+  ) {
+    final theme = Theme.of(context);
+    final selectedLabel = _translationSelectedModelLabel(
+      providerSettings,
+      widget.availableModels,
+    );
+    return _AiTtsProviderSection(
+      title: _localizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: widget.availableModels.isEmpty ? null : _pickAiModel,
+            icon: const Icon(Icons.manage_search_rounded),
+            label: Text(
+              selectedLabel ??
+                  _localizedText(context, zh: '选择翻译模型', en: 'Select model'),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            selectedLabel == null
+                ? _localizedText(
+                    context,
+                    zh: '未选择时会尝试使用当前会话/全局默认模型。',
+                    en: 'Falls back to the current/global model when empty.',
+                  )
+                : _localizedText(
+                    context,
+                    zh: 'AI 翻译会复用该模型供应商的鉴权与接口配置。',
+                    en: 'AI translation reuses this provider configuration.',
+                  ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderAccessSection(
+    BuildContext context,
+    AiTranslationProviderSettings providerSettings,
+  ) {
+    final provider = widget.provider;
+    return _AiTtsProviderSection(
+      title: _localizedText(context, zh: '连接与凭据', en: 'Access'),
+      child: _AiTtsProviderFieldGrid(
+        children: [
+          _AiTtsProviderTextField(
+            label: _localizedText(context, zh: '接口地址', en: 'Endpoint'),
+            value: providerSettings.endpoint,
+            onSubmitted: (value) =>
+                _updateCurrent((current) => current.copyWith(endpoint: value)),
+          ),
+          if (provider == AiTranslationProvider.baidu)
+            _AiTtsProviderTextField(
+              label: 'App ID',
+              value: providerSettings.appId,
+              onSubmitted: (value) =>
+                  _updateCurrent((current) => current.copyWith(appId: value)),
+            ),
+          if (provider == AiTranslationProvider.youdao ||
+              provider == AiTranslationProvider.google ||
+              provider == AiTranslationProvider.bing)
+            _AiTtsProviderTextField(
+              label: _translationPrimaryCredentialLabel(provider),
+              value: providerSettings.apiKey,
+              obscure: true,
+              onSubmitted: (value) =>
+                  _updateCurrent((current) => current.copyWith(apiKey: value)),
+            ),
+          if (provider == AiTranslationProvider.baidu ||
+              provider == AiTranslationProvider.youdao)
+            _AiTtsProviderTextField(
+              label: _translationSecondaryCredentialLabel(provider),
+              value: providerSettings.apiSecret,
+              obscure: true,
+              onSubmitted: (value) => _updateCurrent(
+                (current) => current.copyWith(apiSecret: value),
+              ),
+            ),
+          if (provider == AiTranslationProvider.bing)
+            _AiTtsProviderTextField(
+              label: _localizedText(context, zh: '区域 Region', en: 'Region'),
+              value: providerSettings.region,
+              onSubmitted: (value) =>
+                  _updateCurrent((current) => current.copyWith(region: value)),
+            ),
+          if (provider == AiTranslationProvider.apple) ...[
+            _AiTtsProviderTextField(
+              label: 'API Key',
+              value: providerSettings.apiKey,
+              obscure: true,
+              onSubmitted: (value) =>
+                  _updateCurrent((current) => current.copyWith(apiKey: value)),
+            ),
+            _AiTtsProviderTextField(
+              label: 'Access Token',
+              value: providerSettings.accessToken,
+              obscure: true,
+              onSubmitted: (value) => _updateCurrent(
+                (current) => current.copyWith(accessToken: value),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickAiModel() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final settingsController = context.read<SettingsController>();
+    final latestModels = settingsController.aiModels;
+    final current = _effectiveProviderSettings;
+    final picked = await showModelSearchSelector(
+      context: context,
+      models: latestModels,
+      selectedConfigId: current.modelConfigId,
+      selectedModelId: current.modelId,
+      recentSelections: widget.recentModelSelections,
+    );
+    if (!mounted || picked == null) return;
+    await settingsController.addRecentModelSelection(picked.$1, picked.$2);
+    await _updateCurrent(
+      (current) =>
+          current.copyWith(modelConfigId: picked.$1, modelId: picked.$2),
+    );
+  }
+
+  Future<void> _update(AiTranslationProviderSettings next) async {
+    _latestProviderSettings = next.normalized();
+    if (mounted) setState(() {});
+    await widget.onChanged(_settingsWithProvider(next));
+  }
+
+  Future<void> _updateCurrent(
+    AiTranslationProviderSettings Function(
+      AiTranslationProviderSettings current,
+    )
+    patch,
+  ) {
+    return _update(patch(_effectiveProviderSettings).normalized());
+  }
+
+  AiTranslationSettings _settingsWithProvider(
+    AiTranslationProviderSettings next,
+  ) {
+    final providers =
+        Map<AiTranslationProvider, AiTranslationProviderSettings>.from(
+          widget.settings.providers,
+        );
+    providers[widget.provider] = next.normalized();
+    return widget.settings.copyWith(providers: providers);
+  }
+}
+
+class _AiTranslationDragHandle extends StatefulWidget {
+  const _AiTranslationDragHandle({
+    required this.provider,
+    required this.priorityIndex,
+    required this.label,
+    required this.enabled,
+    required this.feedbackWidth,
+    required this.onDragStarted,
+    required this.onDragEnded,
+  });
+
+  final AiTranslationProvider provider;
+  final int priorityIndex;
+  final String label;
+  final bool enabled;
+  final double feedbackWidth;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
+
+  @override
+  State<_AiTranslationDragHandle> createState() =>
+      _AiTranslationDragHandleState();
+}
+
+class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final handle = SizedBox(
+      width: _aiTtsDragHandleSize,
+      height: _aiTtsDragHandleSize,
+      child: Center(
+        child: Icon(
+          Icons.drag_indicator_rounded,
+          color: theme.colorScheme.onSurfaceVariant,
+          size: 22,
+        ),
+      ),
+    );
+    return Draggable<AiTranslationProvider>(
+      data: widget.provider,
+      onDragStarted: widget.onDragStarted,
+      onDragEnd: (_) => widget.onDragEnded(),
+      onDraggableCanceled: (_, _) => widget.onDragEnded(),
+      feedback: Material(
+        color: Colors.transparent,
+        child: _AiTranslationProviderDragFeedbackCard(
+          label: widget.label,
+          priorityIndex: widget.priorityIndex,
+          enabled: widget.enabled,
+          width: widget.feedbackWidth,
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.32, child: handle),
+      child: MouseRegion(cursor: SystemMouseCursors.grab, child: handle),
+    );
+  }
+}
+
+class _AiTranslationProviderDragFeedbackCard extends StatelessWidget {
+  const _AiTranslationProviderDragFeedbackCard({
+    required this.label,
+    required this.priorityIndex,
+    required this.enabled,
+    required this.width,
+  });
+
+  final String label;
+  final int priorityIndex;
+  final bool enabled;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: width,
+        maxHeight: _aiTtsDragFeedbackMaxHeight,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.shadow.withValues(alpha: 0.20),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.drag_indicator_rounded, size: 22),
+              const SizedBox(width: 10),
+              _AiTtsPriorityBadge(index: priorityIndex),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _AiTtsStatusBadge(enabled: enabled),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AiTtsProviderDeck extends StatefulWidget {
   const _AiTtsProviderDeck({
     required this.settings,
@@ -1352,11 +2109,69 @@ class _AiTtsDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _SettingsStringDropdown(
+      label: label,
+      value: value,
+      options: [
+        for (final option in options)
+          _SettingsStringDropdownOption(option.value, option.label),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _AiTtsExtraDropdown extends StatelessWidget {
+  const _AiTtsExtraDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<AiTtsCatalogOption> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AiTtsDropdown(
+      label: label,
+      value: value,
+      options: options,
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _SettingsStringDropdownOption {
+  const _SettingsStringDropdownOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+class _SettingsStringDropdown extends StatelessWidget {
+  const _SettingsStringDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<_SettingsStringDropdownOption> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     final normalized = value.trim();
     final hasValue = options.any((option) => option.value == normalized);
     final effectiveOptions = options.isEmpty
-        ? <AiTtsCatalogOption>[
-            AiTtsCatalogOption(
+        ? <_SettingsStringDropdownOption>[
+            _SettingsStringDropdownOption(
               normalized,
               normalized.isEmpty
                   ? _localizedText(context, zh: '默认', en: 'Default')
@@ -1365,8 +2180,8 @@ class _AiTtsDropdown extends StatelessWidget {
           ]
         : hasValue || normalized.isEmpty
         ? options
-        : <AiTtsCatalogOption>[
-            AiTtsCatalogOption(
+        : <_SettingsStringDropdownOption>[
+            _SettingsStringDropdownOption(
               normalized,
               _localizedText(
                 context,
@@ -1395,30 +2210,6 @@ class _AiTtsDropdown extends StatelessWidget {
         if (value == null || value == normalized) return;
         onChanged(value);
       },
-    );
-  }
-}
-
-class _AiTtsExtraDropdown extends StatelessWidget {
-  const _AiTtsExtraDropdown({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final List<AiTtsCatalogOption> options;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _AiTtsDropdown(
-      label: label,
-      value: value,
-      options: options,
-      onChanged: onChanged,
     );
   }
 }
@@ -1638,6 +2429,162 @@ class _AiTtsStepperButton extends StatelessWidget {
       ),
     );
   }
+}
+
+List<_SettingsStringDropdownOption> _translationLanguageDropdownOptions(
+  List<AiTranslationCatalogOption> options,
+) {
+  return [
+    for (final option in options)
+      _SettingsStringDropdownOption(option.value, option.label),
+  ];
+}
+
+String _translationProviderLabel(
+  BuildContext context,
+  AiTranslationProvider provider,
+) {
+  switch (provider) {
+    case AiTranslationProvider.ai:
+      return _localizedText(context, zh: 'AI 翻译', en: 'AI Translation');
+    case AiTranslationProvider.youdao:
+      return _localizedText(context, zh: '有道翻译', en: 'Youdao Translate');
+    case AiTranslationProvider.google:
+      return _localizedText(context, zh: '谷歌翻译', en: 'Google Translate');
+    case AiTranslationProvider.bing:
+      return 'Bing Translate';
+    case AiTranslationProvider.apple:
+      return _localizedText(context, zh: '苹果翻译', en: 'Apple Translate');
+    case AiTranslationProvider.baidu:
+      return _localizedText(context, zh: '百度翻译', en: 'Baidu Translate');
+  }
+}
+
+String _translationProviderHint(
+  BuildContext context,
+  AiTranslationProvider provider,
+) {
+  switch (provider) {
+    case AiTranslationProvider.ai:
+      return _localizedText(
+        context,
+        zh: '复用全局模型供应商执行翻译，适合保留 Markdown 与代码结构。',
+        en: 'Uses configured model providers and preserves Markdown/code structure.',
+      );
+    case AiTranslationProvider.youdao:
+      return _localizedText(
+        context,
+        zh: '调用有道智云文本翻译接口，需 API Key 与 API Secret。',
+        en: 'Calls Youdao text translation with API key and secret.',
+      );
+    case AiTranslationProvider.google:
+      return _localizedText(
+        context,
+        zh: '调用 Google Translate API，需 API Key。',
+        en: 'Calls Google Translate API with an API key.',
+      );
+    case AiTranslationProvider.bing:
+      return _localizedText(
+        context,
+        zh: '调用 Microsoft Translator，需订阅密钥，可选区域 Region。',
+        en: 'Calls Microsoft Translator with subscription key and optional region.',
+      );
+    case AiTranslationProvider.apple:
+      return _localizedText(
+        context,
+        zh: 'Apple 官方本地翻译 SDK 不直接暴露给 Flutter；这里接入本机/私有桥接服务。',
+        en: 'Apple local translation is bridged through a local/private service.',
+      );
+    case AiTranslationProvider.baidu:
+      return _localizedText(
+        context,
+        zh: '调用百度通用翻译接口，需 App ID 与 Secret Key。',
+        en: 'Calls Baidu general translation with App ID and secret key.',
+      );
+  }
+}
+
+String _translationPrimaryCredentialLabel(AiTranslationProvider provider) {
+  switch (provider) {
+    case AiTranslationProvider.bing:
+      return 'Subscription Key';
+    case AiTranslationProvider.youdao:
+    case AiTranslationProvider.google:
+    case AiTranslationProvider.apple:
+    case AiTranslationProvider.baidu:
+    case AiTranslationProvider.ai:
+      return 'API Key';
+  }
+}
+
+String _translationSecondaryCredentialLabel(AiTranslationProvider provider) {
+  return provider == AiTranslationProvider.baidu ? 'Secret Key' : 'API Secret';
+}
+
+String? _translationSelectedModelLabel(
+  AiTranslationProviderSettings settings,
+  List<AiModelConfig> models,
+) {
+  final configId = settings.modelConfigId.trim();
+  final modelId = settings.modelId.trim();
+  if (configId.isEmpty || modelId.isEmpty) return null;
+  for (final model in models) {
+    if (model.id == configId) {
+      final providerLabel = model.providerLabel.trim().isEmpty
+          ? model.name
+          : model.providerLabel;
+      return '$providerLabel · $modelId';
+    }
+  }
+  return modelId;
+}
+
+String? _translationProviderReadinessError(
+  BuildContext context,
+  AiTranslationProviderSettings settings, {
+  required List<AiModelConfig> availableModels,
+}) {
+  final missing = <String>[];
+  void requireField(String value, String label) {
+    if (value.trim().isEmpty) missing.add(label);
+  }
+
+  switch (settings.provider) {
+    case AiTranslationProvider.ai:
+      if (settings.modelConfigId.trim().isEmpty ||
+          settings.modelId.trim().isEmpty) {
+        if (availableModels.isEmpty) {
+          missing.add(_localizedText(context, zh: '可用模型', en: 'models'));
+        }
+      }
+      break;
+    case AiTranslationProvider.youdao:
+      requireField(settings.apiKey, 'API Key');
+      requireField(settings.apiSecret, 'API Secret');
+      break;
+    case AiTranslationProvider.google:
+      requireField(settings.apiKey, 'API Key');
+      break;
+    case AiTranslationProvider.bing:
+      requireField(settings.apiKey, 'Subscription Key');
+      break;
+    case AiTranslationProvider.apple:
+      requireField(
+        settings.endpoint,
+        _localizedText(context, zh: '桥接服务地址', en: 'bridge endpoint'),
+      );
+      break;
+    case AiTranslationProvider.baidu:
+      requireField(settings.appId, 'App ID');
+      requireField(settings.apiSecret, 'Secret Key');
+      break;
+  }
+  if (missing.isEmpty) return null;
+  return _localizedText(
+    context,
+    zh: '请先补全 ${_translationProviderLabel(context, settings.provider)} 配置：${missing.join('、')}',
+    en: 'Complete ${_translationProviderLabel(context, settings.provider)} first: ${missing.join(', ')}',
+  );
 }
 
 String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {

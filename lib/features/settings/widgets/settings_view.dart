@@ -1364,6 +1364,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     final ttsSettings = settingsController.aiTtsSettings;
+    final translationSettings = settingsController.aiTranslationSettings;
     final ttsEnabledControl = Align(
       alignment: Alignment.centerLeft,
       child: _SettingsSwitch(
@@ -1371,6 +1372,16 @@ class _SettingsViewState extends State<SettingsView> {
         value: ttsSettings.enabled,
         onChanged: (value) async {
           await settingsController.updateAiTtsEnabled(value);
+        },
+      ),
+    );
+    final translationEnabledControl = Align(
+      alignment: Alignment.centerLeft,
+      child: _SettingsSwitch(
+        key: const ValueKey<String>('settingsAiTranslationEnabledSwitch'),
+        value: translationSettings.enabled,
+        onChanged: (value) async {
+          await settingsController.updateAiTranslationEnabled(value);
         },
       ),
     );
@@ -2615,6 +2626,33 @@ class _SettingsViewState extends State<SettingsView> {
                     settings: ttsSettings,
                     onChanged: settingsController.updateAiTtsSettings,
                     playbackService: _ttsSettingsPlaybackService,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '开启文本翻译',
+                  en: 'Enable Text Translation',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '开启后，聚焦可翻译的消息卡片时会显示“翻译/查看原始”胶囊。仅翻译用户文本、AI 思考文本和非 HTML 正式响应文本。',
+                  en: 'When enabled, focused translatable messages show a Translate / Original pill for user text, reasoning text, and non-HTML assistant text.',
+                ),
+                control: translationEnabledControl,
+              ),
+              _AnimatedSettingReveal(
+                visible: translationSettings.enabled,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: _AiTranslationSettingsPanel(
+                    settings: translationSettings,
+                    onChanged: settingsController.updateAiTranslationSettings,
+                    availableModels: settingsController.aiModels,
+                    recentModelSelections:
+                        settingsController.recentModelSelections,
                   ),
                 ),
               ),
