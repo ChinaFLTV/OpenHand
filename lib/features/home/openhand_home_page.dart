@@ -68,6 +68,7 @@ import '../../shared/ui/rolling_text.dart';
 import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
+import '../../shared/util/unified_diff.dart' show unifiedDiffLinesFromText;
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../hardness/index.dart';

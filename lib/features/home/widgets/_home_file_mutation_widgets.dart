@@ -1193,7 +1193,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
               ),
             );
           }
-          final diff = _computeUnifiedDiffLines(before, after);
+          final diff = unifiedDiffLinesFromText(before, after);
           // 阶段 ⑪b：复用 _CodeSyntaxHighlighter 给 diff 行加 token 着色。
           // 缓存命中：相同 record（即 sha pair）在同一 brightness 下复用整段
           // TextSpan，rebuild（hover/expand/收起）不再重新 tokenize。
@@ -1381,68 +1381,6 @@ Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
   );
 }
 
-/// 简易 LCS-based unified diff（与 [_FileDiffDialogState._computeSimpleDiff]
-/// 同语义，复制以避免跨私有 State 调用）。
-List<String> _computeUnifiedDiffLines(String before, String after) {
-  final beforeLines = const LineSplitter().convert(before);
-  final afterLines = const LineSplitter().convert(after);
-  final lcs = _lcs(beforeLines, afterLines);
-  final out = <String>[];
-  int bi = 0, ai = 0, li = 0;
-  while (bi < beforeLines.length || ai < afterLines.length) {
-    if (li < lcs.length &&
-        bi < beforeLines.length &&
-        ai < afterLines.length &&
-        beforeLines[bi] == lcs[li] &&
-        afterLines[ai] == lcs[li]) {
-      out.add('  ${lcs[li]}');
-      bi++;
-      ai++;
-      li++;
-    } else {
-      while (bi < beforeLines.length &&
-          (li >= lcs.length || beforeLines[bi] != lcs[li])) {
-        out.add('- ${beforeLines[bi]}');
-        bi++;
-      }
-      while (ai < afterLines.length &&
-          (li >= lcs.length || afterLines[ai] != lcs[li])) {
-        out.add('+ ${afterLines[ai]}');
-        ai++;
-      }
-    }
-  }
-  return out;
-}
-
-List<String> _lcs(List<String> a, List<String> b) {
-  final m = a.length, n = b.length;
-  final dp = List.generate(m + 1, (_) => List.filled(n + 1, 0));
-  for (int i = 1; i <= m; i++) {
-    for (int j = 1; j <= n; j++) {
-      if (a[i - 1] == b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
-      }
-    }
-  }
-  final lcs = <String>[];
-  int i = m, j = n;
-  while (i > 0 && j > 0) {
-    if (a[i - 1] == b[j - 1]) {
-      lcs.insert(0, a[i - 1]);
-      i--;
-      j--;
-    } else if (dp[i - 1][j] > dp[i][j - 1]) {
-      i--;
-    } else {
-      j--;
-    }
-  }
-  return lcs;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // _FileDiffDialog — displays file content diff when file change card is tapped
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1622,8 +1560,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
   }
 
   Widget _buildDiffView(ThemeData theme, ColorScheme colorScheme) {
-    // Compute line-by-line diff.
-    final diff = _computeSimpleDiff(_beforeContent ?? '', _afterContent ?? '');
+    final diff = unifiedDiffLinesFromText(
+      _beforeContent ?? '',
+      _afterContent ?? '',
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1653,77 +1593,6 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         ),
       ),
     );
-  }
-
-  /// Compute a simple unified diff from before/after content.
-  List<String> _computeSimpleDiff(String before, String after) {
-    final beforeLines = const LineSplitter().convert(before);
-    final afterLines = const LineSplitter().convert(after);
-    final result = <String>[];
-
-    // Simple LCS-based diff (good enough for small files).
-    final lcs = _longestCommonSubsequence(beforeLines, afterLines);
-
-    int bi = 0, ai = 0, li = 0;
-    while (bi < beforeLines.length || ai < afterLines.length) {
-      if (li < lcs.length &&
-          bi < beforeLines.length &&
-          ai < afterLines.length &&
-          beforeLines[bi] == lcs[li] &&
-          afterLines[ai] == lcs[li]) {
-        result.add('  ${lcs[li]}');
-        bi++;
-        ai++;
-        li++;
-      } else {
-        // Removed lines from before
-        while (bi < beforeLines.length &&
-            (li >= lcs.length || beforeLines[bi] != lcs[li])) {
-          result.add('- ${beforeLines[bi]}');
-          bi++;
-        }
-        // Added lines in after
-        while (ai < afterLines.length &&
-            (li >= lcs.length || afterLines[ai] != lcs[li])) {
-          result.add('+ ${afterLines[ai]}');
-          ai++;
-        }
-      }
-    }
-
-    return result;
-  }
-
-  /// Compute LCS for line-by-line comparison.
-  List<String> _longestCommonSubsequence(List<String> a, List<String> b) {
-    final m = a.length, n = b.length;
-    final dp = List.generate(m + 1, (_) => List.filled(n + 1, 0));
-
-    for (int i = 1; i <= m; i++) {
-      for (int j = 1; j <= n; j++) {
-        if (a[i - 1] == b[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1] + 1;
-        } else {
-          dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
-        }
-      }
-    }
-
-    // Backtrack to find LCS
-    final lcs = <String>[];
-    int i = m, j = n;
-    while (i > 0 && j > 0) {
-      if (a[i - 1] == b[j - 1]) {
-        lcs.insert(0, a[i - 1]);
-        i--;
-        j--;
-      } else if (dp[i - 1][j] > dp[i][j - 1]) {
-        i--;
-      } else {
-        j--;
-      }
-    }
-    return lcs;
   }
 }
 

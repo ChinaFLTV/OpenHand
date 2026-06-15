@@ -36,6 +36,12 @@ import {
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { streamDebugLog } from '../utils/stream_debug';
+import {
+  booleanFromUnknown,
+  finiteNumberOrNullFromUnknown,
+  recordOrNullFromUnknown,
+  stringFromUnknown,
+} from '../shared/util/value';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -342,19 +348,13 @@ interface MessageContextChip {
   emoji?: string;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value != null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
 function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
   if (message.role !== 'user') return [];
-  const meta = asRecord(message.metadata);
+  const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return [];
   return [
     ...creationModeChips(meta),
@@ -364,8 +364,8 @@ function messageContextChips(message: SessionMessage): MessageContextChip[] {
 }
 
 function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] {
-  const request = asRecord(meta['creation_request']);
-  const options = asRecord(request?.['options']);
+  const request = recordOrNullFromUnknown(meta['creation_request']);
+  const options = recordOrNullFromUnknown(request?.['options']);
   const mode = nonEmptyString(request?.['mode']) || nonEmptyString(meta['conversation_mode']);
   const data = creationModeData(mode);
   if (!data) return [];
@@ -413,7 +413,7 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
 }
 
 function skillChips(meta: Record<string, unknown>): MessageContextChip[] {
-  const skill = asRecord(meta['user_skill_selection']) ?? asRecord(meta['selected_skill']);
+  const skill = recordOrNullFromUnknown(meta['user_skill_selection']) ?? recordOrNullFromUnknown(meta['selected_skill']);
   const name = nonEmptyString(skill?.['name']);
   if (!name) return [];
   const emoji = nonEmptyString(skill?.['emoji']);
@@ -458,7 +458,7 @@ function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
 }
 
 function attachmentKindFor(item: unknown): AttachmentKind {
-  const record = asRecord(item);
+  const record = recordOrNullFromUnknown(item);
   if (!record) return attachmentKindFromPath(nonEmptyString(item));
   const rawKind = nonEmptyString(record['kind'] ?? record['type']).toLowerCase();
   if (rawKind === 'image' || rawKind === 'text' || rawKind === 'spreadsheet' || rawKind === 'pdf') return rawKind;
@@ -651,13 +651,13 @@ function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolea
     textLayoutMotionSignal(message.content ?? ''),
     numberLayoutMotionSignal(message.character_count),
     actionsVisible ? 1 : 0,
-    asBool(metadata['tool_arguments_streaming']) ? 1 : 0,
-    asString(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
-    textLayoutMotionSignal(asString(metadata['tool_execution_stdout'])),
-    textLayoutMotionSignal(asString(metadata['tool_execution_stderr'])),
-    textLayoutMotionSignal(asString(metadata['tool_execution_result'] ?? metadata['result_text'])),
-    asString(metadata['file_mutation_kind']),
-    asNumber(metadata['round_summary_record_count']) ?? '',
+    booleanFromUnknown(metadata['tool_arguments_streaming']) ? 1 : 0,
+    stringFromUnknown(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
+    textLayoutMotionSignal(stringFromUnknown(metadata['tool_execution_stdout'])),
+    textLayoutMotionSignal(stringFromUnknown(metadata['tool_execution_stderr'])),
+    textLayoutMotionSignal(stringFromUnknown(metadata['tool_execution_result'] ?? metadata['result_text'])),
+    stringFromUnknown(metadata['file_mutation_kind']),
+    finiteNumberOrNullFromUnknown(metadata['round_summary_record_count']) ?? '',
   ].join('|');
 }
 
@@ -1136,7 +1136,7 @@ function MessageCardImpl({
       (isAssistantResponseMessage(message) || message.kind === 'reasoning'),
     12000,
   );
-  const activelyStreaming = streaming || asBool(metadata['streaming']);
+  const activelyStreaming = streaming || booleanFromUnknown(metadata['streaming']);
   const streamingContent = activelyStreaming || recentlyUpdatedContent;
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
   // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
@@ -1204,7 +1204,7 @@ function MessageCardImpl({
         kind: message.kind,
         length: content.length,
         streamingProp: streaming,
-        metadataStreaming: asBool(metadata['streaming']),
+        metadataStreaming: booleanFromUnknown(metadata['streaming']),
         recentlyUpdatedContent,
         turnActive,
         stableTurnActive,
@@ -1729,26 +1729,26 @@ function ToolExecutionCard({
   autoFollow?: boolean;
 }) {
   const metadata = message.metadata ?? {};
-  const stdout = asString(metadata['tool_execution_stdout']);
-  const stderr = asString(metadata['tool_execution_stderr']);
-  const result = asString(metadata['tool_execution_result'] ?? metadata['result_text']);
-  const command = asString(metadata['tool_execution_command'] ?? metadata['command']);
-  const workingDirectory = asString(metadata['tool_execution_working_directory'] ?? metadata['working_directory']);
-  const status = asString(
+  const stdout = stringFromUnknown(metadata['tool_execution_stdout']);
+  const stderr = stringFromUnknown(metadata['tool_execution_stderr']);
+  const result = stringFromUnknown(metadata['tool_execution_result'] ?? metadata['result_text']);
+  const command = stringFromUnknown(metadata['tool_execution_command'] ?? metadata['command']);
+  const workingDirectory = stringFromUnknown(metadata['tool_execution_working_directory'] ?? metadata['working_directory']);
+  const status = stringFromUnknown(
     metadata['tool_execution_status'] ??
       metadata['tool_status'] ??
       metadata['status'],
   );
-  const elapsedMs = asNumber(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
-  const exitCode = asNumber(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
-  const sandboxApplied = asBool(metadata['sandbox_applied']);
-  const sandboxBlocked = asBool(metadata['sandbox_blocked']);
-  const sandboxBackend = asString(metadata['sandbox_backend']);
-  const sandboxReason = asString(metadata['sandbox_unavailable_reason']);
-  const sandboxProxyEnabled = asBool(metadata['sandbox_proxy_enabled']);
-  const sandboxProxyHttpPort = asNumber(metadata['sandbox_proxy_http_port']);
-  const sandboxProxySocksPort = asNumber(metadata['sandbox_proxy_socks_port']);
-  const argumentsStreaming = asBool(metadata['tool_arguments_streaming']);
+  const elapsedMs = finiteNumberOrNullFromUnknown(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
+  const exitCode = finiteNumberOrNullFromUnknown(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
+  const sandboxApplied = booleanFromUnknown(metadata['sandbox_applied']);
+  const sandboxBlocked = booleanFromUnknown(metadata['sandbox_blocked']);
+  const sandboxBackend = stringFromUnknown(metadata['sandbox_backend']);
+  const sandboxReason = stringFromUnknown(metadata['sandbox_unavailable_reason']);
+  const sandboxProxyEnabled = booleanFromUnknown(metadata['sandbox_proxy_enabled']);
+  const sandboxProxyHttpPort = finiteNumberOrNullFromUnknown(metadata['sandbox_proxy_http_port']);
+  const sandboxProxySocksPort = finiteNumberOrNullFromUnknown(metadata['sandbox_proxy_socks_port']);
+  const argumentsStreaming = booleanFromUnknown(metadata['tool_arguments_streaming']);
   const statusLower = status.toLowerCase();
   const terminalStatus =
     statusLower === 'success' ||
@@ -1770,7 +1770,7 @@ function ToolExecutionCard({
   const constructing =
     (!terminalStatus && argumentsStreaming) ||
     (message.kind === 'tool_call' && !status && !hasStructuredOutput && fallback.trim().length === 0);
-  const autoFollowToolOutput = autoFollow || !terminalStatus || asBool(metadata['streaming']);
+  const autoFollowToolOutput = autoFollow || !terminalStatus || booleanFromUnknown(metadata['streaming']);
 
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">
@@ -1816,9 +1816,9 @@ function ToolExecutionCard({
 function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
   const metadata = message.metadata ?? {};
   const paths = collectMutationPaths(metadata);
-  const recordCount = asNumber(metadata['round_summary_record_count']);
-  const kind = asString(metadata['file_mutation_kind']);
-  const reason = asString(
+  const recordCount = finiteNumberOrNullFromUnknown(metadata['round_summary_record_count']);
+  const kind = stringFromUnknown(metadata['file_mutation_kind']);
+  const reason = stringFromUnknown(
     metadata['file_mutation_write_reason'] ??
       metadata['write_analysis_reason'] ??
       metadata['tool_execution_write_analysis_reason'],
@@ -2020,23 +2020,6 @@ function collectMutationPaths(metadata: Record<string, unknown>): string[] {
     for (const item of multi) add(item);
   }
   return out;
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
-}
-
-function asNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function asBool(value: unknown): boolean {
-  return value === true || value === 'true' || value === 1 || value === '1';
 }
 
 /// 工具入参展示块：将 metadata.tool_arguments 渲染为可折叠的 JSON 代码块。

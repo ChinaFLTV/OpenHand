@@ -9,6 +9,11 @@
 
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
+import {
+  booleanFromUnknown,
+  finiteNumberFromUnknown,
+  stringFromUnknown,
+} from '../shared/util/value';
 
 interface ExtractedMeta {
   toolName: string;
@@ -85,52 +90,37 @@ function ToolMetaIcon({ name, size = 13 }: { name: ToolMetaIconName; size?: numb
   }
 }
 
-function asString(v: unknown): string {
-  if (v == null) return '';
-  return String(v).trim();
-}
-
-function asBool(v: unknown): boolean {
-  return v === true || v === 'true' || v === 1 || v === '1';
-}
-
-function asNumber(v: unknown): number {
-  if (typeof v === 'number') return v;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
 function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
   const m = meta ?? {};
   return {
-    toolName: asString(m['tool_name'] ?? m['name']),
-    status: asString(
+    toolName: stringFromUnknown(m['tool_name'] ?? m['name']),
+    status: stringFromUnknown(
       m['tool_execution_status'] ??
         m['tool_status'] ??
         m['status'],
     ),
-    filePath: asString(m['file_mutation_path'] ?? m['read_file_path']),
-    mutationKind: asString(m['file_mutation_kind']),
-    writeReason: asString(
+    filePath: stringFromUnknown(m['file_mutation_path'] ?? m['read_file_path']),
+    mutationKind: stringFromUnknown(m['file_mutation_kind']),
+    writeReason: stringFromUnknown(
       m['file_mutation_write_reason'] ??
         m['write_analysis_reason'] ??
         m['tool_execution_write_analysis_reason'],
     ),
-    command: asString(m['tool_execution_command']),
-    argumentsStreaming: asBool(m['tool_arguments_streaming']),
-    awaitingApproval: asBool(m['plan_mode_awaiting_approval']),
-    approved: asBool(m['plan_mode_approved']),
-    recordCount: asNumber(m['round_summary_record_count']),
-    mcpServerName: asString(m['mcp_server_name']),
-    mcpToolName: asString(m['mcp_tool_name']),
-    toolSource: asString(m['tool_source']),
-    sandboxApplied: asBool(m['sandbox_applied']),
-    sandboxBlocked: asBool(m['sandbox_blocked']),
-    sandboxBackend: asString(m['sandbox_backend']),
-    sandboxReason: asString(m['sandbox_unavailable_reason']),
-    sandboxProxyEnabled: asBool(m['sandbox_proxy_enabled']),
-    sandboxProxyHttpPort: asNumber(m['sandbox_proxy_http_port']),
-    sandboxProxySocksPort: asNumber(m['sandbox_proxy_socks_port']),
+    command: stringFromUnknown(m['tool_execution_command']),
+    argumentsStreaming: booleanFromUnknown(m['tool_arguments_streaming']),
+    awaitingApproval: booleanFromUnknown(m['plan_mode_awaiting_approval']),
+    approved: booleanFromUnknown(m['plan_mode_approved']),
+    recordCount: finiteNumberFromUnknown(m['round_summary_record_count']),
+    mcpServerName: stringFromUnknown(m['mcp_server_name']),
+    mcpToolName: stringFromUnknown(m['mcp_tool_name']),
+    toolSource: stringFromUnknown(m['tool_source']),
+    sandboxApplied: booleanFromUnknown(m['sandbox_applied']),
+    sandboxBlocked: booleanFromUnknown(m['sandbox_blocked']),
+    sandboxBackend: stringFromUnknown(m['sandbox_backend']),
+    sandboxReason: stringFromUnknown(m['sandbox_unavailable_reason']),
+    sandboxProxyEnabled: booleanFromUnknown(m['sandbox_proxy_enabled']),
+    sandboxProxyHttpPort: finiteNumberFromUnknown(m['sandbox_proxy_http_port']),
+    sandboxProxySocksPort: finiteNumberFromUnknown(m['sandbox_proxy_socks_port']),
   };
 }
 

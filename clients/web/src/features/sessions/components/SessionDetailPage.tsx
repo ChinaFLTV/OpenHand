@@ -32,6 +32,15 @@ import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
+import {
+  arrayFromUnknown,
+  finiteNumberFromUnknown,
+  finiteNumberOrNullFromUnknown,
+  integerFromUnknown,
+  nonNegativeIntegerFromUnknown,
+  recordFromUnknown,
+  stringListFromUnknown,
+} from '../../../shared/util/value';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
 import { PullIndicator } from '../../../components/PullIndicator';
@@ -3284,15 +3293,15 @@ export function SessionDetailPage() {
     if (!session) return [];
     const templateLabel = session.template_name || session.template_id;
     const templateVersion = session.template_internal_version != null ? ` · v${session.template_internal_version}` : '';
-    const lastPromptMetadata = asRecord(session.last_prompt_metadata);
-    const runtimeNotices = asStringList(lastPromptMetadata['runtime_tool_catalog_notices']);
+    const lastPromptMetadata = recordFromUnknown(session.last_prompt_metadata);
+    const runtimeNotices = stringListFromUnknown(lastPromptMetadata['runtime_tool_catalog_notices']);
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
     const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
     // 2026-06-08 — WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
     // 不做任何客户端计算。后端 _patchedStatistics + _resolveCacheHitTrend
     // 已保证任何有 cache 数据的会话都返回非零值。
-    const tokenStats = asRecord(session.statistics);
+    const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
@@ -4635,13 +4644,13 @@ function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: numbe
 
 function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onCompacted }: { detail: SessionDetailResponse; messages: SessionMessage[]; modelKey: string; onClose: () => void; onCompacted: () => void }) {
   const session = detail.session;
-  const meta = asRecord(session.last_prompt_metadata);
-  const estimatedTokens = asInt(meta['context_budget_estimated_prompt_tokens']);
+  const meta = recordFromUnknown(session.last_prompt_metadata);
+  const estimatedTokens = integerFromUnknown(meta['context_budget_estimated_prompt_tokens']);
   const percentLeftRaw = meta['context_budget_percent_left'];
   const percentLeft = typeof percentLeftRaw === 'number' ? percentLeftRaw : -1;
-  const usagePercent = asInt(meta['context_budget_usage_percent']);
-  const effectiveWindow = asInt(meta['context_budget_effective_window_tokens']);
-  const remainingTokens = asInt(meta['context_budget_remaining_tokens']);
+  const usagePercent = integerFromUnknown(meta['context_budget_usage_percent']);
+  const effectiveWindow = integerFromUnknown(meta['context_budget_effective_window_tokens']);
+  const remainingTokens = integerFromUnknown(meta['context_budget_remaining_tokens']);
   const inferred = meta['context_budget_window_inferred'] === true;
   const status = String(meta['context_budget_status'] ?? '').trim();
 
@@ -4970,23 +4979,11 @@ function TokenStatsRow({ label, value, suffix = '', tone = 'neutral', emphasized
 }
 
 function readDouble(value: unknown, fallback: number): number {
-  const raw = value ?? fallback;
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw === 'string') {
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
+  return finiteNumberFromUnknown(value ?? fallback, fallback);
 }
 
 function readStatNumber(value: unknown, fallback: unknown): number {
-  const raw = value ?? fallback;
-  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw));
-  if (typeof raw === 'string') {
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
-  }
-  return 0;
+  return nonNegativeIntegerFromUnknown(value ?? fallback);
 }
 
 function usesClaudeStyleCacheMath(protocol: unknown): boolean {
@@ -5066,33 +5063,10 @@ function formatDialogDate(value?: string | null): string {
   return date.toLocaleString();
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function asInt(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
-  const parsed = Number.parseInt(String(value ?? '').trim(), 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function asStringList(value: unknown): string[] {
-  return asArray(value)
-    .map((item) => String(item ?? '').trim())
-    .filter(Boolean);
-}
-
 function contextBudgetToolbarLabel(metadata: Record<string, unknown>): string | null {
-  const estimatedTokens = asInt(metadata['context_budget_estimated_prompt_tokens']);
+  const estimatedTokens = integerFromUnknown(metadata['context_budget_estimated_prompt_tokens']);
   if (estimatedTokens <= 0) return null;
-  const percentLeft = asInt(metadata['context_budget_percent_left']);
+  const percentLeft = integerFromUnknown(metadata['context_budget_percent_left']);
   const status = String(metadata['context_budget_status'] ?? '').trim();
   const statusLabel = status === 'critical' ? t('topbar.contextBudget.critical', '危险') : status === 'auto_compact' ? t('topbar.contextBudget.compact', '压缩') : status === 'warning' ? t('topbar.contextBudget.warning', '偏高') : status === 'ok' ? t('topbar.contextBudget.ok', '正常') : t('topbar.contextBudget.unknown', '未知');
   return `${t('topbar.contextBudget', '上下文')} ${percentLeft}% · ${statusLabel}`;
@@ -5214,18 +5188,18 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
-  const stats = asRecord(session.statistics);
+  const stats = recordFromUnknown(session.statistics);
   const cacheHit = buildSessionCacheHitDisplay(session, stats);
-  const metadata = asRecord(session.metadata);
-  const environment = asRecord(session.environment);
-  const lastPromptMetadata = asRecord(session.last_prompt_metadata);
-  const latestCompressionPoint = asRecord(session.latest_compression_point);
-  const latestCompressionPointMetadata = asRecord(latestCompressionPoint['metadata']);
-  const rehydration = asRecord(lastPromptMetadata['post_compact_rehydration']);
+  const metadata = recordFromUnknown(session.metadata);
+  const environment = recordFromUnknown(session.environment);
+  const lastPromptMetadata = recordFromUnknown(session.last_prompt_metadata);
+  const latestCompressionPoint = recordFromUnknown(session.latest_compression_point);
+  const latestCompressionPointMetadata = recordFromUnknown(latestCompressionPoint['metadata']);
+  const rehydration = recordFromUnknown(lastPromptMetadata['post_compact_rehydration']);
   const hasPromptMetadata = Object.keys(lastPromptMetadata).length > 0;
-  const runtimeToolNames = asStringList(lastPromptMetadata['current_tool_names']);
-  const runtimeNotices = asStringList(lastPromptMetadata['runtime_tool_catalog_notices']);
-  const runtimeToolCount = Math.max(asInt(lastPromptMetadata['current_tool_count']), runtimeToolNames.length);
+  const runtimeToolNames = stringListFromUnknown(lastPromptMetadata['current_tool_names']);
+  const runtimeNotices = stringListFromUnknown(lastPromptMetadata['runtime_tool_catalog_notices']);
+  const runtimeToolCount = Math.max(integerFromUnknown(lastPromptMetadata['current_tool_count']), runtimeToolNames.length);
   const runtimeStale = lastPromptMetadata['runtime_tool_catalog_stale'] === true;
   const awaitingPlanApproval = lastPromptMetadata['awaiting_plan_approval'] === true || session.awaiting_plan_approval === true;
   const planRecoveryRequired = lastPromptMetadata['plan_mode_recovery_inspection_required'] === true || lastPromptMetadata['plan_recovery_required'] === true;
@@ -5237,10 +5211,10 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   }
   const runtimeModeLabel = session.mode !== 'plan' ? '聊天模式' : awaitingPlanApproval ? '计划待审' : planRecoveryRequired ? '计划审阅' : planExecutionApproved ? '计划执行' : hasActivePlanState ? '计划草拟' : '计划模式';
   const toolCatalogState = !hasPromptMetadata ? '暂无运行时快照' : runtimeStale ? '工具目录待刷新' : '工具目录已同步';
-  const promptBudgetTokens = asInt(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
+  const promptBudgetTokens = integerFromUnknown(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
   const contextStatus = String(lastPromptMetadata['context_budget_status'] ?? 'unknown').trim();
   const contextStatusLabel = contextStatus === 'critical' ? '危险' : contextStatus === 'auto_compact' ? '需压缩' : contextStatus === 'warning' ? '偏高' : contextStatus === 'ok' ? '正常' : '未知';
-  const usagePercent = asInt(lastPromptMetadata['context_budget_usage_percent']);
+  const usagePercent = integerFromUnknown(lastPromptMetadata['context_budget_usage_percent']);
   const usageValue = Math.max(0, Math.min(100, usagePercent));
   const sidecarPath = String(rehydration['session_memory_sidecar_path'] ?? '').trim();
   const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
@@ -5343,7 +5317,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   };
 
   const renderProgrammingConfig = () => {
-    const config = asRecord(metadata['programming_expert_config']);
+    const config = recordFromUnknown(metadata['programming_expert_config']);
     return (
       <Section title="编程专家配置">
         {Object.keys(config).length === 0 ? (
@@ -5363,7 +5337,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   };
 
   const renderHardnessConfig = () => {
-    const config = asRecord(metadata['hardness_config']);
+    const config = recordFromUnknown(metadata['hardness_config']);
     const roleKeys = ['profiler', 'reader', 'planner', 'implementer', 'reviewer'];
     return (
       <Section title="Harness Engineering 配置">
@@ -5379,7 +5353,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="首次运行" value={config['first_run'] === true ? '是（含探档阶段）' : '否（增量运行）'} />
             <div class="mt-3 mb-2 text-sm font-extrabold">角色配置</div>
             {roleKeys.map((key) => {
-              const role = asRecord(config[key]);
+              const role = recordFromUnknown(config[key]);
               const cli = String(role['cli_name'] ?? '').trim();
               const model = String(role['model_id'] ?? '').trim();
               return <EntryRow key={key} label={key} value={cli || model ? `${cli || '-'} · ${model || '-'}` : '未配置'} />;
@@ -5523,7 +5497,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                   <EntryRow label={metadataFieldLabel('context_budget_effective_window_tokens')} value={metadataValue(lastPromptMetadata['context_budget_effective_window_tokens'])} />
                   <EntryRow label={metadataFieldLabel('context_budget_auto_compact_threshold_tokens')} value={metadataValue(lastPromptMetadata['context_budget_auto_compact_threshold_tokens'])} />
                   <EntryRow label={metadataFieldLabel('context_budget_remaining_tokens')} value={metadataValue(lastPromptMetadata['context_budget_remaining_tokens'])} />
-                  <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${asInt(lastPromptMetadata['context_budget_percent_left'])}%`} />
+                  <EntryRow label={metadataFieldLabel('context_budget_percent_left')} value={`${integerFromUnknown(lastPromptMetadata['context_budget_percent_left'])}%`} />
                   <EntryRow label={metadataFieldLabel('context_budget_usage_percent')} value={`${usagePercent}%`} />
                 </>
               ) : null}
@@ -5535,16 +5509,16 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               <EntryRow label={metadataFieldLabel('post_compact_active')} value={rehydration['active'] === true ? '启用' : '未启用'} />
               <EntryRow label={metadataFieldLabel('checkpoint_message_id')} value={metadataValue(rehydration['checkpoint_message_id'])} />
               <EntryRow label={metadataFieldLabel('checkpoint_created_at')} value={metadataValue(rehydration['checkpoint_created_at'])} />
-              <EntryRow label={metadataFieldLabel('runtime_tool_count')} value={`${asInt(rehydration['runtime_tool_count'])} (${asInt(rehydration['builtin_tool_count'])} builtin, ${asInt(rehydration['skill_tool_count'])} skill, ${asInt(rehydration['mcp_tool_count'])} MCP)`} />
-              <EntryRow label={metadataFieldLabel('restored_signal_counts')} value={`read_files=${asInt(rehydration['recent_read_file_count'])}, skills=${asInt(rehydration['invoked_skill_count'])}, mcp_instructions=${asInt(rehydration['mcp_server_instruction_count'])}, session_hooks=${asInt(rehydration['session_start_hook_count'])}, agent_results=${asInt(rehydration['agent_result_count'])}, deferred_tools=${asInt(rehydration['deferred_builtin_tool_count'])}, agent_types=${asInt(rehydration['agent_type_count'])}`} />
+              <EntryRow label={metadataFieldLabel('runtime_tool_count')} value={`${integerFromUnknown(rehydration['runtime_tool_count'])} (${integerFromUnknown(rehydration['builtin_tool_count'])} builtin, ${integerFromUnknown(rehydration['skill_tool_count'])} skill, ${integerFromUnknown(rehydration['mcp_tool_count'])} MCP)`} />
+              <EntryRow label={metadataFieldLabel('restored_signal_counts')} value={`read_files=${integerFromUnknown(rehydration['recent_read_file_count'])}, skills=${integerFromUnknown(rehydration['invoked_skill_count'])}, mcp_instructions=${integerFromUnknown(rehydration['mcp_server_instruction_count'])}, session_hooks=${integerFromUnknown(rehydration['session_start_hook_count'])}, agent_results=${integerFromUnknown(rehydration['agent_result_count'])}, deferred_tools=${integerFromUnknown(rehydration['deferred_builtin_tool_count'])}, agent_types=${integerFromUnknown(rehydration['agent_type_count'])}`} />
               <div class="mt-2 mb-2 text-sm font-extrabold">恢复通道</div>
               <div class="flex flex-wrap gap-2">
-                {asStringList(rehydration['restored_channels']).length === 0 ? (
+                {stringListFromUnknown(rehydration['restored_channels']).length === 0 ? (
                   <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
                     暂无恢复通道。
                   </span>
                 ) : (
-                  asStringList(rehydration['restored_channels']).map((item) => <Chip key={item} label={item} />)
+                  stringListFromUnknown(rehydration['restored_channels']).map((item) => <Chip key={item} label={item} />)
                 )}
               </div>
             </Section>
@@ -5581,15 +5555,15 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             ) : (
               <>
                 <EntryRow label="写命令确认" value={lastPromptMetadata['write_command_confirmation_enabled'] === true ? '必需' : '不需要'} />
-                <EntryRow label="允许规则" value={`${asInt(lastPromptMetadata['allow_command_rule_count'])}`} />
+                <EntryRow label="允许规则" value={`${integerFromUnknown(lastPromptMetadata['allow_command_rule_count'])}`} />
                 <div class="flex flex-wrap gap-2">
-                  {asArray(lastPromptMetadata['allow_command_rules']).length === 0 ? (
+                  {arrayFromUnknown(lastPromptMetadata['allow_command_rules']).length === 0 ? (
                     <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
                       暂无显式允许命令规则。
                     </span>
                   ) : (
-                    asArray(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
-                      const rule = asRecord(raw);
+                    arrayFromUnknown(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
+                      const rule = recordFromUnknown(raw);
                       const pattern = String(rule['pattern'] ?? '').trim();
                       const mode = String(rule['match_mode'] ?? '').trim();
                       return pattern ? <Chip key={`${pattern}-${index}`} label={`${mode ? `${mode}: ` : ''}${pattern}`} /> : null;
@@ -5734,7 +5708,7 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
     2,
   );
   const stats = [`${session.message_count} ${t('sessions.messageUnit', '条消息')}`, `${session.total_tokens ?? 0} tokens`, `${session.tool_message_count ?? 0} tool`, `${session.compression_point_count ?? 0} compress`];
-  const auditStats = asRecord(session.statistics);
+  const auditStats = recordFromUnknown(session.statistics);
   const auditCacheRead = readStatNumber(auditStats['cache_read_tokens'], 0);
   const auditCacheWrite = readStatNumber(auditStats['cache_creation_tokens'], 0);
   const auditReasoning = readStatNumber(auditStats['reasoning_tokens'], 0);
@@ -5871,9 +5845,9 @@ function SessionThrottleDialog({
   const parse = (raw: string): number | null | undefined => {
     const trimmed = raw.trim();
     if (trimmed.length === 0) return undefined;
-    const n = Number.parseInt(trimmed, 10);
-    if (!Number.isFinite(n) || n < 0) return null;
-    return n;
+    const parsed = finiteNumberOrNullFromUnknown(trimmed);
+    if (parsed == null || parsed < 0) return null;
+    return Math.round(parsed);
   };
 
   const apply = async () => {

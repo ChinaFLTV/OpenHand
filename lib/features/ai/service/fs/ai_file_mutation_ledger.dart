@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/unified_diff.dart' as unified_diff;
 
 enum FileMutationKind { create, modify, delete }
 
@@ -231,8 +232,10 @@ class LedgerConfig {
 /// 的中间区间，返回「精简 mini-diff」——只保留 +/- 行，丢弃所有相
 /// 同上下文行。这样既能让模型/用户看到差异主体，又把 token 量级压
 /// 在数 KB 内，避免大文件在 UI/上下文里被全文 +context 撑爆。
-const int unifiedDiffLineSummaryDefaultMaxBytes = 256 * 1024;
-const int unifiedDiffLineSummaryDefaultMiniDiffBytes = 32 * 1024;
+const int unifiedDiffLineSummaryDefaultMaxBytes =
+    unified_diff.kUnifiedDiffDefaultMaxBytes;
+const int unifiedDiffLineSummaryDefaultMiniDiffBytes =
+    unified_diff.kUnifiedDiffDefaultMiniDiffBytes;
 
 String unifiedDiffLineSummary(
   String before,
@@ -242,54 +245,14 @@ String unifiedDiffLineSummary(
   String? beforeSha,
   String? afterSha,
 }) {
-  if (before.length > maxBytes || after.length > maxBytes) {
-    String tag(String? sha) {
-      if (sha == null || sha.isEmpty) return '';
-      final short = sha.length >= 12 ? sha.substring(0, 12) : sha;
-      return ' sha=$short';
-    }
-
-    return '<file too large for inline diff; '
-        'before=${before.length}B${tag(beforeSha)}, '
-        'after=${after.length}B${tag(afterSha)}>';
-  }
-  final a = before.split('\n');
-  final b = after.split('\n');
-  final maxLen = a.length > b.length ? a.length : b.length;
-  // 阶段 ⑫d：中间区间走 mini-diff（仅 +/-）。
-  final compact =
-      before.length > miniDiffMaxBytes || after.length > miniDiffMaxBytes;
-  if (compact) {
-    final out = StringBuffer();
-    var emitted = 0;
-    for (var i = 0; i < maxLen; i++) {
-      final lhs = i < a.length ? a[i] : null;
-      final rhs = i < b.length ? b[i] : null;
-      if (lhs == rhs) continue;
-      if (lhs != null) {
-        out.writeln('-$lhs');
-        emitted++;
-      }
-      if (rhs != null) {
-        out.writeln('+$rhs');
-        emitted++;
-      }
-    }
-    if (emitted == 0) return '';
-    return out.toString().trimRight();
-  }
-  final out = StringBuffer();
-  for (var i = 0; i < maxLen; i++) {
-    final lhs = i < a.length ? a[i] : null;
-    final rhs = i < b.length ? b[i] : null;
-    if (lhs == rhs) {
-      out.writeln(' ${lhs ?? ''}');
-    } else {
-      if (lhs != null) out.writeln('-$lhs');
-      if (rhs != null) out.writeln('+$rhs');
-    }
-  }
-  return out.toString().trimRight();
+  return unified_diff.unifiedDiffLineSummary(
+    before,
+    after,
+    maxBytes: maxBytes,
+    miniDiffMaxBytes: miniDiffMaxBytes,
+    beforeSha: beforeSha,
+    afterSha: afterSha,
+  );
 }
 
 class AiFileMutationLedger {

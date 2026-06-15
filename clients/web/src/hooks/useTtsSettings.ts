@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
+import { clampNumber } from '../shared/util/number';
+import {
+  booleanFromUnknown,
+  finiteNumberFromUnknown,
+  recordFromUnknown,
+  stringFromUnknown,
+} from '../shared/util/value';
 
 export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'doubao' | 'mimo' | 'apple';
 
@@ -53,42 +60,14 @@ export const TTS_PROVIDERS: readonly TtsProvider[] = [
   'mimo',
 ];
 
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(Math.max(value, min), max);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value != null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 function stringField(
   raw: Record<string, unknown>,
   key: string,
   fallback: string,
 ): string {
   return Object.prototype.hasOwnProperty.call(raw, key)
-    ? asString(raw[key])
+    ? stringFromUnknown(raw[key], { coerce: false })
     : fallback;
-}
-
-function asNumber(value: unknown, fallback: number): number {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-  return fallback;
-}
-
-function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
 }
 
 function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
@@ -276,25 +255,25 @@ function normalizeProviderSettings(
   value: unknown,
 ): TtsProviderSettings {
   const defaults = defaultProviderSettings(provider);
-  const raw = asRecord(value);
-  if (!raw) return defaults;
-  const extra = asRecord(raw.extra) ?? defaults.extra;
+  const raw = recordFromUnknown(value);
+  if (Object.keys(raw).length === 0) return defaults;
+  const extra = recordFromUnknown(raw.extra);
   const voice = stringField(raw, 'voice', defaults.voice);
   const language = stringField(raw, 'language', defaults.language);
   return {
-    enabled: asBoolean(raw.enabled, defaults.enabled),
+    enabled: booleanFromUnknown(raw.enabled, defaults.enabled),
     voice: voice || defaults.voice,
     language: language || defaults.language,
-    speed: clamp(asNumber(raw.speed, defaults.speed), 0.1, 200),
-    volume: clamp(asNumber(raw.volume, defaults.volume), 0, 100),
-    pitch: clamp(asNumber(raw.pitch, defaults.pitch), -20, 100),
+    speed: clampNumber(finiteNumberFromUnknown(raw.speed, defaults.speed), 0.1, 200),
+    volume: clampNumber(finiteNumberFromUnknown(raw.volume, defaults.volume), 0, 100),
+    pitch: clampNumber(finiteNumberFromUnknown(raw.pitch, defaults.pitch), -20, 100),
     endpoint: stringField(raw, 'endpoint', defaults.endpoint),
-    appId: asString(raw.appId ?? raw.app_id),
-    apiKey: asString(raw.apiKey ?? raw.api_key),
-    apiSecret: asString(raw.apiSecret ?? raw.api_secret),
-    accessToken: asString(raw.accessToken ?? raw.access_token),
+    appId: stringFromUnknown(raw.appId ?? raw.app_id, { coerce: false }),
+    apiKey: stringFromUnknown(raw.apiKey ?? raw.api_key, { coerce: false }),
+    apiSecret: stringFromUnknown(raw.apiSecret ?? raw.api_secret, { coerce: false }),
+    accessToken: stringFromUnknown(raw.accessToken ?? raw.access_token, { coerce: false }),
     region: stringField(raw, 'region', defaults.region),
-    extra: { ...extra },
+    extra: { ...defaults.extra, ...extra },
   };
 }
 
@@ -318,18 +297,18 @@ function normalizePriority(value: unknown): TtsProvider[] {
 
 export function normalizeTtsSettings(value: unknown): TtsSettings {
   const defaults = defaultTtsSettings();
-  const raw = asRecord(value);
-  if (!raw) return defaults;
-  const rawProviders = asRecord(raw.providers);
+  const raw = recordFromUnknown(value);
+  if (Object.keys(raw).length === 0) return defaults;
+  const rawProviders = recordFromUnknown(raw.providers);
   return {
-    enabled: asBoolean(raw.enabled, false),
-    timeoutSeconds: Math.round(clamp(
-      asNumber(raw.timeoutSeconds ?? raw.timeout_seconds, defaults.timeoutSeconds),
+    enabled: booleanFromUnknown(raw.enabled, false),
+    timeoutSeconds: Math.round(clampNumber(
+      finiteNumberFromUnknown(raw.timeoutSeconds ?? raw.timeout_seconds, defaults.timeoutSeconds),
       MIN_TIMEOUT_SECONDS,
       MAX_TIMEOUT_SECONDS,
     )),
-    maxTextCharacters: Math.round(clamp(
-      asNumber(raw.maxTextCharacters ?? raw.max_text_characters, defaults.maxTextCharacters),
+    maxTextCharacters: Math.round(clampNumber(
+      finiteNumberFromUnknown(raw.maxTextCharacters ?? raw.max_text_characters, defaults.maxTextCharacters),
       MIN_TEXT_CHARS,
       MAX_TEXT_CHARS,
     )),
@@ -337,7 +316,7 @@ export function normalizeTtsSettings(value: unknown): TtsSettings {
     providers: Object.fromEntries(
       TTS_PROVIDERS.map((provider) => [
         provider,
-        normalizeProviderSettings(provider, rawProviders?.[provider]),
+        normalizeProviderSettings(provider, rawProviders[provider]),
       ]),
     ) as Record<TtsProvider, TtsProviderSettings>,
   };
@@ -449,9 +428,9 @@ async function speakWithBrowserSystem(
   const voice = browserVoiceFor(providerSettings);
   if (voice) utterance.voice = voice;
   if (providerSettings.language) utterance.lang = providerSettings.language;
-  utterance.rate = clamp(providerSettings.speed > 10 ? providerSettings.speed / 50 : providerSettings.speed, 0.1, 10);
-  utterance.volume = clamp(providerSettings.volume > 1 ? providerSettings.volume / 100 : providerSettings.volume, 0, 1);
-  utterance.pitch = clamp(providerSettings.pitch > 10 ? providerSettings.pitch / 50 : providerSettings.pitch, 0, 2);
+  utterance.rate = clampNumber(providerSettings.speed > 10 ? providerSettings.speed / 50 : providerSettings.speed, 0.1, 10);
+  utterance.volume = clampNumber(providerSettings.volume > 1 ? providerSettings.volume / 100 : providerSettings.volume, 0, 1);
+  utterance.pitch = clampNumber(providerSettings.pitch > 10 ? providerSettings.pitch / 50 : providerSettings.pitch, 0, 2);
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;

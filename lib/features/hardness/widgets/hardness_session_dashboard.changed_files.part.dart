@@ -119,9 +119,7 @@ class _HeChangedFilesList extends StatelessWidget {
 
 /// Isolate-friendly top-level function for diff computation.
 List<String> _computeDiffIsolate(List<Object> args) {
-  final before = (args[0] as String).split('\n');
-  final after = (args[1] as String).split('\n');
-  return _computeSimpleUnifiedDiff(before, after);
+  return unifiedDiffLinesFromText(args[0] as String, args[1] as String);
 }
 
 class _HeFileDiffDialog extends StatefulWidget {
@@ -161,10 +159,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
     } catch (_) {
       // Fallback: compute on main thread.
       if (!mounted) return;
-      final result = _computeSimpleUnifiedDiff(
-        before.split('\n'),
-        after.split('\n'),
-      );
+      final result = unifiedDiffLinesFromText(before, after);
       if (mounted) {
         setState(() {
           _diffLines = result;
@@ -365,204 +360,6 @@ class _DiffStatChip extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Computes a unified diff between two lists of lines using the Myers
-/// algorithm with proper backtracking and hunk generation. Context lines
-/// default to 3 around each change.
-List<String> _computeSimpleUnifiedDiff(
-  List<String> before,
-  List<String> after,
-) {
-  if (before.isEmpty && after.isEmpty) return const [];
-  if (before.isEmpty) {
-    return [
-      '--- /dev/null',
-      '+++ b/file',
-      '@@ -0,0 +1,${after.length} @@',
-      ...after.map((l) => '+$l'),
-    ];
-  }
-  if (after.isEmpty) {
-    return [
-      '--- a/file',
-      '+++ /dev/null',
-      '@@ -1,${before.length} +0,0 @@',
-      ...before.map((l) => '-$l'),
-    ];
-  }
-
-  // For very large files, fall back to a simple line-by-line comparison.
-  if (before.length + after.length > 10000) {
-    return _fallbackDiff(before, after);
-  }
-
-  // ── Myers diff (forward pass) ──────────────────────────────────────
-  final n = before.length;
-  final m = after.length;
-  final max = n + m;
-  final size = 2 * max + 1;
-  final v = List<int>.filled(size, 0);
-  final traces = <List<int>>[];
-
-  var found = false;
-  for (var d = 0; d <= max && !found; d++) {
-    traces.add(List<int>.from(v));
-    for (var k = -d; k <= d; k += 2) {
-      int x;
-      if (k == -d || (k != d && v[k - 1 + max] < v[k + 1 + max])) {
-        x = v[k + 1 + max];
-      } else {
-        x = v[k - 1 + max] + 1;
-      }
-      var y = x - k;
-      while (x < n && y < m && before[x] == after[y]) {
-        x++;
-        y++;
-      }
-      v[k + max] = x;
-      if (x >= n && y >= m) {
-        found = true;
-        break;
-      }
-    }
-  }
-
-  // ── Backtrack to produce the edit script (in forward order) ────────
-  final editScript = <({String type, String text})>[];
-  var bx = n, by = m;
-  for (var d = traces.length - 1; d > 0; d--) {
-    final vPrev = traces[d - 1];
-    final k = bx - by;
-    int prevK;
-    if (k == -d || (k != d && vPrev[k - 1 + max] < vPrev[k + 1 + max])) {
-      prevK = k + 1;
-    } else {
-      prevK = k - 1;
-    }
-    final prevX = vPrev[prevK + max];
-    final prevY = prevX - prevK;
-
-    // Diagonal (equal) lines
-    while (bx > prevX && by > prevY) {
-      bx--;
-      by--;
-      editScript.add((type: ' ', text: before[bx]));
-    }
-    if (bx == prevX && by > prevY) {
-      by--;
-      editScript.add((type: '+', text: after[by]));
-    } else if (by == prevY && bx > prevX) {
-      bx--;
-      editScript.add((type: '-', text: before[bx]));
-    }
-  }
-  // Any remaining diagonal at d=0
-  while (bx > 0 && by > 0) {
-    bx--;
-    by--;
-    editScript.add((type: ' ', text: before[bx]));
-  }
-  while (bx > 0) {
-    bx--;
-    editScript.add((type: '-', text: before[bx]));
-  }
-  while (by > 0) {
-    by--;
-    editScript.add((type: '+', text: after[by]));
-  }
-
-  // Reverse because we built it backwards
-  final edits = editScript.reversed.toList();
-
-  // ── Generate unified-diff hunks with 3-line context ────────────────
-  const contextSize = 3;
-  final result = <String>['--- a/file', '+++ b/file'];
-
-  // Find change regions.
-  final changeIndices = <int>[];
-  for (var i = 0; i < edits.length; i++) {
-    if (edits[i].type != ' ') changeIndices.add(i);
-  }
-  if (changeIndices.isEmpty) return const []; // identical files
-
-  // Group changes into hunks.
-  final hunkRanges = <(int, int)>[];
-  var hunkStart = (changeIndices.first - contextSize).clamp(0, edits.length);
-  var hunkEnd = (changeIndices.first + contextSize + 1).clamp(0, edits.length);
-
-  for (var ci = 1; ci < changeIndices.length; ci++) {
-    final s = (changeIndices[ci] - contextSize).clamp(0, edits.length);
-    final e = (changeIndices[ci] + contextSize + 1).clamp(0, edits.length);
-    if (s <= hunkEnd) {
-      // Merge with current hunk.
-      hunkEnd = e;
-    } else {
-      hunkRanges.add((hunkStart, hunkEnd));
-      hunkStart = s;
-      hunkEnd = e;
-    }
-  }
-  hunkRanges.add((hunkStart, hunkEnd));
-
-  // Emit each hunk.
-  for (final (start, end) in hunkRanges) {
-    var beforeLine = 0;
-    var afterLine = 0;
-    // Count lines up to hunk start.
-    for (var i = 0; i < start; i++) {
-      if (edits[i].type != '+') beforeLine++;
-      if (edits[i].type != '-') afterLine++;
-    }
-    final hunkBeforeStart = beforeLine + 1;
-    final hunkAfterStart = afterLine + 1;
-    var hunkBeforeCount = 0;
-    var hunkAfterCount = 0;
-    final hunkLines = <String>[];
-    for (var i = start; i < end; i++) {
-      final e = edits[i];
-      hunkLines.add('${e.type}${e.text}');
-      if (e.type != '+') hunkBeforeCount++;
-      if (e.type != '-') hunkAfterCount++;
-    }
-    result.add(
-      '@@ -$hunkBeforeStart,$hunkBeforeCount '
-      '+$hunkAfterStart,$hunkAfterCount @@',
-    );
-    result.addAll(hunkLines);
-  }
-
-  return result;
-}
-
-List<String> _fallbackDiff(List<String> before, List<String> after) {
-  final result = <String>['--- a/file', '+++ b/file'];
-  final maxLen = before.length > after.length ? before.length : after.length;
-  var diffStart = -1;
-  final hunks = <String>[];
-
-  for (var i = 0; i < maxLen; i++) {
-    final bLine = i < before.length ? before[i] : null;
-    final aLine = i < after.length ? after[i] : null;
-    if (bLine == aLine) {
-      if (hunks.isNotEmpty) {
-        result.add('@@ -${diffStart + 1} @@');
-        result.addAll(hunks);
-        hunks.clear();
-        diffStart = -1;
-      }
-      continue;
-    }
-    if (diffStart < 0) diffStart = i;
-    if (bLine != null) hunks.add('-$bLine');
-    if (aLine != null) hunks.add('+$aLine');
-  }
-  if (hunks.isNotEmpty) {
-    result.add('@@ -${(diffStart < 0 ? 0 : diffStart) + 1} @@');
-    result.addAll(hunks);
-  }
-
-  return result;
 }
 
 // =============================================================================

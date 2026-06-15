@@ -38,6 +38,8 @@ import {
   syncRemoteDialogMotionSettings,
 } from '../../../hooks/useDialogMotionSettings';
 import { showSnackbar } from '../../../components/Snackbar';
+import { clampNumber } from '../../../shared/util/number';
+import { finiteNumberOrNullFromUnknown } from '../../../shared/util/value';
 import { describeApiError } from '../../../utils/api_error';
 
 const LANG_LABEL: Record<string, string> = {
@@ -78,24 +80,20 @@ function languageLabel(code: string): string {
   return LANG_LABEL[code] ?? code;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
 function normalizedThreshold(input: string, prefs: RemotePreferences): number | null {
-  const parsed = parseInt(input, 10);
-  if (Number.isNaN(parsed)) return null;
+  const parsed = finiteNumberOrNullFromUnknown(input);
+  if (parsed == null) return null;
   const min = prefs.limits.ai_message_compression_threshold_chars_min;
   const max = prefs.limits.ai_message_compression_threshold_chars_max;
-  return clamp(parsed, min, max);
+  return Math.round(clampNumber(parsed, min, max));
 }
 
 function thresholdPercent(prefs: RemotePreferences, value: number): string {
   const min = prefs.limits.ai_message_compression_threshold_chars_min;
   const max = prefs.limits.ai_message_compression_threshold_chars_max;
   if (max <= min) return '0%';
-  const percent = ((clamp(value, min, max) - min) / (max - min)) * 100;
-  return `${clamp(Math.round(percent), 0, 100)}%`;
+  const percent = ((clampNumber(value, min, max) - min) / (max - min)) * 100;
+  return `${clampNumber(Math.round(percent), 0, 100)}%`;
 }
 
 function motionStyleLabel(value: string | undefined): string {
@@ -880,7 +878,7 @@ function NumberSetting(props: {
       setValue(String(props.value));
       return;
     }
-    const next = clamp(parsed, props.min, props.max);
+    const next = clampNumber(parsed, props.min, props.max);
     const display = Number.isInteger(next) ? String(next) : String(Number(next.toFixed(2)));
     setValue(display);
     if (next !== props.value) props.onCommit(next);
@@ -1076,11 +1074,11 @@ function TtsProviderCard(props: {
                   label={t('settings.tts.sampleRate', 'PCM 采样率')}
                   value={String(props.settings.extra.sample_rate ?? 24000)}
                   onCommit={(value) => {
-                    const parsed = Number.parseInt(value, 10);
+                    const parsed = finiteNumberOrNullFromUnknown(value);
                     props.onChange({
                       extra: {
                         ...props.settings.extra,
-                        sample_rate: Number.isFinite(parsed) ? parsed : 24000,
+                        sample_rate: parsed == null ? 24000 : Math.round(parsed),
                       },
                     });
                   }}
