@@ -262,6 +262,34 @@ const TTS_PROVIDER_CATALOG: Record<TtsProvider, TtsProviderCatalog> = {
       { value: 'pcm', label: 'PCM' },
     ],
   },
+  mimo: {
+    voices: [
+      { value: '冰糖', label: '冰糖 - 中文女声' },
+      { value: '茉莉', label: '茉莉 - 中文女声' },
+      { value: '苏打', label: '苏打 - 中文男声' },
+      { value: '白桦', label: '白桦 - 中文男声' },
+      { value: 'Mia', label: 'Mia - English Female' },
+      { value: 'Chloe', label: 'Chloe - English Female' },
+      { value: 'Milo', label: 'Milo - English Male' },
+      { value: 'Dean', label: 'Dean - English Male' },
+    ],
+    languages: [
+      { value: 'zh-CN', label: '简体中文 zh-CN' },
+      { value: 'zh-TW', label: '繁体中文 zh-TW' },
+      { value: 'en-US', label: 'English en-US' },
+      { value: 'en-GB', label: 'English en-GB' },
+    ],
+    models: [
+      { value: 'mimo-v2.5-tts', label: 'MiMo V2.5 TTS' },
+      { value: 'mimo-v2.5-tts-voicedesign', label: 'MiMo V2.5 TTS Voice Design' },
+      { value: 'mimo-v2.5-tts-voiceclone', label: 'MiMo V2.5 TTS Voice Clone' },
+    ],
+    formats: [
+      { value: 'wav', label: 'WAV' },
+      { value: 'mp3', label: 'MP3' },
+      { value: 'pcm16', label: 'PCM 16-bit' },
+    ],
+  },
 };
 
 function ttsProviderLabel(provider: TtsProvider): string {
@@ -280,13 +308,15 @@ function ttsProviderLabel(provider: TtsProvider): string {
       return t('settings.tts.provider.baidu', '百度 TTS');
     case 'doubao':
       return t('settings.tts.provider.doubao', '豆包 TTS');
+    case 'mimo':
+      return 'Mimo TTS';
     case 'apple':
       return t('settings.tts.provider.apple', '苹果 TTS');
   }
 }
 
 function providerNeedsEndpoint(provider: TtsProvider): boolean {
-  return provider === 'xfyun' || provider === 'baidu' || provider === 'doubao';
+  return provider === 'xfyun' || provider === 'baidu' || provider === 'doubao' || provider === 'mimo';
 }
 
 function providerNeedsCredentials(provider: TtsProvider): boolean {
@@ -305,6 +335,8 @@ function providerHint(provider: TtsProvider): string {
       return t('settings.tts.provider.baidu.desc', '填写 access token 后 App 端可调用百度语音合成接口。');
     case 'doubao':
       return t('settings.tts.provider.doubao.desc', 'HTTP 单向流式语音合成，需填写 API Key、Resource ID 与音色 ID。');
+    case 'mimo':
+      return t('settings.tts.provider.mimo.desc', '小米 Mimo V2.5 语音合成，支持预置音色、风格提示和音频格式配置。');
     case 'youdao':
     case 'bing':
     case 'google':
@@ -972,7 +1004,7 @@ function TtsProviderCard(props: {
                 {providerNeedsEndpoint(props.provider) ? (
                   <TextSetting label={t('settings.tts.endpoint', '接口地址')} value={props.settings.endpoint} onCommit={(endpoint) => props.onChange({ endpoint })} />
                 ) : null}
-                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' && props.provider !== 'mimo' ? (
                   <TextSetting label="App ID" value={props.settings.appId} onCommit={(appId) => props.onChange({ appId })} />
                 ) : null}
                 {providerNeedsCredentials(props.provider) ? (
@@ -983,7 +1015,7 @@ function TtsProviderCard(props: {
                     onCommit={(value) => props.onChange(props.provider === 'baidu' ? { accessToken: value } : { apiKey: value })}
                   />
                 ) : null}
-                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' ? (
+                {providerNeedsCredentials(props.provider) && props.provider !== 'baidu' && props.provider !== 'doubao' && props.provider !== 'mimo' ? (
                   <TextSetting label="API Secret / Token" value={props.settings.apiSecret} secret onCommit={(apiSecret) => props.onChange({ apiSecret })} />
                 ) : null}
               </div>
@@ -1009,6 +1041,46 @@ function TtsProviderCard(props: {
                   value={String(props.settings.extra.format ?? 'mp3')}
                   options={catalog.formats ?? []}
                   onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, format: value || 'mp3' } })}
+                />
+              </div>
+            </TtsProviderSection>
+          ) : props.provider === 'mimo' ? (
+            <TtsProviderSection title="Mimo TTS">
+              <div class="oh-settings-tts-provider-fields">
+                <SelectSetting
+                  label={t('settings.tts.model', '模型')}
+                  value={String(props.settings.extra.model ?? 'mimo-v2.5-tts')}
+                  options={catalog.models ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, model: value || 'mimo-v2.5-tts' } })}
+                />
+                <SelectSetting
+                  label={t('settings.tts.format', '音频格式')}
+                  value={String(props.settings.extra.format ?? 'wav')}
+                  options={catalog.formats ?? []}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, format: value || 'wav' } })}
+                />
+                <TextSetting
+                  label={t('settings.tts.stylePrompt', '风格提示')}
+                  value={String(props.settings.extra.style_prompt ?? '自然清晰，语速适中，语气友好。')}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, style_prompt: value || '自然清晰，语速适中，语气友好。' } })}
+                />
+                <TextSetting
+                  label={t('settings.tts.voiceSamplePath', '克隆样本路径')}
+                  value={String(props.settings.extra.voice_sample_path ?? '')}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, voice_sample_path: value } })}
+                />
+                <TextSetting
+                  label={t('settings.tts.sampleRate', 'PCM 采样率')}
+                  value={String(props.settings.extra.sample_rate ?? 24000)}
+                  onCommit={(value) => {
+                    const parsed = Number.parseInt(value, 10);
+                    props.onChange({
+                      extra: {
+                        ...props.settings.extra,
+                        sample_rate: Number.isFinite(parsed) ? parsed : 24000,
+                      },
+                    });
+                  }}
                 />
               </div>
             </TtsProviderSection>

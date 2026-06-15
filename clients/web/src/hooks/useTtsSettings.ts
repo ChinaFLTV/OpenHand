@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 
-export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'doubao' | 'apple';
+export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'doubao' | 'mimo' | 'apple';
 
 export interface TtsProviderSettings {
   enabled: boolean;
@@ -50,6 +50,7 @@ export const TTS_PROVIDERS: readonly TtsProvider[] = [
   'baidu',
   'doubao',
   'youdao',
+  'mimo',
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -211,6 +212,28 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
           format: 'mp3',
           sample_rate: 24000,
           bit_rate: 128000,
+        },
+      };
+    case 'mimo':
+      return {
+        enabled: false,
+        voice: '冰糖',
+        language: 'zh-CN',
+        speed: 1,
+        volume: 1,
+        pitch: 1,
+        endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
+        appId: '',
+        apiKey: '',
+        apiSecret: '',
+        accessToken: '',
+        region: '',
+        extra: {
+          model: 'mimo-v2.5-tts',
+          format: 'wav',
+          style_prompt: '自然清晰，语速适中，语气友好。',
+          sample_rate: 24000,
+          voice_sample_path: '',
         },
       };
     case 'apple':

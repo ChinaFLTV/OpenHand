@@ -1565,6 +1565,67 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       ],
                     ),
                   ),
+                ] else if (provider == AiTtsProvider.mimo) ...[
+                  const SizedBox(height: 12),
+                  _AiTtsProviderSection(
+                    title: 'Mimo TTS',
+                    child: _AiTtsProviderFieldGrid(
+                      children: [
+                        _AiTtsExtraDropdown(
+                          label: _localizedText(context, zh: '模型', en: 'Model'),
+                          value:
+                              '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
+                          options: catalog.modelOptions,
+                          onChanged: (value) => _updateExtra('model', value),
+                        ),
+                        _AiTtsExtraDropdown(
+                          label: _localizedText(
+                            context,
+                            zh: '音频格式',
+                            en: 'Format',
+                          ),
+                          value: '${providerSettings.extra['format'] ?? 'wav'}',
+                          options: catalog.formatOptions,
+                          onChanged: (value) => _updateExtra('format', value),
+                        ),
+                        _AiTtsProviderTextField(
+                          label: _localizedText(
+                            context,
+                            zh: '风格提示',
+                            en: 'Style Prompt',
+                          ),
+                          value:
+                              '${providerSettings.extra['style_prompt'] ?? '自然清晰，语速适中，语气友好。'}',
+                          onSubmitted: (value) =>
+                              _updateExtra('style_prompt', value),
+                        ),
+                        _AiTtsProviderTextField(
+                          label: _localizedText(
+                            context,
+                            zh: '克隆样本路径',
+                            en: 'Clone Sample Path',
+                          ),
+                          value:
+                              '${providerSettings.extra['voice_sample_path'] ?? ''}',
+                          onSubmitted: (value) =>
+                              _updateExtra('voice_sample_path', value),
+                        ),
+                        _AiTtsProviderTextField(
+                          label: _localizedText(
+                            context,
+                            zh: 'PCM 采样率',
+                            en: 'PCM Sample Rate',
+                          ),
+                          value:
+                              '${providerSettings.extra['sample_rate'] ?? 24000}',
+                          onSubmitted: (value) => _updateExtra(
+                            'sample_rate',
+                            int.tryParse(value.trim()) ?? 24000,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ] else if (provider == AiTtsProvider.xfyun) ...[
                   const SizedBox(height: 12),
                   _AiTtsProviderSection(
@@ -2603,6 +2664,8 @@ String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
       return _localizedText(context, zh: '百度 TTS', en: 'Baidu TTS');
     case AiTtsProvider.doubao:
       return _localizedText(context, zh: '豆包 TTS', en: 'Doubao TTS');
+    case AiTtsProvider.mimo:
+      return 'Mimo TTS';
     case AiTtsProvider.apple:
       return _localizedText(context, zh: '苹果 TTS', en: 'Apple TTS');
   }
@@ -2658,6 +2721,12 @@ String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
         zh: '豆包 V3 在线语音合成，需 API Key、Resource ID 与音色。',
         en: 'Doubao V3 online TTS with API key, resource ID, and speaker.',
       );
+    case AiTtsProvider.mimo:
+      return _localizedText(
+        context,
+        zh: '小米 Mimo V2.5 语音合成，支持预置音色、风格提示和音频格式配置。',
+        en: 'Xiaomi Mimo V2.5 TTS with preset voices, style prompts, and audio formats.',
+      );
   }
 }
 
@@ -2694,6 +2763,12 @@ _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
       return kind == _TtsNumberKind.pitch
           ? const _TtsNumberRange(-12, 12)
           : const _TtsNumberRange(-50, 100);
+    case AiTtsProvider.mimo:
+      return switch (kind) {
+        _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
+        _TtsNumberKind.volume => const _TtsNumberRange(0, 1, step: 0.05),
+        _TtsNumberKind.pitch => const _TtsNumberRange(0.5, 2, step: 0.05),
+      };
     case AiTtsProvider.google:
       return switch (kind) {
         _TtsNumberKind.speed => const _TtsNumberRange(0.25, 4, step: 0.05),
@@ -2762,6 +2837,16 @@ bool _needsAppIdCredential(AiTtsProvider provider) {
   return provider == AiTtsProvider.xfyun;
 }
 
+bool _mimoUsesPresetVoice(AiTtsProviderSettings settings) {
+  final model = '${settings.extra['model'] ?? 'mimo-v2.5-tts'}'.trim();
+  return model.isEmpty || model == 'mimo-v2.5-tts';
+}
+
+bool _mimoUsesVoiceClone(AiTtsProviderSettings settings) {
+  return '${settings.extra['model'] ?? ''}'.trim() ==
+      'mimo-v2.5-tts-voiceclone';
+}
+
 String? _ttsProviderReadinessError(
   BuildContext context,
   AiTtsProviderSettings settings,
@@ -2801,6 +2886,18 @@ String? _ttsProviderReadinessError(
       break;
     case AiTtsProvider.doubao:
       requireField(settings.apiKey, 'API Key');
+      break;
+    case AiTtsProvider.mimo:
+      requireField(settings.apiKey, 'API Key');
+      if (_mimoUsesPresetVoice(settings) && settings.voice.trim().isEmpty) {
+        missing.add(_localizedText(context, zh: '音色', en: 'Voice'));
+      }
+      if (_mimoUsesVoiceClone(settings) &&
+          '${settings.extra['voice_sample_path'] ?? ''}'.trim().isEmpty) {
+        missing.add(
+          _localizedText(context, zh: '克隆样本路径', en: 'Clone Sample Path'),
+        );
+      }
       break;
   }
   if (missing.isEmpty) return null;
@@ -2843,13 +2940,16 @@ bool _isTtsConfigurationError(Object error) {
       message.contains('subscription key is empty') ||
       message.contains('region is empty') ||
       message.contains('speaker is empty') ||
+      message.contains('voice is empty') ||
+      message.contains('voice sample') ||
       message.contains('API key or secret is empty');
 }
 
 bool _providerNeedsEndpoint(AiTtsProvider provider) {
   return provider == AiTtsProvider.xfyun ||
       provider == AiTtsProvider.baidu ||
-      provider == AiTtsProvider.doubao;
+      provider == AiTtsProvider.doubao ||
+      provider == AiTtsProvider.mimo;
 }
 
 bool _providerNeedsCredentials(AiTtsProvider provider) {

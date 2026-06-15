@@ -157,6 +157,8 @@ class AiTtsPlaybackService {
         return _speakWithBaidu(provider, text, timeout: timeout);
       case AiTtsProvider.doubao:
         return _speakWithDoubao(provider, text, timeout: timeout);
+      case AiTtsProvider.mimo:
+        return _speakWithMimo(provider, text, timeout: timeout);
       case AiTtsProvider.youdao:
         return _speakWithYoudao(provider, text, timeout: timeout);
       case AiTtsProvider.bing:
@@ -164,6 +166,110 @@ class AiTtsPlaybackService {
       case AiTtsProvider.google:
         return _speakWithGoogle(provider, text, timeout: timeout);
     }
+  }
+
+  Future<void> _speakWithMimo(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+  }) async {
+    if (settings.apiKey.isEmpty) {
+      throw StateError('Mimo TTS API key is empty.');
+    }
+    final endpoint = settings.endpoint.isEmpty
+        ? AiTtsProviderSettings.defaults(AiTtsProvider.mimo).endpoint
+        : settings.endpoint;
+    final uri = Uri.parse(endpoint);
+    final model = _extraString(settings, 'model', fallback: 'mimo-v2.5-tts');
+    final audioFormat = _extraString(settings, 'format', fallback: 'wav');
+    final audio = <String, Object?>{
+      'format': audioFormat,
+      if (_mimoUsesPresetVoice(model)) 'voice': settings.voice.trim(),
+      if (_mimoUsesVoiceClone(model))
+        'voice': await _mimoVoiceSampleDataUrl(settings, timeout: timeout),
+      if (!_mimoUsesPresetVoice(model) &&
+          _extraBool(settings, 'optimize_text_preview'))
+        'optimize_text_preview': true,
+    };
+    if (_mimoUsesPresetVoice(model) &&
+        (audio['voice'] as String?)?.isEmpty != false) {
+      throw StateError('Mimo TTS voice is empty.');
+    }
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client
+          .post(
+            uri,
+            headers: <String, String>{
+              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+              HttpHeaders.acceptHeader: 'application/json',
+              'api-key': settings.apiKey,
+            },
+            body: jsonEncode(<String, Object?>{
+              'model': model,
+              'messages': <Object?>[
+                <String, Object?>{
+                  'role': 'user',
+                  'content': _mimoStylePrompt(settings),
+                },
+                <String, Object?>{'role': 'assistant', 'content': text},
+              ],
+              'audio': audio,
+            }),
+          )
+          .timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Mimo TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+          uri: uri,
+        );
+      }
+      final audioBytes =
+          await compute(_decodeMimoAudioPayload, <String, Object?>{
+            'body': response.body,
+            'format': audioFormat,
+            'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
+          });
+      await _playAudioBytes(
+        audioBytes,
+        extension: _mimoAudioExtension(audioFormat),
+        volume: settings.volume,
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
+  Future<String> _mimoVoiceSampleDataUrl(
+    AiTtsProviderSettings settings, {
+    required Duration timeout,
+  }) async {
+    final path = _extraString(settings, 'voice_sample_path');
+    if (path.isEmpty) {
+      throw StateError('Mimo TTS voice sample path is empty.');
+    }
+    final file = File(path);
+    final exists = await file.exists().timeout(timeout);
+    if (!exists) {
+      throw StateError('Mimo TTS voice sample file does not exist.');
+    }
+    final stat = await file.stat().timeout(timeout);
+    const maxVoiceSampleBytes = 10 * 1024 * 1024;
+    if (stat.size <= 0) {
+      throw StateError('Mimo TTS voice sample file is empty.');
+    }
+    if (stat.size > maxVoiceSampleBytes) {
+      throw StateError('Mimo TTS voice sample file is larger than 10 MB.');
+    }
+    final mimeType = _mimoVoiceSampleMimeType(path);
+    if (mimeType == null) {
+      throw StateError('Mimo TTS voice sample format must be mp3 or wav.');
+    }
+    final bytes = await file.readAsBytes().timeout(timeout);
+    return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
   Future<void> _speakWithDoubao(
@@ -936,6 +1042,102 @@ class AiTtsPlaybackService {
     }
   }
 
+  static Uint8List _decodeMimoAudioPayload(Map<String, Object?> input) {
+    final body = input['body'];
+    final format = '${input['format'] ?? 'wav'}';
+    final sampleRate = input['sample_rate'] is int
+        ? input['sample_rate'] as int
+        : 24000;
+    if (body is! String || body.trim().isEmpty) {
+      throw StateError('Mimo TTS returned empty response.');
+    }
+    final decoded = jsonDecode(body);
+    final bytes = base64Decode(
+      _chatCompletionAudioData(decoded, providerName: 'Mimo TTS'),
+    );
+    if (_isPcm16Format(format)) {
+      return _wavBytesFromPcm16(bytes, sampleRate: sampleRate);
+    }
+    return bytes;
+  }
+
+  static String _chatCompletionAudioData(
+    Object? decoded, {
+    required String providerName,
+  }) {
+    if (decoded is Map) {
+      final audio = decoded['audio'];
+      final topLevel = _audioDataFromObject(audio);
+      if (topLevel != null) return topLevel;
+
+      final choices = decoded['choices'];
+      if (choices is List && choices.isNotEmpty) {
+        for (final choice in choices) {
+          if (choice is! Map) continue;
+          final message = choice['message'];
+          final fromMessage = message is Map
+              ? _audioDataFromObject(message['audio'])
+              : null;
+          if (fromMessage != null) return fromMessage;
+          final delta = choice['delta'];
+          final fromDelta = delta is Map
+              ? _audioDataFromObject(delta['audio'])
+              : null;
+          if (fromDelta != null) return fromDelta;
+        }
+      }
+    }
+    throw StateError('$providerName returned invalid audio payload.');
+  }
+
+  static String? _audioDataFromObject(Object? audio) {
+    if (audio is String && audio.trim().isNotEmpty) return audio.trim();
+    if (audio is! Map) return null;
+    final data = audio['data'] ?? audio['audio'] ?? audio['audio_data'];
+    if (data is String && data.trim().isNotEmpty) return data.trim();
+    return null;
+  }
+
+  static bool _isPcm16Format(String format) {
+    final normalized = format.trim().toLowerCase().replaceAll('_', '');
+    return normalized == 'pcm' || normalized == 'pcm16';
+  }
+
+  static Uint8List _wavBytesFromPcm16(
+    Uint8List pcmBytes, {
+    required int sampleRate,
+  }) {
+    final safeSampleRate = sampleRate.clamp(8000, 96000).toInt();
+    const channels = 1;
+    const bitsPerSample = 16;
+    final byteRate = safeSampleRate * channels * bitsPerSample ~/ 8;
+    const blockAlign = channels * bitsPerSample ~/ 8;
+    final output = Uint8List(44 + pcmBytes.length);
+    final header = ByteData.sublistView(output);
+
+    void writeAscii(int offset, String value) {
+      for (var i = 0; i < value.length; i++) {
+        output[offset + i] = value.codeUnitAt(i);
+      }
+    }
+
+    writeAscii(0, 'RIFF');
+    header.setUint32(4, 36 + pcmBytes.length, Endian.little);
+    writeAscii(8, 'WAVE');
+    writeAscii(12, 'fmt ');
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, channels, Endian.little);
+    header.setUint32(24, safeSampleRate, Endian.little);
+    header.setUint32(28, byteRate, Endian.little);
+    header.setUint16(32, blockAlign, Endian.little);
+    header.setUint16(34, bitsPerSample, Endian.little);
+    writeAscii(36, 'data');
+    header.setUint32(40, pcmBytes.length, Endian.little);
+    output.setRange(44, output.length, pcmBytes);
+    return output;
+  }
+
   static String _audioExtension(String format) {
     switch (format.trim().toLowerCase()) {
       case 'pcm':
@@ -948,6 +1150,58 @@ class AiTtsPlaybackService {
       case 'mp3':
       default:
         return '.mp3';
+    }
+  }
+
+  static String _mimoAudioExtension(String format) {
+    if (_isPcm16Format(format)) return '.wav';
+    return _audioExtension(format);
+  }
+
+  static bool _mimoUsesPresetVoice(String model) {
+    return model.trim().isEmpty || model.trim() == 'mimo-v2.5-tts';
+  }
+
+  static bool _mimoUsesVoiceClone(String model) {
+    return model.trim() == 'mimo-v2.5-tts-voiceclone';
+  }
+
+  static String _mimoStylePrompt(AiTtsProviderSettings settings) {
+    final language = settings.language.trim();
+    final style = _extraString(
+      settings,
+      'style_prompt',
+      fallback: '自然清晰，语速适中，语气友好。',
+    );
+    final parts = <String>[
+      if (language.isNotEmpty) '语言：$language',
+      style,
+      _mimoSpeedDirective(settings.speed),
+      _mimoPitchDirective(settings.pitch),
+    ].where((part) => part.trim().isNotEmpty).toList(growable: false);
+    return parts.join('；');
+  }
+
+  static String _mimoSpeedDirective(double speed) {
+    if (speed < 0.85) return '语速稍慢';
+    if (speed > 1.15) return '语速稍快';
+    return '语速适中';
+  }
+
+  static String _mimoPitchDirective(double pitch) {
+    if (pitch < 0.85) return '音调略低';
+    if (pitch > 1.15) return '音调略高';
+    return '音调自然';
+  }
+
+  static String? _mimoVoiceSampleMimeType(String path) {
+    switch (p.extension(path).toLowerCase()) {
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.wav':
+        return 'audio/wav';
+      default:
+        return null;
     }
   }
 
@@ -1072,6 +1326,8 @@ class AiTtsPlaybackService {
         message.contains('subscription key is empty') ||
         message.contains('region is empty') ||
         message.contains('speaker is empty') ||
+        message.contains('voice is empty') ||
+        message.contains('voice sample') ||
         message.contains('API key or secret is empty');
   }
 }

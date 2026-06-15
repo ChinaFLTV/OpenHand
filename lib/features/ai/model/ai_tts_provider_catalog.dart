@@ -131,6 +131,24 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('en_male_jackson_mars_bigtts', 'Jackson - English'),
   ];
 
+  static const List<AiTtsCatalogOption> _mimoVoices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('冰糖', '冰糖 - 中文女声'),
+    AiTtsCatalogOption('茉莉', '茉莉 - 中文女声'),
+    AiTtsCatalogOption('苏打', '苏打 - 中文男声'),
+    AiTtsCatalogOption('白桦', '白桦 - 中文男声'),
+    AiTtsCatalogOption('Mia', 'Mia - English Female'),
+    AiTtsCatalogOption('Chloe', 'Chloe - English Female'),
+    AiTtsCatalogOption('Milo', 'Milo - English Male'),
+    AiTtsCatalogOption('Dean', 'Dean - English Male'),
+  ];
+
+  static const List<AiTtsCatalogOption> _mimoLanguages = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('zh-CN', '简体中文 zh-CN'),
+    AiTtsCatalogOption('zh-TW', '繁体中文 zh-TW'),
+    AiTtsCatalogOption('en-US', 'English en-US'),
+    AiTtsCatalogOption('en-GB', 'English en-GB'),
+  ];
+
   static const Map<AiTtsProvider, AiTtsProviderCatalog> _catalogs =
       <AiTtsProvider, AiTtsProviderCatalog>{
         AiTtsProvider.system: AiTtsProviderCatalog(
@@ -204,6 +222,27 @@ class AiTtsProviderCatalogs {
           ],
           resourceIdOptions: <AiTtsCatalogOption>[
             AiTtsCatalogOption('seed-tts-2.0', 'Seed TTS 2.0'),
+          ],
+        ),
+        AiTtsProvider.mimo: AiTtsProviderCatalog(
+          provider: AiTtsProvider.mimo,
+          voiceOptions: _mimoVoices,
+          languageOptions: _mimoLanguages,
+          modelOptions: <AiTtsCatalogOption>[
+            AiTtsCatalogOption('mimo-v2.5-tts', 'MiMo V2.5 TTS'),
+            AiTtsCatalogOption(
+              'mimo-v2.5-tts-voicedesign',
+              'MiMo V2.5 TTS Voice Design',
+            ),
+            AiTtsCatalogOption(
+              'mimo-v2.5-tts-voiceclone',
+              'MiMo V2.5 TTS Voice Clone',
+            ),
+          ],
+          formatOptions: <AiTtsCatalogOption>[
+            AiTtsCatalogOption('wav', 'WAV'),
+            AiTtsCatalogOption('mp3', 'MP3'),
+            AiTtsCatalogOption('pcm16', 'PCM 16-bit'),
           ],
         ),
         AiTtsProvider.apple: AiTtsProviderCatalog(

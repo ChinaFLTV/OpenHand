@@ -6,6 +6,7 @@ enum AiTtsProvider {
   google('google'),
   baidu('baidu'),
   doubao('doubao'),
+  mimo('mimo'),
   apple('apple');
 
   const AiTtsProvider(this.storageKey);
@@ -168,6 +169,29 @@ class AiTtsProviderSettings {
             'format': 'mp3',
             'sample_rate': 24000,
             'bit_rate': 128000,
+          },
+        );
+      case AiTtsProvider.mimo:
+        return const AiTtsProviderSettings(
+          provider: AiTtsProvider.mimo,
+          enabled: false,
+          voice: '冰糖',
+          language: 'zh-CN',
+          speed: 1.0,
+          volume: 1.0,
+          pitch: 1.0,
+          endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
+          appId: '',
+          apiKey: '',
+          apiSecret: '',
+          accessToken: '',
+          region: '',
+          extra: <String, Object?>{
+            'model': 'mimo-v2.5-tts',
+            'format': 'wav',
+            'style_prompt': '自然清晰，语速适中，语气友好。',
+            'sample_rate': 24000,
+            'voice_sample_path': '',
           },
         );
       case AiTtsProvider.apple:
@@ -371,6 +395,7 @@ class AiTtsSettings {
     AiTtsProvider.baidu,
     AiTtsProvider.doubao,
     AiTtsProvider.youdao,
+    AiTtsProvider.mimo,
   ];
 
   final bool enabled;
