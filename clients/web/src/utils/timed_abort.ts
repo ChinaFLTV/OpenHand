@@ -1,3 +1,5 @@
+import { normalizeDurationMs } from '../shared/util/number';
+
 export interface TimedAbortController {
   controller: AbortController;
   timeoutMs: number;
@@ -8,10 +10,9 @@ export interface TimedAbortController {
 const DEFAULT_ABORT_TIMEOUT_MS = 30_000;
 
 function normalizeAbortTimeoutMs(value: number | undefined): number {
-  if (value == null || !Number.isFinite(value)) {
-    return DEFAULT_ABORT_TIMEOUT_MS;
-  }
-  return Math.max(0, Math.round(value));
+  return normalizeDurationMs(value, {
+    fallback: DEFAULT_ABORT_TIMEOUT_MS,
+  });
 }
 
 export function createTimedAbortController(

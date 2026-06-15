@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
 
 /// 应用版本更新信息。
@@ -31,23 +32,12 @@ class AppReleaseInfo {
 
   /// 比较版本号，返回 true 表示此版本比 [currentVersion] 更新。
   bool isNewerThan(String currentVersion) {
-    final current = _parseVersion(currentVersion);
-    final release = _parseVersion(version);
-    for (var i = 0; i < 3; i++) {
-      if (release[i] > current[i]) return true;
-      if (release[i] < current[i]) return false;
-    }
-    return false;
-  }
-
-  static List<int> _parseVersion(String version) {
-    final cleaned = version.replaceFirst(RegExp(r'^v'), '').split('+').first;
-    final parts = cleaned.split('.');
-    return [
-      parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0,
-      parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
-      parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0,
-    ];
+    return compareSemanticVersions(
+          version,
+          currentVersion,
+          lexicalFallback: false,
+        ) >
+        0;
   }
 }
 

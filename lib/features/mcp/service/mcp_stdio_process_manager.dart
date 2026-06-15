@@ -8,6 +8,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
 
@@ -881,7 +882,7 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
           }
         }
       } catch (_) {}
-      versions.sort(_compareVersions);
+      versions.sort(compareSemanticVersions);
       // 从最新版本开始查找包
       for (final version in versions.reversed) {
         final nodeBin = '$nvmDir/versions/node/$version/bin/node';
@@ -968,25 +969,6 @@ String? _findBinEntry(String packageDir) {
 void _debugBorrow(String serverName, String message) {
   if (!kDebugMode) return;
   debugPrint('[mcp.borrow] $serverName: $message');
-}
-
-int _compareVersions(String a, String b) {
-  final ap = a
-      .substring(1)
-      .split('.')
-      .map((s) => int.tryParse(s) ?? 0)
-      .toList();
-  final bp = b
-      .substring(1)
-      .split('.')
-      .map((s) => int.tryParse(s) ?? 0)
-      .toList();
-  for (int i = 0; i < 3; i++) {
-    final av = i < ap.length ? ap[i] : 0;
-    final bv = i < bp.length ? bp[i] : 0;
-    if (av != bv) return av.compareTo(bv);
-  }
-  return 0;
 }
 
 /// 选择 login shell。

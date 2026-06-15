@@ -3,6 +3,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { normalizeInteger } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
@@ -30,11 +31,11 @@ const MIN_CREATION_COUNT = 1;
 const MAX_CREATION_COUNT = 4;
 
 function clampCreationCount(value: number | undefined): number {
-  if (value == null || !Number.isFinite(value)) return MIN_CREATION_COUNT;
-  return Math.min(
-    MAX_CREATION_COUNT,
-    Math.max(MIN_CREATION_COUNT, Math.round(value)),
-  );
+  return normalizeInteger(value, {
+    fallback: MIN_CREATION_COUNT,
+    min: MIN_CREATION_COUNT,
+    max: MAX_CREATION_COUNT,
+  });
 }
 
 function modeTitle(mode: string): string {

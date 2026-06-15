@@ -1,3 +1,5 @@
+import { normalizeDurationMs } from '../shared/util/number';
+
 export interface SaveBlobPickerType {
   description: string;
   accept: Record<string, string[]>;
@@ -27,9 +29,9 @@ type SaveFilePicker = (options?: SaveFilePickerOptions) => Promise<FileSystemFil
 const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 5_000;
 
 function normalizeRevokeDelayMs(value: number | undefined): number {
-  if (value == null) return DEFAULT_OBJECT_URL_REVOKE_DELAY_MS;
-  if (!Number.isFinite(value)) return DEFAULT_OBJECT_URL_REVOKE_DELAY_MS;
-  return Math.max(0, Math.round(value));
+  return normalizeDurationMs(value, {
+    fallback: DEFAULT_OBJECT_URL_REVOKE_DELAY_MS,
+  });
 }
 
 export function filenameFromContentDisposition(value: string | null): string | null {

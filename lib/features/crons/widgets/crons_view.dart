@@ -2724,18 +2724,20 @@ class _HermesTalkerSessionReport {
   final String? aiReasoning;
   final String? error;
 
-  int get memoryUpdates => _readInt(mutations['memory_updates']);
-  int get memoryErrors => _readInt(mutations['memory_errors']);
-  int get skillUpdates => _readInt(mutations['skill_updates']);
-  int get skillErrors => _readInt(mutations['skill_errors']);
-  int get toolCallRounds => _readInt(mutations['tool_call_rounds']);
+  int get memoryUpdates =>
+      intFromValue(mutations['memory_updates'], fallback: 0);
+  int get memoryErrors => intFromValue(mutations['memory_errors'], fallback: 0);
+  int get skillUpdates => intFromValue(mutations['skill_updates'], fallback: 0);
+  int get skillErrors => intFromValue(mutations['skill_errors'], fallback: 0);
+  int get toolCallRounds =>
+      intFromValue(mutations['tool_call_rounds'], fallback: 0);
 
   List<Map<String, Object?>> get memoryChanges =>
-      _readListOfMap(mutations['memory_changes']);
+      stringKeyedMapListFromValue(mutations['memory_changes']);
   List<Map<String, Object?>> get profileChanges =>
-      _readListOfMap(mutations['profile_changes']);
+      stringKeyedMapListFromValue(mutations['profile_changes']);
   List<Map<String, Object?>> get skillChanges =>
-      _readListOfMap(mutations['skill_changes']);
+      stringKeyedMapListFromValue(mutations['skill_changes']);
 
   String? get modelId =>
       mutations['model_id'] is String ? mutations['model_id'] as String : null;
@@ -2745,26 +2747,6 @@ class _HermesTalkerSessionReport {
   String? get terminatedReason => mutations['terminated_reason'] is String
       ? mutations['terminated_reason'] as String
       : null;
-
-  static int _readInt(Object? v) {
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v) ?? 0;
-    return 0;
-  }
-
-  static List<Map<String, Object?>> _readListOfMap(Object? v) {
-    if (v is! List) return const <Map<String, Object?>>[];
-    final out = <Map<String, Object?>>[];
-    for (final item in v) {
-      if (item is Map<String, Object?>) {
-        out.add(item);
-      } else if (item is Map) {
-        out.add(item.map((k, val) => MapEntry('$k', val)));
-      }
-    }
-    return out;
-  }
 }
 
 class _HermesTalkerHistoryPanel extends StatelessWidget {
@@ -2886,13 +2868,9 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       if (parsed is! List) return const <_HermesTalkerSessionReport>[];
       final out = <_HermesTalkerSessionReport>[];
       for (final item in parsed) {
-        if (item is Map<String, Object?>) {
-          out.add(_HermesTalkerSessionReport.fromJson(item));
-        } else if (item is Map) {
+        if (item is Map) {
           out.add(
-            _HermesTalkerSessionReport.fromJson(
-              item.map((k, v) => MapEntry('$k', v)),
-            ),
+            _HermesTalkerSessionReport.fromJson(stringKeyedMapFromValue(item)),
           );
         }
       }
@@ -2910,11 +2888,8 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       final parsed = jsonDecode(raw);
       if (parsed is! Map) return const <String, int>{};
       final out = <String, int>{};
-      parsed.forEach((k, v) {
-        final n = v is int
-            ? v
-            : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
-        out['$k'] = n;
+      stringKeyedMapFromValue(parsed).forEach((key, value) {
+        out[key] = intFromValue(value, fallback: 0);
       });
       return out;
     } catch (error, stack) {

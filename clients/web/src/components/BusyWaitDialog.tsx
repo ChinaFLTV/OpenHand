@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
+import { normalizeDurationMs } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
@@ -25,9 +26,7 @@ export function BusyWaitDialog({
   const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<BusyDialogPhase>('hidden');
   const phaseRef = useRef<BusyDialogPhase>('hidden');
-  const effectiveDelayMs = Number.isFinite(delayMs)
-    ? Math.max(0, Math.round(delayMs))
-    : 0;
+  const effectiveDelayMs = normalizeDurationMs(delayMs, { fallback: 0 });
 
   useEffect(() => {
     phaseRef.current = phase;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { normalizeDurationMs } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
 export type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
@@ -23,8 +24,9 @@ const DEFAULT_SNACKBAR_DURATION_MS = 2600;
 const SNACKBAR_EXIT_DURATION_MS = 180;
 
 function normalizeSnackbarDurationMs(value: number | undefined): number {
-  if (value == null || !Number.isFinite(value)) return DEFAULT_SNACKBAR_DURATION_MS;
-  return Math.max(0, Math.round(value));
+  return normalizeDurationMs(value, {
+    fallback: DEFAULT_SNACKBAR_DURATION_MS,
+  });
 }
 
 export function showSnackbar(message: string, options: SnackbarOptions = {}): void {
@@ -85,7 +87,7 @@ export function SnackbarHost() {
     const timer = window.setTimeout(() => {
       timerRefs.current.delete(timer);
       callback();
-    }, Math.max(0, Math.round(delayMs)));
+    }, normalizeDurationMs(delayMs, { fallback: 0 }));
     timerRefs.current.add(timer);
     return timer;
   }, []);

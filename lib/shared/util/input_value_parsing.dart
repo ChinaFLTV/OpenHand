@@ -24,6 +24,23 @@ List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
   return const <String>[];
 }
 
+Map<String, Object?> stringKeyedMapFromValue(Object? value) {
+  if (value is Map<String, Object?>) return value;
+  if (value is! Map) return const <String, Object?>{};
+  return value.map((key, item) => MapEntry('$key', item));
+}
+
+List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
+  if (value is! List) return const <Map<String, Object?>>[];
+  final out = <Map<String, Object?>>[];
+  for (final item in value) {
+    if (item is Map) {
+      out.add(stringKeyedMapFromValue(item));
+    }
+  }
+  return out;
+}
+
 Map<String, String> keyValueMapFromValue(
   Object? value, {
   Pattern lineSeparator = '\n',

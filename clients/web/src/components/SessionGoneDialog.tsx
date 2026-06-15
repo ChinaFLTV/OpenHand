@@ -40,7 +40,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
   const [navigating, setNavigating] = useState(false);
   const { closing, requestClose, resetClosing } = useDialogExitMotion(
     () => location.route('/threads'),
-    { closeOnEscape: false },
+    { active: open, closeOnEscape: false },
   );
 
   useEffect(() => {

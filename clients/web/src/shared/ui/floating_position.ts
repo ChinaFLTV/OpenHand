@@ -1,3 +1,5 @@
+import { clampNumber } from '../util/number';
+
 export type FloatingHorizontalAlign = 'left' | 'right';
 
 export interface AnchoredMenuPosition {
@@ -23,9 +25,7 @@ export const DEFAULT_FLOATING_ANCHOR_GAP = 4;
 export const DEFAULT_FLOATING_MIN_WIDTH = 160;
 export const DEFAULT_FLOATING_FALLBACK_HEIGHT = 160;
 
-export function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
+export { clampNumber };
 
 export function computeAnchoredMenuPosition({
   anchor,

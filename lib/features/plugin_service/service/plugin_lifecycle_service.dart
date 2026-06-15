@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/version_compare.dart';
 
 const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
 const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
@@ -172,7 +173,8 @@ fi
         : null;
     final executable = await _resolvePyenvPythonPath();
     if (executable == null) return null;
-    final managedPyenvVersion = selected != null && _isSemanticVersion(selected)
+    final managedPyenvVersion =
+        selected != null && isStrictSemanticVersionText(selected)
         ? selected
         : _extractPyenvVersionFromPath(executable);
     if (managedPyenvVersion == null) return null;
@@ -304,7 +306,7 @@ fi
       prefix: '$majorMinor.',
     );
     if (versions.isEmpty) return null;
-    versions.sort(_compareSemver);
+    versions.sort(compareSemanticVersions);
     return versions.last;
   }
 
@@ -1092,7 +1094,7 @@ fi
         final script = StringBuffer()..writeln('pyenv uninstall -f $version');
         final remaining = await _remainingPyenvVersions(excluding: version);
         if (remaining.isNotEmpty) {
-          remaining.sort(_compareSemver);
+          remaining.sort(compareSemanticVersions);
           script.writeln('pyenv global ${remaining.last}');
         } else {
           script.writeln('pyenv global system');
@@ -1192,7 +1194,7 @@ fi
     for (final line in result.stdout.toString().split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed == excluding) continue;
-      if (_isSemanticVersion(trimmed)) versions.add(trimmed);
+      if (isStrictSemanticVersionText(trimmed)) versions.add(trimmed);
     }
     return versions;
   }
@@ -1389,21 +1391,6 @@ class _PythonRuntimeContext {
   final String? brewFormula;
 }
 
-bool _isSemanticVersion(String value) {
-  return RegExp(r'^\d+\.\d+\.\d+$').hasMatch(value);
-}
-
-int _compareSemver(String a, String b) {
-  final ap = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-  final bp = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-  for (int i = 0; i < 3; i++) {
-    final av = i < ap.length ? ap[i] : 0;
-    final bv = i < bp.length ? bp[i] : 0;
-    if (av != bv) return av.compareTo(bv);
-  }
-  return 0;
-}
-
 String? _extractPythonVersion(String output) {
   final match = RegExp(r'Python\s+(\d+\.\d+\.\d+)').firstMatch(output);
   return match?.group(1);
@@ -1454,7 +1441,7 @@ List<String> _extractStablePyenvVersions(String output, {String? prefix}) {
 String? _extractPyenvVersionFromPath(String path) {
   final match = RegExp(r'/.pyenv/versions/([^/]+)/').firstMatch(path);
   final value = match?.group(1);
-  if (value != null && _isSemanticVersion(value)) return value;
+  if (value != null && isStrictSemanticVersionText(value)) return value;
   return null;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'preact/hooks';
+import { normalizeDurationMs } from '../shared/util/number';
 import { useEventCallback } from './useEventCallback';
 
 const MIN_POLL_INTERVAL_MS = 250;
@@ -27,18 +28,19 @@ type AsyncPollingTask = (
 ) => Promise<void> | void;
 
 function normalizeIntervalMs(value: number): number {
-  if (!Number.isFinite(value)) return MIN_POLL_INTERVAL_MS;
-  return Math.max(MIN_POLL_INTERVAL_MS, Math.round(value));
+  return normalizeDurationMs(value, {
+    fallback: MIN_POLL_INTERVAL_MS,
+    min: MIN_POLL_INTERVAL_MS,
+  });
 }
 
 function normalizeTaskTimeoutMs(value: number | undefined): number {
-  if (value == null) return DEFAULT_TASK_TIMEOUT_MS;
-  if (!Number.isFinite(value)) return DEFAULT_TASK_TIMEOUT_MS;
-  if (value <= 0) return 0;
-  return Math.max(
-    MIN_TASK_TIMEOUT_MS,
-    Math.min(MAX_TASK_TIMEOUT_MS, Math.round(value)),
-  );
+  return normalizeDurationMs(value, {
+    fallback: DEFAULT_TASK_TIMEOUT_MS,
+    min: MIN_TASK_TIMEOUT_MS,
+    max: MAX_TASK_TIMEOUT_MS,
+    zeroDisables: true,
+  });
 }
 
 export function useAsyncPolling(

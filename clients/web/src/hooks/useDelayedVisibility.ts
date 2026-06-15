@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { normalizeDurationMs } from '../shared/util/number';
 import { getDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -17,9 +18,7 @@ export interface DelayedVisibilityController {
 }
 
 function normalizeExitMs(value: number | undefined): number {
-  if (value == null) return getDialogExitDurationMs();
-  if (!Number.isFinite(value)) return getDialogExitDurationMs();
-  return Math.max(0, Math.round(value));
+  return normalizeDurationMs(value, { fallback: getDialogExitDurationMs() });
 }
 
 export function useDelayedVisibility({

@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
 
 /// 扫描本机已安装的插件（NodeJS / Playwright / Python / pip），检测版本与可用性。
@@ -89,7 +90,7 @@ class PluginScannerService {
       return null;
     }
     if (versions.isEmpty) return null;
-    versions.sort(_compareNodeVersions);
+    versions.sort(compareSemanticVersions);
 
     final alias = _readNvmDefaultAlias();
 
@@ -98,7 +99,7 @@ class PluginScannerService {
       resolvedVersion = versions.last;
     } else if (alias.startsWith('lts')) {
       resolvedVersion = versions.lastWhere(
-        (v) => (int.tryParse(v.substring(1).split('.').first) ?? 0).isEven,
+        (v) => versionMajorFromText(v)?.isEven ?? false,
         orElse: () => versions.last,
       );
     } else if (RegExp(r'^v?\d+$').hasMatch(alias)) {
@@ -118,41 +119,6 @@ class PluginScannerService {
     final npmBin = '$nvmDir/versions/node/$resolvedVersion/bin/npm';
     if (!File(nodeBin).existsSync()) return null;
     return (version: resolvedVersion, nodeBin: nodeBin, npmBin: npmBin);
-  }
-
-  static int _compareNodeVersions(String a, String b) {
-    final ap = a
-        .substring(1)
-        .split('.')
-        .map((s) => int.tryParse(s) ?? 0)
-        .toList();
-    final bp = b
-        .substring(1)
-        .split('.')
-        .map((s) => int.tryParse(s) ?? 0)
-        .toList();
-    for (int i = 0; i < 3; i++) {
-      final av = i < ap.length ? ap[i] : 0;
-      final bv = i < bp.length ? bp[i] : 0;
-      if (av != bv) return av.compareTo(bv);
-    }
-    return 0;
-  }
-
-  static int _compareSemver(String a, String b) {
-    final ap = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final bp = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final maxLength = ap.length > bp.length ? ap.length : bp.length;
-    for (int i = 0; i < maxLength; i++) {
-      final av = i < ap.length ? ap[i] : 0;
-      final bv = i < bp.length ? bp[i] : 0;
-      if (av != bv) return av.compareTo(bv);
-    }
-    return 0;
-  }
-
-  static bool _isSemanticVersion(String value) {
-    return RegExp(r'^\d+\.\d+\.\d+$').hasMatch(value);
   }
 
   static String? _extractAbsolutePath(String output) {
@@ -236,7 +202,7 @@ class PluginScannerService {
     if (candidateLatestVersion == null || candidateLatestVersion.isEmpty) {
       return null;
     }
-    return _compareNodeVersions(candidateLatestVersion, installedVersion) > 0
+    return compareSemanticVersions(candidateLatestVersion, installedVersion) > 0
         ? candidateLatestVersion
         : null;
   }
@@ -267,7 +233,7 @@ class PluginScannerService {
   static String? _extractPyenvVersionFromPath(String path) {
     final match = RegExp(r'/.pyenv/versions/([^/]+)/').firstMatch(path);
     final value = match?.group(1);
-    if (value != null && _isSemanticVersion(value)) return value;
+    if (value != null && isStrictSemanticVersionText(value)) return value;
     return null;
   }
 
@@ -304,7 +270,7 @@ class PluginScannerService {
       prefix: '$majorMinor.',
     );
     if (versions.isEmpty) return null;
-    versions.sort(_compareSemver);
+    versions.sort(compareSemanticVersions);
     return versions.last;
   }
 
@@ -391,7 +357,7 @@ class PluginScannerService {
       if (version == null) continue;
       final managedPyenvVersion =
           (selectedVersionName != null &&
-              _isSemanticVersion(selectedVersionName))
+              isStrictSemanticVersionText(selectedVersionName))
           ? selectedVersionName
           : _extractPyenvVersionFromPath(executable);
       final formula = _looksLikeHomebrewPath(executable)

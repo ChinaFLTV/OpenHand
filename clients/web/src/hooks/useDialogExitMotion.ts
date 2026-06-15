@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { normalizeDurationMs } from '../shared/util/number';
 import { getDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 
 export interface DialogExitMotionOptions {
   exitMs?: number;
   closeOnEscape?: boolean;
+  active?: boolean;
   onBeforeClose?: (reason?: string) => void;
 }
 
@@ -15,10 +17,61 @@ export interface DialogExitMotionController<Reason extends string = string> {
   resetClosing: () => void;
 }
 
+interface DialogEscapeStackEntry {
+  readonly id: number;
+  readonly closeOnEscape: () => boolean;
+  readonly requestEscapeClose: () => void;
+}
+
+let nextDialogEscapeEntryId = 1;
+let dialogEscapeStack: DialogEscapeStackEntry[] = [];
+let dialogEscapeListenerAttached = false;
+
+function topDialogEscapeEntry(): DialogEscapeStackEntry | undefined {
+  return dialogEscapeStack[dialogEscapeStack.length - 1];
+}
+
+function handleGlobalDialogEscape(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.key !== 'Escape') return;
+  const entry = topDialogEscapeEntry();
+  if (!entry) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (entry.closeOnEscape()) {
+    entry.requestEscapeClose();
+  }
+}
+
+function ensureDialogEscapeListener(): void {
+  if (dialogEscapeListenerAttached || typeof window === 'undefined') return;
+  window.addEventListener('keydown', handleGlobalDialogEscape);
+  dialogEscapeListenerAttached = true;
+}
+
+function detachDialogEscapeListenerIfIdle(): void {
+  if (
+    !dialogEscapeListenerAttached ||
+    dialogEscapeStack.length > 0 ||
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+  window.removeEventListener('keydown', handleGlobalDialogEscape);
+  dialogEscapeListenerAttached = false;
+}
+
+function registerDialogEscapeEntry(entry: DialogEscapeStackEntry): () => void {
+  dialogEscapeStack = dialogEscapeStack.filter((item) => item.id !== entry.id);
+  dialogEscapeStack.push(entry);
+  ensureDialogEscapeListener();
+  return () => {
+    dialogEscapeStack = dialogEscapeStack.filter((item) => item.id !== entry.id);
+    detachDialogEscapeListenerIfIdle();
+  };
+}
+
 function normalizeExitDurationMs(value: number | undefined): number {
-  if (value == null) return getDialogExitDurationMs();
-  if (!Number.isFinite(value)) return getDialogExitDurationMs();
-  return Math.max(0, Math.round(value));
+  return normalizeDurationMs(value, { fallback: getDialogExitDurationMs() });
 }
 
 export function useDialogExitMotion(
@@ -43,12 +96,18 @@ export function useDialogExitMotion<Reason extends string = string>(
   const onBeforeCloseRef = useRef<((reason?: Reason) => void) | undefined>(
     options?.onBeforeClose as ((reason?: Reason) => void) | undefined,
   );
+  const requestCloseWithReasonRef = useRef<
+    ((reason?: Reason) => void) | undefined
+  >(undefined);
+  const closeOnEscapeRef = useRef(true);
+  const escapeEntryIdRef = useRef(0);
   const closingRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
   const closeReasonRef = useRef<Reason | undefined>(undefined);
   const exitMs =
     typeof optionsOrExitMs === 'number' ? optionsOrExitMs : options?.exitMs;
   const closeOnEscape = options?.closeOnEscape !== false;
+  const active = options?.active !== false;
   const onBeforeClose = options?.onBeforeClose as
     | ((reason?: Reason) => void)
     | undefined;
@@ -60,6 +119,10 @@ export function useDialogExitMotion<Reason extends string = string>(
   useEffect(() => {
     onBeforeCloseRef.current = onBeforeClose;
   }, [onBeforeClose]);
+
+  useEffect(() => {
+    closeOnEscapeRef.current = closeOnEscape;
+  }, [closeOnEscape]);
 
   const finishClose = useCallback(() => {
     const reason = closeReasonRef.current;
@@ -96,6 +159,10 @@ export function useDialogExitMotion<Reason extends string = string>(
     }, durationMs);
   }, [exitMs, finishClose, reduceMotion]);
 
+  useEffect(() => {
+    requestCloseWithReasonRef.current = requestCloseWithReason;
+  }, [requestCloseWithReason]);
+
   const requestClose = useCallback(() => {
     requestCloseWithReason();
   }, [requestCloseWithReason]);
@@ -114,15 +181,19 @@ export function useDialogExitMotion<Reason extends string = string>(
   }, [clearCloseTimer]);
 
   useEffect(() => {
-    if (!closeOnEscape || typeof window === 'undefined') return undefined;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        requestCloseWithReason('escape' as Reason);
-      }
+    if (!active || typeof window === 'undefined') return undefined;
+    if (escapeEntryIdRef.current === 0) {
+      escapeEntryIdRef.current = nextDialogEscapeEntryId++;
+    }
+    const entry: DialogEscapeStackEntry = {
+      id: escapeEntryIdRef.current,
+      closeOnEscape: () => closeOnEscapeRef.current,
+      requestEscapeClose: () => {
+        requestCloseWithReasonRef.current?.('escape' as Reason);
+      },
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closeOnEscape, requestCloseWithReason]);
+    return registerDialogEscapeEntry(entry);
+  }, [active]);
 
   return { closing, requestClose, requestCloseWithReason, resetClosing };
 }

@@ -1,3 +1,5 @@
+import '../../../shared/util/version_compare.dart';
+
 /// 插件基本信息模型。
 ///
 /// 每个可选插件（NodeJS / PlayWright 等）对应一个 [PluginInfo] 实例，
@@ -83,31 +85,7 @@ class PluginInfo {
       isInstalled &&
       latestVersion != null &&
       installedVersion != null &&
-      _compareVersions(latestVersion!, installedVersion!) > 0;
-
-  static int _compareVersions(String a, String b) {
-    final normalizedA = _normalizeVersion(a);
-    final normalizedB = _normalizeVersion(b);
-    if (normalizedA == null || normalizedB == null) {
-      return a.compareTo(b);
-    }
-    final maxLength = normalizedA.length > normalizedB.length
-        ? normalizedA.length
-        : normalizedB.length;
-    for (int index = 0; index < maxLength; index++) {
-      final av = index < normalizedA.length ? normalizedA[index] : 0;
-      final bv = index < normalizedB.length ? normalizedB[index] : 0;
-      if (av != bv) return av.compareTo(bv);
-    }
-    return 0;
-  }
-
-  static List<int>? _normalizeVersion(String value) {
-    final match = RegExp(r'\d+(?:\.\d+)+').firstMatch(value);
-    final raw = match?.group(0);
-    if (raw == null) return null;
-    return raw.split('.').map((part) => int.tryParse(part) ?? 0).toList();
-  }
+      compareSemanticVersions(latestVersion!, installedVersion!) > 0;
 
   PluginInfo copyWith({
     String? id,
