@@ -39,6 +39,13 @@ class AiTranslationProviderCatalogs {
         AiTranslationCatalogOption('th', 'ไทย th'),
         AiTranslationCatalogOption('id', 'Bahasa Indonesia id'),
         AiTranslationCatalogOption('ar', 'العربية ar'),
+        AiTranslationCatalogOption('tr', 'Türkçe tr'),
+        AiTranslationCatalogOption('hi', 'हिन्दी hi'),
+        AiTranslationCatalogOption('he', 'עברית he'),
+        AiTranslationCatalogOption('nl', 'Nederlands nl'),
+        AiTranslationCatalogOption('pl', 'Polski pl'),
+        AiTranslationCatalogOption('sv', 'Svenska sv'),
+        AiTranslationCatalogOption('da', 'Dansk da'),
       ];
 
   static const List<AiTranslationCatalogOption> sourceLanguageOptions =

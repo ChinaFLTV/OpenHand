@@ -31,6 +31,7 @@ class AiTtsPlaybackService {
 
   static const String settingsTestMessageId = '__settings_tts_test__';
   static const String settingsTestText = '这是一段文本转语音测试。';
+  static const int _doubaoTtsSuccessCode = 20000000;
 
   final ValueNotifier<AiTtsPlaybackSnapshot> state =
       ValueNotifier<AiTtsPlaybackSnapshot>(const AiTtsPlaybackSnapshot());
@@ -304,6 +305,7 @@ class AiTtsPlaybackService {
         'X-Api-Key': settings.apiKey,
         'X-Api-Resource-Id': resourceId,
         'X-Api-Request-Id': requestId,
+        HttpHeaders.connectionHeader: 'keep-alive',
       })
       ..body = jsonEncode(<String, Object?>{
         'req_params': <String, Object?>{
@@ -1028,9 +1030,10 @@ class AiTtsPlaybackService {
     final decoded = jsonDecode(payload);
     if (decoded is! Map) return;
     final code = decoded['code'];
-    if (code is int && code != 0) {
+    if (code is int && code != 0 && code != _doubaoTtsSuccessCode) {
       throw StateError('Doubao TTS failed: ${decoded['message'] ?? code}');
     }
+    if (code == _doubaoTtsSuccessCode) return;
     final data = decoded['data'];
     if (data is String && data.isNotEmpty) {
       onAudio(data);

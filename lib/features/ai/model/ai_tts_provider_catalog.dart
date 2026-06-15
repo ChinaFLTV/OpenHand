@@ -212,7 +212,7 @@ class AiTtsProviderCatalogs {
           languageOptions: _commonLanguages,
           modelOptions: <AiTtsCatalogOption>[
             AiTtsCatalogOption('seed-tts-2.0-standard', 'Seed TTS 2.0 标准版'),
-            AiTtsCatalogOption('seed-tts-2.0', 'Seed TTS 2.0'),
+            AiTtsCatalogOption('seed-tts-2.0-expressive', 'Seed TTS 2.0 高表现力版'),
           ],
           formatOptions: <AiTtsCatalogOption>[
             AiTtsCatalogOption('mp3', 'MP3'),
@@ -222,6 +222,7 @@ class AiTtsProviderCatalogs {
           ],
           resourceIdOptions: <AiTtsCatalogOption>[
             AiTtsCatalogOption('seed-tts-2.0', 'Seed TTS 2.0'),
+            AiTtsCatalogOption('seed-icl-2.0', 'Seed ICL 2.0 复刻音色'),
           ],
         ),
         AiTtsProvider.mimo: AiTtsProviderCatalog(

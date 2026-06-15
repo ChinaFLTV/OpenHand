@@ -5,6 +5,7 @@ import 'package:characters/characters.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_creation_mode.dart';
@@ -45,6 +46,8 @@ class AiTranslationService {
   static const String _aiPromptAsset =
       'assets/prompts/common/ai_translation_system_prompt.md';
   static const int _networkPreviewLength = 180;
+  static const int _doubaoSuccessCode = 20000000;
+  static const String _doubaoDefaultResourceId = 'volc.speech.mt';
 
   final http.Client _client;
   final AiChatClient _chatClient;
@@ -110,6 +113,12 @@ class AiTranslationService {
             timeout: timeout,
           ),
           AiTranslationProvider.baidu => await _translateWithBaidu(
+            text: boundedText,
+            settings: settings,
+            providerSettings: providerSettings,
+            timeout: timeout,
+          ),
+          AiTranslationProvider.doubao => await _translateWithDoubao(
             text: boundedText,
             settings: settings,
             providerSettings: providerSettings,
@@ -428,6 +437,75 @@ class AiTranslationService {
     return _readTranslatedText(json);
   }
 
+  Future<String> _translateWithDoubao({
+    required String text,
+    required AiTranslationSettings settings,
+    required AiTranslationProviderSettings providerSettings,
+    required Duration timeout,
+  }) async {
+    final apiKey = providerSettings.apiKey.trim();
+    final appId = providerSettings.appId.trim();
+    final accessKey = providerSettings.apiSecret.trim();
+    if (apiKey.isEmpty && (appId.isEmpty || accessKey.isEmpty)) {
+      throw const AiTranslationException(
+        'Doubao translation needs API Key or App ID + Access Key.',
+        provider: AiTranslationProvider.doubao,
+      );
+    }
+    final resourceId = _extraString(
+      providerSettings,
+      'resource_id',
+      fallback: _doubaoDefaultResourceId,
+    );
+    final requestId = _extraString(providerSettings, 'request_id').isEmpty
+        ? const Uuid().v4()
+        : _extraString(providerSettings, 'request_id');
+    final body = <String, Object?>{
+      'target_language': _doubaoLanguage(settings.targetLanguage),
+      'text_list': <String>[text],
+    };
+    if (settings.sourceLanguage != 'auto') {
+      body['source_language'] = _doubaoLanguage(settings.sourceLanguage);
+    }
+    final corpus = _doubaoCorpus(providerSettings);
+    if (corpus != null) body['corpus'] = corpus;
+
+    final headers = <String, String>{
+      'content-type': 'application/json; charset=utf-8',
+      'X-Api-Resource-Id': resourceId,
+      'X-Api-Request-Id': requestId,
+      if (apiKey.isNotEmpty) 'X-Api-Key': apiKey,
+      if (apiKey.isEmpty) 'X-Api-App-Key': appId,
+      if (apiKey.isEmpty) 'X-Api-Access-Key': accessKey,
+    };
+    final response = await _client
+        .post(
+          Uri.parse(_endpointOrDefault(providerSettings)),
+          headers: headers,
+          body: jsonEncode(body),
+        )
+        .timeout(timeout);
+    final json = _decodeObject(response, AiTranslationProvider.doubao);
+    final code = _intValue(json['code']);
+    if (code != null && code != _doubaoSuccessCode) {
+      throw AiTranslationException(
+        'Doubao translation failed: $code ${json['message'] ?? ''}',
+        provider: AiTranslationProvider.doubao,
+      );
+    }
+    final data = json['data'];
+    if (data is Map) {
+      final translations = data['translation_list'];
+      if (translations is List && translations.isNotEmpty) {
+        final first = translations.first;
+        if (first is Map && first['translation'] != null) {
+          return '${first['translation']}';
+        }
+      }
+    }
+    return _readTranslatedText(json);
+  }
+
   Future<String> _loadAiPrompt() {
     return _aiPromptFuture ??= rootBundle.loadString(_aiPromptAsset);
   }
@@ -616,6 +694,54 @@ class AiTranslationService {
       'ar' => 'ara',
       _ => value,
     };
+  }
+
+  String _doubaoLanguage(String value) {
+    return switch (value) {
+      'zh-CN' => 'zh',
+      'zh-TW' => 'zh-Hant',
+      _ => value,
+    };
+  }
+
+  String _extraString(
+    AiTranslationProviderSettings settings,
+    String key, {
+    String fallback = '',
+  }) {
+    final value = settings.extra[key];
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? fallback : trimmed;
+    }
+    return fallback;
+  }
+
+  Object? _doubaoCorpus(AiTranslationProviderSettings settings) {
+    final rawObject = settings.extra['corpus'];
+    if (rawObject is Map) return Map<String, Object?>.from(rawObject);
+    final rawJson = _extraString(settings, 'corpus_json');
+    if (rawJson.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(rawJson);
+      if (decoded is Map) return Map<String, Object?>.from(decoded);
+    } on FormatException catch (error) {
+      throw AiTranslationException(
+        'Doubao corpus JSON is invalid: ${error.message}',
+        provider: AiTranslationProvider.doubao,
+      );
+    }
+    throw const AiTranslationException(
+      'Doubao corpus JSON must be an object.',
+      provider: AiTranslationProvider.doubao,
+    );
+  }
+
+  int? _intValue(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   void dispose() {

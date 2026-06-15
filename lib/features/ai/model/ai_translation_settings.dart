@@ -4,7 +4,8 @@ enum AiTranslationProvider {
   google('google'),
   bing('bing'),
   apple('apple'),
-  baidu('baidu');
+  baidu('baidu'),
+  doubao('doubao');
 
   const AiTranslationProvider(this.storageKey);
 
@@ -121,6 +122,24 @@ class AiTranslationProviderSettings {
           modelConfigId: '',
           modelId: '',
           extra: <String, Object?>{},
+        );
+      case AiTranslationProvider.doubao:
+        return const AiTranslationProviderSettings(
+          provider: AiTranslationProvider.doubao,
+          enabled: false,
+          endpoint:
+              'https://openspeech.bytedance.com/api/v3/machine_translation/matx_translate',
+          appId: '',
+          apiKey: '',
+          apiSecret: '',
+          accessToken: '',
+          region: '',
+          modelConfigId: '',
+          modelId: '',
+          extra: <String, Object?>{
+            'resource_id': 'volc.speech.mt',
+            'corpus_json': '',
+          },
         );
     }
   }
@@ -296,6 +315,7 @@ class AiTranslationSettings {
         AiTranslationProvider.bing,
         AiTranslationProvider.apple,
         AiTranslationProvider.baidu,
+        AiTranslationProvider.doubao,
       ];
   static const Set<String> supportedLanguages = <String>{
     'auto',
@@ -314,6 +334,13 @@ class AiTranslationSettings {
     'th',
     'id',
     'ar',
+    'tr',
+    'hi',
+    'he',
+    'nl',
+    'pl',
+    'sv',
+    'da',
   };
 
   final bool enabled;
@@ -413,6 +440,7 @@ class AiTranslationSettings {
             settings.region,
             settings.modelConfigId,
             settings.modelId,
+            settings.extra,
           ].join(':');
         })
         .join('|');

@@ -250,10 +250,13 @@ const TTS_PROVIDER_CATALOG: Record<TtsProvider, TtsProviderCatalog> = {
       { value: 'en_male_jackson_mars_bigtts', label: 'Jackson - English' },
     ],
     languages: COMMON_TTS_LANGUAGES,
-    resourceIds: [{ value: 'seed-tts-2.0', label: 'Seed TTS 2.0' }],
+    resourceIds: [
+      { value: 'seed-tts-2.0', label: 'Seed TTS 2.0' },
+      { value: 'seed-icl-2.0', label: 'Seed ICL 2.0 复刻音色' },
+    ],
     models: [
       { value: 'seed-tts-2.0-standard', label: 'Seed TTS 2.0 标准版' },
-      { value: 'seed-tts-2.0', label: 'Seed TTS 2.0' },
+      { value: 'seed-tts-2.0-expressive', label: 'Seed TTS 2.0 高表现力版' },
     ],
     formats: [
       { value: 'mp3', label: 'MP3' },

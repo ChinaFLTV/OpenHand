@@ -883,9 +883,17 @@ class _AiTranslationProviderCardState
               onSubmitted: (value) =>
                   _updateCurrent((current) => current.copyWith(appId: value)),
             ),
+          if (provider == AiTranslationProvider.doubao)
+            _AiTtsProviderTextField(
+              label: _localizedText(context, zh: 'App ID（旧版）', en: 'App ID'),
+              value: providerSettings.appId,
+              onSubmitted: (value) =>
+                  _updateCurrent((current) => current.copyWith(appId: value)),
+            ),
           if (provider == AiTranslationProvider.youdao ||
               provider == AiTranslationProvider.google ||
-              provider == AiTranslationProvider.bing)
+              provider == AiTranslationProvider.bing ||
+              provider == AiTranslationProvider.doubao)
             _AiTtsProviderTextField(
               label: _translationPrimaryCredentialLabel(provider),
               value: providerSettings.apiKey,
@@ -894,7 +902,8 @@ class _AiTranslationProviderCardState
                   _updateCurrent((current) => current.copyWith(apiKey: value)),
             ),
           if (provider == AiTranslationProvider.baidu ||
-              provider == AiTranslationProvider.youdao)
+              provider == AiTranslationProvider.youdao ||
+              provider == AiTranslationProvider.doubao)
             _AiTtsProviderTextField(
               label: _translationSecondaryCredentialLabel(provider),
               value: providerSettings.apiSecret,
@@ -925,6 +934,22 @@ class _AiTranslationProviderCardState
               onSubmitted: (value) => _updateCurrent(
                 (current) => current.copyWith(accessToken: value),
               ),
+            ),
+          ],
+          if (provider == AiTranslationProvider.doubao) ...[
+            _AiTtsProviderTextField(
+              label: 'Resource ID',
+              value:
+                  '${providerSettings.extra['resource_id'] ?? 'volc.speech.mt'}',
+              onSubmitted: (value) => _updateExtra(
+                'resource_id',
+                value.isEmpty ? 'volc.speech.mt' : value,
+              ),
+            ),
+            _AiTtsProviderTextField(
+              label: _localizedText(context, zh: '术语 JSON', en: 'Corpus JSON'),
+              value: '${providerSettings.extra['corpus_json'] ?? ''}',
+              onSubmitted: (value) => _updateExtra('corpus_json', value),
             ),
           ],
         ],
@@ -965,6 +990,13 @@ class _AiTranslationProviderCardState
     patch,
   ) {
     return _update(patch(_effectiveProviderSettings).normalized());
+  }
+
+  Future<void> _updateExtra(String key, Object? value) {
+    final current = _effectiveProviderSettings;
+    final extra = Map<String, Object?>.from(current.extra);
+    extra[key] = value;
+    return _update(current.copyWith(extra: extra).normalized());
   }
 
   AiTranslationSettings _settingsWithProvider(
@@ -2518,6 +2550,8 @@ String _translationProviderLabel(
       return _localizedText(context, zh: '苹果翻译', en: 'Apple Translate');
     case AiTranslationProvider.baidu:
       return _localizedText(context, zh: '百度翻译', en: 'Baidu Translate');
+    case AiTranslationProvider.doubao:
+      return _localizedText(context, zh: '豆包翻译', en: 'Doubao Translate');
   }
 }
 
@@ -2562,6 +2596,12 @@ String _translationProviderHint(
         zh: '调用百度通用翻译接口，需 App ID 与 Secret Key。',
         en: 'Calls Baidu general translation with App ID and secret key.',
       );
+    case AiTranslationProvider.doubao:
+      return _localizedText(
+        context,
+        zh: '调用火山引擎机器翻译大模型，支持 API Key 或旧版 App Key 鉴权。',
+        en: 'Calls Volcengine machine translation with API key or legacy app access key.',
+      );
   }
 }
 
@@ -2572,6 +2612,7 @@ String _translationPrimaryCredentialLabel(AiTranslationProvider provider) {
     case AiTranslationProvider.youdao:
     case AiTranslationProvider.google:
     case AiTranslationProvider.apple:
+    case AiTranslationProvider.doubao:
     case AiTranslationProvider.baidu:
     case AiTranslationProvider.ai:
       return 'API Key';
@@ -2579,6 +2620,7 @@ String _translationPrimaryCredentialLabel(AiTranslationProvider provider) {
 }
 
 String _translationSecondaryCredentialLabel(AiTranslationProvider provider) {
+  if (provider == AiTranslationProvider.doubao) return 'Access Key（旧版）';
   return provider == AiTranslationProvider.baidu ? 'Secret Key' : 'API Secret';
 }
 
@@ -2638,6 +2680,13 @@ String? _translationProviderReadinessError(
     case AiTranslationProvider.baidu:
       requireField(settings.appId, 'App ID');
       requireField(settings.apiSecret, 'Secret Key');
+      break;
+    case AiTranslationProvider.doubao:
+      if (settings.apiKey.trim().isEmpty &&
+          (settings.appId.trim().isEmpty ||
+              settings.apiSecret.trim().isEmpty)) {
+        missing.add('API Key / App ID + Access Key');
+      }
       break;
   }
   if (missing.isEmpty) return null;
