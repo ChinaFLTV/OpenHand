@@ -740,19 +740,8 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (_status != HardnessOrchestratorStatus.running) return;
     _stopRequested = true;
     _manualPhaseInputRequested = false;
-    // Resolve any pending approval completer so the pipeline loop can exit.
-    final completer = _phaseApprovalCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.complete(false);
-      _phaseApprovalCompleter = null;
-      _awaitingApprovalPhase = null;
-    }
-    // Signal cancellation to any running API phase.
-    final apiCancel = _apiCancelCompleter;
-    if (apiCancel != null && !apiCancel.isCompleted) {
-      apiCancel.complete();
-      _apiCancelCompleter = null;
-    }
+    _completePendingApproval(approved: false);
+    _cancelActiveApiPhase();
     // Immediately mark any running phase as cancelled for instant UI feedback.
     for (final log in _phaseLogs) {
       if (log.status == HardnessPhaseStatus.running) {
@@ -793,6 +782,25 @@ class HardnessOrchestrator extends ChangeNotifier {
         }
       }
     });
+  }
+
+  void _completePendingApproval({required bool approved}) {
+    final completer = _phaseApprovalCompleter;
+    if (completer == null) return;
+    if (!completer.isCompleted) {
+      completer.complete(approved);
+    }
+    _phaseApprovalCompleter = null;
+    _awaitingApprovalPhase = null;
+  }
+
+  void _cancelActiveApiPhase() {
+    final apiCancel = _apiCancelCompleter;
+    if (apiCancel == null) return;
+    if (!apiCancel.isCompleted) {
+      apiCancel.complete();
+    }
+    _apiCancelCompleter = null;
   }
 
   void restoreSnapshot({
@@ -1201,18 +1209,8 @@ class HardnessOrchestrator extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
-    // Resolve any pending approval so the pipeline loop exits cleanly.
-    final completer = _phaseApprovalCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.complete(false);
-      _phaseApprovalCompleter = null;
-    }
-    // Signal cancellation to any running API phase.
-    final apiCancel = _apiCancelCompleter;
-    if (apiCancel != null && !apiCancel.isCompleted) {
-      apiCancel.complete();
-      _apiCancelCompleter = null;
-    }
+    _completePendingApproval(approved: false);
+    _cancelActiveApiPhase();
     // Kill any running process so it doesn't become an orphan.
     try {
       _activeProcess?.kill();
@@ -1785,11 +1783,8 @@ class HardnessOrchestrator extends ChangeNotifier {
             ..sort((a, b) => a.path.compareTo(b.path));
           if (files.isNotEmpty) handoffContent = files.last.readAsStringSync();
         }
-      } catch (error) {
-        assert(() {
-          debugPrint('[hardness] failed to read handoff: $error');
-          return true;
-        }());
+      } catch (error, stack) {
+        silentLog('hardness_orchestrator', 'read handoff', error, stack);
       }
     }
 
@@ -1811,11 +1806,8 @@ class HardnessOrchestrator extends ChangeNotifier {
                 : fullContent;
           }
         }
-      } catch (error) {
-        assert(() {
-          debugPrint('[hardness] failed to read lessons: $error');
-          return true;
-        }());
+      } catch (error, stack) {
+        silentLog('hardness_orchestrator', 'read lessons', error, stack);
       }
     }
 
@@ -1829,11 +1821,8 @@ class HardnessOrchestrator extends ChangeNotifier {
             ..sort((a, b) => b.path.compareTo(a.path)); // newest first
           if (files.isNotEmpty) planContent = files.first.readAsStringSync();
         }
-      } catch (error) {
-        assert(() {
-          debugPrint('[hardness] failed to read plan: $error');
-          return true;
-        }());
+      } catch (error, stack) {
+        silentLog('hardness_orchestrator', 'read plan', error, stack);
       }
     }
 
@@ -1849,11 +1838,8 @@ class HardnessOrchestrator extends ChangeNotifier {
             feedbackContent = files.first.readAsStringSync();
           }
         }
-      } catch (error) {
-        assert(() {
-          debugPrint('[hardness] failed to read feedback: $error');
-          return true;
-        }());
+      } catch (error, stack) {
+        silentLog('hardness_orchestrator', 'read feedback', error, stack);
       }
     }
 
@@ -2268,11 +2254,8 @@ class HardnessOrchestrator extends ChangeNotifier {
       );
       await file.writeAsString(log.lines.join('\n'));
       log.savedLogPath = file.path;
-    } catch (error) {
-      assert(() {
-        debugPrint('[hardness] failed to persist phase log: $error');
-        return true;
-      }());
+    } catch (error, stack) {
+      silentLog('hardness_orchestrator', 'persist phase log', error, stack);
     }
   }
 

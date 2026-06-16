@@ -7,12 +7,7 @@ import 'dart:io';
 ///   2. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
 ///
-/// 历史规则「widgets/ 禁止 import 同 feature service/」已废弃：
-///   - 部分 feature 是 widget-bundle 形态（hardness / settings 无 Controller），
-///     widget 直接调 service 是唯一可行路径。
-///   - 其它 feature 中即便有 Controller，dialog/page widget 调用 service 的
-///     一次性操作（解析、序列化、prefs 读写）也属合理使用。
-///   - 强制约束会强行重写稳定代码且无明确收益。
+/// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
 /// 解析后落到 lib/shared/、lib/app/、lib/l10n/ 等非 features 的路径，
 /// 以及解析后仍在 owner 自身目录内的 import（含 ../data/、../service/），

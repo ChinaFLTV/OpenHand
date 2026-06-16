@@ -2064,23 +2064,14 @@ class AiSessionController extends ChangeNotifier {
     if (effectiveSession == null) {
       return false;
     }
-    var persisted = false;
     try {
       await _store.saveSessionHeader(effectiveSession);
-      persisted = true;
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
         'persist metadata patch',
         error,
         stack,
-      );
-    }
-    if (kDebugMode) {
-      debugPrint(
-        '[pe.recents] updateSessionMetadata session=$sessionId '
-        'payloadKeys=${payload.keys.toList()} persisted=$persisted '
-        'metadataKeysAfter=${effectiveSession.metadata.keys.toList()}',
       );
     }
     return true;
