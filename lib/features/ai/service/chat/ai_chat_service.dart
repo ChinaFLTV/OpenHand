@@ -11,6 +11,7 @@ import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../model/ai_api_dialect.dart';
+import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
@@ -271,6 +272,51 @@ class AiChatService implements AiChatClient {
     };
   }
 
+  bool _canUseResponsesFamily({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
+    required AiCreationRequest creationRequest,
+  }) {
+    if (model.apiDialect != AiApiDialect.openAiCompat ||
+        creationRequest.mode != AiCreationMode.none ||
+        tools.isNotEmpty ||
+        responseModalities.isNotEmpty) {
+      return false;
+    }
+    if (!_hasExplicitResponsesCapability(model)) {
+      return false;
+    }
+    return messages.every(
+      (item) =>
+          item.effectiveParts.isEmpty ||
+          item.effectiveParts.every(
+            (part) => part.kind == AiChatContentPartKind.text,
+          ),
+    );
+  }
+
+  bool _hasExplicitResponsesCapability(AiModelConfig model) {
+    if (model.providerKind == AiProviderKind.openai) {
+      return true;
+    }
+    if (model.endpointOverrides.containsKey(AiApiFamily.responses)) {
+      return true;
+    }
+    final responsesModelId = model.operationRouting.responsesModelId;
+    return responsesModelId != null && responsesModelId.trim().isNotEmpty;
+  }
+
+  bool _shouldFallbackFromResponsesStream(AiChatException error) {
+    final requestUrl = error.telemetry?.requestUrl?.toLowerCase() ?? '';
+    if (!requestUrl.contains('/responses')) {
+      return false;
+    }
+    final message = error.message.toLowerCase();
+    return message.contains('404') || message.contains('405');
+  }
+
   /// Throws an [AiChatException] with a user-friendly message when the caller
   /// asks for video/audio output but the active model has no generation
   /// capability. Without this guard the request would fall through to the
@@ -402,18 +448,13 @@ class AiChatService implements AiChatClient {
         throw AiChatException(error.message);
       }
     }
-    final canUseResponses =
-        model.apiDialect == AiApiDialect.openAiCompat &&
-        creationRequest.mode == AiCreationMode.none &&
-        tools.isEmpty &&
-        responseModalities.isEmpty &&
-        messages.every(
-          (item) =>
-              item.effectiveParts.isEmpty ||
-              item.effectiveParts.every(
-                (part) => part.kind == AiChatContentPartKind.text,
-              ),
-        );
+    final canUseResponses = _canUseResponsesFamily(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+    );
     if (canUseResponses) {
       final flattenedInput = messages
           .map((item) => '${item.roleName}: ${item.content}'.trim())
@@ -608,27 +649,28 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
-    final canUseResponses =
-        model.apiDialect == AiApiDialect.openAiCompat &&
-        creationRequest.mode == AiCreationMode.none &&
-        tools.isEmpty &&
-        responseModalities.isEmpty &&
-        messages.every(
-          (item) =>
-              item.effectiveParts.isEmpty ||
-              item.effectiveParts.every(
-                (part) => part.kind == AiChatContentPartKind.text,
-              ),
-        );
+    final canUseResponses = _canUseResponsesFamily(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+    );
     if (canUseResponses) {
-      return _sendResponsesStream(
-        model: model,
-        messages: messages,
-        timeout: timeout,
-        streamIdleTimeout: streamIdleTimeout,
-        cancelSignal: cancelSignal,
-        onRequestStarted: onRequestStarted,
-      );
+      try {
+        return await _sendResponsesStream(
+          model: model,
+          messages: messages,
+          timeout: timeout,
+          streamIdleTimeout: streamIdleTimeout,
+          cancelSignal: cancelSignal,
+          onRequestStarted: onRequestStarted,
+        );
+      } on AiChatException catch (error) {
+        if (!_shouldFallbackFromResponsesStream(error)) {
+          rethrow;
+        }
+      }
     }
     // Media generation is a one-shot or bounded-poll protocol on dedicated
     // endpoints, so wrap it in a synthetic stream that emits one textDelta
