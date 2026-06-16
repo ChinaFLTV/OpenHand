@@ -317,6 +317,14 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
   );
+  // Auto-title uses a separate background LLM request. On OpenAI-compatible
+  // automatic-prefix-cache providers, sending that request while a fresh chat
+  // prefix is still warming can reduce the next user turn's cache hit rate.
+  // Keep the title request out of the critical first-turn cache window.
+  static const Duration _autoTitlePromptCacheQuietWindow = Duration(
+    seconds: 75,
+  );
+  static const Duration _autoTitlePromptCacheMaxWait = Duration(minutes: 5);
   static const Duration _streamPreviewThrottle = Duration(milliseconds: 72);
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 160,
@@ -3646,8 +3654,10 @@ class AiSessionController extends ChangeNotifier {
         _setSessionSendPhase(session.id, AiSendPhase.responding);
         notifyListeners();
 
-        if (preparedUserTurnWithMetadata.shouldGenerateTitle &&
-            runtimeContext.autoTitleEnabled) {
+        final shouldScheduleAutoTitle =
+            preparedUserTurnWithMetadata.shouldGenerateTitle &&
+            runtimeContext.autoTitleEnabled;
+        if (shouldScheduleAutoTitle) {
           // 保存首条用户消息内容，用于后续标题获取重试
           if (session.autoTitleFirstUserContent == null ||
               session.autoTitleFirstUserContent!.isEmpty) {
@@ -3658,14 +3668,6 @@ class AiSessionController extends ChangeNotifier {
             _replaceSessionInMemory(sessionWithFirstContent);
             unawaited(_commitSessionLocked(sessionWithFirstContent));
           }
-          unawaited(
-            _generateAutoTitle(
-              sessionId: session.id,
-              sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
-              sourceContent: preparedUserTurnWithMetadata.userMessage.content,
-              model: model,
-            ),
-          );
         }
 
         final succeeded = await _runAssistantConversation(
@@ -3679,6 +3681,15 @@ class AiSessionController extends ChangeNotifier {
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
         );
+        if (succeeded && shouldScheduleAutoTitle) {
+          _scheduleAutoTitleGeneration(
+            sessionId: session.id,
+            sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
+            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
+            model: model,
+            runtimeContext: runtimeContext,
+          );
+        }
         return succeeded;
       } catch (error) {
         _debugSessionLog(resolvedSessionId, 'send_message_failed error=$error');
@@ -8138,6 +8149,124 @@ $tail''';
       detail: '$lastError',
     );
     await _commitSessionLocked(updatedSession);
+  }
+
+  void _scheduleAutoTitleGeneration({
+    required String sessionId,
+    required String sourceMessageId,
+    required String sourceContent,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    unawaited(() async {
+      try {
+        if (_shouldProtectPromptCacheBeforeAutoTitle(
+          model: model,
+          runtimeContext: runtimeContext,
+        )) {
+          final ready = await _waitForAutoTitlePromptCacheQuietWindow(
+            sessionId: sessionId,
+            sourceMessageId: sourceMessageId,
+          );
+          if (!ready) {
+            return;
+          }
+        }
+        if (_isDisposed) {
+          return;
+        }
+        await _generateAutoTitle(
+          sessionId: sessionId,
+          sourceMessageId: sourceMessageId,
+          sourceContent: sourceContent,
+          model: model,
+        );
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'auto title generation',
+          error,
+          stack,
+        );
+      }
+    }());
+  }
+
+  bool _shouldProtectPromptCacheBeforeAutoTitle({
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    return runtimeContext.aiInputCacheEnabled &&
+        model.streamEnabled &&
+        model.apiDialect.isOpenAiCompat;
+  }
+
+  Future<bool> _waitForAutoTitlePromptCacheQuietWindow({
+    required String sessionId,
+    required String sourceMessageId,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    while (stopwatch.elapsed < _autoTitlePromptCacheMaxWait) {
+      if (_isDisposed) {
+        return false;
+      }
+      final session = _sessionById(sessionId);
+      if (session == null ||
+          session.isTitleManuallyEdited ||
+          session.autoTitleGeneratedAt != null ||
+          (session.autoTitleSourceMessageId != null &&
+              session.autoTitleSourceMessageId != sourceMessageId)) {
+        return false;
+      }
+      if (sendPhaseForSession(sessionId) != AiSendPhase.idle) {
+        await Future<void>.delayed(_autoTitleRetryPollInterval);
+        continue;
+      }
+      final latestActivityAt =
+          _latestPromptCacheRelevantMessageAt(session) ?? session.updatedAt;
+      final idleFor = _clock().toUtc().difference(latestActivityAt.toUtc());
+      if (idleFor >= _autoTitlePromptCacheQuietWindow) {
+        return true;
+      }
+      final remaining = _autoTitlePromptCacheQuietWindow - idleFor;
+      final sleepMs = math.min(
+        remaining.inMilliseconds,
+        _autoTitleRetryPollInterval.inMilliseconds,
+      );
+      await Future<void>.delayed(Duration(milliseconds: math.max(1, sleepMs)));
+    }
+    return false;
+  }
+
+  DateTime? _latestPromptCacheRelevantMessageAt(AiSession session) {
+    DateTime? latest;
+    for (final message in session.messages) {
+      if (message.isDeleted || !_isPromptCacheRelevantMessage(message.kind)) {
+        continue;
+      }
+      final createdAt = message.createdAt.toUtc();
+      if (latest == null || createdAt.isAfter(latest)) {
+        latest = createdAt;
+      }
+    }
+    return latest;
+  }
+
+  bool _isPromptCacheRelevantMessage(AiSessionMessageKind kind) {
+    return switch (kind) {
+      AiSessionMessageKind.user ||
+      AiSessionMessageKind.assistant ||
+      AiSessionMessageKind.reasoning ||
+      AiSessionMessageKind.toolCall ||
+      AiSessionMessageKind.tool => true,
+      AiSessionMessageKind.compressionPoint ||
+      AiSessionMessageKind.mcp ||
+      AiSessionMessageKind.skill ||
+      AiSessionMessageKind.hook ||
+      AiSessionMessageKind.selfLearning ||
+      AiSessionMessageKind.fileMutationSummary ||
+      AiSessionMessageKind.status => false,
+    };
   }
 
   // Total attempts (preferred + retries) before falling back to a
