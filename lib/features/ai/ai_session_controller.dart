@@ -3932,6 +3932,16 @@ class AiSessionController extends ChangeNotifier {
           assistantBootstrapStopwatch.elapsedMilliseconds;
       var preStreamTelemetryPreviewed = false;
       if (activeLatestUserMessageId != null) {
+        final reminderSession =
+            _applyPromptInlinedRuntimeRemindersToUserMessage(
+              session: workingSession,
+              promptResult: promptResult,
+              userMessageId: activeLatestUserMessageId,
+            );
+        if (!identical(reminderSession, workingSession)) {
+          workingSession = reminderSession;
+          _previewSession(workingSession);
+        }
         final nextSession = _applyPreStreamTelemetryToUserMessage(
           session: workingSession,
           model: model,
@@ -10429,6 +10439,54 @@ $tail''';
       if (paths.isNotEmpty)
         'request_cache_control_marker_paths': paths.take(8).toList(),
     };
+  }
+
+  AiSession _applyPromptInlinedRuntimeRemindersToUserMessage({
+    required AiSession session,
+    required AiPromptBuildResult promptResult,
+    required String userMessageId,
+  }) {
+    if (userMessageId.isEmpty) return session;
+    final reminders = _readStringList(
+      promptResult.metadata['latest_user_inlined_runtime_system_reminders'],
+    );
+    if (reminders.isEmpty) return session;
+    final updatedMessages = <AiSessionMessage>[];
+    var changed = false;
+    for (final message in session.messages) {
+      if (message.id != userMessageId) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final existing = _readStringList(
+        message.metadata[aiHookSystemRemindersMetadataKey],
+      );
+      final merged = <String>[...existing];
+      final seen = existing.toSet();
+      for (final reminder in reminders) {
+        if (seen.add(reminder)) {
+          merged.add(reminder);
+        }
+      }
+      if (merged.length == existing.length) {
+        updatedMessages.add(message);
+        continue;
+      }
+      updatedMessages.add(
+        message.copyWith(
+          metadata: <String, Object?>{
+            ...message.metadata,
+            aiHookSystemRemindersMetadataKey: merged,
+          },
+        ),
+      );
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
   }
 
   /// Phase-1 (pre-stream) telemetry: attaches the composed prompt, prompt

@@ -536,6 +536,8 @@ const STREAMING_SIZE_MOTION_BUCKET_CHARS = 16;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
 const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 const MESSAGE_UI_STATE_CACHE_LIMIT = 500;
+const MESSAGE_CARD_TAP_MAX_MS = 350;
+const MESSAGE_CARD_TAP_MAX_DISTANCE_PX = 8;
 
 // 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
 // CSS 入场动画重播，从而引发消息列表"闪烁→消失→重现"的鬼畜抖动。
@@ -1218,6 +1220,9 @@ function MessageCardImpl({
     sizeMotionSignal,
     !reduceMotion && !streamingContent && !keepExpandedDuringTurn,
   );
+  const cardPointerDownRef = useRef<{ x: number; y: number; at: number } | null>(
+    null,
+  );
 
   const toggleBadgeCollapsed = useCallback(() => {
     setBadgeCollapsedOverride((current) => {
@@ -1271,6 +1276,27 @@ function MessageCardImpl({
         overflowWrap: 'anywhere',
         transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
+      onPointerDown={(ev) => {
+        if (!hasAnyAction) return;
+        const target = ev.target as HTMLElement;
+        if (
+          target.closest(
+            'button,a,input,textarea,select,[role="button"],.oh-message-badge-toggle',
+          )
+        ) {
+          cardPointerDownRef.current = null;
+          return;
+        }
+        if (ev.button !== 0) {
+          cardPointerDownRef.current = null;
+          return;
+        }
+        cardPointerDownRef.current = {
+          x: ev.clientX,
+          y: ev.clientY,
+          at: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+        };
+      }}
       onClick={(ev) => {
         if (!hasAnyAction) return;
         // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
@@ -1309,6 +1335,24 @@ function MessageCardImpl({
         // 双击代码块选中文本时也不切换。
         const sel = typeof window !== 'undefined' ? window.getSelection() : null;
         if (sel && sel.toString().length > 0) return;
+        const pointerDown = cardPointerDownRef.current;
+        cardPointerDownRef.current = null;
+        if (pointerDown != null) {
+          const now = typeof performance !== 'undefined'
+            ? performance.now()
+            : Date.now();
+          const elapsed = now - pointerDown.at;
+          const movement = Math.hypot(
+            ev.clientX - pointerDown.x,
+            ev.clientY - pointerDown.y,
+          );
+          if (
+            elapsed > MESSAGE_CARD_TAP_MAX_MS ||
+            movement > MESSAGE_CARD_TAP_MAX_DISTANCE_PX
+          ) {
+            return;
+          }
+        }
         onActiveChange?.(message, !active);
       }}
     >
@@ -1446,8 +1490,11 @@ function MessageCardImpl({
               content={visibleContent}
               streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
-              raw={showRawContent || style.mono === true}
-              mono={style.mono === true}
+              raw={
+                showRawContent ||
+                (style.mono === true && effectiveFormat === 'plain_text')
+              }
+              mono={showRawContent || style.mono === true}
               format={
                 isUserBubble || useToolBody
                   ? 'markdown'
@@ -1485,6 +1532,13 @@ function MessageCardImpl({
     {actionsVisible ? (
       <div
         class={`oh-message-selected-panel ${isUserBubble ? 'is-user' : 'is-other'} oh-soft-replace`}
+        data-message-action-panel="true"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
         style={{
           maxWidth: bubbleMaxWidth,
           marginLeft: isUserBubble ? 'auto' : '0',

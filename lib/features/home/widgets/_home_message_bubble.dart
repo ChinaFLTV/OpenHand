@@ -72,6 +72,11 @@ class _MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<_MessageBubble> {
   static const int _messageExpansionStateCacheLimit = 500;
+  static const double _selectionTapMaxDistance = 8;
+  static const double _htmlSelectionDragStartDistance = 4;
+  static const Duration _selectionTapMaxDuration = Duration(milliseconds: 350);
+  static const Duration _htmlTapMaxDuration = Duration(milliseconds: 600);
+  static const Duration _selectionToggleDelay = Duration(milliseconds: 80);
   static final Map<String, bool> _reasoningExpansionOverridesByMessageId =
       <String, bool>{};
   static final Map<String, bool> _assistantExpansionOverridesByMessageId =
@@ -85,14 +90,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
   // 接不到 onSelect（动作按钮不出现）。改用 Listener 直接
-  // 跨越手势仑免判定点击，如果指针按下与抬起间隔<350ms
-  // 且位移<8逻辑像素，视为一次选中点击。
+  // 跨越手势仲裁判定点击，如果指针按下与抬起间隔、位移均落在
+  // `_selectionTapMaxDuration` / `_selectionTapMaxDistance` 内，视为一次选中点击。
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
   // 2026-05-17: 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
   final GlobalKey _metaCapsuleKey = GlobalKey();
+  final GlobalKey _actionPanelKey = GlobalKey();
 
   // 2026-05-22: 外层 Listener.onPointerUp 在 Flutter gesture arena
   // 解析子节点 onTap 之前就会触发，无法事先得知本次点击是否会被
@@ -258,6 +264,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return rect.contains(globalPosition);
   }
 
+  /// 选中后的功能胶囊只承载消息操作，不参与消息卡片聚焦/失焦切换。
+  bool _isPointerInsideActionPanel(Offset globalPosition) {
+    final box = _actionPanelKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return false;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final rect = topLeft & box.size;
+    return rect.contains(globalPosition);
+  }
+
   /// 子交互回调（Markdown 链接、图片附件、代码块工具栏按钮等）在
   /// 触发自身动作之前调用此方法，告知气泡"本次点击已被消费"，从而
   /// 取消即将到来的延迟选中切换，避免点击交互后顺带切出/收起功能按钮。
@@ -268,7 +283,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   void _scheduleSelectionToggle() {
     _pendingSelectionToggleTimer?.cancel();
-    _pendingSelectionToggleTimer = Timer(const Duration(milliseconds: 80), () {
+    _pendingSelectionToggleTimer = Timer(_selectionToggleDelay, () {
       _pendingSelectionToggleTimer = null;
       if (!mounted) return;
       if (widget.isSelected) {
@@ -502,6 +517,53 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
     }
 
+    Widget buildAssistantBodyDispatcher({
+      required String data,
+      required AiMessageContentFormat format,
+      bool isStreaming = false,
+      bool? collapsedOverride,
+      ValueChanged<bool>? onCollapsedChanged,
+      bool showCollapseToggle = true,
+    }) {
+      return _AssistantMessageBodyDispatcher(
+        data: data.isEmpty ? ' ' : data,
+        format: format,
+        htmlFallback: context.watch<SettingsController>().aiHtmlRenderFallback,
+        textColor: textColor,
+        backgroundColor: backgroundColor,
+        markdownBuilders: markdownBuilders,
+        markdownStyleSheet: markdownStyleSheet.styleSheet,
+        inlineSyntaxes: inlineSyntaxes,
+        filePathRoots: filePathRoots,
+        filePathParseKey: filePathParseKey,
+        collapseCharThreshold: isToolResult
+            ? _toolResultMarkdownCollapseCharThreshold
+            : _messageMarkdownCollapseCharThreshold,
+        collapseLineThreshold: isToolResult
+            ? _toolResultMarkdownCollapseLineThreshold
+            : _messageMarkdownCollapseLineThreshold,
+        previewMaxHeight: isToolResult ? 176 : 240,
+        wrapInSelectionArea: !isToolResult,
+        isStreaming: isStreaming,
+        collapsedOverride: collapsedOverride,
+        onCollapsedChanged: onCollapsedChanged,
+        showCollapseToggle: showCollapseToggle,
+      );
+    }
+
+    Widget buildStreamingMarkdownBody(String data) {
+      return SelectionArea(
+        child: _SafeMarkdownBody(
+          data: data.isEmpty ? ' ' : data,
+          builders: markdownBuilders,
+          styleSheet: markdownStyleSheet.styleSheet,
+          inlineSyntaxes: inlineSyntaxes,
+          pathRoots: filePathRoots,
+          parseKey: filePathParseKey,
+        ),
+      );
+    }
+
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleBody = Column(
@@ -716,27 +778,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             // 改为渲染 `_AssistantMessageBodyDispatcher`
                             // 内部的 Q 弹骨架屏占位；流式结束后由内部
                             // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
-                            _AssistantMessageBodyDispatcher(
+                            buildAssistantBodyDispatcher(
                               data: effectiveContent,
                               format: resolvedMessageContentFormat,
-                              htmlFallback: context
-                                  .watch<SettingsController>()
-                                  .aiHtmlRenderFallback,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              markdownBuilders: markdownBuilders,
-                              markdownStyleSheet: markdownStyleSheet.styleSheet,
-                              inlineSyntaxes: inlineSyntaxes,
-                              filePathRoots: filePathRoots,
-                              filePathParseKey: filePathParseKey,
-                              collapseCharThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseCharThreshold
-                                  : _messageMarkdownCollapseCharThreshold,
-                              collapseLineThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseLineThreshold
-                                  : _messageMarkdownCollapseLineThreshold,
-                              previewMaxHeight: isToolResult ? 176 : 240,
-                              wrapInSelectionArea: !isToolResult,
                               isStreaming: true,
                             )
                           else if (isStreamingAssistant)
@@ -747,22 +791,37 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 expanding: true,
                               ),
                               curve: kCardMotionCurve,
-                              child: StreamingTextRevealText(
-                                text: effectiveContent.isEmpty
-                                    ? ' '
-                                    : effectiveContent,
-                                streaming: true,
-                                animateSize: false,
-                                builder: (context, visibleContent) =>
-                                    _StreamingAssistantTextBody(
-                                      data: visibleContent.isEmpty
+                              child:
+                                  resolvedMessageContentFormat ==
+                                      AiMessageContentFormat.markdown
+                                  ? StreamingTextRevealText(
+                                      text: effectiveContent.isEmpty
                                           ? ' '
-                                          : visibleContent,
-                                      textColor: textColor,
-                                      backgroundColor: backgroundColor,
-                                      style: markdownStyleSheet.styleSheet.p,
+                                          : effectiveContent,
+                                      streaming: true,
+                                      animateSize: false,
+                                      builder: (context, visibleContent) =>
+                                          buildStreamingMarkdownBody(
+                                            visibleContent,
+                                          ),
+                                    )
+                                  : StreamingTextRevealText(
+                                      text: effectiveContent.isEmpty
+                                          ? ' '
+                                          : effectiveContent,
+                                      streaming: true,
+                                      animateSize: false,
+                                      builder: (context, visibleContent) =>
+                                          _StreamingAssistantTextBody(
+                                            data: visibleContent.isEmpty
+                                                ? ' '
+                                                : visibleContent,
+                                            textColor: textColor,
+                                            backgroundColor: backgroundColor,
+                                            style:
+                                                markdownStyleSheet.styleSheet.p,
+                                          ),
                                     ),
-                              ),
                               builder: (context, value, child) {
                                 return Transform.scale(
                                   scale: value,
@@ -772,29 +831,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               },
                             )
                           else
-                            _AssistantMessageBodyDispatcher(
-                              data: effectiveContent.isEmpty
-                                  ? ' '
-                                  : effectiveContent,
+                            buildAssistantBodyDispatcher(
+                              data: effectiveContent,
                               format: resolvedMessageContentFormat,
-                              htmlFallback: context
-                                  .watch<SettingsController>()
-                                  .aiHtmlRenderFallback,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              markdownBuilders: markdownBuilders,
-                              markdownStyleSheet: markdownStyleSheet.styleSheet,
-                              inlineSyntaxes: inlineSyntaxes,
-                              filePathRoots: filePathRoots,
-                              filePathParseKey: filePathParseKey,
-                              collapseCharThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseCharThreshold
-                                  : _messageMarkdownCollapseCharThreshold,
-                              collapseLineThreshold: isToolResult
-                                  ? _toolResultMarkdownCollapseLineThreshold
-                                  : _messageMarkdownCollapseLineThreshold,
-                              previewMaxHeight: isToolResult ? 176 : 240,
-                              wrapInSelectionArea: !isToolResult,
                               collapsedOverride: canCollapseAssistantResponse
                                   ? assistantResponseCollapsed
                                   : null,
@@ -875,6 +914,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ),
         if (widget.isSelected)
           Padding(
+            key: _actionPanelKey,
             padding: const EdgeInsets.only(top: 8),
             child: _SelectedMessageActionPanel(
               alignEnd: isUser,
@@ -1041,7 +1081,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (htmlState == null || downPos == null) return;
         if (_htmlInteractiveStateAt(event.position) == null) return;
         final movement = (event.position - downPos).distance;
-        if (movement <= 4) return;
+        if (movement <= _htmlSelectionDragStartDistance) return;
         if (!_htmlSelectionDragActive) {
           _htmlSelectionDragActive = true;
           htmlState.beginSelectionAtGlobal(downPos);
@@ -1072,6 +1112,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (_isPointerInsideMetaCapsule(event.position)) {
           return;
         }
+        if (_isPointerInsideActionPanel(event.position) ||
+            _isPointerInsideActionPanel(downPos)) {
+          return;
+        }
         // HTML 消息中 WebView 内部按钮/链接/表单的点击不能被气泡
         // 选中切换吞掉，否则点了没反应、还多了一条功能按钮条。
         // 同时——macOS Flutter embedder 不会把鼠标事件转发给嵌入的
@@ -1093,31 +1137,29 @@ class _MessageBubbleState extends State<_MessageBubble> {
           }
           final movement = (event.position - downPos).distance;
           final elapsed = DateTime.now().difference(downAt);
-          if (movement <= 8 && elapsed.inMilliseconds <= 600) {
+          if (movement <= _selectionTapMaxDistance &&
+              elapsed <= _htmlTapMaxDuration) {
             (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(event.position);
           }
           return;
         }
         final movement = (event.position - downPos).distance;
         final elapsed = DateTime.now().difference(downAt);
-        if (movement <= 8 && elapsed.inMilliseconds <= 350) {
+        if (movement <= _selectionTapMaxDistance &&
+            elapsed <= _selectionTapMaxDuration) {
           // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示。
           // 延迟 80ms，给气泡内的子交互回调（链接 / 图片 / 工具栏按钮）
           // 一个调用 markInteractiveTap() 取消切换的窗口期。
           _scheduleSelectionToggle();
         }
       },
-      child: TapRegion(
-        enabled: widget.isSelected,
-        onTapOutside: (_) => widget.onDeselect(),
-        child: _BubbleHtmlInteractiveScope(
-          state: this,
-          child: Align(
-            alignment: alignment,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: messageContent,
-            ),
+      child: _BubbleHtmlInteractiveScope(
+        state: this,
+        child: Align(
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: messageContent,
           ),
         ),
       ),
@@ -1323,7 +1365,14 @@ class _MessageActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: onPressed,
+      onPressed: onPressed == null
+          ? null
+          : () {
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
+              unawaited(onPressed!());
+            },
       style: _messageActionChipStyle(context),
       icon: Icon(icon, size: 16),
       label: Text(

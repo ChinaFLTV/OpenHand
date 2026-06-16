@@ -243,12 +243,13 @@ class _StreamingReasoningBody extends StatelessWidget {
     // 「plain text ↔ markdown」的逐帧高度抖动。当思考卡片占满整个窗口时,
     // 该抖动被外层 `SizeChangedLayoutNotifier` + `_scheduleScrollToBottom`
     // 的 jumpTo 捕获并把视口逐帧弹跳式拽回新底部,呈现"上蹿下跳 / 鬼畜抽搐"。
-    // 正式响应卡片流式走的是 `_StreamingAssistantTextBody`(SelectableText),
-    // 没有 markdown 占位/升级抖动,所以无此问题。
+    // 正式响应卡片的 markdown 格式流式阶段走稳定的 `_SafeMarkdownBody`
+    // 子树；plain_text 才走 `_StreamingAssistantTextBody`。这里仍维持思考
+    // 卡片的纯文本流式策略，避免 reasoning 大段内容与自动滚动互相放大抖动。
     //
-    // 修复策略: 流失阶段与正式响应走同一套 plain text 路径,只保留文本流
-    // 自身的高亮;外层 `_ReasoningBody` 在流结束后会切回完整 markdown 渲染
-    // (与「流式期间 plain / 流式结束后 markdown」这一视觉切换一致)。
+    // 修复策略: reasoning 流式阶段维持 plain text 路径,只保留文本流自身的
+    // 高亮；正式响应按内容格式分流，markdown 响应全程保持 markdown 子树，
+    // plain_text 响应才走 `_StreamingAssistantTextBody`。
     return expanded
         ? KeyedSubtree(
             key: const ValueKey<String>('streaming-reasoning-plain-expanded'),

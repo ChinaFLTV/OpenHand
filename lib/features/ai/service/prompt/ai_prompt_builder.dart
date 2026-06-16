@@ -241,15 +241,6 @@ class AiPromptBuilder {
         preferInlineSystemArtifacts: preferInlineHistorySystemArtifacts,
       ),
     );
-    final latestUserTurns = (latestUserMessage == null || latestUserInline)
-        ? const <AiChatTurn>[]
-        : _mapUserMessage(
-            latestUserMessage,
-            session: session,
-            model: model,
-            content: _promptContentForMessage(latestUserMessage),
-            isLatestUserMessage: true,
-          );
     final todoReminder = _buildTodoWriteReminder(
       session: session,
       latestUserMessage: latestUserMessage,
@@ -258,6 +249,41 @@ class AiPromptBuilder {
       session: session,
       latestUserMessage: latestUserMessage,
     );
+    final existingLatestUserSystemReminders = latestUserMessage == null
+        ? const <String>{}
+        : _readStringList(
+            latestUserMessage.metadata[aiHookSystemRemindersMetadataKey],
+          ).toSet();
+    final canInlineLatestUserRuntimeReminders =
+        preferInlineHistorySystemArtifacts &&
+        latestUserMessage != null &&
+        !latestUserInline;
+    final latestUserRuntimeSystemReminders = canInlineLatestUserRuntimeReminders
+        ? <String>[
+            if (todoReminder != null &&
+                todoReminder.isNotEmpty &&
+                !existingLatestUserSystemReminders.contains(todoReminder))
+              todoReminder,
+            if (planModeReminder != null &&
+                planModeReminder.isNotEmpty &&
+                !existingLatestUserSystemReminders.contains(planModeReminder))
+              planModeReminder,
+          ]
+        : const <String>[];
+    final latestUserTurns = (latestUserMessage == null || latestUserInline)
+        ? const <AiChatTurn>[]
+        : _mapUserMessage(
+            latestUserMessage,
+            session: session,
+            model: model,
+            content: _promptContentForMessage(
+              latestUserMessage,
+              inlineSystemReminders: preferInlineHistorySystemArtifacts,
+              additionalSystemReminders: latestUserRuntimeSystemReminders,
+            ),
+            isLatestUserMessage: true,
+            inlineSystemReminders: preferInlineHistorySystemArtifacts,
+          );
     final failedTodos = session.todoItems
         .where((item) {
           final status = item.status.trim().toLowerCase();
@@ -443,9 +469,16 @@ class AiPromptBuilder {
           latestCompressionPoint: latestCompressionPoint,
         );
 
-    // 2026-05-23 — latestUserTurns 可能包含 hook 注入的 system reminder
-    // （`<system-reminder>` 标签被 _mapMessageContent 提取为 system turn）。
-    // 这些 system turn 每轮都变，必须与 stable restored contexts 隔离 → 放入 volatile tail。
+    // 2026-05-23 — Claude 路径下 latestUserTurns 可能包含 hook 注入的 system
+    // reminder（`<system-reminder>` 标签被 _mapMessageContent 提取为 system
+    // turn）。这些 system turn 每轮都变，必须与 stable restored contexts 隔离
+    // → 放入 volatile tail。
+    //
+    // 2026-06-16 — OpenAI-compatible 自动 prefix cache 依赖相邻轮次尽量是
+    // “上一轮请求 + assistant + next user”的纯追加序列。若最新 user 后面额外
+    // 追加独立 system reminder，下一轮该位置会被 assistant 历史替换，DeepSeek
+    // 等服务端自动缓存容易在最新 user 后断裂。OpenAI-compatible 路径已在上方
+    // 将 reminder 内联到 user content；这里通常不会再产生 latestUserSystemTurns。
     final latestUserSystemTurns = <AiChatTurn>[];
     final latestUserNonSystemTurns = <AiChatTurn>[];
     for (final turn in latestUserTurns) {
@@ -614,12 +647,16 @@ class AiPromptBuilder {
           role: AiChatRole.system,
           content: '${AiPromptSectionHeaders.focusContext}\n\n$focusContext',
         ),
-      if (todoReminder != null && todoReminder.isNotEmpty)
+      if (!preferInlineHistorySystemArtifacts &&
+          todoReminder != null &&
+          todoReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '${AiPromptSectionHeaders.systemReminder}\n\n$todoReminder',
         ),
-      if (planModeReminder != null && planModeReminder.isNotEmpty)
+      if (!preferInlineHistorySystemArtifacts &&
+          planModeReminder != null &&
+          planModeReminder.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content:
@@ -682,6 +719,10 @@ class AiPromptBuilder {
           promptCharacterCount: promptCharacterCount,
         ),
       );
+    if (latestUserRuntimeSystemReminders.isNotEmpty) {
+      metadata['latest_user_inlined_runtime_system_reminders'] =
+          latestUserRuntimeSystemReminders;
+    }
     return AiPromptBuildResult(
       messages: messages,
       metadata: metadata,
@@ -1587,13 +1628,16 @@ class AiPromptBuilder {
     List<AiChatContentPart> parts = const <AiChatContentPart>[],
     String? reasoningContent,
     bool stripSystemReminders = false,
+    bool inlineSystemReminders = false,
   }) {
     if (stripSystemReminders) {
       final cleaned = content
           .replaceAll(_systemReminderPattern, '')
           .replaceAll(RegExp(r'\n{3,}'), '\n\n')
           .trim();
-      if (cleaned.isEmpty && toolCalls.isEmpty) return const <AiChatTurn>[];
+      if (cleaned.isEmpty && toolCalls.isEmpty && parts.isEmpty) {
+        return const <AiChatTurn>[];
+      }
       return <AiChatTurn>[
         AiChatTurn(
           role: role,
@@ -1606,6 +1650,33 @@ class AiPromptBuilder {
       ];
     }
     final extracted = _extractSystemReminders(content);
+    if (inlineSystemReminders) {
+      final buffer = StringBuffer(extracted.content.trim());
+      for (final reminder in extracted.reminders) {
+        final normalizedReminder = _normalizeInlineHistoryReminder(reminder);
+        if (normalizedReminder.isEmpty) continue;
+        if (buffer.isNotEmpty) {
+          buffer
+            ..writeln()
+            ..writeln();
+        }
+        buffer.write(normalizedReminder);
+      }
+      final inlineContent = buffer.toString().trim();
+      if (inlineContent.isEmpty && toolCalls.isEmpty && parts.isEmpty) {
+        return const <AiChatTurn>[];
+      }
+      return <AiChatTurn>[
+        AiChatTurn(
+          role: role,
+          content: inlineContent,
+          toolCallId: toolCallId,
+          toolCalls: toolCalls,
+          parts: parts,
+          reasoningContent: reasoningContent,
+        ),
+      ];
+    }
     final turns = extracted.reminders
         .map(
           (reminder) => AiChatTurn(
@@ -1614,7 +1685,9 @@ class AiPromptBuilder {
           ),
         )
         .toList(growable: true);
-    if (extracted.content.trim().isEmpty && toolCalls.isEmpty) {
+    if (extracted.content.trim().isEmpty &&
+        toolCalls.isEmpty &&
+        parts.isEmpty) {
       return turns;
     }
     turns.add(
@@ -2293,6 +2366,7 @@ $identity''';
             ),
             inlineSystemReminders: preferInlineSystemReminders,
           ),
+          inlineSystemReminders: preferInlineSystemReminders,
         ),
       );
     }
@@ -2329,11 +2403,13 @@ $identity''';
         return _mapMessageContent(
           role: AiChatRole.assistant,
           content: promptContent,
+          inlineSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.toolCall:
         return _mapMessageContent(
           role: AiChatRole.assistant,
           content: _promptHistoryStandaloneToolCallContent(message),
+          inlineSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.tool:
         return _mapMessageContent(
@@ -2345,6 +2421,7 @@ $identity''';
             isMicroCompactCleared: microCompactMessageIds.contains(message.id),
             inlineSystemReminders: preferInlineSystemReminders,
           ),
+          inlineSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.mcp:
       case AiSessionMessageKind.skill:
@@ -2352,6 +2429,7 @@ $identity''';
         return _mapMessageContent(
           role: AiChatRole.assistant,
           content: '[${message.kind.storageValue}] $promptContent',
+          inlineSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.compressionPoint:
       case AiSessionMessageKind.fileMutationSummary:
@@ -2382,6 +2460,7 @@ $identity''';
     required String content,
     bool isLatestUserMessage = false,
     bool stripSystemReminders = false,
+    bool inlineSystemReminders = false,
   }) {
     return _mapMessageContent(
       role: AiChatRole.user,
@@ -2393,17 +2472,22 @@ $identity''';
         isLatestUserMessage: isLatestUserMessage,
       ),
       stripSystemReminders: stripSystemReminders,
+      inlineSystemReminders: inlineSystemReminders,
     );
   }
 
   String _promptContentForMessage(
     AiSessionMessage message, {
     bool inlineSystemReminders = false,
+    List<String> additionalSystemReminders = const <String>[],
   }) {
     final buffer = StringBuffer(message.content.trim());
-    final hookReminders = _readStringList(
-      message.metadata[aiHookSystemRemindersMetadataKey],
-    );
+    final hookReminders = <String>[
+      ..._readStringList(message.metadata[aiHookSystemRemindersMetadataKey]),
+      ...additionalSystemReminders
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty),
+    ];
     for (final reminder in hookReminders) {
       if (inlineSystemReminders) {
         final normalizedReminder = _normalizeInlineHistoryReminder(reminder);
