@@ -91,9 +91,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 2026-05-22: 外层 Listener.onPointerUp 在 Flutter gesture arena
   // 解析子节点 onTap 之前就会触发，无法事先得知本次点击是否会被
   // Markdown 链接 / 图片附件 / 代码块工具栏等子交互组件处理。改为
-  // 延迟 80ms 调度卡片级点击动作（选中或折叠）：子交互回调命中时调用
-  // markInteractiveTap() 取消调度，避免点完链接还顺带切换卡片状态。
-  // 空白处点击仍然几乎瞬时（80ms 几乎不可察）。
+  // 延迟 80ms 调度选中切换：子交互回调命中时调用 markInteractiveTap()
+  // 取消调度，避免点完链接还顺带把功能按钮条切出来。空白处点击
+  // 仍然几乎瞬时（80ms 几乎不可察）。
   Timer? _pendingSelectionToggleTimer;
   // 旧版 HTML WebView 渲染器的兼容兜底：当前线程内 HTML 主路径已改为
   // WebView 高保真渲染；命中区域时跳过气泡选中切换，并把 tap / drag
@@ -215,17 +215,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _pendingSelectionToggleTimer = null;
   }
 
-  void _scheduleCardTapAction(VoidCallback action) {
+  void _scheduleSelectionToggle() {
     _pendingSelectionToggleTimer?.cancel();
     _pendingSelectionToggleTimer = Timer(const Duration(milliseconds: 80), () {
       _pendingSelectionToggleTimer = null;
       if (!mounted) return;
-      action();
-    });
-  }
-
-  void _scheduleSelectionToggle() {
-    _scheduleCardTapAction(() {
       if (widget.isSelected) {
         widget.onDeselect();
       } else {
@@ -1057,21 +1051,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
         final movement = (event.position - downPos).distance;
         final elapsed = DateTime.now().difference(downAt);
         if (movement <= 8 && elapsed.inMilliseconds <= 350) {
-          if (isReasoning) {
-            _scheduleCardTapAction(() {
-              final nextExpanded =
-                  !(_reasoningExpandedOverride ??
-                      _shouldDefaultExpandReasoning(message));
-              setState(() {
-                _reasoningExpandedOverride = nextExpanded;
-              });
-            });
-            return;
-          }
-          if (canCollapseAssistantResponse) {
-            _scheduleCardTapAction(toggleAssistantResponseExpansion);
-            return;
-          }
           // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示。
           // 延迟 80ms，给气泡内的子交互回调（链接 / 图片 / 工具栏按钮）
           // 一个调用 markInteractiveTap() 取消切换的窗口期。

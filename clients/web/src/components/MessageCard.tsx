@@ -1213,12 +1213,12 @@ function MessageCardImpl({
         color: style.color,
         boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
         border: style.border,
-        cursor: hasAnyAction || canCollapse || isCollapsibleByBadge ? 'pointer' : 'default',
+        cursor: hasAnyAction ? 'pointer' : 'default',
         overflowWrap: 'anywhere',
         transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {
-        if (!hasAnyAction && !canCollapse && !isCollapsibleByBadge) return;
+        if (!hasAnyAction) return;
         // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
         const target = ev.target as HTMLElement;
         if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
@@ -1255,14 +1255,6 @@ function MessageCardImpl({
         // 双击代码块选中文本时也不切换。
         const sel = typeof window !== 'undefined' ? window.getSelection() : null;
         if (sel && sel.toString().length > 0) return;
-        if (isCollapsibleByBadge) {
-          toggleBadgeCollapsed();
-          return;
-        }
-        if (canCollapse) {
-          toggleResponseExpanded();
-          return;
-        }
         onActiveChange?.(message, !active);
       }}
     >
