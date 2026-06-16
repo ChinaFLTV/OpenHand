@@ -38,11 +38,26 @@ class AiPromptToolBudgetStrategy {
 
   static const int maxDirectAnswerCharacters = 420;
   static const int maxDirectAnswerLines = 8;
+  static const int _maxShortConversationCharacters = 80;
   static const Set<String> _directAnswerTemplateIds = <String>{
     'default',
     'siri_helper',
     'hermes_talker',
   };
+  static const Set<String> _continuationSignals = <String>{
+    'continue',
+    'goon',
+    'keepgoing',
+    '继续',
+    '继续吧',
+    '接着',
+    '接着做',
+  };
+  static final RegExp _punctuationAndSpacePattern = RegExp(r'[\s。.!！?？,，、~～]+');
+  static final RegExp _shortConversationCuePattern = RegExp(
+    r'(想你|想我|喜欢你|爱你|分手|心上人|不好意思|对不起|抱歉|难过|伤心|开心|无聊|陪我|聊聊天|说点什么|有什么要对我说|你难道|早安|晚安|哈哈|呵呵|嘿嘿|呜呜|miss you|love you|break up|sorry|talk to me|chat with me|how are you)',
+    caseSensitive: false,
+  );
 
   AiPromptToolCatalogDecision decide({
     required AiSession session,
@@ -82,6 +97,7 @@ class AiPromptToolBudgetStrategy {
       return AiPromptToolCatalogDecision.full;
     }
     if (_isCasualDirectReply(content) ||
+        _isShortConversationalTurn(content) ||
         _isIdentityQuestion(content) ||
         _isSimpleKnowledgeQuestion(content)) {
       return AiPromptToolCatalogDecision.directAnswerOnly;
@@ -119,10 +135,7 @@ class AiPromptToolBudgetStrategy {
   }
 
   bool _isCasualDirectReply(String content) {
-    final normalized = content.toLowerCase().replaceAll(
-      RegExp(r'[\s。.!！?？,，、~～]+'),
-      '',
-    );
+    final normalized = _compactCasualText(content);
     const directReplies = <String>{
       '好',
       '好的',
@@ -142,6 +155,8 @@ class AiPromptToolBudgetStrategy {
       '早上好',
       '下午好',
       '晚上好',
+      '泥嚎',
+      '泥好',
       'ok',
       'okay',
       'hi',
@@ -151,6 +166,27 @@ class AiPromptToolBudgetStrategy {
       'thankyou',
     };
     return directReplies.contains(normalized);
+  }
+
+  String _compactCasualText(String content) {
+    return content.toLowerCase().replaceAll(_punctuationAndSpacePattern, '');
+  }
+
+  bool _isShortConversationalTurn(String content) {
+    final compact = _compactCasualText(content);
+    if (compact.isEmpty || compact.length > _maxShortConversationCharacters) {
+      return false;
+    }
+    if (_continuationSignals.contains(compact)) {
+      return false;
+    }
+    if (_shortConversationCuePattern.hasMatch(content)) {
+      return true;
+    }
+    // Single short colloquial fragments are cheap to answer directly and do
+    // not need the full native tool schema. Tool/workspace intents are filtered
+    // before this method, so this only catches low-risk chatty turns.
+    return compact.length <= 8 && !RegExp(r'[{}()[\]<>`=;:]').hasMatch(compact);
   }
 
   bool _isIdentityQuestion(String content) {
@@ -210,7 +246,17 @@ class AiPromptToolBudgetStrategy {
       return true;
     }
     if (RegExp(
-      r'(帮我|替我|给我|请你|麻烦).{0,12}(执行|运行|跑|打开|读取|读一下|看一下|搜索|联网|浏览|抓取|下载|安装|提交|构建|编译|测试|修复|修改|重构|创建|新建|删除|保存|截图)',
+      r'^\s*(执行|运行|跑|打开|读取|读一下|看一下|搜索|搜一下|查一下|查找|检索|联网|浏览|抓取|下载|安装|提交|构建|编译|测试|修复|修改|重构|创建|新建|删除|保存|截图|生成图片|生成照片|画图|画一张)',
+    ).hasMatch(content)) {
+      return true;
+    }
+    if (RegExp(
+      r'(帮我|替我|给我|请你|麻烦).{0,12}(执行|运行|跑|打开|读取|读一下|看一下|搜索|搜一下|查一下|查找|检索|联网|浏览|抓取|下载|安装|提交|构建|编译|测试|修复|修改|重构|创建|新建|删除|保存|截图|画图|画一张|生成图片|生成照片)',
+    ).hasMatch(content)) {
+      return true;
+    }
+    if (RegExp(
+      r'(搜索|搜一下|查一下|查找|检索|联网|浏览|抓取|下载|生成图片|生成照片|画图|画一张)',
     ).hasMatch(content)) {
       return true;
     }

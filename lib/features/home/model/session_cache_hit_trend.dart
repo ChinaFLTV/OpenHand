@@ -6,6 +6,8 @@ enum SessionCacheMissKind { normal, ttlSuspected, prefixDrift }
 /// "极端值"判定：长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）。
 const int kExtremeIdleGapSeconds = 1800; // 30 分钟
 const double kExtremeHitRatioThreshold = 0.01; // 1%
+const int kShortAutoCacheIdleGapSeconds = 60;
+const double kPartialAutoCacheHitRatioThreshold = 0.80;
 
 enum SessionCacheHitDisplayMode { excludeExtremeMisses, includeAll }
 
@@ -243,6 +245,8 @@ class SessionCacheHitTrend {
         primaryMetadata: assistantMessage.metadata,
         relatedMetadata: message.metadata,
         fallbackIdleGapSeconds: fallbackIdleGapSeconds,
+        hitRatio: hitRatio,
+        requiresExplicitCacheControls: claudeStyle,
       );
       points.add(
         SessionCacheHitTurnPoint(
@@ -353,6 +357,8 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   required Map<String, Object?> primaryMetadata,
   required Map<String, Object?> relatedMetadata,
   required int? fallbackIdleGapSeconds,
+  required double hitRatio,
+  required bool requiresExplicitCacheControls,
 }) {
   Map<String, Object?>? asMap(Object? value) => switch (value) {
     Map<String, Object?> map => map,
@@ -433,23 +439,39 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     relatedMetadata['request_cache_control_marker_count'],
   ]);
   final cacheControlsMissing =
+      requiresExplicitCacheControls &&
       inputCacheEnabled &&
       cacheControlMarkerCount != null &&
       cacheControlMarkerCount <= 0;
-  final prefixDriftSuspected =
+  final stablePrefixKnown =
+      stablePrefixHash.isNotEmpty && previousStablePrefixHash.isNotEmpty;
+  final stablePrefixUnchanged =
+      stablePrefixKnown && stablePrefixHash == previousStablePrefixHash;
+  final toolCatalogStable =
+      toolCatalogHash.isEmpty ||
+      previousToolCatalogHash.isEmpty ||
+      toolCatalogHash == previousToolCatalogHash;
+  final shortIdleAutoCacheMissSuspected =
+      !requiresExplicitCacheControls &&
       !ttlSuspected &&
+      stablePrefixUnchanged &&
+      toolCatalogStable &&
+      idleGapSeconds != null &&
+      idleGapSeconds >= kShortAutoCacheIdleGapSeconds &&
+      hitRatio < kPartialAutoCacheHitRatioThreshold;
+  final effectiveTtlSuspected = ttlSuspected || shortIdleAutoCacheMissSuspected;
+  final prefixDriftSuspected =
+      !effectiveTtlSuspected &&
       idleGapSeconds != null &&
       idleGapSeconds < 3600 &&
-      ((stablePrefixHash.isNotEmpty &&
-              previousStablePrefixHash.isNotEmpty &&
-              stablePrefixHash != previousStablePrefixHash) ||
+      ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
           (toolCatalogHash.isNotEmpty &&
               previousToolCatalogHash.isNotEmpty &&
               toolCatalogHash != previousToolCatalogHash) ||
           cacheControlsMissing);
   return _CacheHitDiagnostics(
     idleGapSeconds: idleGapSeconds,
-    ttlSuspected: ttlSuspected,
+    ttlSuspected: effectiveTtlSuspected,
     prefixDriftSuspected: prefixDriftSuspected,
   );
 }

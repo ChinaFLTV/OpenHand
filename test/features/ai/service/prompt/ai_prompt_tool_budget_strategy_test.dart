@@ -12,6 +12,11 @@ void main() {
       'uses direct-answer mode for exported short default-template turns',
       () {
         for (final content in <String>[
+          '泥嚎',
+          '想你了',
+          '分手',
+          '我已经有心上人了，不好意思。',
+          '你难道就没有什么要对我说的吗？',
           'ps 和 kill 如何按照父pid去筛选呢？',
           '好的谢谢你',
           '你是谁来着',
@@ -35,6 +40,13 @@ void main() {
         '帮我读取 /Users/me/project/lib/main.dart',
         '修复这个仓库里的报错',
         '最新的 Flutter 版本是多少？',
+        '帮我搜一下 OpenAI 最新模型',
+        '查一下今天上海天气',
+        '修复 bug',
+        '运行测试',
+        '创建文件',
+        '生成图片：一只机械猫',
+        '画一张赛博城市海报',
         'continue',
       ]) {
         final session = _sessionWithLatestUser(content);
