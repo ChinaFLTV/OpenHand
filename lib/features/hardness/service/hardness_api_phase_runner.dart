@@ -283,16 +283,29 @@ class HardnessApiPhaseRunner {
       runtimeContext: runtimeContext,
     );
 
-    // Apply MCP lazy-loading policy before phase-affinity filtering, so the
-    // deferred list reflects the full server inventory and any subsequent
-    // ToolSearch hit becomes immediately callable in this phase.
-    AiResolvedToolCatalog applyMcpLazyLoadingForPhase() {
-      return McpLazyLoadingApplier.apply(
+    // Apply runtime lazy-loading policy before phase-affinity filtering, so the
+    // deferred list reflects the full inventory and any subsequent ToolSearch
+    // hit becomes immediately callable in this phase.
+    AiResolvedToolCatalog applyRuntimeLazyLoadingForPhase() {
+      final loadedToolNames =
+          _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{};
+      final keepToolSearchForBuiltins =
+          AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
+            catalog: rawToolCatalog,
+            alreadyLoadedNames: loadedToolNames,
+          );
+      final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: rawToolCatalog,
         runtimeContext: runtimeContext,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames:
-            _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
+        alreadyLoadedNames: loadedToolNames,
+        keepToolSearchWhenIdle: keepToolSearchForBuiltins,
+      );
+      return AiBuiltinToolLazyLoadingApplier.apply(
+        catalog: mcpCatalog,
+        sourceCatalog: rawToolCatalog,
+        toolRuntimeService: _toolRuntimeService,
+        alreadyLoadedNames: loadedToolNames,
       );
     }
 
@@ -308,7 +321,7 @@ class HardnessApiPhaseRunner {
       );
     }
 
-    var toolCatalog = applyMcpLazyLoadingForPhase();
+    var toolCatalog = applyRuntimeLazyLoadingForPhase();
     var phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
     if (toolCatalog.notices.isNotEmpty) {
@@ -460,7 +473,7 @@ class HardnessApiPhaseRunner {
           }
         }
 
-        toolCatalog = applyMcpLazyLoadingForPhase();
+        toolCatalog = applyRuntimeLazyLoadingForPhase();
         phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
         refreshSystemTurn();
 
@@ -622,7 +635,7 @@ class HardnessApiPhaseRunner {
           }
 
           // Absorb tool_search_loaded_names so subsequent tool calls and
-          // rounds in this phase see the just-pulled MCP tools as live.
+          // rounds in this phase see the just-pulled runtime tools as live.
           final loadedNames = result.metadata['tool_search_loaded_names'];
           if (loadedNames is List && loadedNames.isNotEmpty) {
             final bucket = _loadedMcpToolsBySession.putIfAbsent(
@@ -655,7 +668,7 @@ class HardnessApiPhaseRunner {
               );
             }
             if (addedNames.isNotEmpty) {
-              toolCatalog = applyMcpLazyLoadingForPhase();
+              toolCatalog = applyRuntimeLazyLoadingForPhase();
               phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
               refreshSystemTurn();
             }

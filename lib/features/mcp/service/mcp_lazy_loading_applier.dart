@@ -15,6 +15,7 @@ class McpLazyLoadingApplier {
     required AiToolRuntimeService toolRuntimeService,
     Set<String> alreadyLoadedNames = const <String>{},
     Set<String> forceVisibleNames = const <String>{},
+    bool keepToolSearchWhenIdle = false,
   }) {
     final mode = runtimeContext.mcpLazyLoadingMode;
     final mcpEntries = catalog.toolsByName.entries
@@ -42,10 +43,10 @@ class McpLazyLoadingApplier {
     );
 
     if (!shouldLazy) {
-      if (toolSearchTool is AiToolSearchTool) {
+      if (toolSearchTool is AiToolSearchTool && !keepToolSearchWhenIdle) {
         toolSearchTool.clearDeferredToolSnapshot();
       }
-      return _stripToolSearch(catalog);
+      return keepToolSearchWhenIdle ? catalog : _stripToolSearch(catalog);
     }
 
     // 2026-05-24 — 强可见名单按字典序排序，避免 MCP 服务器重连或
@@ -81,7 +82,9 @@ class McpLazyLoadingApplier {
       toolSearchTool.setDeferredToolSnapshot(deferredDefinitions);
     }
     if (deferredEntries.isEmpty) {
-      final strippedCatalog = _stripToolSearch(catalog);
+      final strippedCatalog = keepToolSearchWhenIdle
+          ? catalog
+          : _stripToolSearch(catalog);
       if (forceVisibleNotice == null) {
         return strippedCatalog;
       }

@@ -77,6 +77,7 @@ export 'service/prompt/ai_prompt_builder.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';
 export 'service/prompt/machine_expert_prompts.dart';
 export 'service/prompt/programming_expert_prompts.dart';
+export 'service/runtime/ai_builtin_tool_lazy_loading_applier.dart';
 export 'service/runtime/ai_plan_approval_detector.dart';
 export 'service/runtime/ai_tool_execution_registry.dart';
 export 'service/runtime/ai_tool_runtime_service.dart';

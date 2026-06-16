@@ -8,25 +8,22 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// Built-in **ToolSearch** tool — analogous to Claude Code's `ToolSearchTool`.
+/// Built-in **ToolSearch** tool - analogous to Claude Code's `ToolSearchTool`.
 ///
-/// When MCP tool lazy loading is active (per [McpLazyLoadingMode] in
-/// settings), the [AiSessionController] strips MCP tools out of the per-turn
-/// catalog before the system prompt is built, leaving only their **names**
-/// in this tool's description as a "deferred tool list". The model must
-/// invoke `ToolSearch` to fetch the full JSON Schema of any MCP tool it
-/// wants to call. Once a tool's schema appears in the result, the controller
-/// promotes it into the session's exposed catalog so it's directly callable
-/// from the next model request in the same assistant turn onward.
+/// When MCP or built-in tool lazy loading is active, the session controller
+/// strips deferred tool schemas out of the per-turn catalog and leaves compact
+/// names plus summaries in this tool's description. The model invokes
+/// `ToolSearch` to fetch full JSON Schema for the tools it needs. Once a
+/// schema appears in the result, the controller promotes that tool into the
+/// session's exposed catalog for the next model request.
 ///
 /// Query forms (mirrors Claude Code's three modes):
 ///   - `select:Read,Edit,Grep` — direct multi-select by exact name.
 ///   - `notebook jupyter`       — keyword search ranked by name/description.
 ///   - `+slack send`            — `+TERM` makes that term required.
 ///
-/// The tool is **invisible** when there is nothing to defer (no MCP tools or
-/// lazy loading disabled): [AiSessionController] simply omits it from the
-/// catalog so weak models don't see a useless extra entry.
+/// The tool is invisible when there is nothing to defer, so weak models don't
+/// see a useless extra entry.
 class AiToolSearchTool extends AiTool {
   AiToolSearchTool();
 
@@ -37,8 +34,8 @@ class AiToolSearchTool extends AiTool {
   /// before catalog resolution every turn. Empty ⇒ tool should be hidden.
   List<String> deferredToolNames = const <String>[];
 
-  /// Full definitions of deferred MCP tools, keyed by name. Used to assemble
-  /// the `<functions>` payload returned to the model.
+  /// Full definitions of deferred runtime tools, keyed by name. Used to
+  /// assemble the `<functions>` payload returned to the model.
   Map<String, AiToolDefinition> deferredToolDefinitions =
       const <String, AiToolDefinition>{};
 
@@ -87,9 +84,8 @@ class AiToolSearchTool extends AiTool {
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
         output:
-            'No deferred MCP tools available — every connected MCP tool is '
-            'already loaded directly into this turn\'s catalog. You may '
-            'invoke them by name without going through ToolSearch.',
+            'No deferred runtime tools are available. Every callable tool is '
+            'already loaded directly into this turn\'s catalog.',
         durationMs: stopwatch.elapsedMilliseconds,
         metadata: const <String, Object?>{
           'tool_search_loaded_names': <String>[],
@@ -108,19 +104,19 @@ class AiToolSearchTool extends AiTool {
     if (matches.isEmpty) {
       lines
         ..add(
-          '⚠ ToolSearch matched 0 of ${deferred.length} deferred MCP tool(s).',
+          'ToolSearch matched 0 of ${deferred.length} deferred runtime tool(s).',
         )
         ..add('query: $query')
         ..add('')
         ..add(
-          'No deferred MCP tool matched. Try different keywords (server name, '
-          'action verb), or list a name explicitly via `select:NAME`.',
+          'No deferred tool matched. Try different keywords, or list a name '
+          'explicitly via `select:NAME`.',
         );
     } else {
       lines
         ..add(
-          '✅ ToolSearch loaded ${matches.length} of ${deferred.length} '
-          'deferred MCP tool(s).',
+          'ToolSearch loaded ${matches.length} of ${deferred.length} '
+          'deferred runtime tool(s).',
         )
         ..add('query: $query')
         ..add('loaded: ${matches.join(', ')}')

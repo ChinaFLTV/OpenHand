@@ -104,10 +104,10 @@ class AiResolvedTool {
 
   /// Per-catalog sidecar used only by the built-in ToolSearch tool.
   ///
-  /// MCP lazy loading is resolved per session/round, while the tool registry
-  /// keeps one global ToolSearch instance. Keeping deferred schemas here lets
-  /// ToolSearch execute against the same catalog the model saw, even if another
-  /// session refreshes its own catalog before this tool call runs.
+  /// Runtime-tool lazy loading is resolved per session/round, while the tool
+  /// registry keeps one global ToolSearch instance. Keeping deferred schemas
+  /// here lets ToolSearch execute against the same catalog the model saw, even
+  /// if another session refreshes its own catalog before this tool call runs.
   final Map<String, AiToolDefinition> toolSearchDeferredToolDefinitions;
 }
 
@@ -2348,12 +2348,12 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.toolSearch,
       name: 'ToolSearch',
       description:
-          'Fetches full schema definitions for **deferred MCP tools** so they '
-          'become callable. When MCP tool lazy loading is active for this '
-          'session, MCP tool descriptions are stripped from the system '
-          'prompt to save context tokens — only their bare names remain in '
-          'the deferred-tool list rendered above. Without first invoking '
-          'ToolSearch the model has only the name and CANNOT call them.\n\n'
+          'Fetch full schema definitions for deferred runtime tools so they '
+          'become callable. Deferred tools may be MCP tools or built-in tools '
+          'whose load strategy is lazy/deferred. Their full schemas are '
+          'omitted from the prompt to save context; names and short summaries '
+          'appear in this description. Without ToolSearch, only already '
+          'visible tools are callable.\n\n'
           'Query forms:\n'
           '- `select:Name1,Name2` — fetch these exact tools by name (best '
           'when you already know the tool name).\n'

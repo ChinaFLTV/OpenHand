@@ -59,7 +59,7 @@ class AiToolSearchLoadHistoryEntry {
   int get addedCount => addedNames.length;
 }
 
-/// 跨调用累计每个会话已通过 `ToolSearch` 加载的 MCP 工具名，并以
+/// 跨调用累计每个会话已通过 `ToolSearch` 加载的工具名，并以
 /// [ValueListenable] 形式向 UI 广播一次性事件。
 class McpLoadedToolsTracker {
   final Map<String, Set<String>> _loadedBySession = <String, Set<String>>{};
@@ -71,7 +71,7 @@ class McpLoadedToolsTracker {
 
   ValueListenable<AiToolSearchLoadedEvent?> get signal => _signal;
 
-  /// 返回指定会话已加载的 MCP 工具完整名（按字母升序，不可变视图）。
+  /// 返回指定会话已加载的工具名（按字母升序，不可变视图）。
   List<String> namesForSession(String sessionId) {
     final names = _loadedBySession[sessionId];
     if (names == null || names.isEmpty) return const <String>[];
@@ -89,7 +89,7 @@ class McpLoadedToolsTracker {
   }
 
   /// 返回指定会话当前已加载的工具集合的只读快照（无序）。控制器在构造
-  /// `_applyMcpLazyLoading` 输入时需要 `Set<String>`。
+  /// runtime lazy loading 输入时需要 `Set<String>`。
   Set<String> rawSetForSession(String sessionId) {
     final names = _loadedBySession[sessionId];
     if (names == null || names.isEmpty) return const <String>{};

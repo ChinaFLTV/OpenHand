@@ -1397,9 +1397,9 @@ class AiPromptBuilder {
         _renderToolEntry(buffer, tool, compact: compact);
       }
     }
-    // MCP lazy loading banner: when ToolSearch carries a "## Deferred MCP
-    // tools (N)" subsection in its description, surface a one-line notice so
-    // the model knows MCP descriptions are intentionally folded.
+    // Lazy loading banner: ToolSearch may carry deferred MCP and/or built-in
+    // tool subsections. Surface a concise notice so the model knows schemas
+    // are intentionally folded and must be loaded by exact name or keywords.
     final toolSearch = builtinTools.firstWhere(
       (tool) => tool.name == 'ToolSearch',
       orElse: () => const AiToolDefinition(
@@ -1408,28 +1408,36 @@ class AiPromptBuilder {
         parameters: <String, Object?>{},
       ),
     );
-    final deferredMatch = toolSearch.name.isEmpty
+    final deferredMcpMatch = toolSearch.name.isEmpty
         ? null
         : RegExp(
             r'## Deferred MCP tools \((\d+)\)',
           ).firstMatch(toolSearch.description);
-    if (deferredMatch != null) {
+    final deferredBuiltinMatch = toolSearch.name.isEmpty
+        ? null
+        : RegExp(
+            r'## Deferred built-in tools \((\d+)\)',
+          ).firstMatch(toolSearch.description);
+    if (deferredMcpMatch != null || deferredBuiltinMatch != null) {
+      final mcpCount = deferredMcpMatch?.group(1);
+      final builtinCount = deferredBuiltinMatch?.group(1);
+      final foldedKinds = <String>[
+        if (mcpCount != null) '$mcpCount MCP',
+        if (builtinCount != null) '$builtinCount built-in',
+      ].join(' + ');
       buffer
         ..writeln()
         ..writeln(
           compact
-              ? '## MCP (lazy)'
-              : '## MCP Tools (lazy-loaded — descriptions deferred)',
+              ? '## Tools (lazy)'
+              : '## Runtime Tools (lazy-loaded schemas deferred)',
         )
         ..writeln(
-          'MCP tool descriptions for ${deferredMatch.group(1)} tool(s) are '
-          'folded to save context. Names + one-line summaries live inside the '
-          '`ToolSearch` tool description below. To use any deferred MCP tool, '
-          'first call `ToolSearch` with `select:<exact_name>` (multi-select '
-          'supported, e.g. `select:mcp__a__b,mcp__c__d`) or with a keyword '
-          'query — the runtime will inject full JSONSchema and the tool '
-          'becomes callable from the next model request onward. Do NOT invent MCP '
-          'tool names; pick from the deferred list.',
+          'Schemas for $foldedKinds deferred tool(s) are folded to save context. '
+          'Names and one-line summaries are inside the `ToolSearch` description. '
+          'To use a deferred tool, first call `ToolSearch` with '
+          '`select:<exact_name>` or keywords; the next model request receives '
+          'the full JSONSchema. Do not invent tool names.',
         );
       if (isWebReverse) {
         buffer.writeln(

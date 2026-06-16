@@ -989,15 +989,19 @@ class SettingsStore {
         }
       }
       if (parsed.isNotEmpty) {
-        // Merge: keep parsed entries, add missing defaults for new tool kinds.
-        final parsedKinds = parsed.map((c) => c.kind).toSet();
-        final defaults = AiBuiltinToolConfig.defaults();
-        for (final def in defaults) {
-          if (!parsedKinds.contains(def.kind)) {
-            parsed.add(def);
+        if (AiBuiltinToolConfig.looksLikeLegacyEagerDefaults(parsed)) {
+          builtinToolConfigs = AiBuiltinToolConfig.defaults();
+        } else {
+          // Merge: keep parsed entries, add missing defaults for new tool kinds.
+          final parsedKinds = parsed.map((c) => c.kind).toSet();
+          final defaults = AiBuiltinToolConfig.defaults();
+          for (final def in defaults) {
+            if (!parsedKinds.contains(def.kind)) {
+              parsed.add(def);
+            }
           }
+          builtinToolConfigs = parsed;
         }
-        builtinToolConfigs = parsed;
       }
     }
 

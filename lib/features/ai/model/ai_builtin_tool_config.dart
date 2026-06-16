@@ -405,6 +405,100 @@ class AiBuiltinToolConfig {
     );
   }
 
+  /// 返回内建工具在默认配置中的加载策略。
+  static AiBuiltinToolLoadStrategy defaultLoadStrategyForKind(
+    AiBuiltinToolKind kind,
+  ) {
+    switch (kind) {
+      case AiBuiltinToolKind.task:
+      case AiBuiltinToolKind.bash:
+      case AiBuiltinToolKind.glob:
+      case AiBuiltinToolKind.grep:
+      case AiBuiltinToolKind.ls:
+      case AiBuiltinToolKind.exitPlanMode:
+      case AiBuiltinToolKind.read:
+      case AiBuiltinToolKind.edit:
+      case AiBuiltinToolKind.todoWrite:
+      case AiBuiltinToolKind.toolSearch:
+        return AiBuiltinToolLoadStrategy.eager;
+      case AiBuiltinToolKind.bashBackground:
+      case AiBuiltinToolKind.multiEdit:
+      case AiBuiltinToolKind.applyFileDiffs:
+      case AiBuiltinToolKind.write:
+      case AiBuiltinToolKind.notebookEdit:
+      case AiBuiltinToolKind.webFetch:
+      case AiBuiltinToolKind.webSearch:
+      case AiBuiltinToolKind.lsp:
+      case AiBuiltinToolKind.codebaseSearch:
+      case AiBuiltinToolKind.git:
+      case AiBuiltinToolKind.deleteFile:
+      case AiBuiltinToolKind.readLints:
+      case AiBuiltinToolKind.askUserChoice:
+      case AiBuiltinToolKind.skillManager:
+      case AiBuiltinToolKind.memory:
+        return AiBuiltinToolLoadStrategy.lazy;
+    }
+  }
+
+  static bool looksLikeLegacyEagerDefaults(List<AiBuiltinToolConfig> configs) {
+    if (configs.length != AiBuiltinToolKind.values.length) return false;
+    final byKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
+    for (final config in configs) {
+      if (byKind.containsKey(config.kind)) return false;
+      byKind[config.kind] = config;
+    }
+    for (final kind in AiBuiltinToolKind.values) {
+      final config = byKind[kind];
+      if (config == null || !_looksLikeLegacyEagerDefault(config)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _looksLikeLegacyEagerDefault(AiBuiltinToolConfig config) {
+    if (!config.enabled ||
+        config.displayName != null ||
+        config.summary != null ||
+        config.promptOverride != null ||
+        config.schemaOverride != null ||
+        config.priority != 100 ||
+        config.sortOrder != config.kind.index ||
+        config.loadStrategy != AiBuiltinToolLoadStrategy.eager ||
+        config.tags.isNotEmpty ||
+        config.maxOutputChars != null ||
+        config.timeoutSeconds != null ||
+        config.requireConfirmation != null ||
+        config.retryOnFailure ||
+        config.maxRetries != 0 ||
+        config.retryBackoffMs != defaultRetryBackoffMs ||
+        config.isCustom ||
+        config.customToolName != null ||
+        config.customDescription != null ||
+        config.customParameters != null) {
+      return false;
+    }
+    final expectedWebSearch = config.kind == AiBuiltinToolKind.webSearch
+        ? AiWebSearchSettings.defaults()
+        : null;
+    final expectedWebFetch = config.kind == AiBuiltinToolKind.webFetch
+        ? AiWebFetchSettings.defaults()
+        : null;
+    return _jsonEquivalent(
+          config.webSearchSettings?.toJson(),
+          expectedWebSearch?.toJson(),
+        ) &&
+        _jsonEquivalent(
+          config.webFetchSettings?.toJson(),
+          expectedWebFetch?.toJson(),
+        );
+  }
+
+  static bool _jsonEquivalent(Object? left, Object? right) {
+    if (left == null || right == null) return left == right;
+    return jsonEncode(left) == jsonEncode(right);
+  }
+
   /// 为所有内建工具类型生成默认配置列表。
   static List<AiBuiltinToolConfig> defaults() {
     return AiBuiltinToolKind.values
@@ -412,6 +506,7 @@ class AiBuiltinToolConfig {
           (kind) => AiBuiltinToolConfig(
             kind: kind,
             sortOrder: kind.index,
+            loadStrategy: defaultLoadStrategyForKind(kind),
             webSearchSettings: kind == AiBuiltinToolKind.webSearch
                 ? AiWebSearchSettings.defaults()
                 : null,

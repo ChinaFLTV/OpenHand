@@ -43,7 +43,7 @@ void _showToolSearchSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.show(context, messenger, snackBar);
 }
 
-/// 列出本会话已通过 `ToolSearch` 加载的 MCP 工具完整名（含 `mcp__` 前缀）。
+/// 列出本会话已通过 `ToolSearch` 加载的工具名。
 /// 工具名形如 `mcp__SERVER__tool` 时按 `SERVER` 分组、可折叠展示，便于在工具
 /// 数量很多时快速扫读。每行右侧提供「复制 select:NAME」按钮；当 [onClear]
 /// 非空时，标题栏显示「清空已加载列表」按钮。
