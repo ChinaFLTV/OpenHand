@@ -175,6 +175,77 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   }
 }
 
+class _ResponseMetaRow extends StatelessWidget {
+  const _ResponseMetaRow({
+    super.key,
+    required this.color,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelText = _localizedText(context, zh: '响应', en: 'Response');
+    final pillContent = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.smart_toy_outlined,
+          size: 18,
+          color: color.withValues(alpha: 0.88),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            labelText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: color.withValues(alpha: 0.88),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        AnimatedRotation(
+          turns: expanded ? 0.5 : 0,
+          duration: cardMotionDurationFor(context, expanding: expanded),
+          curve: kCardMotionCurve,
+          child: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: color.withValues(alpha: 0.78),
+            size: 18,
+          ),
+        ),
+      ],
+    );
+    final capsule = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: _borderRadius999,
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: pillContent,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: _borderRadius999,
+        overlayColor: WidgetStatePropertyAll<Color>(
+          color.withValues(alpha: 0.03),
+        ),
+        child: capsule,
+      ),
+    );
+  }
+}
+
 class _ToolCallMetaRow extends StatelessWidget {
   const _ToolCallMetaRow({super.key, required this.data, required this.color});
 

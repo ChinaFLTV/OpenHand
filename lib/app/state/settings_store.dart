@@ -349,12 +349,17 @@ class SettingsStore {
     final mcpStdioMirrorMode = McpStdioMirrorMode.fromStorage(
       '${json['mcp_stdio_mirror_mode'] ?? ''}',
     );
-    final mcpLazyLoadingThresholdTokens = clampedIntFromValue(
+    final loadedMcpLazyLoadingThresholdTokens = clampedIntFromValue(
       json['mcp_lazy_loading_threshold_tokens'],
       fallback: AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens,
       min: AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
       max: AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
     );
+    final mcpLazyLoadingThresholdTokens =
+        loadedMcpLazyLoadingThresholdTokens ==
+            AppSettingsSnapshot.legacyMcpLazyLoadingThresholdTokens
+        ? AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens
+        : loadedMcpLazyLoadingThresholdTokens;
     final mcpAutoProbeConcurrency = clampedIntFromValue(
       json['mcp_auto_probe_concurrency'],
       fallback: AppSettingsSnapshot.defaultMcpAutoProbeConcurrency,

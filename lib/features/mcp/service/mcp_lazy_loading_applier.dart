@@ -7,6 +7,8 @@ import '../model/mcp_lazy_loading_mode.dart';
 class McpLazyLoadingApplier {
   const McpLazyLoadingApplier();
 
+  static const int _autoModeToolCountThreshold = 40;
+
   static AiResolvedToolCatalog apply({
     required AiResolvedToolCatalog catalog,
     required AiSessionRuntimeContext runtimeContext,
@@ -24,14 +26,15 @@ class McpLazyLoadingApplier {
       McpLazyLoadingMode.enabled => mcpEntries.isNotEmpty,
       McpLazyLoadingMode.auto =>
         mcpEntries.isNotEmpty &&
-            _estimateMcpCatalogTokens(
-                  mcpEntries: mcpEntries,
-                  charsPerToken: math.max(
-                    1,
-                    runtimeContext.estimatedCharactersPerToken,
-                  ),
-                ) >=
-                runtimeContext.mcpLazyLoadingThresholdTokens,
+            (mcpEntries.length >= _autoModeToolCountThreshold ||
+                _estimateMcpCatalogTokens(
+                      mcpEntries: mcpEntries,
+                      charsPerToken: math.max(
+                        1,
+                        runtimeContext.estimatedCharactersPerToken,
+                      ),
+                    ) >=
+                    runtimeContext.mcpLazyLoadingThresholdTokens),
     };
 
     final toolSearchTool = toolRuntimeService.toolRegistry.getTool(

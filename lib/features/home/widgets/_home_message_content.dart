@@ -323,6 +323,9 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
     required this.collapseCharThreshold,
     required this.collapseLineThreshold,
     required this.previewMaxHeight,
+    this.collapsedOverride,
+    this.onCollapsedChanged,
+    this.showCollapseToggle = true,
   });
 
   final String data;
@@ -336,6 +339,9 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   final int collapseCharThreshold;
   final int collapseLineThreshold;
   final double previewMaxHeight;
+  final bool? collapsedOverride;
+  final ValueChanged<bool>? onCollapsedChanged;
+  final bool showCollapseToggle;
 
   @override
   State<_CollapsibleMessageMarkdownBody> createState() =>
@@ -368,6 +374,19 @@ class _CollapsibleMessageMarkdownBodyState
     );
   }
 
+  bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
+
+  void _setCollapsed(bool value) {
+    if (widget.collapsedOverride != null) {
+      widget.onCollapsedChanged?.call(value);
+      return;
+    }
+    setState(() {
+      _collapsed = value;
+      _userToggled = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data.isEmpty ? ' ' : widget.data;
@@ -385,7 +404,8 @@ class _CollapsibleMessageMarkdownBodyState
     }
 
     final theme = Theme.of(context);
-    final label = _collapsed
+    final collapsed = _effectiveCollapsed;
+    final label = collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
     final detailStyle =
@@ -399,44 +419,43 @@ class _CollapsibleMessageMarkdownBodyState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: _borderRadius18,
-            onTap: () {
-              _BubbleHtmlInteractiveScope.maybeOf(
-                context,
-              )?.markInteractiveTap();
-              setState(() {
-                _collapsed = !_collapsed;
-                _userToggled = true;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    _collapsed
-                        ? Icons.unfold_more_rounded
-                        : Icons.unfold_less_rounded,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(label, style: detailStyle)),
-                  Text(' · ', style: detailStyle),
-                  // 字符计数翻牌：与 Token 胶囊共享同一 RollingText。
-                  RollingText(text: '${data.length}', style: detailStyle),
-                  Text(unitText, style: detailStyle),
-                ],
+        if (widget.showCollapseToggle) ...[
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: _borderRadius18,
+              onTap: () {
+                _BubbleHtmlInteractiveScope.maybeOf(
+                  context,
+                )?.markInteractiveTap();
+                _setCollapsed(!collapsed);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      collapsed
+                          ? Icons.unfold_more_rounded
+                          : Icons.unfold_less_rounded,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(label, style: detailStyle)),
+                    Text(' · ', style: detailStyle),
+                    // 字符计数翻牌：与 Token 胶囊共享同一 RollingText。
+                    RollingText(text: '${data.length}', style: detailStyle),
+                    Text(unitText, style: detailStyle),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         ClipRect(
-          child: _collapsed
+          child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-preview'),
                   child: _MarkdownPreviewBody(
@@ -2320,12 +2339,18 @@ class _PlainTextMessageBody extends StatefulWidget {
     required this.textColor,
     required this.backgroundColor,
     this.style,
+    this.collapsedOverride,
+    this.onCollapsedChanged,
+    this.showCollapseToggle = true,
   });
 
   final String data;
   final Color textColor;
   final Color backgroundColor;
   final TextStyle? style;
+  final bool? collapsedOverride;
+  final ValueChanged<bool>? onCollapsedChanged;
+  final bool showCollapseToggle;
 
   @override
   State<_PlainTextMessageBody> createState() => _PlainTextMessageBodyState();
@@ -2377,6 +2402,30 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     return false;
   }
 
+  bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
+
+  void _setCollapsed(bool value) {
+    if (widget.collapsedOverride != null) {
+      widget.onCollapsedChanged?.call(value);
+      if (value) _scrollPreviewToTop();
+      return;
+    }
+    setState(() {
+      _collapsed = value;
+      _userToggled = true;
+      if (value) _atBottom = false;
+    });
+    if (value) _scrollPreviewToTop();
+  }
+
+  void _scrollPreviewToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2390,7 +2439,8 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
       return SelectableText(data, style: effectiveStyle);
     }
 
-    final label = _collapsed
+    final collapsed = _effectiveCollapsed;
+    final label = collapsed
         ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
     final detailStyle =
@@ -2404,53 +2454,42 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: _borderRadius18,
-            onTap: () {
-              _BubbleHtmlInteractiveScope.maybeOf(
-                context,
-              )?.markInteractiveTap();
-              final nextCollapsed = !_collapsed;
-              setState(() {
-                _collapsed = nextCollapsed;
-                _userToggled = true;
-                if (nextCollapsed) _atBottom = false;
-              });
-              // 重新折叠时将预览滚回顶部，保证每次折叠都从头开始浏览。
-              if (nextCollapsed) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _scrollController.hasClients) {
-                    _scrollController.jumpTo(0);
-                  }
-                });
-              }
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    _collapsed
-                        ? Icons.unfold_more_rounded
-                        : Icons.unfold_less_rounded,
-                    size: 18,
-                    color: widget.textColor.withValues(alpha: 0.82),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(label, style: detailStyle)),
-                  Text(' · ', style: detailStyle),
-                  RollingText(text: '${data.length}', style: detailStyle),
-                  Text(unitText, style: detailStyle),
-                ],
+        if (widget.showCollapseToggle) ...[
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: _borderRadius18,
+              onTap: () {
+                _BubbleHtmlInteractiveScope.maybeOf(
+                  context,
+                )?.markInteractiveTap();
+                _setCollapsed(!collapsed);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      collapsed
+                          ? Icons.unfold_more_rounded
+                          : Icons.unfold_less_rounded,
+                      size: 18,
+                      color: widget.textColor.withValues(alpha: 0.82),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(label, style: detailStyle)),
+                    Text(' · ', style: detailStyle),
+                    RollingText(text: '${data.length}', style: detailStyle),
+                    Text(unitText, style: detailStyle),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         ClipRect(
-          child: _collapsed
+          child: collapsed
               ? SizedBox(
                   height: 240,
                   child: Stack(
@@ -4826,6 +4865,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     required this.previewMaxHeight,
     this.wrapInSelectionArea = true,
     this.isStreaming = false,
+    this.collapsedOverride,
+    this.onCollapsedChanged,
+    this.showCollapseToggle = true,
   });
 
   final String data;
@@ -4843,6 +4885,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final double previewMaxHeight;
   final bool wrapInSelectionArea;
   final bool isStreaming;
+  final bool? collapsedOverride;
+  final ValueChanged<bool>? onCollapsedChanged;
+  final bool showCollapseToggle;
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
@@ -4891,6 +4936,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       collapseCharThreshold: collapseCharThreshold,
       collapseLineThreshold: collapseLineThreshold,
       previewMaxHeight: previewMaxHeight,
+      collapsedOverride: collapsedOverride,
+      onCollapsedChanged: onCollapsedChanged,
+      showCollapseToggle: showCollapseToggle,
     );
   }
 
@@ -4900,6 +4948,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       textColor: textColor,
       backgroundColor: backgroundColor,
       style: markdownStyleSheet.p,
+      collapsedOverride: collapsedOverride,
+      onCollapsedChanged: onCollapsedChanged,
+      showCollapseToggle: showCollapseToggle,
     );
   }
 

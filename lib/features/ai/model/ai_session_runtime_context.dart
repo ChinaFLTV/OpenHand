@@ -171,7 +171,7 @@ class AiSessionRuntimeContext {
     this.availableMcpServers = const <McpServer>[],
     this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
     this.mcpLazyLoadingMode = McpLazyLoadingMode.auto,
-    this.mcpLazyLoadingThresholdTokens = 80000,
+    this.mcpLazyLoadingThresholdTokens = 16000,
     this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
     this.workspaceInstructionDocuments =
         const <AiWorkspaceInstructionDocument>[],
@@ -450,7 +450,8 @@ class AiSessionRuntimeContext {
   final McpLazyLoadingMode mcpLazyLoadingMode;
 
   /// 2026-05-03 — auto 模式下的 token 阈值：当所有 MCP 工具描述估算 token
-  /// 总量超过此值时则启用懒加载。
+  /// 总量超过此值时则启用懒加载。默认值保持偏保守，优先降低反复发送
+  /// 大工具目录造成的上下文成本与缓存失效风险。
   final int mcpLazyLoadingThresholdTokens;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;

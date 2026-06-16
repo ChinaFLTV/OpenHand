@@ -596,10 +596,12 @@ class AppSettingsSnapshot {
 
   /// 2026-05-03 — MCP 工具懒加载默认配置。
   ///   - 默认 [McpLazyLoadingMode.auto]：仅在 MCP 工具体量超过阈值时启用。
-  ///   - 默认阈值 80 000 tokens（≈ Claude 200K 上下文窗口的 40%）。
+  ///   - 默认阈值 16 000 tokens：中大型 MCP 工具目录默认延后加载，避免
+  ///     每轮把大工具 schema 作为原生 tools 重复发送，拖低前缀缓存收益。
   static const McpLazyLoadingMode defaultMcpLazyLoadingMode =
       McpLazyLoadingMode.auto;
-  static const int defaultMcpLazyLoadingThresholdTokens = 80000;
+  static const int legacyMcpLazyLoadingThresholdTokens = 80000;
+  static const int defaultMcpLazyLoadingThresholdTokens = 16000;
   static const int minMcpLazyLoadingThresholdTokens = 1000;
   static const int maxMcpLazyLoadingThresholdTokens = 1000000;
   static const McpStdioMirrorMode defaultMcpStdioMirrorMode =

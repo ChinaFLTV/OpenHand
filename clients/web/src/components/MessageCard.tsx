@@ -534,7 +534,6 @@ const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 const STREAMING_SIZE_MOTION_BUCKET_CHARS = 16;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
-const STREAMING_DIFF_UNDERLAY_MARKDOWN_MAX_CHARS = 4096;
 const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 
 // 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
@@ -819,14 +818,6 @@ function useRecentMessageActivity(
   return active;
 }
 
-interface StreamingContentSnapshot {
-  key: string;
-  content: string;
-  raw: boolean;
-  mono: boolean;
-  mode: 'append' | 'remove';
-}
-
 function StreamingPlainTextReveal({
   content,
   streaming,
@@ -900,8 +891,6 @@ function StreamingMarkdownReveal({
   htmlFallback?: 'markdown' | 'plain_text';
 }) {
   const contentIsHtml = looksLikeHtml(content);
-  const supportsDiffAnimation =
-    format !== 'html' && format !== 'plain_text' && !contentIsHtml;
   const canStageContent = streaming && format !== 'html' && !contentIsHtml;
   const { visibleContent: renderContent, staging } = useStreamingStagedText(
     content,
@@ -915,151 +904,21 @@ function StreamingMarkdownReveal({
     ),
     !reduceMotion && (streaming || staging),
   );
-  const previousRef = useRef({ content: renderContent, raw, mono });
-  const serialRef = useRef(0);
-  const [outgoing, setOutgoing] = useState<StreamingContentSnapshot | null>(null);
-
-  const buildSnapshot = useCallback((mode: 'append' | 'remove', previous: { content: string; raw: boolean; mono: boolean }) => {
-    serialRef.current += 1;
-    return {
-      key: `${serialRef.current}:${mode}`,
-      content: previous.content,
-      raw: previous.raw,
-      mono: previous.mono,
-      mode,
-    } satisfies StreamingContentSnapshot;
-  }, []);
-
-  const previous = previousRef.current;
   const revealAllowed = renderContent.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
-  // HTML / plain_text 模式禁用 diff underlay：
-  // 1. HTML 模式：上下层都会触发 DOMPurify 解析 + dangerouslySetInnerHTML 渲染，
-  //    两份相似 DOM 叠加产生肉眼可见的"重影"；
-  // 2. plain_text 模式：纯文本拼接已经无延迟，underlay 多余；
-  // 3. WEB localStorage 还停在 'markdown' 但 AI 已返回 HTML 时，Markdown 内部
-  //    会自适应升级为 HtmlBody —— 此处也得同步禁用 underlay，否则上下两个
-  //    HtmlBody 叠加同样产生肉眼可见的"重影"（这是用户截图里仍能看到重影的
-  //    根因）。直接基于 content 判断更可靠。
-  // 仅 markdown 流式走 diff underlay 平滑过渡。
-  const canAnimateDiff =
-    !reduceMotion &&
-    streaming &&
-    revealAllowed &&
-    previous.content.length > 0 &&
-    supportsDiffAnimation;
-  let immediateOutgoing: StreamingContentSnapshot | null = null;
-  if (canAnimateDiff && previous.content !== renderContent) {
-    if (
-      renderContent.length > previous.content.length &&
-      renderContent.startsWith(previous.content)
-    ) {
-      immediateOutgoing = {
-        key: `${serialRef.current + 1}:append`,
-        content: previous.content,
-        raw: previous.raw,
-        mono: previous.mono,
-        mode: 'append',
-      };
-    } else if (
-      renderContent.length < previous.content.length &&
-      previous.content.startsWith(renderContent)
-    ) {
-      immediateOutgoing = {
-        key: `${serialRef.current + 1}:remove`,
-        content: previous.content,
-        raw: previous.raw,
-        mono: previous.mono,
-        mode: 'remove',
-      };
-    }
-  }
-
-  useLayoutEffect(() => {
-    const previousValue = previousRef.current;
-    if (
-      previousValue.content === renderContent &&
-      previousValue.raw === raw &&
-      previousValue.mono === mono
-    ) {
-      return;
-    }
-
-    let nextOutgoing: StreamingContentSnapshot | null = null;
-    const shouldAnimate =
-      !reduceMotion &&
-      streaming &&
-      revealAllowed &&
-      previousValue.content.length > 0 &&
-      supportsDiffAnimation;
-    if (shouldAnimate) {
-      if (
-        renderContent.length > previousValue.content.length &&
-        renderContent.startsWith(previousValue.content)
-      ) {
-        nextOutgoing = buildSnapshot('append', previousValue);
-      } else if (
-        renderContent.length < previousValue.content.length &&
-        previousValue.content.startsWith(renderContent)
-      ) {
-        nextOutgoing = buildSnapshot('remove', previousValue);
-      }
-    }
-    previousRef.current = { content: renderContent, raw, mono };
-    setOutgoing(nextOutgoing);
-  }, [buildSnapshot, mono, raw, reduceMotion, renderContent, streaming, supportsDiffAnimation, revealAllowed]);
-
-  useEffect(() => {
-    if (outgoing?.mode !== 'remove') return;
-    const key = outgoing.key;
-    const timer = window.setTimeout(() => {
-      setOutgoing((current) => (current?.key === key ? null : current));
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [outgoing]);
-
-  const handleRevealRest = useCallback(() => {
-    setOutgoing((current) => (current?.mode === 'append' ? null : current));
-  }, []);
-
   const { containerRef: streamingMaskRef, streamingClass } =
     useStreamingReveal(
       streaming && revealAllowed,
       renderContent.length,
       renderContent,
       reduceMotion,
-      handleRevealRest,
     );
 
-  const visibleOutgoing = immediateOutgoing ?? outgoing;
-  const underlayRaw = visibleOutgoing
-    ? visibleOutgoing.raw || visibleOutgoing.content.length > STREAMING_DIFF_UNDERLAY_MARKDOWN_MAX_CHARS
-    : false;
-  const currentClass = [
-    streamingClass ? 'oh-streaming-reveal' : '',
-    visibleOutgoing ? 'oh-streaming-diff-current' : '',
-  ].filter(Boolean).join(' ') || undefined;
-
   return (
-    <div
-      ref={sizeMotionRef}
-      class={`oh-streaming-diff-shell${visibleOutgoing ? ' has-underlay' : ''}`}
-    >
-      {visibleOutgoing ? (
-        <div
-          key={visibleOutgoing.key}
-          class={`oh-streaming-diff-underlay is-${visibleOutgoing.mode}`}
-          aria-hidden="true"
-        >
-          <Markdown
-            source={visibleOutgoing.content}
-            raw={underlayRaw}
-            mono={visibleOutgoing.mono}
-            format={format}
-            htmlFallback={htmlFallback}
-          />
-        </div>
-      ) : null}
-      <div ref={streamingMaskRef} class={currentClass}>
+    <div ref={sizeMotionRef}>
+      <div
+        ref={streamingMaskRef}
+        class={streamingClass ? 'oh-streaming-reveal' : undefined}
+      >
         <Markdown
           source={renderContent}
           raw={raw}
@@ -1185,6 +1044,8 @@ function MessageCardImpl({
   const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
+  const shouldRenderResponseToggle =
+    canCollapse && isAssistantResponseMessage(message) && !isCollapsibleByBadge;
   const isLongReasoning =
     message.kind === 'reasoning' && isReasoningLong(content);
   const defaultBadgeCollapsed = !streamingContent && !keepExpandedDuringTurn && isLongReasoning;
@@ -1296,7 +1157,8 @@ function MessageCardImpl({
           ? ` · ${message.kind}`
           : ''
       }`;
-  const shouldRenderHeader = style.badge || Boolean(plainRoleMeta);
+  const shouldRenderHeader =
+    style.badge || shouldRenderResponseToggle || Boolean(plainRoleMeta);
   const selectedInfoChips = selectedMessageInfoChips(message);
   const media = sessionId ? (
     <MessageMedia
@@ -1314,13 +1176,21 @@ function MessageCardImpl({
     !reduceMotion && !streamingContent && !keepExpandedDuringTurn,
   );
 
-  const handleBadgeToggle = useCallback((e: Event) => {
-    e.stopPropagation();
+  const toggleBadgeCollapsed = useCallback(() => {
     setBadgeCollapsedOverride((current) => {
       const next = current == null ? !defaultBadgeCollapsed : !current;
       return next;
     });
   }, [defaultBadgeCollapsed]);
+
+  const handleBadgeToggle = useCallback((e: Event) => {
+    e.stopPropagation();
+    toggleBadgeCollapsed();
+  }, [toggleBadgeCollapsed]);
+
+  const toggleResponseExpanded = useCallback(() => {
+    setExpandedOverride(() => (expanded ? false : true));
+  }, [expanded]);
 
   return (
     <>
@@ -1343,12 +1213,12 @@ function MessageCardImpl({
         color: style.color,
         boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
         border: style.border,
-        cursor: hasAnyAction ? 'pointer' : 'default',
+        cursor: hasAnyAction || canCollapse || isCollapsibleByBadge ? 'pointer' : 'default',
         overflowWrap: 'anywhere',
         transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
       }}
       onClick={(ev) => {
-        if (!hasAnyAction) return;
+        if (!hasAnyAction && !canCollapse && !isCollapsibleByBadge) return;
         // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
         const target = ev.target as HTMLElement;
         if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
@@ -1385,6 +1255,14 @@ function MessageCardImpl({
         // 双击代码块选中文本时也不切换。
         const sel = typeof window !== 'undefined' ? window.getSelection() : null;
         if (sel && sel.toString().length > 0) return;
+        if (isCollapsibleByBadge) {
+          toggleBadgeCollapsed();
+          return;
+        }
+        if (canCollapse) {
+          toggleResponseExpanded();
+          return;
+        }
         onActiveChange?.(message, !active);
       }}
     >
@@ -1439,6 +1317,43 @@ function MessageCardImpl({
                   <span>{style.label}</span>
                 </span>
               )
+            ) : shouldRenderResponseToggle ? (
+              <button
+                type="button"
+                class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
+                style={{
+                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  fontSize: 'inherit',
+                  lineHeight: 'inherit',
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleResponseExpanded();
+                }}
+                aria-expanded={expanded ? 'true' : 'false'}
+                title={collapsed
+                  ? t('detail.tool.body.expand', '展开全部')
+                  : t('detail.tool.body.collapse', '折叠')}
+              >
+                <span class="oh-message-kind-icon" aria-hidden>
+                  <MessageIcon name="assistant" size={14} />
+                </span>
+                <span>{t('detail.kind.response', '响应')}</span>
+                <span
+                  class="oh-badge-chevron"
+                  aria-hidden
+                  style={{
+                    display: 'inline-flex',
+                    transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
+                    transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                  }}
+                >
+                  <MessageIcon name="chevronDown" size={12} />
+                </span>
+              </button>
             ) : (
               <span class="opacity-90">{plainRoleMeta}</span>
             )}
@@ -1509,22 +1424,6 @@ function MessageCardImpl({
           <TypewriterCaret />
         ) : null}
       </ReasoningCollapsibleBody>
-      {canCollapse && !streamingContent && !badgeCollapsed ? (
-        <button
-          type="button"
-          class="oh-tap-press oh-message-collapse-button mt-2"
-          aria-expanded={expanded ? 'true' : 'false'}
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpandedOverride((value) => (value === true ? false : true));
-          }}
-        >
-          <MessageIcon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} />
-          <span>{expanded
-            ? t('detail.tool.body.collapse', '折叠')
-            : t('detail.tool.body.expand', '展开全部')}</span>
-        </button>
-      ) : null}
       {isUserBubble && contextChips.length > 0 ? (
         <div class="oh-message-context-capsules is-user is-after-content">
           {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
