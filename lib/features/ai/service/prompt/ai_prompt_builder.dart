@@ -26,6 +26,7 @@ import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 import 'ai_output_format_prompts.dart';
 import 'ai_prompt_sections.dart';
+import 'ai_prompt_template_assembly.dart';
 import 'ai_prompt_template_repository.dart';
 
 class AiPromptBuildResult {
@@ -44,17 +45,20 @@ class AiPromptBuildResult {
   final int historyMessageCount;
 }
 
+class _PromptSection {
+  const _PromptSection(this.header, this.content);
+
+  final String header;
+  final String content;
+
+  bool get hasContent => content.trim().isNotEmpty;
+}
+
 class AiPromptBuilder {
   const AiPromptBuilder();
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
-  static const _compactSessionStateTemplateIds = <String>{
-    'default',
-    'programming_expert',
-    // Siri 助手除 system prompt 外与 default 基本同构；沿用紧凑会话态布局，
-    // 避免非紧凑 [3d] 尾巴在 OpenAI 兼容自动前缀缓存模型上持续击穿命中率。
-    'siri_helper',
-  };
+  static const JsonEncoder _promptJsonEncoder = JsonEncoder.withIndent('  ');
   static const _nonCompactStaticSessionKeys = <String>{
     'session_created_at',
     'session_id',
@@ -174,6 +178,9 @@ class AiPromptBuilder {
     List<AiToolDefinition>? displayCatalogOverride,
     String? toolCatalogOmissionReason,
   }) {
+    final templatePolicy = AiPromptTemplatePolicies.resolve(
+      templateBundle.template.id,
+    );
     final repositorySnapshot = _effectiveRepositorySnapshot(
       session: session,
       runtimeContext: runtimeContext,
@@ -390,6 +397,7 @@ class AiPromptBuilder {
     };
     final webReverseRuntime = _buildWebReverseRuntimeSnapshot(
       session,
+      templatePolicy: templatePolicy,
       availableToolNames: availableToolNames,
       resolvedToolsByName: resolvedToolsByName,
     );
@@ -397,11 +405,7 @@ class AiPromptBuilder {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
 
-    // 2026-04-13: default template also uses compact metadata format to reduce
-    // token overhead by ~40%. This follows the refactoring proposal.
-    final isCompactTemplate = _compactSessionStateTemplateIds.contains(
-      templateBundle.template.id,
-    );
+    final isCompactTemplate = templatePolicy.usesCompactSessionState;
     final Map<String, Object?> staticSessionState;
     final Map<String, Object?> dynamicSessionState;
     if (isCompactTemplate) {
@@ -493,22 +497,30 @@ class AiPromptBuilder {
       runtimeContext: runtimeContext,
       model: model,
     );
+    final userInstructionsBody = _renderUserInstructionsBody(
+      runtimeContext.userInstructions,
+      const <String>{},
+    );
 
     final messages = <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.systemInstructions}\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
+      _systemSectionTurn(
+        AiPromptSectionHeaders.systemInstructions,
+        '${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
       ),
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.developerInstructions}\n\n${templateBundle.developerInstructions}',
+      _systemSectionTurn(
+        AiPromptSectionHeaders.developerInstructions,
+        templateBundle.developerInstructions,
       ),
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.toolCatalog}\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls, omissionReason: toolCatalogOmissionReason)}',
+      _systemSectionTurn(
+        AiPromptSectionHeaders.toolCatalog,
+        _renderRuntimeToolCatalog(
+          displayCatalogOverride ?? availableTools,
+          compact: isCompactTemplate,
+          templatePolicy: templatePolicy,
+          awaitingPlanApproval: session.awaitingPlanApproval,
+          useDsmlToolCalls: useDsmlToolCalls,
+          omissionReason: toolCatalogOmissionReason,
+        ),
       ),
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分：
@@ -527,15 +539,15 @@ class AiPromptBuilder {
       // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
       // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
       // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: isCompactTemplate
-            ? '${AiPromptSectionHeaders.userMemory}\n\n'
-                  'Long-term user facts and preferences.\n\n'
+      _systemSectionTurn(
+        isCompactTemplate
+            ? AiPromptSectionHeaders.userMemory
+            : AiPromptSectionHeaders.userMemoryLongTermFacts,
+        isCompactTemplate
+            ? 'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
-            : '${AiPromptSectionHeaders.userMemoryLongTermFacts}\n\n'
-                  'Long-term user facts and preferences.\n\n'
+            : 'Long-term user facts and preferences.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
@@ -545,73 +557,55 @@ class AiPromptBuilder {
       // 要忽略哪几条由 [3d] Dynamic Session State 的
       // `skipped_user_instruction_ids` 告诉模型。渲染时会在每条指令标
       // 题里携带 id，保证模型能精准匹配。
-      if (_renderUserInstructionsBody(
-        runtimeContext.userInstructions,
-        const <String>{},
-      ).isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.userInstructions}\n\n'
-              '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。若 [3d] Dynamic Session State 里出现了 `skipped_user_instruction_ids`，本轮临时忽略该 id 对应的指令。 / '
-              'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
-              '${_renderUserInstructionsBody(runtimeContext.userInstructions, const <String>{})}',
+      if (userInstructionsBody.isNotEmpty)
+        _systemSectionTurn(
+          AiPromptSectionHeaders.userInstructions,
+          '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。若 [3d] Dynamic Session State 里出现了 `skipped_user_instruction_ids`，本轮临时忽略该 id 对应的指令。 / '
+          'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
+          '$userInstructionsBody',
         ),
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: isCompactTemplate
-            ? '${AiPromptSectionHeaders.conversationContext}\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
-            : '${AiPromptSectionHeaders.recentConversationSummary}\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
+      _systemSectionTurn(
+        isCompactTemplate
+            ? AiPromptSectionHeaders.conversationContext
+            : AiPromptSectionHeaders.recentConversationSummary,
+        _renderCompressionSummary(session, latestCompressionPoint),
       ),
       // 2026-05-23 v3 — restored contexts 移至 history 之前：
       // 它们在压缩点前保持稳定，放在此前缀区可增加缓存命中 token。
-      if (restoredFileContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredFileContext}\n\n$restoredFileContext',
+      ..._optionalSystemSectionTurns(<_PromptSection>[
+        _PromptSection(
+          AiPromptSectionHeaders.restoredFileContext,
+          restoredFileContext,
         ),
-      if (restoredSkillContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredSkillContext}\n\n$restoredSkillContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredSkillContext,
+          restoredSkillContext,
         ),
-      if (restoredPlanContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredPlanContext}\n\n$restoredPlanContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredPlanContext,
+          restoredPlanContext,
         ),
-      if (restoredMcpContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredMcpContext}\n\n$restoredMcpContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredMcpContext,
+          restoredMcpContext,
         ),
-      if (restoredSessionStartHookContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredSessionStartHookContext}\n\n$restoredSessionStartHookContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredSessionStartHookContext,
+          restoredSessionStartHookContext,
         ),
-      if (restoredToolAgentContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredToolAndAgentListing}\n\n$restoredToolAgentContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredToolAndAgentListing,
+          restoredToolAgentContext,
         ),
-      if (restoredAgentResultContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.restoredAgentResultContext}\n\n$restoredAgentResultContext',
+        _PromptSection(
+          AiPromptSectionHeaders.restoredAgentResultContext,
+          restoredAgentResultContext,
         ),
+      ]),
       // [3s] Static Session State — in stable prefix, before history.
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.staticSessionState}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(staticSessionState)}\n```',
+      _jsonSystemSectionTurn(
+        AiPromptSectionHeaders.staticSessionState,
+        staticSessionState,
       ),
       ...outputFormatReminderTurns,
       // ─────────────────────────────────────────────────────────────
@@ -638,30 +632,22 @@ class AiPromptBuilder {
       // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
       ...latestUserNonSystemTurns,
       if (dynamicSessionState.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.dynamicSessionState}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(dynamicSessionState)}\n```',
+        _jsonSystemSectionTurn(
+          AiPromptSectionHeaders.dynamicSessionState,
+          dynamicSessionState,
         ),
       if (focusContext.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.focusContext}\n\n$focusContext',
-        ),
+        _systemSectionTurn(AiPromptSectionHeaders.focusContext, focusContext),
       if (!preferInlineHistorySystemArtifacts &&
           todoReminder != null &&
           todoReminder.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content: '${AiPromptSectionHeaders.systemReminder}\n\n$todoReminder',
-        ),
+        _systemSectionTurn(AiPromptSectionHeaders.systemReminder, todoReminder),
       if (!preferInlineHistorySystemArtifacts &&
           planModeReminder != null &&
           planModeReminder.isNotEmpty)
-        AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              '${AiPromptSectionHeaders.planModeReminder}\n\n$planModeReminder',
+        _systemSectionTurn(
+          AiPromptSectionHeaders.planModeReminder,
+          planModeReminder,
         ),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
@@ -736,6 +722,32 @@ class AiPromptBuilder {
     );
   }
 
+  AiChatTurn _systemSectionTurn(String header, String content) {
+    final body = content.trimRight();
+    return AiChatTurn(
+      role: AiChatRole.system,
+      content: body.isEmpty ? header : '$header\n\n$body',
+    );
+  }
+
+  AiChatTurn _jsonSystemSectionTurn(String header, Object? value) {
+    return _systemSectionTurn(header, _jsonCodeBlock(value));
+  }
+
+  String _jsonCodeBlock(Object? value) {
+    return '```json\n${_promptJsonEncoder.convert(value)}\n```';
+  }
+
+  List<AiChatTurn> _optionalSystemSectionTurns(
+    Iterable<_PromptSection> sections,
+  ) {
+    return <AiChatTurn>[
+      for (final section in sections)
+        if (section.hasContent)
+          _systemSectionTurn(section.header, section.content),
+    ];
+  }
+
   List<AiChatTurn> _buildOutputFormatReminderTurns({
     required AiSessionRuntimeContext runtimeContext,
     required AiModelConfig model,
@@ -747,10 +759,9 @@ class AiPromptBuilder {
       case AiMessageContentFormat.plainText:
         if (AiOutputFormatPrompts.plainText.isNotEmpty) {
           turns.add(
-            AiChatTurn(
-              role: AiChatRole.system,
-              content:
-                  '${AiPromptSectionHeaders.outputFormatReminder}\n\n${AiOutputFormatPrompts.plainText}',
+            _systemSectionTurn(
+              AiPromptSectionHeaders.outputFormatReminder,
+              AiOutputFormatPrompts.plainText,
             ),
           );
         }
@@ -761,10 +772,9 @@ class AiPromptBuilder {
         );
         if (htmlPrompt.isNotEmpty) {
           turns.add(
-            AiChatTurn(
-              role: AiChatRole.system,
-              content:
-                  '${AiPromptSectionHeaders.outputFormatReminder}\n\n$htmlPrompt',
+            _systemSectionTurn(
+              AiPromptSectionHeaders.outputFormatReminder,
+              htmlPrompt,
             ),
           );
         }
@@ -775,20 +785,18 @@ class AiPromptBuilder {
         );
         if (themeContext.isNotEmpty) {
           turns.add(
-            AiChatTurn(
-              role: AiChatRole.system,
-              content:
-                  '${AiPromptSectionHeaders.themeContextReminder}\n\n$themeContext',
+            _systemSectionTurn(
+              AiPromptSectionHeaders.themeContextReminder,
+              themeContext,
             ),
           );
         }
         if (_isGptSeriesModel(model.modelId) &&
             AiOutputFormatPrompts.gptChatRules.isNotEmpty) {
           turns.add(
-            AiChatTurn(
-              role: AiChatRole.system,
-              content:
-                  '${AiPromptSectionHeaders.gptChatRulesReminder}\n\n${AiOutputFormatPrompts.gptChatRules}',
+            _systemSectionTurn(
+              AiPromptSectionHeaders.gptChatRulesReminder,
+              AiOutputFormatPrompts.gptChatRules,
             ),
           );
         }
@@ -1281,7 +1289,7 @@ class AiPromptBuilder {
   String _renderRuntimeToolCatalog(
     List<AiToolDefinition> availableTools, {
     bool compact = false,
-    String? templateId,
+    required AiPromptTemplatePolicy templatePolicy,
     bool awaitingPlanApproval = false,
     bool useDsmlToolCalls = false,
     String? omissionReason,
@@ -1331,15 +1339,8 @@ class AiPromptBuilder {
       }
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
-    // 2026-04-08 工具目录按能力优先级分组呈现：Skill > MCP > Builtin
-    // resolveCatalog 已按此顺序注册，definitions 列表天然有序。
-    // 此处进一步添加分组标题，让模型在阅读时明确优先级语义。
-    // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
-    // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
-    // 2026-05-16 Web 逆向专家：CDP 通道由 OpenHand 管理。
-    // 2026-05-19 CDP MCP 是逆向主路径，文件/终端/Skill 只做辅助。
-    final isMachineExpert = templateId == 'machine_expert';
-    final isWebReverse = templateId == 'web_reverse_expert';
+    final isMachineExpert = templatePolicy.usesMachineToolCatalog;
+    final isWebReverse = templatePolicy.usesWebReverseToolCatalog;
     final buffer = StringBuffer();
     if (compact) {
       buffer.writeln(
@@ -1695,9 +1696,9 @@ class AiPromptBuilder {
     }
     final turns = extracted.reminders
         .map(
-          (reminder) => AiChatTurn(
-            role: AiChatRole.system,
-            content: '${AiPromptSectionHeaders.systemReminder}\n\n$reminder',
+          (reminder) => _systemSectionTurn(
+            AiPromptSectionHeaders.systemReminder,
+            reminder,
           ),
         )
         .toList(growable: true);
@@ -1745,14 +1746,16 @@ class AiPromptBuilder {
     required List<AiSessionMessage> messagesToCompress,
     required AiSessionMessage? previousCompressionPoint,
   }) {
-    final isProgrammingExpert = template.id == 'programming_expert';
+    final templatePolicy = AiPromptTemplatePolicies.resolve(template.id);
+    final usesMinimalCompressionPayload =
+        templatePolicy.usesMinimalCompressionPayload;
     final payload = <String, Object?>{
       'session_title': session.title,
       'template_name': template.name,
-      if (!isProgrammingExpert) 'session_id': session.id,
-      if (!isProgrammingExpert) 'template_id': template.id,
+      if (!usesMinimalCompressionPayload) 'session_id': session.id,
+      if (!usesMinimalCompressionPayload) 'template_id': template.id,
       'locale_tag': runtimeContext.localeTag,
-      if (!isProgrammingExpert)
+      if (!usesMinimalCompressionPayload)
         'compression_threshold_chars': runtimeContext.compressionThresholdChars,
       'previous_checkpoint_present': previousCompressionPoint != null,
       'messages_to_compress_count': messagesToCompress.length,
@@ -1793,34 +1796,33 @@ class AiPromptBuilder {
     final previousCheckpointText = previousCompressionPoint == null
         ? 'No earlier checkpoint.'
         : _boundedCheckpointPromptView(previousCompressionPoint.content);
-    final compressionSystemContent = _compressionSystemInstructionsForTemplate(
-      template,
+    final compressionSystemContent = _compressionSystemInstructionsForPolicy(
+      templatePolicy,
     );
     return <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.compressionSystemInstructions}\n\n$compressionSystemContent',
+      _systemSectionTurn(
+        AiPromptSectionHeaders.compressionSystemInstructions,
+        compressionSystemContent,
       ),
-      AiChatTurn(
-        role: AiChatRole.system,
-        content:
-            '${AiPromptSectionHeaders.compressionDeveloperInstructions}\n\n${templateBundle.compressionSummaryInstructions}',
+      _systemSectionTurn(
+        AiPromptSectionHeaders.compressionDeveloperInstructions,
+        templateBundle.compressionSummaryInstructions,
       ),
       AiChatTurn(
         role: AiChatRole.user,
         content:
-            '${AiPromptSectionHeaders.compressionTaskPayload}\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
+            '${AiPromptSectionHeaders.compressionTaskPayload}\n\n${_jsonCodeBlock(payload)}\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
   }
 
   Map<String, Object?>? _buildWebReverseRuntimeSnapshot(
     AiSession session, {
+    required AiPromptTemplatePolicy templatePolicy,
     required List<String> availableToolNames,
     required Map<String, AiResolvedTool> resolvedToolsByName,
   }) {
-    if (session.templateId != 'web_reverse_expert') {
+    if (!templatePolicy.includesWebReverseRuntime) {
       return null;
     }
     final rawConfig = session.metadata['web_reverse_config'];
@@ -2083,22 +2085,10 @@ class AiPromptBuilder {
     return _webReverseCdpMcpToolNames(deferredToolsByName);
   }
 
-  String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
-    final identity = switch (template.id) {
-      'machine_expert' =>
-        'You are OpenHand Machine Expert. Produce a relay-safe terminal interaction checkpoint.',
-      'hardness_engineering' =>
-        'You are OpenHand Harness Engineering. Produce a relay-safe orchestration checkpoint.',
-      'programming_expert' =>
-        'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
-      'hermes_talker' =>
-        'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
-      'siri_helper' =>
-        'You are OpenHand Siri Helper. Produce a relay-safe Apple-assistant checkpoint with grounded facts, cited claims, and any user-visible UI context preserved.',
-      'web_reverse_expert' =>
-        'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, hook scripts injected, and saved artifacts under WD/.web_reverse/.',
-      _ => 'You are OpenHand. Produce a relay-safe conversation checkpoint.',
-    };
+  String _compressionSystemInstructionsForPolicy(
+    AiPromptTemplatePolicy templatePolicy,
+  ) {
+    final identity = templatePolicy.compressionIdentity;
     return '''CRITICAL: Respond with TEXT ONLY. Do not call tools.
 
 - Use only the previous checkpoint and transcript in the task payload.

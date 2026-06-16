@@ -12,6 +12,163 @@ class AiPromptLoadedSection {
   final String content;
 }
 
+enum AiPromptSessionStateLayout { compact, partitionedMetadata }
+
+enum AiPromptToolCatalogProfile { generic, machineExpert, webReverse }
+
+enum AiPromptCompressionPayloadStyle { standard, minimal }
+
+class AiPromptTemplatePolicy {
+  const AiPromptTemplatePolicy({
+    required this.templateId,
+    required this.promptAssetDirectory,
+    required this.sessionStateLayout,
+    required this.toolCatalogProfile,
+    required this.sharedSections,
+    required this.extensionSections,
+    required this.compressionIdentity,
+    this.directAnswerToolOmissionEnabled = false,
+    this.compressionPayloadStyle = AiPromptCompressionPayloadStyle.standard,
+    this.includesWebReverseRuntime = false,
+  });
+
+  final String templateId;
+  final String promptAssetDirectory;
+  final AiPromptSessionStateLayout sessionStateLayout;
+  final AiPromptToolCatalogProfile toolCatalogProfile;
+  final List<AiPromptSharedSectionSpec> sharedSections;
+  final List<AiPromptSharedSectionSpec> extensionSections;
+  final String compressionIdentity;
+  final bool directAnswerToolOmissionEnabled;
+  final AiPromptCompressionPayloadStyle compressionPayloadStyle;
+  final bool includesWebReverseRuntime;
+
+  bool get usesCompactSessionState =>
+      sessionStateLayout == AiPromptSessionStateLayout.compact;
+
+  bool get usesMinimalCompressionPayload =>
+      compressionPayloadStyle == AiPromptCompressionPayloadStyle.minimal;
+
+  bool get usesMachineToolCatalog =>
+      toolCatalogProfile == AiPromptToolCatalogProfile.machineExpert;
+
+  bool get usesWebReverseToolCatalog =>
+      toolCatalogProfile == AiPromptToolCatalogProfile.webReverse;
+}
+
+class AiPromptTemplatePolicies {
+  const AiPromptTemplatePolicies._();
+
+  static const String defaultTemplateId = 'default';
+  static const String machineExpertTemplateId = 'machine_expert';
+  static const String hardnessEngineeringTemplateId = 'hardness_engineering';
+  static const String programmingExpertTemplateId = 'programming_expert';
+  static const String hermesTalkerTemplateId = 'hermes_talker';
+  static const String webReverseExpertTemplateId = 'web_reverse_expert';
+  static const String siriHelperTemplateId = 'siri_helper';
+
+  static const String defaultPromptAssetDirectory = 'assets/prompts/default';
+  static const String machineExpertPromptAssetDirectory =
+      'assets/prompts/machine_expert';
+  static const String hardnessEngineeringPromptAssetDirectory =
+      'assets/prompts/harness_engineering';
+  static const String programmingExpertPromptAssetDirectory =
+      'assets/prompts/programming_expert';
+  static const String hermesTalkerPromptAssetDirectory =
+      'assets/prompts/hermes_talker';
+  static const String webReverseExpertPromptAssetDirectory =
+      'assets/prompts/web_reverse_expert';
+  static const String siriHelperPromptAssetDirectory =
+      'assets/prompts/siri_helper';
+
+  static const Map<String, AiPromptTemplatePolicy>
+  byId = <String, AiPromptTemplatePolicy>{
+    defaultTemplateId: AiPromptTemplatePolicy(
+      templateId: defaultTemplateId,
+      promptAssetDirectory: defaultPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.compact,
+      toolCatalogProfile: AiPromptToolCatalogProfile.generic,
+      sharedSections: _defaultPromptSharedSections,
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand. Produce a relay-safe conversation checkpoint.',
+      directAnswerToolOmissionEnabled: true,
+    ),
+    machineExpertTemplateId: AiPromptTemplatePolicy(
+      templateId: machineExpertTemplateId,
+      promptAssetDirectory: machineExpertPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
+      toolCatalogProfile: AiPromptToolCatalogProfile.machineExpert,
+      sharedSections: <AiPromptSharedSectionSpec>[],
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Machine Expert. Produce a relay-safe terminal interaction checkpoint.',
+    ),
+    hardnessEngineeringTemplateId: AiPromptTemplatePolicy(
+      templateId: hardnessEngineeringTemplateId,
+      promptAssetDirectory: hardnessEngineeringPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
+      toolCatalogProfile: AiPromptToolCatalogProfile.generic,
+      sharedSections: _defaultPromptSharedSections,
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Harness Engineering. Produce a relay-safe orchestration checkpoint.',
+    ),
+    programmingExpertTemplateId: AiPromptTemplatePolicy(
+      templateId: programmingExpertTemplateId,
+      promptAssetDirectory: programmingExpertPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.compact,
+      toolCatalogProfile: AiPromptToolCatalogProfile.generic,
+      sharedSections: _defaultPromptSharedSections,
+      extensionSections: _programmingExpertExtensionSections,
+      compressionIdentity:
+          'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
+      compressionPayloadStyle: AiPromptCompressionPayloadStyle.minimal,
+    ),
+    hermesTalkerTemplateId: AiPromptTemplatePolicy(
+      templateId: hermesTalkerTemplateId,
+      promptAssetDirectory: hermesTalkerPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.compact,
+      toolCatalogProfile: AiPromptToolCatalogProfile.generic,
+      sharedSections: _hermesTalkerSharedSections,
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
+      directAnswerToolOmissionEnabled: true,
+    ),
+    webReverseExpertTemplateId: AiPromptTemplatePolicy(
+      templateId: webReverseExpertTemplateId,
+      promptAssetDirectory: webReverseExpertPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
+      toolCatalogProfile: AiPromptToolCatalogProfile.webReverse,
+      sharedSections: _defaultPromptSharedSections,
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, hook scripts injected, and saved artifacts under WD/.web_reverse/.',
+      includesWebReverseRuntime: true,
+    ),
+    siriHelperTemplateId: AiPromptTemplatePolicy(
+      templateId: siriHelperTemplateId,
+      promptAssetDirectory: siriHelperPromptAssetDirectory,
+      sessionStateLayout: AiPromptSessionStateLayout.compact,
+      toolCatalogProfile: AiPromptToolCatalogProfile.generic,
+      sharedSections: <AiPromptSharedSectionSpec>[],
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Siri Helper. Produce a relay-safe assistant checkpoint with grounded facts and user-visible context preserved.',
+      directAnswerToolOmissionEnabled: true,
+    ),
+  };
+
+  static AiPromptTemplatePolicy resolve(String templateId) {
+    final normalized = templateId.trim();
+    if (normalized.isEmpty) {
+      return byId[defaultTemplateId]!;
+    }
+    return byId[normalized] ?? byId[defaultTemplateId]!;
+  }
+}
+
 const String aiPromptMemoryTonePolicySection = '''
 
 ## Memory Tone Policy
@@ -44,6 +201,22 @@ const List<AiPromptSharedSectionSpec> _defaultPromptSharedSections =
       ),
     ];
 
+const List<AiPromptSharedSectionSpec> _hermesTalkerSharedSections =
+    <AiPromptSharedSectionSpec>[
+      AiPromptSharedSectionSpec(
+        tag: 'identity',
+        assetPath: 'assets/prompts/_shared/identity.md',
+      ),
+      AiPromptSharedSectionSpec(
+        tag: 'refusal_handling',
+        assetPath: 'assets/prompts/_shared/refusal.md',
+      ),
+      AiPromptSharedSectionSpec(
+        tag: 'tone_and_formatting',
+        assetPath: 'assets/prompts/_shared/tone.md',
+      ),
+    ];
+
 const List<AiPromptSharedSectionSpec>
 _programmingExpertExtensionSections = <AiPromptSharedSectionSpec>[
   AiPromptSharedSectionSpec(
@@ -73,29 +246,11 @@ _programmingExpertExtensionSections = <AiPromptSharedSectionSpec>[
 
 List<AiPromptSharedSectionSpec> aiPromptSharedSectionsForTemplate(
   String templateId,
-) {
-  if (templateId == 'machine_expert') {
-    return const <AiPromptSharedSectionSpec>[];
-  }
-  if (templateId == 'hermes_talker') {
-    return _defaultPromptSharedSections
-        .where((section) => section.tag != 'workflow')
-        .toList(growable: false);
-  }
-  if (templateId == 'siri_helper') {
-    return const <AiPromptSharedSectionSpec>[];
-  }
-  return _defaultPromptSharedSections;
-}
+) => AiPromptTemplatePolicies.resolve(templateId).sharedSections;
 
 List<AiPromptSharedSectionSpec> aiPromptExtensionSectionsForTemplate(
   String templateId,
-) {
-  if (templateId == 'programming_expert') {
-    return _programmingExpertExtensionSections;
-  }
-  return const <AiPromptSharedSectionSpec>[];
-}
+) => AiPromptTemplatePolicies.resolve(templateId).extensionSections;
 
 bool aiPromptInstructionsLooksLikeChinese(String text) {
   var cjk = 0;

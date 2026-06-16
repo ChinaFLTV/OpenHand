@@ -10,15 +10,11 @@ import 'dart:io';
 
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 
-const List<({String id, String dir})> _templates = <({String id, String dir})>[
-  (id: 'default', dir: 'assets/prompts/default'),
-  (id: 'machine_expert', dir: 'assets/prompts/machine_expert'),
-  (id: 'hardness_engineering', dir: 'assets/prompts/harness_engineering'),
-  (id: 'programming_expert', dir: 'assets/prompts/programming_expert'),
-  (id: 'hermes_talker', dir: 'assets/prompts/hermes_talker'),
-  (id: 'siri_helper', dir: 'assets/prompts/siri_helper'),
-  (id: 'web_reverse_expert', dir: 'assets/prompts/web_reverse_expert'),
-];
+List<({String id, String dir})> get _templates => AiPromptTemplatePolicies
+    .byId
+    .values
+    .map((policy) => (id: policy.templateId, dir: policy.promptAssetDirectory))
+    .toList(growable: false);
 
 String _appendSectionsIfAbsent(
   String instructions,

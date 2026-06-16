@@ -24,6 +24,7 @@ import '../fs/ai_file_history_service.dart';
 import '../fs/ai_file_mutation_ledger.dart';
 import '../fs/ai_file_tracker_service.dart';
 import '../hook/ai_claude_hook_service.dart';
+import '../prompt/ai_prompt_template_assembly.dart';
 import '../web_fetch/web_fetch_scrapling_bridge.dart';
 import 'ai_tool_execution_registry.dart';
 
@@ -295,7 +296,8 @@ class AiToolRuntimeService {
   /// Template ID for which `skill_manager` is exposed as a builtin. All other
   /// templates never see `skill_manager` in their tool catalog regardless of
   /// user builtin-tool configs.
-  static const String _skillManagerTemplateId = 'hermes_talker';
+  static const String _skillManagerTemplateId =
+      AiPromptTemplatePolicies.hermesTalkerTemplateId;
 
   /// Returns true iff the resolved [tool] should appear in the catalog of a
   /// session whose thread template is [templateId].

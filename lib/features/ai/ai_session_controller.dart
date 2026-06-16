@@ -41,6 +41,7 @@ import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
 import 'service/prompt/ai_prompt_builder.dart';
 import 'service/prompt/ai_prompt_sections.dart';
+import 'service/prompt/ai_prompt_template_assembly.dart';
 import 'service/prompt/ai_prompt_template_repository.dart';
 import 'service/prompt/ai_prompt_tool_budget_strategy.dart';
 import 'service/runtime/ai_builtin_tool_lazy_loading_applier.dart';
@@ -6720,7 +6721,8 @@ class AiSessionController extends ChangeNotifier {
     required AiSession session,
     required AiResolvedToolCatalog catalog,
   }) {
-    if (session.templateId != 'web_reverse_expert') {
+    final templatePolicy = AiPromptTemplatePolicies.resolve(session.templateId);
+    if (!templatePolicy.includesWebReverseRuntime) {
       return const <String>{};
     }
     return WebReverseMcpToolPolicy.forceVisibleToolNames(catalog);

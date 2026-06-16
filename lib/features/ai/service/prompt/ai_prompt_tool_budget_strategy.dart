@@ -1,6 +1,7 @@
 import '../../model/ai_attachment.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
+import 'ai_prompt_template_assembly.dart';
 
 enum AiPromptToolCatalogBudgetMode { full, directAnswerOnly }
 
@@ -39,11 +40,6 @@ class AiPromptToolBudgetStrategy {
   static const int maxDirectAnswerCharacters = 420;
   static const int maxDirectAnswerLines = 8;
   static const int _maxShortConversationCharacters = 80;
-  static const Set<String> _directAnswerTemplateIds = <String>{
-    'default',
-    'siri_helper',
-    'hermes_talker',
-  };
   static const Set<String> _continuationSignals = <String>{
     'continue',
     'goon',
@@ -65,7 +61,8 @@ class AiPromptToolBudgetStrategy {
     required int toolRoundCount,
     required bool creationRequestActive,
   }) {
-    if (!_directAnswerTemplateIds.contains(session.templateId)) {
+    final templatePolicy = AiPromptTemplatePolicies.resolve(session.templateId);
+    if (!templatePolicy.directAnswerToolOmissionEnabled) {
       return AiPromptToolCatalogDecision.full;
     }
     if (creationRequestActive || toolRoundCount > 0) {

@@ -11,7 +11,7 @@
 /// `selfLearning` 消息卡片。
 ///
 /// 本模块的职责边界：
-/// * 查询候选会话（最近 7 天 + templateId == 'hermes_talker'）。
+/// * 查询候选会话（最近 7 天 + Hermes Talker 模板）。
 /// * 排除已有未完成 selfLearning 或正在学习中的会话。
 /// * 通过内部 `_Semaphore` 限制最大并发数（默认 5）。
 /// * 收集每轮 tick 的统计结果 [SelfLearningTickResult]。
@@ -26,6 +26,7 @@ import '../../../../app/state/settings_controller.dart';
 import '../../data/ai_session_store.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
+import '../prompt/ai_prompt_template_assembly.dart';
 import 'self_learning_runner.dart' show SelfLearningSessionReport;
 
 /// 单轮 [SelfLearningScheduler.tick] 执行结果。
@@ -84,7 +85,7 @@ class SelfLearningScheduler {
     required this.runForSession,
     int concurrency = _defaultConcurrency,
     this.lookbackDuration = const Duration(days: 7),
-    this.templateId = 'hermes_talker',
+    this.templateId = AiPromptTemplatePolicies.hermesTalkerTemplateId,
     this.minMessagesRequired = 4,
   }) : _semaphore = _Semaphore(concurrency.clamp(1, _maxConcurrency));
 

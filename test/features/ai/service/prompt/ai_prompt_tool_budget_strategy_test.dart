@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_attachment.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_tool_budget_strategy.dart';
 
 void main() {
@@ -64,7 +65,7 @@ void main() {
     test('keeps full tools for specialized templates and active plans', () {
       final programmingSession = _sessionWithLatestUser(
         'ps 和 kill 如何按照父pid去筛选呢？',
-        templateId: 'programming_expert',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
       );
       expect(
         strategy
@@ -120,7 +121,7 @@ void main() {
 
 AiSession _sessionWithLatestUser(
   String content, {
-  String templateId = 'default',
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
   Map<String, Object?> metadata = const <String, Object?>{},
   List<AiSessionTodoItem> todoItems = const <AiSessionTodoItem>[],
 }) {

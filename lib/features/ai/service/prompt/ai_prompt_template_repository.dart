@@ -34,65 +34,72 @@ class AiPromptTemplateRepository {
 
   static const List<AiThreadTemplate> _templates = <AiThreadTemplate>[
     AiThreadTemplate(
-      id: 'default',
+      id: AiPromptTemplatePolicies.defaultTemplateId,
       name: 'Default Assistant',
       iconName: 'auto_awesome_rounded',
       description:
           'A Claude Code style general-purpose template for tool-assisted work, MCP usage, and local skill activation.',
       internalVersion: '3.0.0',
-      promptAssetDirectory: 'assets/prompts/default',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.defaultPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'machine_expert',
+      id: AiPromptTemplatePolicies.machineExpertTemplateId,
       name: '机器专家',
       iconName: 'build_circle_rounded',
       description: '主要是通过本地终端程序去与目标机器交互，完成用户提出的任务或需求。',
       internalVersion: '1.1.0',
-      promptAssetDirectory: 'assets/prompts/machine_expert',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.machineExpertPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'hardness_engineering',
+      id: AiPromptTemplatePolicies.hardnessEngineeringTemplateId,
       name: 'Harness Engineering',
       iconName: 'hub_rounded',
       description:
           '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
       internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/harness_engineering',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.hardnessEngineeringPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'programming_expert',
+      id: AiPromptTemplatePolicies.programmingExpertTemplateId,
       name: '编程专家',
       iconName: 'code_rounded',
       description:
           '对标 Cursor Agent 的全栈 AI 编程助手。具备语义代码搜索、LSP 诊断、Git 集成、自主 Agent 循环，支持 Research→Synthesis→Implementation→Verification 四阶段工作流。',
       internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/programming_expert',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.programmingExpertPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'hermes_talker',
+      id: AiPromptTemplatePolicies.hermesTalkerTemplateId,
       name: 'Hermes Talker',
       iconName: 'forum_rounded',
       description:
           '在 Default 模板基础上新增 skill_manager 工具与每 5 分钟运行的自我学习能力,持续在对话中积累用户画像与可复用技能。',
       internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/hermes_talker',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.hermesTalkerPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'web_reverse_expert',
+      id: AiPromptTemplatePolicies.webReverseExpertTemplateId,
       name: 'Web 逆向专家',
       iconName: 'travel_explore_rounded',
       description:
           '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。',
       internalVersion: '1.1.0',
-      promptAssetDirectory: 'assets/prompts/web_reverse_expert',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
     ),
     AiThreadTemplate(
-      id: 'siri_helper',
+      id: AiPromptTemplatePolicies.siriHelperTemplateId,
       name: 'Siri 助手',
       iconName: 'assistant_rounded',
       description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
       internalVersion: '1.0.0',
-      promptAssetDirectory: 'assets/prompts/siri_helper',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.siriHelperPromptAssetDirectory,
       availability: AiThreadTemplateAvailability.appleOnly,
     ),
   ];
@@ -157,59 +164,28 @@ class AiPromptTemplateRepository {
 
   Future<AiPromptTemplateBundle> _loadBundleUncached(String templateId) async {
     final template = resolveTemplate(templateId);
+    final policy = AiPromptTemplatePolicies.resolve(template.id);
     final assetDirectory = template.promptAssetDirectory;
-    final String systemFallback;
-    final String developerFallback;
-    final String compressionFallback;
-    switch (templateId) {
-      case 'machine_expert':
-        systemFallback = expertSystemInstructions;
-        developerFallback = expertDeveloperInstructions;
-        compressionFallback = expertCompressionSummaryInstructions;
-      case 'hardness_engineering':
-        systemFallback = _hardnessSystemInstructions;
-        developerFallback = _hardnessDeveloperInstructions;
-        compressionFallback = _hardnessCompressionSummaryInstructions;
-      case 'programming_expert':
-        systemFallback = programmingExpertSystemInstructions;
-        developerFallback = programmingExpertDeveloperInstructions;
-        compressionFallback = programmingExpertCompressionSummaryInstructions;
-      case 'hermes_talker':
-        systemFallback = _hermesTalkerSystemInstructions;
-        developerFallback = _hermesTalkerDeveloperInstructions;
-        compressionFallback = _hermesTalkerCompressionSummaryInstructions;
-      case 'siri_helper':
-        systemFallback = _siriHelperSystemInstructions;
-        developerFallback = _siriHelperDeveloperInstructions;
-        compressionFallback = _siriHelperCompressionSummaryInstructions;
-      case 'web_reverse_expert':
-        systemFallback = _webReverseSystemInstructions;
-        developerFallback = _webReverseDeveloperInstructions;
-        compressionFallback = _webReverseCompressionSummaryInstructions;
-      default:
-        systemFallback = _defaultSystemInstructions;
-        developerFallback = _defaultDeveloperInstructions;
-        compressionFallback = _defaultCompressionSummaryInstructions;
-    }
+    final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
     final systemInstructions = await _loadTemplateSection(
       '$assetDirectory/system_instructions.md',
-      systemFallback,
+      fallback.systemInstructions,
     );
     final developerInstructions = await _loadTemplateSection(
       '$assetDirectory/developer_instructions.md',
-      developerFallback,
+      fallback.developerInstructions,
     );
     final compressionSummaryInstructions = await _loadTemplateSection(
       '$assetDirectory/compression_summary_instructions.md',
-      compressionFallback,
+      fallback.compressionSummaryInstructions,
     );
     final systemWithSharedSections = await _appendSectionsIfAbsent(
       systemInstructions,
-      aiPromptSharedSectionsForTemplate(templateId),
+      policy.sharedSections,
     );
     final systemWithTemplateSections = await _appendSectionsIfAbsent(
       systemWithSharedSections,
-      aiPromptExtensionSectionsForTemplate(templateId),
+      policy.extensionSections,
     );
     final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
       systemWithTemplateSections,
@@ -371,3 +347,69 @@ const String _siriHelperCompressionSummaryInstructions = _fallbackNotice;
 const String _webReverseSystemInstructions = _fallbackNotice;
 const String _webReverseDeveloperInstructions = _fallbackNotice;
 const String _webReverseCompressionSummaryInstructions = _fallbackNotice;
+
+class _TemplatePromptFallback {
+  const _TemplatePromptFallback({
+    required this.systemInstructions,
+    required this.developerInstructions,
+    required this.compressionSummaryInstructions,
+  });
+
+  final String systemInstructions;
+  final String developerInstructions;
+  final String compressionSummaryInstructions;
+}
+
+class _TemplatePromptFallbacks {
+  const _TemplatePromptFallbacks._();
+
+  static const _TemplatePromptFallback _default = _TemplatePromptFallback(
+    systemInstructions: _defaultSystemInstructions,
+    developerInstructions: _defaultDeveloperInstructions,
+    compressionSummaryInstructions: _defaultCompressionSummaryInstructions,
+  );
+
+  static const Map<String, _TemplatePromptFallback>
+  _byTemplateId = <String, _TemplatePromptFallback>{
+    AiPromptTemplatePolicies.defaultTemplateId: _default,
+    AiPromptTemplatePolicies.machineExpertTemplateId: _TemplatePromptFallback(
+      systemInstructions: expertSystemInstructions,
+      developerInstructions: expertDeveloperInstructions,
+      compressionSummaryInstructions: expertCompressionSummaryInstructions,
+    ),
+    AiPromptTemplatePolicies
+        .hardnessEngineeringTemplateId: _TemplatePromptFallback(
+      systemInstructions: _hardnessSystemInstructions,
+      developerInstructions: _hardnessDeveloperInstructions,
+      compressionSummaryInstructions: _hardnessCompressionSummaryInstructions,
+    ),
+    AiPromptTemplatePolicies.programmingExpertTemplateId:
+        _TemplatePromptFallback(
+          systemInstructions: programmingExpertSystemInstructions,
+          developerInstructions: programmingExpertDeveloperInstructions,
+          compressionSummaryInstructions:
+              programmingExpertCompressionSummaryInstructions,
+        ),
+    AiPromptTemplatePolicies.hermesTalkerTemplateId: _TemplatePromptFallback(
+      systemInstructions: _hermesTalkerSystemInstructions,
+      developerInstructions: _hermesTalkerDeveloperInstructions,
+      compressionSummaryInstructions:
+          _hermesTalkerCompressionSummaryInstructions,
+    ),
+    AiPromptTemplatePolicies
+        .webReverseExpertTemplateId: _TemplatePromptFallback(
+      systemInstructions: _webReverseSystemInstructions,
+      developerInstructions: _webReverseDeveloperInstructions,
+      compressionSummaryInstructions: _webReverseCompressionSummaryInstructions,
+    ),
+    AiPromptTemplatePolicies.siriHelperTemplateId: _TemplatePromptFallback(
+      systemInstructions: _siriHelperSystemInstructions,
+      developerInstructions: _siriHelperDeveloperInstructions,
+      compressionSummaryInstructions: _siriHelperCompressionSummaryInstructions,
+    ),
+  };
+
+  static _TemplatePromptFallback resolve(String templateId) {
+    return _byTemplateId[templateId] ?? _default;
+  }
+}
