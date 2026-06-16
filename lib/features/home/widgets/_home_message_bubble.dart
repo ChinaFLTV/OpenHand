@@ -494,6 +494,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         (_assistantResponseExpandedOverride ?? false);
     final assistantResponseCollapsed =
         canCollapseAssistantResponse && !assistantResponseExpanded;
+    final showAssistantResponseMetaRow =
+        isAssistantResponse &&
+        (isStreamingAssistant || canCollapseAssistantResponse);
     void toggleAssistantResponseExpansion() {
       if (!canCollapseAssistantResponse) return;
       _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
@@ -591,18 +594,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                         color: textColor,
                       )
-                    else if (canCollapseAssistantResponse)
+                    else if (showAssistantResponseMetaRow)
                       _ResponseMetaRow(
                         key: _metaCapsuleKey,
+                        message: message,
                         color: textColor,
+                        showSweep: isStreamingAssistant,
                         expanded: assistantResponseExpanded,
-                        onTap: toggleAssistantResponseExpansion,
+                        onTap: canCollapseAssistantResponse
+                            ? toggleAssistantResponseExpansion
+                            : null,
                       ),
                     if (isCompressionPoint ||
                         isReasoning ||
                         isToolCall ||
                         isToolResult ||
-                        canCollapseAssistantResponse)
+                        showAssistantResponseMetaRow)
                       const SizedBox(height: 10),
                     if (isCompressionPoint)
                       _CompressionCheckpointBody(

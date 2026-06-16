@@ -1056,24 +1056,6 @@ function MessageCardImpl({
   }, [message.id]);
   const expanded = forceExpanded || streamingContent || keepExpandedDuringTurn || expandedOverride === true || !canCollapse;
   const collapsed = canCollapse && !expanded;
-  const previousActiveRef = useRef(false);
-  useEffect(() => {
-    if (previousActiveRef.current === active) return;
-    previousActiveRef.current = active;
-    if (
-      !canCollapse ||
-      !isAssistantResponseMessage(message) ||
-      expandedOverride != null
-    ) {
-      return;
-    }
-    rememberMessageUiState(
-      responseExpandedOverridesByMessageId,
-      message.id,
-      expanded,
-    );
-    setExpandedOverride(expanded);
-  }, [active, canCollapse, expanded, expandedOverride, message.id]);
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
   // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
@@ -1088,8 +1070,17 @@ function MessageCardImpl({
   const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
-  const shouldRenderResponseToggle =
-    canCollapse && isAssistantResponseMessage(message) && !isCollapsibleByBadge;
+  const isAssistantResponseBadgeMessage =
+    isAssistantResponseMessage(message) && !isCollapsibleByBadge;
+  const responseBadgeStreaming = isAssistantResponseBadgeMessage && activelyStreaming;
+  const responseBadgeCanToggle =
+    canCollapse && isAssistantResponseBadgeMessage && !activelyStreaming;
+  const shouldRenderResponseBadge = responseBadgeStreaming || responseBadgeCanToggle;
+  const reasoningBadgeSweeping = message.kind === 'reasoning' && activelyStreaming;
+  const badgeToggleClass =
+    'oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
+  const staticSweepingBadgeClass =
+    'oh-message-badge-toggle is-static is-sweeping inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
   const isLongReasoning =
     message.kind === 'reasoning' && isReasoningLong(content);
   const defaultBadgeCollapsed = !streamingContent && !keepExpandedDuringTurn && isLongReasoning;
@@ -1210,7 +1201,7 @@ function MessageCardImpl({
           : ''
       }`;
   const shouldRenderHeader =
-    style.badge || shouldRenderResponseToggle || Boolean(plainRoleMeta);
+    style.badge || shouldRenderResponseBadge || Boolean(plainRoleMeta);
   const selectedInfoChips = selectedMessageInfoChips(message);
   const media = sessionId ? (
     <MessageMedia
@@ -1328,15 +1319,7 @@ function MessageCardImpl({
               isCollapsibleByBadge ? (
                 <button
                   type="button"
-                  class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-                  style={{
-                    background: 'color-mix(in srgb, currentColor 14%, transparent)',
-                    border: 'none',
-                    color: 'inherit',
-                    cursor: 'pointer',
-                    fontSize: 'inherit',
-                    lineHeight: 'inherit',
-                  }}
+                  class={`${badgeToggleClass}${reasoningBadgeSweeping ? ' is-sweeping' : ''}`}
                   onClick={handleBadgeToggle}
                   aria-expanded={!badgeCollapsed ? 'true' : 'false'}
                   title={badgeCollapsed
@@ -1372,43 +1355,48 @@ function MessageCardImpl({
                   <span>{style.label}</span>
                 </span>
               )
-            ) : shouldRenderResponseToggle ? (
-              <button
-                type="button"
-                class="oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
-                style={{
-                  background: 'color-mix(in srgb, currentColor 14%, transparent)',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  fontSize: 'inherit',
-                  lineHeight: 'inherit',
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleResponseExpanded();
-                }}
-                aria-expanded={expanded ? 'true' : 'false'}
-                title={collapsed
-                  ? t('detail.tool.body.expand', '展开全部')
-                  : t('detail.tool.body.collapse', '折叠')}
-              >
-                <span class="oh-message-kind-icon" aria-hidden>
-                  <MessageIcon name="assistant" size={14} />
-                </span>
-                <span>{t('detail.kind.response', '响应')}</span>
-                <span
-                  class="oh-badge-chevron"
-                  aria-hidden
-                  style={{
-                    display: 'inline-flex',
-                    transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
-                    transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+            ) : shouldRenderResponseBadge ? (
+              responseBadgeCanToggle ? (
+                <button
+                  type="button"
+                  class={badgeToggleClass}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleResponseExpanded();
                   }}
+                  aria-expanded={expanded ? 'true' : 'false'}
+                  title={collapsed
+                    ? t('detail.tool.body.expand', '展开全部')
+                    : t('detail.tool.body.collapse', '折叠')}
                 >
-                  <MessageIcon name="chevronDown" size={12} />
+                  <span class="oh-message-kind-icon" aria-hidden>
+                    <MessageIcon name="assistant" size={14} />
+                  </span>
+                  <span>{t('detail.kind.response', '响应')}</span>
+                  <span
+                    class="oh-badge-chevron"
+                    aria-hidden
+                    style={{
+                      display: 'inline-flex',
+                      transition: reduceMotion ? 'none' : 'transform 220ms cubic-bezier(0.2, 0, 0, 1)',
+                      transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                    }}
+                  >
+                    <MessageIcon name="chevronDown" size={12} />
+                  </span>
+                </button>
+              ) : (
+                <span
+                  class={staticSweepingBadgeClass}
+                  aria-busy="true"
+                  title={t('detail.phase.streaming', 'Streaming')}
+                >
+                  <span class="oh-message-kind-icon" aria-hidden>
+                    <MessageIcon name="assistant" size={14} />
+                  </span>
+                  <span>{t('detail.kind.response', '响应')}</span>
                 </span>
-              </button>
+              )
             ) : (
               <span class="opacity-90">{plainRoleMeta}</span>
             )}

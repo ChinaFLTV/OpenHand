@@ -52,14 +52,14 @@ class _ReasoningMetaRow extends StatefulWidget {
 }
 
 class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
-    with WidgetsBindingObserver {
-  Timer? _elapsedTimer;
+    with WidgetsBindingObserver, _ForegroundElapsedTicker<_ReasoningMetaRow> {
+  @override
+  bool get shouldTickElapsed => widget.showSweep;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _syncElapsedTimer();
+    initElapsedTicker();
   }
 
   @override
@@ -68,39 +68,14 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
     if (oldWidget.showSweep != widget.showSweep ||
         oldWidget.message.id != widget.message.id ||
         oldWidget.message.createdAt != widget.message.createdAt) {
-      _syncElapsedTimer();
+      syncElapsedTicker();
     }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // 应用进入后台时立刻熄火秒级 tick，回到前台再续；避免后台持续唤醒
-    // 主 isolate 浪费 CPU（思考耗时显示无需在不可见时刷新）。
-    _syncElapsedTimer();
   }
 
   @override
   void dispose() {
-    _elapsedTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
+    disposeElapsedTicker();
     super.dispose();
-  }
-
-  void _syncElapsedTimer() {
-    _elapsedTimer?.cancel();
-    if (!widget.showSweep) {
-      return;
-    }
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
-      return;
-    }
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   @override
@@ -175,74 +150,163 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   }
 }
 
-class _ResponseMetaRow extends StatelessWidget {
+class _ResponseMetaRow extends StatefulWidget {
   const _ResponseMetaRow({
     super.key,
+    required this.message,
     required this.color,
+    required this.showSweep,
     required this.expanded,
     required this.onTap,
   });
 
+  final AiSessionMessage message;
   final Color color;
+  final bool showSweep;
   final bool expanded;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
+  @override
+  State<_ResponseMetaRow> createState() => _ResponseMetaRowState();
+}
+
+class _ResponseMetaRowState extends State<_ResponseMetaRow>
+    with WidgetsBindingObserver, _ForegroundElapsedTicker<_ResponseMetaRow> {
+  @override
+  bool get shouldTickElapsed => widget.showSweep;
+
+  @override
+  void initState() {
+    super.initState();
+    initElapsedTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ResponseMetaRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showSweep != widget.showSweep ||
+        oldWidget.message.id != widget.message.id ||
+        oldWidget.message.createdAt != widget.message.createdAt) {
+      syncElapsedTicker();
+    }
+  }
+
+  @override
+  void dispose() {
+    disposeElapsedTicker();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final labelText = _localizedText(context, zh: '响应', en: 'Response');
+    final elapsedText = widget.showSweep
+        ? ' (${_formatToolExecutionDuration(_reasoningElapsedMs(widget.message))})'
+        : '';
+    final effectiveColor = widget.color.withValues(
+      alpha: widget.showSweep ? 0.94 : 0.88,
+    );
     final pillContent = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.smart_toy_outlined,
-          size: 18,
-          color: color.withValues(alpha: 0.88),
-        ),
+        Icon(Icons.smart_toy_outlined, size: 18, color: effectiveColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
-            labelText,
+            '$labelText$elapsedText',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: color.withValues(alpha: 0.88),
+            style: theme.textTheme.labelLarge?.copyWith(color: effectiveColor),
+          ),
+        ),
+        if (widget.onTap != null) ...[
+          const SizedBox(width: 6),
+          AnimatedRotation(
+            turns: widget.expanded ? 0.5 : 0,
+            duration: cardMotionDurationFor(
+              context,
+              expanding: widget.expanded,
+            ),
+            curve: kCardMotionCurve,
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: widget.color.withValues(alpha: 0.78),
+              size: 18,
             ),
           ),
-        ),
-        const SizedBox(width: 6),
-        AnimatedRotation(
-          turns: expanded ? 0.5 : 0,
-          duration: cardMotionDurationFor(context, expanding: expanded),
-          curve: kCardMotionCurve,
-          child: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: color.withValues(alpha: 0.78),
-            size: 18,
-          ),
-        ),
+        ],
       ],
     );
-    final capsule = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: _borderRadius999,
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-      ),
-      child: pillContent,
-    );
+    final capsule = widget.showSweep
+        ? _SweepBadge(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            borderColor: Colors.white.withValues(alpha: 0.14),
+            sweepColor: const Color(0x33E5E7EB),
+            child: pillContent,
+          )
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: widget.color.withValues(alpha: 0.06),
+              borderRadius: _borderRadius999,
+              border: Border.all(color: widget.color.withValues(alpha: 0.12)),
+            ),
+            child: pillContent,
+          );
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: _borderRadius999,
         overlayColor: WidgetStatePropertyAll<Color>(
-          color.withValues(alpha: 0.03),
+          widget.color.withValues(alpha: 0.03),
         ),
         child: capsule,
       ),
     );
+  }
+}
+
+mixin _ForegroundElapsedTicker<T extends StatefulWidget>
+    on State<T>, WidgetsBindingObserver {
+  Timer? _elapsedTimer;
+
+  bool get shouldTickElapsed;
+
+  void initElapsedTicker() {
+    WidgetsBinding.instance.addObserver(this);
+    syncElapsedTicker();
+  }
+
+  void syncElapsedTicker() {
+    _elapsedTimer?.cancel();
+    if (!shouldTickElapsed) {
+      return;
+    }
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      return;
+    }
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  void disposeElapsedTicker() {
+    _elapsedTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 应用进入后台时立刻熄火秒级 tick，回到前台再续；避免后台持续唤醒
+    // 主 isolate 浪费 CPU（耗时显示无需在不可见时刷新）。
+    syncElapsedTicker();
   }
 }
 

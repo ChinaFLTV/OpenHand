@@ -2223,7 +2223,7 @@ html, body, #root {
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
-/* 工具调用/思考类型消息的胶囊展开/折叠按钮 */
+/* 工具调用/思考/响应类型消息的胶囊展开、折叠与流式状态按钮 */
 .oh-message-badge-toggle {
   display: inline-flex;
   align-items: center;
@@ -2236,6 +2236,7 @@ html, body, #root {
   cursor: pointer;
   font-size: inherit;
   line-height: inherit;
+  position: relative;
   transition:
     background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
     transform var(--oh-motion-duration-fast) var(--oh-motion-spring);
@@ -2243,8 +2244,53 @@ html, body, #root {
 .oh-message-badge-toggle:hover {
   background: color-mix(in srgb, currentColor 22%, transparent);
 }
-.oh-message-badge-toggle:active {
+.oh-message-badge-toggle:not(.is-static):active {
   transform: scale(0.96);
+}
+.oh-message-badge-toggle.is-static {
+  cursor: default;
+}
+.oh-message-badge-toggle.is-static:hover {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+.oh-message-badge-toggle.is-sweeping {
+  overflow: hidden;
+  isolation: isolate;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent);
+}
+.oh-message-badge-toggle.is-sweeping > * {
+  position: relative;
+  z-index: 1;
+}
+.oh-message-badge-toggle.is-sweeping::after {
+  content: '';
+  position: absolute;
+  inset: -45% -70%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    color-mix(in srgb, currentColor 22%, transparent) 48%,
+    transparent 100%
+  );
+  transform: translateX(-70%);
+  animation: oh-message-badge-sweep 1350ms linear infinite;
+}
+@keyframes oh-message-badge-sweep {
+  from {
+    transform: translateX(-70%);
+  }
+  to {
+    transform: translateX(70%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-message-badge-toggle.is-sweeping::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 .oh-badge-chevron {
   margin-left: 2px;
