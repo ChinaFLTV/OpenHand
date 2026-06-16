@@ -31,6 +31,51 @@ class _MessageMetaRow extends StatelessWidget {
   }
 }
 
+class _MetaCapsulePalette {
+  const _MetaCapsulePalette({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.foregroundColor,
+    required this.overlayColor,
+    required this.sweepColor,
+    required this.shadowColor,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color foregroundColor;
+  final Color overlayColor;
+  final Color sweepColor;
+  final Color shadowColor;
+}
+
+_MetaCapsulePalette _responseMetaCapsulePalette(
+  ThemeData theme, {
+  required bool active,
+}) {
+  final colorScheme = theme.colorScheme;
+  final dark = theme.brightness == Brightness.dark;
+  final accent = colorScheme.primary;
+  final baseSurface = dark
+      ? colorScheme.surfaceContainerHighest
+      : colorScheme.surfaceContainerLowest;
+  final backgroundAlpha = active ? (dark ? 0.30 : 0.18) : (dark ? 0.24 : 0.14);
+  final borderAlpha = active ? (dark ? 0.58 : 0.42) : (dark ? 0.46 : 0.34);
+  return _MetaCapsulePalette(
+    backgroundColor: Color.alphaBlend(
+      accent.withValues(alpha: backgroundAlpha),
+      baseSurface,
+    ),
+    borderColor: accent.withValues(alpha: borderAlpha),
+    foregroundColor: dark ? colorScheme.primaryContainer : accent,
+    overlayColor: accent.withValues(alpha: dark ? 0.16 : 0.10),
+    sweepColor: (dark ? colorScheme.onPrimaryContainer : accent).withValues(
+      alpha: active ? 0.24 : 0.16,
+    ),
+    shadowColor: accent.withValues(alpha: dark ? 0.20 : 0.12),
+  );
+}
+
 class _ReasoningMetaRow extends StatefulWidget {
   const _ReasoningMetaRow({
     super.key,
@@ -204,8 +249,12 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
     final elapsedText = widget.showSweep
         ? ' (${_formatToolExecutionDuration(_reasoningElapsedMs(widget.message))})'
         : '';
-    final effectiveColor = widget.color.withValues(
-      alpha: widget.showSweep ? 0.94 : 0.88,
+    final palette = _responseMetaCapsulePalette(
+      theme,
+      active: widget.showSweep,
+    );
+    final effectiveColor = palette.foregroundColor.withValues(
+      alpha: widget.showSweep ? 0.98 : 0.94,
     );
     final pillContent = Row(
       mainAxisSize: MainAxisSize.min,
@@ -231,7 +280,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
             curve: kCardMotionCurve,
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: widget.color.withValues(alpha: 0.78),
+              color: palette.foregroundColor.withValues(alpha: 0.80),
               size: 18,
             ),
           ),
@@ -241,17 +290,33 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
     final capsule = widget.showSweep
         ? _SweepBadge(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            backgroundColor: Colors.white.withValues(alpha: 0.08),
-            borderColor: Colors.white.withValues(alpha: 0.14),
-            sweepColor: const Color(0x33E5E7EB),
+            backgroundColor: palette.backgroundColor,
+            borderColor: palette.borderColor,
+            sweepColor: palette.sweepColor,
+            boxShadow: [
+              BoxShadow(
+                color: palette.shadowColor,
+                blurRadius: 14,
+                offset: const Offset(0, 3),
+              ),
+            ],
             child: pillContent,
           )
-        : Container(
+        : AnimatedContainer(
+            duration: cardMotionDurationFor(context, expanding: false),
+            curve: kCardMotionCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: widget.color.withValues(alpha: 0.06),
+              color: palette.backgroundColor,
               borderRadius: _borderRadius999,
-              border: Border.all(color: widget.color.withValues(alpha: 0.12)),
+              border: Border.all(color: palette.borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: palette.shadowColor,
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: pillContent,
           );
@@ -260,9 +325,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
       child: InkWell(
         onTap: widget.onTap,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll<Color>(
-          widget.color.withValues(alpha: 0.03),
-        ),
+        overlayColor: WidgetStatePropertyAll<Color>(palette.overlayColor),
         child: capsule,
       ),
     );
@@ -390,6 +453,7 @@ class _SweepBadge extends StatefulWidget {
     this.backgroundColor,
     this.borderColor,
     this.sweepColor,
+    this.boxShadow,
   });
 
   final Widget child;
@@ -397,6 +461,7 @@ class _SweepBadge extends StatefulWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? sweepColor;
+  final List<BoxShadow>? boxShadow;
 
   @override
   State<_SweepBadge> createState() => _SweepBadgeState();
@@ -451,34 +516,40 @@ class _SweepBadgeState extends State<_SweepBadge>
     final sweepColor =
         widget.sweepColor ??
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2);
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: borderRadius,
-          border: borderColor.a <= 0 ? null : Border.all(color: borderColor),
-        ),
-        child: Stack(
-          children: [
-            if (progress != null)
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment(-1.8 + progress * 2.8, 0),
-                      end: Alignment(-0.9 + progress * 2.8, 0),
-                      colors: [
-                        Colors.transparent,
-                        sweepColor,
-                        Colors.transparent,
-                      ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: widget.boxShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: borderRadius,
+            border: borderColor.a <= 0 ? null : Border.all(color: borderColor),
+          ),
+          child: Stack(
+            children: [
+              if (progress != null)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment(-1.8 + progress * 2.8, 0),
+                        end: Alignment(-0.9 + progress * 2.8, 0),
+                        colors: [
+                          Colors.transparent,
+                          sweepColor,
+                          Colors.transparent,
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            child ?? Padding(padding: widget.padding, child: widget.child),
-          ],
+              child ?? Padding(padding: widget.padding, child: widget.child),
+            ],
+          ),
         ),
       ),
     );
