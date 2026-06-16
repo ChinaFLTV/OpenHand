@@ -912,142 +912,133 @@ class _MessageBubbleState extends State<_MessageBubble> {
             ),
           ),
         ),
-        if (widget.isSelected)
-          Padding(
-            key: _actionPanelKey,
-            padding: const EdgeInsets.only(top: 8),
-            child: _SelectedMessageActionPanel(
-              alignEnd: isUser,
-              motionKey: widget.actionPanelEntranceMotionKey,
-              animateEntrance: widget.animateActionPanelEntrance,
-              onEntranceConsumed: widget.onActionPanelEntranceConsumed,
-              message: message,
-              textColor: textColor,
-              showModelLabel: !isUser,
-              actions: [
-                _MessageActionSpec(
-                  id: 'copy',
-                  onPressed: widget.onCopy,
-                  icon: Icons.content_copy_outlined,
-                  label: _localizedText(context, zh: '复制', en: 'Copy'),
-                ),
-                if (widget.speechEnabled && widget.onToggleSpeech != null)
-                  _MessageActionSpec(
-                    id: 'speech',
-                    onPressed: widget.onToggleSpeech,
-                    icon: widget.speechPlaying
-                        ? Icons.stop_circle_outlined
-                        : Icons.record_voice_over_outlined,
-                    label: widget.speechPlaying
-                        ? _localizedText(context, zh: '停止', en: 'Stop')
-                        : _localizedText(context, zh: '朗读', en: 'Read'),
-                  ),
-                if (widget.translationEnabled &&
-                    widget.onToggleTranslation != null)
-                  _MessageActionSpec(
-                    id: 'translation-toggle',
-                    onPressed: widget.translationLoading
-                        ? null
-                        : widget.onToggleTranslation,
-                    icon: widget.translationLoading
-                        ? Icons.hourglass_top_rounded
-                        : widget.translationVisible
-                        ? Icons.visibility_outlined
-                        : Icons.translate_rounded,
-                    label: widget.translationLoading
-                        ? _localizedText(context, zh: '翻译中', en: 'Translating')
-                        : widget.translationVisible
-                        ? _localizedText(context, zh: '查看原始', en: 'Original')
-                        : _localizedText(context, zh: '翻译', en: 'Translate'),
-                  ),
-                if (widget.onEdit != null)
-                  _MessageActionSpec(
-                    id: 'edit',
-                    onPressed: widget.onEdit,
-                    icon: Icons.edit_outlined,
-                    label: AppLocalizations.of(context)!.commonEdit,
-                  ),
-                _MessageActionSpec(
-                  id: 'fork',
-                  onPressed: widget.onFork,
-                  icon: Icons.call_merge_rounded,
-                  label: _localizedText(context, zh: '派生', en: 'Fork'),
-                ),
-                _MessageActionSpec(
-                  id: 'delete',
-                  onPressed: widget.onDelete,
-                  icon: Icons.delete_outline_rounded,
-                  label: AppLocalizations.of(context)!.commonDelete,
-                ),
-                if (widget.onDeleteFromHere != null)
-                  _MessageActionSpec(
-                    id: 'delete-from-here',
-                    onPressed: widget.onDeleteFromHere,
-                    icon: Icons.delete_sweep_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '删除此条及后续',
-                      en: 'Delete From Here',
-                    ),
-                  ),
-                if (widget.onAudit != null)
-                  _MessageActionSpec(
-                    id: 'audit',
-                    onPressed: () async => widget.onAudit!.call(),
-                    icon: Icons.fact_check_outlined,
-                    label: _localizedText(context, zh: '审计', en: 'Audit'),
-                  ),
-                if (!isUser &&
-                    !isToolCall &&
-                    !isSelfLearning &&
-                    !isCompressionPoint &&
-                    !isStatus)
-                  _MessageActionSpec(
-                    id: 'raw-toggle',
-                    onPressed: () async {
-                      setState(() => _showRawContent = !_showRawContent);
-                      widget.onShowRawContentChanged?.call(_showRawContent);
-                    },
-                    icon: _showRawContent
-                        ? Icons.code_off_outlined
-                        : Icons.code_outlined,
-                    label: _showRawContent
-                        ? _localizedText(
-                            context,
-                            zh: '显示渲染',
-                            en: 'Show Rendered',
-                          )
-                        : _localizedText(context, zh: '显示原始', en: 'Show Raw'),
-                  ),
-                if (!isUser &&
-                    !isToolCall &&
-                    !isSelfLearning &&
-                    !isCompressionPoint &&
-                    !isStatus &&
-                    resolvedMessageContentFormat ==
-                        AiMessageContentFormat.html &&
-                    _looksLikeHtml(effectiveContent))
-                  _MessageActionSpec(
-                    id: 'open-html',
-                    onPressed: () async {
-                      await showAnimatedDialog<void>(
-                        context: context,
-                        builder: (dialogContext) => _HtmlPreviewDialog(
-                          htmlContent: effectiveContent,
-                          theme: Theme.of(context),
-                        ),
-                      );
-                    },
-                    icon: Icons.open_in_browser_rounded,
-                    label: _localizedText(
-                      context,
-                      zh: '浏览器打开',
-                      en: 'Open in Browser',
-                    ),
-                  ),
-              ],
+        _SelectedMessageActionPanelSlot(
+          key: _actionPanelKey,
+          visible: widget.isSelected,
+          alignEnd: isUser,
+          motionKey: widget.actionPanelEntranceMotionKey,
+          animateEntrance: widget.animateActionPanelEntrance,
+          onEntranceConsumed: widget.onActionPanelEntranceConsumed,
+          message: message,
+          textColor: textColor,
+          showModelLabel: !isUser,
+          actions: [
+            _MessageActionSpec(
+              id: 'copy',
+              onPressed: widget.onCopy,
+              icon: Icons.content_copy_outlined,
+              label: _localizedText(context, zh: '复制', en: 'Copy'),
             ),
-          ),
+            if (widget.speechEnabled && widget.onToggleSpeech != null)
+              _MessageActionSpec(
+                id: 'speech',
+                onPressed: widget.onToggleSpeech,
+                icon: widget.speechPlaying
+                    ? Icons.stop_circle_outlined
+                    : Icons.record_voice_over_outlined,
+                label: widget.speechPlaying
+                    ? _localizedText(context, zh: '停止', en: 'Stop')
+                    : _localizedText(context, zh: '朗读', en: 'Read'),
+              ),
+            if (widget.translationEnabled && widget.onToggleTranslation != null)
+              _MessageActionSpec(
+                id: 'translation-toggle',
+                onPressed: widget.translationLoading
+                    ? null
+                    : widget.onToggleTranslation,
+                icon: widget.translationLoading
+                    ? Icons.hourglass_top_rounded
+                    : widget.translationVisible
+                    ? Icons.visibility_outlined
+                    : Icons.translate_rounded,
+                label: widget.translationLoading
+                    ? _localizedText(context, zh: '翻译中', en: 'Translating')
+                    : widget.translationVisible
+                    ? _localizedText(context, zh: '查看原始', en: 'Original')
+                    : _localizedText(context, zh: '翻译', en: 'Translate'),
+              ),
+            if (widget.onEdit != null)
+              _MessageActionSpec(
+                id: 'edit',
+                onPressed: widget.onEdit,
+                icon: Icons.edit_outlined,
+                label: AppLocalizations.of(context)!.commonEdit,
+              ),
+            _MessageActionSpec(
+              id: 'fork',
+              onPressed: widget.onFork,
+              icon: Icons.call_merge_rounded,
+              label: _localizedText(context, zh: '派生', en: 'Fork'),
+            ),
+            _MessageActionSpec(
+              id: 'delete',
+              onPressed: widget.onDelete,
+              icon: Icons.delete_outline_rounded,
+              label: AppLocalizations.of(context)!.commonDelete,
+            ),
+            if (widget.onDeleteFromHere != null)
+              _MessageActionSpec(
+                id: 'delete-from-here',
+                onPressed: widget.onDeleteFromHere,
+                icon: Icons.delete_sweep_outlined,
+                label: _localizedText(
+                  context,
+                  zh: '删除此条及后续',
+                  en: 'Delete From Here',
+                ),
+              ),
+            if (widget.onAudit != null)
+              _MessageActionSpec(
+                id: 'audit',
+                onPressed: () async => widget.onAudit!.call(),
+                icon: Icons.fact_check_outlined,
+                label: _localizedText(context, zh: '审计', en: 'Audit'),
+              ),
+            if (!isUser &&
+                !isToolCall &&
+                !isSelfLearning &&
+                !isCompressionPoint &&
+                !isStatus)
+              _MessageActionSpec(
+                id: 'raw-toggle',
+                onPressed: () async {
+                  setState(() => _showRawContent = !_showRawContent);
+                  widget.onShowRawContentChanged?.call(_showRawContent);
+                },
+                icon: _showRawContent
+                    ? Icons.code_off_outlined
+                    : Icons.code_outlined,
+                label: _showRawContent
+                    ? _localizedText(context, zh: '显示渲染', en: 'Show Rendered')
+                    : _localizedText(context, zh: '显示原始', en: 'Show Raw'),
+              ),
+            if (!isUser &&
+                !isToolCall &&
+                !isSelfLearning &&
+                !isCompressionPoint &&
+                !isStatus &&
+                resolvedMessageContentFormat == AiMessageContentFormat.html &&
+                _looksLikeHtml(effectiveContent))
+              _MessageActionSpec(
+                id: 'open-html',
+                onPressed: () async {
+                  await showAnimatedDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => _HtmlPreviewDialog(
+                      htmlContent: effectiveContent,
+                      theme: Theme.of(context),
+                    ),
+                  );
+                },
+                icon: Icons.open_in_browser_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '浏览器打开',
+                  en: 'Open in Browser',
+                ),
+              ),
+          ],
+        ),
       ],
     );
     final messageContent = widget.trackLayoutChanges
@@ -1214,6 +1205,126 @@ class _MessageActionSpec {
   final Future<void> Function()? onPressed;
   final IconData icon;
   final String label;
+}
+
+class _SelectedMessageActionPanelSlot extends StatelessWidget {
+  const _SelectedMessageActionPanelSlot({
+    super.key,
+    required this.visible,
+    required this.alignEnd,
+    required this.motionKey,
+    required this.animateEntrance,
+    required this.onEntranceConsumed,
+    required this.actions,
+    required this.message,
+    required this.textColor,
+    required this.showModelLabel,
+  });
+
+  final bool visible;
+  final bool alignEnd;
+  final int motionKey;
+  final bool animateEntrance;
+  final ValueChanged<int> onEntranceConsumed;
+  final List<_MessageActionSpec> actions;
+  final AiSessionMessage message;
+  final Color textColor;
+  final bool showModelLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = cardMotionDurationFor(context, expanding: visible);
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: kCardMotionCurve,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: alignEnd ? Alignment.topRight : Alignment.topLeft,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        transitionBuilder: (child, animation) =>
+            _SelectedMessageActionPanelPresenceTransition(
+              animation: animation,
+              alignEnd: alignEnd,
+              child: child,
+            ),
+        child: visible
+            ? Padding(
+                key: const ValueKey<String>('message-action-panel-visible'),
+                padding: const EdgeInsets.only(top: 8),
+                child: _SelectedMessageActionPanel(
+                  alignEnd: alignEnd,
+                  motionKey: motionKey,
+                  animateEntrance: animateEntrance,
+                  onEntranceConsumed: onEntranceConsumed,
+                  actions: actions,
+                  message: message,
+                  textColor: textColor,
+                  showModelLabel: showModelLabel,
+                ),
+              )
+            : const SizedBox.shrink(
+                key: ValueKey<String>('message-action-panel-hidden'),
+              ),
+      ),
+    );
+  }
+}
+
+class _SelectedMessageActionPanelPresenceTransition extends StatelessWidget {
+  const _SelectedMessageActionPanelPresenceTransition({
+    required this.animation,
+    required this.alignEnd,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final bool alignEnd;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = openHandBoundedCurveAnimation(
+      parent: animation,
+      curve: kCardMotionCurve,
+      reverseCurve: kCardMotionCurve,
+    );
+    final alignment = alignEnd ? Alignment.topRight : Alignment.topLeft;
+    return SizeTransition(
+      sizeFactor: size,
+      axisAlignment: -1,
+      child: AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, child) {
+          final isExiting =
+              animation.status == AnimationStatus.reverse ||
+              animation.status == AnimationStatus.dismissed;
+          if (!isExiting) {
+            return child!;
+          }
+          final t = size.value.clamp(0.0, 1.0);
+          return IgnorePointer(
+            child: Opacity(
+              opacity: Curves.easeInCubic.transform(t),
+              child: Transform.scale(
+                scale: 0.96 + 0.04 * t,
+                alignment: alignment,
+                child: Transform.translate(
+                  offset: Offset(0, 5 * (1 - t)),
+                  child: child,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _SelectedMessageActionPanel extends StatefulWidget {
