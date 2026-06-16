@@ -172,6 +172,7 @@ class AiSessionRuntimeContext {
     this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
     this.mcpLazyLoadingMode = McpLazyLoadingMode.auto,
     this.mcpLazyLoadingThresholdTokens = 16000,
+    this.builtinToolLazyLoadingMode = AiBuiltinToolLazyLoadingMode.auto,
     this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
     this.workspaceInstructionDocuments =
         const <AiWorkspaceInstructionDocument>[],
@@ -453,6 +454,7 @@ class AiSessionRuntimeContext {
   /// 总量超过此值时则启用懒加载。默认值保持偏保守，优先降低反复发送
   /// 大工具目录造成的上下文成本与缓存失效风险。
   final int mcpLazyLoadingThresholdTokens;
+  final AiBuiltinToolLazyLoadingMode builtinToolLazyLoadingMode;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
 
@@ -552,6 +554,7 @@ class AiSessionRuntimeContext {
           .length,
       'mcp_lazy_loading_mode': mcpLazyLoadingMode.storageValue,
       'mcp_lazy_loading_threshold_tokens': mcpLazyLoadingThresholdTokens,
+      'builtin_tool_lazy_loading_mode': builtinToolLazyLoadingMode.storageValue,
       'workspace_instruction_document_count':
           workspaceInstructionDocuments.length,
       'workspace_instruction_documents': workspaceInstructionDocuments

@@ -171,6 +171,27 @@ class _BuiltinToolTile extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (config.forceLoad) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer.withValues(
+                              alpha: 0.62,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _localizedText(context, zh: '强制加载', en: 'Force'),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -336,6 +357,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
 
   late bool _enabled;
   late AiBuiltinToolLoadStrategy _loadStrategy;
+  late bool _forceLoad;
   late bool? _requireConfirmation;
   late bool _retryOnFailure;
   AiWebSearchSettings? _webSearchSettings;
@@ -375,6 +397,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _tagsController = TextEditingController(text: c.tags.join(', '));
     _enabled = c.enabled;
     _loadStrategy = c.loadStrategy;
+    _forceLoad = c.forceLoad;
     _requireConfirmation = c.requireConfirmation;
     _retryOnFailure = c.retryOnFailure;
     if (c.kind == AiBuiltinToolKind.webSearch) {
@@ -454,6 +477,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       schemaOverride: schemaOverride,
       priority: priority,
       loadStrategy: _loadStrategy,
+      forceLoad: _forceLoad,
       tags: rawTags,
       maxOutputChars: maxOutputChars,
       timeoutSeconds: timeoutSeconds,
@@ -689,6 +713,31 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            _localizedText(
+                              context,
+                              zh: '强制加载',
+                              en: 'Force load',
+                            ),
+                          ),
+                          subtitle: Text(
+                            _localizedText(
+                              context,
+                              zh: '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。',
+                              en: 'When enabled, this schema is sent directly even when built-in lazy loading is Auto or On.',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          value: _forceLoad,
+                          onChanged: (value) =>
+                              setState(() => _forceLoad = value),
                         ),
                         const SizedBox(height: 14),
 

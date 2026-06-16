@@ -148,6 +148,8 @@ class SettingsStore {
       'mcp_stdio_mirror_mode': snapshot.mcpStdioMirrorMode.storageValue,
       'mcp_lazy_loading_threshold_tokens':
           snapshot.mcpLazyLoadingThresholdTokens,
+      'builtin_tool_lazy_loading_mode':
+          snapshot.builtinToolLazyLoadingMode.storageValue,
       'mcp_auto_probe_concurrency': snapshot.mcpAutoProbeConcurrency,
       'mcp_keyword_index_update_mode':
           snapshot.mcpKeywordIndexUpdateMode.storageValue,
@@ -345,6 +347,9 @@ class SettingsStore {
     );
     final mcpLazyLoadingMode = McpLazyLoadingMode.fromStorage(
       '${json['mcp_lazy_loading_mode'] ?? ''}',
+    );
+    final builtinToolLazyLoadingMode = AiBuiltinToolLazyLoadingMode.fromStorage(
+      '${json['builtin_tool_lazy_loading_mode'] ?? ''}',
     );
     final mcpStdioMirrorMode = McpStdioMirrorMode.fromStorage(
       '${json['mcp_stdio_mirror_mode'] ?? ''}',
@@ -1102,6 +1107,7 @@ class SettingsStore {
       mcpServersFilePath: mcpServersFilePath,
       mcpLazyLoadingMode: mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: mcpLazyLoadingThresholdTokens,
+      builtinToolLazyLoadingMode: builtinToolLazyLoadingMode,
       mcpStdioMirrorMode: mcpStdioMirrorMode,
       mcpAutoProbeConcurrency: mcpAutoProbeConcurrency,
       mcpKeywordIndexUpdateMode: mcpKeywordIndexUpdateMode,

@@ -83,6 +83,7 @@ class SettingsController extends ChangeNotifier {
        _mcpEnabled = snapshot.mcpEnabled,
        _mcpServersFilePath = snapshot.mcpServersFilePath,
        _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode,
+       _builtinToolLazyLoadingMode = snapshot.builtinToolLazyLoadingMode,
        _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode,
        _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens,
        _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency,
@@ -246,6 +247,7 @@ class SettingsController extends ChangeNotifier {
   bool _mcpEnabled;
   String _mcpServersFilePath;
   McpLazyLoadingMode _mcpLazyLoadingMode;
+  AiBuiltinToolLazyLoadingMode _builtinToolLazyLoadingMode;
   McpStdioMirrorMode _mcpStdioMirrorMode;
   int _mcpLazyLoadingThresholdTokens;
   int _mcpAutoProbeConcurrency;
@@ -376,6 +378,8 @@ class SettingsController extends ChangeNotifier {
   bool get mcpEnabled => _mcpEnabled;
   String get mcpServersFilePath => _mcpServersFilePath;
   McpLazyLoadingMode get mcpLazyLoadingMode => _mcpLazyLoadingMode;
+  AiBuiltinToolLazyLoadingMode get builtinToolLazyLoadingMode =>
+      _builtinToolLazyLoadingMode;
   McpStdioMirrorMode get mcpStdioMirrorMode => _mcpStdioMirrorMode;
   int get mcpLazyLoadingThresholdTokens => _mcpLazyLoadingThresholdTokens;
   int get mcpAutoProbeConcurrency => _mcpAutoProbeConcurrency;
@@ -743,6 +747,18 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _mcpLazyLoadingMode = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateBuiltinToolLazyLoadingMode(
+    AiBuiltinToolLazyLoadingMode value,
+  ) async {
+    return _commitMutation(() {
+      if (_builtinToolLazyLoadingMode == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _builtinToolLazyLoadingMode = value;
       return _MutationDisposition.apply;
     });
   }
@@ -2670,6 +2686,7 @@ class SettingsController extends ChangeNotifier {
       mcpEnabled: _mcpEnabled,
       mcpServersFilePath: _mcpServersFilePath,
       mcpLazyLoadingMode: _mcpLazyLoadingMode,
+      builtinToolLazyLoadingMode: _builtinToolLazyLoadingMode,
       mcpStdioMirrorMode: _mcpStdioMirrorMode,
       mcpLazyLoadingThresholdTokens: _mcpLazyLoadingThresholdTokens,
       mcpAutoProbeConcurrency: _mcpAutoProbeConcurrency,
@@ -2791,6 +2808,7 @@ class SettingsController extends ChangeNotifier {
     _skillsStoragePath = snapshot.skillsStoragePath;
     _mcpEnabled = snapshot.mcpEnabled;
     _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode;
+    _builtinToolLazyLoadingMode = snapshot.builtinToolLazyLoadingMode;
     _mcpStdioMirrorMode = snapshot.mcpStdioMirrorMode;
     _mcpLazyLoadingThresholdTokens = snapshot.mcpLazyLoadingThresholdTokens;
     _mcpAutoProbeConcurrency = snapshot.mcpAutoProbeConcurrency;

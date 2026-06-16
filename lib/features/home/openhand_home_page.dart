@@ -3764,6 +3764,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens:
           settingsController.mcpLazyLoadingThresholdTokens,
+      builtinToolLazyLoadingMode: settingsController.builtinToolLazyLoadingMode,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
@@ -3901,6 +3902,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.telemetryCaptureEnvironment,
       settingsController.telemetryMaxPayloadChars,
       settingsController.aiSandboxSettings.toJson().toString(),
+      settingsController.builtinToolLazyLoadingMode,
+      settingsController.mcpLazyLoadingThresholdTokens,
       _identityHashAll(allowCommandRules),
       allowCommandRules.length,
       _identityHashAll(builtinToolConfigs),
@@ -4031,6 +4034,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens:
           settingsController.mcpLazyLoadingThresholdTokens,
+      builtinToolLazyLoadingMode: settingsController.builtinToolLazyLoadingMode,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
       connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,

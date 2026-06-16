@@ -34,6 +34,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
       mcpLazyLoadingMode: defaultMcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens: defaultMcpLazyLoadingThresholdTokens,
+      builtinToolLazyLoadingMode: defaultBuiltinToolLazyLoadingMode,
       mcpStdioMirrorMode: defaultMcpStdioMirrorMode,
       mcpAutoProbeConcurrency: defaultMcpAutoProbeConcurrency,
       mcpKeywordIndexUpdateMode: defaultMcpKeywordIndexUpdateMode,
@@ -144,6 +145,7 @@ class AppSettingsSnapshot {
     required this.mcpServersFilePath,
     required this.mcpLazyLoadingMode,
     required this.mcpLazyLoadingThresholdTokens,
+    required this.builtinToolLazyLoadingMode,
     required this.mcpStdioMirrorMode,
     required this.mcpAutoProbeConcurrency,
     required this.mcpKeywordIndexUpdateMode,
@@ -604,6 +606,8 @@ class AppSettingsSnapshot {
   static const int defaultMcpLazyLoadingThresholdTokens = 16000;
   static const int minMcpLazyLoadingThresholdTokens = 1000;
   static const int maxMcpLazyLoadingThresholdTokens = 1000000;
+  static const AiBuiltinToolLazyLoadingMode defaultBuiltinToolLazyLoadingMode =
+      AiBuiltinToolLazyLoadingMode.auto;
   static const McpStdioMirrorMode defaultMcpStdioMirrorMode =
       McpStdioMirrorMode.auto;
   static const int defaultMcpAutoProbeConcurrency = 5;
@@ -635,6 +639,10 @@ class AppSettingsSnapshot {
   /// = auto 时生效：当所有 MCP 工具描述合计 token 数（按字符 / 估算系数）超过
   /// 此阈值时，自动启用懒加载。
   final int mcpLazyLoadingThresholdTokens;
+
+  /// 2026-06-17 — 内建工具 schema 懒加载模式（关闭/自动/开启）。
+  /// auto 模式复用 [mcpLazyLoadingThresholdTokens] 作为总体积阈值。
+  final AiBuiltinToolLazyLoadingMode builtinToolLazyLoadingMode;
 
   /// 2026-05-04 — stdio MCP 包管理器镜像源模式。
   /// 决策顺序：`OPENHAND_MCP_MIRROR` 环变 > 该设置 > Platform.localeName。
@@ -899,6 +907,7 @@ class AppSettingsSnapshot {
     String? mcpServersFilePath,
     McpLazyLoadingMode? mcpLazyLoadingMode,
     int? mcpLazyLoadingThresholdTokens,
+    AiBuiltinToolLazyLoadingMode? builtinToolLazyLoadingMode,
     McpStdioMirrorMode? mcpStdioMirrorMode,
     int? mcpAutoProbeConcurrency,
     McpKeywordIndexUpdateMode? mcpKeywordIndexUpdateMode,
@@ -1015,6 +1024,8 @@ class AppSettingsSnapshot {
       mcpLazyLoadingMode: mcpLazyLoadingMode ?? this.mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens:
           mcpLazyLoadingThresholdTokens ?? this.mcpLazyLoadingThresholdTokens,
+      builtinToolLazyLoadingMode:
+          builtinToolLazyLoadingMode ?? this.builtinToolLazyLoadingMode,
       mcpStdioMirrorMode: mcpStdioMirrorMode ?? this.mcpStdioMirrorMode,
       mcpAutoProbeConcurrency:
           mcpAutoProbeConcurrency ?? this.mcpAutoProbeConcurrency,

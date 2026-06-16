@@ -3468,6 +3468,69 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '内建工具懒加载',
+            en: 'Built-in tool lazy loading',
+          ),
+          description: _localizedText(
+            context,
+            zh: '控制是否折叠内建工具 schema。自动模式复用 MCP 工具压缩阈值：${settingsController.mcpLazyLoadingThresholdTokens} tokens。',
+            en: 'Controls whether built-in tool schemas are folded. Auto mode reuses the MCP compression threshold: ${settingsController.mcpLazyLoadingThresholdTokens} tokens.',
+          ),
+          child: _ResponsiveSettingRow(
+            title: _localizedText(context, zh: '加载模式', en: 'Load mode'),
+            subtitle: _localizedText(
+              context,
+              zh: '关闭时全部直接携带；自动时超过阈值才懒加载；开启时按工具配置折叠非强制加载项。',
+              en: 'Off sends every schema. Auto defers only above the threshold. On follows per-tool force-load settings.',
+            ),
+            controlMaxWidth: 440,
+            control: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<AiBuiltinToolLazyLoadingMode>(
+                segments: <ButtonSegment<AiBuiltinToolLazyLoadingMode>>[
+                  ButtonSegment<AiBuiltinToolLazyLoadingMode>(
+                    value: AiBuiltinToolLazyLoadingMode.disabled,
+                    icon: const Icon(Icons.toggle_off_outlined),
+                    label: Text(
+                      _localizedText(context, zh: '关闭', en: 'Off'),
+                      softWrap: false,
+                    ),
+                  ),
+                  ButtonSegment<AiBuiltinToolLazyLoadingMode>(
+                    value: AiBuiltinToolLazyLoadingMode.auto,
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    label: Text(
+                      _localizedText(context, zh: '自动', en: 'Auto'),
+                      softWrap: false,
+                    ),
+                  ),
+                  ButtonSegment<AiBuiltinToolLazyLoadingMode>(
+                    value: AiBuiltinToolLazyLoadingMode.enabled,
+                    icon: const Icon(Icons.toggle_on_rounded),
+                    label: Text(
+                      _localizedText(context, zh: '开启', en: 'On'),
+                      softWrap: false,
+                    ),
+                  ),
+                ],
+                selected: <AiBuiltinToolLazyLoadingMode>{
+                  settingsController.builtinToolLazyLoadingMode,
+                },
+                onSelectionChanged: (selection) async {
+                  if (selection.isEmpty) return;
+                  final saved = await settingsController
+                      .updateBuiltinToolLazyLoadingMode(selection.first);
+                  if (!context.mounted || saved) return;
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsToolCatalogOverview,
           description: AppLocalizations.of(context)!
               .settingsSortedLengthBuiltInToolsEnabledcount(

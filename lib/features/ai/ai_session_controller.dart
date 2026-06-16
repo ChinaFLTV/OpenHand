@@ -3826,6 +3826,9 @@ class AiSessionController extends ChangeNotifier {
       final keepToolSearchForBuiltins =
           AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
             catalog: fullCatalog,
+            mode: runtimeContext.builtinToolLazyLoadingMode,
+            thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+            charsPerToken: runtimeContext.estimatedCharactersPerToken,
             alreadyLoadedNames: loadedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
@@ -3839,6 +3842,9 @@ class AiSessionController extends ChangeNotifier {
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
         sourceCatalog: fullCatalog,
+        mode: runtimeContext.builtinToolLazyLoadingMode,
+        thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+        charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
         alreadyLoadedNames: loadedToolNames,
       );

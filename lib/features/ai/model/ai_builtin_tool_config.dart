@@ -21,6 +21,30 @@ enum AiBuiltinToolLoadStrategy {
   deferred,
 }
 
+/// 内建工具 schema 懒加载模式。
+enum AiBuiltinToolLazyLoadingMode {
+  /// 始终直接携带全部已启用内建工具 schema。
+  disabled('disabled'),
+
+  /// 内建工具 schema 总体积超过阈值时才启用懒加载。
+  auto('auto'),
+
+  /// 始终启用懒加载，但强制加载/立即加载工具仍直接携带。
+  enabled('enabled');
+
+  const AiBuiltinToolLazyLoadingMode(this.storageValue);
+
+  final String storageValue;
+
+  static AiBuiltinToolLazyLoadingMode fromStorage(String? raw) {
+    final normalized = raw?.trim().toLowerCase();
+    for (final mode in AiBuiltinToolLazyLoadingMode.values) {
+      if (mode.storageValue == normalized) return mode;
+    }
+    return AiBuiltinToolLazyLoadingMode.auto;
+  }
+}
+
 /// 单个内建工具的用户可定制配置。
 ///
 /// 设计原则：
@@ -39,6 +63,7 @@ class AiBuiltinToolConfig {
     this.priority = 100,
     this.sortOrder = 0,
     this.loadStrategy = AiBuiltinToolLoadStrategy.eager,
+    this.forceLoad = false,
     this.tags = const <String>[],
     this.maxOutputChars,
     this.timeoutSeconds,
@@ -102,6 +127,9 @@ class AiBuiltinToolConfig {
 
   /// 加载策略。
   final AiBuiltinToolLoadStrategy loadStrategy;
+
+  /// 即使全局内建工具懒加载处于自动/开启，也强制直接携带该工具 schema。
+  final bool forceLoad;
 
   /// 用户标签（分类、筛选用）。
   final List<String> tags;
@@ -216,6 +244,7 @@ class AiBuiltinToolConfig {
     int? priority,
     int? sortOrder,
     AiBuiltinToolLoadStrategy? loadStrategy,
+    bool? forceLoad,
     List<String>? tags,
     int? maxOutputChars,
     int? timeoutSeconds,
@@ -256,6 +285,7 @@ class AiBuiltinToolConfig {
       priority: priority ?? this.priority,
       sortOrder: sortOrder ?? this.sortOrder,
       loadStrategy: loadStrategy ?? this.loadStrategy,
+      forceLoad: forceLoad ?? this.forceLoad,
       tags: tags ?? this.tags,
       maxOutputChars: clearMaxOutputChars
           ? null
@@ -299,6 +329,7 @@ class AiBuiltinToolConfig {
       'priority': priority,
       'sort_order': sortOrder,
       'load_strategy': loadStrategy.name,
+      'force_load': forceLoad,
       if (tags.isNotEmpty) 'tags': tags,
       if (maxOutputChars != null) 'max_output_chars': maxOutputChars,
       if (timeoutSeconds != null) 'timeout_seconds': timeoutSeconds,
@@ -376,6 +407,9 @@ class AiBuiltinToolConfig {
       priority: (json['priority'] as num?)?.toInt() ?? 100,
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       loadStrategy: loadStrategy,
+      forceLoad: json['force_load'] is bool
+          ? json['force_load'] as bool
+          : defaultForceLoadForKind(kind),
       tags: tags,
       maxOutputChars: (json['max_output_chars'] as num?)?.toInt(),
       timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt(),
@@ -403,6 +437,11 @@ class AiBuiltinToolConfig {
       ),
       webFetchSettings: AiWebFetchSettings.fromJson(json['web_fetch_settings']),
     );
+  }
+
+  /// 返回内建工具在默认配置中是否强制直接加载。
+  static bool defaultForceLoadForKind(AiBuiltinToolKind kind) {
+    return defaultLoadStrategyForKind(kind) == AiBuiltinToolLoadStrategy.eager;
   }
 
   /// 返回内建工具在默认配置中的加载策略。
@@ -507,6 +546,7 @@ class AiBuiltinToolConfig {
             kind: kind,
             sortOrder: kind.index,
             loadStrategy: defaultLoadStrategyForKind(kind),
+            forceLoad: defaultForceLoadForKind(kind),
             webSearchSettings: kind == AiBuiltinToolKind.webSearch
                 ? AiWebSearchSettings.defaults()
                 : null,

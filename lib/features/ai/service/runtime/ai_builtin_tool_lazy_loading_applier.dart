@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import '../../model/ai_builtin_tool_config.dart';
 import '../../tools/search/ai_tool_search_tool.dart';
 import '../chat/ai_protocol_adapter.dart';
@@ -11,24 +14,42 @@ class AiBuiltinToolLazyLoadingApplier {
 
   static bool hasDeferredCandidates({
     required AiResolvedToolCatalog catalog,
+    required AiBuiltinToolLazyLoadingMode mode,
+    required int thresholdTokens,
+    required int charsPerToken,
     Set<String> alreadyLoadedNames = const <String>{},
   }) {
     if (_findToolSearchEntry(catalog) == null) return false;
-    return _deferredBuiltinEntries(
+    return _shouldLazyLoad(
       catalog,
+      mode: mode,
+      thresholdTokens: thresholdTokens,
+      charsPerToken: charsPerToken,
       alreadyLoadedNames: alreadyLoadedNames,
-    ).isNotEmpty;
+    );
   }
 
   static AiResolvedToolCatalog apply({
     required AiResolvedToolCatalog catalog,
     required AiResolvedToolCatalog sourceCatalog,
+    required AiBuiltinToolLazyLoadingMode mode,
+    required int thresholdTokens,
+    required int charsPerToken,
     AiToolRuntimeService? toolRuntimeService,
     Set<String> alreadyLoadedNames = const <String>{},
   }) {
     final toolSearchEntry =
         _findToolSearchEntry(catalog) ?? _findToolSearchEntry(sourceCatalog);
     if (toolSearchEntry == null) {
+      return catalog;
+    }
+    if (!_shouldLazyLoad(
+      catalog,
+      mode: mode,
+      thresholdTokens: thresholdTokens,
+      charsPerToken: charsPerToken,
+      alreadyLoadedNames: alreadyLoadedNames,
+    )) {
       return catalog;
     }
 
@@ -113,6 +134,33 @@ class AiBuiltinToolLazyLoadingApplier {
       tool.source == AiRuntimeToolSource.builtin &&
       tool.builtinKind == AiBuiltinToolKind.toolSearch;
 
+  static bool _shouldLazyLoad(
+    AiResolvedToolCatalog catalog, {
+    required AiBuiltinToolLazyLoadingMode mode,
+    required int thresholdTokens,
+    required int charsPerToken,
+    required Set<String> alreadyLoadedNames,
+  }) {
+    if (mode == AiBuiltinToolLazyLoadingMode.disabled) {
+      return false;
+    }
+    final deferredEntries = _deferredBuiltinEntries(
+      catalog,
+      alreadyLoadedNames: alreadyLoadedNames,
+    );
+    if (deferredEntries.isEmpty) {
+      return false;
+    }
+    if (mode == AiBuiltinToolLazyLoadingMode.enabled) {
+      return true;
+    }
+    return _estimateBuiltinCatalogTokens(
+          catalog: catalog,
+          charsPerToken: math.max(1, charsPerToken),
+        ) >=
+        math.max(1, thresholdTokens);
+  }
+
   static List<MapEntry<String, AiResolvedTool>> _deferredBuiltinEntries(
     AiResolvedToolCatalog catalog, {
     required Set<String> alreadyLoadedNames,
@@ -123,6 +171,13 @@ class AiBuiltinToolLazyLoadingApplier {
           if (tool.source != AiRuntimeToolSource.builtin) return false;
           if (tool.builtinKind == null ||
               tool.builtinKind == AiBuiltinToolKind.toolSearch) {
+            return false;
+          }
+          final config = tool.builtinConfig;
+          final forceLoad =
+              config?.forceLoad ??
+              AiBuiltinToolConfig.defaultForceLoadForKind(tool.builtinKind!);
+          if (forceLoad) {
             return false;
           }
           if (alreadyLoadedNames.contains(entry.key) ||
@@ -148,6 +203,30 @@ class AiBuiltinToolLazyLoadingApplier {
       return left.key.compareTo(right.key);
     });
     return entries;
+  }
+
+  static int _estimateBuiltinCatalogTokens({
+    required AiResolvedToolCatalog catalog,
+    required int charsPerToken,
+  }) {
+    var totalChars = 0;
+    for (final entry in catalog.toolsByName.entries) {
+      final tool = entry.value;
+      if (tool.source != AiRuntimeToolSource.builtin ||
+          tool.builtinKind == null ||
+          tool.builtinKind == AiBuiltinToolKind.toolSearch) {
+        continue;
+      }
+      final definition = tool.definition;
+      totalChars += definition.name.length;
+      totalChars += definition.description.length;
+      try {
+        totalChars += jsonEncode(definition.parameters).length;
+      } catch (_) {
+        totalChars += 256;
+      }
+    }
+    return (totalChars / charsPerToken).ceil();
   }
 
   static int _sortOrder(MapEntry<String, AiResolvedTool> entry) {

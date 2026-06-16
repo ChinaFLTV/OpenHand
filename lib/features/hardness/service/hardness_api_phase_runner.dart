@@ -292,6 +292,9 @@ class HardnessApiPhaseRunner {
       final keepToolSearchForBuiltins =
           AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
             catalog: rawToolCatalog,
+            mode: runtimeContext.builtinToolLazyLoadingMode,
+            thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+            charsPerToken: runtimeContext.estimatedCharactersPerToken,
             alreadyLoadedNames: loadedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
@@ -304,6 +307,9 @@ class HardnessApiPhaseRunner {
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
         sourceCatalog: rawToolCatalog,
+        mode: runtimeContext.builtinToolLazyLoadingMode,
+        thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+        charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
         alreadyLoadedNames: loadedToolNames,
       );

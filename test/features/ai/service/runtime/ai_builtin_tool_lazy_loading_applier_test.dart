@@ -15,6 +15,7 @@ void main() {
         configs[AiBuiltinToolKind.read]!.loadStrategy,
         AiBuiltinToolLoadStrategy.eager,
       );
+      expect(configs[AiBuiltinToolKind.read]!.forceLoad, isTrue);
       expect(
         configs[AiBuiltinToolKind.bash]!.loadStrategy,
         AiBuiltinToolLoadStrategy.eager,
@@ -27,6 +28,7 @@ void main() {
         configs[AiBuiltinToolKind.webSearch]!.loadStrategy,
         AiBuiltinToolLoadStrategy.lazy,
       );
+      expect(configs[AiBuiltinToolKind.webSearch]!.forceLoad, isFalse);
       expect(
         configs[AiBuiltinToolKind.applyFileDiffs]!.loadStrategy,
         AiBuiltinToolLoadStrategy.lazy,
@@ -84,10 +86,7 @@ void main() {
         ),
       ]);
 
-      final result = AiBuiltinToolLazyLoadingApplier.apply(
-        catalog: catalog,
-        sourceCatalog: catalog,
-      );
+      final result = _apply(catalog);
 
       expect(result.find('Read'), isNotNull);
       expect(result.find('WebSearch'), isNull);
@@ -106,6 +105,48 @@ void main() {
       );
     });
 
+    test('does not defer built-in tools when global mode is disabled', () {
+      final catalog = _catalogWith(<AiResolvedTool>[
+        _configuredBuiltin(AiBuiltinToolKind.toolSearch),
+        _configuredBuiltin(
+          AiBuiltinToolKind.webSearch,
+          loadStrategy: AiBuiltinToolLoadStrategy.lazy,
+        ),
+      ]);
+
+      final result = _apply(
+        catalog,
+        mode: AiBuiltinToolLazyLoadingMode.disabled,
+      );
+
+      expect(result, same(catalog));
+      expect(result.find('WebSearch'), isNotNull);
+    });
+
+    test('auto mode defers only when built-in catalog exceeds threshold', () {
+      final catalog = _catalogWith(<AiResolvedTool>[
+        _configuredBuiltin(AiBuiltinToolKind.toolSearch),
+        _configuredBuiltin(
+          AiBuiltinToolKind.webSearch,
+          loadStrategy: AiBuiltinToolLoadStrategy.lazy,
+        ),
+      ]);
+
+      final belowThreshold = _apply(
+        catalog,
+        mode: AiBuiltinToolLazyLoadingMode.auto,
+        thresholdTokens: 1000000,
+      );
+
+      final aboveThreshold = _apply(
+        catalog,
+        mode: AiBuiltinToolLazyLoadingMode.auto,
+      );
+
+      expect(belowThreshold, same(catalog));
+      expect(aboveThreshold.find('WebSearch'), isNull);
+    });
+
     test('keeps already loaded lazy built-in tools visible', () {
       final catalog = _catalogWith(<AiResolvedTool>[
         _configuredBuiltin(AiBuiltinToolKind.toolSearch),
@@ -119,9 +160,8 @@ void main() {
         ),
       ]);
 
-      final result = AiBuiltinToolLazyLoadingApplier.apply(
-        catalog: catalog,
-        sourceCatalog: catalog,
+      final result = _apply(
+        catalog,
         alreadyLoadedNames: const <String>{'WebSearch'},
       );
 
@@ -137,6 +177,30 @@ void main() {
       );
     });
 
+    test('keeps force-loaded built-in tools visible', () {
+      final catalog = _catalogWith(<AiResolvedTool>[
+        _configuredBuiltin(AiBuiltinToolKind.toolSearch),
+        _configuredBuiltin(
+          AiBuiltinToolKind.webSearch,
+          loadStrategy: AiBuiltinToolLoadStrategy.lazy,
+          forceLoad: true,
+        ),
+        _configuredBuiltin(
+          AiBuiltinToolKind.write,
+          loadStrategy: AiBuiltinToolLoadStrategy.lazy,
+        ),
+      ]);
+
+      final result = _apply(catalog);
+
+      expect(result.find('WebSearch'), isNotNull);
+      expect(result.find('Write'), isNull);
+      expect(
+        result.find('ToolSearch')!.toolSearchDeferredToolDefinitions.keys,
+        isNot(contains('WebSearch')),
+      );
+    });
+
     test('uses default load strategies when builtin configs are absent', () {
       final catalog = _catalogWith(<AiResolvedTool>[
         AiToolRuntimeService.builtinToolDefault(AiBuiltinToolKind.toolSearch)!,
@@ -144,10 +208,7 @@ void main() {
         AiToolRuntimeService.builtinToolDefault(AiBuiltinToolKind.webSearch)!,
       ]);
 
-      final result = AiBuiltinToolLazyLoadingApplier.apply(
-        catalog: catalog,
-        sourceCatalog: catalog,
-      );
+      final result = _apply(catalog);
 
       expect(result.find('Read'), isNotNull);
       expect(result.find('WebSearch'), isNull);
@@ -165,15 +226,28 @@ void main() {
         ),
       ]);
 
-      final result = AiBuiltinToolLazyLoadingApplier.apply(
-        catalog: catalog,
-        sourceCatalog: catalog,
-      );
+      final result = _apply(catalog);
 
       expect(result, same(catalog));
       expect(result.find('WebSearch'), isNotNull);
     });
   });
+}
+
+AiResolvedToolCatalog _apply(
+  AiResolvedToolCatalog catalog, {
+  AiBuiltinToolLazyLoadingMode mode = AiBuiltinToolLazyLoadingMode.enabled,
+  int thresholdTokens = 1,
+  Set<String> alreadyLoadedNames = const <String>{},
+}) {
+  return AiBuiltinToolLazyLoadingApplier.apply(
+    catalog: catalog,
+    sourceCatalog: catalog,
+    mode: mode,
+    thresholdTokens: thresholdTokens,
+    charsPerToken: 4,
+    alreadyLoadedNames: alreadyLoadedNames,
+  );
 }
 
 AiResolvedToolCatalog _catalogWith(List<AiResolvedTool> tools) {
@@ -188,6 +262,7 @@ AiResolvedToolCatalog _catalogWith(List<AiResolvedTool> tools) {
 AiResolvedTool _configuredBuiltin(
   AiBuiltinToolKind kind, {
   AiBuiltinToolLoadStrategy? loadStrategy,
+  bool? forceLoad,
 }) {
   final base = AiToolRuntimeService.builtinToolDefault(kind)!;
   return AiResolvedTool(
@@ -200,6 +275,7 @@ AiResolvedTool _configuredBuiltin(
       sortOrder: kind.index,
       loadStrategy:
           loadStrategy ?? AiBuiltinToolConfig.defaultLoadStrategyForKind(kind),
+      forceLoad: forceLoad ?? AiBuiltinToolConfig.defaultForceLoadForKind(kind),
     ),
   );
 }
