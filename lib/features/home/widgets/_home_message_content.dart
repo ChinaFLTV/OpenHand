@@ -404,58 +404,28 @@ class _CollapsibleMessageMarkdownBodyState
       );
     }
 
-    final theme = Theme.of(context);
     final collapsed = _effectiveCollapsed;
-    final label = collapsed
-        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
-        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detailStyle =
-        (theme.textTheme.labelLarge?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w700,
-        )) ??
-        const TextStyle();
-    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.showCollapseToggle) ...[
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: _borderRadius18,
-              onTap: () {
-                _BubbleHtmlInteractiveScope.maybeOf(
-                  context,
-                )?.markInteractiveTap();
-                _setCollapsed(!collapsed);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    Icon(
-                      collapsed
-                          ? Icons.unfold_more_rounded
-                          : Icons.unfold_less_rounded,
-                      size: 18,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(label, style: detailStyle)),
-                    Text(' · ', style: detailStyle),
-                    // 字符计数翻牌：与 Token 胶囊共享同一 RollingText。
-                    RollingText(text: '${data.length}', style: detailStyle),
-                    Text(unitText, style: detailStyle),
-                  ],
-                ),
-              ),
-            ),
+          _MessageCollapseToggleCapsule(
+            collapsed: collapsed,
+            characterCount: data.length,
+            color: Theme.of(context).colorScheme.primary,
+            onTap: () {
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
+              _setCollapsed(!collapsed);
+            },
           ),
           const SizedBox(height: 8),
         ],
-        ClipRect(
+        _collapsibleMessageBodyMotion(
+          context: context,
+          collapsed: collapsed,
           child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-preview'),
@@ -488,6 +458,19 @@ class _CollapsibleMessageMarkdownBodyState
   }
 }
 
+Widget _collapsibleMessageBodyMotion({
+  required BuildContext context,
+  required bool collapsed,
+  required Widget child,
+}) {
+  return maybeAnimatedSize(
+    duration: cardMotionDurationFor(context, expanding: !collapsed),
+    curve: kCardMotionCurve,
+    alignment: Alignment.topLeft,
+    child: ClipRect(child: child),
+  );
+}
+
 bool _messageShouldCollapse(
   String value, {
   required int charThreshold,
@@ -506,6 +489,115 @@ bool _messageShouldCollapse(
     }
   }
   return false;
+}
+
+class _MessageCollapseToggleCapsule extends StatefulWidget {
+  const _MessageCollapseToggleCapsule({
+    required this.collapsed,
+    required this.characterCount,
+    required this.color,
+    required this.onTap,
+  });
+
+  final bool collapsed;
+  final int characterCount;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  State<_MessageCollapseToggleCapsule> createState() =>
+      _MessageCollapseToggleCapsuleState();
+}
+
+class _MessageCollapseToggleCapsuleState
+    extends State<_MessageCollapseToggleCapsule> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveColor = widget.color.withValues(alpha: 0.88);
+    final label = widget.collapsed
+        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
+        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
+    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
+    final textStyle =
+        (theme.textTheme.labelLarge?.copyWith(
+          color: effectiveColor,
+          fontWeight: FontWeight.w700,
+        )) ??
+        TextStyle(color: effectiveColor, fontWeight: FontWeight.w700);
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.subject_rounded, size: 18, color: effectiveColor),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textStyle,
+          ),
+        ),
+        Text(' · ', style: textStyle),
+        RollingText(text: '${widget.characterCount}', style: textStyle),
+        Text(unitText, style: textStyle),
+        const SizedBox(width: 6),
+        AnimatedRotation(
+          turns: widget.collapsed ? 0 : 0.5,
+          duration: cardMotionDurationFor(
+            context,
+            expanding: !widget.collapsed,
+          ),
+          curve: kCardMotionCurve,
+          child: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: widget.color.withValues(alpha: 0.78),
+            size: 18,
+          ),
+        ),
+      ],
+    );
+    final capsule = AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: cardMotionDurationFor(context, expanding: !_pressed),
+      curve: kCardMotionCurve,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 360),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: widget.color.withValues(alpha: 0.06),
+          borderRadius: _borderRadius999,
+          border: Border.all(color: widget.color.withValues(alpha: 0.12)),
+        ),
+        child: row,
+      ),
+    );
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHighlightChanged: _setPressed,
+          borderRadius: _borderRadius999,
+          overlayColor: WidgetStatePropertyAll<Color>(
+            widget.color.withValues(alpha: 0.03),
+          ),
+          child: capsule,
+        ),
+      ),
+    );
+  }
 }
 
 class _MarkdownPreviewBody extends StatefulWidget {
@@ -2429,7 +2521,6 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final data = widget.data.isEmpty ? ' ' : widget.data;
     final shouldCollapse = _shouldCollapse(data);
     final effectiveStyle =
@@ -2441,55 +2532,27 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     }
 
     final collapsed = _effectiveCollapsed;
-    final label = collapsed
-        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
-        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final detailStyle =
-        (theme.textTheme.labelLarge?.copyWith(
-          color: widget.textColor.withValues(alpha: 0.82),
-          fontWeight: FontWeight.w700,
-        )) ??
-        const TextStyle();
-    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.showCollapseToggle) ...[
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: _borderRadius18,
-              onTap: () {
-                _BubbleHtmlInteractiveScope.maybeOf(
-                  context,
-                )?.markInteractiveTap();
-                _setCollapsed(!collapsed);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    Icon(
-                      collapsed
-                          ? Icons.unfold_more_rounded
-                          : Icons.unfold_less_rounded,
-                      size: 18,
-                      color: widget.textColor.withValues(alpha: 0.82),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(label, style: detailStyle)),
-                    Text(' · ', style: detailStyle),
-                    RollingText(text: '${data.length}', style: detailStyle),
-                    Text(unitText, style: detailStyle),
-                  ],
-                ),
-              ),
-            ),
+          _MessageCollapseToggleCapsule(
+            collapsed: collapsed,
+            characterCount: data.length,
+            color: widget.textColor,
+            onTap: () {
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
+              _setCollapsed(!collapsed);
+            },
           ),
           const SizedBox(height: 8),
         ],
-        ClipRect(
+        _collapsibleMessageBodyMotion(
+          context: context,
+          collapsed: collapsed,
           child: collapsed
               ? SizedBox(
                   height: 240,
