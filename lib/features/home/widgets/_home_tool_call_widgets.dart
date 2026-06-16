@@ -614,6 +614,10 @@ class _ToolCallBodyState extends State<_ToolCallBody>
   }
 }
 
+void _markToolCardInteractiveTap(BuildContext context) {
+  _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+}
+
 class _ExpandableToolSection extends StatelessWidget {
   const _ExpandableToolSection({
     required this.title,
@@ -638,7 +642,10 @@ class _ExpandableToolSection extends StatelessWidget {
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
       borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: InkWell(
-        onTap: onToggle,
+        onTap: () {
+          _markToolCardInteractiveTap(context);
+          onToggle();
+        },
         borderRadius: const BorderRadius.all(Radius.circular(16)),
         // AnimatedSize wraps the *entire* card so the chevron rotation
         // and content cross-fade ride a single height curve — feels
@@ -754,18 +761,21 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
   String? _cachedPreviewKey;
 
   void _toggleExpanded() {
+    _markToolCardInteractiveTap(context);
     setState(() {
       _isExpanded = !_isExpanded;
     });
   }
 
   void _toggleWrapped() {
+    _markToolCardInteractiveTap(context);
     setState(() {
       _isWrapped = !_isWrapped;
     });
   }
 
   void _showFullContentDialog(BuildContext context) {
+    _markToolCardInteractiveTap(context);
     // Defer dialog insertion to avoid triggering MouseTracker re-entrancy
     // when the button is pressed during pointer event processing.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1536,6 +1546,7 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
 
   Future<void> _onTap() async {
     if (_busy) return;
+    _markToolCardInteractiveTap(context);
     setState(() => _busy = true);
     try {
       await AiToolExecutionRegistry.instance.cancelToolCall(widget.toolCallId);
@@ -3135,7 +3146,12 @@ class _FilePathChip extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: _borderRadius999,
-          onTap: isUnresolved ? null : onOpenPath,
+          onTap: isUnresolved
+              ? null
+              : () {
+                  _markToolCardInteractiveTap(context);
+                  onOpenPath();
+                },
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
