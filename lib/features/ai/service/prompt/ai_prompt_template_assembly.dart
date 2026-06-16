@@ -27,7 +27,6 @@ class AiPromptTemplatePolicy {
     required this.sharedSections,
     required this.extensionSections,
     required this.compressionIdentity,
-    this.directAnswerToolOmissionEnabled = false,
     this.compressionPayloadStyle = AiPromptCompressionPayloadStyle.standard,
     this.includesWebReverseRuntime = false,
   });
@@ -39,7 +38,6 @@ class AiPromptTemplatePolicy {
   final List<AiPromptSharedSectionSpec> sharedSections;
   final List<AiPromptSharedSectionSpec> extensionSections;
   final String compressionIdentity;
-  final bool directAnswerToolOmissionEnabled;
   final AiPromptCompressionPayloadStyle compressionPayloadStyle;
   final bool includesWebReverseRuntime;
 
@@ -92,7 +90,6 @@ class AiPromptTemplatePolicies {
       extensionSections: <AiPromptSharedSectionSpec>[],
       compressionIdentity:
           'You are OpenHand. Produce a relay-safe conversation checkpoint.',
-      directAnswerToolOmissionEnabled: true,
     ),
     machineExpertTemplateId: AiPromptTemplatePolicy(
       templateId: machineExpertTemplateId,
@@ -134,7 +131,6 @@ class AiPromptTemplatePolicies {
       extensionSections: <AiPromptSharedSectionSpec>[],
       compressionIdentity:
           'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
-      directAnswerToolOmissionEnabled: true,
     ),
     webReverseExpertTemplateId: AiPromptTemplatePolicy(
       templateId: webReverseExpertTemplateId,
@@ -156,7 +152,6 @@ class AiPromptTemplatePolicies {
       extensionSections: <AiPromptSharedSectionSpec>[],
       compressionIdentity:
           'You are OpenHand Siri Helper. Produce a relay-safe assistant checkpoint with grounded facts and user-visible context preserved.',
-      directAnswerToolOmissionEnabled: true,
     ),
   };
 

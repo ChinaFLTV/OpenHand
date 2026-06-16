@@ -39,45 +39,6 @@ void main() {
       }
     });
 
-    test(
-      'keeps direct-answer omission limited to conversational templates',
-      () {
-        expect(
-          AiPromptTemplatePolicies.resolve(
-            AiPromptTemplatePolicies.defaultTemplateId,
-          ).directAnswerToolOmissionEnabled,
-          isTrue,
-        );
-        expect(
-          AiPromptTemplatePolicies.resolve(
-            AiPromptTemplatePolicies.hermesTalkerTemplateId,
-          ).directAnswerToolOmissionEnabled,
-          isTrue,
-        );
-        expect(
-          AiPromptTemplatePolicies.resolve(
-            AiPromptTemplatePolicies.siriHelperTemplateId,
-          ).directAnswerToolOmissionEnabled,
-          isTrue,
-        );
-
-        for (final templateId in <String>[
-          AiPromptTemplatePolicies.machineExpertTemplateId,
-          AiPromptTemplatePolicies.hardnessEngineeringTemplateId,
-          AiPromptTemplatePolicies.programmingExpertTemplateId,
-          AiPromptTemplatePolicies.webReverseExpertTemplateId,
-        ]) {
-          expect(
-            AiPromptTemplatePolicies.resolve(
-              templateId,
-            ).directAnswerToolOmissionEnabled,
-            isFalse,
-            reason: templateId,
-          );
-        }
-      },
-    );
-
     test('centralizes cache-friendly session-state layout per template', () {
       for (final templateId in <String>[
         AiPromptTemplatePolicies.defaultTemplateId,
