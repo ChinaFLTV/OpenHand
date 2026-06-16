@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
+import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
@@ -1230,9 +1231,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _resetAdjustmentControls(clearMessages: false);
       });
     } catch (error, stack) {
-      if (kDebugMode) {
-        debugPrint('[ImageEditor] load failed: $error\n$stack');
-      }
+      silentLog('image_editor', 'load image', error, stack);
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
@@ -1282,9 +1281,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _statusMessage = null;
       });
     } catch (error, stack) {
-      if (kDebugMode) {
-        debugPrint('[ImageEditor] rotate failed: $error\n$stack');
-      }
+      silentLog('image_editor', 'rotate image', error, stack);
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(
@@ -1567,9 +1564,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       });
       _showSnackBar(l10n.imageEditorApplySuccess);
     } catch (error, stack) {
-      if (kDebugMode) {
-        debugPrint('[ImageEditor] apply failed: $error\n$stack');
-      }
+      silentLog('image_editor', 'apply edits', error, stack);
       if (mounted) {
         setState(() => _errorMessage = l10n.imageEditorProcessFailed);
         _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
@@ -1895,9 +1890,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         imageSizeLimitBytes: imageSizeLimitBytes,
       );
     } catch (error, stack) {
-      if (kDebugMode) {
-        debugPrint('[ImageEditor] watermark compose failed: $error\n$stack');
-      }
+      silentLog('image_editor', 'compose watermark', error, stack);
       return null;
     } finally {
       codec?.dispose();
@@ -2326,9 +2319,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       return composedBytes;
     } catch (error, stack) {
-      if (kDebugMode) {
-        debugPrint('[ImageEditor] render failed: $error\n$stack');
-      }
+      silentLog('image_editor', 'render output', error, stack);
       if (!mounted) return null;
       setState(() {
         _errorMessage = l10n.imageEditorProcessFailed;

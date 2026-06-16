@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
@@ -1794,11 +1793,13 @@ class _AiLspSession {
     // Drain stderr so the LSP server is not blocked writing diagnostics.
     // Surface any drain failures in debug builds to aid troubleshooting —
     // they are silently swallowed otherwise.
-    _process!.stderr.drain<void>().catchError((Object error, StackTrace _) {
-      assert(() {
-        debugPrint('lsp[${backend.language}]: stderr drain failed: $error');
-        return true;
-      }());
+    _process!.stderr.drain<void>().catchError((Object error, StackTrace stack) {
+      silentLog(
+        'lsp_client_service',
+        'drain stderr (${backend.language})',
+        error,
+        stack,
+      );
     });
 
     final initResult = await _sendRequest('initialize', <String, Object?>{
@@ -2304,13 +2305,14 @@ class _AiLspSession {
         } else {
           _handleNotification(message);
         }
-      } catch (error) {
-        // Malformed LSP messages should not crash the reader loop. Surface
-        // the error in debug builds so protocol-level bugs are visible.
-        assert(() {
-          debugPrint('lsp[${backend.language}]: failed to process message: $error');
-          return true;
-        }());
+      } catch (error, stack) {
+        // Malformed LSP messages should not crash the reader loop.
+        silentLog(
+          'lsp_client_service',
+          'process message (${backend.language})',
+          error,
+          stack,
+        );
       }
     }
 

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/silent_log.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
@@ -1130,18 +1130,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     final usageMap = usage is Map<String, Object?>
         ? usage
         : Map<String, Object?>.from(usage as Map);
-    final parsed = AiTokenUsageParser.parseClaude(usageMap);
-    if (parsed != null && kDebugMode) {
-      // 2026-05-04 — 缓存命中诊断：观察 cache_read 与 cache_creation 比例。
-      // 期望第二轮起 cache_read >> cache_creation。若每轮都偏向 creation，
-      // 说明前缀有漂移源（settings 改动 / catalog 重排 / 时间戳渗透）。
-      debugPrint(
-        '[claude.cache] read=${parsed.cacheReadTokens} '
-        'creation=${parsed.cacheCreationTokens} '
-        'input=${parsed.promptTokens} output=${parsed.completionTokens}',
-      );
-    }
-    return parsed;
+    return AiTokenUsageParser.parseClaude(usageMap);
   }
 
   @override
@@ -2257,11 +2246,13 @@ Future<String> saveInlineMediaToMarkdown(
       return '[🎬 $displayLabel]($filePath)';
     }
     return '[📎 $displayLabel]($filePath)';
-  } catch (e) {
-    assert(() {
-      debugPrint('[saveInlineMediaToMarkdown] Failed to persist media: $e');
-      return true;
-    }());
+  } catch (error, stack) {
+    silentLog(
+      'ai_protocol_adapter',
+      'save inline media to markdown',
+      error,
+      stack,
+    );
     return '';
   }
 }
