@@ -71,6 +71,12 @@ class _MessageBubble extends StatefulWidget {
 }
 
 class _MessageBubbleState extends State<_MessageBubble> {
+  static const int _messageExpansionStateCacheLimit = 500;
+  static final Map<String, bool> _reasoningExpansionOverridesByMessageId =
+      <String, bool>{};
+  static final Map<String, bool> _assistantExpansionOverridesByMessageId =
+      <String, bool>{};
+
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
   bool? _assistantResponseExpandedOverride;
@@ -158,19 +164,65 @@ class _MessageBubbleState extends State<_MessageBubble> {
   String? _lastCacheMessageId;
   String? _lastCacheEnvironmentKey;
   int? _lastCacheThemeBrightness;
-  bool? _lastCacheIsSelected;
   bool? _lastCacheDarkCodeSurface;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExpansionOverridesForMessage(widget.message.id);
+  }
 
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
-      _reasoningExpandedOverride = null;
-      _assistantResponseExpandedOverride = null;
+      _loadExpansionOverridesForMessage(widget.message.id);
       _showRawContent = widget.initiallyShowRawContent;
       _invalidateCache();
     }
+  }
+
+  void _loadExpansionOverridesForMessage(String messageId) {
+    _reasoningExpandedOverride =
+        _reasoningExpansionOverridesByMessageId[messageId];
+    _assistantResponseExpandedOverride =
+        _assistantExpansionOverridesByMessageId[messageId];
+  }
+
+  static void _rememberExpansionOverride(
+    Map<String, bool> cache,
+    String messageId,
+    bool value,
+  ) {
+    if (messageId.isEmpty) return;
+    cache.remove(messageId);
+    cache[messageId] = value;
+    while (cache.length > _messageExpansionStateCacheLimit) {
+      cache.remove(cache.keys.first);
+    }
+  }
+
+  void _setReasoningExpandedOverride(bool value) {
+    _rememberExpansionOverride(
+      _reasoningExpansionOverridesByMessageId,
+      widget.message.id,
+      value,
+    );
+    setState(() {
+      _reasoningExpandedOverride = value;
+    });
+  }
+
+  void _setAssistantResponseExpandedOverride(bool value) {
+    _rememberExpansionOverride(
+      _assistantExpansionOverridesByMessageId,
+      widget.message.id,
+      value,
+    );
+    setState(() {
+      _assistantResponseExpandedOverride = value;
+    });
   }
 
   void _invalidateCache() {
@@ -182,7 +234,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _lastCacheMessageId = null;
     _lastCacheEnvironmentKey = null;
     _lastCacheThemeBrightness = null;
-    _lastCacheIsSelected = null;
     _lastCacheDarkCodeSurface = null;
   }
 
@@ -342,13 +393,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _lastCacheMessageId != message.id ||
         _lastCacheEnvironmentKey != environmentKey ||
         _lastCacheThemeBrightness != themeBrightness ||
-        _lastCacheIsSelected != widget.isSelected ||
         _lastCacheDarkCodeSurface != useDarkCodeSurface;
     if (needsCacheRefresh) {
       _lastCacheMessageId = message.id;
       _lastCacheEnvironmentKey = environmentKey;
       _lastCacheThemeBrightness = themeBrightness;
-      _lastCacheIsSelected = widget.isSelected;
       _lastCacheDarkCodeSurface = useDarkCodeSurface;
       _cachedMarkdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
         theme: theme,
@@ -447,9 +496,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         canCollapseAssistantResponse && !assistantResponseExpanded;
     void toggleAssistantResponseExpansion() {
       if (!canCollapseAssistantResponse) return;
-      setState(() {
-        _assistantResponseExpandedOverride = !assistantResponseExpanded;
-      });
+      _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
     }
 
     final isScrollHighlighted = widget.isScrollHighlighted;
@@ -524,10 +571,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         showSweep: widget.showReasoningSweep,
                         expanded: reasoningExpanded,
                         onTap: () {
-                          final nextExpanded = !reasoningExpanded;
-                          setState(() {
-                            _reasoningExpandedOverride = nextExpanded;
-                          });
+                          _setReasoningExpandedOverride(!reasoningExpanded);
                         },
                       )
                     else if (isToolCall)
@@ -749,10 +793,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   : null,
                               onCollapsedChanged: canCollapseAssistantResponse
                                   ? (collapsed) {
-                                      setState(() {
-                                        _assistantResponseExpandedOverride =
-                                            !collapsed;
-                                      });
+                                      _setAssistantResponseExpandedOverride(
+                                        !collapsed,
+                                      );
                                     }
                                   : null,
                               showCollapseToggle: !canCollapseAssistantResponse,

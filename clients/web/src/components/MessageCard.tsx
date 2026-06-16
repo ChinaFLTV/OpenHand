@@ -535,10 +535,13 @@ const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
 const STREAMING_SIZE_MOTION_BUCKET_CHARS = 16;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
 const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
+const MESSAGE_UI_STATE_CACHE_LIMIT = 500;
 
 // 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
 // CSS 入场动画重播，从而引发消息列表"闪烁→消失→重现"的鬼畜抖动。
 const appearedMessageIds = new Set<string>();
+const responseExpandedOverridesByMessageId = new Map<string, boolean>();
+const badgeCollapsedOverridesByMessageId = new Map<string, boolean>();
 let messageAppearBatchStartedAt = 0;
 let messageAppearBatchOrdinal = 0;
 
@@ -562,6 +565,21 @@ function trackMessageAppeared(id: string): void {
     for (let i = 0; i < 250; i++) {
       appearedMessageIds.delete(entries[i]!);
     }
+  }
+}
+
+function rememberMessageUiState(
+  cache: Map<string, boolean>,
+  id: string,
+  value: boolean,
+): void {
+  if (!id) return;
+  if (cache.has(id)) cache.delete(id);
+  cache.set(id, value);
+  while (cache.size > MESSAGE_UI_STATE_CACHE_LIMIT) {
+    const first = cache.keys().next().value;
+    if (typeof first !== 'string') break;
+    cache.delete(first);
   }
 }
 
@@ -1023,13 +1041,39 @@ function MessageCardImpl({
     !forceExpanded &&
     (style.collapsible || isAssistantResponseMessage(message)) &&
     content.length > AUTO_COLLAPSE_CHAR_LIMIT;
-  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(() => (
+    responseExpandedOverridesByMessageId.has(message.id)
+      ? responseExpandedOverridesByMessageId.get(message.id)!
+      : null
+  ));
   const [inlineImagePreview, setInlineImagePreview] = useState<{ item: MediaItem; url: string } | null>(null);
   useEffect(() => {
-    setExpandedOverride(null);
+    setExpandedOverride(
+      responseExpandedOverridesByMessageId.has(message.id)
+        ? responseExpandedOverridesByMessageId.get(message.id)!
+        : null,
+    );
   }, [message.id]);
   const expanded = forceExpanded || streamingContent || keepExpandedDuringTurn || expandedOverride === true || !canCollapse;
   const collapsed = canCollapse && !expanded;
+  const previousActiveRef = useRef(false);
+  useEffect(() => {
+    if (previousActiveRef.current === active) return;
+    previousActiveRef.current = active;
+    if (
+      !canCollapse ||
+      !isAssistantResponseMessage(message) ||
+      expandedOverride != null
+    ) {
+      return;
+    }
+    rememberMessageUiState(
+      responseExpandedOverridesByMessageId,
+      message.id,
+      expanded,
+    );
+    setExpandedOverride(expanded);
+  }, [active, canCollapse, expanded, expandedOverride, message.id]);
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
   // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
@@ -1049,9 +1093,17 @@ function MessageCardImpl({
   const isLongReasoning =
     message.kind === 'reasoning' && isReasoningLong(content);
   const defaultBadgeCollapsed = !streamingContent && !keepExpandedDuringTurn && isLongReasoning;
-  const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(null);
+  const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(() => (
+    badgeCollapsedOverridesByMessageId.has(message.id)
+      ? badgeCollapsedOverridesByMessageId.get(message.id)!
+      : null
+  ));
   useEffect(() => {
-    setBadgeCollapsedOverride(null);
+    setBadgeCollapsedOverride(
+      badgeCollapsedOverridesByMessageId.has(message.id)
+        ? badgeCollapsedOverridesByMessageId.get(message.id)!
+        : null,
+    );
   }, [message.id]);
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
   useEffect(() => {
@@ -1179,9 +1231,14 @@ function MessageCardImpl({
   const toggleBadgeCollapsed = useCallback(() => {
     setBadgeCollapsedOverride((current) => {
       const next = current == null ? !defaultBadgeCollapsed : !current;
+      rememberMessageUiState(
+        badgeCollapsedOverridesByMessageId,
+        message.id,
+        next,
+      );
       return next;
     });
-  }, [defaultBadgeCollapsed]);
+  }, [defaultBadgeCollapsed, message.id]);
 
   const handleBadgeToggle = useCallback((e: Event) => {
     e.stopPropagation();
@@ -1189,8 +1246,14 @@ function MessageCardImpl({
   }, [toggleBadgeCollapsed]);
 
   const toggleResponseExpanded = useCallback(() => {
-    setExpandedOverride(() => (expanded ? false : true));
-  }, [expanded]);
+    const next = !expanded;
+    rememberMessageUiState(
+      responseExpandedOverridesByMessageId,
+      message.id,
+      next,
+    );
+    setExpandedOverride(next);
+  }, [expanded, message.id]);
 
   return (
     <>
