@@ -42,6 +42,7 @@ import 'service/media/ai_image_summary_extractor.dart';
 import 'service/prompt/ai_prompt_builder.dart';
 import 'service/prompt/ai_prompt_sections.dart';
 import 'service/prompt/ai_prompt_template_repository.dart';
+import 'service/prompt/ai_prompt_tool_budget_strategy.dart';
 import 'service/runtime/ai_plan_approval_detector.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
@@ -326,6 +327,12 @@ class AiSessionController extends ChangeNotifier {
   // visible without penalizing ordinary user-turn latency.
   static const Duration _deepSeekContinuationCacheSettleDelay = Duration(
     seconds: 2,
+  );
+  static const AiPromptToolBudgetStrategy _promptToolBudgetStrategy =
+      AiPromptToolBudgetStrategy();
+  static const AiResolvedToolCatalog _emptyToolCatalog = AiResolvedToolCatalog(
+    definitions: <AiToolDefinition>[],
+    toolsByName: <String, AiResolvedTool>{},
   );
 
   /// Maximum number of consecutive auto-continuations when the model keeps
@@ -3885,16 +3892,24 @@ class AiSessionController extends ChangeNotifier {
         executionApprovedForSend: planModeExecutionApprovedForSend,
         recoveryInspectionRequired: planModeRecoveryInspectionRequired,
       );
-      final toolCatalogForRound = workingSession.awaitingPlanApproval
-          ? const AiResolvedToolCatalog(
-              definitions: <AiToolDefinition>[],
-              toolsByName: <String, AiResolvedTool>{},
-            )
+      final toolBudgetDecision = _promptToolBudgetStrategy.decide(
+        session: workingSession,
+        latestUserMessageId: activeLatestUserMessageId,
+        toolRoundCount: toolRoundCount,
+        creationRequestActive: creationRequest.isActive,
+      );
+      final displayCatalogForPrompt = toolBudgetDecision.omitsRuntimeTools
+          ? _emptyToolCatalog
+          : fullCatalogForDisplay;
+      final toolCatalogForRound =
+          (workingSession.awaitingPlanApproval ||
+              toolBudgetDecision.omitsRuntimeTools)
+          ? _emptyToolCatalog
           : fullCatalogForDisplay;
       final toolsForRound = toolCatalogForRound.definitions;
       _debugSessionLog(
         workingSession.id,
-        'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tools=${toolsForRound.length}',
+        'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tool_budget=${toolBudgetDecision.mode.name} tools=${toolsForRound.length}',
       );
       final promptBuildStopwatch = Stopwatch()..start();
       final promptHistoryStopwatch = Stopwatch()..start();
@@ -3915,7 +3930,8 @@ class AiSessionController extends ChangeNotifier {
         mcpServerInstructionsByName:
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
-        displayCatalogOverride: fullCatalogForDisplay.definitions,
+        displayCatalogOverride: displayCatalogForPrompt.definitions,
+        toolCatalogOmissionReason: toolBudgetDecision.promptOmissionReason,
       );
       preRequestTimingsMs['prompt_build'] =
           promptBuildStopwatch.elapsedMilliseconds;

@@ -172,6 +172,7 @@ class AiPromptBuilder {
     // 仅靠 [3d] 里的 plan.awaiting_approval 告诉模型「本轮不能调用工具」。
     // 同时 availableTools 可以保持为空，让 SDK 层 / 本地验证层拒绝任何工具调用。
     List<AiToolDefinition>? displayCatalogOverride,
+    String? toolCatalogOmissionReason,
   }) {
     final repositorySnapshot = _effectiveRepositorySnapshot(
       session: session,
@@ -507,7 +508,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '${AiPromptSectionHeaders.toolCatalog}\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
+            '${AiPromptSectionHeaders.toolCatalog}\n\n${_renderRuntimeToolCatalog(displayCatalogOverride ?? availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls, omissionReason: toolCatalogOmissionReason)}',
       ),
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分：
@@ -719,6 +720,9 @@ class AiPromptBuilder {
           promptCharacterCount: promptCharacterCount,
         ),
       );
+    if (toolCatalogOmissionReason?.trim().isNotEmpty == true) {
+      metadata['tool_catalog_omission_reason'] = toolCatalogOmissionReason;
+    }
     if (latestUserRuntimeSystemReminders.isNotEmpty) {
       metadata['latest_user_inlined_runtime_system_reminders'] =
           latestUserRuntimeSystemReminders;
@@ -1280,6 +1284,7 @@ class AiPromptBuilder {
     String? templateId,
     bool awaitingPlanApproval = false,
     bool useDsmlToolCalls = false,
+    String? omissionReason,
   }) {
     final skillTools = <AiToolDefinition>[];
     final mcpTools = <AiToolDefinition>[];
@@ -1320,6 +1325,9 @@ class AiPromptBuilder {
       // 为该场景提供明确提示，避免模型谎称工具缺失。
       if (awaitingPlanApproval) {
         return 'Tool catalog is intentionally empty for this turn because the system is waiting for the user to approve your plan. Present the captured plan and ask for confirmation. As soon as the user endorses it (English or Chinese, e.g. "do it", "ship it", "去写吧", "去做吧"), the next turn will restore the full execution toolkit (Write, Edit, MultiEdit, Bash, etc.) automatically. Never tell the user that Write/Edit do not exist — the tools simply have not been re-enabled yet.';
+      }
+      if (omissionReason?.trim().isNotEmpty == true) {
+        return 'Runtime tools are intentionally omitted for this direct-answer turn to reduce prompt cost. Answer from the conversation and built-in instructions only. If the user asks for local files, commands, web, MCP, skills, or implementation work, the next turn restores the full tool catalog. Do not invent tool names.';
       }
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
