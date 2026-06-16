@@ -229,11 +229,13 @@ class WebMessagePlatformService {
   static const int _maxTimestampBuffer = 600;
   static const int _maxObservationBuffer = 600;
   static const int _maxMessageWindowLimit = 200;
-  static const int _sseMessageWindowSize = 32;
-  static const int _sessionSummaryMessageWindowSize = 10;
-  static const int _maxStoredDisplayScanMessages = 320;
-  static const int _storedMessageWindowScanMultiplier = 4;
-  static const int _storedMessageWindowScanContext = 24;
+  static const int _sseMessageWindowSize = 20;
+  static const int _sessionSummaryMessageWindowSize = 6;
+  static const int _storedMessageWindowScanMultiplier = 2;
+  static const int _storedMessageWindowScanContext = 12;
+  static const int _storedMessageWindowExpandedScanMultiplier = 3;
+  static const int _storedMessageWindowExpandedScanContext = 24;
+  static const int _storedMessageWindowExpandedScanLimit = 128;
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -4465,11 +4467,7 @@ class WebMessagePlatformService {
   }) async {
     final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
     try {
-      final probe = await _sessionController.store.loadMessages(
-        session.id,
-        limit: 1,
-      );
-      final rawTotal = probe.totalCount;
+      final rawTotal = await _sessionController.store.countMessages(session.id);
       if (session.messages.isNotEmpty && session.messages.length >= rawTotal) {
         return _messageWindowFromDisplayMessages(
           session.displayMessages,
@@ -4478,56 +4476,67 @@ class WebMessagePlatformService {
           tail: tail,
         );
       }
-      if (rawTotal <= _maxStoredDisplayScanMessages) {
+
+      final requestedOffset = math.min(math.max(0, offset), rawTotal);
+      int scanLimitFor({
+        required int multiplier,
+        required int context,
+        int? cap,
+      }) {
+        final desired = math.max(safeLimit, safeLimit * multiplier + context);
+        return math.min(
+          rawTotal,
+          cap == null ? desired : math.min(cap, desired),
+        );
+      }
+
+      int rawOffsetFor(int scanLimit, int context) {
+        return tail
+            ? math.max(0, rawTotal - scanLimit)
+            : math.max(0, math.min(requestedOffset, rawTotal) - context);
+      }
+
+      Future<_WebSessionMessageWindow> loadBoundedWindow({
+        required int scanLimit,
+        required int context,
+      }) async {
+        final rawOffset = rawOffsetFor(scanLimit, context);
         final page = await _sessionController.store.loadMessages(
           session.id,
-          limit: -1,
+          limit: scanLimit,
+          offset: rawOffset,
         );
-        final mergedMessages = _mergeStoredAndLiveMessages(
-          page.messages,
-          session.messages,
-        );
-        final displayMessages = session
-            .copyWith(messages: mergedMessages)
-            .displayMessages;
-        return _messageWindowFromDisplayMessages(
-          displayMessages,
-          limit: safeLimit,
-          offset: offset,
+        return _boundedStoredMessageWindow(
+          session: session,
+          storedMessages: page.messages,
+          rawOffset: rawOffset,
+          rawTotal: rawTotal,
+          safeLimit: safeLimit,
+          requestedOffset: requestedOffset,
           tail: tail,
         );
       }
 
-      final scanLimit = math.min(
-        rawTotal,
-        math.max(
-          safeLimit,
-          safeLimit * _storedMessageWindowScanMultiplier +
-              _storedMessageWindowScanContext,
-        ),
+      final scanLimit = scanLimitFor(
+        multiplier: _storedMessageWindowScanMultiplier,
+        context: _storedMessageWindowScanContext,
       );
-      final requestedOffset = math.min(math.max(0, offset), rawTotal);
-      final rawOffset = tail
-          ? math.max(0, rawTotal - scanLimit)
-          : math.max(
-              0,
-              math.min(requestedOffset, rawTotal) -
-                  _storedMessageWindowScanContext,
-            );
-      final page = await _sessionController.store.loadMessages(
-        session.id,
-        limit: scanLimit,
-        offset: rawOffset,
+      var window = await loadBoundedWindow(
+        scanLimit: scanLimit,
+        context: _storedMessageWindowScanContext,
       );
-      return _boundedStoredMessageWindow(
-        session: session,
-        storedMessages: page.messages,
-        rawOffset: rawOffset,
-        rawTotal: rawTotal,
-        safeLimit: safeLimit,
-        requestedOffset: requestedOffset,
-        tail: tail,
+      final expandedScanLimit = scanLimitFor(
+        multiplier: _storedMessageWindowExpandedScanMultiplier,
+        context: _storedMessageWindowExpandedScanContext,
+        cap: _storedMessageWindowExpandedScanLimit,
       );
+      if (window.messages.length < safeLimit && expandedScanLimit > scanLimit) {
+        window = await loadBoundedWindow(
+          scanLimit: expandedScanLimit,
+          context: _storedMessageWindowExpandedScanContext,
+        );
+      }
+      return window;
     } catch (error, stack) {
       silentLog('WebGateway', 'load stored message window', error, stack);
       return _messageWindowFromDisplayMessages(
@@ -4754,8 +4763,15 @@ class WebMessagePlatformService {
         return '?';
       }
       final content = message['content'];
-      final contentLength = content is String ? content.length : 0;
-      return '${message['id']}:${message['role']}:${message['kind']}:$contentLength:${message['character_count'] ?? 0}';
+      final contentText = content is String ? content : '';
+      final contentLength = contentText.length;
+      final contentHead = contentText.length <= 48
+          ? contentText
+          : contentText.substring(0, 48);
+      final contentTail = contentText.length <= 24
+          ? contentText
+          : contentText.substring(contentText.length - 24);
+      return '${message['id']}:${message['role']}:${message['kind']}:$contentLength:$contentHead:$contentTail:${message['character_count'] ?? 0}';
     }
 
     final first = itemSignature(messages.first);

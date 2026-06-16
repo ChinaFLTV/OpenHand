@@ -33,12 +33,12 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // memory; this only limits initial widget materialisation.
 const int _transcriptInitialWindowSize = 6;
 const int _transcriptFirstFrameWindowSize = 3;
-const int _transcriptWindowIncrement = 18;
+const int _transcriptWindowIncrement = 10;
 const int _transcriptWindowingThreshold = 8;
 const int _transcriptPreparationThreshold = 12;
 const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
-const double _transcriptListCacheExtent = 240;
+const double _transcriptListCacheExtent = 120;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 const int _scrollToBottomPositionRetryLimit = 16;

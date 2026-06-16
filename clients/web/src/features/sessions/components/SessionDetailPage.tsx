@@ -1,7 +1,7 @@
 // 单会话详情页：会话头 / 消息分页 / Composer 发送（Stage 4 接入）。
 //
 // 设计要点：
-// 1. 首屏拿最新一页（tail=1, limit=80）；列表按 created_at 升序展示。
+// 1. 首屏拿最新一页（tail=1, limit=INITIAL_PAGE_SIZE）；列表按 created_at 升序展示。
 // 2. 「加载更早」按钮 / 下拉：按当前已加载窗口 offset 拉取更早一页，prepend 到顶部。
 // 3. 发送：POST /api/sessions/:id/messages 形成 user 消息；service 自身维护流式，
 //    前端进入 1.2s 轮询循环刷新最新一页，直到 send_phase == idle。
@@ -39,6 +39,7 @@ import {
   integerFromUnknown,
   nonNegativeIntegerFromUnknown,
   recordFromUnknown,
+  recordOrNullFromUnknown,
   stringListFromUnknown,
 } from '../../../shared/util/value';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
@@ -67,11 +68,10 @@ import { CreationOptionsDialog, type CreationOptions } from '../../../components
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholder } from '../../../components/MediaGeneratingPlaceholder';
 
-const PAGE_SIZE = 80;
-// 阶段㉔：首屏初始消息条数。从原 80 收紧到 20，让 60+ 条历史会话首次
-// 打开只需渲染最近 20 张消息卡片，markdown 解析量与 DOM 节点数一并骤
-// 降；用户上滑触底「加载更早」按钮按 PAGE_SIZE 增量加载历史。
-const INITIAL_PAGE_SIZE = 20;
+const PAGE_SIZE = 32;
+// 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
+// 浏览器一次挂载几十张复杂消息卡。
+const INITIAL_PAGE_SIZE = 16;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -283,9 +283,122 @@ function metadataTextLength(value: unknown): number {
   }
 }
 
+const MESSAGE_RENDER_METADATA_KEYS = [
+  'streaming',
+  'content_format',
+  'tool_call_id',
+  'tool_name',
+  'name',
+  'tool_arguments',
+  'tool_arguments_streaming',
+  'tool_execution_stdout',
+  'tool_execution_stderr',
+  'tool_execution_result',
+  'result_text',
+  'tool_execution_status',
+  'tool_status',
+  'status',
+  'tool_execution_command',
+  'command',
+  'tool_execution_working_directory',
+  'working_directory',
+  'tool_execution_elapsed_ms',
+  'tool_execution_duration_ms',
+  'tool_execution_exit_code',
+  'exit_code',
+  'sandbox_applied',
+  'sandbox_blocked',
+  'sandbox_backend',
+  'sandbox_unavailable_reason',
+  'sandbox_proxy_enabled',
+  'sandbox_proxy_http_port',
+  'sandbox_proxy_socks_port',
+  'file_mutation_kind',
+  'file_mutation_path',
+  'read_file_path',
+  'file_mutation_paths',
+  'file_mutation_write_reason',
+  'write_analysis_reason',
+  'tool_execution_write_analysis_reason',
+  'round_summary_record_count',
+  'mcp_server_name',
+  'mcp_tool_name',
+  'tool_source',
+  'plan_mode_awaiting_approval',
+  'plan_mode_approved',
+  'attachments',
+  'attachment_count',
+  'generated_image_paths',
+  'generated_video_paths',
+  'generated_audio_paths',
+  'creation_request',
+  'conversation_mode',
+  'user_skill_selection',
+  'selected_skill',
+] as const;
+
+const metadataRenderFingerprintCache = new WeakMap<object, string>();
+
+function metadataValueFingerprint(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') {
+    return `${value.length}:${value.slice(0, 48)}:${value.slice(-24)}`;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return `json:${metadataTextLength(value)}`;
+}
+
+function metadataRenderFingerprint(value: unknown): string {
+  const meta = recordOrNullFromUnknown(value);
+  if (!meta) return '';
+  const cached = metadataRenderFingerprintCache.get(meta);
+  if (cached != null) return cached;
+  const fingerprint = MESSAGE_RENDER_METADATA_KEYS
+    .map((key) => `${key}=${metadataValueFingerprint(meta[key])}`)
+    .join('|');
+  metadataRenderFingerprintCache.set(meta, fingerprint);
+  return fingerprint;
+}
+
+function usageRenderFingerprint(message: SessionMessage): string {
+  const usage = message.usage;
+  if (!usage) return '';
+  return [
+    usage.prompt_tokens ?? '',
+    usage.completion_tokens ?? '',
+    usage.total_tokens ?? '',
+    usage.cache_read_tokens ?? '',
+    usage.cache_creation_tokens ?? '',
+    usage.reasoning_tokens ?? '',
+  ].join(':');
+}
+
+function messageRenderSignature(message: SessionMessage): string {
+  const content = message.content ?? '';
+  return [
+    message.id,
+    message.role,
+    message.kind,
+    content.length,
+    content.slice(0, 64),
+    content.slice(-32),
+    message.character_count ?? 0,
+    message.created_at,
+    message.model_id ?? '',
+    message.model_label ?? '',
+    usageRenderFingerprint(message),
+    metadataRenderFingerprint(message.metadata),
+  ].join('|');
+}
+
+function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): boolean {
+  return messageRenderSignature(a) === messageRenderSignature(b);
+}
+
 export function messageFollowSignature(message: SessionMessage): string {
-  const metadata = message.metadata ?? {};
-  return [message.id, message.role, message.kind, message.content?.length ?? 0, message.character_count ?? 0, metadataTextLength(metadata['tool_arguments']), metadataTextLength(metadata['tool_execution_stdout']), metadataTextLength(metadata['tool_execution_stderr']), metadataTextLength(metadata['tool_execution_result'] ?? metadata['result_text']), metadataTextLength(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']), metadataTextLength(metadata['streaming'])].join('|');
+  return messageRenderSignature(message);
 }
 
 function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, incoming: SessionMessage, options: MergeServerWindowOptions): boolean {
@@ -306,7 +419,7 @@ export function mergeStream(prev: SessionMessage[], next: SessionMessage[], opti
     const b = next[i];
     if (shouldKeepLongerStreamingMessage(a, b, options)) {
       out[i] = a!;
-    } else if (a && a.id === b.id && a.content.length === b.content.length && a.kind === b.kind && a.role === b.role && a.character_count === b.character_count && a.created_at === b.created_at && sameMetadata(a.metadata, b.metadata)) {
+    } else if (a && messagesEquivalentForRender(a, b)) {
       out[i] = a;
     } else {
       out[i] = b;
@@ -779,48 +892,6 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
   });
 }
 
-function sameJsonValue(a: unknown, b: unknown, seen: WeakMap<object, WeakSet<object>> = new WeakMap()): boolean {
-  if (Object.is(a, b)) return true;
-  if (a == null || b == null) return false;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== 'object' || typeof b !== 'object') return false;
-  const aObj = a as Record<string, unknown>;
-  const bObj = b as Record<string, unknown>;
-  let paired = seen.get(aObj);
-  if (paired?.has(bObj)) return true;
-  if (!paired) {
-    paired = new WeakSet<object>();
-    seen.set(aObj, paired);
-  }
-  paired.add(bObj);
-
-  const aIsArray = Array.isArray(a);
-  const bIsArray = Array.isArray(b);
-  if (aIsArray || bIsArray) {
-    if (!aIsArray || !bIsArray) return false;
-    const aArray = a as unknown[];
-    const bArray = b as unknown[];
-    if (aArray.length !== bArray.length) return false;
-    for (let i = 0; i < aArray.length; i += 1) {
-      if (!sameJsonValue(aArray[i], bArray[i], seen)) return false;
-    }
-    return true;
-  }
-
-  const aKeys = Object.keys(aObj);
-  const bKeys = Object.keys(bObj);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const key of aKeys) {
-    if (!Object.prototype.hasOwnProperty.call(bObj, key)) return false;
-    if (!sameJsonValue(aObj[key], bObj[key], seen)) return false;
-  }
-  return true;
-}
-
-function sameMetadata(a: unknown, b: unknown): boolean {
-  return sameJsonValue(a, b);
-}
-
 function compareMessageCreatedAt(a: SessionMessage, b: SessionMessage): number {
   const ta = new Date(a.created_at).getTime();
   const tb = new Date(b.created_at).getTime();
@@ -895,13 +966,7 @@ function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessa
     const b = next[index];
     if (!a || !b) return false;
     if (
-      a.id !== b.id ||
-      a.role !== b.role ||
-      a.kind !== b.kind ||
-      a.content.length !== b.content.length ||
-      a.character_count !== b.character_count ||
-      a.created_at !== b.created_at ||
-      !sameMetadata(a.metadata, b.metadata)
+      !messagesEquivalentForRender(a, b)
     ) {
       return false;
     }

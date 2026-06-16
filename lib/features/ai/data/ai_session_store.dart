@@ -661,21 +661,30 @@ class AiSessionStore {
     }
     final budget = characterBudget == null ? 0 : math.max(0, characterBudget);
     final selected = <Map<String, Object?>>[];
-    var totalCharacters = 0;
+    var totalDecodeCost = 0;
     for (final row in rows) {
-      final rawCount = row['character_count'];
-      final characterCount = rawCount is int
-          ? math.max(0, rawCount)
-          : '${row['content'] ?? ''}'.length;
+      final rowCost = _messageRowDecodeCost(row);
       if (budget > 0 &&
           selected.isNotEmpty &&
-          totalCharacters + characterCount > budget) {
+          totalDecodeCost + rowCost > budget) {
         break;
       }
       selected.add(row);
-      totalCharacters += characterCount;
+      totalDecodeCost += rowCost;
     }
     return selected.reversed.toList(growable: false);
+  }
+
+  int _messageRowDecodeCost(Map<String, Object?> row) {
+    final rawCount = row['character_count'];
+    final contentCost = rawCount is int
+        ? math.max(0, rawCount)
+        : '${row['content'] ?? ''}'.length;
+    final metadata = row['metadata_json'];
+    final usage = row['usage_json'];
+    return contentCost +
+        (metadata is String ? metadata.length : 0) +
+        (usage is String ? usage.length : 0);
   }
 
   /// Loads all sessions (with messages) that belong to the given [templateId]
@@ -753,6 +762,9 @@ class AiSessionStore {
       hasMore: hasMore,
     );
   }
+
+  /// Returns the stored message count without decoding any message rows.
+  Future<int> countMessages(String sessionId) => _countMessages(sessionId);
 
   /// Persists a complete [session] (metadata + all messages) atomically.
   Future<void> save(AiSession session) async {
