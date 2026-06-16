@@ -313,13 +313,17 @@ class _SkillsViewState extends State<SkillsView> {
       _showSnackBar(
         context,
         '${l10n.skillsImportSuccess}: ${skill.name}',
-        kind: _SnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -337,7 +341,7 @@ class _SkillsViewState extends State<SkillsView> {
     _showSnackBar(
       context,
       '${l10n.skillTemplateCreated}: $createdSkillName',
-      kind: _SnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -353,7 +357,11 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -368,7 +376,11 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -457,7 +469,11 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -484,12 +500,20 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted || submitted != true) {
         return;
       }
-      _showSnackBar(context, l10n.skillsEditSuccess, kind: _SnackKind.success);
+      _showSnackBar(
+        context,
+        l10n.skillsEditSuccess,
+        kind: OpenHandSnackKind.success,
+      );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -518,52 +542,28 @@ class _SkillsViewState extends State<SkillsView> {
       _showSnackBar(
         context,
         l10n.skillsDeleteSuccess,
-        kind: _SnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
   void _showSnackBar(
     BuildContext context,
     String message, {
-    _SnackKind kind = _SnackKind.info,
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      switch (kind) {
-        case _SnackKind.success:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.success(context, message),
-          );
-        case _SnackKind.error:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.error(context, message),
-          );
-        case _SnackKind.info:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.info(context, message),
-          );
-      }
-    });
+    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
 }
-
-enum _SnackKind { info, success, error }
 
 String _localizedSkillsText(
   BuildContext context, {

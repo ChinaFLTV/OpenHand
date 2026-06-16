@@ -60,12 +60,7 @@ class _HeApiToolCallMeta {
     // Parse arguments JSON — pretty-print for display.
     var argumentsJson = '';
     if (argsRaw != null && argsRaw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(argsRaw);
-        argumentsJson = const JsonEncoder.withIndent('  ').convert(decoded);
-      } catch (_) {
-        argumentsJson = argsRaw;
-      }
+      argumentsJson = formatStructuredTextForDisplay(argsRaw).text;
     }
 
     // Parse status line: "status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ..."
@@ -1219,15 +1214,7 @@ String _heFormatStructuredToolContent(String rawContent) {
   if (normalized.isEmpty) {
     return '';
   }
-  if ((normalized.startsWith('{') && normalized.endsWith('}')) ||
-      (normalized.startsWith('[') && normalized.endsWith(']'))) {
-    try {
-      return const JsonEncoder.withIndent('  ').convert(jsonDecode(normalized));
-    } catch (_) {
-      return normalized;
-    }
-  }
-  return normalized;
+  return formatStructuredTextForDisplay(normalized).text;
 }
 
 String _heNormalizeToolText(String rawContent) {

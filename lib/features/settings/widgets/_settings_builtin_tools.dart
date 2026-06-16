@@ -424,7 +424,14 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       max: 9999,
     );
     final maxOutputChars = optionalIntFromText(_maxOutputCharsController.text);
-    final timeoutSeconds = optionalIntFromText(_timeoutSecondsController.text);
+    final timeoutSeconds = _timeoutSecondsController.text.trim().isEmpty
+        ? null
+        : clampedIntFromText(
+            _timeoutSecondsController.text,
+            fallback: AiBuiltinToolConfig.defaultTimeoutSeconds,
+            min: AiBuiltinToolConfig.minTimeoutSeconds,
+            max: AiBuiltinToolConfig.maxTimeoutSeconds,
+          );
     final maxRetries = clampedIntFromText(
       _maxRetriesController.text,
       fallback: 0,

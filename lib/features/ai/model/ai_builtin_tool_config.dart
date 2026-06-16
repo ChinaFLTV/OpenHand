@@ -58,6 +58,12 @@ class AiBuiltinToolConfig {
   /// 之前为 null 时由调用方各自决定，现在统一为 20s 以避免内建工具长时间挂起。
   static const int defaultTimeoutSeconds = 20;
 
+  /// 单次工具调用可配置超时下限。
+  static const int minTimeoutSeconds = 1;
+
+  /// 单次工具调用可配置超时上限，避免极端配置造成近似无限等待。
+  static const int maxTimeoutSeconds = 600;
+
   /// 失败/超时重试的硬上限。即便用户把 [maxRetries] 设得很大，
   /// 也不会超过此值，避免错误指数级放大。
   static const int maxRetriesUpperBound = 5;
@@ -127,6 +133,7 @@ class AiBuiltinToolConfig {
   int get effectiveTimeoutSeconds {
     final raw = timeoutSeconds ?? defaultTimeoutSeconds;
     if (raw <= 0) return defaultTimeoutSeconds;
+    if (raw > maxTimeoutSeconds) return maxTimeoutSeconds;
     return raw;
   }
 

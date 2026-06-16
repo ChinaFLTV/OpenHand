@@ -29,6 +29,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/unified_diff.dart' show unifiedDiffLinesFromText;
 import '../../ai/index.dart';
 import '../../home/index.dart';

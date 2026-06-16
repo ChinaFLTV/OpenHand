@@ -14,6 +14,7 @@ class OpenHandGlobalSnackBarHost extends StatefulWidget {
   const OpenHandGlobalSnackBarHost({super.key});
 
   static const Key hostKey = ValueKey<String>('openhand-global-snack-bar-host');
+  static const int maxQueuedSnackBars = 24;
 
   static final Queue<SnackBar> _pendingSnackBars = Queue<SnackBar>();
   static _OpenHandGlobalSnackBarHostState? _state;
@@ -23,7 +24,7 @@ class OpenHandGlobalSnackBarHost extends StatefulWidget {
   static void showSnackBar(SnackBar snackBar) {
     final state = _state;
     if (state == null) {
-      _pendingSnackBars.addLast(snackBar);
+      _enqueueBounded(_pendingSnackBars, snackBar);
       return;
     }
     state._enqueue(snackBar);
@@ -33,6 +34,13 @@ class OpenHandGlobalSnackBarHost extends StatefulWidget {
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
     _state?._dismissCurrent(reason: reason);
+  }
+
+  static void _enqueueBounded(Queue<SnackBar> queue, SnackBar snackBar) {
+    while (queue.length >= maxQueuedSnackBars) {
+      queue.removeFirst();
+    }
+    queue.addLast(snackBar);
   }
 
   @override
@@ -79,7 +87,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
   }
 
   void _enqueue(SnackBar snackBar) {
-    _queue.addLast(snackBar);
+    OpenHandGlobalSnackBarHost._enqueueBounded(_queue, snackBar);
     _showNextIfIdle();
   }
 
@@ -189,6 +197,7 @@ class OpenHandSnackBar {
   static final GlobalKey<ScaffoldMessengerState> rootMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
+  static const Duration _minimumDisplayDuration = Duration(milliseconds: 900);
   static const Duration _maximumDisplayDuration = Duration(seconds: 8);
 
   static DialogAnimationSettings _resolveMotionSettings(BuildContext context) {
@@ -213,6 +222,8 @@ class OpenHandSnackBar {
   }
 
   static Duration _boundedDuration(Duration duration) {
+    if (duration <= Duration.zero) return Duration.zero;
+    if (duration < _minimumDisplayDuration) return _minimumDisplayDuration;
     if (duration > _maximumDisplayDuration) return _maximumDisplayDuration;
     return duration;
   }
@@ -543,7 +554,7 @@ class OpenHandSnackBar {
   }) {
     final textStyle = _foregroundTextStyle(foregroundColor);
     return SnackBar(
-      duration: duration,
+      duration: _boundedDuration(duration),
       action: action,
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,

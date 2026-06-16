@@ -13,6 +13,8 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   @protected
   bool get isDisposed => _isDisposed;
 
+  StateError get _disposedError => StateError('$runtimeType is disposed');
+
   @override
   void notifyListeners() {
     if (_isDisposed) {
@@ -24,7 +26,7 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   @protected
   Future<T> enqueueOperation<T>(Future<T> Function() operation) {
     if (_isDisposed) {
-      return Future<T>.error(StateError('$runtimeType is disposed'));
+      return Future<T>.error(_disposedError);
     }
     final completer = Completer<T>();
     _operationQueue = _operationQueue.catchError((error, stackTrace) {}).then((
@@ -32,12 +34,13 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
     ) async {
       if (_isDisposed) {
         if (!completer.isCompleted) {
-          completer.completeError(StateError('$runtimeType is disposed'));
+          completer.completeError(_disposedError);
         }
         return;
       }
       try {
-        completer.complete(await operation());
+        final result = await operation();
+        completer.complete(result);
       } catch (error, stackTrace) {
         if (!completer.isCompleted) {
           completer.completeError(error, stackTrace);
@@ -57,14 +60,18 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
 
 final class ChangePulse {
   final ValueNotifier<int> _notifier = ValueNotifier<int>(0);
+  bool _isDisposed = false;
 
   ValueListenable<int> get listenable => _notifier;
 
   void emit() {
+    if (_isDisposed) return;
     _notifier.value = _notifier.value + 1;
   }
 
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _notifier.dispose();
   }
 }

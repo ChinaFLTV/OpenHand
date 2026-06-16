@@ -213,7 +213,11 @@ class MessageGatewayController extends ManagedChangeNotifier {
     return result;
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    return enqueueOperation(_initializeLocked);
+  }
+
+  Future<void> _initializeLocked() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -235,6 +239,15 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   Future<void> saveConfig(
+    WebMessagePlatformConfig config, {
+    bool forceRuntimeApply = false,
+  }) {
+    return enqueueOperation(
+      () => _saveConfigLocked(config, forceRuntimeApply: forceRuntimeApply),
+    );
+  }
+
+  Future<void> _saveConfigLocked(
     WebMessagePlatformConfig config, {
     bool forceRuntimeApply = false,
   }) async {
@@ -262,17 +275,34 @@ class MessageGatewayController extends ManagedChangeNotifier {
     }
   }
 
-  Future<void> startService() async {
-    await saveConfig(_config.copyWith(enabled: true), forceRuntimeApply: true);
+  Future<void> startService() {
+    return enqueueOperation(
+      () => _saveConfigLocked(
+        _config.copyWith(enabled: true),
+        forceRuntimeApply: true,
+      ),
+    );
   }
 
-  Future<void> stopService() async {
-    await saveConfig(_config.copyWith(enabled: false), forceRuntimeApply: true);
+  Future<void> stopService() {
+    return enqueueOperation(
+      () => _saveConfigLocked(
+        _config.copyWith(enabled: false),
+        forceRuntimeApply: true,
+      ),
+    );
   }
 
-  Future<void> restartService() async {
+  Future<void> restartService() {
+    return enqueueOperation(_restartServiceLocked);
+  }
+
+  Future<void> _restartServiceLocked() async {
     if (!_config.enabled) {
-      await startService();
+      await _saveConfigLocked(
+        _config.copyWith(enabled: true),
+        forceRuntimeApply: true,
+      );
       return;
     }
     await _service.restart(_config);
@@ -280,16 +310,18 @@ class MessageGatewayController extends ManagedChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> reloadConfig() async {
+  Future<void> reloadConfig() {
+    return enqueueOperation(_reloadConfigLocked);
+  }
+
+  Future<void> _reloadConfigLocked() async {
     await _service.reloadConfig(_config);
     _hasPendingRuntimeConfig = false;
     notifyListeners();
   }
 
-  Future<void> hotFix() async {
-    await _service.reloadConfig(_config);
-    _hasPendingRuntimeConfig = false;
-    notifyListeners();
+  Future<void> hotFix() {
+    return enqueueOperation(_reloadConfigLocked);
   }
 
   Future<WebGatewayHealthResult> runHealthCheck() async {

@@ -50,13 +50,7 @@ class OpenHandDialogActionButton extends StatelessWidget {
       visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
-    final label = Text(
-      this.label,
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.fade,
-      textAlign: TextAlign.center,
-    );
+    final label = _OpenHandDialogActionButtonLabel(label: this.label);
     Widget child = label;
     if (busy) {
       child = Row(
@@ -115,3 +109,22 @@ class OpenHandDialogActionButton extends StatelessWidget {
 }
 
 enum _OpenHandDialogActionButtonVariant { primary, secondary, destructive }
+
+class _OpenHandDialogActionButtonLabel extends StatelessWidget {
+  const _OpenHandDialogActionButtonLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}

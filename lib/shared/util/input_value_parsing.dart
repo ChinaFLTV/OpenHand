@@ -4,6 +4,10 @@ String? nullIfBlank(String? value) {
 }
 
 List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
+  if (separator is String && separator.isEmpty) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? const <String>[] : <String>[trimmed];
+  }
   return value
       .split(separator)
       .map((item) => item.trim())
@@ -46,6 +50,7 @@ Map<String, String> keyValueMapFromValue(
   Pattern lineSeparator = '\n',
   String keyValueSeparator = '=',
 }) {
+  final separator = _effectiveKeyValueSeparator(keyValueSeparator);
   if (value is Map) {
     final map = <String, String>{};
     for (final entry in value.entries) {
@@ -61,11 +66,11 @@ Map<String, String> keyValueMapFromValue(
 
   final map = <String, String>{};
   for (final line in value.split(lineSeparator)) {
-    final index = line.indexOf(keyValueSeparator);
+    final index = line.indexOf(separator);
     if (index <= 0) continue;
     final key = line.substring(0, index).trim();
     if (key.isEmpty) continue;
-    map[key] = line.substring(index + keyValueSeparator.length).trim();
+    map[key] = line.substring(index + separator.length).trim();
   }
   return map;
 }
@@ -76,12 +81,13 @@ List<int> invalidKeyValueLineNumbersFromText(
   String keyValueSeparator = '=',
 }) {
   if (value.trim().isEmpty) return const <int>[];
+  final separator = _effectiveKeyValueSeparator(keyValueSeparator);
   final invalidLines = <int>[];
   final lines = value.split(lineSeparator);
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i].trim();
     if (line.isEmpty) continue;
-    final index = line.indexOf(keyValueSeparator);
+    final index = line.indexOf(separator);
     if (index <= 0) {
       invalidLines.add(i + 1);
       continue;
@@ -105,8 +111,22 @@ bool boolFromValue(Object? value, {bool defaultValue = false}) {
   if (value is num) return value.toInt() == 1;
   if (value is String) {
     final normalized = value.trim().toLowerCase();
-    if (normalized == '1' || normalized == 'true') return true;
-    if (normalized == '0' || normalized == 'false') return false;
+    if (normalized == '1' ||
+        normalized == 'true' ||
+        normalized == 'yes' ||
+        normalized == 'y' ||
+        normalized == 'on' ||
+        normalized == 'enabled') {
+      return true;
+    }
+    if (normalized == '0' ||
+        normalized == 'false' ||
+        normalized == 'no' ||
+        normalized == 'n' ||
+        normalized == 'off' ||
+        normalized == 'disabled') {
+      return false;
+    }
   }
   return defaultValue;
 }
@@ -124,7 +144,8 @@ double doubleFromValue(Object? value, {required double fallback}) {
   if (value is double && value.isFinite) return value;
   if (value is num && value.isFinite) return value.toDouble();
   if (value is String) {
-    return double.tryParse(value.trim()) ?? fallback;
+    final parsed = double.tryParse(value.trim());
+    return parsed != null && parsed.isFinite ? parsed : fallback;
   }
   return fallback;
 }
@@ -209,6 +230,10 @@ double? optionalDoubleFromText(String value) {
 
 int positiveIntFromText(String value, {required int fallback}) {
   return positiveIntFromValue(value, fallback: fallback);
+}
+
+String _effectiveKeyValueSeparator(String separator) {
+  return separator.isEmpty ? '=' : separator;
 }
 
 ({int lower, int upper}) _orderedIntBounds(int min, int max) {

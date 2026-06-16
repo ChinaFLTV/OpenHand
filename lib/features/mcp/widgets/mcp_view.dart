@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:xml/xml.dart';
-import 'package:yaml/yaml.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
@@ -27,6 +25,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/structured_text_format.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
 import '../model/mcp_server.dart';
@@ -313,7 +312,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.mcpOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
     }
   }
 
@@ -358,7 +361,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     _showSnackBar(
       context,
       initialServer == null ? l10n.mcpServerCreated : l10n.mcpServerUpdated,
-      kind: _SnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -442,7 +445,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     if (!deleted) {
-      _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.mcpOperationFailed,
+        kind: OpenHandSnackKind.error,
+      );
       return;
     }
 
@@ -452,7 +459,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       _cleanupNpxDependency(context, cleanPkg, server.name);
     }
 
-    _showSnackBar(context, l10n.mcpServerDeleted, kind: _SnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.mcpServerDeleted,
+      kind: OpenHandSnackKind.success,
+    );
   }
 
   /// 异步清理包管理器类型 MCP 服务的底层全局包和隔离缓存。
@@ -492,7 +503,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         _showSnackBar(
           context,
           isZh ? '$packageName 依赖已清理' : '$packageName dependency cleaned up',
-          kind: _SnackKind.success,
+          kind: OpenHandSnackKind.success,
         );
       } else {
         _showSnackBar(
@@ -500,7 +511,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           isZh
               ? '$packageName 清理失败：${result.stderr}'
               : '$packageName cleanup failed: ${result.stderr}',
-          kind: _SnackKind.error,
+          kind: OpenHandSnackKind.error,
         );
       }
     } catch (e) {
@@ -508,7 +519,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       _showSnackBar(
         context,
         isZh ? '$packageName 清理异常：$e' : '$packageName cleanup error: $e',
-        kind: _SnackKind.error,
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -699,7 +710,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         zh: '已将 ${entries.length} 个服务的快照以 $formatLabel 复制到剪贴板',
         en: 'Copied snapshot of ${entries.length} servers as $formatLabel to clipboard',
       ),
-      kind: _SnackKind.success,
+      kind: OpenHandSnackKind.success,
     );
   }
 
@@ -725,45 +736,21 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     if (!context.mounted || saved) {
       return;
     }
-    _showSnackBar(context, l10n.mcpOperationFailed, kind: _SnackKind.error);
+    _showSnackBar(
+      context,
+      l10n.mcpOperationFailed,
+      kind: OpenHandSnackKind.error,
+    );
   }
 
   void _showSnackBar(
     BuildContext context,
     String message, {
-    _SnackKind kind = _SnackKind.info,
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      switch (kind) {
-        case _SnackKind.success:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.success(context, message),
-          );
-        case _SnackKind.error:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.error(context, message),
-          );
-        case _SnackKind.info:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.info(context, message),
-          );
-      }
-    });
+    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
 }
-
-enum _SnackKind { info, success, error }
 
 class _McpServerEditorDialog extends StatefulWidget {
   const _McpServerEditorDialog({
@@ -5550,38 +5537,6 @@ String _extractMcpContentForDisplay(McpToolCallResult result) {
   return texts.join('\n');
 }
 
-/// 智能检测文本格式并美化输出：JSON → XML → YAML → 原始文本。
-String _formatMcpDisplayContent(String text) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) return trimmed;
-
-  // 1) JSON
-  try {
-    final decoded = jsonDecode(trimmed);
-    return const JsonEncoder.withIndent('  ').convert(decoded);
-  } catch (_) {}
-
-  // 2) XML
-  if (trimmed.startsWith('<')) {
-    try {
-      final doc = XmlDocument.parse(trimmed);
-      return doc.toXmlString(pretty: true, indent: '  ');
-    } catch (_) {}
-  }
-
-  // 3) YAML
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-    try {
-      final loaded = loadYaml(trimmed);
-      if (loaded is Map || loaded is List) {
-        return const JsonEncoder.withIndent('  ').convert(loaded);
-      }
-    } catch (_) {}
-  }
-
-  return trimmed;
-}
-
 class _McpFormattedResultPanel extends StatefulWidget {
   const _McpFormattedResultPanel({required this.result});
 
@@ -5627,12 +5582,12 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
     // 小内容同步格式化，即时展示
     if (rawText.length <= _kAsyncFormatThreshold) {
-      final formatted = _formatMcpDisplayContent(rawText);
-      final (display, truncated) = _capDisplay(formatted);
+      final formatted = formatStructuredTextForDisplay(rawText);
+      final (display, truncated) = _capDisplay(formatted.text);
       _applyDisplay(
         display,
-        _detectFormatBadge(rawText, formatted),
-        truncated ? _kTruncationNote(formatted.length) : null,
+        _formatBadgeLabel(formatted),
+        truncated ? _kTruncationNote(formatted.text.length) : null,
       );
       return;
     }
@@ -5641,16 +5596,17 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
     if (!mounted) return;
     setState(() => _isFormatting = true);
 
-    final formatted = await Isolate.run(
-      () => _formatMcpDisplayContent(rawText),
+    final formattedMap = await Isolate.run(
+      () => formatStructuredTextForDisplay(rawText).toMap(),
     );
     if (!mounted) return;
 
-    final (display, truncated) = _capDisplay(formatted);
+    final formatted = StructuredTextFormatResult.fromMap(formattedMap);
+    final (display, truncated) = _capDisplay(formatted.text);
     _applyDisplay(
       display,
-      _detectFormatBadge(rawText, formatted),
-      truncated ? _kTruncationNote(formatted.length) : null,
+      _formatBadgeLabel(formatted),
+      truncated ? _kTruncationNote(formatted.text.length) : null,
     );
   }
 
@@ -5769,13 +5725,9 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
   }
 }
 
-/// 快速检测格式化后的格式类型，只检查首字符避免完整 JSON 解析。
-String? _detectFormatBadge(String raw, String formatted) {
-  if (raw == formatted) return null;
-  final first = formatted.trim().substring(0, 1);
-  if (first == '{' || first == '[') return 'JSON';
-  if (first == '<') return 'XML';
-  return null;
+String? _formatBadgeLabel(StructuredTextFormatResult result) {
+  final format = result.format;
+  return format == null ? null : structuredTextFormatLabel(format);
 }
 
 class _ToolConsolePanel extends StatelessWidget {
