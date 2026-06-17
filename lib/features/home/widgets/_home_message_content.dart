@@ -1091,6 +1091,7 @@ int _markdownAstCacheKeyForInputs({
   return Object.hashAll(<Object?>[
     normalizedSource,
     parseKey,
+    openHandMarkdownMathSyntaxVersion,
     inlineSyntaxes.length,
     for (final syn in inlineSyntaxes) syn.runtimeType,
   ]);
@@ -1100,7 +1101,9 @@ int _markdownAstCacheKeyFor(String normalizedSource, _SafeMarkdownBody widget) {
   return _markdownAstCacheKeyForInputs(
     normalizedSource: normalizedSource,
     parseKey: widget.parseKey,
-    inlineSyntaxes: widget.inlineSyntaxes,
+    inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(
+      widget.inlineSyntaxes,
+    ),
   );
 }
 
@@ -1270,10 +1273,13 @@ void _warmMarkdownAst({
     return;
   }
   final normalizedSource = _sanitizeMarkdownSource(data.isEmpty ? ' ' : data);
+  final effectiveInlineSyntaxes = withOpenHandMarkdownMathInlineSyntaxes(
+    inlineSyntaxes,
+  );
   final astCacheKey = _markdownAstCacheKeyForInputs(
     normalizedSource: normalizedSource,
     parseKey: parseKey,
-    inlineSyntaxes: inlineSyntaxes,
+    inlineSyntaxes: effectiveInlineSyntaxes,
   );
   final cachedAst = _markdownAstCache.get(astCacheKey);
   if (cachedAst != null) {
@@ -1287,7 +1293,8 @@ void _warmMarkdownAst({
     try {
       final document = md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
-        inlineSyntaxes: inlineSyntaxes,
+        blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+        inlineSyntaxes: effectiveInlineSyntaxes,
         encodeHtml: false,
       );
       final astNodes = document.parseLines(
@@ -1615,7 +1622,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       } else {
         final document = md.Document(
           extensionSet: md.ExtensionSet.gitHubFlavored,
-          inlineSyntaxes: widget.inlineSyntaxes,
+          blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+          inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(
+            widget.inlineSyntaxes,
+          ),
           encodeHtml: false,
         );
         astNodes = document.parseLines(
@@ -1632,7 +1642,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         imageBuilder: _buildMarkdownImage,
         checkboxBuilder: null,
         bulletBuilder: null,
-        builders: widget.builders,
+        builders: withOpenHandMarkdownMathBuilders(
+          widget.builders,
+          fallbackTextStyle: effectiveStyleSheet.p,
+          textColor: effectiveStyleSheet.p?.color,
+        ),
         paddingBuilders: const <String, MarkdownPaddingBuilder>{},
         fitContent: true,
         listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
@@ -1662,7 +1676,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   String _builderSignature() {
     final keys = widget.builders.keys.toList(growable: false)..sort();
-    return keys.join('|');
+    return '$openHandMarkdownMathSyntaxVersion|${keys.join('|')}';
   }
 
   void _disposeRecognizers() {

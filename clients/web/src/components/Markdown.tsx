@@ -9,6 +9,8 @@
 //   避免 reactdom 在 200KB+ 树上花费百毫秒. 与 App 端
 //   _SafeMarkdownBody 阈值语义对齐.
 // - 表格 / 任务列表 / 删除线由 remark-gfm 提供.
+// - 数学公式按需启用 remark-math + rehype-katex；同时兼容 AI 常用的
+//   \[...\] / \(...\) LaTeX 分隔符。
 // - 链接强制 target=_blank rel=noopener; 图片 lazy loading.
 // - 阶段㉔: 全局帧节流 — 同一帧内多个 Markdown 同时挂载时, 队列
 //   逐帧解析每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
@@ -19,12 +21,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
+import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
 /// 直到首次遇到 ``` 代码块的消息才发起 dynamic import (chunk 已经 split，
 /// 浏览器拉 vendor-highlight.js 51KB gz)。整个进程内首次解析后插件被缓存，
 /// 之后所有 Markdown 实例共享。
 type RehypeHighlightPlugin = unknown;
+type MarkdownPlugin = unknown;
 let rehypeHighlightCache: RehypeHighlightPlugin | null = null;
 let rehypeHighlightLoading: Promise<RehypeHighlightPlugin> | null = null;
 function loadRehypeHighlight(): Promise<RehypeHighlightPlugin> {
@@ -42,6 +46,40 @@ function loadRehypeHighlight(): Promise<RehypeHighlightPlugin> {
   return rehypeHighlightLoading;
 }
 
+let remarkMathCache: MarkdownPlugin | null = null;
+let remarkMathLoading: Promise<MarkdownPlugin> | null = null;
+function loadRemarkMath(): Promise<MarkdownPlugin> {
+  if (remarkMathCache != null) return Promise.resolve(remarkMathCache);
+  if (remarkMathLoading != null) return remarkMathLoading;
+  remarkMathLoading = import('remark-math').then((mod) => {
+    const plugin = (mod as { default?: MarkdownPlugin }).default ?? mod;
+    remarkMathCache = plugin;
+    remarkMathLoading = null;
+    return plugin;
+  }).catch((err) => {
+    remarkMathLoading = null;
+    throw err;
+  });
+  return remarkMathLoading;
+}
+
+let rehypeKatexCache: MarkdownPlugin | null = null;
+let rehypeKatexLoading: Promise<MarkdownPlugin> | null = null;
+function loadRehypeKatex(): Promise<MarkdownPlugin> {
+  if (rehypeKatexCache != null) return Promise.resolve(rehypeKatexCache);
+  if (rehypeKatexLoading != null) return rehypeKatexLoading;
+  rehypeKatexLoading = import('rehype-katex').then((mod) => {
+    const plugin = (mod as { default?: MarkdownPlugin }).default ?? mod;
+    rehypeKatexCache = plugin;
+    rehypeKatexLoading = null;
+    return plugin;
+  }).catch((err) => {
+    rehypeKatexLoading = null;
+    throw err;
+  });
+  return rehypeKatexLoading;
+}
+
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 /// 32 KB 以上才走帧节流 deferred 路径 (首帧 plain text 占位 + 下一空闲帧
 /// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
@@ -57,6 +95,8 @@ const MARKDOWN_STREAM_FLUSH_DELTA = 64;
 /// W2 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
 /// highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
+const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
+const FENCED_CODE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
 const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 
@@ -144,6 +184,124 @@ export function stripLocalMediaReferences(source: string): string {
       isLocalMediaReference(destination) ? '' : match
     ))
     .replace(/\n{3,}/g, '\n\n');
+}
+
+function replaceInlineLatexDelimiters(line: string): string {
+  let result = '';
+  let index = 0;
+  while (index < line.length) {
+    if (line.charCodeAt(index) === 0x60) {
+      const start = index;
+      while (index < line.length && line.charCodeAt(index) === 0x60) index += 1;
+      const tickRun = line.slice(start, index);
+      const end = line.indexOf(tickRun, index);
+      if (end < 0) {
+        result += line.slice(start);
+        break;
+      }
+      result += line.slice(start, end + tickRun.length);
+      index = end + tickRun.length;
+      continue;
+    }
+    if (line.startsWith('\\(', index)) {
+      const end = line.indexOf('\\)', index + 2);
+      if (end > index + 2) {
+        const tex = line.slice(index + 2, end);
+        if (tex.trim()) {
+          result += `$${tex}$`;
+          index = end + 2;
+          continue;
+        }
+      }
+    }
+    result += line[index];
+    index += 1;
+  }
+  return result;
+}
+
+function normalizeMarkdownMathDelimiters(source: string): string {
+  if (!MATH_DELIMITER_RE.test(source)) return source;
+  const lines = source.split('\n');
+  const out: string[] = [];
+  let fence: string | null = null;
+  let pendingDisplay: {
+    indent: string;
+    rawLines: string[];
+    bodyLines: string[];
+  } | null = null;
+
+  const flushPendingRaw = () => {
+    if (pendingDisplay == null) return;
+    out.push(...pendingDisplay.rawLines);
+    pendingDisplay = null;
+  };
+
+  const flushPendingDisplay = (trailing: string) => {
+    if (pendingDisplay == null) return;
+    out.push(`${pendingDisplay.indent}$$`);
+    out.push(...pendingDisplay.bodyLines);
+    out.push(`${pendingDisplay.indent}$$`);
+    pendingDisplay = null;
+    if (trailing.trim()) {
+      out.push(replaceInlineLatexDelimiters(trailing.trimStart()));
+    }
+  };
+
+  for (const line of lines) {
+    const fenceMatch = FENCED_CODE_LINE_RE.exec(line);
+    if (fenceMatch != null) {
+      if (fence == null) {
+        flushPendingRaw();
+        fence = fenceMatch[1][0];
+      } else if (fenceMatch[1][0] === fence) {
+        fence = null;
+      }
+      out.push(line);
+      continue;
+    }
+    if (fence != null) {
+      out.push(line);
+      continue;
+    }
+
+    if (pendingDisplay != null) {
+      pendingDisplay.rawLines.push(line);
+      const end = line.indexOf('\\]');
+      if (end >= 0) {
+        const before = line.slice(0, end).trimEnd();
+        if (before) pendingDisplay.bodyLines.push(before);
+        flushPendingDisplay(line.slice(end + 2));
+      } else {
+        pendingDisplay.bodyLines.push(line);
+      }
+      continue;
+    }
+
+    const start = /^(\s*)\\\[\s*(.*)$/.exec(line);
+    if (start != null) {
+      const [, indent, rest] = start;
+      const end = rest.indexOf('\\]');
+      pendingDisplay = {
+        indent,
+        rawLines: [line],
+        bodyLines: [],
+      };
+      if (end >= 0) {
+        const tex = rest.slice(0, end).trim();
+        if (tex) pendingDisplay.bodyLines.push(tex);
+        flushPendingDisplay(rest.slice(end + 2));
+      } else if (rest.trim()) {
+        pendingDisplay.bodyLines.push(rest);
+      }
+      continue;
+    }
+
+    out.push(replaceInlineLatexDelimiters(line));
+  }
+
+  flushPendingRaw();
+  return out.join('\n');
 }
 
 export interface MarkdownProps {
@@ -409,6 +567,10 @@ function extractMarkdownCodeText(nodes: unknown): string {
 export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown' }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
+  const normalizedMarkdownContent = useMemo(
+    () => normalizeMarkdownMathDelimiters(markdownContent),
+    [markdownContent],
+  );
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
   // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
   const stickyLooksHtml = useStickyLooksLikeHtml(content);
@@ -441,39 +603,40 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
   // 触发整棵 react-markdown re-parse。增量大 / 内容回退 / 距离够久立即 flush，
   // 保证视觉响应不延迟。非流式（不变更）路径完全无影响。
-  const [renderedContent, setRenderedContent] = useState(markdownContent);
+  const [renderedContent, setRenderedContent] = useState(normalizedMarkdownContent);
   const lastFlushAtRef = useRef<number>(0);
   useEffect(() => {
     if (!parseReady) {
       // 首次 parse 完成前由 deferred 占位托管，等 parseReady 切换时一次性同步。
-      setRenderedContent(markdownContent);
+      setRenderedContent(normalizedMarkdownContent);
       lastFlushAtRef.current = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       return;
     }
-    if (markdownContent === renderedContent) return;
+    if (normalizedMarkdownContent === renderedContent) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const ageMs = now - lastFlushAtRef.current;
-    const delta = Math.abs(markdownContent.length - renderedContent.length);
+    const delta = Math.abs(normalizedMarkdownContent.length - renderedContent.length);
     const shouldFlushNow =
-      markdownContent.length < renderedContent.length // 内容回退/截断
+      normalizedMarkdownContent.length < renderedContent.length // 内容回退/截断
       || delta >= MARKDOWN_STREAM_FLUSH_DELTA
       || ageMs >= MARKDOWN_STREAM_FLUSH_MS;
     if (shouldFlushNow) {
       lastFlushAtRef.current = now;
-      setRenderedContent(markdownContent);
+      setRenderedContent(normalizedMarkdownContent);
       return;
     }
     const wait = Math.max(0, MARKDOWN_STREAM_FLUSH_MS - ageMs);
     const handle = window.setTimeout(() => {
       lastFlushAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      setRenderedContent(markdownContent);
+      setRenderedContent(normalizedMarkdownContent);
     }, wait);
     return () => window.clearTimeout(handle);
-  }, [parseReady, markdownContent, renderedContent]);
+  }, [parseReady, normalizedMarkdownContent, renderedContent]);
 
   // W2 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
   // auto-detect。中长文本（占绝大多数 AI 消息）受益最大。
   const hasFencedCode = useMemo(() => FENCED_CODE_RE.test(renderedContent), [renderedContent]);
+  const hasMath = useMemo(() => MATH_DELIMITER_RE.test(markdownContent), [markdownContent]);
   // 懒载入：消息含代码块时再 dynamic import；插件 module 加载完成前先空插件
   // 渲染 markdown（代码块降级为普通 pre），加载完成 setState 触发一次重渲。
   // 进程级共享缓存，多张含代码消息只触发一次网络请求。
@@ -490,9 +653,43 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     });
     return () => { cancelled = true; };
   }, [hasFencedCode, rehypeHighlightPlugin]);
+  const [remarkMathPlugin, setRemarkMathPlugin] = useState<MarkdownPlugin | null>(
+    () => remarkMathCache,
+  );
+  const [rehypeKatexPlugin, setRehypeKatexPlugin] = useState<MarkdownPlugin | null>(
+    () => rehypeKatexCache,
+  );
+  useEffect(() => {
+    if (!hasMath || (remarkMathPlugin != null && rehypeKatexPlugin != null)) return;
+    let cancelled = false;
+    if (remarkMathPlugin == null) {
+      loadRemarkMath().then((plugin) => {
+        if (!cancelled) setRemarkMathPlugin(() => plugin);
+      }).catch(() => {/* 失败时保留原文 */});
+    }
+    if (rehypeKatexPlugin == null) {
+      loadRehypeKatex().then((plugin) => {
+        if (!cancelled) setRehypeKatexPlugin(() => plugin);
+      }).catch(() => {/* 失败时保留原文 */});
+    }
+    return () => { cancelled = true; };
+  }, [hasMath, remarkMathPlugin, rehypeKatexPlugin]);
+  const remarkPlugins = useMemo(
+    () => (hasMath && remarkMathPlugin ? [remarkGfm, remarkMathPlugin as never] : [remarkGfm]),
+    [hasMath, remarkMathPlugin],
+  );
   const rehypePlugins = useMemo(
-    () => (hasFencedCode && rehypeHighlightPlugin ? [rehypeHighlightPlugin as never] : []),
-    [hasFencedCode, rehypeHighlightPlugin],
+    () => {
+      const plugins: never[] = [];
+      if (hasFencedCode && rehypeHighlightPlugin) {
+        plugins.push(rehypeHighlightPlugin as never);
+      }
+      if (hasMath && rehypeKatexPlugin) {
+        plugins.push(rehypeKatexPlugin as never);
+      }
+      return plugins;
+    },
+    [hasFencedCode, hasMath, rehypeHighlightPlugin, rehypeKatexPlugin],
   );
 
   const fontFamily = mono
@@ -694,7 +891,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
           class="whitespace-pre-wrap break-words"
           style={{ margin: 0, fontFamily: 'inherit' }}
         >
-          {markdownContent}
+          {normalizedMarkdownContent}
         </pre>
       </div>
     );
@@ -703,7 +900,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   return (
     <div class="oh-markdown text-sm" style={{ fontFamily }}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
         components={components}
       >

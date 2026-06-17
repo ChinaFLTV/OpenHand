@@ -58,6 +58,7 @@ import '../../shared/ui/export_config_dialog.dart';
 import '../../shared/ui/export_progress_dialog.dart';
 import '../../shared/ui/highlight_pulse.dart';
 import '../../shared/ui/image_editor_dialog.dart';
+import '../../shared/ui/markdown_math.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/motion_preference.dart';

@@ -14,7 +14,7 @@ export default defineConfig({
     sourcemap: false,
     target: 'es2022',
     cssCodeSplit: false,
-    // vendor-mermaid 是第三方完整图表库（含 d3 + cytoscape + katex 等），
+    // vendor-mermaid 是第三方完整图表库（含 d3 + cytoscape 等），
     // 体积极大且不可控；把警告阈值提升到 3 MB，避免无意义的 chunk size 噪音。
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
@@ -31,7 +31,7 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('preact') || id.includes('@preact')) return 'vendor-preact';
             // mermaid 体积巨大（>2 MB）且自成体系，单独拆包避免撑大 vendor。
-            // 必须把 mermaid 的 transitive 依赖（d3、cytoscape、katex、roughjs 等）
+            // 必须把 mermaid 的 transitive 依赖（d3、cytoscape、roughjs 等）
             // 一并归入本 chunk，否则它们会落到 vendor 中，导致 vendor-mermaid
             // 仍需拉取 vendor，失去独立缓存意义，且可能引入循环引用。
             if (
@@ -43,7 +43,6 @@ export default defineConfig({
               || id.includes('dagre-d3')
               || id.includes('dayjs')
               || id.includes('es-toolkit')
-              || id.includes('katex')
               || id.includes('khroma')
               || id.includes('roughjs')
               || id.includes('stylis')
@@ -54,11 +53,13 @@ export default defineConfig({
               || id.includes('chevrotain')
             ) return 'vendor-mermaid';
             // Markdown 生态统一桶：包含 highlight.js / lowlight / rehype-highlight
-            // 及 react-markdown / remark / rehype / micromark / unified 等全部 transitive
-            // 依赖。把 highlight 合并进来，消除 vendor-markdown -> vendor-highlight 循环。
+            // 及 react-markdown / remark / rehype / KaTeX / micromark / unified 等全部
+            // transitive 依赖。把 highlight 合并进来，消除 vendor-markdown
+            // -> vendor-highlight 循环。
             if (
               id.includes('highlight')
               || id.includes('lowlight')
+              || id.includes('katex')
               || id.includes('marked')
               || id.includes('markdown')
               || id.includes('remark')

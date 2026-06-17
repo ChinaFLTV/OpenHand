@@ -128,11 +128,23 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         ),
       },
     };
+    final effectiveInlineSyntaxes = withOpenHandMarkdownMathInlineSyntaxes(
+      inlineSyntaxes,
+    );
+    final effectiveBuilders = withOpenHandMarkdownMathBuilders(
+      builders,
+      fallbackTextStyle: effectiveStyleSheet.p,
+      textColor:
+          widget.textColor ??
+          effectiveStyleSheet.p?.color ??
+          widget.colorScheme.onSurface,
+    );
 
     try {
       final document = md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
-        inlineSyntaxes: inlineSyntaxes,
+        blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+        inlineSyntaxes: effectiveInlineSyntaxes,
         encodeHtml: false,
       );
       final astNodes = document.parseLines(
@@ -147,7 +159,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         imageBuilder: null,
         checkboxBuilder: null,
         bulletBuilder: null,
-        builders: builders,
+        builders: effectiveBuilders,
         paddingBuilders: const <String, MarkdownPaddingBuilder>{},
         listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
       );
