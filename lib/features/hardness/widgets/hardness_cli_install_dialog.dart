@@ -13,6 +13,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/util/localized_text.dart';
 import '../service/hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
@@ -451,7 +452,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final statusColor = _running
         ? colorScheme.primary

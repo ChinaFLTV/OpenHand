@@ -1437,7 +1437,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final titleText = isZh ? 'HTML 预览' : 'HTML Preview';
     final closeText = isZh ? '关闭' : 'Close';
     final openInBrowserText = isZh ? '在浏览器中打开' : 'Open in Browser';
@@ -1601,7 +1601,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   }
 
   Future<void> _cleanupTempHtmlFiles() async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _isCleaning = true;
     });
@@ -1655,7 +1655,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   }
 
   Future<void> _openInBrowser(BuildContext context) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     try {
       final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
       final htmlFile = File(p.join(tempDir.path, 'preview.html'));
@@ -2086,9 +2086,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       });
     } catch (e) {
       if (!mounted) return;
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       setState(() {
         _errorMessage = isZh
             ? 'HTML 预览加载失败 (WebView 初始化或写临时文件出错)。\n原始错误：$e'
@@ -2115,7 +2113,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     if (_errorMessage != null) {
       return Center(

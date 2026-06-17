@@ -196,7 +196,7 @@ Widget _buildProgrammingExpertConfigSection(
 ) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   final sectionTitle = isZh ? '编程专家配置' : 'Programming Expert Config';
   final rawConfig = session.metadata['programming_expert_config'];
 
@@ -255,7 +255,7 @@ Widget _buildProgrammingExpertConfigSection(
 Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   final sectionTitle = isZh
       ? 'Harness Engineering 配置'
       : 'Harness Engineering Config';
@@ -353,14 +353,13 @@ String _localizedText(
   required String zh,
   required String en,
 }) {
-  final languageCode = Localizations.localeOf(context).languageCode;
-  return languageCode.startsWith('zh') ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   final sectionTitle = isZh ? 'Web 逆向配置' : 'Web Reverse Config';
   final config = WebReverseSessionConfig.fromJson(
     session.metadata['web_reverse_config'],
@@ -424,8 +423,7 @@ Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,
 ) async {
-  final languageCode = Localizations.localeOf(context).languageCode;
-  final isZh = languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   return showOpenHandTextInputDialog(
     context: context,
     title: isZh ? '编辑等待消息' : 'Edit Queued Message',

@@ -444,7 +444,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   Future<void> _showCopyPathMenu(_FileNode node, Offset position) async {
     if (!mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final rootPath = widget.rootPath;
     final absolutePath = node.path;
     final fileName = node.name;
@@ -503,7 +503,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _renameNode(_FileNode node) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final newName = await showOpenHandTextInputDialog(
       context: context,
       title: isZh ? '重命名' : 'Rename',
@@ -529,7 +529,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _deleteNode(_FileNode node) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: isZh ? '删除确认' : 'Confirm Delete',
@@ -778,10 +778,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  hintText:
-                      Localizations.localeOf(
-                        context,
-                      ).languageCode.startsWith('zh')
+                  hintText: openHandIsChineseLocale(context)
                       ? '搜索文件或目录…'
                       : 'Search files…',
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
@@ -907,9 +904,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       );
     }
     if (_searchResults.isEmpty) {
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1066,7 +1061,7 @@ class _FileTreeTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final indent = _kFileTreeIndentBase + depth * _kFileTreeIndentPerLevel;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final labelStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: node.isDirectory
           ? FontWeight.w600
@@ -2564,9 +2559,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final colorScheme = theme.colorScheme;
-        final isZh = Localizations.localeOf(
-          dialogContext,
-        ).languageCode.startsWith('zh');
+        final isZh = openHandIsChineseLocale(dialogContext);
         final canApply = preparedEdit.files.isNotEmpty;
         final fileCount = preparedEdit.files.length;
         final editCount = preparedEdit.edit.editCount;
@@ -2869,7 +2862,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _workspaceEditSummary(AiLspWorkspaceEdit edit) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final base = isZh
         ? '已应用 ${edit.editCount} 处修改，涉及 ${edit.fileCount} 个文件。'
         : 'Applied ${edit.editCount} edits across ${edit.fileCount} files.';
@@ -2882,7 +2875,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<String?> _promptRenameSymbol(String initialValue) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return showOpenHandTextInputDialog(
       context: context,
       title: isZh ? '重命名符号' : 'Rename Symbol',
@@ -3468,9 +3461,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     String groupLabel(String key) {
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       return switch (key) {
         'quickfix' => isZh ? '快速修复' : 'Quick Fix',
         'refactor' => isZh ? '重构' : 'Refactor',
@@ -3521,9 +3512,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     String subgroupLabel(String groupKey, String subgroupKey) {
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       if (subgroupKey == defaultSubgroupKey) {
         return switch (groupKey) {
           'quickfix' => isZh ? '默认修复' : 'Default',
@@ -3930,7 +3919,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _lspUnavailableMessage(AiLspBackendResolution resolution) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return switch (resolution.availability) {
       AiLspBackendAvailability.unsupportedLanguage =>
         isZh
@@ -4600,7 +4589,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _diagnosticsUnavailableMessage(String filePath) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
       return isZh
@@ -4616,7 +4605,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _lspBackendStatusLabel(BuildContext context, String filePath) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
       return isZh ? 'LSP 解析中' : 'LSP...';
@@ -4642,7 +4631,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _projectToolchainStatusLabel(BuildContext context, String filePath) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
     final hasOverride = _hasProjectToolchainOverride();
     final isResolving =
@@ -4682,7 +4671,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _projectToolchainStatusTooltip(BuildContext context, String filePath) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
     final hasOverride = _hasProjectToolchainOverride();
     final isResolving =
@@ -4808,9 +4797,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       if (!resolution.isAvailable) {
         _showLspMessage(
           title: title,
@@ -5347,7 +5334,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_projectToolchainBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final settingsController = context.watch<SettingsController>();
     final filePath = widget.activeFilePath;
     final resolution = _lspResolutionForFile(filePath);
@@ -6531,7 +6518,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildFindBar(ColorScheme colorScheme) {
     if (!_findBarVisible) return const SizedBox.shrink();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final matchLabel = _findMatchOffsets.isEmpty
         ? ''
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
@@ -6720,7 +6707,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildGoToLineBar(ColorScheme colorScheme) {
     if (!_goToLineVisible) return const SizedBox.shrink();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -6788,7 +6775,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_symbolBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final symbolCountLabel = _allSymbols.isEmpty
         ? ''
         : '${_visibleSymbols.length}/${_allSymbols.length}';
@@ -7103,7 +7090,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_diagnosticsBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final filePath = widget.activeFilePath;
     final resolution = _lspResolutionForFile(filePath);
     final supportsDiagnostics = _supportsDiagnosticsForFile(filePath);
@@ -7334,7 +7321,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_lspResultBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final hasLocations = _lspResultLocations.isNotEmpty;
     final hasCodeActions = _lspResultCodeActions.isNotEmpty;
@@ -7798,7 +7785,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _codeActionSummary(AiLspCodeAction action) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     if (action.isDisabled) {
       return action.disabledReason!;
     }
@@ -7867,7 +7854,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _diagnosticsStatusLabel(BuildContext context, String filePath) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
       return isZh ? 'LSP中' : 'LSP';
@@ -8331,9 +8318,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       _showHomeSnackBar(
         context,
         SnackBar(
@@ -8354,7 +8339,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final fileName = p.basename(filePath);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final result = await showAnimatedDialog<_UnsavedCloseAction>(
       context: context,
       builder: (dialogContext) {
@@ -8445,7 +8430,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!mounted) {
       return;
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final workspaceRoot =
         _lspResolutionForFile(filePath)?.rootPath.isNotEmpty == true
         ? _lspResolutionForFile(filePath)!.rootPath
@@ -8566,7 +8551,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (fileIndex < 0) {
       return;
     }
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final hasOtherTabs = widget.openFiles.length > 1;
     final hasTabsToLeft = fileIndex > 0;
     final hasTabsToRight = fileIndex < widget.openFiles.length - 1;
@@ -8680,7 +8665,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final colorScheme = Theme.of(context).colorScheme;
     final controller = _textControllers[filePath];
     final hasSelection =
@@ -8889,7 +8874,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     PopupMenuItem<String> buildItem({
       required String value,
@@ -9007,7 +8992,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     PopupMenuItem<String> buildItem({
       required String value,
@@ -9103,7 +9088,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final hasFoldedRegions = _foldedRegions[filePath]?.isNotEmpty == true;
     final foldableRegions = _foldableRegionsForFile(filePath);
     final hasFoldableRegions = foldableRegions.isNotEmpty;
@@ -9317,7 +9302,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     required String filePath,
   }) async {
     if (!mounted || actions.isEmpty) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final selected = await showAnimatedDialog<AiLspCodeAction>(
       context: context,
       builder: (dialogContext) {
@@ -9932,9 +9917,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
     final content = _fileContents[filePath];
     if (content == null) {
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -10368,7 +10351,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final signature = help.selectedSignature;
     if (signature == null) {
       return const SizedBox.shrink();
@@ -13195,7 +13178,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final visibleDiagnostics = diagnostics.take(4).toList(growable: false);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final actionAnchor = _diagnosticMenuAnchorPosition(globalAnchorRect);
 
     return Positioned(
@@ -13348,7 +13331,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     _EditorDiagnostic diagnostic,
   ) {
     final accent = _diagnosticColor(colorScheme, diagnostic);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final severityLabel = diagnostic.isError
         ? (isZh ? '错误' : 'Error')
         : diagnostic.isWarning

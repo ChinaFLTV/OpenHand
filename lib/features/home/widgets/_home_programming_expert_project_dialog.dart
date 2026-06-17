@@ -77,7 +77,7 @@ _programmingLanguageOptions = [
 String _programmingLanguageLabel(BuildContext context, String languageId) {
   final option = _programmingLanguageOptionById(languageId);
   if (option != null) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return isZh ? option.labelZh : option.labelEn;
   }
   if (languageId.isEmpty) {
@@ -622,7 +622,7 @@ class _ProgrammingExpertProjectDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final recentProjectRoots = widget.recentPathCache.projectRoots;
     final recentSdkPaths =
         widget.recentPathCache.sdkPathsByLanguage[_selectedLanguage] ??

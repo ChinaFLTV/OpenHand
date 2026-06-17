@@ -16,6 +16,7 @@ import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/localized_text.dart';
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
 import 'skill_market_dialog.dart';
@@ -570,9 +571,7 @@ String _localizedSkillsText(
   required String zh,
   required String en,
 }) {
-  return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh'
-      ? zh
-      : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 class _EditSkillDialog extends StatefulWidget {

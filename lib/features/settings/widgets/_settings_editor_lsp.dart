@@ -52,8 +52,7 @@ String _localizedText(
   required String zh,
   required String en,
 }) {
-  final languageCode = Localizations.localeOf(context).languageCode;
-  return languageCode.startsWith('zh') ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 String _editorLspLanguageLabel(BuildContext context, String language) {
@@ -180,12 +179,9 @@ extension on _SettingsViewState {
               borderRadius: BorderRadius.circular(12),
               items: EditorCodeTheme.values
                   .map((theme) {
-                    final languageCode = Localizations.localeOf(
-                      context,
-                    ).languageCode;
                     final darkSurface =
                         Theme.of(context).brightness == Brightness.dark;
-                    final label = languageCode.startsWith('zh')
+                    final label = openHandIsChineseLocale(context)
                         ? theme.labelZh(darkSurface)
                         : theme.labelEn(darkSurface);
                     return DropdownMenuItem<EditorCodeTheme>(
@@ -1560,7 +1556,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     final colorScheme = theme.colorScheme;
     final candidates = aiLspBackendsForLanguage(widget.language);
     final backend = aiLspBackendById(_selectedBackendId);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final supportsManagedInstall =
         backend != null &&
         AiLspManagedInstallService.supportsManagedInstall(backend);
@@ -2026,7 +2022,7 @@ class _EditorLspInstallRunnerDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     const terminalBackground = Color(0xFF0D1117);
     const terminalChrome = Color(0xFF161B22);
     const terminalBorder = Color(0xFF30363D);

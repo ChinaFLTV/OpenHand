@@ -3410,9 +3410,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 size: 16,
                               ),
                               label: Text(
-                                Localizations.localeOf(
-                                      context,
-                                    ).languageCode.startsWith('zh')
+                                openHandIsChineseLocale(context)
                                     ? '加载更多'
                                     : 'Load more',
                               ),

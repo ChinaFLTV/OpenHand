@@ -12,6 +12,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/util/localized_text.dart';
 import '../service/hardness_cli_catalog.dart';
 
 class HardnessCliLoginDialog extends StatefulWidget {
@@ -310,7 +311,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final statusText = _errorMessage != null
         ? (isZh ? '启动失败' : 'Failed to launch')
         : _starting

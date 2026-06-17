@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -147,6 +148,5 @@ String _localizedText(
   required String zh,
   required String en,
 }) {
-  final languageCode = Localizations.localeOf(context).languageCode;
-  return languageCode.startsWith('zh') ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }

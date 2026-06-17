@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -165,7 +166,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   }
 
   String _localized({required String zh, required String en}) {
-    return Localizations.localeOf(context).languageCode == 'zh' ? zh : en;
+    return openHandLocalizedText(context, zh: zh, en: en);
   }
 
   void _confirm() {

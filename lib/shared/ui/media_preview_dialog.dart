@@ -11,6 +11,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/support/silent_log.dart';
 import '../util/byte_size_format.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_snack_bar.dart';
 
@@ -169,7 +170,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
     final disableAnim = MediaQuery.disableAnimationsOf(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final maxDialogW = math.max(
       _kMinDialogW,
@@ -502,7 +503,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     OpenHandSnackBar.show(
       context,
       messenger,

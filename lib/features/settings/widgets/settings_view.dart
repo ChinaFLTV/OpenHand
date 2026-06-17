@@ -51,6 +51,7 @@ import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
@@ -1155,12 +1156,10 @@ class _SettingsViewState extends State<SettingsView> {
           if (!kIsWeb) ...[
             const SizedBox(height: 18),
             _ResponsiveSettingRow(
-              title:
-                  Localizations.localeOf(context).languageCode.startsWith('zh')
+              title: openHandIsChineseLocale(context)
                   ? '检查更新'
                   : 'Check for Updates',
-              subtitle:
-                  Localizations.localeOf(context).languageCode.startsWith('zh')
+              subtitle: openHandIsChineseLocale(context)
                   ? '从 GitHub Release 检查是否有新版本可用。'
                   : 'Check GitHub Releases for a newer version.',
               control: Align(
@@ -1169,11 +1168,7 @@ class _SettingsViewState extends State<SettingsView> {
                   onPressed: () => _showUpdateCheckDialog(context, appInfo),
                   icon: const Icon(Icons.system_update_outlined, size: 18),
                   label: Text(
-                    Localizations.localeOf(
-                          context,
-                        ).languageCode.startsWith('zh')
-                        ? '检查更新'
-                        : 'Check',
+                    openHandIsChineseLocale(context) ? '检查更新' : 'Check',
                   ),
                 ),
               ),
@@ -1903,16 +1898,10 @@ class _SettingsViewState extends State<SettingsView> {
               // 配置项之前，让用户先决定"是否启用 / 是否自适应"再调
               // 具体数字）
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '启用流式输出节流'
                     : 'Enable Stream Throttle',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。'
                     : 'Master switch for char/card throttling. When off, AI output renders at full speed.',
                 control: Align(
@@ -1926,16 +1915,10 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '节流自动模式'
                     : 'Auto-Adaptive Throttle',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。'
                     : 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
                 control: Column(
@@ -1961,16 +1944,10 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-17 — 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '每秒最大输出渲染字符'
                     : 'Max Render Chars / Sec',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。'
                     : 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
                 control: Column(
@@ -1984,10 +1961,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        labelText: openHandIsChineseLocale(context)
                             ? '每秒最大输出渲染字符'
                             : 'Max Render Chars / Sec',
                         hintText:
@@ -1999,10 +1973,7 @@ class _SettingsViewState extends State<SettingsView> {
                     if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        message: openHandIsChineseLocale(context)
                             ? '节流已关闭：AI 端字符将按真实速率全速渲染。'
                             : 'Throttle disabled: chars will be rendered at full speed.',
                       ),
@@ -2028,16 +1999,10 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-17 — 卡片限速：每秒最多新追加多少张消息卡片
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '每秒最大输出消息卡片数'
                     : 'Max Render Cards / Sec',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。'
                     : 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
                 control: Column(
@@ -2051,10 +2016,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        labelText: openHandIsChineseLocale(context)
                             ? '每秒最大输出消息卡片数'
                             : 'Max Render Cards / Sec',
                         hintText:
@@ -2067,10 +2029,7 @@ class _SettingsViewState extends State<SettingsView> {
                         0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        message: openHandIsChineseLocale(context)
                             ? '节流已关闭：AI 端新增卡片将按真实速率全速追加。'
                             : 'Throttle disabled: new cards will be appended at full speed.',
                       ),
@@ -2096,16 +2055,10 @@ class _SettingsViewState extends State<SettingsView> {
               // 2026-05-17 — 节流持续时长入口。
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '节流持续时长（秒）'
                     : 'Throttle Duration (s)',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。'
                     : 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
                 control: Column(
@@ -2119,10 +2072,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        labelText: openHandIsChineseLocale(context)
                             ? '节流持续时长（秒）'
                             : 'Throttle Duration (s)',
                         hintText:
@@ -2135,10 +2085,7 @@ class _SettingsViewState extends State<SettingsView> {
                         0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message:
-                            Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        message: openHandIsChineseLocale(context)
                             ? '当前为持续节流：整个流式响应都按节流速率均匀放出。'
                             : 'Continuous throttle: the entire stream is paced.',
                       ),
@@ -2164,16 +2111,10 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-18 — 节流配置 export / import 入口；带云端同步预留
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '导入 / 导出节流配置'
                     : 'Import / Export Throttle Config',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '把全局开关 / 自动模式 / 字符 / 卡片速率 / 模板覆盖打包为 JSON 文件，方便多设备同步。文档保留 cloud_sync 字段，用于后续接入远端同步。'
                     : 'Bundle global switch / auto / chars / cards / template overrides as a JSON document for cross-device sync. The cloud_sync field is reserved for future remote sync.',
                 control: Wrap(
@@ -2184,9 +2125,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onPressed: () => _exportAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.upload_rounded, size: 18),
                       label: Text(
-                        Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        openHandIsChineseLocale(context)
                             ? '导出 JSON'
                             : 'Export JSON',
                       ),
@@ -2195,9 +2134,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onPressed: () => _importAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: Text(
-                        Localizations.localeOf(
-                              context,
-                            ).languageCode.startsWith('zh')
+                        openHandIsChineseLocale(context)
                             ? '从 JSON 导入'
                             : 'Import JSON',
                       ),
@@ -2210,16 +2147,10 @@ class _SettingsViewState extends State<SettingsView> {
               // 2026-05-18 — 节流配置云端同步入口；custom 走真实 HTTP
               // PUT/GET，iCloud / OAuth 留占位入口
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '节流配置云端同步'
                     : 'Cloud Sync',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '把节流配置推送 / 拉取到自定义 HTTP 端点。token 走 Authorization Bearer header；iCloud / OAuth 入口为后续接入预留。'
                     : 'Push / pull throttle config to a custom HTTP endpoint via Bearer token. iCloud / OAuth are reserved for future native bridging.',
                 control: const _ThrottleCloudSyncEditor(),
@@ -2242,16 +2173,10 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                title: openHandIsChineseLocale(context)
                     ? '标题获取最大重试次数'
                     : 'Title Retry Max Count',
-                subtitle:
-                    Localizations.localeOf(
-                      context,
-                    ).languageCode.startsWith('zh')
+                subtitle: openHandIsChineseLocale(context)
                     ? '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。'
                     : 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
                 controlMaxWidth: 200,
@@ -4408,7 +4333,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     _streamMaxCharsPerSecondController.text = '$parsedValue';
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     _showSnackBar(
       context,
       isZh ? '每秒最大输出渲染字符已保存。' : 'Max render chars / sec saved.',
@@ -4440,7 +4365,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     _streamMaxMessageCardsPerSecondController.text = '$parsedValue';
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     _showSnackBar(
       context,
       isZh ? '每秒最大输出消息卡片数已保存。' : 'Max render cards / sec saved.',
@@ -4473,14 +4398,14 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     _streamThrottleDurationController.text = '$parsedValue';
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     _showSnackBar(context, isZh ? '节流持续时长已保存。' : 'Throttle duration saved.');
   }
 
   /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
   Future<void> _exportAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -4546,7 +4471,7 @@ class _SettingsViewState extends State<SettingsView> {
   /// 2026-05-18 — 从 JSON 文件 import 节流配置；缺失字段保持现值。
   Future<void> _importAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     XFile? file;
     try {
@@ -6531,7 +6456,7 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final low = _fps > 0 && _fps < 55;
     final color = low ? scheme.error : scheme.primary;
     return Container(
@@ -6764,7 +6689,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
 
   Future<void> _push() async {
     final c = context.read<SettingsController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _busy = true;
       _status = '';
@@ -6798,7 +6723,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
 
   Future<void> _pull() async {
     final c = context.read<SettingsController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _busy = true;
       _status = '';
@@ -6930,7 +6855,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final c = context.watch<SettingsController>();
     final providerEnum = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,

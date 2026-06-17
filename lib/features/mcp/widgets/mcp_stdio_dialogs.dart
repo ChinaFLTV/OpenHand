@@ -12,6 +12,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
@@ -82,7 +83,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final info = McpStdioProcessManager.instance.infoFor(widget.server.name);
     final logs = info.logs;
 
@@ -474,7 +475,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final processInfo = McpStdioProcessManager.instance.infoFor(
       widget.server.name,
     );
@@ -1008,7 +1009,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final cleanPkg = _cleanPackageName;
     final hasUpdate =
         _packageInstalled &&

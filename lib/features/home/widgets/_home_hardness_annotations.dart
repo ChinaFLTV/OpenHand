@@ -82,7 +82,7 @@ class _HardnessAnnotationCapsuleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final capsules = <Widget>[];
 
     if (annotation.agentRole != null) {

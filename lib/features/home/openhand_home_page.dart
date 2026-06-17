@@ -70,6 +70,7 @@ import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
@@ -7070,9 +7071,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 controller: _hardnessSessionPaneController,
                 config: _activeHardnessConfig!,
                 orchestrator: _activeHardnessOrchestrator!,
-                isZh: Localizations.localeOf(
-                  context,
-                ).languageCode.startsWith('zh'),
+                isZh: openHandIsChineseLocale(context),
                 sessionTitle: _persistedHardnessSession?.title,
                 updatedAtLabel: _persistedHardnessSession == null
                     ? null

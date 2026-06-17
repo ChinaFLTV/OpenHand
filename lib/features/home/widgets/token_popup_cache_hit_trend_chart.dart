@@ -7,6 +7,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/util/localized_text.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
@@ -195,7 +196,7 @@ class _TokenPopupCacheHitTrendChartState
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final displayData = widget.trend.displayData(widget.displayMode);
     final effectiveViewport =
         _viewport.totalPoints == displayData.trend.points.length

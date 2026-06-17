@@ -739,7 +739,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   }
 
   void _showLegacyDiff(String path, String kind) {
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
       builder: (ctx) =>
@@ -2070,7 +2070,7 @@ class _InspectorEntryRow extends StatelessWidget {
         Overlay.of(context, rootOverlay: true).context.findRenderObject()
             as RenderBox?;
     if (overlay == null) return;
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final isZh = openHandIsChineseLocale(context);
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -2414,15 +2414,12 @@ class _BulkUndoOverlay extends StatelessWidget {
   }
 }
 
-/// 阶段 ⑬d：part 文件内简易 zh/en 文案选择器（避免给 5 个 ⑬d 文案
-/// 单独跑一轮 ARB → gen_l10n）。
 String _localizedTextStatic(
   BuildContext context, {
   required String zh,
   required String en,
 }) {
-  final lang = Localizations.localeOf(context).languageCode;
-  return lang == 'zh' ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 /// 阶段 ⑬e：徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。

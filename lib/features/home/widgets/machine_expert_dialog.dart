@@ -14,6 +14,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/localized_text.dart';
 
 import '../../ai/index.dart';
 
@@ -98,7 +99,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   final TextEditingController _taskController = TextEditingController();
 
   String _loc(BuildContext context, {required String zh, required String en}) {
-    return Localizations.localeOf(context).languageCode == 'zh' ? zh : en;
+    return openHandLocalizedText(context, zh: zh, en: en);
   }
 
   String? _selectedTerminal;

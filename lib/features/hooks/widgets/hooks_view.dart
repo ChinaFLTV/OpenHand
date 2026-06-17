@@ -12,6 +12,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../hooks_controller.dart';
 
 class HooksView extends StatelessWidget {
@@ -23,7 +24,7 @@ class HooksView extends StatelessWidget {
       (controller) => controller.entries,
     );
     final hooksController = context.read<HooksController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final actions = FilledButton.icon(
       onPressed: () => _showHookEditorDialog(context, null),
@@ -80,7 +81,7 @@ class HooksView extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, HookEntry entry) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: isZh ? '删除 Hook' : 'Delete Hook',
@@ -103,7 +104,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return FeatureStateCard.centered(
       icon: Icons.webhook_outlined,
       tone: FeatureStateTone.neutral,
@@ -303,8 +304,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   }
 
   bool get _isEditing => widget.existing != null;
-  bool get isZh =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get isZh => openHandIsChineseLocale(context);
 
   @override
   Widget build(BuildContext context) {

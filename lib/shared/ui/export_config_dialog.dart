@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import '../util/input_value_parsing.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -196,8 +197,7 @@ class _AiSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get _isZh => openHandIsChineseLocale(context);
 
   String _roleLabel(AiSessionMessageRole role) {
     switch (role) {
@@ -488,8 +488,7 @@ class _HardnessSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get _isZh => openHandIsChineseLocale(context);
 
   HardnessSessionExportConfig? _buildConfig() {
     int? start;

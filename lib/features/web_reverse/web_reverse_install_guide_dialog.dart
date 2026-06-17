@@ -6,6 +6,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/localized_text.dart';
 
 /// 用户没有安装 Chrome 同核浏览器时弹出的引导对话框。
 ///
@@ -20,17 +21,12 @@ Future<WebReverseInstallGuideDecision?> showWebReverseInstallGuideDialog(
   );
 }
 
-enum WebReverseInstallGuideDecision {
-  rechecked,
-  cancelled,
-  openedDownloadPage,
-}
+enum WebReverseInstallGuideDecision { rechecked, cancelled, openedDownloadPage }
 
 class _WebReverseInstallGuideDialog extends StatelessWidget {
   const _WebReverseInstallGuideDialog();
 
-  bool _isZh(BuildContext context) =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool _isZh(BuildContext context) => openHandIsChineseLocale(context);
 
   String _downloadUrl(BuildContext context) {
     return _isZh(context)
@@ -97,9 +93,9 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: loc?.webReverseInstallClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(
-                      WebReverseInstallGuideDecision.cancelled,
-                    ),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(WebReverseInstallGuideDecision.cancelled),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
@@ -112,7 +108,10 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(12),
@@ -120,7 +119,11 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.link_rounded, size: 18, color: colorScheme.primary),
+                    Icon(
+                      Icons.link_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: SelectableText(
@@ -154,17 +157,18 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(
-                      WebReverseInstallGuideDecision.cancelled,
-                    ),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(WebReverseInstallGuideDecision.cancelled),
                     label: loc?.commonCancel ?? 'Cancel',
                   ),
                   const SizedBox(width: 12),
                   OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(context).pop(
-                      WebReverseInstallGuideDecision.rechecked,
-                    ),
-                    label: loc?.webReverseInstallInstalled ?? 'I Have Installed',
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(WebReverseInstallGuideDecision.rechecked),
+                    label:
+                        loc?.webReverseInstallInstalled ?? 'I Have Installed',
                   ),
                 ],
               ),

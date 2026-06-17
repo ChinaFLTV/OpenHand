@@ -12,6 +12,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../mcp/index.dart';
 import '../model/plugin_info.dart';
 import '../plugin_service_controller.dart';
@@ -33,7 +34,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<PluginServiceController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final actions = Wrap(
       spacing: 12,
@@ -67,7 +68,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
   }
 
   Widget _buildBody(BuildContext context, PluginServiceController controller) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     if (controller.isLoading) {
       return Center(
         child: Column(
@@ -179,7 +180,7 @@ class _PluginCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final stateColor = switch (plugin.status) {
       PluginStatus.installed => const Color(0xFF16A34A),
       PluginStatus.error => theme.colorScheme.error,
@@ -364,7 +365,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final isCheckingUpdate = controller.checkingPluginId == plugin.id;
     final isBusy = plugin.isBusy || controller.isOperating || isCheckingUpdate;
     final hasMcp = plugin.id == 'playwright';
@@ -458,7 +459,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Future<void> _doInstall(BuildContext context) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
@@ -507,7 +508,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Future<void> _doUpdate(BuildContext context) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?',
@@ -537,7 +538,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Future<void> _checkUpdate(BuildContext context) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final refreshed = await controller.checkPluginUpdate(plugin.id);
     if (!context.mounted) return;
     if (refreshed == null) {
@@ -568,7 +569,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Future<void> _doUninstall(BuildContext context) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     for (final dependentId in plugin.dependents) {
       final dependent = controller.pluginById(dependentId);
       if (dependent != null && dependent.isInstalled) {
@@ -633,7 +634,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   void _showDetailDialog(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
       builder: (ctx) => _PluginDetailDialog(plugin: plugin, isZh: isZh),
@@ -641,7 +642,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   void _showMcpActions(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
       builder: (ctx) =>
@@ -715,7 +716,7 @@ class _PluginOperationProgressDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final logs = widget.controller.operationLogs;
     final isOperating = widget.controller.isOperating;
 
@@ -934,7 +935,7 @@ class _PluginMetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final metaStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -1005,7 +1006,7 @@ class _DependencyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return Row(
       children: [
         Icon(
@@ -1489,12 +1490,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         try {
           final listResult = await runTrackedProcessOrFailed(
             'npm',
-            [
-              'list',
-              '-g',
-              '@playwright/mcp',
-              '--depth=0',
-            ],
+            ['list', '-g', '@playwright/mcp', '--depth=0'],
             timeout: const Duration(seconds: 10),
             environment: SystemProxyResolver.instance
                 .resolveSubprocessEnvironment(),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
 import '../util/byte_size_format.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -140,7 +141,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Row(
         children: [

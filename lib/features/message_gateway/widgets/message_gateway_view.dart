@@ -24,6 +24,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
@@ -5461,7 +5462,7 @@ String _modelSummary(
 }
 
 String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
-  final isZh = Localizations.localeOf(context).languageCode == 'zh';
+  final isZh = openHandIsChineseLocale(context);
   if (!isZh) {
     return switch (state) {
       WebGatewayRuntimeState.stopped => 'Stopped',

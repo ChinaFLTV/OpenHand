@@ -16,6 +16,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/localized_text.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
@@ -1485,10 +1486,7 @@ class _TinyTextChip extends StatelessWidget {
 }
 
 String _t(BuildContext context, {required String zh, required String en}) {
-  final languageCode = Localizations.localeOf(
-    context,
-  ).languageCode.toLowerCase();
-  return languageCode == 'zh' ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 String _localizedSummary(
@@ -1496,10 +1494,7 @@ String _localizedSummary(
   required String zh,
   required String en,
 }) {
-  final languageCode = Localizations.localeOf(
-    context,
-  ).languageCode.toLowerCase();
-  if (languageCode == 'zh' && zh.trim().isNotEmpty) {
+  if (openHandIsChineseLocale(context) && zh.trim().isNotEmpty) {
     return zh.trim();
   }
   return en.trim().isNotEmpty ? en.trim() : zh.trim();

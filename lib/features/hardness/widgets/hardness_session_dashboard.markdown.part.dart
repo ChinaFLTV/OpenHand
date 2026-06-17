@@ -808,9 +808,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                Localizations.localeOf(context).languageCode.startsWith('zh')
-                    ? '代码已复制'
-                    : 'Code copied',
+                openHandIsChineseLocale(context) ? '代码已复制' : 'Code copied',
               ),
               duration: const Duration(milliseconds: 1800),
             ),
@@ -823,9 +821,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                Localizations.localeOf(context).languageCode.startsWith('zh')
-                    ? '复制失败'
-                    : 'Copy failed',
+                openHandIsChineseLocale(context) ? '复制失败' : 'Copy failed',
               ),
               duration: const Duration(milliseconds: 1800),
             ),
@@ -842,7 +838,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
         widget.darkSurface || Theme.of(context).brightness == Brightness.dark;
     final cs = widget.colorScheme;
     final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final containerColor = isDark
         ? Colors.white.withValues(alpha: 0.06)

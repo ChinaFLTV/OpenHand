@@ -25,6 +25,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
@@ -370,7 +371,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     McpServer server,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
@@ -470,7 +471,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     String packageName,
     String serverName,
   ) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     try {
       // 1. 卸载全局包
       final result = await runTrackedProcessOrFailed(
@@ -3351,7 +3352,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     return Dialog(
       clipBehavior: Clip.antiAlias,
@@ -3683,7 +3684,7 @@ class _ProbeServerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final health = controller.healthStatusFor(server.name);
     final catalog = controller.toolCatalogFor(server.name);
     final isBusy = health.isChecking || catalog.isLoading;
@@ -6296,14 +6297,13 @@ String _localizedText(
   required String zh,
   required String en,
 }) {
-  final languageCode = Localizations.localeOf(context).languageCode;
-  return languageCode.startsWith('zh') ? zh : en;
+  return openHandLocalizedText(context, zh: zh, en: en);
 }
 
 /// 把 UTC 时间戳渲染成「12 秒前 / 3 分钟前 / 4 小时前」形式。
 String _formatRelativePast(BuildContext context, DateTime utc) {
   final diff = DateTime.now().toUtc().difference(utc);
-  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   if (diff.inSeconds < 5) return isZh ? '刚刚' : 'just now';
   if (diff.inSeconds < 60) {
     final s = diff.inSeconds;
@@ -6370,7 +6370,7 @@ String? _extractPackageName(McpServer server) {
 /// 把未来 UTC 时间戳渲染成「约 12 秒后 / 约 3 分钟后」形式；过期则显示「即将开始」。
 String _formatRelativeFuture(BuildContext context, DateTime utc) {
   final diff = utc.difference(DateTime.now().toUtc());
-  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final isZh = openHandIsChineseLocale(context);
   if (diff.inSeconds <= 0) return isZh ? '即将开始' : 'imminent';
   if (diff.inSeconds < 60) {
     final s = diff.inSeconds;

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
@@ -107,7 +108,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     super.dispose();
   }
 
-  bool _isZh() => Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool _isZh() => openHandIsChineseLocale(context);
 
   /// 预览的 user-data-dir：与 [_submit] 中拼装一致，仅用于 UI 展示与
   /// "清理冲突 profile"按钮。注意真实启动时 home page 还会再追加 sessionId

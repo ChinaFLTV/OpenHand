@@ -627,7 +627,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final relatedMessage = _auditRelatedTelemetryMessage(session, message);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final size = MediaQuery.sizeOf(context);
     final maxWidth = size.width * 0.88;
     final maxHeight = size.height * 0.88;

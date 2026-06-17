@@ -12,7 +12,7 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return _ResponsiveSettingRow(
       title: isZh ? '恢复默认动画' : 'Restore Animation Defaults',
       subtitle: isZh
@@ -90,7 +90,7 @@ class _DialogAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.dialogAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '弹窗动画' : 'Dialog Animation',
@@ -115,7 +115,7 @@ class _MenuAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.menuAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '菜单动画' : 'Menu Animation',
@@ -140,7 +140,7 @@ class _PanelAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.panelAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '工作区面板动画' : 'Workspace Panel Animation',
@@ -165,7 +165,7 @@ class _PageAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.pageAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '页面 / 模块动画' : 'Page / Module Animation',
@@ -197,7 +197,7 @@ class _ChipAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.chipAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '胶囊动画' : 'Chip Animation',
@@ -227,7 +227,7 @@ class _ListItemAnimationSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final current = settingsController.listItemAnimationSettings;
     return _ResponsiveSettingRow(
       title: isZh ? '列表项动画' : 'List Item Animation',
@@ -256,7 +256,7 @@ class _AnimationSettingsControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

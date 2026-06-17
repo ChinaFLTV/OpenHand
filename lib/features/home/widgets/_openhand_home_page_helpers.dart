@@ -80,7 +80,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     final colorScheme = theme.colorScheme;
     final total = widget.userMessages.length;
     final selectedCount = _endIdx - _startIdx + 1;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     // 截取消息内容作为 tooltip 预览
     String previewLabel(int idx) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';

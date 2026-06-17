@@ -91,8 +91,7 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
                   builder: (ctx, snapshot) {
                     final theme = Theme.of(ctx);
                     final colorScheme = theme.colorScheme;
-                    final isZhLocale =
-                        Localizations.localeOf(ctx).languageCode == 'zh';
+                    final isZhLocale = openHandIsChineseLocale(ctx);
 
                     if (!snapshot.hasData) {
                       return const SizedBox(
@@ -302,7 +301,7 @@ Future<void> _heOpenPathInFileBrowser(
     throw const FileSystemException('Unable to open file location.');
   } catch (error) {
     if (!context.mounted) return;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     showFriendlyErrorSnackBar(
       context,
       message: '$error',

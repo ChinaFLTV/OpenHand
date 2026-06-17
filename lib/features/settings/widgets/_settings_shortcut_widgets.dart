@@ -100,11 +100,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                     onPressed: onRecord,
                     icon: const Icon(Icons.keyboard_alt_rounded, size: 18),
                     label: Text(
-                      Localizations.localeOf(
-                            context,
-                          ).languageCode.startsWith('zh')
-                          ? '录制'
-                          : 'Record',
+                      openHandIsChineseLocale(context) ? '录制' : 'Record',
                     ),
                   ),
                 ),
@@ -122,10 +118,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                       ),
                       side: BorderSide(color: colorScheme.outlineVariant),
                     ),
-                    tooltip:
-                        Localizations.localeOf(
-                          context,
-                        ).languageCode.startsWith('zh')
+                    tooltip: openHandIsChineseLocale(context)
                         ? '恢复默认'
                         : 'Reset to default',
                     icon: const Icon(Icons.restart_alt_rounded, size: 18),
@@ -200,8 +193,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
     );
     if (nextKeyIds.length > openHandShortcutMaxKeyCount) {
       setState(() {
-        _errorText =
-            Localizations.localeOf(context).languageCode.startsWith('zh')
+        _errorText = openHandIsChineseLocale(context)
             ? '最多支持同时按下 4 个按键。'
             : 'OpenHand supports up to four simultaneous keys.';
       });
@@ -216,9 +208,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isChinese = Localizations.localeOf(
-      context,
-    ).languageCode.startsWith('zh');
+    final isChinese = openHandIsChineseLocale(context);
     final canSave = isValidShortcutBinding(_currentKeyIds);
     return buildOpenHandAlertDialog(
       title: Text(widget.title),

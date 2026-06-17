@@ -355,7 +355,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final isZh = openHandIsChineseLocale(context);
     final tooltip = isZh
         ? '当前 Hermes Talker 自主学习能力已关闭。\n\n'
               '影响：AI 不会在后台周期性地把本会话沉淀的偏好、画像、'
@@ -2396,7 +2396,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
   Widget build(BuildContext context) {
     _attachIfNeeded();
     final ctrl = _controller;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -2555,9 +2555,7 @@ class _StreamThrottlePill extends StatelessWidget {
         final iconColor = showAsGray
             ? scheme.outline
             : scheme.onTertiaryContainer;
-        final isZh = Localizations.localeOf(
-          context,
-        ).languageCode.startsWith('zh');
+        final isZh = openHandIsChineseLocale(context);
         final label = !effEnabled
             ? (isZh ? '节流·关' : 'Throttle·off')
             : disabled
@@ -2710,7 +2708,7 @@ class _StreamThrottleSessionDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final settings = context.watch<SettingsController>();
     final session = context.watch<AiSessionController>();
     final globalChars = settings.effectiveStreamMaxCharsPerSecond(
@@ -3210,7 +3208,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   }
 
   String _formatRangeLabel(BuildContext context, int seconds) {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     if (seconds < 60) return isZh ? '$seconds秒' : '${seconds}s';
     final minutes = seconds ~/ 60;
     if (seconds % 60 != 0 && seconds < 60 * 60) {
@@ -3224,7 +3222,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   String _formatGranularityLabel(BuildContext context, int seconds) {
     final unit = _formatRangeLabel(context, seconds);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return isZh ? '$unit/点' : '$unit/pt';
   }
 
@@ -3279,7 +3277,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final windowSeconds = _visibleWindowSeconds();
     final displayWindow = _displaySamples
         .take(math.min(windowSeconds, _displaySamples.length))

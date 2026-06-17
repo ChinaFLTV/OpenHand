@@ -13,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/hardness_agent_role.dart';
 import '../model/hardness_role_config.dart';
@@ -433,7 +434,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final cli = entry.cli;
     if (!cli.hasLogoutTrigger) return;
 
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
@@ -525,7 +526,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final configurationIssues = _configurationIssues(isZh);
     final geminiAccessAdvisories = _geminiAccessAdvisories(isZh);
     final canSubmit = _isValid && !_isScanning && configurationIssues.isEmpty;

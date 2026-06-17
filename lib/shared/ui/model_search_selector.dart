@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 
 /// Entry representing a single selectable model inside a provider group.
@@ -135,7 +136,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final isZh = openHandIsChineseLocale(context);
 
     // Group filtered entries by provider.
     final grouped = <String, List<ModelEntry>>{};

@@ -15,9 +15,7 @@ class _DenyCommandRuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isChinese = Localizations.localeOf(
-      context,
-    ).languageCode.startsWith('zh');
+    final isChinese = openHandIsChineseLocale(context);
     return Material(
       color: colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(20),
@@ -99,9 +97,7 @@ class _AllowCommandRuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isChinese = Localizations.localeOf(
-      context,
-    ).languageCode.startsWith('zh');
+    final isChinese = openHandIsChineseLocale(context);
     return Material(
       color: colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(20),
@@ -208,9 +204,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isChinese = Localizations.localeOf(
-      context,
-    ).languageCode.startsWith('zh');
+    final isChinese = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(
         isChinese
@@ -367,9 +361,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isChinese = Localizations.localeOf(
-      context,
-    ).languageCode.startsWith('zh');
+    final isChinese = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(
         isChinese

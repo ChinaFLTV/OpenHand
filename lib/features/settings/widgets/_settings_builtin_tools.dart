@@ -961,8 +961,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     BuildContext context,
     AiBuiltinToolLoadStrategy strategy,
   ) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    final zh = languageCode.startsWith('zh');
+    final zh = openHandIsChineseLocale(context);
     return switch (strategy) {
       AiBuiltinToolLoadStrategy.eager => zh ? '立即加载' : 'Eager',
       AiBuiltinToolLoadStrategy.lazy => zh ? '懒加载' : 'Lazy',

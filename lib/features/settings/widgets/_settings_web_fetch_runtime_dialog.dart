@@ -92,7 +92,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
 
   Future<void> _start() async {
     final runtime = context.read<AiSessionController>().toolRuntimeService;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final actionLabel = widget.action == _ScraplingRuntimeAction.install
         ? (isZh ? '安装' : 'Install')
         : (isZh ? '卸载' : 'Uninstall');
@@ -162,7 +162,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final installing = widget.action == _ScraplingRuntimeAction.install;
     final title = installing
         ? (isZh ? '安装 Scrapling 运行时' : 'Install Scrapling Runtime')

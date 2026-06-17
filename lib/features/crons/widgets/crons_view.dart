@@ -18,6 +18,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
@@ -37,7 +38,7 @@ class CronsView extends StatelessWidget {
       (controller) => controller.isLoading,
     );
     final controller = context.read<CronsController>();
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,7 +148,7 @@ class CronsView extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, CronEntry entry) async {
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: isZh ? '删除定时任务' : 'Delete Cron Job',
@@ -743,8 +744,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 
   bool get _isEditing => widget.existing != null;
-  bool get isZh =>
-      Localizations.localeOf(context).languageCode.startsWith('zh');
+  bool get isZh => openHandIsChineseLocale(context);
 
   String get _cronExpression =>
       '${_cronMinController.text.trim()} '
@@ -1986,7 +1986,7 @@ class _CronHistoryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final history = context.select<CronsController, List<CronExecutionRecord>>(
       (controller) => controller.historyFor(entry.id),
     );
@@ -3480,7 +3480,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
     final shown = (_expanded || !exceeds)
         ? body
         : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final bodyTextColor = widget.subdued
         ? colorScheme.onSurfaceVariant

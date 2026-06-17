@@ -3196,7 +3196,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     final disableAnim = MediaQuery.disableAnimationsOf(context);
 
     final content = Stack(
@@ -3633,7 +3633,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
 
     final panel = Material(
       elevation: 8,
@@ -3862,7 +3862,7 @@ class _SelectedSkillChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = openHandIsChineseLocale(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
