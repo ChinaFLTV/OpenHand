@@ -8,6 +8,8 @@ import 'ai_model_catalog.dart';
 import 'ai_operation_routing.dart';
 import 'ai_realtime_config.dart';
 
+const int kInferredModelContextWindowTokens = 128000;
+
 List<String> _parseStringListLoose(Object? value) {
   if (value is! List) return const <String>[];
   return value
@@ -981,7 +983,8 @@ class AiModelConfig {
       if (profilesJson.isNotEmpty) 'model_profiles': profilesJson,
       if (endpointOverridesJson.isNotEmpty)
         'endpoint_overrides': endpointOverridesJson,
-      if (!operationRouting.isEmpty) 'operation_routing': operationRouting.toJson(),
+      if (!operationRouting.isEmpty)
+        'operation_routing': operationRouting.toJson(),
       if (capabilityOverridesJson.isNotEmpty)
         'capability_overrides': capabilityOverridesJson,
       if (operationExtras.isNotEmpty) 'operation_extras': operationExtras,

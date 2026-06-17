@@ -174,6 +174,14 @@ export function getDialogExitDurationMs(): number {
   return currentSettings.exitStyle === 'none' ? 0 : currentSettings.durationMs;
 }
 
+export function normalizeDialogExitDurationMs(value?: number): number {
+  if (currentSettings.exitStyle === 'none') return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return getDialogExitDurationMs();
+  }
+  return Math.max(0, Math.min(DIALOG_MOTION_MAX_DURATION_MS, Math.round(value)));
+}
+
 /// 进场（展开）动画时长：entrance_style=none 时返回 0；否则使用全局 durationMs。
 export function getDialogEnterDurationMs(): number {
   return currentSettings.entranceStyle === 'none' ? 0 : currentSettings.durationMs;

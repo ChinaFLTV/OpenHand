@@ -7,6 +7,8 @@ part of '../openhand_home_page.dart';
 String _fileMutationKind(AiSessionMessage message) =>
     '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
 
+const int _kFileMutationUndoConcurrency = 4;
+
 /// 2026-05-03：聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
 List<String> _fileMutationPaths(AiSessionMessage message) {
@@ -211,20 +213,20 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       _bulkUndoDone = 0;
     });
     final ledger = _ctrl(context).toolRuntimeService.mutationLedger;
-    const concurrency = 4;
     final paths = groups.keys.toList();
-    int nextPath = 0;
     int success = 0;
     int failure = 0;
     String? lastError;
 
-    Future<void> worker() async {
-      while (true) {
-        final i = nextPath++;
-        if (i >= paths.length) return;
-        final groupViews = groups[paths[i]]!;
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: paths.length,
+      maxConcurrency: _kFileMutationUndoConcurrency,
+      shouldContinue: () => mounted,
+      task: (index) async {
+        final groupViews = groups[paths[index]]!;
         // 同文件内：串行撤销，避免并发覆写。
         for (final v in groupViews) {
+          if (!mounted) return;
           try {
             final r = await ledger.undoRecord(
               sessionId: v.record.sessionId,
@@ -245,11 +247,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             if (mounted) setState(() => _bulkUndoDone++);
           }
         }
-      }
-    }
-
-    final workerCount = paths.length < concurrency ? paths.length : concurrency;
-    await Future.wait(List.generate(workerCount, (_) => worker()));
+      },
+    );
 
     if (!mounted) return;
     setState(() {
@@ -2723,16 +2722,13 @@ class _RoundFileMutationSummaryCardState
         .toolRuntimeService
         .mutationLedger;
     String? lastError;
-    const concurrency = 4;
     final paths = groups.keys.toList();
-    int nextPath = 0;
-    Future<void> worker() async {
-      while (true) {
-        if (!mounted) return;
-        if (nextPath >= paths.length) return;
-        final p = paths[nextPath];
-        nextPath += 1;
-        for (final r in groups[p]!) {
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: paths.length,
+      maxConcurrency: _kFileMutationUndoConcurrency,
+      shouldContinue: () => mounted,
+      task: (index) async {
+        for (final r in groups[paths[index]]!) {
           if (!mounted) return;
           try {
             final res = await ledger.undoRecord(
@@ -2749,11 +2745,7 @@ class _RoundFileMutationSummaryCardState
           if (!mounted) return;
           setState(() => _bulkUndoDone += 1);
         }
-      }
-    }
-
-    await Future.wait(
-      List<Future<void>>.generate(concurrency, (_) => worker()),
+      },
     );
     if (!mounted) return;
     setState(() {

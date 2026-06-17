@@ -454,7 +454,7 @@ class HardnessApiPhaseRunner {
     );
     final contextWindowTokens = (model.maxContextTokens ?? 0) > 0
         ? model.maxContextTokens!
-        : 128000; // sensible default
+        : kInferredModelContextWindowTokens;
     var toolRound = 0;
     final previouslyReadFiles = <String>{};
     // Phase-specific deny rules: read-only phases should not allow file writes.

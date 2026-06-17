@@ -10,6 +10,7 @@ const double _kFileTreeIndentBase = 16;
 const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
+const int _kFindMatchSafetyLimit = 10000;
 
 class _FileExplorerPanel extends StatefulWidget {
   const _FileExplorerPanel({
@@ -4464,7 +4465,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (idx < 0) break;
       offsets.add(idx);
       startIndex = idx + 1;
-      if (offsets.length > 10000) break; // safety limit
+      if (offsets.length > _kFindMatchSafetyLimit) break;
     }
     setState(() {
       _findMatchOffsets = offsets;

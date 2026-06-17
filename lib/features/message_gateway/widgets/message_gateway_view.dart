@@ -761,7 +761,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             ],
                           ),
                           AnimatedSwitcher(
-                            duration: _motionDuration(context, 220),
+                            duration: openHandMotionDurationMs(context, 220),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
                             child: _autoReloadOnChange
@@ -1041,7 +1041,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AnimatedSwitcher(
-                      duration: _motionDuration(context, 220),
+                      duration: openHandMotionDurationMs(context, 220),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
                       child: _saveError == null
@@ -1356,7 +1356,7 @@ class _WebGatewayConnectivityDialogState
               const Divider(height: 1),
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: _motionDuration(context, 260),
+                  duration: openHandMotionDurationMs(context, 260),
                   switchInCurve: Curves.easeOutBack,
                   switchOutCurve: Curves.easeInCubic,
                   child: error != null
@@ -2071,7 +2071,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
             animation: animation,
             removing: true,
           ),
-          duration: _motionDuration(context, 220),
+          duration: openHandMotionDurationMs(context, 220),
         );
       }
     }
@@ -2083,7 +2083,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _renderedIds.add(entry.id);
       listState.insertItem(
         insertIndex,
-        duration: _motionDuration(context, 280),
+        duration: openHandMotionDurationMs(context, 280),
       );
     }
   }
@@ -2102,7 +2102,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: _motionDuration(context, 220),
+        animationDuration: openHandMotionDurationMs(context, 220),
       );
     });
   }
@@ -2301,7 +2301,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AnimatedOpacity(
-                          duration: _motionDuration(context, 220),
+                          duration: openHandMotionDurationMs(context, 220),
                           curve: Curves.easeOutCubic,
                           opacity: serviceControlsDisabled ? .62 : 1,
                           child: Wrap(
@@ -2889,7 +2889,7 @@ class _StatusDot extends StatelessWidget {
     // 与 MCP `_McpHealthStatusDot` 对齐：16×16 + 3px surface 同色描边 + 32% 透明软阴影；
     // 颜色变化走 AnimatedContainer，但若全局动画被禁用则 duration 归零，避免不必要重绘。
     return AnimatedContainer(
-      duration: _motionDuration(context, 180),
+      duration: openHandMotionDurationMs(context, 180),
       width: 16,
       height: 16,
       decoration: BoxDecoration(
@@ -3927,7 +3927,7 @@ class _SwitchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
-      duration: _motionDuration(context, 180),
+      duration: openHandMotionDurationMs(context, 180),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: value
@@ -5231,7 +5231,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
               child: TweenAnimationBuilder<double>(
                 key: ValueKey<int>(_animationVersion),
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: _motionDuration(context, 420),
+                duration: openHandMotionDurationMs(context, 420),
                 curve: Curves.easeOutBack,
                 builder: (context, progress, child) {
                   final values = _lerpSeries(_fromValues, _toValues, progress);
@@ -5478,10 +5478,6 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
     WebGatewayRuntimeState.stopping => '停止中',
     WebGatewayRuntimeState.crashed => '已崩溃',
   };
-}
-
-Duration _motionDuration(BuildContext context, int milliseconds) {
-  return openHandMotionDurationMs(context, milliseconds);
 }
 
 List<double> _series(

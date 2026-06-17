@@ -93,6 +93,7 @@ const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
+const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 
@@ -4901,7 +4902,7 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
         ) : null}
         {inferred ? (
           <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {t('contextStats.inferred', '* 模型未声明 maxContextTokens，按 128000 估算。')}
+            {t('contextStats.inferred', `* 模型未声明 maxContextTokens，按 ${INFERRED_MODEL_CONTEXT_WINDOW_TOKENS} 估算。`)}
           </p>
         ) : null}
         <div class="flex justify-end">

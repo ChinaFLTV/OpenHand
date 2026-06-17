@@ -1,0 +1,77 @@
+import 'dart:async';
+
+typedef OpenHandAsyncContinuePredicate = bool Function();
+
+int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
+  if (itemCount <= 0) return 0;
+  final safeLimit = maxConcurrency < 1 ? 1 : maxConcurrency;
+  return safeLimit < itemCount ? safeLimit : itemCount;
+}
+
+/// Runs indexed async work with a bounded worker pool and preserves result order.
+Future<List<T>> runOrderedWithConcurrencyLimit<T>({
+  required int itemCount,
+  required int maxConcurrency,
+  required Future<T> Function(int index) task,
+}) async {
+  final workerCount = _boundedConcurrency(
+    itemCount: itemCount,
+    maxConcurrency: maxConcurrency,
+  );
+  if (workerCount == 0) return <T>[];
+
+  final results = List<T?>.filled(itemCount, null);
+  var nextIndex = 0;
+
+  Future<void> worker() async {
+    while (true) {
+      final index = nextIndex;
+      nextIndex += 1;
+      if (index >= itemCount) return;
+      results[index] = await task(index);
+    }
+  }
+
+  await Future.wait<void>(
+    List<Future<void>>.generate(workerCount, (_) => worker()),
+  );
+  return results.cast<T>();
+}
+
+/// Runs indexed async side effects with bounded concurrency.
+///
+/// [shouldContinue] is checked before acquiring each new item and after each
+/// task, so disposed widgets/controllers can stop scheduling new work promptly.
+Future<void> forEachIndexWithConcurrencyLimit({
+  required int itemCount,
+  required int maxConcurrency,
+  required Future<void> Function(int index) task,
+  OpenHandAsyncContinuePredicate? shouldContinue,
+  Duration delayBetweenItems = Duration.zero,
+}) async {
+  final workerCount = _boundedConcurrency(
+    itemCount: itemCount,
+    maxConcurrency: maxConcurrency,
+  );
+  if (workerCount == 0) return;
+
+  var nextIndex = 0;
+  bool keepGoing() => shouldContinue?.call() ?? true;
+
+  Future<void> worker() async {
+    while (keepGoing()) {
+      final index = nextIndex;
+      nextIndex += 1;
+      if (index >= itemCount) return;
+      await task(index);
+      if (!keepGoing()) return;
+      if (delayBetweenItems > Duration.zero && index < itemCount - 1) {
+        await Future<void>.delayed(delayBetweenItems);
+      }
+    }
+  }
+
+  await Future.wait<void>(
+    List<Future<void>>.generate(workerCount, (_) => worker()),
+  );
+}

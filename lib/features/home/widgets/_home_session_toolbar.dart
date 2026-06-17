@@ -2145,10 +2145,10 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
                 Text(
                   _localizedText(
                     context,
-                    zh: '* 模型未声明 maxContextTokens，按 128000 估算。',
+                    zh: '* 模型未声明 maxContextTokens，按 $kInferredModelContextWindowTokens 估算。',
                     en:
                         '* Model declared no maxContextTokens; window inferred '
-                        'as 128000.',
+                        'as $kInferredModelContextWindowTokens.',
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.outline,

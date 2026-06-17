@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/timer_safety.dart';
 import 'data/mcp_store.dart';
 import 'model/mcp_server.dart';
@@ -915,29 +915,18 @@ class McpController extends ChangeNotifier {
     if (targets.isEmpty || _isDisposed || !_isPageActive) {
       return;
     }
-    var nextIndex = 0;
-    final workerCount = math.min(_autoProbeConcurrency, targets.length);
-    await Future.wait<void>(
-      List<Future<void>>.generate(workerCount, (_) async {
-        while (!_isDisposed && _isPageActive) {
-          final index = nextIndex;
-          nextIndex += 1;
-          if (index >= targets.length) {
-            return;
-          }
-          try {
-            await _runWithAutoProbeSlot(() => operation(targets[index]));
-          } catch (error, stack) {
-            silentLog('mcp', '_runAutoProbeWorkerPool', error, stack);
-          }
-          if (_isDisposed || !_isPageActive) {
-            return;
-          }
-          if (_autoProbeGap > Duration.zero && index < targets.length - 1) {
-            await Future<void>.delayed(_autoProbeGap);
-          }
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: targets.length,
+      maxConcurrency: _autoProbeConcurrency,
+      shouldContinue: () => !_isDisposed && _isPageActive,
+      delayBetweenItems: _autoProbeGap,
+      task: (index) async {
+        try {
+          await _runWithAutoProbeSlot(() => operation(targets[index]));
+        } catch (error, stack) {
+          silentLog('mcp', '_runAutoProbeWorkerPool', error, stack);
         }
-      }),
+      },
     );
   }
 

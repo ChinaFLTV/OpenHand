@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { normalizeDurationMs } from '../shared/util/number';
-import { getDialogExitDurationMs } from './useDialogMotionSettings';
+import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 
 export interface DelayedVisibilityOptions {
@@ -15,10 +14,6 @@ export interface DelayedVisibilityController {
   show: () => void;
   hide: () => void;
   toggle: () => void;
-}
-
-function normalizeExitMs(value: number | undefined): number {
-  return normalizeDurationMs(value, { fallback: getDialogExitDurationMs() });
 }
 
 export function useDelayedVisibility({
@@ -49,7 +44,7 @@ export function useDelayedVisibility({
   const hide = useCallback(() => {
     if (!openRef.current || closingRef.current) return;
     clearCloseTimer();
-    const closeMs = reduceMotion ? 0 : normalizeExitMs(exitMs);
+    const closeMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
     if (closeMs <= 0 || typeof window === 'undefined') {
       openRef.current = false;
       closingRef.current = false;

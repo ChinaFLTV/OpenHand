@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { normalizeDurationMs } from '../shared/util/number';
-import { getDialogExitDurationMs } from './useDialogMotionSettings';
+import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 
 export interface DialogExitMotionOptions {
@@ -68,10 +67,6 @@ function registerDialogEscapeEntry(entry: DialogEscapeStackEntry): () => void {
     dialogEscapeStack = dialogEscapeStack.filter((item) => item.id !== entry.id);
     detachDialogEscapeListenerIfIdle();
   };
-}
-
-function normalizeExitDurationMs(value: number | undefined): number {
-  return normalizeDurationMs(value, { fallback: getDialogExitDurationMs() });
 }
 
 export function useDialogExitMotion(
@@ -148,7 +143,7 @@ export function useDialogExitMotion<Reason extends string = string>(
     }
     closingRef.current = true;
     setClosing(true);
-    const durationMs = normalizeExitDurationMs(exitMs);
+    const durationMs = normalizeDialogExitDurationMs(exitMs);
     if (reduceMotion || durationMs <= 0 || typeof window === 'undefined') {
       finishClose();
       return;

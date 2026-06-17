@@ -147,18 +147,21 @@ class _TranscriptScrollDispatcher {
     if (state == null) {
       final completer = Completer<void>();
       Timer? timeout;
+      Timer? pollTimer;
       void check() {
         if (_statesBySession[sessionId] != null && !completer.isCompleted) {
           timeout?.cancel();
+          pollTimer?.cancel();
           completer.complete();
         }
       }
 
       timeout = Timer(const Duration(milliseconds: 250), () {
+        pollTimer?.cancel();
         if (!completer.isCompleted) completer.complete();
       });
       // 最多每 16ms 探测一次直到超时 / 命中。
-      Timer.periodic(const Duration(milliseconds: 16), (t) {
+      pollTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
         if (completer.isCompleted) {
           t.cancel();
           return;
