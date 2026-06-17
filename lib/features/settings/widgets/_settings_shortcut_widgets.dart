@@ -220,9 +220,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
       context,
     ).languageCode.startsWith('zh');
     final canSave = isValidShortcutBinding(_currentKeyIds);
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(widget.title),
       content: Focus(
         focusNode: _focusNode,

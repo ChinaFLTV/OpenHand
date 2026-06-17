@@ -2000,9 +2000,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
         style: theme.textTheme.titleMedium,

@@ -311,9 +311,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         _isEditing
             ? (isZh ? '编辑 Hook' : 'Edit Hook')

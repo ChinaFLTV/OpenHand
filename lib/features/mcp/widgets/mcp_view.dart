@@ -383,9 +383,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
-              actionsAlignment: MainAxisAlignment.center,
-              actionsOverflowAlignment: OverflowBarAlignment.center,
+            return buildOpenHandAlertDialog(
               title: Text(l10n.mcpDeleteConfirmTitle),
               content: Column(
                 mainAxisSize: MainAxisSize.min,

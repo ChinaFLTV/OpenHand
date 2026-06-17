@@ -1920,9 +1920,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
       return null;
     });
     if (session == null) {
-      return AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
+      return buildOpenHandAlertDialog(
         title: Text(
           _localizedText(context, zh: '上下文使用情况', en: 'Context usage'),
         ),
@@ -1985,9 +1983,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         statusColor = colorScheme.outline;
     }
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(Icons.speed_rounded, color: statusColor),

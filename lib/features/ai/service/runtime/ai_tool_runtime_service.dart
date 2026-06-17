@@ -498,8 +498,6 @@ class AiToolRuntimeService {
       }
       register(tool);
     }
-    // 2026-04-01 已移除 register(_legacyBashAlias)：
-    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
 
     return AiResolvedToolCatalog(
       definitions: definitions,
@@ -2457,9 +2455,6 @@ class AiToolRuntimeService {
       },
     ),
   ];
-
-  // 2026-04-01 _legacyBashAlias 已迁移至 AiBashTool.aliases = ['bash']
-  // AiToolRegistry.register() 会自动处理别名注册，此处无需保留。
 
   static AiResolvedTool _builtinTool({
     required AiBuiltinToolKind kind,

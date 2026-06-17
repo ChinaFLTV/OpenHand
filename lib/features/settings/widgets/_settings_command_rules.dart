@@ -211,9 +211,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
     final isChinese = Localizations.localeOf(
       context,
     ).languageCode.startsWith('zh');
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         isChinese
             ? (widget.initialRule == null ? '新增禁止命令规则' : '编辑禁止命令规则')
@@ -372,9 +370,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
     final isChinese = Localizations.localeOf(
       context,
     ).languageCode.startsWith('zh');
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         isChinese
             ? (widget.initialRule == null ? '新增允许命令规则' : '编辑允许命令规则')

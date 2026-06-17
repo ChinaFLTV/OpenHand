@@ -10,6 +10,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -687,9 +688,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: const Text('机器专家模板配置'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),

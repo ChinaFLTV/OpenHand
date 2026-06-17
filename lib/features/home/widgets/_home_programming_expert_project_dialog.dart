@@ -677,9 +677,7 @@ class _ProgrammingExpertProjectDialogState
         (_sdkController.text.trim().isNotEmpty ||
             _lspController.text.trim().isNotEmpty);
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(isZh ? '编程专家配置' : 'Programming Expert Configuration'),
       content: SizedBox(
         width: 620,
@@ -1321,7 +1319,6 @@ _ProgrammingExpertRecentPathCache _collectProgrammingExpertRecentPaths(
   final sdkPathsByLanguage = <String, List<String>>{};
   final lspSeenByLanguage = <String, Set<String>>{};
   final lspPathsByLanguage = <String, List<String>>{};
-
 
   for (final session in sessions) {
     if (session.templateId != 'programming_expert') {

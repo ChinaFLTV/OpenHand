@@ -182,9 +182,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
               : (isZh ? '卸载完成' : 'Uninstalled'))
         : (isZh ? '执行失败' : 'Failed');
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(

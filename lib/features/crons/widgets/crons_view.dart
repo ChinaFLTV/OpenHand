@@ -761,9 +761,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       (controller) => controller.systemUsers,
     );
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         _isEditing
             ? (isZh ? '编辑定时任务' : 'Edit Cron Job')
@@ -1994,9 +1992,7 @@ class _CronHistoryDialog extends StatelessWidget {
     );
     final controller = context.read<CronsController>();
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Expanded(
