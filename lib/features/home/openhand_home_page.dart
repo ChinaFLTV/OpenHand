@@ -71,7 +71,8 @@ import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/timer_safety.dart';
-import '../../shared/util/unified_diff.dart' show unifiedDiffLinesFromText;
+import '../../shared/util/unified_diff.dart'
+    show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../hardness/index.dart';

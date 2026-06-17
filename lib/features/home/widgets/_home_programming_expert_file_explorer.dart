@@ -11,6 +11,7 @@ const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
 const int _kFindMatchSafetyLimit = 10000;
+const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
 
 class _FileExplorerPanel extends StatefulWidget {
   const _FileExplorerPanel({
@@ -2445,9 +2446,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final updatedText = _applyTextEdits(originalText, fileEdit.edits);
       final diffLines = originalText == updatedText
           ? const <String>[]
-          : _computeEditorUnifiedDiff(
+          : unifiedDiffLines(
               originalText.split('\n'),
               updatedText.split('\n'),
+              maxMyersLineTotal: _kEditorUnifiedDiffMaxMyersLineTotal,
             );
       final additions = diffLines
           .where((line) => line.startsWith('+') && !line.startsWith('+++'))
@@ -11399,214 +11401,6 @@ class _WorkspaceEditDiffLine extends StatelessWidget {
       ),
     );
   }
-}
-
-List<String> _computeEditorUnifiedDiff(
-  List<String> before,
-  List<String> after,
-) {
-  if (before.isEmpty && after.isEmpty) return const <String>[];
-  if (before.isEmpty) {
-    return <String>[
-      '--- /dev/null',
-      '+++ b/file',
-      '@@ -0,0 +1,${after.length} @@',
-      ...after.map((line) => '+$line'),
-    ];
-  }
-  if (after.isEmpty) {
-    return <String>[
-      '--- a/file',
-      '+++ /dev/null',
-      '@@ -1,${before.length} +0,0 @@',
-      ...before.map((line) => '-$line'),
-    ];
-  }
-  if (before.length + after.length > 10000) {
-    return _fallbackEditorDiff(before, after);
-  }
-
-  final n = before.length;
-  final m = after.length;
-  final max = n + m;
-  final size = 2 * max + 1;
-  final v = List<int>.filled(size, 0);
-  final traces = <List<int>>[];
-
-  var found = false;
-  for (var d = 0; d <= max && !found; d++) {
-    traces.add(List<int>.from(v));
-    for (var k = -d; k <= d; k += 2) {
-      int x;
-      if (k == -d || (k != d && v[k - 1 + max] < v[k + 1 + max])) {
-        x = v[k + 1 + max];
-      } else {
-        x = v[k - 1 + max] + 1;
-      }
-      var y = x - k;
-      while (x < n && y < m && before[x] == after[y]) {
-        x++;
-        y++;
-      }
-      v[k + max] = x;
-      if (x >= n && y >= m) {
-        found = true;
-        break;
-      }
-    }
-  }
-
-  final editScript = <({String type, String text})>[];
-  var bx = n;
-  var by = m;
-  for (var d = traces.length - 1; d > 0; d--) {
-    final previousTrace = traces[d - 1];
-    final k = bx - by;
-    int previousK;
-    if (k == -d ||
-        (k != d && previousTrace[k - 1 + max] < previousTrace[k + 1 + max])) {
-      previousK = k + 1;
-    } else {
-      previousK = k - 1;
-    }
-    final previousX = previousTrace[previousK + max];
-    final previousY = previousX - previousK;
-
-    while (bx > previousX && by > previousY) {
-      bx--;
-      by--;
-      editScript.add((type: ' ', text: before[bx]));
-    }
-    if (bx == previousX && by > previousY) {
-      by--;
-      editScript.add((type: '+', text: after[by]));
-    } else if (by == previousY && bx > previousX) {
-      bx--;
-      editScript.add((type: '-', text: before[bx]));
-    }
-  }
-
-  while (bx > 0 && by > 0) {
-    bx--;
-    by--;
-    editScript.add((type: ' ', text: before[bx]));
-  }
-  while (bx > 0) {
-    bx--;
-    editScript.add((type: '-', text: before[bx]));
-  }
-  while (by > 0) {
-    by--;
-    editScript.add((type: '+', text: after[by]));
-  }
-
-  final edits = editScript.reversed.toList(growable: false);
-  const contextSize = 3;
-  final result = <String>['--- a/file', '+++ b/file'];
-  final changeIndices = <int>[];
-
-  for (var index = 0; index < edits.length; index++) {
-    if (edits[index].type != ' ') {
-      changeIndices.add(index);
-    }
-  }
-  if (changeIndices.isEmpty) {
-    return const <String>[];
-  }
-
-  final hunkRanges = <(int, int)>[];
-  var hunkStart = (changeIndices.first - contextSize).clamp(0, edits.length);
-  var hunkEnd = (changeIndices.first + contextSize + 1).clamp(0, edits.length);
-
-  for (var index = 1; index < changeIndices.length; index++) {
-    final nextStart = (changeIndices[index] - contextSize).clamp(
-      0,
-      edits.length,
-    );
-    final nextEnd = (changeIndices[index] + contextSize + 1).clamp(
-      0,
-      edits.length,
-    );
-    if (nextStart <= hunkEnd) {
-      hunkEnd = nextEnd;
-    } else {
-      hunkRanges.add((hunkStart, hunkEnd));
-      hunkStart = nextStart;
-      hunkEnd = nextEnd;
-    }
-  }
-  hunkRanges.add((hunkStart, hunkEnd));
-
-  for (final (start, end) in hunkRanges) {
-    var beforeLine = 0;
-    var afterLine = 0;
-    for (var index = 0; index < start; index++) {
-      if (edits[index].type != '+') {
-        beforeLine++;
-      }
-      if (edits[index].type != '-') {
-        afterLine++;
-      }
-    }
-    final hunkBeforeStart = beforeLine + 1;
-    final hunkAfterStart = afterLine + 1;
-    var hunkBeforeCount = 0;
-    var hunkAfterCount = 0;
-    final hunkLines = <String>[];
-    for (var index = start; index < end; index++) {
-      final edit = edits[index];
-      hunkLines.add('${edit.type}${edit.text}');
-      if (edit.type != '+') {
-        hunkBeforeCount++;
-      }
-      if (edit.type != '-') {
-        hunkAfterCount++;
-      }
-    }
-    result.add(
-      '@@ -$hunkBeforeStart,$hunkBeforeCount +$hunkAfterStart,$hunkAfterCount @@',
-    );
-    result.addAll(hunkLines);
-  }
-
-  return result;
-}
-
-List<String> _fallbackEditorDiff(List<String> before, List<String> after) {
-  final result = <String>['--- a/file', '+++ b/file'];
-  final maxLen = math.max(before.length, after.length);
-  var diffStart = -1;
-  final hunkLines = <String>[];
-
-  for (var index = 0; index < maxLen; index++) {
-    final beforeLine = index < before.length ? before[index] : null;
-    final afterLine = index < after.length ? after[index] : null;
-    if (beforeLine == afterLine) {
-      if (hunkLines.isNotEmpty) {
-        result.add('@@ -${diffStart + 1} @@');
-        result.addAll(hunkLines);
-        hunkLines.clear();
-        diffStart = -1;
-      }
-      continue;
-    }
-    if (diffStart < 0) {
-      diffStart = index;
-    }
-    if (beforeLine != null) {
-      hunkLines.add('-$beforeLine');
-    }
-    if (afterLine != null) {
-      hunkLines.add('+$afterLine');
-    }
-  }
-
-  if (hunkLines.isNotEmpty) {
-    result.add('@@ -${(diffStart < 0 ? 0 : diffStart) + 1} @@');
-    result.addAll(hunkLines);
-  }
-
-  return result;
 }
 
 class _EditorSymbolPattern {
