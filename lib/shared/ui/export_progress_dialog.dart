@@ -58,9 +58,7 @@ class ExportProgressDialog extends StatelessWidget {
     final theme = Theme.of(context);
     return PopScope(
       canPop: false,
-      child: AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
+      child: buildOpenHandAlertDialog(
         title: Text(title),
         content: AnimatedBuilder(
           animation: controller,

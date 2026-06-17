@@ -82,12 +82,11 @@ void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
     builder: (dialogContext) {
       final l10n = AppLocalizations.of(dialogContext)!;
       final theme = Theme.of(dialogContext);
-      return AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
+      return buildOpenHandAlertDialog(
         title: Text(l10n.sessMetaErrorDetail),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
+        content: buildOpenHandDialogConstrainedContent(
+          maxWidth: 560,
+          maxHeight: 480,
           child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
         ),
         actions: <Widget>[

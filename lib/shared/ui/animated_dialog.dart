@@ -108,10 +108,16 @@ AlertDialog buildOpenHandAlertDialog({
   List<Widget>? actions,
   MainAxisAlignment actionsAlignment = MainAxisAlignment.center,
   OverflowBarAlignment actionsOverflowAlignment = OverflowBarAlignment.center,
+  double? actionsOverflowButtonSpacing,
+  EdgeInsetsGeometry? actionsPadding,
+  EdgeInsetsGeometry? contentPadding,
 }) {
   return AlertDialog(
     actionsAlignment: actionsAlignment,
     actionsOverflowAlignment: actionsOverflowAlignment,
+    actionsOverflowButtonSpacing: actionsOverflowButtonSpacing,
+    actionsPadding: actionsPadding,
+    contentPadding: contentPadding,
     icon: icon,
     title: title,
     content: content,

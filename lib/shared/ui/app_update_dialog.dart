@@ -141,9 +141,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(Icons.system_update_outlined, color: colorScheme.primary),
