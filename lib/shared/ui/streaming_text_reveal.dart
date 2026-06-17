@@ -285,7 +285,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
   void didUpdateWidget(covariant StreamingTextRevealText oldWidget) {
     super.didUpdateWidget(oldWidget);
     final previousText = oldWidget.text;
-    _rebuildGraphemeEnds();
+    _syncGraphemeEnds(previousText);
     if (_bypassReveal) {
       _visibleGraphemes = _targetGraphemes;
       _stopTicker();
@@ -313,6 +313,33 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     var offset = 0;
     final ends = <int>[];
     for (final cluster in widget.text.characters) {
+      offset += cluster.length;
+      ends.add(offset);
+    }
+    _graphemeEnds = ends;
+  }
+
+  void _syncGraphemeEnds(String previousText) {
+    final text = widget.text;
+    if (text.isEmpty) {
+      _graphemeEnds = const <int>[];
+      return;
+    }
+    final appendOnly =
+        text.startsWith(previousText) &&
+        (_graphemeEnds.isEmpty
+            ? previousText.isEmpty
+            : _graphemeEnds.last == previousText.length);
+    if (!appendOnly) {
+      _rebuildGraphemeEnds();
+      return;
+    }
+    if (text.length == previousText.length) {
+      return;
+    }
+    final ends = _graphemeEnds.isEmpty ? <int>[] : _graphemeEnds;
+    var offset = previousText.length;
+    for (final cluster in text.substring(previousText.length).characters) {
       offset += cluster.length;
       ends.add(offset);
     }

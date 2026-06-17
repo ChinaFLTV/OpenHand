@@ -555,6 +555,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       return SelectionArea(
         child: _SafeMarkdownBody(
           data: data.isEmpty ? ' ' : data,
+          streaming: true,
           builders: markdownBuilders,
           styleSheet: markdownStyleSheet.styleSheet,
           inlineSyntaxes: inlineSyntaxes,

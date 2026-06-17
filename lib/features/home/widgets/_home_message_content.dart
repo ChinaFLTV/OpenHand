@@ -160,7 +160,6 @@ class _ReasoningBody extends StatelessWidget {
       return _StreamingReasoningBody(
         content: content,
         expanded: expanded,
-        textStyle: styleSheet.p?.copyWith(color: textColor),
         fadeColor: fadeColor,
         selectable: selectable,
         styleSheet: styleSheet,
@@ -210,7 +209,6 @@ class _StreamingReasoningBody extends StatelessWidget {
     required this.content,
     required this.expanded,
     required this.selectable,
-    required this.textStyle,
     required this.fadeColor,
     required this.styleSheet,
     required this.builders,
@@ -222,7 +220,6 @@ class _StreamingReasoningBody extends StatelessWidget {
   final String content;
   final bool expanded;
   final bool selectable;
-  final TextStyle? textStyle;
   final Color fadeColor;
   final MarkdownStyleSheet styleSheet;
   final Map<String, MarkdownElementBuilder> builders;
@@ -236,32 +233,27 @@ class _StreamingReasoningBody extends StatelessWidget {
     // 流式期间若用户主动折叠（expanded=false），也展示前 5-6 行预览。
     // 这里继续不嵌内部 AnimatedSize：外层 bubble 已统一承接语义边界上的
     // 高度变化，内部只保留内容切换，避免双动画抖动。
-    //
-    // 2026-06-04 修复：流失追加阶段不再走 `_SafeMarkdownBody` 完整 markdown
-    // 渲染路径。`_SafeMarkdownBody` 内部对 >400 字符内容走 deferred 解析,
-    // 第一帧降级纯文本占位、第二帧再升级为 markdown 树,造成
-    // 「plain text ↔ markdown」的逐帧高度抖动。当思考卡片占满整个窗口时,
-    // 该抖动被外层 `SizeChangedLayoutNotifier` + `_scheduleScrollToBottom`
-    // 的 jumpTo 捕获并把视口逐帧弹跳式拽回新底部,呈现"上蹿下跳 / 鬼畜抽搐"。
-    // 正式响应卡片的 markdown 格式流式阶段走稳定的 `_SafeMarkdownBody`
-    // 子树；plain_text 才走 `_StreamingAssistantTextBody`。这里仍维持思考
-    // 卡片的纯文本流式策略，避免 reasoning 大段内容与自动滚动互相放大抖动。
-    //
-    // 修复策略: reasoning 流式阶段维持 plain text 路径,只保留文本流自身的
-    // 高亮；正式响应按内容格式分流，markdown 响应全程保持 markdown 子树，
-    // plain_text 响应才走 `_StreamingAssistantTextBody`。
+    // `_SafeMarkdownBody(streaming: true)` 会保留上一帧富文本树并节流解析，
+    // 不再回退到纯文本占位，因此思考卡片流式阶段也能渲染公式和表格。
     return expanded
         ? KeyedSubtree(
-            key: const ValueKey<String>('streaming-reasoning-plain-expanded'),
+            key: const ValueKey<String>(
+              'streaming-reasoning-markdown-expanded',
+            ),
             child: StreamingTextRevealText(
               text: effectiveContent,
               streaming: true,
               animateSize: false,
-              builder: (context, visibleContent) =>
-                  _StreamingReasoningPlainBody(
-                    data: visibleContent.isEmpty ? ' ' : visibleContent,
-                    textStyle: textStyle,
-                  ),
+              builder: (context, visibleContent) => _SafeMarkdownBody(
+                data: visibleContent.isEmpty ? ' ' : visibleContent,
+                streaming: true,
+                selectable: selectable,
+                builders: builders,
+                styleSheet: styleSheet,
+                inlineSyntaxes: inlineSyntaxes,
+                pathRoots: pathRoots,
+                parseKey: parseKey,
+              ),
             ),
           )
         : KeyedSubtree(
@@ -277,28 +269,6 @@ class _StreamingReasoningBody extends StatelessWidget {
               fadeColor: fadeColor,
             ),
           );
-  }
-}
-
-/// 思考卡片流失追加阶段的纯文本渲染体。结构对齐
-/// [_StreamingAssistantTextBody] / [_PlainTextMessageBody] 的 plain text
-/// 路径,绕开 `_SafeMarkdownBody` 的 deferred parse 占位抖动;外层
-/// `StreamingTextReveal` 仍负责流式字符的尾部 fade 高亮。
-class _StreamingReasoningPlainBody extends StatelessWidget {
-  const _StreamingReasoningPlainBody({required this.data, this.textStyle});
-
-  final String data;
-  final TextStyle? textStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return SelectableText(
-      data,
-      // markdown 风格在流式阶段对纯文本主要体现在 p 段的 line-height
-      // 与字号;直接套用上层传入的 textStyle 即可保证色、字号、字高与
-      // 流结束后的 markdown 渲染一致,避免视觉跳变。
-      style: textStyle,
-    );
   }
 }
 
@@ -1017,6 +987,7 @@ class _SafeMarkdownBody extends StatefulWidget {
     required this.data,
     required this.styleSheet,
     this.selectable = false,
+    this.streaming = false,
     this.builders = const <String, MarkdownElementBuilder>{},
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
@@ -1026,6 +997,7 @@ class _SafeMarkdownBody extends StatefulWidget {
   final String data;
   final MarkdownStyleSheet styleSheet;
   final bool selectable;
+  final bool streaming;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
@@ -1049,6 +1021,11 @@ class _SafeMarkdownBody extends StatefulWidget {
 // 是历史里很多 ~600 字节的中等长度消息绕过了 deferred 路径，几张同帧
 // 同步解析就把 16 ms 帧预算撑爆。再降一档把更多消息纳入帧节流。
 const int _markdownDeferredParseThresholdChars = 400;
+
+// 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
+// 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。
+const int _markdownStreamingDeferredParseThresholdChars = 160;
+const int _markdownStreamingParseMinIntervalMs = 96;
 
 /// 阶段㉒：进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
 /// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
@@ -1415,9 +1392,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   int? _lastThemeSignature;
   String? _lastData;
   bool? _lastSelectable;
+  bool? _lastStreaming;
   String? _lastBuilderSignature;
   String? _lastParseKey;
   bool _deferredParseScheduled = false;
+  Timer? _deferredParseThrottleTimer;
+  int _lastMarkdownParseAtMs = 0;
   TranscriptScrollActivity? _scrollActivity;
   bool _deferredParsePendingAfterScroll = false;
 
@@ -1438,6 +1418,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final builderSignature = _builderSignature();
     if (_lastData != widget.data ||
         _lastSelectable != widget.selectable ||
+        _lastStreaming != widget.streaming ||
         _lastBuilderSignature != builderSignature ||
         _lastParseKey != widget.parseKey) {
       _parseMarkdownMaybeDeferred(initial: false);
@@ -1452,6 +1433,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   @override
   void dispose() {
+    _cancelDeferredParseThrottle();
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = null;
     _disposeRecognizers();
@@ -1473,35 +1455,39 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     if (activity == null || !mounted || activity.value) {
       return;
     }
-    if (!_deferredParsePendingAfterScroll || _deferredParseScheduled) {
+    if (!_deferredParsePendingAfterScroll ||
+        _deferredParseScheduled ||
+        _deferredParseThrottleTimer != null) {
       return;
     }
     _deferredParsePendingAfterScroll = false;
-    _scheduleDeferredParse();
+    _scheduleDeferredParse(throttle: widget.streaming && _children != null);
   }
 
   /// Decides whether to parse synchronously or defer to the next frame.
   ///
-  /// On the FIRST mount of a non-trivial body we paint a cheap plain-text
+  /// On the first mount of a non-trivial body we paint a cheap plain-text
   /// stand-in immediately and queue the real parse via the global
-  /// [_MarkdownFrameScheduler]. This unblocks the frame that mounts a freshly
-  /// opened transcript, which may contain a dozen+ such bubbles all
-  /// competing for parse time. Subsequent updates parse synchronously to
-  /// avoid mid-conversation flicker.
+  /// [_MarkdownFrameScheduler]. Streaming updates keep the last rich tree
+  /// visible and coalesce reparses into a bounded cadence.
   /// 阶段⑳：无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
   /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
   /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
   /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
   /// 阶段㉑：deferred 任务交由 [_MarkdownFrameScheduler] 帧节流。同帧内
-  /// 多个 bubble 一起注册时，每帧只跑 2 个 markdown 解析，剩余排队到
+  /// 多个 bubble 一起注册时，每帧只跑 1 个 markdown 解析，剩余排队到
   /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
     final normalizedSource = _sanitizeMarkdownSource(
       widget.data.isEmpty ? ' ' : widget.data,
     );
     final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
-    final hasWarmAst = _markdownAstCache.get(astCacheKey) != null;
-    if (widget.data.length > _markdownDeferredParseThresholdChars &&
+    final hasWarmAst =
+        !widget.streaming && _markdownAstCache.get(astCacheKey) != null;
+    final deferredThreshold = widget.streaming
+        ? _markdownStreamingDeferredParseThresholdChars
+        : _markdownDeferredParseThresholdChars;
+    if (widget.data.length > deferredThreshold &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data) &&
         !hasWarmAst) {
@@ -1510,24 +1496,59 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
       // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
       // (看起来像折叠摘要) → rich」反复闪烁。
-      if (_children == null) {
+      final hadChildren = _children != null;
+      if (initial || !hadChildren) {
         _renderPlainTextPlaceholder();
       }
       if (_scrollActivity?.value ?? false) {
         _deferredParsePendingAfterScroll = true;
       } else {
         _deferredParsePendingAfterScroll = false;
-        _scheduleDeferredParse();
+        _scheduleDeferredParse(throttle: widget.streaming && hadChildren);
       }
       return;
     }
     _deferredParsePendingAfterScroll = false;
+    _cancelDeferredParseThrottle();
     _parseMarkdown();
   }
 
-  void _scheduleDeferredParse() {
+  void _cancelDeferredParseThrottle() {
+    final timer = _deferredParseThrottleTimer;
+    if (timer == null) {
+      return;
+    }
+    timer.cancel();
+    _deferredParseThrottleTimer = null;
+  }
+
+  void _scheduleDeferredParse({bool throttle = false}) {
     if (_deferredParseScheduled) {
       return;
+    }
+    if (!throttle) {
+      _cancelDeferredParseThrottle();
+    } else if (_deferredParseThrottleTimer != null) {
+      return;
+    } else {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final elapsedMs = _lastMarkdownParseAtMs <= 0
+          ? _markdownStreamingParseMinIntervalMs
+          : nowMs - _lastMarkdownParseAtMs;
+      final remainingMs = _markdownStreamingParseMinIntervalMs - elapsedMs;
+      if (remainingMs > 0) {
+        _deferredParseThrottleTimer = Timer(
+          Duration(milliseconds: remainingMs),
+          () {
+            _deferredParseThrottleTimer = null;
+            if (!mounted) {
+              return;
+            }
+            _scheduleDeferredParse();
+          },
+        );
+        return;
+      }
     }
     _deferredParseScheduled = true;
     _MarkdownFrameScheduler.instance.schedule(() {
@@ -1569,6 +1590,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     try {
       _parseMarkdownInner();
     } finally {
+      _lastMarkdownParseAtMs = DateTime.now().millisecondsSinceEpoch;
       developer.Timeline.finishSync();
     }
   }
@@ -1583,6 +1605,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _lastThemeSignature = _computeThemeSignature();
     _lastData = widget.data;
     _lastSelectable = widget.selectable;
+    _lastStreaming = widget.streaming;
     _lastBuilderSignature = _builderSignature();
     _lastParseKey = widget.parseKey;
     _disposeRecognizers();
@@ -1615,7 +1638,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // 的 widget 构造仍按当前主题样式 fresh 跑一次，避免主题切换时
       // 残留旧色。
       final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
-      final cachedAst = _markdownAstCache.get(astCacheKey);
+      final shouldCacheAst = !widget.streaming;
+      final cachedAst = shouldCacheAst
+          ? _markdownAstCache.get(astCacheKey)
+          : null;
       final List<md.Node> astNodes;
       if (cachedAst != null) {
         astNodes = cachedAst;
@@ -1632,7 +1658,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           const LineSplitter().convert(normalizedSource),
         );
         _sanitizeMarkdownAst(astNodes);
-        _markdownAstCache.put(astCacheKey, astNodes);
+        if (shouldCacheAst) {
+          _markdownAstCache.put(astCacheKey, astNodes);
+        }
       }
       final builder = MarkdownBuilder(
         delegate: this,
