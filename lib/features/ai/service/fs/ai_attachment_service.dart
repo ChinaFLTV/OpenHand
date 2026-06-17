@@ -9,6 +9,7 @@ import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/directory_cleanup.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -117,8 +118,7 @@ class AiAttachmentService {
 
   Future<void> _maybeDeleteIfEmpty(Directory directory) async {
     try {
-      final entries = await directory.list(followLinks: false).take(1).toList();
-      if (entries.isEmpty) {
+      if (await isDirectoryEmpty(directory)) {
         await directory.delete();
       }
     } catch (error, stack) {
@@ -765,28 +765,10 @@ class AiAttachmentService {
       return;
     }
     await directory.delete(recursive: true);
-    await _deleteEmptyAttachmentAncestors(directory.parent);
-  }
-
-  Future<void> _deleteEmptyAttachmentAncestors(Directory directory) async {
-    final rootPath = p.normalize(_attachmentsDirectoryPath);
-    var current = directory;
-    while (true) {
-      final currentPath = p.normalize(current.path);
-      if (currentPath == rootPath || !p.isWithin(rootPath, currentPath)) {
-        return;
-      }
-      if (!await current.exists()) {
-        current = current.parent;
-        continue;
-      }
-      final entries = await current.list(followLinks: false).take(1).toList();
-      if (entries.isNotEmpty) {
-        return;
-      }
-      await current.delete();
-      current = current.parent;
-    }
+    await deleteEmptyAncestorDirectories(
+      start: directory.parent,
+      stopAt: Directory(_attachmentsDirectoryPath),
+    );
   }
 
   String _targetFileName(int sequence, String sourceName) {

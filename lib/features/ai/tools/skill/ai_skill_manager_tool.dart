@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -634,27 +635,14 @@ class AiSkillManagerTool extends AiTool {
     required Directory stopAt,
     required String logContext,
   }) async {
-    Directory cursor = start;
-    final stopPath = p.normalize(stopAt.path);
-    while (!p.equals(p.normalize(cursor.path), stopPath) &&
-        isPathWithinOrEqual(stopPath, cursor.path) &&
-        await _isDirEmpty(cursor)) {
-      try {
-        await cursor.delete();
-      } catch (error, stack) {
+    await deleteEmptyAncestorDirectories(
+      start: start,
+      stopAt: stopAt,
+      continuePastMissing: false,
+      onError: (directory, error, stack) {
         silentLog('ai_skill_manager_tool', logContext, error, stack);
-        break;
-      }
-      cursor = cursor.parent;
-    }
-  }
-
-  Future<bool> _isDirEmpty(Directory dir) async {
-    if (!await dir.exists()) return false;
-    await for (final _ in dir.list(followLinks: false)) {
-      return false;
-    }
-    return true;
+      },
+    );
   }
 
   int _countOccurrences(String haystack, String needle) {

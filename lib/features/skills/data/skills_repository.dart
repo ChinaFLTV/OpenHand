@@ -9,6 +9,7 @@ import 'package:yaml/yaml.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/path_safety.dart';
 import '../model/local_skill.dart';
 
@@ -1164,9 +1165,9 @@ class SkillsRepository {
       if (await file.exists()) {
         await file.delete();
       }
-      await _deleteEmptyParentDirectories(
-        file.parent,
-        rootDirectoryPath: rootDirectoryPath,
+      await deleteEmptyAncestorDirectories(
+        start: file.parent,
+        stopAt: Directory(rootDirectoryPath),
       );
       return;
     }
@@ -1176,28 +1177,6 @@ class SkillsRepository {
       await parentDirectory.create(recursive: true);
     }
     await file.writeAsBytes(bytes, flush: true);
-  }
-
-  Future<void> _deleteEmptyParentDirectories(
-    Directory directory, {
-    required String rootDirectoryPath,
-  }) async {
-    final normalizedRootPath = p.normalize(rootDirectoryPath);
-    var currentPath = p.normalize(directory.path);
-    while (!p.equals(normalizedRootPath, currentPath) &&
-        isPathWithinOrEqual(normalizedRootPath, currentPath)) {
-      final currentDirectory = Directory(currentPath);
-      if (!await currentDirectory.exists()) {
-        currentPath = p.dirname(currentPath);
-        continue;
-      }
-      final children = await currentDirectory.list(followLinks: false).toList();
-      if (children.isNotEmpty) {
-        return;
-      }
-      await currentDirectory.delete();
-      currentPath = p.dirname(currentPath);
-    }
   }
 
   String _titleFromSlug(String slug) {
