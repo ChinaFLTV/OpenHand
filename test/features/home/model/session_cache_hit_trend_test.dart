@@ -7,11 +7,11 @@ import 'package:openhand/features/home/model/session_cache_hit_trend.dart';
 void main() {
   group('SessionCacheHitTrend diagnostics', () {
     test(
-      'does not treat missing cache_control as drift for OpenAI-compatible cache',
+      'classifies short stable zero hit as OpenAI-compatible auto-cache miss',
       () {
         final session = _sessionWithTwoTurns(
           secondAssistantMetadata: _cacheMetadata(
-            idleGapSeconds: 80,
+            idleGapSeconds: 93,
             stablePrefixHash: 'stable',
             previousStablePrefixHash: 'stable',
             toolCatalogHash: 'tools',
@@ -22,7 +22,7 @@ void main() {
             promptTokens: 10000,
             completionTokens: 10,
             totalTokens: 10010,
-            cacheReadTokens: 7000,
+            cacheReadTokens: 0,
           ),
         );
 
@@ -33,10 +33,44 @@ void main() {
 
         expect(trend.points, hasLength(2));
         expect(trend.points.last.prefixDriftSuspected, isFalse);
-        expect(trend.points.last.ttlSuspected, isTrue);
-        expect(trend.points.last.missKind, SessionCacheMissKind.ttlSuspected);
+        expect(trend.points.last.ttlSuspected, isFalse);
+        expect(trend.points.last.providerAutomaticMissSuspected, isTrue);
+        expect(
+          trend.points.last.missKind,
+          SessionCacheMissKind.providerAutomaticMiss,
+        );
       },
     );
+
+    test('does not treat partial OpenAI-compatible hits as prefix drift', () {
+      final session = _sessionWithTwoTurns(
+        secondAssistantMetadata: _cacheMetadata(
+          idleGapSeconds: 80,
+          stablePrefixHash: 'stable',
+          previousStablePrefixHash: 'stable',
+          toolCatalogHash: 'tools',
+          previousToolCatalogHash: 'tools',
+          cacheControlMarkerCount: 0,
+        ),
+        secondUsage: const AiTokenUsage(
+          promptTokens: 10000,
+          completionTokens: 10,
+          totalTokens: 10010,
+          cacheReadTokens: 7000,
+        ),
+      );
+
+      final trend = SessionCacheHitTrend.fromSession(
+        session,
+        claudeStyle: false,
+      );
+
+      expect(trend.points, hasLength(2));
+      expect(trend.points.last.prefixDriftSuspected, isFalse);
+      expect(trend.points.last.ttlSuspected, isTrue);
+      expect(trend.points.last.providerAutomaticMissSuspected, isFalse);
+      expect(trend.points.last.missKind, SessionCacheMissKind.ttlSuspected);
+    });
 
     test('keeps cache_control drift detection for Claude-style cache', () {
       final session = _sessionWithTwoTurns(
@@ -64,6 +98,7 @@ void main() {
       expect(trend.points, hasLength(2));
       expect(trend.points.last.ttlSuspected, isFalse);
       expect(trend.points.last.prefixDriftSuspected, isTrue);
+      expect(trend.points.last.providerAutomaticMissSuspected, isFalse);
       expect(trend.points.last.missKind, SessionCacheMissKind.prefixDrift);
     });
   });

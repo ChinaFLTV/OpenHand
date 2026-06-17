@@ -759,7 +759,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final cacheIdleGapSeconds = _auditFirstInt([
       metadata['idle_gap_seconds'],
       relatedMetadata['idle_gap_seconds'],
-      if (promptMetadataFromMsg != null) promptMetadataFromMsg['idle_gap_seconds'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['idle_gap_seconds'],
     ]);
     final cacheTtlSuspected = _auditFirstBool([
       metadata['ttl_suspected'],
@@ -781,7 +782,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final toolCatalogHash = _auditFirstString([
       metadata['tool_catalog_hash'],
       relatedMetadata['tool_catalog_hash'],
-      if (promptMetadataFromMsg != null) promptMetadataFromMsg['tool_catalog_hash'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['tool_catalog_hash'],
     ]);
     final previousToolCatalogHash = _auditFirstString([
       metadata['previous_tool_catalog_hash'],
@@ -789,14 +791,59 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       if (promptMetadataFromMsg != null)
         promptMetadataFromMsg['previous_tool_catalog_hash'],
     ]);
-    final prefixDriftSuspected = !cacheTtlSuspected &&
+    final cacheControlStrategy = _auditFirstString([
+      metadata['cache_control_strategy'],
+      relatedMetadata['cache_control_strategy'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['cache_control_strategy'],
+    ]);
+    final stableCacheKey = _auditFirstString([
+      metadata['stable_cache_key'],
+      relatedMetadata['stable_cache_key'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['stable_cache_key'],
+    ]);
+    final previousStableCacheKey = _auditFirstString([
+      metadata['previous_stable_cache_key'],
+      relatedMetadata['previous_stable_cache_key'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['previous_stable_cache_key'],
+    ]);
+    final cacheHitRatio = displayUsage == null
+        ? null
+        : _auditMessageHitRatio(
+            promptTokens: displayUsage.promptTokens,
+            cacheReadTokens: displayUsage.cacheReadTokens,
+            claudeStyle: widget.claudeStyle,
+          );
+    final stablePrefixKnown =
+        stablePrefixHash != null &&
+        previousStablePrefixHash != null &&
+        stablePrefixHash.isNotEmpty &&
+        previousStablePrefixHash.isNotEmpty;
+    final stablePrefixUnchanged =
+        stablePrefixKnown && stablePrefixHash == previousStablePrefixHash;
+    final toolCatalogStable =
+        toolCatalogHash == null ||
+        previousToolCatalogHash == null ||
+        toolCatalogHash.isEmpty ||
+        previousToolCatalogHash.isEmpty ||
+        toolCatalogHash == previousToolCatalogHash;
+    final providerAutomaticMissSuspected =
+        !widget.claudeStyle &&
+        !cacheTtlSuspected &&
+        stablePrefixUnchanged &&
+        toolCatalogStable &&
+        cacheIdleGapSeconds != null &&
+        cacheIdleGapSeconds >= kShortAutoCacheIdleGapSeconds &&
+        cacheHitRatio != null &&
+        cacheHitRatio < kProviderAutomaticMissHitRatioThreshold;
+    final prefixDriftSuspected =
+        !cacheTtlSuspected &&
+        !providerAutomaticMissSuspected &&
         cacheIdleGapSeconds != null &&
         cacheIdleGapSeconds < 3600 &&
-        ((stablePrefixHash != null &&
-                previousStablePrefixHash != null &&
-                stablePrefixHash.isNotEmpty &&
-                previousStablePrefixHash.isNotEmpty &&
-                stablePrefixHash != previousStablePrefixHash) ||
+        ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
             (toolCatalogHash != null &&
                 previousToolCatalogHash != null &&
                 toolCatalogHash.isNotEmpty &&
@@ -1062,7 +1109,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         ),
                       if (cacheIdleGapSeconds != null ||
                           cacheTtlSuspected ||
-                          prefixDriftSuspected)
+                          prefixDriftSuspected ||
+                          providerAutomaticMissSuspected)
                         _AuditJsonBlock(
                           label: isZh ? '缓存诊断' : 'Cache Diagnostics',
                           initiallyExpanded: true,
@@ -1070,12 +1118,17 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             'idle_gap_seconds': cacheIdleGapSeconds,
                             'ttl_suspected': cacheTtlSuspected,
                             'prefix_drift_suspected': prefixDriftSuspected,
+                            'provider_automatic_miss_suspected':
+                                providerAutomaticMissSuspected,
                             'stable_prefix_hash': stablePrefixHash,
                             'previous_stable_prefix_hash':
                                 previousStablePrefixHash,
                             'tool_catalog_hash': toolCatalogHash,
                             'previous_tool_catalog_hash':
                                 previousToolCatalogHash,
+                            'cache_control_strategy': cacheControlStrategy,
+                            'stable_cache_key': stableCacheKey,
+                            'previous_stable_cache_key': previousStableCacheKey,
                           },
                         ),
                     ],
@@ -1584,7 +1637,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                                 SessionCacheHitDisplayMode.excludeExtremeMisses,
                               )
                               .averageHitRatio;
-                          if (ratio <= 0 && (statistics.cacheReadTokens ?? 0) <= 0) {
+                          if (ratio <= 0 &&
+                              (statistics.cacheReadTokens ?? 0) <= 0) {
                             return const SizedBox.shrink();
                           }
                           return _AuditKvRow(

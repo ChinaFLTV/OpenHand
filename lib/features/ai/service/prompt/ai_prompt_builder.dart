@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../instructions/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
+import '../../model/ai_api_dialect.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_message_content_format.dart';
@@ -667,6 +668,16 @@ class AiPromptBuilder {
           .join('\n\n'),
     );
     final toolCatalogHash = _promptFingerprint(availableToolNames.join('\n'));
+    final cacheControlStrategy = _inputCacheControlStrategy(
+      model: model,
+      runtimeContext: runtimeContext,
+    );
+    final stableCacheKey = _stableCacheKey(
+      session: session,
+      model: model,
+      stablePrefixHash: stablePrefixHash,
+      toolCatalogHash: toolCatalogHash,
+    );
     final previousCapturedAt =
         '${session.lastPromptMetadata['captured_at'] ?? ''}'.trim();
     final previousStablePrefixHash =
@@ -692,6 +703,14 @@ class AiPromptBuilder {
       ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
       ..['cache_breakpoint_positions'] =
           runtimeContext.aiInputCacheBreakpointPositions
+      ..['cache_control_strategy'] = cacheControlStrategy
+      ..['cache_protocol_controlled'] =
+          cacheControlStrategy == 'explicit_cache_control'
+      ..['cache_provider_automatic'] =
+          cacheControlStrategy == 'provider_automatic'
+      ..['stable_cache_key'] = stableCacheKey
+      ..['previous_stable_cache_key'] =
+          '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
       ..['idle_gap_seconds'] = idleGapSeconds
       ..['ttl_suspected'] =
           idleGapSeconds != null &&
@@ -1597,6 +1616,46 @@ class AiPromptBuilder {
       hash = (hash * 0x01000193) & 0xffffffff;
     }
     return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+  }
+
+  String _inputCacheControlStrategy({
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    if (!runtimeContext.aiInputCacheEnabled) {
+      return 'disabled';
+    }
+    if (model.apiDialect == AiApiDialect.anthropicNative ||
+        model.protocolType == AiProtocolType.claude) {
+      return 'explicit_cache_control';
+    }
+    if (model.apiDialect.isOpenAiCompat ||
+        model.apiDialect == AiApiDialect.geminiNative ||
+        model.protocolType == AiProtocolType.gemini) {
+      return 'provider_automatic';
+    }
+    return 'none';
+  }
+
+  String _stableCacheKey({
+    required AiSession session,
+    required AiModelConfig model,
+    required String stablePrefixHash,
+    required String toolCatalogHash,
+  }) {
+    return _promptFingerprint(
+      [
+        session.templateId,
+        session.templateInternalVersion,
+        model.normalizedBaseUrl,
+        model.protocolType.storageValue,
+        model.apiDialect.storageValue,
+        model.providerKind.storageValue,
+        model.modelId,
+        stablePrefixHash,
+        toolCatalogHash,
+      ].join('\n'),
+    );
   }
 
   List<String> _toolArgumentNames(
