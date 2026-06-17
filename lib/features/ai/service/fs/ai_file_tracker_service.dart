@@ -85,15 +85,6 @@ class AiFileTrackerService {
     await recordFileRead(filePath);
   }
 
-  /// 获取追踪的文件数量（调试用）
-  int get trackedFileCount => _lastReadTimes.length;
-
-  /// 检查文件是否被追踪
-  bool isTracked(String filePath) {
-    final normalizedPath = p.normalize(filePath);
-    return _lastReadTimes.containsKey(normalizedPath);
-  }
-
   String _formatDuration(Duration duration) {
     if (duration.inDays > 0) return '${duration.inDays}d';
     if (duration.inHours > 0) return '${duration.inHours}h';

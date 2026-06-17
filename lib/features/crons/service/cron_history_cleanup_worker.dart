@@ -1,5 +1,4 @@
-/// Hermes Talker / Cron 执行历史的冷启动自动清理 worker
-/// (2026-04-25 / 任务 22)。
+/// Cron 执行历史的冷启动自动清理 worker。
 ///
 /// 设计目标：
 /// * 仅在 **冷启动** 后异步触发一次（main.dart 调用），不做轮询、不
@@ -71,10 +70,4 @@ Future<void> runCronHistoryCleanupOnce({
       stack,
     );
   }
-}
-
-/// 测试钩子：重置 single-flight 状态，便于单测多次模拟冷启动。
-/// 生产代码不应调用本方法。
-void debugResetCronHistoryCleanupWorker() {
-  _hasRunInThisProcess = false;
 }

@@ -223,11 +223,6 @@ Future<void> killAllTrackedChildren({
 List<int> debugTrackedChildPids() =>
     List<int>.unmodifiable(_trackedChildren.keys);
 
-/// 仅供测试 / 诊断使用：由 [startTrackedProcessInNewGroup] 启动的进程组
-/// leader pid。
-List<int> debugTrackedProcessGroupLeaderPids() =>
-    List<int>.unmodifiable(_trackedProcessGroupLeaders);
-
 Future<String?> _resolveProcessGroupLauncher() {
   if (_processGroupLauncherProbe != null) return _processGroupLauncherProbe!;
   _processGroupLauncherProbe = () async {
@@ -630,18 +625,14 @@ Future<bool> revealLocalPathInSystemFileManager(
     if (type == FileSystemEntityType.directory) {
       return runDetachedSystemOpen('explorer.exe', <String>[target], tag: tag);
     }
-    return runDetachedSystemOpen(
-      'explorer.exe',
-      <String>['/select,$target'],
-      tag: tag,
-    );
+    return runDetachedSystemOpen('explorer.exe', <String>[
+      '/select,$target',
+    ], tag: tag);
   }
   if (Platform.isLinux) {
-    return runDetachedSystemOpen(
-      'xdg-open',
-      <String>[_directoryForReveal(target)],
-      tag: tag,
-    );
+    return runDetachedSystemOpen('xdg-open', <String>[
+      _directoryForReveal(target),
+    ], tag: tag);
   }
   return false;
 }
@@ -649,9 +640,7 @@ Future<bool> revealLocalPathInSystemFileManager(
 String? _safeLocalPathArgument(String value) {
   final target = value.trim();
   if (target.isEmpty || target.startsWith('-')) return null;
-  final looksLikeUri = RegExp(
-    r'^[A-Za-z][A-Za-z0-9+.-]*:',
-  ).hasMatch(target);
+  final looksLikeUri = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(target);
   if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
     return null;
   }

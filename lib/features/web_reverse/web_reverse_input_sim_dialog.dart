@@ -90,7 +90,8 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final y = double.tryParse(_mouseY.text.trim()) ?? 0;
     setState(() {
       _busy = true;
-      _status = loc0?.webReverseInputSimDispatchingClick ?? 'Dispatching click...';
+      _status =
+          loc0?.webReverseInputSimDispatchingClick ?? 'Dispatching click...';
     });
     try {
       await widget.controller.dispatchMouseEvent(
@@ -123,14 +124,14 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = loc1?.webReverseInputSimClickedAt(x.toString(), y.toString())
-          ?? 'Clicked ($x, $y)';
+      _status =
+          loc1?.webReverseInputSimClickedAt(x.toString(), y.toString()) ??
+          'Clicked ($x, $y)';
     });
     await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
 
   Future<void> _runWheel(double dy) async {
-    final loc0 = AppLocalizations.of(context);
     final x = double.tryParse(_mouseX.text.trim()) ?? 0;
     final y = double.tryParse(_mouseY.text.trim()) ?? 0;
     setState(() => _busy = true);
@@ -149,11 +150,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = loc1?.webReverseInputSimWheelDy(dy.toString())
-          ?? 'Wheel dy=$dy';
+      _status =
+          loc1?.webReverseInputSimWheelDy(dy.toString()) ?? 'Wheel dy=$dy';
     });
-    // ignore unused
-    loc0;
   }
 
   Future<void> _runKey() async {
@@ -209,19 +208,20 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final loc1 = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _status = loc1?.webReverseInputSimInsertedCount(t.length)
-          ?? 'Inserted ${t.length} chars';
+      _status =
+          loc1?.webReverseInputSimInsertedCount(t.length) ??
+          'Inserted ${t.length} chars';
     });
     await _snack(loc1?.webReverseInputSimInserted ?? 'Inserted');
   }
 
   Widget _modifierChips() {
     Widget chip(String label, bool v, ValueChanged<bool> set) => FilterChip(
-          label: Text(label),
-          selected: v,
-          onSelected: set,
-          showCheckmark: false,
-        );
+      label: Text(label),
+      selected: v,
+      onSelected: set,
+      showCheckmark: false,
+    );
     return Wrap(
       spacing: 6,
       children: [
@@ -249,7 +249,8 @@ class _InputSimDialogState extends State<_InputSimDialog>
                   decoration: InputDecoration(
                     labelText: 'X',
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   keyboardType: TextInputType.number,
                 ),
@@ -261,7 +262,8 @@ class _InputSimDialogState extends State<_InputSimDialog>
                   decoration: InputDecoration(
                     labelText: 'Y',
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   keyboardType: TextInputType.number,
                 ),
@@ -269,17 +271,21 @@ class _InputSimDialogState extends State<_InputSimDialog>
             ],
           ),
           const SizedBox(height: 12),
-          Text(loc?.webReverseInputSimButton ?? 'Button',
-              style: theme.textTheme.labelMedium),
+          Text(
+            loc?.webReverseInputSimButton ?? 'Button',
+            style: theme.textTheme.labelMedium,
+          ),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
             children: ['left', 'middle', 'right']
-                .map((b) => ChoiceChip(
-                      label: Text(b),
-                      selected: _mouseButton == b,
-                      onSelected: (_) => setState(() => _mouseButton = b),
-                    ))
+                .map(
+                  (b) => ChoiceChip(
+                    label: Text(b),
+                    selected: _mouseButton == b,
+                    onSelected: (_) => setState(() => _mouseButton = b),
+                  ),
+                )
                 .toList(),
           ),
           const SizedBox(height: 12),
@@ -301,8 +307,10 @@ class _InputSimDialogState extends State<_InputSimDialog>
             ],
           ),
           const SizedBox(height: 12),
-          Text(loc?.webReverseInputSimModifiers ?? 'Modifiers',
-              style: theme.textTheme.labelMedium),
+          Text(
+            loc?.webReverseInputSimModifiers ?? 'Modifiers',
+            style: theme.textTheme.labelMedium,
+          ),
           const SizedBox(height: 4),
           _modifierChips(),
           const SizedBox(height: 16),
@@ -345,7 +353,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
             decoration: InputDecoration(
               labelText: 'key',
               hintText: 'Enter / ArrowDown / a',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -354,27 +364,38 @@ class _InputSimDialogState extends State<_InputSimDialog>
             decoration: InputDecoration(
               labelText: 'code',
               hintText: 'KeyA / Enter / ArrowDown',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _keyText,
             decoration: InputDecoration(
-              labelText: loc?.webReverseInputSimKeyTextLabel ?? 'text (printable char)',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              labelText:
+                  loc?.webReverseInputSimKeyTextLabel ??
+                  'text (printable char)',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(loc?.webReverseInputSimModifiers ?? 'Modifiers',
-              style: theme.textTheme.labelMedium),
+          Text(
+            loc?.webReverseInputSimModifiers ?? 'Modifiers',
+            style: theme.textTheme.labelMedium,
+          ),
           const SizedBox(height: 4),
           _modifierChips(),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _busy ? null : _runKey,
             icon: const Icon(Icons.keyboard_rounded),
-            label: Text(loc?.webReverseInputSimDispatchKeyDownUp ?? 'Dispatch keyDown+keyUp'),
+            label: Text(
+              loc?.webReverseInputSimDispatchKeyDownUp ??
+                  'Dispatch keyDown+keyUp',
+            ),
           ),
         ],
       ),
@@ -392,7 +413,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
             controller: _insertCtrl,
             decoration: InputDecoration(
               labelText: loc?.webReverseInputSimInsertTextLabel ?? 'insertText',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             minLines: 4,
             maxLines: 8,
@@ -432,14 +455,17 @@ class _InputSimDialogState extends State<_InputSimDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          loc?.webReverseInputSimTitle ?? 'Input Event Simulator',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          loc?.webReverseInputSimTitle ??
+                              'Input Event Simulator',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           'Input.dispatchMouseEvent / dispatchKeyEvent / insertText',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -473,8 +499,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             Padding(

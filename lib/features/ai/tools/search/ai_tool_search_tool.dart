@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -144,21 +142,6 @@ class AiToolSearchTool extends AiTool {
   // ──────────────────────────────────────────────────────────────────────
   // Search core (parallels Claude Code src/tools/ToolSearchTool/...)
   // ──────────────────────────────────────────────────────────────────────
-
-  /// Test-only entry point: exposes [_runSearch] over the currently injected
-  /// [deferredToolNames] / [deferredToolDefinitions] so unit tests can pin
-  /// the scoring rules (`select:` vs `mcp__server` vs keyword ranking,
-  /// `+required` term gating) without constructing a full
-  /// [AiToolExecutionContext].
-  @visibleForTesting
-  List<String> debugRunSearch({required String query, int maxResults = 5}) {
-    return _runSearch(
-      query: query,
-      maxResults: maxResults,
-      deferred: deferredToolNames,
-      deferredDefinitions: deferredToolDefinitions,
-    );
-  }
 
   List<String> _runSearch({
     required String query,
