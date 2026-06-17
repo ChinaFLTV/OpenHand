@@ -1632,9 +1632,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       }
     }
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         isZh
             ? '配置 ${_editorLspLanguageLabel(context, widget.language)} 的工具链'
@@ -2034,9 +2032,7 @@ class _EditorLspInstallRunnerDialogState
     const terminalBorder = Color(0xFF30363D);
     const terminalMuted = Color(0xFF8B949E);
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(
         isZh
             ? '安装 ${widget.backend.displayName}'

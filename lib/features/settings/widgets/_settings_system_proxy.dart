@@ -533,12 +533,10 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       builder: (dialogContext) {
         var restarting = false;
         return StatefulBuilder(
-          builder: (dialogContext, setDialogState) => AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
+          builder: (dialogContext, setDialogState) => buildOpenHandAlertDialog(
             title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+            content: buildOpenHandDialogConstrainedContent(
+              maxWidth: 560,
               child: SingleChildScrollView(
                 child: SelectableText(
                   _formatRepairReport(report),
