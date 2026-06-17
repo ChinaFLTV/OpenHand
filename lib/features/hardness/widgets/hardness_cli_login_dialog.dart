@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -320,9 +321,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
               : 'Process finished${_exitCode != null ? ' · exit $_exitCode' : ''}')
         : (isZh ? '等待 CLI 交互...' : 'Waiting for CLI interaction...');
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(isZh ? '${_cli.name} 登录' : '${_cli.name} Login'),
       content: SizedBox(
         width: 860,
@@ -439,7 +438,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                               height: 1.55,
                               color: _errorMessage != null
                                   ? const Color(0xFFFCA5A5)
-                                : const Color(0xFFE2E8F0),
+                                  : const Color(0xFFE2E8F0),
                             ),
                           ),
                         ),

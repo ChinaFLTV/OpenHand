@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -479,9 +480,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       });
     }
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(Icons.download_rounded, size: 22, color: colorScheme.primary),
