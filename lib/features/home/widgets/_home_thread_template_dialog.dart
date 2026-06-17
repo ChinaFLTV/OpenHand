@@ -29,9 +29,7 @@ class _ThreadTemplateDialog extends StatelessWidget {
           math.min(_dialogMaxHeight, viewport.height - _dialogVerticalInset),
         )
         .toDouble();
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(l10n.threadTemplateDialogTitle),
       content: SizedBox(
         width: dialogWidth,

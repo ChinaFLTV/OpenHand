@@ -149,12 +149,11 @@ class _McpKeywordIndexProgressDialogState
       }
     }
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(l10n.mcpKeywordIndexBuildTitle),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 360, maxWidth: 460),
+      content: buildOpenHandDialogConstrainedContent(
+        minWidth: 360,
+        maxWidth: 460,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

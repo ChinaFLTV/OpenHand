@@ -93,9 +93,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
       content: SizedBox(
         width: 320,

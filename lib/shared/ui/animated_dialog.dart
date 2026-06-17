@@ -29,17 +29,94 @@ Color resolveAnimatedDialogBarrierColor(
 }
 
 Widget? _constrainDialogContent(Widget? content, double? maxWidth) {
-  final effectiveMaxWidth = _validDialogMaxWidth(maxWidth);
-  if (content == null || effectiveMaxWidth == null) return content;
-  return ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
+  return buildOpenHandDialogConstrainedContent(
     child: content,
+    maxWidth: maxWidth,
   );
 }
 
 double? _validDialogMaxWidth(double? maxWidth) {
   if (maxWidth == null || !maxWidth.isFinite || maxWidth <= 0) return null;
   return maxWidth;
+}
+
+double? _validDialogDimension(double? value) {
+  if (value == null || !value.isFinite || value <= 0) return null;
+  return value;
+}
+
+double _safeDialogMaxDimension(double? maxValue, double minValue) {
+  final validMax = _validDialogDimension(maxValue);
+  if (validMax == null) return double.infinity;
+  return validMax < minValue ? minValue : validMax;
+}
+
+Widget? buildOpenHandDialogConstrainedContent({
+  required Widget? child,
+  double? width,
+  double? height,
+  double? minWidth,
+  double? maxWidth,
+  double? minHeight,
+  double? maxHeight,
+}) {
+  if (child == null) return null;
+
+  final effectiveWidth = _validDialogDimension(width);
+  final effectiveHeight = _validDialogDimension(height);
+  final effectiveMinWidth = _validDialogDimension(minWidth) ?? 0;
+  final effectiveMinHeight = _validDialogDimension(minHeight) ?? 0;
+  final effectiveMaxWidth = _safeDialogMaxDimension(
+    maxWidth,
+    effectiveMinWidth,
+  );
+  final effectiveMaxHeight = _safeDialogMaxDimension(
+    maxHeight,
+    effectiveMinHeight,
+  );
+  final hasFixedSize = effectiveWidth != null || effectiveHeight != null;
+  final hasConstraints =
+      minWidth != null ||
+      maxWidth != null ||
+      minHeight != null ||
+      maxHeight != null;
+
+  var current = child;
+  if (hasFixedSize) {
+    current = SizedBox(
+      width: effectiveWidth,
+      height: effectiveHeight,
+      child: current,
+    );
+  }
+  if (!hasConstraints) return current;
+  return ConstrainedBox(
+    constraints: BoxConstraints(
+      minWidth: effectiveMinWidth,
+      maxWidth: effectiveMaxWidth,
+      minHeight: effectiveMinHeight,
+      maxHeight: effectiveMaxHeight,
+    ),
+    child: current,
+  );
+}
+
+AlertDialog buildOpenHandAlertDialog({
+  Widget? icon,
+  Widget? title,
+  Widget? content,
+  List<Widget>? actions,
+  MainAxisAlignment actionsAlignment = MainAxisAlignment.center,
+  OverflowBarAlignment actionsOverflowAlignment = OverflowBarAlignment.center,
+}) {
+  return AlertDialog(
+    actionsAlignment: actionsAlignment,
+    actionsOverflowAlignment: actionsOverflowAlignment,
+    icon: icon,
+    title: title,
+    content: content,
+    actions: actions,
+  );
 }
 
 Future<bool> showOpenHandConfirmDialog({
@@ -60,9 +137,7 @@ Future<bool> showOpenHandConfirmDialog({
     context: context,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    builder: (dialogContext) => buildOpenHandAlertDialog(
       icon: icon,
       title: Text(title),
       content: _constrainDialogContent(dialogContent, maxWidth),
@@ -138,14 +213,15 @@ Future<String?> showOpenHandTextInputDialog({
               ? (value) => Navigator.of(dialogContext).pop(normalize(value))
               : null,
         );
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        return buildOpenHandAlertDialog(
           icon: icon,
           title: Text(title),
           content: resolvedMaxWidth == null
               ? field
-              : SizedBox(width: resolvedMaxWidth, child: field),
+              : buildOpenHandDialogConstrainedContent(
+                  child: field,
+                  width: resolvedMaxWidth,
+                ),
           actions: <Widget>[
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -263,9 +339,7 @@ Future<void> showOpenHandInfoDialog({
     context: context,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    builder: (dialogContext) => buildOpenHandAlertDialog(
       icon: icon,
       title: Text(title),
       content: _constrainDialogContent(dialogContent, maxWidth),
@@ -312,7 +386,7 @@ Future<void> showOpenHandLoadingDialog({
     context: context,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
-    builder: (_) => AlertDialog(content: body),
+    builder: (_) => buildOpenHandAlertDialog(content: body),
   );
 }
 

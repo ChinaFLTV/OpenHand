@@ -51,6 +51,11 @@ class _ExportIndexRange {
   final int endIndex;
 }
 
+const double _kAiSessionExportDialogWidth = 480;
+const double _kHardnessExportDialogWidth = 460;
+const double _kExportRangeFieldSpacing = 12;
+const double _kExportSectionGap = 8;
+
 _ExportIndexRange? _tryParseExportIndexRange({
   required String startText,
   required String endText,
@@ -73,6 +78,66 @@ String _exportRangeErrorText(bool isZh) {
   return isZh
       ? '请输入有效区间 (1 ≤ 起始 ≤ 结束)'
       : 'Enter a valid range (1 ≤ start ≤ end)';
+}
+
+Widget _buildExportIndexRangeFields({
+  required bool isZh,
+  required TextEditingController startController,
+  required TextEditingController endController,
+}) {
+  return Row(
+    children: [
+      _ExportIndexTextField(
+        controller: startController,
+        label: isZh ? '起始' : 'Start',
+      ),
+      const SizedBox(width: _kExportRangeFieldSpacing),
+      _ExportIndexTextField(
+        controller: endController,
+        label: isZh ? '结束' : 'End',
+      ),
+    ],
+  );
+}
+
+List<Widget> _buildExportDialogActions({
+  required BuildContext context,
+  required bool isZh,
+  required VoidCallback onConfirm,
+}) {
+  return [
+    OpenHandDialogActionButton.secondary(
+      onPressed: () => Navigator.of(context).pop(),
+      label: isZh ? '取消' : 'Cancel',
+    ),
+    OpenHandDialogActionButton.primary(
+      onPressed: onConfirm,
+      label: isZh ? '确认导出' : 'Export',
+    ),
+  ];
+}
+
+class _ExportIndexTextField extends StatelessWidget {
+  const _ExportIndexTextField({required this.controller, required this.label});
+
+  final TextEditingController controller;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
 }
 
 class _AiSessionExportConfigDialog extends StatefulWidget {
@@ -252,12 +317,10 @@ class _AiSessionExportConfigDialogState
         _roles.length == AiSessionMessageRole.values.length;
     final allKindsSelected =
         _kinds.length == AiSessionMessageKind.values.length;
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
-      content: SizedBox(
-        width: 480,
+      content: buildOpenHandDialogConstrainedContent(
+        width: _kAiSessionExportDialogWidth,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +392,7 @@ class _AiSessionExportConfigDialogState
                     .toList(growable: false),
               ),
               if (widget.allowRange) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: _kExportSectionGap),
                 _SectionHeader(text: _isZh ? '消息区间' : 'Message Range'),
                 SwitchListTile(
                   dense: true,
@@ -343,41 +406,13 @@ class _AiSessionExportConfigDialogState
                   onChanged: (value) => setState(() => _useRange = value),
                 ),
                 if (_useRange)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _startController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            labelText: _isZh ? '起始' : 'Start',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _endController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            labelText: _isZh ? '结束' : 'End',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
+                  _buildExportIndexRangeFields(
+                    isZh: _isZh,
+                    startController: _startController,
+                    endController: _endController,
                   ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: _kExportSectionGap),
               _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
               CheckboxListTile(
                 dense: true,
@@ -387,34 +422,25 @@ class _AiSessionExportConfigDialogState
                     setState(() => _includeDeleted = value ?? false),
                 title: Text(_isZh ? '包含已删除消息' : 'Include deleted messages'),
               ),
-              if (_rangeError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _rangeError!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
+              const SizedBox(height: _kExportSectionGap),
+              buildOpenHandDialogValidationMessage(
+                context,
+                message: _rangeError,
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: _isZh ? '取消' : 'Cancel',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () {
-            final config = _buildConfig();
-            if (config != null) {
-              Navigator.of(context).pop(config);
-            }
-          },
-          label: _isZh ? '确认导出' : 'Export',
-        ),
-      ],
+      actions: _buildExportDialogActions(
+        context: context,
+        isZh: _isZh,
+        onConfirm: () {
+          final config = _buildConfig();
+          if (config != null) {
+            Navigator.of(context).pop(config);
+          }
+        },
+      ),
     );
   }
 }
@@ -490,12 +516,10 @@ class _HardnessSessionExportConfigDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
-      content: SizedBox(
-        width: 460,
+      content: buildOpenHandDialogConstrainedContent(
+        width: _kHardnessExportDialogWidth,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,69 +545,31 @@ class _HardnessSessionExportConfigDialogState
                 onChanged: (value) => setState(() => _useRange = value),
               ),
               if (_useRange)
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _startController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: _isZh ? '起始' : 'Start',
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _endController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: _isZh ? '结束' : 'End',
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
+                _buildExportIndexRangeFields(
+                  isZh: _isZh,
+                  startController: _startController,
+                  endController: _endController,
                 ),
               const SizedBox(height: 12),
               _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
-              if (_rangeError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _rangeError!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
+              buildOpenHandDialogValidationMessage(
+                context,
+                message: _rangeError,
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: _isZh ? '取消' : 'Cancel',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () {
-            final config = _buildConfig();
-            if (config != null) {
-              Navigator.of(context).pop(config);
-            }
-          },
-          label: _isZh ? '确认导出' : 'Export',
-        ),
-      ],
+      actions: _buildExportDialogActions(
+        context: context,
+        isZh: _isZh,
+        onConfirm: () {
+          final config = _buildConfig();
+          if (config != null) {
+            Navigator.of(context).pop(config);
+          }
+        },
+      ),
     );
   }
 }
