@@ -339,6 +339,12 @@ class AiSessionStore {
   static const int _kMessageBatchSize = 500;
   static const int _kMessageDecodeYieldBatchSize = 96;
   static const int _kSessionDecodeYieldBatchSize = 8;
+  // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
+  // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
+  // jsonDecode + 模型构建，直接撑爆帧预算造成卡死 / ANR。改为额外按累计
+  // 解码成本让步：每累积约 16KB 字符就让出一次事件循环，使 UI 能在重负载
+  // 消息之间稳定绘制水合占位帧，把首屏开销摊到多帧而非一帧。
+  static const int _kMessageDecodeYieldCostBudget = 16000;
 
   /// 按 session id 列表批量拉取 messages，结果按 session_id 分桶；
   /// 每个桶内保持 sort_order ASC 顺序。空列表入参 → 空 map。
@@ -915,12 +921,18 @@ class AiSessionStore {
       return const <AiSessionMessage>[];
     }
     final messages = <AiSessionMessage>[];
+    var costSinceYield = 0;
     for (var index = 0; index < messageRows.length; index++) {
-      messages.add(_messageFromRow(messageRows[index]));
-      final shouldYield =
-          (index + 1) % _kMessageDecodeYieldBatchSize == 0 &&
-          index + 1 < messageRows.length;
-      if (shouldYield) {
+      final row = messageRows[index];
+      costSinceYield += _messageRowDecodeCost(row);
+      messages.add(_messageFromRow(row));
+      final isLastRow = index + 1 >= messageRows.length;
+      final reachedCountBatch =
+          (index + 1) % _kMessageDecodeYieldBatchSize == 0;
+      final reachedCostBudget =
+          costSinceYield >= _kMessageDecodeYieldCostBudget;
+      if (!isLastRow && (reachedCountBatch || reachedCostBudget)) {
+        costSinceYield = 0;
         await Future<void>.delayed(Duration.zero);
       }
     }
@@ -965,15 +977,7 @@ class AiSessionStore {
       ),
       statistics: statistics,
       recentErrors: _decodeJsonList(row['recent_errors_json'])
-          .map(
-            (item) => AiSessionErrorRecord.fromJson(
-              item is Map<String, Object?>
-                  ? item
-                  : item is Map
-                  ? Map<String, Object?>.from(item)
-                  : const <String, Object?>{},
-            ),
-          )
+          .map((item) => AiSessionErrorRecord.fromJson(_coerceJsonMap(item)))
           .toList(growable: false),
       lastUsedModelId: row['last_used_model_id'] as String?,
       lastUsedModelLabel: row['last_used_model_label'] as String?,
@@ -994,26 +998,10 @@ class AiSessionStore {
       metadata: _decodeJsonMap(row['metadata_json']),
       lastPromptMetadata: _decodeJsonMap(row['last_prompt_metadata_json']),
       todoItems: _decodeJsonList(row['todo_items_json'])
-          .map(
-            (item) => AiSessionTodoItem.fromJson(
-              item is Map<String, Object?>
-                  ? item
-                  : item is Map
-                  ? Map<String, Object?>.from(item)
-                  : const <String, Object?>{},
-            ),
-          )
+          .map((item) => AiSessionTodoItem.fromJson(_coerceJsonMap(item)))
           .toList(growable: false),
       planHistory: _decodeJsonList(row['plan_history_json'])
-          .map(
-            (item) => AiSessionPlanRecord.fromJson(
-              item is Map<String, Object?>
-                  ? item
-                  : item is Map
-                  ? Map<String, Object?>.from(item)
-                  : const <String, Object?>{},
-            ),
-          )
+          .map((item) => AiSessionPlanRecord.fromJson(_coerceJsonMap(item)))
           .toList(growable: false),
       messageLoadState: messageLoadState,
       messageWindowStartIndex: messageWindowStartIndex,
@@ -1154,6 +1142,16 @@ class AiSessionStore {
       }
     }
     return const <Object?>[];
+  }
+
+  /// Coerces a decoded JSON array element into a string-keyed map so model
+  /// `fromJson` factories can consume it. Centralises the map-coercion
+  /// boilerplate previously duplicated for every list-valued session column
+  /// (recent errors / todo items / plan history).
+  static Map<String, Object?> _coerceJsonMap(Object? item) {
+    if (item is Map<String, Object?>) return item;
+    if (item is Map) return Map<String, Object?>.from(item);
+    return const <String, Object?>{};
   }
 
   static DateTime? _parseNullableDateTime(String? value) {
