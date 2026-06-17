@@ -352,7 +352,7 @@ mixin _ForegroundElapsedTicker<T extends StatefulWidget>
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
       return;
     }
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _elapsedTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {});
       }

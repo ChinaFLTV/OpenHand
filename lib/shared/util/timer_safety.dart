@@ -4,6 +4,7 @@ const Duration kOpenHandMinPeriodicTimerInterval = Duration(milliseconds: 250);
 const Duration kOpenHandMaxPeriodicTimerInterval = Duration(hours: 24);
 const Duration kOpenHandMinPeriodicCallbackTimeout = Duration(milliseconds: 1);
 const Duration kOpenHandMaxPeriodicCallbackTimeout = Duration(hours: 24);
+const Duration kOpenHandFramePeriodicTimerInterval = Duration(milliseconds: 16);
 
 typedef OpenHandTimerErrorHandler =
     void Function(Object error, StackTrace stackTrace);

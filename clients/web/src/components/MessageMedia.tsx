@@ -43,6 +43,7 @@ interface MediaEntry {
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.heic', '.svg'];
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
+const MEDIA_DOWNLOAD_TIMEOUT_MS = 120_000;
 const MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS = 30_000;
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
@@ -377,23 +378,24 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
   const handleSave = async () => {
     if (saving) return;
     saveAbortRef.current?.abort();
-    const ctrl = new AbortController();
-    saveAbortRef.current = ctrl;
+    const timed = createTimedAbortController(MEDIA_DOWNLOAD_TIMEOUT_MS);
+    saveAbortRef.current = timed.controller;
     setSaving(true);
     try {
-      await saveMediaAsset(item, url, ctrl.signal);
-      if (ctrl.signal.aborted) return;
+      await saveMediaAsset(item, url, timed.controller.signal);
+      if (timed.controller.signal.aborted) return;
       showSnackbar(t('detail.media.saveOk', '已保存媒体文件'), { tone: 'success' });
     } catch (error) {
-      if (ctrl.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      if (timed.controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
       showSnackbar(
         `${t('detail.media.saveFailed', '保存失败')}：${error instanceof Error ? error.message : String(error)}`,
         { tone: 'error' },
       );
     } finally {
-      if (saveAbortRef.current === ctrl) {
+      timed.clear();
+      if (saveAbortRef.current === timed.controller) {
         saveAbortRef.current = null;
-        if (!ctrl.signal.aborted) setSaving(false);
+        if (!timed.controller.signal.aborted) setSaving(false);
       }
     }
   };

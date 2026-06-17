@@ -61,6 +61,7 @@ import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboa
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { streamDebugLog } from '../../../utils/stream_debug';
+import { createTimedAbortController } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
 import { listSkills, type SkillSummary } from '../../../api/toolbox';
 import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from '../../../components/ImageEditorDialog';
@@ -88,6 +89,7 @@ const SSE_FAIL_THRESHOLD = 3;
 /// 单条附件最大字节数（沿用 service singleMessageTokenLimit 的语义留 1 MiB 兜底）；
 /// 真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_CHIP_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
@@ -3007,9 +3009,11 @@ export function SessionDetailPage() {
     const restoredPreviews: { mime: string; dataUrl: string; size: number }[] = [];
     let failed = 0;
     for (const asset of assets) {
+      const timed = createTimedAbortController(ATTACHMENT_RESTORE_TIMEOUT_MS);
       try {
         const res = await fetch(buildSessionAssetUrl(requestSessionId, asset.path), {
           credentials: 'same-origin',
+          signal: timed.controller.signal,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
@@ -3028,6 +3032,8 @@ export function SessionDetailPage() {
         });
       } catch {
         failed += 1;
+      } finally {
+        timed.clear();
       }
     }
     if (!ownsSessionAsyncResult(requestSessionId) || editingDraftMessageRef.current?.id !== message.id) return;

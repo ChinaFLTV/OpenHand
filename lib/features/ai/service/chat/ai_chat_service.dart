@@ -10,6 +10,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -873,7 +874,9 @@ class AiChatService implements AiChatClient {
 
     void startIdleWarningTimer() {
       idleWarningTimer?.cancel();
-      idleWarningTimer = Timer.periodic(_streamIdleWarningInterval, (_) {
+      idleWarningTimer = startSafePeriodicTimer(_streamIdleWarningInterval, (
+        _,
+      ) {
         if (resultCompleter.isCompleted) {
           return;
         }

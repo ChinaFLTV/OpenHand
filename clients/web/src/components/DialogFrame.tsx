@@ -51,6 +51,8 @@ export function createDialogOverlayStyle({
   return style;
 }
 
+export const DIALOG_OVERLAY_DEFAULT_STYLE = createDialogOverlayStyle();
+
 function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): string {
   switch (animation) {
     case 'slideUp':
@@ -70,7 +72,7 @@ export function DialogFrame({
   closeOnBackdrop = true,
   overlayClassName = 'fixed inset-0 flex items-center justify-center p-4',
   panelClassName = '',
-  overlayStyle = createDialogOverlayStyle(),
+  overlayStyle = DIALOG_OVERLAY_DEFAULT_STYLE,
   panelStyle,
   panelAnimation = 'pop',
   ariaLabel,

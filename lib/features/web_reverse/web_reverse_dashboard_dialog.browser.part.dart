@@ -640,29 +640,31 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _startScrollInertia() {
     _scrollInertiaTimer?.cancel();
-    _scrollInertiaTimer = Timer.periodic(const Duration(milliseconds: 16), (
-      timer,
-    ) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      final v = _scrollInertiaVelocity;
-      if (v.distance < 0.6) {
-        timer.cancel();
-        _scrollInertiaVelocity = Offset.zero;
-        return;
-      }
-      widget.controller.dispatchMouseEvent(
-        type: 'mouseWheel',
-        x: _scrollInertiaPos.dx,
-        y: _scrollInertiaPos.dy,
-        deltaX: v.dx,
-        deltaY: v.dy,
-      );
-      // 衰减系数 0.92：≈300ms 内速度衰减到 5%。
-      _scrollInertiaVelocity = v * 0.92;
-    });
+    _scrollInertiaTimer = startSafePeriodicTimer(
+      kOpenHandFramePeriodicTimerInterval,
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        final v = _scrollInertiaVelocity;
+        if (v.distance < 0.6) {
+          timer.cancel();
+          _scrollInertiaVelocity = Offset.zero;
+          return;
+        }
+        widget.controller.dispatchMouseEvent(
+          type: 'mouseWheel',
+          x: _scrollInertiaPos.dx,
+          y: _scrollInertiaPos.dy,
+          deltaX: v.dx,
+          deltaY: v.dy,
+        );
+        // 衰减系数 0.92：≈300ms 内速度衰减到 5%。
+        _scrollInertiaVelocity = v * 0.92;
+      },
+      min: kOpenHandFramePeriodicTimerInterval,
+    );
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {

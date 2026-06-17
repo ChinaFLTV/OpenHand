@@ -6,6 +6,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../runtime/ai_tool_execution_registry.dart';
 import '../sandbox/ai_sandbox_service.dart';
@@ -237,7 +238,7 @@ class _PersistentBashExecution {
   }) {
     _lastOutputAtMs = stopwatch.elapsedMilliseconds;
     _stallTimer?.cancel();
-    _stallTimer = Timer.periodic(interval, (_) {
+    _stallTimer = startSafePeriodicTimer(interval, (_) {
       if (outcome.isCompleted) {
         _stallTimer?.cancel();
         _stallTimer = null;
@@ -800,10 +801,12 @@ class AiBashToolService {
     }
 
     emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-    final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
+      _,
+    ) {
       emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
-    final stallTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    final stallTimer = startSafePeriodicTimer(const Duration(seconds: 5), (_) {
       final now = stopwatch.elapsedMilliseconds;
       if (now - lastOutputAtMs < 45 * 1000) return;
       if (stallWarningEmitted) return;
@@ -1023,7 +1026,9 @@ class AiBashToolService {
     session.activeExecution = execution;
     execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     execution.startStallWatcher();
-    final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
+      _,
+    ) {
       execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
 

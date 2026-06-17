@@ -3026,9 +3026,9 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     _toSamples = <double>[for (final v in _chartData.samples) v.toDouble()];
     _fromSamples = List<double>.from(_toSamples);
     _morph.value = 1.0;
-    _ticker = Timer.periodic(_kRefreshInterval, (_) {
+    _ticker = startSafePeriodicTimer(_kRefreshInterval, (_) {
       if (mounted) _refresh();
-    });
+    }, min: _kRefreshInterval);
   }
 
   void _handleMorphTick() {

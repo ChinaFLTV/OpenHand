@@ -160,14 +160,18 @@ class _TranscriptScrollDispatcher {
         pollTimer?.cancel();
         if (!completer.isCompleted) completer.complete();
       });
-      // 最多每 16ms 探测一次直到超时 / 命中。
-      pollTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
-        if (completer.isCompleted) {
-          t.cancel();
-          return;
-        }
-        check();
-      });
+      // 最多每帧探测一次直到超时 / 命中。
+      pollTimer = startSafePeriodicTimer(
+        kOpenHandFramePeriodicTimerInterval,
+        (t) {
+          if (completer.isCompleted) {
+            t.cancel();
+            return;
+          }
+          check();
+        },
+        min: kOpenHandFramePeriodicTimerInterval,
+      );
       await completer.future;
       state = _statesBySession[sessionId];
     }

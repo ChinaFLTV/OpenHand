@@ -1,7 +1,11 @@
 // Plugin Service API: 查询插件状态、触发安装/更新/卸载操作。
 // 与服务端 _listPluginsHandler / _pluginActionHandler 对齐。
 
-import { apiRequest, type ApiRequestSignalOptions } from './client';
+import {
+  LONG_API_REQUEST_TIMEOUT_MS,
+  apiRequest,
+  type ApiRequestSignalOptions,
+} from './client';
 
 export type PluginStatus =
   | 'notInstalled'
@@ -48,6 +52,7 @@ export function installPlugin(pluginId: string): Promise<PluginActionResult> {
   return apiRequest<PluginActionResult>('/api/plugins/install', {
     method: 'POST',
     body: { plugin_id: pluginId },
+    timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
   });
 }
 
@@ -55,6 +60,7 @@ export function updatePlugin(pluginId: string): Promise<PluginActionResult> {
   return apiRequest<PluginActionResult>('/api/plugins/update', {
     method: 'POST',
     body: { plugin_id: pluginId },
+    timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
   });
 }
 
@@ -68,6 +74,7 @@ export function uninstallPlugin(pluginId: string): Promise<PluginActionResult> {
 export function rescanPlugins(): Promise<{ items: PluginSummary[] }> {
   return apiRequest<{ items: PluginSummary[] }>('/api/plugins/rescan', {
     method: 'POST',
+    timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
   });
 }
 
