@@ -2566,7 +2566,7 @@ class _PendingCreationPlaceholderCard extends StatefulWidget {
 class _PendingCreationPlaceholderCardState
     extends State<_PendingCreationPlaceholderCard>
     with SingleTickerProviderStateMixin {
-  static const Duration _sweepDuration = Duration(milliseconds: 2600);
+  static const Duration _sweepDuration = Duration(milliseconds: 2200);
 
   late final AnimationController _sweepController = AnimationController(
     vsync: this,
@@ -2601,10 +2601,13 @@ class _PendingCreationPlaceholderCardState
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final baseColor = isDark
-        ? cs.surfaceContainer
-        : cs.surfaceContainerHighest.withValues(alpha: 0.6);
+        ? cs.surfaceContainerHigh
+        : Color.alphaBlend(
+            cs.onSurfaceVariant.withValues(alpha: 0.045),
+            cs.surfaceContainerHighest,
+          );
     final borderColor = cs.outlineVariant.withValues(
-      alpha: isDark ? 0.25 : 0.18,
+      alpha: isDark ? 0.32 : 0.22,
     );
     final (icon, labelZh, labelEn) = switch (widget.request.mode) {
       AiCreationMode.image => (
@@ -2643,10 +2646,10 @@ class _PendingCreationPlaceholderCardState
                   ? 1.0
                   : 1.0 + math.sin(_sweepController.value * math.pi * 2) * 0.02;
               final opacity = disabledMotion
-                  ? 0.55
-                  : 0.54 +
+                  ? 0.68
+                  : 0.62 +
                         (math.sin(_sweepController.value * math.pi * 2) + 1) *
-                            0.045;
+                            0.07;
               return Transform.scale(
                 scale: scale,
                 child: Icon(
@@ -2679,12 +2682,16 @@ class _PendingCreationPlaceholderCardState
             final phase = Curves.easeInOutCubicEmphasized.transform(
               _sweepController.value,
             );
-            final sweepOffset = disabledMotion ? -64.0 : -250.0 + phase * 560;
+            final sweepOffset = disabledMotion ? -96.0 : -340.0 + phase * 680;
             final sweepOpacity = disabledMotion
                 ? 0.0
                 : math
-                      .sin(_sweepController.value * math.pi)
-                      .clamp(0.0, 1.0)
+                      .pow(
+                        math
+                            .sin(_sweepController.value * math.pi)
+                            .clamp(0.0, 1.0),
+                        0.58,
+                      )
                       .toDouble();
             return DecoratedBox(
               decoration: BoxDecoration(
@@ -2693,9 +2700,16 @@ class _PendingCreationPlaceholderCardState
                 color: baseColor,
                 boxShadow: [
                   BoxShadow(
-                    color: cs.shadow.withValues(alpha: isDark ? 0.10 : 0.05),
-                    blurRadius: 28,
-                    offset: const Offset(0, 10),
+                    color: Colors.white.withValues(
+                      alpha: isDark ? 0.025 : 0.20,
+                    ),
+                    offset: const Offset(0, 1),
+                    spreadRadius: -1,
+                  ),
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: isDark ? 0.12 : 0.06),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -2712,14 +2726,50 @@ class _PendingCreationPlaceholderCardState
                           end: Alignment.bottomRight,
                           colors: [
                             Colors.white.withValues(
-                              alpha: disabledMotion ? 0.035 : 0.055,
+                              alpha: disabledMotion ? 0.055 : 0.12,
                             ),
-                            Colors.transparent,
+                            Colors.white.withValues(
+                              alpha: disabledMotion ? 0.018 : 0.04,
+                            ),
                             cs.onSurfaceVariant.withValues(
-                              alpha: disabledMotion ? 0.018 : 0.03,
+                              alpha: disabledMotion ? 0.024 : 0.065,
                             ),
                           ],
-                          stops: const [0.0, 0.48, 1.0],
+                          stops: const [0.0, 0.44, 1.0],
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.42, -0.52),
+                          radius: 0.82,
+                          colors: [
+                            Colors.white.withValues(
+                              alpha: disabledMotion
+                                  ? (isDark ? 0.035 : 0.075)
+                                  : (isDark ? 0.052 : 0.11),
+                            ),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 1.0],
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomRight,
+                          end: Alignment.topLeft,
+                          colors: [
+                            cs.onSurfaceVariant.withValues(
+                              alpha: disabledMotion
+                                  ? (isDark ? 0.02 : 0.026)
+                                  : (isDark ? 0.034 : 0.045),
+                            ),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.62],
                         ),
                       ),
                     ),
@@ -2732,21 +2782,68 @@ class _PendingCreationPlaceholderCardState
                             angle: -0.24,
                             child: Center(
                               child: SizedBox(
-                                width: 126,
-                                height: 340,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.white.withValues(alpha: 0.018),
-                                        Colors.white.withValues(alpha: 0.115),
-                                        Colors.white.withValues(alpha: 0.022),
-                                        Colors.transparent,
-                                      ],
-                                      stops: const [0.0, 0.28, 0.52, 0.74, 1.0],
+                                width: 208,
+                                height: 360,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 208,
+                                      height: 360,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.transparent,
+                                              cs.onSurfaceVariant.withValues(
+                                                alpha: isDark ? 0.018 : 0.026,
+                                              ),
+                                              Colors.white.withValues(
+                                                alpha: isDark ? 0.10 : 0.18,
+                                              ),
+                                              Colors.white.withValues(
+                                                alpha: isDark ? 0.22 : 0.34,
+                                              ),
+                                              Colors.white.withValues(
+                                                alpha: isDark ? 0.11 : 0.19,
+                                              ),
+                                              cs.onSurfaceVariant.withValues(
+                                                alpha: isDark ? 0.02 : 0.03,
+                                              ),
+                                              Colors.transparent,
+                                            ],
+                                            stops: const [
+                                              0.0,
+                                              0.18,
+                                              0.38,
+                                              0.50,
+                                              0.62,
+                                              0.82,
+                                              1.0,
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    SizedBox(
+                                      width: 44,
+                                      height: 360,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.transparent,
+                                              Colors.white.withValues(
+                                                alpha: isDark ? 0.20 : 0.42,
+                                              ),
+                                              Colors.transparent,
+                                            ],
+                                            stops: const [0.0, 0.50, 1.0],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
