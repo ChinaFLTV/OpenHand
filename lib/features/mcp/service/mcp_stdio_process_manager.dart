@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -238,7 +239,14 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 先尝试优雅关闭 stdin
       try {
         managed.process!.stdin.close();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'close stdin $serverName',
+          error,
+          stack,
+        );
+      }
 
       // 等待进程退出
       final exited = await managed.process!.exitCode
@@ -597,11 +605,12 @@ class McpStdioProcessManager extends ChangeNotifier {
     info['Dart 版本'] = Platform.version.split(' ').first;
 
     // 尝试获取进程内存信息（macOS/Linux）
-    if (managed?.info.pid != null && !Platform.isWindows) {
+    final pid = managed?.info.pid;
+    if (pid != null && !Platform.isWindows) {
       try {
         final result = await runTrackedProcessOrFailed(
           'ps',
-          ['-o', 'rss=', '-p', '${managed!.info.pid}'],
+          ['-o', 'rss=', '-p', '$pid'],
           timeout: const Duration(seconds: 3),
           tag: 'mcp_stdio.ps_rss',
         );
@@ -611,13 +620,15 @@ class McpStdioProcessManager extends ChangeNotifier {
             info['内存 (RSS)'] = _formatBytes(rssKb * 1024);
           }
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('mcp_stdio_process_manager', 'read rss $pid', error, stack);
+      }
 
       // 获取线程数
       try {
         final result = await runTrackedProcessOrFailed(
           'ps',
-          ['-M', '-p', '${managed!.info.pid}'],
+          ['-M', '-p', '$pid'],
           timeout: const Duration(seconds: 3),
           tag: 'mcp_stdio.ps_threads',
         );
@@ -625,7 +636,14 @@ class McpStdioProcessManager extends ChangeNotifier {
           final lines = result.stdout.toString().trim().split('\n');
           info['线程数'] = '${lines.length - 1}'; // 减去 header 行
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'read thread count $pid',
+          error,
+          stack,
+        );
+      }
     }
 
     // 隔离缓存目录信息
@@ -644,7 +662,14 @@ class McpStdioProcessManager extends ChangeNotifier {
         }
         info['缓存大小'] = _formatBytes(totalSize);
         info['缓存文件数'] = '$fileCount';
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'scan cache $cacheRoot',
+          error,
+          stack,
+        );
+      }
     }
 
     return info;
@@ -881,7 +906,14 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
             versions.add(entity.path.split('/').last);
           }
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'list nvm versions',
+          error,
+          stack,
+        );
+      }
       versions.sort(compareSemanticVersions);
       // 从最新版本开始查找包
       for (final version in versions.reversed) {
@@ -941,7 +973,14 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
         }
       }
     }
-  } catch (_) {}
+  } catch (error, stack) {
+    silentLog(
+      'mcp_stdio_process_manager',
+      'login shell package probe',
+      error,
+      stack,
+    );
+  }
 
   return null;
 }
@@ -962,7 +1001,14 @@ String? _findBinEntry(String packageDir) {
     if (entryScript != null && File(entryScript).existsSync()) {
       return entryScript;
     }
-  } catch (_) {}
+  } catch (error, stack) {
+    silentLog(
+      'mcp_stdio_process_manager',
+      'read bin entry $packageDir',
+      error,
+      stack,
+    );
+  }
   return null;
 }
 

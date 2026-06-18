@@ -32,7 +32,11 @@ class _EndpointGroup {
 }
 
 class _JsHit {
-  _JsHit({required this.url, required this.lineNumber, required this.lineContent});
+  _JsHit({
+    required this.url,
+    required this.lineNumber,
+    required this.lineContent,
+  });
   final String url;
   final int lineNumber;
   final String lineContent;
@@ -86,11 +90,12 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         silentLog('web_reverse_ai_crypto', 'group', err, st);
       }
     }
-    final list = map.entries
-        .where((kv) => kv.value.length >= 2)
-        .map((kv) => _EndpointGroup(key: kv.key, entries: kv.value))
-        .toList()
-      ..sort((a, b) => b.entries.length.compareTo(a.entries.length));
+    final list =
+        map.entries
+            .where((kv) => kv.value.length >= 2)
+            .map((kv) => _EndpointGroup(key: kv.key, entries: kv.value))
+            .toList()
+          ..sort((a, b) => b.entries.length.compareTo(a.entries.length));
     setState(() {
       _groups = list;
       _selected = list.isNotEmpty ? list.first : null;
@@ -116,7 +121,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         });
         if (out.isNotEmpty) return out;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_ai_crypto_dialog',
+        'parse json body',
+        error,
+        stack,
+      );
+    }
     // form-urlencoded
     if (body.contains('=')) {
       for (final pair in body.split('&')) {
@@ -126,7 +138,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
           final k = Uri.decodeQueryComponent(pair.substring(0, eq));
           final v = Uri.decodeQueryComponent(pair.substring(eq + 1));
           out[k] = v;
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_ai_crypto_dialog',
+            'parse form field',
+            error,
+            stack,
+          );
+        }
       }
     }
     return out.isEmpty ? null : out;
@@ -169,7 +188,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
           if (u.queryParameters.isNotEmpty) {
             qs.add(Map<String, String>.from(u.queryParameters));
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_ai_crypto_dialog',
+            'parse query params',
+            error,
+            stack,
+          );
+        }
       }
       if (qs.length >= 2) samples.addAll(qs);
     }
@@ -201,22 +227,47 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
   bool _isWellKnownSignKey(String k) {
     final lower = k.toLowerCase();
     const known = <String>[
-      'sign', 'signature', 'sig', 'hash', 'token',
-      'ts', 'timestamp', 't', 'nonce', '_t', '_s',
-      'salt', 'mac', 'checksum', 'verify', 'authorization',
-      'x-sign', 'x-nonce', 'x-token', 'x-bogus', 'x-gorgon',
-      'msToken', 'a_bogus', 'webid', 'devid',
+      'sign',
+      'signature',
+      'sig',
+      'hash',
+      'token',
+      'ts',
+      'timestamp',
+      't',
+      'nonce',
+      '_t',
+      '_s',
+      'salt',
+      'mac',
+      'checksum',
+      'verify',
+      'authorization',
+      'x-sign',
+      'x-nonce',
+      'x-token',
+      'x-bogus',
+      'x-gorgon',
+      'msToken',
+      'a_bogus',
+      'webid',
+      'devid',
     ];
     return known.contains(lower);
   }
 
   // ---------------- JS 资源搜索 ----------------
 
-  Future<Map<String, List<_JsHit>>> _searchSuspects(List<String> suspects) async {
+  Future<Map<String, List<_JsHit>>> _searchSuspects(
+    List<String> suspects,
+  ) async {
     if (suspects.isEmpty) return const <String, List<_JsHit>>{};
     final loc = AppLocalizations.of(context);
-    setState(() => _status =
-        loc?.webReverseAiCryptoStatusFetchResources ?? 'Fetching resources...');
+    setState(
+      () => _status =
+          loc?.webReverseAiCryptoStatusFetchResources ??
+          'Fetching resources...',
+    );
     final tree = await widget.controller.sendRawCdp(
       method: 'Page.getResourceTree',
       paramsJson: '{}',
@@ -236,7 +287,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
             if (r is Map &&
                 (r['type']?.toString().toLowerCase() == 'script') &&
                 r['url'] is String) {
-              scripts.add(_ScriptResource(frameId: fid, url: r['url'] as String));
+              scripts.add(
+                _ScriptResource(frameId: fid, url: r['url'] as String),
+              );
             }
           }
         }
@@ -276,15 +329,19 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
           if (results is List) {
             for (final m in results) {
               if (m is Map) {
-                final line = (m['lineNumber'] is int) ? m['lineNumber'] as int : 0;
+                final line = (m['lineNumber'] is int)
+                    ? m['lineNumber'] as int
+                    : 0;
                 final content = m['lineContent']?.toString() ?? '';
-                list.add(_JsHit(
-                  url: s.url,
-                  lineNumber: line,
-                  lineContent: content.length > 200
-                      ? '${content.substring(0, 200)}…'
-                      : content,
-                ));
+                list.add(
+                  _JsHit(
+                    url: s.url,
+                    lineNumber: line,
+                    lineContent: content.length > 200
+                        ? '${content.substring(0, 200)}…'
+                        : content,
+                  ),
+                );
                 if (list.length >= 5) break;
               }
             }
@@ -297,10 +354,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       done++;
       if (mounted) {
         final loc = AppLocalizations.of(context);
-        setState(() => _status = loc?.webReverseAiCryptoStatusSearchProgress(
-              done, suspects.length,
-            ) ??
-            'Search $done/${suspects.length}');
+        setState(
+          () => _status =
+              loc?.webReverseAiCryptoStatusSearchProgress(
+                done,
+                suspects.length,
+              ) ??
+              'Search $done/${suspects.length}',
+        );
       }
     }
     return out;
@@ -308,8 +369,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   // ---------------- prompt 拼装 ----------------
 
-  String _buildPrompt(_EndpointGroup g, List<String> suspects,
-      Map<String, List<_JsHit>> hits) {
+  String _buildPrompt(
+    _EndpointGroup g,
+    List<String> suspects,
+    Map<String, List<_JsHit>> hits,
+  ) {
     final buf = StringBuffer()
       ..writeln('# AI 加密参数还原任务')
       ..writeln()
@@ -371,7 +435,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     buf
       ..writeln()
       ..writeln('## 请你输出')
-      ..writeln('1. 每个嫌疑字段最可能的算法（MD5 / SHA1 / SHA256 / HMAC-SHA256 / AES / 自实现累加）。')
+      ..writeln(
+        '1. 每个嫌疑字段最可能的算法（MD5 / SHA1 / SHA256 / HMAC-SHA256 / AES / 自实现累加）。',
+      )
       ..writeln('2. 还原算法用的输入字段及拼接顺序。')
       ..writeln('3. 给出可直接运行的 JS 复算函数，参数列表与样本对齐。')
       ..writeln('4. 列出仍需补充的 deobfuscated 源码片段（指明哪个 URL+ 行号）。');
@@ -448,14 +514,16 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                         Text(
                           loc?.webReverseAiCryptoTitle ??
                               'AI Crypto Param Recover',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseAiCryptoSubtitle ??
                               'Group endpoint → diff vars → locate in JS → copy prompt',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -489,8 +557,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                   loc?.webReverseAiCryptoEmpty ??
                                       'No analyzable endpoint (need ≥2 hits per endpoint)',
                                   textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(color: cs.onSurfaceVariant),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             )
@@ -534,7 +603,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                                 '${g.entries.length} hits',
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                                    color: cs.onSurfaceVariant),
+                                                  color: cs.onSurfaceVariant,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -560,15 +630,17 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                     : _analyze,
                                 icon: const Icon(Icons.psychology_rounded),
                                 label: Text(
-                                    loc?.webReverseAiCryptoAnalyze ?? 'Analyze'),
+                                  loc?.webReverseAiCryptoAnalyze ?? 'Analyze',
+                                ),
                               ),
                               const SizedBox(width: 10),
                               FilledButton.tonalIcon(
-                                onPressed:
-                                    _prompt.isEmpty ? null : _copy,
+                                onPressed: _prompt.isEmpty ? null : _copy,
                                 icon: const Icon(Icons.copy_all_rounded),
-                                label: Text(loc?.webReverseAiCryptoCopyPrompt ??
-                                    'Copy prompt'),
+                                label: Text(
+                                  loc?.webReverseAiCryptoCopyPrompt ??
+                                      'Copy prompt',
+                                ),
                               ),
                               const Spacer(),
                               if (_status != null)
@@ -590,13 +662,16 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 Text(
                                   loc?.webReverseAiCryptoSuspectsLabel ??
                                       'Suspects:',
-                                  style: theme.textTheme.labelMedium
-                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 for (final k in _suspects)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: cs.primaryContainer,
                                       borderRadius: BorderRadius.circular(4),
@@ -604,7 +679,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                     child: Text(
                                       k,
                                       style: const TextStyle(
-                                          fontFamily: 'monospace', fontSize: 11),
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -623,7 +700,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 child: SelectableText(
                                   _prompt.isEmpty
                                       ? (loc?.webReverseAiCryptoPromptHint ??
-                                          'Click Analyze to generate the prompt.')
+                                            'Click Analyze to generate the prompt.')
                                       : _prompt,
                                   style: TextStyle(
                                     fontFamily: 'monospace',

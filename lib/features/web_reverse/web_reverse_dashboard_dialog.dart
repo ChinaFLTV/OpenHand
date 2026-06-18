@@ -479,14 +479,28 @@ class _WebReverseDashboardDialogState
     if (hasFirst) {
       try {
         await ctrl.navigate(wantUrls.first).timeout(const Duration(seconds: 6));
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          'restore first page ${wantUrls.first}',
+          error,
+          stack,
+        );
+      }
     }
     for (var i = hasFirst ? 1 : 0; i < wantUrls.length; i++) {
       try {
         await ctrl
             .createPageTarget(url: wantUrls[i])
             .timeout(const Duration(seconds: 6));
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          'restore page ${wantUrls[i]}',
+          error,
+          stack,
+        );
+      }
     }
   }
 
@@ -713,7 +727,14 @@ class _WebReverseDashboardDialogState
     if (rawPause is String && (rawPause == 'uncaught' || rawPause == 'all')) {
       try {
         await c.setPauseOnExceptions(rawPause);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          'restore pause mode',
+          error,
+          stack,
+        );
+      }
     }
     // 行断点（含 condition）。旧格式只有 url/line 时 condition 缺省。
     if (rawBps is List) {
@@ -729,7 +750,14 @@ class _WebReverseDashboardDialogState
             lineNumber: line,
             condition: condition.isEmpty ? null : condition,
           );
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore breakpoint $url:$line',
+            error,
+            stack,
+          );
+        }
       }
     }
     if (rawXhr is List) {
@@ -737,7 +765,14 @@ class _WebReverseDashboardDialogState
         if (s is! String) continue;
         try {
           await c.addXhrBreakpoint(s);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore xhr breakpoint $s',
+            error,
+            stack,
+          );
+        }
       }
     }
     if (rawEvent is List) {
@@ -745,7 +780,14 @@ class _WebReverseDashboardDialogState
         if (s is! String || s.isEmpty) continue;
         try {
           await c.setEventListenerBreakpoint(s);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore event breakpoint $s',
+            error,
+            stack,
+          );
+        }
       }
     }
     if (rawDom is List) {
@@ -756,7 +798,14 @@ class _WebReverseDashboardDialogState
         if (sel.isEmpty || t.isEmpty) continue;
         try {
           await c.addDomBreakpoint(selector: sel, type: t);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore dom breakpoint $sel',
+            error,
+            stack,
+          );
+        }
       }
     }
     if (rawCsp is List) {
@@ -767,7 +816,14 @@ class _WebReverseDashboardDialogState
       if (types.isNotEmpty) {
         try {
           await c.setCspViolationBreakpoints(types);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore csp breakpoints',
+            error,
+            stack,
+          );
+        }
       }
     }
   }

@@ -57,7 +57,13 @@ class _WebGatewayRotatingLogger {
       final file = File(filePath);
       if (!file.existsSync()) return 0;
       return file.lengthSync();
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_logger',
+        'read current log size',
+        error,
+        stack,
+      );
       return 0;
     }
   }
@@ -91,7 +97,14 @@ class _WebGatewayRotatingLogger {
         final stat = await file.stat();
         await file.delete();
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_gateway_logger',
+          'clear delete ${file.path}',
+          error,
+          stack,
+        );
+      }
     }
     return stats;
   }
@@ -116,7 +129,14 @@ class _WebGatewayRotatingLogger {
         final stat = await file.stat();
         await file.delete();
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_gateway_logger',
+          'prune delete ${file.path}',
+          error,
+          stack,
+        );
+      }
     }
 
     final deleted = <String>{};
@@ -160,7 +180,14 @@ class _WebGatewayRotatingLogger {
           'modified_at': stat.modified.toUtc().toIso8601String(),
           'content': utf8.decode(bytes, allowMalformed: true),
         });
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_gateway_logger',
+          'read bundle ${file.path}',
+          error,
+          stack,
+        );
+      }
     }
     return items;
   }
@@ -198,7 +225,14 @@ class _WebGatewayRotatingLogger {
     for (final old in logs.skip(config.maxFiles)) {
       try {
         await old.delete();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_gateway_logger',
+          'trim rotated ${old.path}',
+          error,
+          stack,
+        );
+      }
     }
   }
 }

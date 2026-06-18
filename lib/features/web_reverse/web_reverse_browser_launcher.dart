@@ -9,11 +9,7 @@ import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
 
 /// 启动失败原因。UI 层据此给出可操作的提示。
-enum WebReverseLaunchFailure {
-  noFreePort,
-  spawnFailed,
-  cdpHandshakeFailed,
-}
+enum WebReverseLaunchFailure { noFreePort, spawnFailed, cdpHandshakeFailed }
 
 /// 启动结果。
 class WebReverseLaunchResult {
@@ -82,8 +78,10 @@ class WebReverseBrowserLauncher {
         }
         // 2) 本进程能否 bind？
         try {
-          final server =
-              await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+          final server = await ServerSocket.bind(
+            InternetAddress.loopbackIPv4,
+            port,
+          );
           await server.close();
           return port;
         } on SocketException {
@@ -183,15 +181,19 @@ class WebReverseBrowserLauncher {
     var processExited = false;
     StreamSubscription<String>? errSub;
     try {
-      errSub = process.stderr.transform(systemEncoding.decoder).listen(
-        (chunk) {
-          if (stderrBuf.length < 32 * 1024) stderrBuf.write(chunk);
-        },
-        onDone: () {
-          processExited = true;
-        },
-      );
-    } catch (_) {}
+      errSub = process.stderr
+          .transform(systemEncoding.decoder)
+          .listen(
+            (chunk) {
+              if (stderrBuf.length < 32 * 1024) stderrBuf.write(chunk);
+            },
+            onDone: () {
+              processExited = true;
+            },
+          );
+    } catch (error, stack) {
+      silentLog('web_reverse_browser_launcher', 'listen stderr', error, stack);
+    }
     // drain stdout 防止管道堵塞导致浏览器进程阻塞写入。
     StreamSubscription<List<int>>? outSub;
     try {
@@ -201,7 +203,9 @@ class WebReverseBrowserLauncher {
           processExited = true;
         },
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_browser_launcher', 'drain stdout', error, stack);
+    }
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
@@ -244,7 +248,14 @@ class WebReverseBrowserLauncher {
     if (wsUrl == null || wsUrl.isEmpty) {
       try {
         process.kill();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_browser_launcher',
+          'kill failed launch',
+          error,
+          stack,
+        );
+      }
       // 确认子进程退出，避免悬挂；最多等 1.5s。detached 模式无法
       // await exitCode，改为等任一 stdio 管道 done 即认为已退出。
       try {
@@ -252,7 +263,14 @@ class WebReverseBrowserLauncher {
           if (errSub != null) errSub.asFuture<void>(),
           if (outSub != null) outSub.asFuture<void>(),
         ]).timeout(const Duration(milliseconds: 1500));
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_browser_launcher',
+          'wait failed launch exit',
+          error,
+          stack,
+        );
+      }
       await errSub?.cancel();
       await outSub?.cancel();
       final err = stderrBuf.toString().trim();

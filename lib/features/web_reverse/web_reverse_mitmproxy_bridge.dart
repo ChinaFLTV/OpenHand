@@ -27,8 +27,8 @@ class WebReverseMitmproxyBridge {
     required Process process,
     required HttpServer server,
     required this.eventStream,
-  })  : _process = process,
-        _server = server;
+  }) : _process = process,
+       _server = server;
 
   /// mitmdump 监听端口（用户客户端把流量代理到这）。
   final int mitmPort;
@@ -63,7 +63,9 @@ class WebReverseMitmproxyBridge {
           tag: 'mitmproxy.version_probe',
         );
         if (r.exitCode == 0) return c;
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('web_reverse_mitmproxy_bridge', 'detect $c', error, stack);
+      }
     }
     return null;
   }
@@ -80,7 +82,10 @@ class WebReverseMitmproxyBridge {
 
     HttpServer cbServer;
     try {
-      cbServer = await HttpServer.bind(InternetAddress.loopbackIPv4, callbackPort);
+      cbServer = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        callbackPort,
+      );
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'cb bind', error, stack);
       return null;
@@ -99,30 +104,49 @@ class WebReverseMitmproxyBridge {
               if (m is Map) {
                 controller.add(Map<String, Object?>.from(m));
               }
-            } catch (_) {}
+            } catch (error, stack) {
+              silentLog(
+                'web_reverse_mitmproxy_bridge',
+                'decode callback line',
+                error,
+                stack,
+              );
+            }
           }
         }
         req.response.statusCode = 204;
         await req.response.close();
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_mitmproxy_bridge',
+          'handle callback',
+          error,
+          stack,
+        );
         try {
           await req.response.close();
-        } catch (_) {}
+        } catch (closeError, closeStack) {
+          silentLog(
+            'web_reverse_mitmproxy_bridge',
+            'close callback response',
+            closeError,
+            closeStack,
+          );
+        }
       }
     });
 
     final addonPath = await _writeAddon(actualCbPort);
     Process p;
     try {
-      p = await startTrackedProcess(
-        exec,
-        <String>[
-          '-p', '$mitmPort',
-          '-s', addonPath,
-          '--quiet',
-          '--ssl-insecure',
-        ],
-      );
+      p = await startTrackedProcess(exec, <String>[
+        '-p',
+        '$mitmPort',
+        '-s',
+        addonPath,
+        '--quiet',
+        '--ssl-insecure',
+      ]);
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'spawn', error, stack);
       await cbServer.close(force: true);
@@ -148,7 +172,8 @@ class WebReverseMitmproxyBridge {
   static Future<String> _writeAddon(int callbackPort) async {
     // 极简 mitmproxy addon：每条 request / response 在 done 时 POST 到回调。
     // body 用 base64 包装防止编码问题；headers 用 list-of-pairs 防 case-fold。
-    final addon = '''
+    final addon =
+        '''
 import base64
 import json
 import urllib.request
@@ -204,12 +229,23 @@ def response(flow):
     _closed = true;
     try {
       _process.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'kill process', error, stack);
+    }
     try {
       await _process.exitCode.timeout(const Duration(milliseconds: 1500));
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_mitmproxy_bridge',
+        'wait process exit',
+        error,
+        stack,
+      );
+    }
     try {
       await _server.close(force: true);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'close server', error, stack);
+    }
   }
 }

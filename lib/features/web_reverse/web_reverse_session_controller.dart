@@ -336,7 +336,14 @@ class WebReverseSessionController extends ChangeNotifier {
           'Target.detachFromTarget',
           params: <String, Object?>{'sessionId': _pageSessionId},
         );
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'detach old target',
+          error,
+          stack,
+        );
+      }
       _pageSessionId = null;
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
@@ -392,7 +399,14 @@ class WebReverseSessionController extends ChangeNotifier {
     if (wasActive) {
       try {
         await cdp.send('Page.stopScreencast', sessionId: _pageSessionId);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'stop screencast before target switch',
+          error,
+          stack,
+        );
+      }
       _screencastActive = false;
     }
     try {
@@ -420,7 +434,14 @@ class WebReverseSessionController extends ChangeNotifier {
           sessionId: _pageSessionId,
         );
         _screencastActive = true;
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'restart screencast after target switch',
+          error,
+          stack,
+        );
+      }
     }
   }
 
@@ -945,7 +966,13 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final value = cdpResultValue(r);
       return value is String ? value : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'currentOrigin',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -1523,7 +1550,14 @@ class WebReverseSessionController extends ChangeNotifier {
           params: <String, Object?>{'identifier': _recorderScriptIdentifier},
           sessionId: _pageSessionId,
         );
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'remove recorder script',
+          error,
+          stack,
+        );
+      }
       _recorderScriptIdentifier = null;
     }
     // 摘掉页面上的悬浮指示条；页面没卸载时 stop 后 overlay 仍可能挂着。
@@ -1537,7 +1571,14 @@ class WebReverseSessionController extends ChangeNotifier {
           },
           sessionId: _pageSessionId,
         );
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'remove recorder overlay',
+          error,
+          stack,
+        );
+      }
     }
     _safeNotify();
   }
@@ -1730,7 +1771,13 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final v = cdpResultValue(r);
       return v is bool ? v : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'eval bool expression',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -2180,7 +2227,14 @@ class WebReverseSessionController extends ChangeNotifier {
           _recorderSteps.add(Map<String, Object?>.from(decoded));
           _safeNotify();
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'decode recorder console step',
+          error,
+          stack,
+        );
+      }
     }
     _appendConsole(type, text);
   }
@@ -2300,7 +2354,14 @@ class WebReverseSessionController extends ChangeNotifier {
             sessionId: _pageSessionId,
           );
           _screencastActive = true;
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'restore screencast after reconnect',
+            error,
+            stack,
+          );
+        }
       }
       _appendConsole('info', '[OpenHand] CDP 已自动重连，已恢复网络 / 控制台监听');
     } catch (error, stack) {
@@ -3003,7 +3064,13 @@ class WebReverseSessionController extends ChangeNotifier {
           // 对象 / 数组：用 JsonEncoder 美化；过长截断到 2KB。
           try {
             preview = const JsonEncoder.withIndent('  ').convert(value);
-          } catch (_) {
+          } catch (error, stack) {
+            silentLog(
+              'web_reverse_session_controller',
+              'format console eval result preview',
+              error,
+              stack,
+            );
             preview = '$value';
           }
         }
@@ -3084,7 +3151,14 @@ class WebReverseSessionController extends ChangeNotifier {
               .send('Page.stopScreencast', sessionId: _pageSessionId)
               .timeout(const Duration(milliseconds: 500));
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'stop browser screencast',
+          error,
+          stack,
+        );
+      }
       _screencastActive = false;
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
@@ -3098,17 +3172,38 @@ class WebReverseSessionController extends ChangeNotifier {
     _pageSessionId = null;
     try {
       await _pageCdp?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'close page cdp',
+        error,
+        stack,
+      );
+    }
     _pageCdp = null;
     try {
       await _browserCdp?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'close browser cdp',
+        error,
+        stack,
+      );
+    }
     _browserCdp = null;
     final p = _launchResult?.process;
     if (p != null) {
       try {
         p.kill();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'kill browser process',
+          error,
+          stack,
+        );
+      }
     }
     _launchResult = null;
     _errorMessage = null;
@@ -3159,7 +3254,14 @@ class WebReverseSessionController extends ChangeNotifier {
               .send('Page.stopScreencast', sessionId: _pageSessionId)
               .timeout(const Duration(milliseconds: 500));
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'safe stop screencast',
+          error,
+          stack,
+        );
+      }
       _screencastActive = false;
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
@@ -3175,30 +3277,65 @@ class WebReverseSessionController extends ChangeNotifier {
     if (br != null) {
       try {
         await br.close();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'close mitm bridge',
+          error,
+          stack,
+        );
+      }
     }
     final har = _harReplayServer;
     _harReplayServer = null;
     if (har != null) {
       try {
         await har.close();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'close har replay server',
+          error,
+          stack,
+        );
+      }
     }
     _pageEventsSub = null;
     _pageSessionId = null;
     try {
       await _pageCdp?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'safe close page cdp',
+        error,
+        stack,
+      );
+    }
     _pageCdp = null;
     try {
       await _browserCdp?.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'safe close browser cdp',
+        error,
+        stack,
+      );
+    }
     _browserCdp = null;
     final p = _launchResult?.process;
     if (p != null) {
       try {
         p.kill();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'safe kill browser process',
+          error,
+          stack,
+        );
+      }
     }
     // 收尾产物：先导 HAR（用 in-memory drafts），再关 artifacts。
     try {
@@ -3260,7 +3397,14 @@ class WebReverseSessionController extends ChangeNotifier {
         params: const <String, Object?>{'expression': js},
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'install fps counter',
+        error,
+        stack,
+      );
+    }
   }
 
   /// 安装 Long Task 观测：通过 PerformanceObserver 监听 entryType='longtask'
@@ -3312,7 +3456,14 @@ class WebReverseSessionController extends ChangeNotifier {
         params: const <String, Object?>{'expression': js},
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'install long task observer',
+        error,
+        stack,
+      );
+    }
   }
 
   /// 拉取 long task 列表并 drain。failure 时返回空列表。
@@ -3337,7 +3488,13 @@ class WebReverseSessionController extends ChangeNotifier {
           .whereType<Map>()
           .map((m) => Map<String, Object?>.from(m))
           .toList(growable: false);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'read long tasks',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -3507,7 +3664,13 @@ class WebReverseSessionController extends ChangeNotifier {
           .whereType<Map>()
           .map((m) => Map<String, Object?>.from(m))
           .toList(growable: false);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'read WebRTC logs',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -3534,7 +3697,13 @@ class WebReverseSessionController extends ChangeNotifier {
           .whereType<num>()
           .map((n) => n.toInt())
           .toList(growable: false);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'list WebRTC connections',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -3554,7 +3723,8 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final v = cdpResultValue(r);
       return v is num ? v.toDouble() : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'read fps', error, stack);
       return null;
     }
   }
@@ -3980,7 +4150,14 @@ class WebReverseSessionController extends ChangeNotifier {
             params: <String, Object?>{'identifier': _zoomScriptId},
             sessionId: _pageSessionId,
           );
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'remove old zoom script',
+            error,
+            stack,
+          );
+        }
       }
       final initJs =
           '''
@@ -4056,7 +4233,8 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final v = cdpResultValue(r);
       return v is num ? v.toInt() : 0;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'find in page', error, stack);
       return 0;
     }
   }
@@ -4072,7 +4250,9 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', 'find cycle', error, stack);
+    }
   }
 
   Future<void> clearFindHighlights() async {
@@ -4086,7 +4266,14 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'clear find highlights',
+        error,
+        stack,
+      );
+    }
   }
 
   Future<void> _installFinder() async {
@@ -4209,7 +4396,13 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final value = cdpResultValue(r);
       return value is String ? value : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'read current url',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -4417,7 +4610,13 @@ class WebReverseSessionController extends ChangeNotifier {
         if (name == 'JSHeapTotalSize') tot = v;
       }
       return (used: used, total: tot);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'read js heap usage',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -4486,7 +4685,14 @@ class WebReverseSessionController extends ChangeNotifier {
         params: <String, Object?>{'requestId': requestId},
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'continue fetch request $requestId',
+        error,
+        stack,
+      );
+    }
     _safeNotify();
   }
 
@@ -4545,7 +4751,14 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'abort fetch request $requestId',
+        error,
+        stack,
+      );
+    }
     _safeNotify();
   }
 
@@ -5096,7 +5309,13 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await cdp.send('Debugger.resume', sessionId: _pageSessionId);
       return true;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'resume debugger',
+        error,
+        stack,
+      );
       return false;
     }
   }
@@ -6144,7 +6363,14 @@ class WebReverseSessionController extends ChangeNotifier {
         if (bodyB64 != null && bodyB64.isNotEmpty) {
           try {
             entry.requestPostData = utf8.decode(base64Decode(bodyB64));
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog(
+              'web_reverse_session_controller',
+              'decode mitm body',
+              error,
+              stack,
+            );
+          }
         }
         _networkRequests.add(entry);
         _networkByRequestId[entry.requestId] = entry;
@@ -6780,7 +7006,13 @@ class WebReverseSessionController extends ChangeNotifier {
       final result = r['result'] as Map?;
       final v = result?['value'];
       return v is String && v.isNotEmpty ? v : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'read current page origin',
+        error,
+        stack,
+      );
       return null;
     }
   }

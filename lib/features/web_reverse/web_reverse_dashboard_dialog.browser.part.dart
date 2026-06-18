@@ -1169,7 +1169,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         suggestedName: 'browser-frame-$ts.$ext',
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'pick current frame save location',
+        error,
+        stack,
+      );
+    }
     if (!mounted || location == null) return;
     try {
       await File(location.path).writeAsBytes(bytes, flush: true);
@@ -1217,7 +1224,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       png = await widget.controller.captureScreenshot().timeout(
         const Duration(seconds: 10),
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'capture crop screenshot',
+        error,
+        stack,
+      );
+    }
     if (!mounted) return;
     if (png == null) {
       OpenHandSnackBar.showErrorOn(
@@ -1261,7 +1275,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         suggestedName: 'browser-crop-$ts.png',
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'pick crop save location',
+        error,
+        stack,
+      );
+    }
     if (!mounted || location == null) return;
     try {
       await File(location.path).writeAsBytes(out, flush: true);
@@ -1391,7 +1412,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               tag: 'web_reverse.open_external',
             );
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'open url externally',
+            error,
+            stack,
+          );
+        }
       case 'saveFrame':
         await _saveCurrentFrame();
       case 'cropFrame':
@@ -1750,7 +1778,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             onPressed: () async {
               try {
                 await ctrl.restartBrowser();
-              } catch (_) {}
+              } catch (error, stack) {
+                silentLog(
+                  'web_reverse_dashboard_dialog',
+                  'restart browser from toolbar',
+                  error,
+                  stack,
+                );
+              }
             },
           ),
           const SizedBox(width: 6),
@@ -1812,7 +1847,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 onPressed: () async {
                   try {
                     await ctrl.restartBrowser();
-                  } catch (_) {}
+                  } catch (error, stack) {
+                    silentLog(
+                      'web_reverse_dashboard_dialog',
+                      'restart browser from placeholder',
+                      error,
+                      stack,
+                    );
+                  }
                 },
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
                 label: Text(isZh ? '重启浏览器' : 'Restart browser'),

@@ -21,13 +21,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 
 /// 当前 LSP 子进程状态。
-enum WebReverseLspStatus {
-  idle,
-  starting,
-  ready,
-  notInstalled,
-  failed,
-}
+enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
 class WebReverseLspClient {
   WebReverseLspClient({this.command, this.args});
@@ -52,10 +46,7 @@ class WebReverseLspClient {
   Completer<bool>? _initDone;
 
   /// 启动子进程并完成 LSP initialize 握手。
-  Future<bool> start({
-    String? cmd,
-    List<String>? cmdArgs,
-  }) async {
+  Future<bool> start({String? cmd, List<String>? cmdArgs}) async {
     if (status == WebReverseLspStatus.ready) return true;
     if (status == WebReverseLspStatus.starting && _initDone != null) {
       return _initDone!.future;
@@ -136,10 +127,14 @@ class WebReverseLspClient {
     try {
       await _stdoutSub?.cancel();
       await _stderrSub?.cancel();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_lsp_client', 'cancel streams', error, stack);
+    }
     try {
       _proc?.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_lsp_client', 'kill process', error, stack);
+    }
     _proc = null;
     status = WebReverseLspStatus.idle;
     _opened.clear();
@@ -174,15 +169,18 @@ class WebReverseLspClient {
       try {
         final nvmRoot = Directory('$home/.nvm/versions/node');
         if (nvmRoot.existsSync()) {
-          final versions = nvmRoot
-              .listSync()
-              .whereType<Directory>()
-              .map((d) => d.path)
-              .toList()
-            ..sort();
+          final versions =
+              nvmRoot
+                  .listSync()
+                  .whereType<Directory>()
+                  .map((d) => d.path)
+                  .toList()
+                ..sort();
           if (versions.isNotEmpty) extras.add('${versions.last}/bin');
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('web_reverse_lsp_client', 'scan nvm path', error, stack);
+      }
     }
     final origin = (base['PATH'] ?? '').split(':');
     final seen = <String>{};
@@ -341,7 +339,9 @@ class WebReverseLspClient {
     try {
       p.stdin.add(utf8.encode(header));
       p.stdin.add(body);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('web_reverse_lsp_client', 'send message', error, stack);
+    }
   }
 
   void _onStdout(List<int> bytes) {
@@ -351,8 +351,10 @@ class WebReverseLspClient {
       final end = _findHeaderEnd(all);
       if (end < 0) return;
       final header = utf8.decode(all.sublist(0, end));
-      final m = RegExp(r'Content-Length:\s*(\d+)', caseSensitive: false)
-          .firstMatch(header);
+      final m = RegExp(
+        r'Content-Length:\s*(\d+)',
+        caseSensitive: false,
+      ).firstMatch(header);
       if (m == null) {
         // 不识别头，丢掉之前数据避免死循环。
         _buf.clear();

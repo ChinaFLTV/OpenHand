@@ -804,14 +804,28 @@ class AiTtsPlaybackService {
     if (process != null) {
       try {
         process.kill();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'ai_tts_playback_service',
+          'kill active process',
+          error,
+          stack,
+        );
+      }
     }
     final ws = _activeWebSocket;
     _activeWebSocket = null;
     if (ws != null) {
       try {
         await ws.close().timeout(const Duration(seconds: 1));
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'ai_tts_playback_service',
+          'close active websocket',
+          error,
+          stack,
+        );
+      }
     }
     final client = _activeClient;
     _activeClient = null;
@@ -902,7 +916,13 @@ class AiTtsPlaybackService {
           .map((line) => line.trimLeft().split(RegExp(r'\s{2,}')).first.trim())
           .where((voice) => voice.isNotEmpty)
           .toSet();
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'ai_tts_playback_service',
+        'load macOS voice names',
+        error,
+        stack,
+      );
       return const <String>{};
     }
   }

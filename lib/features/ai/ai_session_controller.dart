@@ -1930,7 +1930,14 @@ class AiSessionController extends ChangeNotifier {
         final shortestSide = math.min(logicalSize.width, logicalSize.height);
         if (shortestSide >= 600) return true;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'detect tablet viewport',
+        error,
+        stack,
+      );
+    }
     return false;
   }
 
@@ -9636,7 +9643,13 @@ $tail''';
       if (decoded is Map) {
         return Map<String, Object?>.from(decoded);
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'parse tool call arguments',
+        error,
+        stack,
+      );
       return const <String, Object?>{};
     }
     return const <String, Object?>{};

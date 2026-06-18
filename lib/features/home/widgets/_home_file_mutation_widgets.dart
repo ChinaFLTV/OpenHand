@@ -1302,7 +1302,14 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
         if (await file.exists()) {
           after = await file.readAsString();
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'home_file_mutation_widgets',
+          'read fallback ${v.record.filePath}',
+          error,
+          stack,
+        );
+      }
     }
     return (before: before, after: after);
   }
@@ -3822,8 +3829,13 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
         if (await file.exists()) {
           after = await file.readAsString();
         }
-      } catch (_) {
-        // 忽略读取失败，保持 after 为空
+      } catch (error, stack) {
+        silentLog(
+          'home_file_mutation_widgets',
+          'read fallback after blob',
+          error,
+          stack,
+        );
       }
     }
 

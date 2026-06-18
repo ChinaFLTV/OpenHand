@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
@@ -309,7 +310,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context)!;
     try {
       await context.read<McpController>().openStorageDirectory();
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('mcp_view', 'open MCP storage directory', error, stack);
       if (!context.mounted) {
         return;
       }
@@ -494,7 +496,14 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               await entity.delete(recursive: true);
             }
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'mcp_view',
+            'clear package cache $packageName',
+            error,
+            stack,
+          );
+        }
       }
 
       if (!context.mounted) return;
@@ -1038,7 +1047,8 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
         server,
         previousName: widget.initialServer?.name,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('mcp_view', 'save MCP server', error, stack);
       if (!mounted) {
         return;
       }

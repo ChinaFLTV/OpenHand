@@ -538,7 +538,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     } finally {
       try {
         httpClient?.close(force: true);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'settings_proxy_test_dialog',
+          'close http client',
+          error,
+          stack,
+        );
+      }
     }
     _totalStopwatch.stop();
     _finalizeCurrentSection(_totalStopwatch.elapsedMilliseconds);

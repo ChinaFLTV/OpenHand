@@ -66,7 +66,9 @@ class PluginScannerService {
         final alias = aliasFile.readAsStringSync().trim();
         if (alias.isNotEmpty) return alias;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('plugin_scanner', 'read nvm default alias', error, stack);
+    }
     return 'node';
   }
 
@@ -86,7 +88,8 @@ class PluginScannerService {
           if (name.startsWith('v')) versions.add(name);
         }
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('plugin_scanner', 'list nvm versions', error, stack);
       return null;
     }
     if (versions.isEmpty) return null;
@@ -180,7 +183,13 @@ class PluginScannerService {
         final isLts = lts is String && lts.isNotEmpty;
         if (preferLts ? isLts : !isLts) return version;
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'plugin_scanner_service',
+        'parse latest Node release',
+        error,
+        stack,
+      );
       return null;
     }
     return null;
@@ -289,7 +298,13 @@ class PluginScannerService {
       if (versions is! Map<String, Object?>) return null;
       final stable = versions['stable'];
       return stable is String && stable.isNotEmpty ? stable : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'plugin_scanner_service',
+        'parse latest python formula',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -304,7 +319,13 @@ class PluginScannerService {
       if (info is! Map<String, Object?>) return null;
       final version = info['version'];
       return version is String && version.isNotEmpty ? version : null;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'plugin_scanner_service',
+        'parse latest pip version',
+        error,
+        stack,
+      );
       return null;
     }
   }
@@ -577,7 +598,14 @@ class PluginScannerService {
             ).firstMatch(r.stdout.toString());
             if (m != null) latestVersion = m.group(1);
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'plugin_scanner',
+            'npm view playwright version',
+            error,
+            stack,
+          );
+        }
         return PluginInfo(
           id: 'playwright',
           name: 'Playwright',

@@ -479,7 +479,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           tag: 'mcp_tool_discovery.kill0',
         );
         if (checkResult.exitCode == 0) return; // 进程存活，健康
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'mcp_tool_discovery_service',
+          'check running process ${processInfo.pid}',
+          error,
+          stack,
+        );
+      }
     }
 
     // 常规路径：启动新进程进行完整 MCP 握手验证
@@ -2805,7 +2812,14 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
           versions.add(entity.path.split('/').last);
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'mcp_tool_discovery_service',
+        'list nvm versions',
+        error,
+        stack,
+      );
+    }
     // 按版本号降序排列，优先使用最新版本
     versions.sort((a, b) {
       final ap = a
@@ -2859,7 +2873,14 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
           }
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'mcp_tool_discovery_service',
+        'scan fnm packages',
+        error,
+        stack,
+      );
+    }
   }
 
   // 策略 3：检查系统全局
@@ -2898,7 +2919,8 @@ String? _findPackageBinEntry(String packageDir) {
     if (relative == null || relative.isEmpty) return null;
     final full = '$packageDir/$relative';
     return File(full).existsSync() ? full : null;
-  } catch (_) {
+  } catch (error, stack) {
+    silentLog('mcp_tool_discovery', 'read MCP package bin entry', error, stack);
     return null;
   }
 }

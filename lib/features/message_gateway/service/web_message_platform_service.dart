@@ -769,7 +769,13 @@ class WebMessagePlatformService {
   String _safeHostName() {
     try {
       return Platform.localHostname;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'read local hostname',
+        error,
+        stack,
+      );
       return '';
     }
   }
@@ -2931,8 +2937,13 @@ class WebMessagePlatformService {
     Map<String, Object?> body = const <String, Object?>{};
     try {
       body = await _readJsonBody(request);
-    } catch (_) {
-      // 允许空 body。
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'read compact body',
+        error,
+        stack,
+      );
     }
     final model = _resolveModel(_string(body['model_key'], ''));
     if (model == null) {
@@ -5124,7 +5135,14 @@ class WebMessagePlatformService {
         final stat = await entity.stat();
         totalBytes += stat.size;
         files.add(entity);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_message_platform_service',
+          'stat upload cache ${entity.path}',
+          error,
+          stack,
+        );
+      }
     }
     if (totalBytes <= _config.uploadCacheMaxBytes) {
       return const _CleanupStats();
@@ -5167,7 +5185,14 @@ class WebMessagePlatformService {
         } else if (entity is Directory) {
           stats += const _CleanupStats(deletedDirectories: 1);
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_message_platform_service',
+          'measure ${entity.path}',
+          error,
+          stack,
+        );
+      }
     }
     return stats;
   }
@@ -5570,11 +5595,25 @@ class WebMessagePlatformService {
           }
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'read proc status',
+        error,
+        stack,
+      );
+    }
     int? fileHandleCount;
     try {
       fileHandleCount = Directory('/proc/self/fd').listSync().length;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'count file handles',
+        error,
+        stack,
+      );
+    }
     return _ProcessDiagnostics(
       cpuPercent: cpuPercent,
       threadCount: threadCount,
@@ -5627,7 +5666,13 @@ class WebMessagePlatformService {
         processTicks: userTicks + systemTicks,
         totalTicks: totalTicks,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'read linux cpu sample',
+        error,
+        stack,
+      );
       return null;
     }
   }

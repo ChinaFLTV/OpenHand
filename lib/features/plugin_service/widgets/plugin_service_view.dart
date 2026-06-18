@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -492,7 +493,9 @@ class _PluginCard extends StatelessWidget {
     // 弹窗可能已被用户强制关闭，安全 pop
     try {
       Navigator.of(context, rootNavigator: true).pop();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('plugin_service_view', 'dismiss install dialog', error, stack);
+    }
     _showPluginSnackBar(
       context,
       SnackBar(
@@ -524,7 +527,9 @@ class _PluginCard extends StatelessWidget {
     if (!context.mounted) return;
     try {
       Navigator.of(context, rootNavigator: true).pop();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('plugin_service_view', 'dismiss update dialog', error, stack);
+    }
     _showPluginSnackBar(
       context,
       SnackBar(
@@ -602,7 +607,14 @@ class _PluginCard extends StatelessWidget {
     if (!context.mounted) return;
     try {
       Navigator.of(context, rootNavigator: true).pop();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'plugin_service_view',
+        'dismiss uninstall dialog',
+        error,
+        stack,
+      );
+    }
     _showPluginSnackBar(
       context,
       SnackBar(
@@ -1149,7 +1161,9 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('plugin_service_view', 'load node env info', error, stack);
+        }
       }
       if (widget.plugin.id == 'python' && widget.plugin.isInstalled) {
         try {
@@ -1163,7 +1177,14 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             info['python'] = '${pythonResult.stdout}${pythonResult.stderr}'
                 .trim();
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'plugin_service_view',
+            'load python env info',
+            error,
+            stack,
+          );
+        }
       }
       if (widget.plugin.id == 'pip' && widget.plugin.isInstalled) {
         try {
@@ -1177,7 +1198,9 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             info['pip'] = '${pipResult.stdout}${pipResult.stderr}'.trim();
           }
           info[widget.isZh ? '绑定解释器' : 'Bound Python'] = pythonExecutable;
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('plugin_service_view', 'load pip env info', error, stack);
+        }
       }
       if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
         try {
@@ -1188,9 +1211,18 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           if (result.exitCode == 0) {
             info['Playwright CLI'] = result.stdout.toString().trim();
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'plugin_service_view',
+            'load playwright env info',
+            error,
+            stack,
+          );
+        }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('plugin_service_view', 'load env info', error, stack);
+    }
     if (mounted) {
       setState(() {
         _envInfo = info;
@@ -1504,7 +1536,14 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
             ).firstMatch(listResult.stdout.toString());
             npmVersion = match?.group(1);
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'plugin_service_view',
+            'check playwright mcp npm',
+            error,
+            stack,
+          );
+        }
 
         // 检查 MCP 控制器中是否注册了 Playwright MCP 服务
         bool mcpRegistered = false;
@@ -1516,13 +1555,22 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                   s.name == 'Playwright MCP' ||
                   s.command == 'npx' && s.args.contains('@playwright/mcp'),
             );
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog(
+              'plugin_service_view',
+              'check playwright mcp registry',
+              error,
+              stack,
+            );
+          }
         }
 
         _mcpInstalled = npmInstalled && mcpRegistered;
         _mcpVersion = npmVersion;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('plugin_service_view', 'check playwright mcp', error, stack);
+    }
     if (mounted) setState(() => _checking = false);
   }
 
@@ -1604,8 +1652,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           mcpController.deleteServer(s);
         }
       }
-    } catch (_) {
-      // MCP controller 不可用时静默忽略
+    } catch (error, stack) {
+      silentLog('plugin_service_view', 'sync MCP service action', error, stack);
     }
   }
 

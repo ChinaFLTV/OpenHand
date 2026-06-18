@@ -46,7 +46,8 @@ class WebReverseHarReplayServer {
         final fullKey = _normalizeKey(url);
         final pathKey = _pathKey(url);
         final headers = <String, String>{};
-        for (final h in (res['headers'] as List? ?? const []).whereType<Map>()) {
+        for (final h
+            in (res['headers'] as List? ?? const []).whereType<Map>()) {
           headers['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
         }
         final content = res['content'] as Map? ?? const {};
@@ -70,7 +71,10 @@ class WebReverseHarReplayServer {
     }
     HttpServer server;
     try {
-      server = await HttpServer.bind(InternetAddress.loopbackIPv4, requestedPort);
+      server = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        requestedPort,
+      );
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', 'bind', error, stack);
       return null;
@@ -85,16 +89,17 @@ class WebReverseHarReplayServer {
       final key = _normalizeKey(req.requestedUri.toString());
       final hit = map[key];
       // 兜底：去掉 host 部分用 path+query 再查一次。
-      final fallbackKey = '${req.requestedUri.path}?${_sortedQuery(req.requestedUri.queryParameters)}';
+      final fallbackKey =
+          '${req.requestedUri.path}?${_sortedQuery(req.requestedUri.queryParameters)}';
       final byPath = hit ?? map[fallbackKey];
       if (byPath == null) {
         req.response.statusCode = 404;
-        req.response.headers.contentType =
-            ContentType('application', 'json', charset: 'utf-8');
-        req.response.write(jsonEncode({
-          'error': 'no har entry',
-          'key': key,
-        }));
+        req.response.headers.contentType = ContentType(
+          'application',
+          'json',
+          charset: 'utf-8',
+        );
+        req.response.write(jsonEncode({'error': 'no har entry', 'key': key}));
         await req.response.close();
         return;
       }
@@ -109,7 +114,14 @@ class WebReverseHarReplayServer {
         }
         try {
           req.response.headers.set(k, v);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_har_replay_server',
+            'set response header $k',
+            error,
+            stack,
+          );
+        }
       });
       try {
         if (byPath.isBase64) {
@@ -117,7 +129,14 @@ class WebReverseHarReplayServer {
         } else {
           req.response.write(byPath.body);
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_har_replay_server',
+          'write response body',
+          error,
+          stack,
+        );
+      }
       await req.response.close();
     });
     return instance;
@@ -150,8 +169,10 @@ class WebReverseHarReplayServer {
   static String _sortedQuery(Map<String, String> params) {
     final keys = params.keys.toList()..sort();
     return keys
-        .map((k) =>
-            '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(params[k] ?? '')}')
+        .map(
+          (k) =>
+              '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(params[k] ?? '')}',
+        )
         .join('&');
   }
 }

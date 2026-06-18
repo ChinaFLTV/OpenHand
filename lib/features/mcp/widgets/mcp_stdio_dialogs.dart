@@ -879,7 +879,14 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           if (viewResult.exitCode == 0) {
             _latestVersion = viewResult.stdout.toString().trim();
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'mcp_stdio_dialogs',
+            'npm view $cleanPkg version',
+            error,
+            stack,
+          );
+        }
       } else if (_isUvxService) {
         // uvx/pip 全局安装状态检查
         final listResult = await runTrackedProcessOrFailed(
@@ -899,7 +906,9 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           _installedVersion = match?.group(1);
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('mcp_stdio_dialogs', 'check package status', error, stack);
+    }
     if (mounted) setState(() => _checking = false);
   }
 

@@ -48,7 +48,9 @@ void main(List<String> args) {
     stderr.writeln(st);
     try {
       root.deleteSync(recursive: true);
-    } catch (_) {}
+    } catch (cleanupError) {
+      stderr.writeln('[scaffold] cleanup failed: $cleanupError');
+    }
     exit(1);
   }
 

@@ -691,7 +691,14 @@ class WebFetchScraplingBridge {
         final value = '${result.stdout}'.trim();
         return value.isEmpty ? null : value;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'probe certifi bundle',
+        error,
+        stack,
+      );
+    }
     return null;
   }
 

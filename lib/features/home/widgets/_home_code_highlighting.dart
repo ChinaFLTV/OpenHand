@@ -781,7 +781,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   Future<void> _writeCodeBlockToClipboard() async {
     try {
       await Clipboard.setData(ClipboardData(text: widget.content));
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'copy code block', error, stack);
       if (!mounted) {
         return;
       }
@@ -850,7 +851,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           _downloaded = false;
         });
       });
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'download code block', error, stack);
       if (!mounted) {
         return;
       }
@@ -1614,8 +1616,13 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
           try {
             await entity.delete(recursive: true);
             deletedCount++;
-          } catch (_) {
-            // Ignore individual deletion errors.
+          } catch (error, stack) {
+            silentLog(
+              'home_code_highlighting',
+              'delete temp html cache ${entity.path}',
+              error,
+              stack,
+            );
           }
         }
       }
@@ -1673,7 +1680,13 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       } else if (Platform.isLinux) {
         await runDetachedSystemOpen('xdg-open', [uri.toFilePath()]);
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'open html preview in browser',
+        error,
+        stack,
+      );
       if (!context.mounted) {
         return;
       }
@@ -2103,8 +2116,13 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         if (await file.exists()) {
           await file.parent.delete(recursive: true);
         }
-      } catch (_) {
-        // Ignore cleanup errors.
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'cleanup temp html file',
+          error,
+          stack,
+        );
       }
       _tempFilePath = null;
     }
@@ -2468,7 +2486,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           if (await file.exists()) await file.delete();
           final parent = file.parent;
           if (await parent.exists()) await parent.delete(recursive: true);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog(
+            'home_code_highlighting',
+            'cleanup mermaid temp file',
+            error,
+            stack,
+          );
+        }
       });
     }
     super.dispose();
@@ -2756,8 +2781,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         if (raw is String && raw.isNotEmpty) {
           svg = raw.trim();
         }
-      } catch (_) {
-        // ignore: WebView fallback failed; fall through to "not ready" branch.
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'read mermaid svg from webview',
+          error,
+          stack,
+        );
       }
     }
 
@@ -2781,21 +2811,42 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           writeOk = true;
           writeMethod = 'pbcopy';
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'copy svg with pbcopy',
+          error,
+          stack,
+        );
+      }
     }
     if (!writeOk) {
       try {
         Pasteboard.writeText(svg);
         writeOk = true;
         writeMethod = 'Pasteboard.writeText';
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'copy svg with Pasteboard.writeText',
+          error,
+          stack,
+        );
+      }
     }
     if (!writeOk) {
       try {
         await Clipboard.setData(ClipboardData(text: svg));
         writeOk = true;
         writeMethod = 'Clipboard.setData';
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'copy svg with Clipboard.setData',
+          error,
+          stack,
+        );
+      }
     }
 
     // 验证剪贴板（OS 通道 pbpaste 优先，Flutter 通道为辅），用以决定
@@ -2810,7 +2861,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
       await tempFile.writeAsString(svg);
       savedPath = tempFile.path;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'write mermaid svg temp file',
+        error,
+        stack,
+      );
+    }
 
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
@@ -2890,11 +2948,25 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
         pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'verify svg via pbpaste',
+        error,
+        stack,
+      );
+    }
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       flutterLen = data?.text?.length ?? 0;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'verify svg via Clipboard.getData',
+        error,
+        stack,
+      );
+    }
     final osLayerOk =
         pbpasteLen == svg.length &&
         pbpasteSvgOpenCount == 1 &&
@@ -2942,7 +3014,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         );
         return;
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog(
+          'home_code_highlighting',
+          'copy mermaid png image',
+          error,
+          stack,
+        );
+      }
     }
     final svg = _svgMarkup.trim();
     if (svg.isEmpty) return;
@@ -2962,7 +3041,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'home_code_highlighting',
+        'copy mermaid svg image fallback',
+        error,
+        stack,
+      );
       await _copySvgMarkup();
     }
   }
@@ -2994,7 +3079,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'download mermaid svg', error, stack);
+    }
   }
 
   Future<void> _downloadPng() async {
@@ -3040,7 +3127,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ),
         ),
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'download mermaid png', error, stack);
+    }
   }
 
   ({String bg, String fg, String border}) _computeMermaidThemeColors() {

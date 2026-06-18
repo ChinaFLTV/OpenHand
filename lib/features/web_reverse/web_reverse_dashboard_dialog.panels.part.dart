@@ -182,7 +182,14 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         suggestedName: 'performance-$ts.csv',
         acceptedTypeGroups: const [typeGroup],
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'pick performance csv path',
+        error,
+        stack,
+      );
+    }
     if (!mounted || location == null) return;
     try {
       await File(location.path).writeAsString(buf.toString());
@@ -4056,7 +4063,14 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         suggestedName: 'recorder-$kind-$ts.js',
         acceptedTypeGroups: const [typeGroup],
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'pick recorder export path',
+        error,
+        stack,
+      );
+    }
     if (!mounted || location == null) return;
     try {
       await File(location.path).writeAsString(code);
@@ -4584,8 +4598,13 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
         if (ts < minT) minT = ts;
         if (ts + dur > maxT) maxT = ts + dur;
       }
-    } catch (_) {
-      /* fall through */
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'parse trace events',
+        error,
+        stack,
+      );
     }
     if (all.length > 3000) {
       final step = (all.length / 3000).ceil();
