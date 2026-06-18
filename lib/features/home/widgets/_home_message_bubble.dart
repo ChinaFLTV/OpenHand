@@ -2224,6 +2224,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
   Size? _naturalSize;
+  final GlobalKey _headerKey = GlobalKey();
+  double? _measuredHeaderHeight;
   bool _isCopying = false;
 
   @override
@@ -2291,12 +2293,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
+    _scheduleHeaderHeightSync();
 
     final natural = _naturalSize;
     final metrics = _AdaptivePreviewDialogMetrics.fromAspectRatio(
       viewport: viewport,
       insetPadding: _kInsetPadding,
-      chromeHeight: _kHeaderEstimate + _kDividerH,
+      chromeHeight:
+          math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) + _kDividerH,
       contentPadding: _kPadding,
       minDialogWidth: _kMinDialogW,
       fallbackContentSize: const Size.square(_kFallbackSide),
@@ -2335,6 +2339,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                 children: [
                   // 头部标题栏。
                   Padding(
+                    key: _headerKey,
                     padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
                     child: Row(
                       children: [
@@ -2426,6 +2431,19 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         ),
       ),
     );
+  }
+
+  void _scheduleHeaderHeightSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = _headerKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox) return;
+      final height = renderObject.size.height;
+      if (height <= 0) return;
+      final previous = _measuredHeaderHeight;
+      if (previous != null && (previous - height).abs() < 0.5) return;
+      setState(() => _measuredHeaderHeight = height);
+    });
   }
 
   Future<void> _copyImageToClipboard(BuildContext context) async {
@@ -3305,6 +3323,8 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _isOpeningExternal = false;
   bool _isCopyingMedia = false;
   bool _disposed = false;
+  final GlobalKey _headerKey = GlobalKey();
+  double? _measuredHeaderHeight;
   // Cancel signal for the in-flight save. Completed when the user dismisses
   // the dialog mid-download so we stop pulling bytes and clean up the
   // partial file instead of writing into a destination the user is no
@@ -3590,7 +3610,9 @@ $mediaTag
         ? _AdaptivePreviewDialogMetrics.fromAspectRatio(
             viewport: viewport,
             insetPadding: _kInsetPadding,
-            chromeHeight: _kHeaderEstimate + _kDividerH,
+            chromeHeight:
+                math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) +
+                _kDividerH,
             contentPadding: _kContentPadding,
             minDialogWidth: _kMinDialogW,
             fallbackContentSize: const Size(960, 540),
@@ -3604,11 +3626,14 @@ $mediaTag
         : _AdaptivePreviewDialogMetrics.fixedContent(
             viewport: viewport,
             insetPadding: _kInsetPadding,
-            chromeHeight: _kHeaderEstimate + _kDividerH,
+            chromeHeight:
+                math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) +
+                _kDividerH,
             contentPadding: _kContentPadding,
             minDialogWidth: _kMinDialogW,
             contentSize: _kAudioContentSize,
           );
+    _scheduleHeaderHeightSync();
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
@@ -3653,6 +3678,7 @@ $mediaTag
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
+                        key: _headerKey,
                         padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
                         child: Row(
                           children: [
@@ -3791,6 +3817,19 @@ $mediaTag
         ),
       ),
     );
+  }
+
+  void _scheduleHeaderHeightSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = _headerKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox) return;
+      final height = renderObject.size.height;
+      if (height <= 0) return;
+      final previous = _measuredHeaderHeight;
+      if (previous != null && (previous - height).abs() < 0.5) return;
+      setState(() => _measuredHeaderHeight = height);
+    });
   }
 
   Future<void> _openInSystemPlayer(BuildContext context) async {

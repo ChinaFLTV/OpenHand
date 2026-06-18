@@ -112,13 +112,15 @@ function computePreviewLayout(
   kind: MediaKind,
   naturalSize: PreviewNaturalSize | null,
   viewport: PreviewViewportSize,
+  headerHeight: number,
 ): PreviewLayout {
   const maxPanelWidth = Math.max(PREVIEW_MIN_PANEL_WIDTH, viewport.width - PREVIEW_VIEWPORT_GAP * 2);
   const maxPanelHeight = Math.max(220, viewport.height - PREVIEW_VIEWPORT_GAP * 2);
   const maxContentWidth = Math.max(1, maxPanelWidth - PREVIEW_CONTENT_PADDING * 2);
+  const chromeHeight = Math.max(PREVIEW_HEADER_ESTIMATE, headerHeight);
   const maxContentHeight = Math.max(
     1,
-    maxPanelHeight - PREVIEW_HEADER_ESTIMATE - PREVIEW_CONTENT_PADDING * 2,
+    maxPanelHeight - chromeHeight - PREVIEW_CONTENT_PADDING * 2,
   );
 
   if (kind === 'image' || kind === 'video') {
@@ -474,16 +476,18 @@ export interface MediaPreviewDialogProps {
 }
 
 export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
+  const headerRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);
   const copyAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
   const [naturalSize, setNaturalSize] = useState<PreviewNaturalSize | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(PREVIEW_HEADER_ESTIMATE);
   const viewport = usePreviewViewport();
   const layout = useMemo(
-    () => computePreviewLayout(item.kind, naturalSize, viewport),
-    [item.kind, naturalSize, viewport],
+    () => computePreviewLayout(item.kind, naturalSize, viewport, headerHeight),
+    [item.kind, naturalSize, viewport, headerHeight],
   );
   const rememberNaturalSize = useCallback((width: number, height: number) => {
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
@@ -509,6 +513,34 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
   });
   useEffect(() => () => abortTransfers(), [abortTransfers]);
   useEffect(() => setNaturalSize(null), [item.kind, item.path, url]);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    let frame = 0;
+    const measure = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const next = header.getBoundingClientRect().height;
+        if (!Number.isFinite(next) || next <= 0) return;
+        setHeaderHeight((current) => Math.abs(current - next) < 0.5 ? current : next);
+      });
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => {
+        window.removeEventListener('resize', measure);
+        if (frame) window.cancelAnimationFrame(frame);
+      };
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
   const requestFullscreen = async () => {
     try {
       await stageRef.current?.requestFullscreen?.();
@@ -626,7 +658,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       }}
       ariaLabel={item.name}
     >
-      <header class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
+      <header ref={headerRef} class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold truncate">{item.name}</p>
             <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
