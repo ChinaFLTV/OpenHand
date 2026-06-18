@@ -1550,6 +1550,12 @@ abstract class AppLocalizations {
   /// **'LongCat'**
   String get aiProtocolLongCat;
 
+  /// AI provider brand: Sapiens AI Agnes. Brand name; keep Agnes unless a locale has an established transliteration.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Agnes'**
+  String get aiProtocolAgnes;
+
   /// AI provider brand: JD JoyCode. Brand name; transliterate when natural (ja: ジョイコード).
   ///
   /// In zh_Hans, this message translates to:

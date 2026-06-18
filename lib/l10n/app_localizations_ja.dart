@@ -800,6 +800,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiProtocolLongCat => 'ロングキャット';
 
   @override
+  String get aiProtocolAgnes => 'Agnes';
+
+  @override
   String get aiProtocolJoyCode => 'ジョイコード';
 
   @override

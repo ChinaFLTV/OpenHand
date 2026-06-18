@@ -832,6 +832,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolLongCat => 'LongCat';
 
   @override
+  String get aiProtocolAgnes => 'Agnes';
+
+  @override
   String get aiProtocolJoyCode => 'JoyCode';
 
   @override

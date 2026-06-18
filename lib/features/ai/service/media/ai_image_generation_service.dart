@@ -105,6 +105,7 @@ class AiImageGenerationService {
       case AiProtocolType.stepfun:
       case AiProtocolType.minimax:
       case AiProtocolType.longcat:
+      case AiProtocolType.agnes:
       case AiProtocolType.joycode:
       case AiProtocolType.wenxin:
       case AiProtocolType.meta:
@@ -127,6 +128,8 @@ class AiImageGenerationService {
       case AiProtocolType.glm:
       case AiProtocolType.seed:
       case AiProtocolType.minimax:
+      case AiProtocolType.agnes:
+        return true;
       // Grok via chenyme/grok2api gateway exposes `POST /v1/videos`
       // (multipart) for `grok-imagine-video`. xAI native Grok API has no
       // public video endpoint, so this branch only activates when users
@@ -218,6 +221,7 @@ class AiImageGenerationService {
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
       case AiProtocolType.longcat:
+      case AiProtocolType.agnes:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
       case AiProtocolType.mimo:
@@ -250,6 +254,7 @@ class AiImageGenerationService {
     required AiModelConfig model,
     required String prompt,
     AiCreationOptions options = AiCreationOptions.empty,
+    List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     Duration timeout = const Duration(seconds: 120),
   }) async {
     if (!supportsImageGenerationForModel(model)) {
@@ -267,11 +272,19 @@ class AiImageGenerationService {
     final imageModelId = resolveImageModelId(model, AiCreationMode.image);
     final url = _resolveImagesEndpoint(model.normalizedBaseUrl);
     final headers = _buildHeaders(model);
+    final referenceImageDataUrls =
+        _usesAgnesMediaApi(model.protocolType, imageModelId)
+        ? await _referenceImageDataUrls(
+            referenceImages,
+            _GeneratedMediaKind.image,
+          )
+        : const <String>[];
     final body = _buildImageBody(
       modelId: imageModelId,
       prompt: trimmedPrompt,
       options: options,
       protocol: model.protocolType,
+      referenceImageDataUrls: referenceImageDataUrls,
     );
     final startedAt = DateTime.now().toUtc();
     final http.Response response;
@@ -337,6 +350,7 @@ class AiImageGenerationService {
     required AiModelConfig model,
     required String prompt,
     AiCreationOptions options = AiCreationOptions.empty,
+    List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     Duration timeout = const Duration(minutes: 15),
   }) {
     return _generateMedia(
@@ -344,6 +358,7 @@ class AiImageGenerationService {
       model: model,
       prompt: prompt,
       options: options,
+      referenceImages: referenceImages,
       timeout: timeout,
     );
   }
@@ -368,6 +383,7 @@ class AiImageGenerationService {
     required AiModelConfig model,
     required String prompt,
     required AiCreationOptions options,
+    List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     required Duration timeout,
   }) async {
     final supported = switch (kind) {
@@ -399,6 +415,7 @@ class AiImageGenerationService {
       model.normalizedBaseUrl,
       kind,
       model.protocolType,
+      modelId: modelId,
     );
     final headers = _buildHeaders(model);
     if (!model.customHeaders.keys.any(
@@ -418,12 +435,17 @@ class AiImageGenerationService {
         headers['x-dashscope-async'] = 'enable';
       }
     }
+    final referenceImageDataUrls =
+        _usesAgnesMediaApi(model.protocolType, modelId)
+        ? await _referenceImageDataUrls(referenceImages, kind)
+        : const <String>[];
     final body = _buildMediaBody(
       kind: kind,
       modelId: modelId,
       prompt: trimmedPrompt,
       options: options,
       protocol: model.protocolType,
+      referenceImageDataUrls: referenceImageDataUrls,
     );
     final useMultipart = _videoEndpointWantsMultipart(
       kind: kind,
@@ -526,6 +548,7 @@ class AiImageGenerationService {
       kind: kind,
       label: trimmedPrompt,
       protocol: model.protocolType,
+      modelId: modelId,
       requestHeaders: headers,
       timeout: timeout,
       startedAt: startedAt,
@@ -597,8 +620,9 @@ class AiImageGenerationService {
   String _resolveMediaEndpoint(
     String baseUrl,
     _GeneratedMediaKind kind,
-    AiProtocolType protocol,
-  ) {
+    AiProtocolType protocol, {
+    required String modelId,
+  }) {
     if (kind.isImage) return _resolveImagesEndpoint(baseUrl);
     if (baseUrl.trim().isEmpty) {
       throw const AiMediaGenerationException('Missing base URL.');
@@ -631,7 +655,7 @@ class AiImageGenerationService {
         segments.add('v1');
       }
     }
-    segments.addAll(_mediaEndpointSuffix(kind, protocol));
+    segments.addAll(_mediaEndpointSuffix(kind, protocol, modelId));
     return Uri(
       scheme: uri.scheme,
       userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,
@@ -668,6 +692,7 @@ class AiImageGenerationService {
   List<String> _mediaEndpointSuffix(
     _GeneratedMediaKind kind,
     AiProtocolType protocol,
+    String modelId,
   ) {
     if (kind.isVideo) {
       return switch (protocol) {
@@ -676,13 +701,17 @@ class AiImageGenerationService {
         AiProtocolType.openai => const <String>['videos'],
         // grok2api gateway mirrors OpenAI Sora's `/v1/videos` async layout.
         AiProtocolType.grok => const <String>['videos'],
+        AiProtocolType.agnes => const <String>['videos'],
         // MiniMax uses a flat `POST /v1/video_generation` instead of the
         // OpenAI-style nested `videos/generations` path.
         AiProtocolType.minimax => const <String>['video_generation'],
         // GLM/Zhipu BigModel: `POST /api/paas/v4/videos/generations`.
         // Qwen DashScope compatible-mode also accepts `/videos/generations`
         // as a passthrough to the native video-synthesis service.
-        _ => const <String>['videos', 'generations'],
+        _ =>
+          _isAgnesModel(modelId)
+              ? const <String>['videos']
+              : const <String>['videos', 'generations'],
       };
     }
     if (kind.isAudio) {
@@ -784,6 +813,7 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required List<String> referenceImageDataUrls,
   }) {
     return switch (kind) {
       _GeneratedMediaKind.image => _buildImageBody(
@@ -791,12 +821,14 @@ class AiImageGenerationService {
         prompt: prompt,
         options: options,
         protocol: protocol,
+        referenceImageDataUrls: referenceImageDataUrls,
       ),
       _GeneratedMediaKind.video => _buildVideoBody(
         modelId: modelId,
         prompt: prompt,
         options: options,
         protocol: protocol,
+        referenceImageDataUrls: referenceImageDataUrls,
       ),
       _GeneratedMediaKind.audio => _buildAudioBody(
         modelId: modelId,
@@ -812,7 +844,27 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required List<String> referenceImageDataUrls,
   }) {
+    if (_usesAgnesMediaApi(protocol, modelId)) {
+      final body = <String, Object?>{
+        'model': modelId,
+        'prompt': prompt,
+        'size':
+            options.size ??
+            _agnesImageSizeFromAspectRatio(options.aspectRatio) ??
+            '1024x1024',
+      };
+      if (referenceImageDataUrls.isEmpty) {
+        body['return_base64'] = true;
+      } else {
+        body['extra_body'] = <String, Object?>{
+          'image': referenceImageDataUrls,
+          'response_format': 'b64_json',
+        };
+      }
+      return body;
+    }
     final body = <String, Object?>{
       'model': modelId,
       'prompt': prompt,
@@ -838,7 +890,16 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required List<String> referenceImageDataUrls,
   }) {
+    if (_usesAgnesMediaApi(protocol, modelId)) {
+      return _buildAgnesVideoBody(
+        modelId: modelId,
+        prompt: prompt,
+        options: options,
+        referenceImageDataUrls: referenceImageDataUrls,
+      );
+    }
     // Per-provider body shapes — many vendors deliberately do NOT speak the
     // OpenAI `prompt + n + response_format` schema. Sending the canonical
     // shape to providers like Sora 2 / MiniMax / DashScope yields silent
@@ -897,6 +958,13 @@ class AiImageGenerationService {
           body['preset'] = options.style;
         }
         return body;
+      case AiProtocolType.agnes:
+        return _buildAgnesVideoBody(
+          modelId: modelId,
+          prompt: prompt,
+          options: options,
+          referenceImageDataUrls: referenceImageDataUrls,
+        );
       case AiProtocolType.glm:
       case AiProtocolType.seed:
       case AiProtocolType.hunyuan:
@@ -955,6 +1023,146 @@ class AiImageGenerationService {
         return '768x1024';
     }
     return null;
+  }
+
+  String? _agnesImageSizeFromAspectRatio(String? ratio) {
+    if (ratio == null) return null;
+    switch (ratio.trim()) {
+      case '1:1':
+        return '1024x1024';
+      case '16:9':
+        return '1024x576';
+      case '9:16':
+        return '576x1024';
+      case '4:3':
+        return '1024x768';
+      case '3:4':
+        return '768x1024';
+      case '3:2':
+        return '1152x768';
+      case '2:3':
+        return '768x1152';
+    }
+    return null;
+  }
+
+  Map<String, Object?> _buildAgnesVideoBody({
+    required String modelId,
+    required String prompt,
+    required AiCreationOptions options,
+    required List<String> referenceImageDataUrls,
+  }) {
+    final size =
+        _parsePixelSize(options.size) ??
+        _agnesVideoSizeFromAspectRatio(options.aspectRatio);
+    final body = <String, Object?>{
+      'model': modelId,
+      'prompt': prompt,
+      'height': size.height,
+      'width': size.width,
+      'num_frames': _agnesNumFrames(options.durationSeconds),
+      'frame_rate': 24,
+    };
+    final mode = options.style?.trim();
+    if (mode != null && mode.isNotEmpty && referenceImageDataUrls.length <= 1) {
+      body['mode'] = mode;
+    }
+    if (referenceImageDataUrls.length == 1) {
+      body['image'] = referenceImageDataUrls.first;
+    } else if (referenceImageDataUrls.length > 1) {
+      body['extra_body'] = <String, Object?>{
+        'image': referenceImageDataUrls,
+        'mode': mode?.isNotEmpty == true ? mode : 'keyframes',
+      };
+    }
+    return body;
+  }
+
+  _PixelSize _agnesVideoSizeFromAspectRatio(String? ratio) {
+    switch (ratio?.trim()) {
+      case '1:1':
+        return const _PixelSize(width: 1024, height: 1024);
+      case '16:9':
+        return const _PixelSize(width: 1280, height: 720);
+      case '9:16':
+        return const _PixelSize(width: 720, height: 1280);
+      case '4:3':
+        return const _PixelSize(width: 1024, height: 768);
+      case '3:4':
+        return const _PixelSize(width: 768, height: 1024);
+      case '1.5:1':
+      case '3:2':
+      default:
+        return const _PixelSize(width: 1152, height: 768);
+    }
+  }
+
+  int _agnesNumFrames(int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) {
+      return 121;
+    }
+    final target = math.min(441, math.max(9, durationSeconds * 24));
+    final steps = ((target - 1) / 8).round();
+    return math.min(441, math.max(9, steps * 8 + 1));
+  }
+
+  _PixelSize? _parsePixelSize(String? raw) {
+    final trimmed = raw?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final match = RegExp(r'^(\d{2,5})x(\d{2,5})$').firstMatch(trimmed);
+    if (match == null) return null;
+    final width = int.tryParse(match.group(1)!);
+    final height = int.tryParse(match.group(2)!);
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return null;
+    }
+    return _PixelSize(width: width, height: height);
+  }
+
+  Future<List<String>> _referenceImageDataUrls(
+    List<AiChatContentPart> referenceImages,
+    _GeneratedMediaKind kind,
+  ) async {
+    if (!kind.isImage && !kind.isVideo) return const <String>[];
+    final dataUrls = <String>[];
+    for (final part in referenceImages) {
+      if (part.kind != AiChatContentPartKind.imageFile) continue;
+      final filePath = (part.filePath ?? '').trim();
+      if (filePath.isEmpty) continue;
+      final mimeType = (part.mimeType?.trim().isNotEmpty == true
+          ? part.mimeType!.trim()
+          : _mimeFromUrl(filePath));
+      final bytes = await _readReferenceImageBytes(filePath, kind);
+      if (bytes.isEmpty) {
+        throw AiMediaGenerationException(
+          'Reference image "$filePath" is empty.',
+        );
+      }
+      dataUrls.add('data:$mimeType;base64,${base64Encode(bytes)}');
+    }
+    return dataUrls.toList(growable: false);
+  }
+
+  Future<List<int>> _readReferenceImageBytes(
+    String filePath,
+    _GeneratedMediaKind kind,
+  ) async {
+    try {
+      return await File(filePath).readAsBytes();
+    } on FileSystemException catch (error) {
+      throw AiMediaGenerationException(
+        'Unable to read reference image for ${kind.storageValue} generation: '
+        '${error.message}',
+      );
+    }
+  }
+
+  bool _usesAgnesMediaApi(AiProtocolType protocol, String modelId) {
+    return protocol == AiProtocolType.agnes || _isAgnesModel(modelId);
+  }
+
+  static bool _isAgnesModel(String modelId) {
+    return modelId.trim().toLowerCase().startsWith('agnes-');
   }
 
   Map<String, Object?> _buildAudioBody({
@@ -1020,6 +1228,7 @@ class AiImageGenerationService {
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
       case AiProtocolType.longcat:
+      case AiProtocolType.agnes:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
       case AiProtocolType.mimo:
@@ -1310,6 +1519,8 @@ class AiImageGenerationService {
         'videoUrl',
         'video_uri',
         'videoUri',
+        'remixed_from_video_id',
+        'remixedFromVideoId',
         'download_url',
         'downloadUrl',
         'result_url',
@@ -1384,6 +1595,7 @@ class AiImageGenerationService {
     required _GeneratedMediaKind kind,
     required String label,
     required AiProtocolType protocol,
+    required String modelId,
     required Map<String, String> requestHeaders,
     required Duration timeout,
     required DateTime startedAt,
@@ -1392,6 +1604,8 @@ class AiImageGenerationService {
       initialUrl,
       initialPayload,
       protocol,
+      kind: kind,
+      modelId: modelId,
     );
     if (operationUrl == null) {
       return const _PolledMediaResult.empty();
@@ -1704,8 +1918,10 @@ class AiImageGenerationService {
   String? _resolveOperationUrl(
     String initialUrl,
     Map<String, Object?> payload,
-    AiProtocolType protocol,
-  ) {
+    AiProtocolType protocol, {
+    required _GeneratedMediaKind kind,
+    required String modelId,
+  }) {
     final explicitUrl = _findFirstString(payload, const <String>[
       'status_url',
       'statusUrl',
@@ -1723,6 +1939,26 @@ class AiImageGenerationService {
         return trimmedUrl;
       }
       return Uri.parse(initialUrl).resolve(trimmedUrl).toString();
+    }
+    if (kind.isVideo && _usesAgnesMediaApi(protocol, modelId)) {
+      final videoId = _findFirstString(payload, const <String>[
+        'video_id',
+        'videoId',
+        'task_id',
+        'taskId',
+        'id',
+      ])?.trim();
+      if (videoId == null || videoId.isEmpty) return null;
+      final uri = Uri.parse(initialUrl);
+      return uri
+          .replace(
+            pathSegments: const <String>['agnesapi'],
+            queryParameters: <String, String>{
+              'video_id': videoId,
+              'model_name': modelId,
+            },
+          )
+          .toString();
     }
     final id = _findFirstString(payload, const <String>[
       'id',
@@ -1933,6 +2169,13 @@ class AiImageGenerationService {
   void dispose() {
     _client.close();
   }
+}
+
+class _PixelSize {
+  const _PixelSize({required this.width, required this.height});
+
+  final int width;
+  final int height;
 }
 
 class _MediaPayloadEntry {

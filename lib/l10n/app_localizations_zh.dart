@@ -794,6 +794,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProtocolLongCat => 'LongCat';
 
   @override
+  String get aiProtocolAgnes => 'Agnes';
+
+  @override
   String get aiProtocolJoyCode => 'JoyCode';
 
   @override
@@ -8661,6 +8664,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiProtocolLongCat => 'LongCat';
 
   @override
+  String get aiProtocolAgnes => 'Agnes';
+
+  @override
   String get aiProtocolJoyCode => 'JoyCode';
 
   @override
@@ -16525,6 +16531,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolAgnes => 'Agnes';
 
   @override
   String get aiProtocolJoyCode => 'JoyCode';

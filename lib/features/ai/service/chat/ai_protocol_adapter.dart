@@ -1899,6 +1899,10 @@ abstract final class AiProtocolRegistry {
   /// LongCat / JoyCode are OpenAI-compatible providers; treat only explicit
   /// vision model IDs as attachment-capable.
   static const _longCatVisionPatterns = <String>['vision', 'vl'];
+  static const _agnesVisionPatterns = <String>[
+    'agnes-1.5-flash',
+    'agnes-2.0-flash',
+  ];
   static const _joyCodeVisionPatterns = <String>['vision', 'vl'];
 
   /// Baidu ERNIE / Wenxin: ERNIE-VL model families.
@@ -1979,6 +1983,10 @@ abstract final class AiProtocolRegistry {
         AiProtocolType.longcat: const OpenAiProtocolAdapter(
           AiProtocolType.longcat,
           visionModelPatterns: _longCatVisionPatterns,
+        ),
+        AiProtocolType.agnes: const OpenAiProtocolAdapter(
+          AiProtocolType.agnes,
+          visionModelPatterns: _agnesVisionPatterns,
         ),
         AiProtocolType.joycode: const OpenAiProtocolAdapter(
           AiProtocolType.joycode,

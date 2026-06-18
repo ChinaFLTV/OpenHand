@@ -377,6 +377,19 @@ class AiChatService implements AiChatClient {
     return '';
   }
 
+  List<AiChatContentPart> _latestUserImagePartsFromTurns(
+    List<AiChatTurn> messages,
+  ) {
+    for (final turn in messages.reversed) {
+      if (turn.role != AiChatRole.user) continue;
+      final imageParts = turn.effectiveParts
+          .where((part) => part.kind == AiChatContentPartKind.imageFile)
+          .toList(growable: false);
+      if (imageParts.isNotEmpty) return imageParts;
+    }
+    return const <AiChatContentPart>[];
+  }
+
   /// Produces an [AiChatCompletion] by calling a dedicated media generation
   /// endpoint and wrapping its output in the regular chat completion shape so
   /// the rest of the app can stay oblivious.
@@ -387,17 +400,20 @@ class AiChatService implements AiChatClient {
     required Duration timeout,
   }) async {
     final prompt = _latestUserPromptFromTurns(messages);
+    final referenceImages = _latestUserImagePartsFromTurns(messages);
     final result = switch (creationRequest.mode) {
       AiCreationMode.image => await _imageService.generateImage(
         model: model,
         prompt: prompt,
         options: creationRequest.options,
+        referenceImages: referenceImages,
         timeout: timeout,
       ),
       AiCreationMode.video => await _imageService.generateVideo(
         model: model,
         prompt: prompt,
         options: creationRequest.options,
+        referenceImages: referenceImages,
         timeout: timeout,
       ),
       AiCreationMode.audio => await _imageService.generateAudio(
@@ -2079,6 +2095,7 @@ bool _isOpenAiCompatibleProtocol(AiProtocolType protocol) {
     case AiProtocolType.stepfun:
     case AiProtocolType.minimax:
     case AiProtocolType.longcat:
+    case AiProtocolType.agnes:
     case AiProtocolType.joycode:
     case AiProtocolType.wenxin:
     case AiProtocolType.meta:

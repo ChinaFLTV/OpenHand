@@ -430,6 +430,10 @@
   "@aiProtocolLongCat": {
     "description": "AI provider brand: Meituan LongCat. Brand name; transliterate when natural (ja: ロングキャット)."
   },
+  "aiProtocolAgnes": "Agnes",
+  "@aiProtocolAgnes": {
+    "description": "AI provider brand: Sapiens AI Agnes. Brand name; keep Agnes unless a locale has an established transliteration."
+  },
   "aiProtocolJoyCode": "ジョイコード",
   "@aiProtocolJoyCode": {
     "description": "AI provider brand: JD JoyCode. Brand name; transliterate when natural (ja: ジョイコード)."

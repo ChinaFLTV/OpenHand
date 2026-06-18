@@ -45,6 +45,7 @@ class AiModelCatalog {
       AiProtocolType.stepfun => _stepfun(id),
       AiProtocolType.minimax => _minimax(id),
       AiProtocolType.longcat => _longcat(id),
+      AiProtocolType.agnes => _agnes(id),
       AiProtocolType.joycode => _joycode(id),
       AiProtocolType.wenxin => _wenxin(id),
       AiProtocolType.meta => _meta(id),
@@ -71,6 +72,7 @@ class AiModelCatalog {
         _seed(id) ??
         _stepfun(id) ??
         _minimax(id) ??
+        _agnes(id) ??
         _longcat(id) ??
         _joycode(id) ??
         _wenxin(id) ??
@@ -134,6 +136,8 @@ class AiModelCatalog {
     double? outputUsdPer1M,
     double? cacheReadUsdPer1M,
     double? cacheWriteUsdPer1M,
+    List<String> supportedParameters = const <String>[],
+    Map<String, Object?> defaultParameters = const <String, Object?>{},
     Set<AiModelCapability> capabilities = const <AiModelCapability>{},
   }) {
     return AiModelProfile(
@@ -151,6 +155,8 @@ class AiModelCatalog {
       outputUsdPer1M: outputUsdPer1M,
       cacheReadUsdPer1M: cacheReadUsdPer1M,
       cacheWriteUsdPer1M: cacheWriteUsdPer1M,
+      supportedParameters: supportedParameters,
+      defaultParameters: defaultParameters,
       capabilities: capabilities,
     );
   }
@@ -1812,10 +1818,157 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Agnes (Sapiens AI)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _agnes(String id) {
+    if (!id.startsWith('agnes-')) return null;
+
+    const chatParameters = <String>[
+      'temperature',
+      'top_p',
+      'max_tokens',
+      'frequency_penalty',
+      'presence_penalty',
+      'repetition_penalty',
+      'stop',
+      'seed',
+      'tools',
+      'tool_choice',
+      'chat_template_kwargs',
+    ];
+    const imageParameters = <String>[
+      'prompt',
+      'size',
+      'return_base64',
+      'extra_body.image',
+      'extra_body.response_format',
+    ];
+    const videoParameters = <String>[
+      'prompt',
+      'image',
+      'mode',
+      'height',
+      'width',
+      'num_frames',
+      'frame_rate',
+      'num_inference_steps',
+      'seed',
+      'negative_prompt',
+      'extra_body.image',
+      'extra_body.mode',
+    ];
+
+    if (id == 'agnes-1.5-flash') {
+      return _p(
+        name: 'Agnes 1.5 Flash',
+        desc: 'Sapiens AI 轻量低延迟多模态聊天模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 256000,
+        output: 65536,
+        inputUsdPer1M: 0,
+        outputUsdPer1M: 0,
+        supportedParameters: chatParameters,
+      );
+    }
+    if (id == 'agnes-2.0-flash') {
+      return _p(
+        name: 'Agnes 2.0 Flash',
+        desc: 'Sapiens AI 智能体、工具调用、编程、推理和图片理解模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 256000,
+        output: 65536,
+        inputUsdPer1M: 0,
+        outputUsdPer1M: 0,
+        supportedParameters: chatParameters,
+        defaultParameters: const <String, Object?>{
+          'chat_template_kwargs': <String, Object?>{'enable_thinking': false},
+        },
+      );
+    }
+    if (id == 'agnes-image-2.0-flash') {
+      return _p(
+        name: 'Agnes Image 2.0 Flash',
+        desc: 'Sapiens AI 图像生成、图生图与多图编辑模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        inputUsdPer1M: 0,
+        outputUsdPer1M: 0,
+        supportedParameters: imageParameters,
+        capabilities: _imageGen,
+      );
+    }
+    if (id == 'agnes-image-2.1-flash') {
+      return _p(
+        name: 'Agnes Image 2.1 Flash',
+        desc: 'Sapiens AI 高密度图像生成、图生图与多图编辑模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        inputUsdPer1M: 0,
+        outputUsdPer1M: 0,
+        supportedParameters: imageParameters,
+        capabilities: _imageGen,
+      );
+    }
+    if (id == 'agnes-video-v2.0') {
+      return _p(
+        name: 'Agnes Video V2.0',
+        desc: 'Sapiens AI 异步文生视频、图生视频与关键帧视频模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        inputUsdPer1M: 0,
+        outputUsdPer1M: 0,
+        supportedParameters: videoParameters,
+        capabilities: _videoGen,
+      );
+    }
+    if (id.startsWith('agnes-image-')) {
+      return _p(
+        name: 'Agnes Image',
+        desc: 'Sapiens AI image generation model',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        supportedParameters: imageParameters,
+        capabilities: _imageGen,
+      );
+    }
+    if (id.startsWith('agnes-video-')) {
+      return _p(
+        name: 'Agnes Video',
+        desc: 'Sapiens AI video generation model',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        supportedParameters: videoParameters,
+        capabilities: _videoGen,
+      );
+    }
+    return _p(
+      name: 'Agnes',
+      desc: 'Sapiens AI OpenAI-compatible model',
+      multimodal: true,
+      supportsAttachments: true,
+      modalities: _textImage,
+      context: 256000,
+      output: 65536,
+      supportedParameters: chatParameters,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // LongCat
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _longcat(String id) {
+    if (!id.contains('longcat')) return null;
     if (id.contains('vision') || id.contains('-vl') || id.contains('_vl')) {
       return _p(
         name: 'LongCat Vision',
