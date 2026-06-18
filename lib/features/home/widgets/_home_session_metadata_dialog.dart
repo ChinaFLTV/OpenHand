@@ -758,7 +758,7 @@ class _SessionMetadataDialog extends StatelessWidget {
   /// 按协议公式（Claude 系：read/(prompt+read)；OpenAI/Gemini 系：read/prompt）
   /// 计算每条消息的 hit ratio。低于 2 个数据点时不渲染。
   ///
-  /// 2026-05-24 v2: 抽出独立的 [_CacheHitTrendChart] 子部件支持
+  /// 抽出独立的 [_CacheHitTrendChart] 子部件支持
   /// (a) 悬停 tooltip 标注每点 %；(b) 切换显示另一条协议公式的叠加曲线。
   List<Widget> _buildCacheHitTrendSection(
     BuildContext context,
@@ -1949,7 +1949,7 @@ class _CacheHitSparklinePainter extends CustomPainter {
   }
 }
 
-/// 2026-05-24 缓存命中率趋势图 (stateful)：
+/// 缓存命中率趋势图 (stateful)：
 /// - 鼠标悬停 / 触屏点击曲线时显示 tooltip 标注该点的轮次序号与命中率
 /// - 提供「叠加另一条协议公式」开关，将 Claude 与 OpenAI 两种公式同图对比
 class _CacheHitTrendChart extends StatefulWidget {

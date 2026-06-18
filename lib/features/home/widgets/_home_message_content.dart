@@ -1,6 +1,6 @@
 part of '../openhand_home_page.dart';
 
-// 阶段㉒ — 触发「折叠 + 渐变预览」的字符 / 行阈值再下调一档，让 60+
+// 触发「折叠 + 渐变预览」的字符 / 行阈值再下调一档，让 60+
 // 条历史会话首次打开时大部分长消息只解析 2000 字预览块（_previewCharCap），
 // 完整 markdown 解析推迟到用户主动展开时再触发。
 // 5000 → 2400 字符：覆盖典型 GPT-4 / Claude 长答的 ~1200 token 输出。
@@ -819,7 +819,7 @@ class _MessageMarkdownThemeData {
     required Color textColor,
     required bool useDarkCodeSurface,
   }) {
-    // 阶段㉒：进程级缓存。`MarkdownStyleSheet.fromTheme + copyWith` 创建
+    // 进程级缓存。`MarkdownStyleSheet.fromTheme + copyWith` 创建
     // 数十个 TextStyle / BoxDecoration，60+ 长会话首次打开会重复触发
     // N 次。按 (theme palette + bubble bg + text color + dark surface)
     // 签名命中率极高（同 role/状态的 bubble 共享同一份 stylesheet），
@@ -972,7 +972,7 @@ class _MessageMarkdownThemeData {
   final MarkdownStyleSheet styleSheet;
 }
 
-/// 阶段㉒：[_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖
+/// [_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖
 /// 「亮/暗 × user/assistant/tool/reasoning × 选中/未选中」全部组合。
 final LinkedHashMap<int, _MessageMarkdownThemeData> _markdownThemeDataCache =
     LinkedHashMap<int, _MessageMarkdownThemeData>();
@@ -1007,12 +1007,12 @@ class _SafeMarkdownBody extends StatefulWidget {
 // scroll lands instantly, then upgrade to the rich Markdown widget tree on
 // the next frame.
 //
-// 阶段⑳ — 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
+// 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
 // 3个bash代码块）总字符数通常在 1000–3000 范围，但 markdown 解析 +
 // MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
 // 主线程的致命负担。将阈值降到 800 字节让几乎所有含代码块的消息都
 // 走 deferred 路径，首帧仅渲染纯文本，下一帧再构建富文本树。
-// 阶段㉒ — 800 → 400：用户反馈 60+ 条历史消息会话首次打开仍卡顿，原因
+// 800 → 400：用户反馈 60+ 条历史消息会话首次打开仍卡顿，原因
 // 是历史里很多 ~600 字节的中等长度消息绕过了 deferred 路径，几张同帧
 // 同步解析就把 16 ms 帧预算撑爆。再降一档把更多消息纳入帧节流。
 const int _markdownDeferredParseThresholdChars = 400;
@@ -1022,7 +1022,7 @@ const int _markdownDeferredParseThresholdChars = 400;
 const int _markdownStreamingDeferredParseThresholdChars = 160;
 const int _markdownStreamingParseMinIntervalMs = 96;
 
-/// 阶段㉒：进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
+/// 进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
 /// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
 /// 避免「滚回去再滚回来」「跨会话引用同一段示例代码」时反复跑
 /// `md.Document.parseLines()`。AST 节点是纯数据结构，体积远小于
@@ -1355,7 +1355,7 @@ void _warmMarkdownRenderPath({
   );
 }
 
-/// 阶段㉑：全局帧节流的 markdown 解析调度器。
+/// 全局帧节流的 markdown 解析调度器。
 ///
 /// 在打开存量会话或快速切换会话时，多张消息卡片会在「同一帧」内同时
 /// 调用 `addPostFrameCallback` 注册 deferred 解析，结果下一帧仍要在
@@ -1465,11 +1465,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// stand-in immediately and queue the real parse via the global
   /// [_MarkdownFrameScheduler]. Streaming updates keep the last rich tree
   /// visible and coalesce reparses into a bounded cadence.
-  /// 阶段⑳：无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
+  /// 无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
   /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
   /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
   /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
-  /// 阶段㉑：deferred 任务交由 [_MarkdownFrameScheduler] 帧节流。同帧内
+  /// deferred 任务交由 [_MarkdownFrameScheduler] 帧节流。同帧内
   /// 多个 bubble 一起注册时，每帧只跑 1 个 markdown 解析，剩余排队到
   /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
@@ -1486,7 +1486,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data) &&
         !hasWarmAst) {
-      // 2026-05-25 — 流式抽搐修复：仅在「真·首挂载」（_children == null）
+      // 流式抽搐修复：仅在「真·首挂载」（_children == null）
       // 时铺纯文本占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
       // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
@@ -1628,7 +1628,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       return;
     }
     try {
-      // 阶段㉒：先查 AST 缓存。命中则直接复用，跳过昂贵的
+      // 先查 AST 缓存。命中则直接复用，跳过昂贵的
       // `md.Document.parseLines` + `_sanitizeMarkdownAst`。MarkdownBuilder
       // 的 widget 构造仍按当前主题样式 fresh 跑一次，避免主题切换时
       // 残留旧色。
@@ -2037,7 +2037,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             children: children,
           );
     if (!widget.selectable) return body;
-    // 2026-06-04 修复：跨多行 select 选中 BUG。
+    // 修复：跨多行 select 选中 BUG。
     //
     // 旧实现直接用 `SelectionArea(child: body)`，但 `SelectionArea` 内部
     // 是 `SelectableRegion`，其 `add(Selectable)` 强制 `assert(_selectable == null)`，
@@ -2225,7 +2225,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   void dispose() {
-    // 2026-06-04: 严格按顺序清理，避免 Selectable 的回调
+    // 严格按顺序清理，避免 Selectable 的回调
     // 在我们已经 dispose 之后才抵达 _onSelectableChanged。
     _disposed = true;
     for (final selectable in _selectables) {
@@ -3810,24 +3810,24 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightClamp = 24.0;
   static const double _kMaxHeightClamp = 50000.0;
   static const double _kFirstMeasurementSkipThreshold = 5000.0;
-  // 2026-06-07：1.0 → 8.0。WebView 测高受 DPR/字体子像素/DOM 抖动影响，
+  // 1.0 → 8.0。WebView 测高受 DPR/字体子像素/DOM 抖动影响，
   // 1px 阈值下任何微小 CSS reflow 都会触发 setState。结合滚动期间冻结，
   // 进一步在稳态下过滤掉测量噪声，避免 maxScrollExtent 持续抖动。
   static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
-  // 2026-06-07：96 → 512。长会话（>96 条 HTML 消息）下滑回来时，被淘汰
+  // 96 → 512。长会话（>96 条 HTML 消息）下滑回来时，被淘汰
   // 的旧消息 cachedHeight 丢失，会走 shimmer → actual 路径触发 maxScroll
   // Extent 抖动。更大的 cache 让绝大多数用户场景下缓存命中，避免重建。
   static const int _kHeightCacheMaxSize = 512;
-  // 2026-06-07：移除 stability 检查 + 5 秒超时兜底。stability 检查
+  // 移除 stability 检查 + 5 秒超时兜底。stability 检查
   // 试图用 Flutter 端逻辑去判断 WebView 异步渲染状态根本不可靠——
   // 一旦后续 reflow 触发了大幅变化（图片懒加载、字体回退）导致
   // stability 翻转，shimmer 会重新出现；且 timer 取消后从未重启，
   // 5 秒超时失效，shimmer 永久卡死。改回简单条件 + 首次测量 outlier
   // 检查：`_height == null && cachedHeight == null` 才显示 shimmer，
   // 几百毫秒内 _height 被设置后即切到 WebView，逻辑可靠。
-  // 2026-06-07：防抖时长 500ms → 250ms。WebView 内部 reflow（图片懒
+  // 防抖时长 500ms → 250ms。WebView 内部 reflow（图片懒
   // 加载、字体回退）通常在 200ms 内收敛，500ms 防抖让 shimmer 多停
   // 留 300ms 显得拖沓；250ms 既能滤掉高频回调、又不让用户等太久。
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 250);
@@ -3841,13 +3841,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kInitialRevealFallbackDelay = Duration(
     milliseconds: 1600,
   );
-  // 2026-06-07：首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
+  // 首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
   // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
   // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
   // 显示尺寸，后续测量（250ms 防抖）会把高度修正到准确值；视觉上看
   // 是"由小到大"生长，比"由大到小收缩留下大片空白"更可接受。
   static const double _kFirstMeasurementOutlierRatio = 2.0;
-  // 2026-06-07：基于参考高度的 outlier 阈值。WebView 测高在 CSS reset
+  // 基于参考高度的 outlier 阈值。WebView 测高在 CSS reset
   // 注入前/字体回退/图片懒加载等瞬态下可能返回"原始 HTML 文本高度"
   // ——把标签字符当纯文本逐行排版的高度（远大于渲染后高度）。一旦
   // 新测量值 > 参考高度 × ratio，视为瞬态噪声，**保留旧值**而不用
@@ -4223,13 +4223,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
-  // 2026-06-07：跨 State 生命周期的单调 floor。
+  // 跨 State 生命周期的单调 floor。
   // State dispose 时把真实测量高度写入此 cache，新 State 重建后若 _height
   // 丢失则用 floor 兜底，防止 Stack 高度收缩到 estimatedHeight 导致
   // maxScrollExtent 抖动。与 _heightCache 分离：floor 只写 dispose 时的
   // 真实高度，outlier 占位估计绝不写入，避免污染持久化数据。
   static final Map<int, double> _heightFloorCache = <int, double>{};
-  // 2026-06-07：HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
+  // HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
   // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
   // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
   // 在重复拼装同一份文档上。改为按 (data 引用, textColor 引用,
@@ -4243,7 +4243,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
   Timer? _initialRevealFallbackTimer;
-  // 2026-06-06（线程模板抽搐 bug 真凶）：HTML WebView 通过 ResizeObserver
+  // HTML WebView 通过 ResizeObserver
   // + rAF 在 macOS focus/blur、JS 二次布局、scrollIntoView 触发时都会重新
   // 测高，每帧 16-30ms 一次。原来的 100ms 防抖每次都被新一轮测量重置、
   // 永远不触发，结果 maxScrollExtent 在 7544 ↔ 4971 之间反复回流，用户实测
@@ -4253,11 +4253,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   double? _pendingHeight;
   // 限制高度应用间隔，阻断 WebView resize → setState → 再次 resize 闭环振荡。
   DateTime? _lastHeightApplyTime;
-  // 2026-05-25: 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
+  // 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
-  // 2026-06-07：滚动活动协调信号。active=true 时 JS 测高只缓存、不应用，
+  // 滚动活动协调信号。active=true 时 JS 测高只缓存、不应用，
   // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 后才一次性
   // 应用累积的最新高度。
   TranscriptScrollActivity? _scrollActivity;
@@ -4265,7 +4265,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 滚动停止后是否有待应用的最新高度。
   bool _hasPendingHeightAfterScroll = false;
   bool _safeSetStateQueued = false;
-  // 2026-06-07：首次测量 outlier 检查状态位。首次非跳过的测量若超
+  // 首次测量 outlier 检查状态位。首次非跳过的测量若超
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
@@ -4458,7 +4458,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (_measurementCount == 1 && next > _kFirstMeasurementSkipThreshold) {
       return;
     }
-    // 2026-06-07（HTML 卡片上滑抽搐 bug 关键修复）：用户正在滚动外层
+    // 用户正在滚动外层
     // ListView 时，WebView 的 ResizeObserver / MutationObserver 也会
     // 持续回测高度。如果立即 apply 触发 setState → SliverList 重新
     // 布局 → maxScrollExtent 抖动 → Flutter clamp 滚动位置 → 视口被
@@ -4469,7 +4469,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _hasPendingHeightAfterScroll = true;
       return;
     }
-    // 2026-06-07：首次非跳过的测量做 outlier 检查。WebView 首测常因
+    // 首次非跳过的测量做 outlier 检查。WebView 首测常因
     // 图片/CSS 未完成返回异常大值，直接应用会撑出"渲染下方空白"。
     // 若超出估算高度 × ratio，改用估算高度作初始显示值，后续测量
     // 经 500ms 防抖会修正到准确值。视觉上是"由小到大"生长，比
@@ -4552,7 +4552,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   void _applyHeight(double next) {
     _initialRevealFallbackTimer?.cancel();
-    // 2026-06-07：outlier 检查**集中**在 apply 入口——所有上游路径
+    // outlier 检查**集中**在 apply 入口——所有上游路径
     //（scroll-active 缓存、pending apply、debounce timer、immediate
     // apply）都通过本方法落地，确保"rendered → raw → rendered"跳变
     // 在任何路径下都被拒收。参考高度优先级：floor（dispose 时写入的
@@ -4697,7 +4697,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   String _buildDocument() {
-    // 2026-06-07：按 (data 引用, textColor 引用, backgroundColor 引用) 命中
+    // 按 (data 引用, textColor 引用, backgroundColor 引用) 命中
     // 复用已拼装的文档字符串。build 阶段被 WebView reload 路径
     // （didUpdateWidget 触发 _reload）会主动调用 buildDocument() 刷新
     // 缓存；普通 rebuild 命中后直接返回缓存，跳过 1-2KB 字符串拼装 +
@@ -4747,7 +4747,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           '-webkit-font-smoothing:antialiased;'
           '-webkit-user-select:text;user-select:text;cursor:text;}'
           'body{overflow-x:auto;}'
-          // 2026-05-25: 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
+          // 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
           // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
           // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
           // 不能变小）。oh-root 以 flow-root 阻断子元素 margin 折叠，真实
@@ -4814,7 +4814,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final cachedHeight = _heightCache[_heightCacheKey];
     final floor = _heightFloorCache[_heightCacheKey];
-    // 2026-06-07：仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
+    // 仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
     // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
     // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
     // 太久；cachedHeight 处理"下滑后上滑"——用户见过此内容，state
@@ -4823,7 +4823,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
     final showShimmer = _height == null && cachedHeight == null;
     final estimatedHeight = _estimateHeight();
-    // 2026-06-07：跨 State 单调 floor——State dispose 时把真实高度写入
+    // 跨 State 单调 floor——State dispose 时把真实高度写入
     // `_heightFloorCache`，新 State 重建后若 _height 丢失则用 floor
     // 兜底，防止 Stack 高度收缩到 estimatedHeight 导致 maxScrollExtent
     // 抖动。floor 与 cache 分离，outlier 占位估计绝不写入，避免污染。
@@ -4834,7 +4834,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         : baseDisplayHeight;
 
     // WebView 必须始终在 widget 树中——它加载 HTML 并通过 JS 回调报告高度。
-    // 2026-06-07：改用 Stack 叠加（shimmer 在 WebView 之上），让 shimmer
+    // 改用 Stack 叠加（shimmer 在 WebView 之上），让 shimmer
     // 阶段与 WebView 阶段占父级空间完全一致（仅 WebView 撑起 Stack
     // 高度 = displayHeight），消除旧 Column 模式 shimmer 阶段
     // `displayHeight + 1.0` 与 WebView 阶段 `displayHeight` 之间的
@@ -4842,7 +4842,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动"的偶发
     // UI 异常。Stack 模式从根上消除该高度差。
     final webViewChild = RepaintBoundary(
-      // 2026-06-07：WebView 高度回调 → setState → RepaintBoundary 隔离
+      // WebView 高度回调 → setState → RepaintBoundary 隔离
       // 之后只重绘 WebView 自身的 layer，不再让外层消息卡（外层有阴影 /
       // border / AnimatedSize / ActionButtons 等复杂 layout）跟着整张重
       // 绘。长会话滚动期间 8-15 个 HTML 气泡同时有 WebView 在跑 ResizeObserver，
@@ -4923,12 +4923,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       },
       child: Stack(
         children: [
-          // 2026-06-07：Container(color: widget.backgroundColor) 作为
+          // Container(color: widget.backgroundColor) 作为
           // macOS WKWebView 默认白底的 fallback——HTML 加载完成前避免
           // 闪一下白屏与气泡底色形成强烈对比。其他平台
           // transparentBackground: true 时同样受益，HTML 没设背景时
           // 容器色自然透出与气泡衔接。
-          // 2026-06-07：loading 阶段用 Opacity(0) 隐藏 WebView 内容——
+          // loading 阶段用 Opacity(0) 隐藏 WebView 内容——
           // 旧版 shimmer 透明叠加在 WebView 之上导致 HTML 渲染字符与骨架
           // 条同时可见，UI 杂乱。隐藏 WebView 后用户只看到骨架屏，加载
           // 完成后由 setState 触发 WebView 显示，衔接由外层 entrance
@@ -4944,7 +4944,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
               ),
             ),
           ),
-          // 2026-06-07：用 Stack 叠加替代 Column 堆叠——shimmer 永远
+          // 用 Stack 叠加替代 Column 堆叠——shimmer 永远
           // 覆盖在 WebView 之上，**两个阶段 Column/Stretch 占的父级空间
           // 始终一致**（仅 WebView 撑起 Stack 高度 = displayHeight）。
           // 旧 Column 模式 shimmer 阶段 = `displayHeight + 1.0`（shimmer

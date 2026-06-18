@@ -4826,7 +4826,7 @@ button.oh-composer-pill:not(:disabled):hover {
 
 /* Markdown 渲染 (react-markdown) 专用样式 + highlight.js GitHub 配色子集 */
 
-/* 阶段㉔（撤回）: 早期为了长会话首屏性能给消息卡片加了 `content-visibility:auto`
+/* 早期为了长会话首屏性能给消息卡片加了 `content-visibility:auto`
  * + `contain-intrinsic-size`。实际表现是：流式增长 / 消息上下文切换 / 反复滚动
  * 触发 cv 边界判定时，浏览器把已挂载卡片塌缩到 fallback intrinsic size 再恢复，
  * 视觉上每隔几秒卡片瞬间消失再立刻出现并伴随剧烈滚动。即使加了 `is-streaming-now`

@@ -1620,7 +1620,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         ),
                       Builder(
                         builder: (context) {
-                          // 2026-06-01 — 与 TopBar 胶囊 / 浮窗"Cache 命中率"
+                          // 与 TopBar 胶囊 / 浮窗"Cache 命中率"
                           // 走同一公式（[SessionCacheHitTrend] 排除首轮 + 排除
                           // 极端空闲 miss），避免审计页 / TopBar / 浮窗三方口径
                           // 错位。

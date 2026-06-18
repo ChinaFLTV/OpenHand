@@ -12,8 +12,8 @@
 // - 数学公式按需启用 remark-math + rehype-katex；同时兼容 AI 常用的
 //   \[...\] / \(...\) LaTeX 分隔符。
 // - 链接强制 target=_blank rel=noopener; 图片 lazy loading.
-// - 阶段㉔: 全局帧节流 — 同一帧内多个 Markdown 同时挂载时, 队列
-//   逐帧解析每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
+// - 全局帧节流：同一帧内多个 Markdown 同时挂载时, 队列逐帧解析，
+//   每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
 //   并行 parse 卡死主线程; 1 KB 以下短消息保持同步, 减少视觉闪烁。
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -101,7 +101,7 @@ const FENCED_CODE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
 const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 
-/// 阶段㉔: 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
+/// 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
 /// 在同一帧内全部 mount, 之前每张都同步走 react-markdown / rehype 解析,
 /// 主线程一次性占用数百毫秒 (JS thread 卡死, 用户看到 white blank)。
 /// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以 plain
@@ -561,7 +561,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
   const stickyLooksHtml = useStickyLooksLikeHtml(content);
 
-  // 阶段㉔: 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
+  // 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
   // 先 plain text 占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
@@ -818,7 +818,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     );
   }
 
-  // 阶段㊵: 消息内容格式分派 (与 APP 端 _AssistantMessageBodyDispatcher 对齐)。
+  // 消息内容格式分派 (与 APP 端 _AssistantMessageBodyDispatcher 对齐)。
   // plain_text / html 分派置于 tooBig 守卫之前：两者渲染廉价（pre / DOMPurify），
   // 不需要也不应该被 tooBig 截断加「truncated for performance」提示。
   if (format === 'plain_text') {
@@ -871,7 +871,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     );
   }
 
-  // 阶段㉔: deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。
+  // deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。
   // 占位用与最终 markdown 相同的容器 (.oh-markdown), 避免 parse 完成后
   // 容器尺寸/主题色突变。
   if (!parseReady) {

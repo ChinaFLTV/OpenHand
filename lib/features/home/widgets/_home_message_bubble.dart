@@ -87,20 +87,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool? _assistantResponseExpandedOverride;
   late bool _showRawContent = widget.initiallyShowRawContent;
 
-  // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
+  // 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
   // 接不到 onSelect（动作按钮不出现）。改用 Listener 直接
   // 跨越手势仲裁判定点击，如果指针按下与抬起间隔、位移均落在
   // `_selectionTapMaxDuration` / `_selectionTapMaxDistance` 内，视为一次选中点击。
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
-  // 2026-05-17: 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
+  // 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
   final GlobalKey _metaCapsuleKey = GlobalKey();
   final GlobalKey _actionPanelKey = GlobalKey();
 
-  // 2026-05-22: 外层 Listener.onPointerUp 在 Flutter gesture arena
+  // 外层 Listener.onPointerUp 在 Flutter gesture arena
   // 解析子节点 onTap 之前就会触发，无法事先得知本次点击是否会被
   // Markdown 链接 / 图片附件 / 代码块工具栏等子交互组件处理。改为
   // 延迟 80ms 调度选中切换：子交互回调命中时调用 markInteractiveTap()
@@ -343,7 +343,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final isRoundFileMutationSummary =
         message.kind == AiSessionMessageKind.fileMutationSummary ||
         (isStatus && message.metadata['round_file_mutation_summary'] == true);
-    // 阶段⑰：「本轮文件变动汇总」状态卡走专属 Widget，跳过通用 bubble 流。
+    // 「本轮文件变动汇总」状态卡走专属 Widget，跳过通用 bubble 流。
     if (isRoundFileMutationSummary) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -430,7 +430,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           theme: theme,
           baseColor: textColor,
           darkSurface: useDarkCodeSurface,
-          // 2026-04-27: 始终允许文本选择/复制，便于用户随时复制响应内容。
+          // 始终允许文本选择/复制，便于用户随时复制响应内容。
           // “选中模式”依然控制 action buttons 的可见性，
           // 但选择/复制不再需要预先点击进入选中态。
           selectable: true,
@@ -726,7 +726,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 2026-06-07：撤回 IndexedStack 改回 ternary。
+                          // 撤回 IndexedStack 改回 ternary。
                           // IndexedStack 的 StackFit.loose 让容器高度始终
                           // 等于最大子项（WebView 的 estimatedHeight ~ 800px），
                           // raw 模式下 SelectableText（~100px）只占顶部一
@@ -1061,7 +1061,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (downPos == null || downAt == null) {
           return;
         }
-        // 2026-05-17: 左上方"思考 / 工具调用 / 工具结果"胶囊有自己的
+        // 左上方"思考 / 工具调用 / 工具结果"胶囊有自己的
         // 折叠/展开手势，不应顺带触发整张消息卡的"选中"。这里取胶囊
         // 全局矩形与抬起点比较，命中即直接 swallow 不切换 selection。
         if (_isPointerInsideMetaCapsule(event.position)) {
@@ -6177,7 +6177,7 @@ class _MediaPlayPauseIntent extends Intent {
 
 /// 流式助手消息尾部的「打字机」光标。
 ///
-/// 2026-05-17 — 配合 [_StreamCharThrottle] 的 60fps 节流，给低速率字符
+/// 配合 [_StreamCharThrottle] 的 60fps 节流，给低速率字符
 /// 流式输出场景一个明确的"AI 仍在打字"视觉信号；停流时该 widget 直接
 /// 不再插入，光标随之消失。脉动节奏 1Hz、振幅 0.3↔1.0，整体克制，
 /// 不会喧宾夺主。

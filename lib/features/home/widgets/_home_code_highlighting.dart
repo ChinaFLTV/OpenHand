@@ -9,13 +9,9 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// Code-block length above which we defer the first highlight pass to the
 /// next frame, painting plain text on the first frame.
 ///
-/// 阶段㉑ — 设为 1024 字节：平衡首帧响应速度与视觉闪烁。
-/// < 1KB 的短代码片段同步高亮（瞬间完成，无闪烁）；
-/// >= 1KB 的代码块走 FrameScheduler 分帧高亮（首帧纯文本，后续帧补色）。
+/// 短代码片段同步高亮；非平凡代码块走 FrameScheduler 分帧高亮
+/// （首帧纯文本，后续帧补色），避免多 tool_call 同帧 mount 时把主线程撑爆。
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
-/// 阶段㉒ — 1024 → 256：tool_call 卡的 JSON 参数普遍 200-800 字符，
-/// 之前同步高亮路径在多 tool_call 同帧 mount 时叠加直接撑爆主线程。
-/// 降阈值让几乎所有非平凡代码块都走异步分帧高亮。
 const int _highlightDeferThresholdChars = 256;
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
@@ -23,14 +19,14 @@ const int _highlightDeferThresholdChars = 256;
 /// many bubbles across a session; reusing the cached span avoids
 /// re-tokenising on every rebuild and on cross-session navigation.
 ///
-/// 阶段⑲ — 256 → 512：含多 tool 调用的长会话很容易超过 256 条命中边
-/// 界；把 LRU 容量翻倍换内存（每条仅 ~几 KiB span）能显著提升命中率。
+/// 含多 tool 调用的长会话很容易超过较小缓存容量；用少量内存
+/// （每条仅 ~几 KiB span）换取跨会话导航和滚回时的命中率。
 final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
   maxEntries: 512,
 );
 final Set<int> _pendingHighlightWarmups = <int>{};
 
-/// 阶段⑳：全局帧分散调度器。当一条消息含 N 个代码块同时展开时，
+/// 全局帧分散调度器。当一条消息含 N 个代码块同时展开时，
 /// 所有代码块的 highlight 回调都注册到同一个 addPostFrameCallback，
 /// 导致下一帧仍然要同步执行 N 次 tokenize。此调度器将 N 个任务分散
 /// 到 ceil(N/2) 个帧中执行（每帧最多处理 2 个），彻底消除 ANR。
@@ -43,8 +39,8 @@ class _HighlightFrameScheduler {
   );
 
   /// 每帧最多执行的 highlight 任务数。
-  /// 阶段㉒：3 → 1。一些大段 bash/log 输出 tokenize 单次可能 ~30ms，
-  /// 同帧 3 个就直接撑爆 60 fps 帧预算。改为 1/帧后慢机器也能稳；
+  /// 一些大段 bash/log 输出 tokenize 单次可能 ~30ms；同帧多个任务会
+  /// 直接撑爆 60 fps 帧预算。改为 1/帧后慢机器也能稳；
   /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
   static const int _maxPerFrame = 1;
 
@@ -2258,8 +2254,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   double _zoomPercent = 100;
   bool _bridgeReady = false;
   Brightness? _lastBrightness;
-  // 2026-06-04: 缓存 didChangeDependencies 阶段拿到的 scope，
-  // 让 dispose 不再重复查询 ancestor，避免
+  // 缓存 didChangeDependencies 阶段拿到的 scope，让 dispose 不再重复查询 ancestor，避免
   // “Looking up a deactivated widget's ancestor is unsafe”。
   _MessageBubbleState? _bubbleScope;
   // macOS 触控板捏合/平移：用 onPointerPanZoom* 跟踪累计 scale，
@@ -2474,8 +2469,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
   @override
   void dispose() {
-    // 2026-06-04: dispose 阶段 context 已经 deactivate，
-    // 直接 _BubbleHtmlInteractiveScope.maybeOf(context) 会触发
+    // dispose 阶段 context 已经 deactivate，直接 _BubbleHtmlInteractiveScope.maybeOf(context) 会触发
     // “Looking up a deactivated widget's ancestor is unsafe”。
     // 因此把在 didChangeDependencies 阶段拿到的 scope 缓存下来，
     // 这里只走 cached 引用注销内嵌交互区域，不再二次查询 ancestor。

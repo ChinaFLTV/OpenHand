@@ -178,7 +178,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         : 'Linux';
     _selectedTerminal = _terminalsByPlatform[defaultOs]?.firstOrNull;
     if (_selectedTerminal != null) {
-      // 2026-04-28: Defer the AppleScript probe until *after* the dialog
+      // Defer the AppleScript probe until *after* the dialog
       // has rendered its first frame.  Running osascript synchronously
       // inside initState fights for focus with the dialog's TextField on
       // macOS — it briefly activates the target app (iTerm/Terminal) via

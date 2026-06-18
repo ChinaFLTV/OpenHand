@@ -1317,7 +1317,7 @@ function MessageCardImpl({
         // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
         const target = ev.target as HTMLElement;
         if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
-        // 2026-05-17 — 卡片左上方折叠胶囊整体（含胶囊容器留白）不参与
+        // 卡片左上方折叠胶囊整体（含胶囊容器留白）不参与
         // 选中切换，只处理胶囊自身的展开/折叠。胶囊点击通过
         // handleBadgeToggle 的 stopPropagation 已经吞掉，但胶囊周围的
         // 容器 padding/margin 仍可能命中 article onClick，这里再补一刀。

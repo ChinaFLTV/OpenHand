@@ -19,13 +19,13 @@ class _TokenDial extends StatefulWidget {
 
   /// 当前会话的 cache 命中率，范围 0..1。
   ///
-  /// 2026-06-01 — 改为与浮窗完全同一公式：复用
+  /// 改为与浮窗完全同一公式：复用
   /// [SessionCacheHitTrend.fromSession] + `excludeExtremeMisses` 模式，
   /// 排除首轮（turnIndex==1 必然 miss）后再做加权平均。这样 TopBar 胶囊
   /// 与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50% 这种
   /// 口径错位。
   ///
-  /// 2026-06-08 — 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
+  /// 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
   /// SSE 实时推送、WEB 端也直接消费），缺失时回退到客户端重算，保证同一
   /// 个会话在 APP 端 TopBar、APP 端浮窗、WEB 端 TopBar、WEB 端浮窗四个位置
   /// 永远显示同一数字。

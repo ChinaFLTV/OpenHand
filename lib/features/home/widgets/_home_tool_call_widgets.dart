@@ -3710,7 +3710,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             memoryItems.isEmpty &&
             skillItems.isEmpty &&
             widget.message.content.trim().isNotEmpty) ...[
-          // 2026-04-25 — 兜底说明：当本轮成功结束（status != 'error'）但模型
+          // 兜底说明：当本轮成功结束（status != 'error'）但模型
           // 既没有调用任何工具，也没有产生 AI 文本/思考输出时，避免卡片只剩
           // "无变更" 三连而让用户误以为是 BUG。把 message.content 作为简要
           // 说明展示出来（通常是 dispatcher 给出的 "模型本轮未调用任何工具…"

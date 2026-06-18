@@ -935,7 +935,7 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
       planRecord.status == AiSessionPlanStatus.completed) {
     return null;
   }
-  // 2026-04-28: 单一真相 = `session.awaitingPlanApproval`。
+  // 单一真相 = `session.awaitingPlanApproval`。
   // 历史上出现过 planRecord.status 滞留在 `pendingApproval`、但
   // session 已经清掉 awaiting 标志、且模型已经在跑 todo 的 case，导致
   // 计划面板被卡在“计划待确认”、用户看不出已经在执行了。这里在面板侧
@@ -1687,7 +1687,7 @@ String _composerModeTooltip(
   return AppLocalizations.of(context)!.toolbarGatePlanModeSwitchChat;
 }
 
-/// 2026-05-01 — 输入缓存锁定判断。
+/// 输入缓存锁定判断。
 ///
 /// 当全局设置中『启用输入缓存』开启，且当前 session 已经至少完成 1 轮
 /// assistant 回复（保证缓存已经被服务端写入），即认为本轮起服务商/模型不应
@@ -2491,7 +2491,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
 
 /// 顶栏「流式节流」状态指示胶囊。
 ///
-/// 2026-05-17 — 颜色一目了然：
+/// 颜色一目了然：
 ///   * 绿色 = 字符/卡片限速都开着，输出会被均匀放出；
 ///   * 灰色 = 任一限速被关闭（值为 0），即将看到"全速"输出；
 /// 点击打开对话框可临时调整本会话的字符/卡片速率（仅本进程生效，不
@@ -2520,7 +2520,7 @@ class _StreamThrottlePill extends StatelessWidget {
         final effCards =
             override?.cardsPerSecond ??
             settingsController.effectiveStreamMaxMessageCardsPerSecond();
-        // 2026-05-19 — 胶囊可见性：
+        // 胶囊可见性：
         //   * 任何时候只要本会话有运行时覆盖（rate/enabled）→ 显示；
         //   * 否则全局节流处于「开启 + 任一速率 > 0」时也显示；
         //   * 否则该会话从未进入节流态 → 不显示。
@@ -2534,7 +2534,7 @@ class _StreamThrottlePill extends StatelessWidget {
         }
         // 关闭状态（全局或会话级覆盖关闭）以及任一速率为 0 都视作灰态。
         final disabled = !effEnabled || effChars <= 0 || effCards <= 0;
-        // 2026-05-17 — 节流时长已耗尽：胶囊渲染为灰色并改文案，向用户
+        // 节流时长已耗尽：胶囊渲染为灰色并改文案，向用户
         // 暗示「剩余流式响应正以 AI 真实速率追加」。
         final durationExpired = sessionController
             .sessionStreamThrottleDurationExpired(sessionId);
@@ -2655,7 +2655,7 @@ class _StreamThrottleSessionDialogState
     extends State<_StreamThrottleSessionDialog> {
   late final TextEditingController _charsCtrl;
   late final TextEditingController _cardsCtrl;
-  // 2026-05-19 — 弹窗内的「启用流式输出节流」开关。null = 沿用全局；
+  // 弹窗内的「启用流式输出节流」开关。null = 沿用全局；
   // true/false = 会话级强制。Apply 时 setSessionStreamEnabledOverride
   // 立即生效；当前 Switch.value 用 effectiveEnabled 推断展示态。
   bool? _enabledOverride;
@@ -2695,7 +2695,7 @@ class _StreamThrottleSessionDialogState
     final session = context.watch<AiSessionController>();
     final globalChars = settings.effectiveStreamMaxCharsPerSecond();
     final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond();
-    // 2026-05-19 — 当前会话「真正生效」的速率：会话级覆盖 > 全局。
+    // 当前会话「真正生效」的速率：会话级覆盖 > 全局。
     // 弹窗的 "当前生效" 标签和 mini 仪表盘上限都按这个值显示，避免
     // 用户已在文本框里输入了新数字、但标签仍停留在全局值导致的
     // 「我设置了为什么没生效」错觉。
@@ -2704,7 +2704,7 @@ class _StreamThrottleSessionDialogState
     );
     final effectiveChars = sessionOverride?.charsPerSecond ?? globalChars;
     final effectiveCards = sessionOverride?.cardsPerSecond ?? globalCards;
-    // 2026-05-19 — 当前生效的启用态：会话级 > 全局。
+    // 当前生效的启用态：会话级 > 全局。
     final globalEnabled = settings.aiStreamThrottleEnabled;
     final effectiveEnabled = _enabledOverride ?? globalEnabled;
     final viewport = MediaQuery.sizeOf(context);
@@ -2741,7 +2741,7 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 12),
-              // 2026-05-19 — 会话级启用开关：关闭后从现在起不再对 AI
+              // 会话级启用开关：关闭后从现在起不再对 AI
               // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
               // 的字符也会立刻全速放出。
               Container(
@@ -2786,7 +2786,7 @@ class _StreamThrottleSessionDialogState
                       ),
                     ),
                     Switch(
-                      // 2026-05-19 — Material 3 Expressive 风格：原 Switch.adaptive
+                      // Material 3 Expressive 风格：原 Switch.adaptive
                       // 在 macOS/iOS 走 Cupertino 渲染（与 M3 设计语言不一致），
                       // 显式 Switch 强制走 M3 thumb/track。
                       value: effectiveEnabled,
@@ -2811,7 +2811,7 @@ class _StreamThrottleSessionDialogState
                 ),
               ),
               const SizedBox(height: 12),
-              // 2026-05-18 — 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
+              // 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
               // 降采样；主曲线使用节流后的展示吞吐。
               _StreamThroughputMiniGauge(
                 sessionId: widget.sessionId,
@@ -2831,7 +2831,7 @@ class _StreamThrottleSessionDialogState
                   hintText:
                       '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                 ),
-                // 2026-05-26 — 不再在输入时实时推送覆盖；仅在点击”应用”后
+                // 不再在输入时实时推送覆盖；仅在点击”应用”后
                 // 才正式生效。输入过程中仅刷新 UI 标签展示。
                 onChanged: (_) {
                   if (mounted) setState(() {});
@@ -2856,7 +2856,7 @@ class _StreamThrottleSessionDialogState
                 },
               ),
               const SizedBox(height: 20),
-              // 2026-05-25 — 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
+              // 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
               // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
               // Wrap 仍用来兼顾窄幅对话框的软换行。
               SizedBox(
@@ -2938,14 +2938,14 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     samples: <int>[],
     bucketSeconds: 1,
   );
-  // 2026-05-19 — 平滑过渡：高频拉取新 snapshot，painter 读取的
+  // 平滑过渡：高频拉取新 snapshot，painter 读取的
   // 是 `_displaySamples`，由 AnimationController 把 `_fromSamples →
   // _toSamples` 跨 200ms 用 easeOutCubic 插值，曲线随展示吞吐 Q 弹
   // 流畅滑动而不再跳变。
   List<double> _fromSamples = const <double>[];
   List<double> _toSamples = const <double>[];
   late final AnimationController _morph;
-  // 2026-05-18 — 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
+  // 鼠标悬停 / 触屏长按时高亮的桶索引；null = 不高亮。
   int? _hoveredIndex;
   Offset? _hoverLocal;
   bool _hoverScheduled = false;
@@ -2982,7 +2982,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     super.initState();
     _morph = AnimationController(vsync: this, duration: _kRefreshInterval)
       ..addListener(_handleMorphTick);
-    // 2026-05-19 — 直接 seed 第一帧 snapshot：initState 内禁止调用
+    // 直接 seed 第一帧 snapshot：initState 内禁止调用
     // `MediaQuery.maybeDisableAnimationsOf(context)`（它会触发
     // dependOnInheritedWidgetOfExactType<MediaQuery>() 断言），所以
     // 首次同步走 _morph.value=1.0 的"无动画跳变"路径；后续 Timer 触发的
@@ -3451,7 +3451,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
           const SizedBox(height: 8),
           SizedBox(
             height: 96,
-            // 2026-05-18 — 鼠标悬停 / 触屏拖动时高亮当前桶并展示
+            // 鼠标悬停 / 触屏拖动时高亮当前桶并展示
             // tooltip：根据指针 X 计算 bucketIndex，setState 重绘
             // painter 让对应柱子 stroke 一圈高亮 + 头顶气泡显示
             // "Ns 前 · X/s"。

@@ -140,7 +140,7 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<_ComposerPanelState>? onComposerStateCreated;
   final ValueChanged<_ComposerPanelState>? onComposerStateDisposed;
 
-  /// 2026-04-25 — 【指令】胶囊：本轮被临时取消的指令 ID 集合。
+  /// 【指令】胶囊：本轮被临时取消的指令 ID 集合。
   final Set<String> skippedInstructionIds;
   final ValueChanged<String>? onToggleInstructionSkip;
 
@@ -206,7 +206,7 @@ class _WorkspaceView extends StatelessWidget {
                         key: ValueKey<String>('content-${currentSession!.id}'),
                         child: Stack(
                           children: [
-                            // 阶段㉒：placeholder 阶段直接 SizedBox 占位，不
+                            // placeholder 阶段直接 SizedBox 占位，不
                             // 把 _SessionTranscript 树挂进 widget tree。之前
                             // 用 AnimatedOpacity(0) 隐身但保留 mount 的写法，
                             // initState/build/markdown 解析照常跑，等于 ANR
@@ -600,7 +600,7 @@ class _WorkspacePrimarySwitchTransition extends StatelessWidget {
   Widget build(BuildContext context) => child;
 }
 
-/// 2026-04-25 — 输入框上方的【指令】胶囊条。
+/// 输入框上方的【指令】胶囊条。
 ///
 /// 显示 InstructionsController 中所有 enabled 的指令，每条以 chip 呈现：
 ///   - 未跳过：trailing X 图标，点击 → 本轮临时取消（chip 留在原位但变灰）。

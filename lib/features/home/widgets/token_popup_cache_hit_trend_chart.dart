@@ -112,7 +112,7 @@ class _TokenPopupCacheHitTrendChartState
     with TickerProviderStateMixin {
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
-  // 2026-06-01 — hover 状态专用的进退场控制器：
+  // hover 状态专用的进退场控制器：
   // - 悬停进入：0 → 1（沿用全局 DialogAnimationSettings.springScale，
   //   带 easeOutBack 微弹）；
   // - 悬停退出：1 → 0（同一曲线的 reverse）；
@@ -358,7 +358,7 @@ class _TokenPopupCacheHitTrendChartState
                 final middleTurn =
                     visiblePoints[visiblePoints.length ~/ 2].turnIndex;
                 final endTurn = visiblePoints.last.turnIndex;
-                // 2026-06-03 — 修复 X 轴刻度与数据点未对齐：按各数据点
+                // 修复 X 轴刻度与数据点未对齐：按各数据点
                 // 真实 x 坐标（chartRect.left + stepX * index）居中放置。
                 // 旧实现用 Row + spaceBetween 会出现两类错位：
                 //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
@@ -523,7 +523,7 @@ class _TokenPopupCacheHitTrendChartState
                               },
                             ),
                           ),
-                          // 2026-06-01 — hover 高亮 + tooltip：把鼠标位置
+                          // hover 高亮 + tooltip：把鼠标位置
                           // 映射到最近的 visiblePoints 索引，叠一个发光圆点
                           // + 浮窗，整组走 springScale 的 Q 弹进退场（由
                           // [_hoverController] 驱动 forward / reverse），与
@@ -543,7 +543,7 @@ class _TokenPopupCacheHitTrendChartState
                             top: chartRect.top - 7,
                             child: Text('100%', style: valueStyle),
                           ),
-                          // 2026-06-03 — 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
+                          // 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
                           // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
                           // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
                           // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
@@ -576,7 +576,7 @@ class _TokenPopupCacheHitTrendChartState
                             bottom: 14,
                             child: Text('0%', style: valueStyle),
                           ),
-                          // 2026-06-03 — X 轴刻度改为按数据点真实 x 居中：
+                          // X 轴刻度改为按数据点真实 x 居中：
                           // 用 Stack + Positioned(left: dataX - 16, width: 32)
                           // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
                           // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
@@ -647,7 +647,7 @@ class _TokenPopupCacheHitTrendChartState
     return points.sublist(start, end + 1);
   }
 
-  /// 2026-06-01 — hover 高亮 + tooltip：
+  /// hover 高亮 + tooltip：
   /// - 渲染当前鼠标位置对应的数据点（发光圆 + tooltip 浮窗）；
   /// - 圆点 + 浮窗共用 [_hoverController] 走 springScale 风格的 Q 弹
   ///   进退场（_SpringScaleTransition 内部用 Curves.easeOutBack / easeInBack
@@ -693,7 +693,7 @@ class _TokenPopupCacheHitTrendChartState
       chartRect.left,
       chartRect.right - tooltipWidth,
     );
-    // 2026-06-01 — 仅在 hoverSettings 实际变化时把 duration /
+    // 仅在 hoverSettings 实际变化时把 duration /
     // reverseDuration 同步到控制器。Flutter 内部对 controller.duration
     // 的 setter 会清零 _lastElapsedDuration，若每帧重设同一值虽然
     // 视觉无跳变，但属于无谓写入；这里加一个等价性 cache 规避。

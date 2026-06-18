@@ -1,4 +1,4 @@
-// 2026-05-03 — 文件变动 ledger（内容寻址 + 撤销/重做 + 级联追踪）。
+// 文件变动 ledger（内容寻址 + 撤销/重做 + 级联追踪）。
 //
 // 存储布局（位于 ~/.openhand/file_history/ 之下）：
 //
@@ -137,7 +137,7 @@ class FileMutationOutcome {
   final String errorMessage;
 }
 
-/// 阶段 ⑥e：ledger 体积统计的轻量值对象。
+/// Ledger 体积统计的轻量值对象。
 class LedgerStatsSnapshot {
   const LedgerStatsSnapshot({
     required this.sessionCount,
@@ -164,7 +164,7 @@ class LedgerConfig {
   /// 自动清理 N 天前的全部变动（启动时触发一次）。<=0 表示禁用。
   final int autoCleanupDays;
 
-  /// 阶段 ⑬c：mini-diff 切换阈值（KiB）。任一侧 > 此值（且 ≤ maxBytes）
+  /// mini-diff 切换阈值（KiB）。任一侧 > 此值（且 ≤ maxBytes）
   /// 时 unifiedDiffLineSummary 仅保留 +/- 行；超过 maxBytes 仍走 sha 占
   /// 位摘要。<=0 时退化为永远全量 diff（直到 maxBytes）。
   final int miniDiffMaxBytes;
@@ -219,16 +219,16 @@ class LedgerConfig {
   }
 }
 
-/// 阶段 ⑦c/⑦f：极简 unified diff 行级摘要。共同行标 ` `，删除行 `-`，
+/// 极简 unified diff 行级摘要。共同行标 ` `，删除行 `-`，
 /// 新增行 `+`。不做 LCS 最优——目标是粘到 PR/聊天里能一眼看出改了
 /// 哪几行；提取成顶层函数便于单测。
 ///
-/// 阶段 ⑨d：当任一侧大于 [maxBytes]（默认 256 KiB）时不再做完整逐行
+/// 当任一侧大于 [maxBytes]（默认 256 KiB）时不再做完整逐行
 /// 展开，避免在 UI 线程上炸成几万行。返回一行式占位摘要，包含双侧
 /// 字节数 + sha256 前 12 位（若提供 [beforeSha]/[afterSha]），便于
 /// 之后从 ledger blobs 拉原文核对。
 ///
-/// 阶段 ⑫d：在 [miniDiffMaxBytes]（默认 32 KiB） < 任一侧 ≤ [maxBytes]
+/// 在 [miniDiffMaxBytes]（默认 32 KiB） < 任一侧 ≤ [maxBytes]
 /// 的中间区间，返回「精简 mini-diff」——只保留 +/- 行，丢弃所有相
 /// 同上下文行。这样既能让模型/用户看到差异主体，又把 token 量级压
 /// 在数 KB 内，避免大文件在 UI/上下文里被全文 +context 撑爆。
@@ -301,7 +301,7 @@ class AiFileMutationLedger {
   File _stateFile(String sessionId) =>
       File(p.join(_sessionDir(sessionId).path, 'state.json'));
 
-  /// 阶段 ⑩a：暴露给 UI 用——「点击卡片 header」要把 ledger.jsonl 在系统
+  /// 暴露给 UI 用：点击卡片 header 时把 ledger.jsonl 在系统
   /// 文件管理器里高亮。返回的文件可能尚未存在（会话尚未发生过 mutation）。
   File ledgerFileFor(String sessionId) => _ledgerFile(sessionId);
   File _configFile() => File(p.join(_root, 'config.json'));
@@ -563,7 +563,7 @@ class AiFileMutationLedger {
     return _buildView(record, all, undone);
   }
 
-  /// 阶段 ⑪a：会话级 history inspector 用——一次性返回当前会话所有记录
+  /// 会话级 history inspector 用：一次性返回当前会话所有记录
   /// 的 view。比"对每条 record 调 viewForRecord"少一次磁盘扫一次 ledger。
   Future<List<FileMutationView>> viewsForSession(String sessionId) async {
     final all = await recordsForSession(sessionId);
@@ -736,7 +736,7 @@ class AiFileMutationLedger {
 
   // ─────────────────────── 维护 / 数据清理 ───────────────────────
 
-  /// 阶段 ⑥e：数据清理卡片用的轻量统计快照。统计 sessions / 记录条数 /
+  /// 数据清理卡片用的轻量统计快照。统计 sessions / 记录条数 /
   /// blob 文件数（不含目录）。失败一律 silentLog 并以 0 返回部分项。
   Future<LedgerStatsSnapshot> statsSnapshot() async {
     await _ensureInitialized();
@@ -1004,7 +1004,7 @@ class AiFileMutationLedger {
   }
 
   /// 删除没有任何 ledger 引用的 blob。容错：失败仅日志，不抛出。
-  /// 阶段 ⑫c：返回 (removed, bytesFreed) 以便 UI 展示统计。
+  /// 返回 (removed, bytesFreed) 以便 UI 展示统计。
   Future<({int removed, int bytesFreed})> gcUnreferencedBlobs() async {
     var removed = 0;
     var bytesFreed = 0;
@@ -1235,7 +1235,7 @@ class AiFileMutationLedger {
     return trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-.]'), '_');
   }
 
-  // ─────────────────────────── 阶段⑱：跨会话查询 / 导出导入 ────────────────────
+  // ─────────────────────────── 跨会话查询 / 导出导入 ─────────────────────────
   /// 列出磁盘上所有可见的 sessionId。失败仅日志，返回空列表。
   Future<List<String>> listSessionIds() async {
     await _ensureInitialized();
@@ -1337,7 +1337,7 @@ class AiFileMutationLedger {
     });
   }
 
-  /// 阶段⑱b：把任意 records 集合打成 bundle JSON（携带其引用的 blob）。
+  /// 把任意 records 集合打成 bundle JSON（携带其引用的 blob）。
   /// 用于"导出过滤后的搜索结果"等场景。records 按 sessionId 分组写入。
   Future<String> exportRecordsAsBundleJson(
     Iterable<FileMutationRecord> records,

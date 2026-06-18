@@ -772,7 +772,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         0,
         widget.controller.text.length,
       );
-      // 2026-06-02 — 改用一次 value 写入，避免 text/selection 分两次
+      // 改用一次 value 写入，避免 text/selection 分两次
       // 推到 IME 时陈旧 composing 与新 selection 之间产生间隙，触发
       // `Range start ... is out of text of length ...` 断言。
       _atMentionSuppressListener = true;
@@ -818,7 +818,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       final cursor = widget.controller.selection.baseOffset.clamp(0, textLen);
       final start = _atMentionTriggerOffset + 1;
       if (start <= cursor) {
-        // 2026-06-02 — 同样合并为单次 value 写入。
+        // 同样合并为单次 value 写入。
         _atMentionSuppressListener = true;
         try {
           widget.controller.value = TextEditingValue(
@@ -1027,7 +1027,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ? trigger.tokenEnd + 1
             : trigger.tokenEnd;
         final newText = text.substring(remainderStart);
-        // 2026-06-02 — 合并为单次 value 写入，避免与 IME 之间产生
+        // 合并为单次 value 写入，避免与 IME 之间产生
         // selection 越界。
         widget.controller.value = TextEditingValue(
           text: newText,
@@ -1285,7 +1285,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     try {
       final currentText = widget.controller.text;
       final merged = currentText.trim().isEmpty ? refs : '$refs\n$currentText';
-      // 2026-06-02 — 合并为单次 value 写入，避免与 IME 之间产生
+      // 合并为单次 value 写入，避免与 IME 之间产生
       // selection 越界。
       widget.controller.value = TextEditingValue(
         text: merged,
@@ -1700,7 +1700,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   link: _skillPickerLayerLink,
                   child: const SizedBox.expand(),
                 ),
-                // 2026-04-26: Wrap the editable text in a Shortcuts/Actions
+                // Wrap the editable text in a Shortcuts/Actions
                 // pair driven by the global SettingsController bindings so
                 // that send-message and toggle-composer hotkeys (Ctrl+Enter
                 // and Ctrl+P by default) are consumed *inside* the focused

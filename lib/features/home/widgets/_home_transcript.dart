@@ -1,6 +1,6 @@
 part of '../openhand_home_page.dart';
 
-/// 阶段⑱：每个气泡的 BuildContext 注册到所属 transcript state 的局部
+/// 每个气泡的 BuildContext 注册到所属 transcript state 的局部
 /// 映射中，避免使用 GlobalObjectKey。GlobalObjectKey 在被 retake 时会
 /// 触发其 OverlayPortal 子节点（Tooltip）在 LayoutBuilder 重建期间向
 /// RenderTheater 注册延迟子节点，跨布局子树的 mutation 会触发
@@ -99,7 +99,7 @@ class _TranscriptViewportAnchor {
   final double viewportOffset;
 }
 
-/// 阶段⑰b：跨 widget 的「按 messageId 平滑滚动」分发器。
+/// 跨 widget 的「按 messageId 平滑滚动」分发器。
 /// `_SessionTranscriptState` 在 init/dispose 时按 sessionId 注册自身；
 /// 任意位置（汇总卡、跳转链接等）可调 `scrollToMessage(sessionId, msgId)`。
 /// 若目标已离开视窗（`_windowStartIndex` 之前），会循环 reveal-older
@@ -221,9 +221,7 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           claudeStyle: claudeStyle,
         ),
         const SizedBox(height: 14),
-        // 2026-04-27 (UX): 移除会话加载占位中的 OpenHand 品牌 LOGO，避免在
-        // 转录区中央突兀展示。保留 Expanded 占位以维持 Column 布局，使工具
-        // 栏与底部输入框间距一致。
+        // 保留 Expanded 占位以维持 Column 布局，使工具栏与底部输入框间距一致。
         const Expanded(child: SizedBox.shrink()),
       ],
     );
@@ -337,9 +335,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   List<AiSessionMessage>? _cachedIndexMapSource;
   int _cachedIndexMapWindowStart = -1;
   Map<String, int>? _cachedVisibleIndexMap;
-  // 2026-06-07：build 路径上的 _resolvePendingCreationPlaceholder 与
-  // _resolveUserVisibleError 在长会话下分别会反向遍历 visibleMessages 与
-  // recentErrors，O(N) per build。父级 watch 流式 token 触发的 rebuild
+  // build 路径上的 _resolvePendingCreationPlaceholder 与 _resolveUserVisibleError
+  // 在长会话下分别会反向遍历 visibleMessages 与 recentErrors，O(N) per build。
+  // 父级 watch 流式 token 触发的 rebuild
   // 中输入（visibleMessages、sendPhase、dismissedErrorIds 等）多数未
   // 变化时缓存命中可省掉两轮线性扫描。键由 (visibleMessages identity,
   // sendPhase, dismissedErrorIds size) 组成，identity 命中即复用。
@@ -356,15 +354,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int? _cachedUserVisibleErrorDismissedLength;
   String? _cachedUserVisibleErrorVisibleId;
   AiSessionErrorRecord? _cachedUserVisibleError;
-  // 阶段⑱：transcript 内 messageId → BuildContext 反查映射，替代
+  // transcript 内 messageId → BuildContext 反查映射，替代
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
   final Set<String> _animatedMessageIds = <String>{};
   int _messageActionPanelMotionKey = 0;
   int _consumedMessageActionPanelMotionKey = 0;
-  // 2026-06-07: 保存每条消息的【显示原始】状态，避免 ListView.builder
-  // 回收重建后状态丢失。
+  // 保存每条消息的【显示原始】状态，避免 ListView.builder 回收重建后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
   final Map<String, _MessageTranslationEntry> _translationCacheByMessageId =
       <String, _MessageTranslationEntry>{};
@@ -411,7 +408,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // parent's postFrameCallback chain fires. This prevents the user from ever
     // seeing the list start at scroll-offset 0 while a forced scroll-to-bottom
     // is pending, which manifests as a jarring flash/jump animation.
-    // 阶段㉓：单 shot jumpTo 在长会话首屏并不可靠 —— ListView.builder 在
+    // 单 shot jumpTo 在长会话首屏并不可靠：ListView.builder 在
     // markdown 异步解析期间会陆续完成 lazy layout，maxScrollExtent
     // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
     // 第 N 个 bubble 解析完成、高度从纯文本占位扩张到富文本时，贴底
@@ -472,7 +469,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _retiringCreationPlaceholder = null;
       _retiringCreationPlaceholderTimer?.cancel();
       _retiringCreationPlaceholderTimer = null;
-      // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
+      // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
       // 之前已 schedule）。`endOfFrame` 在当前帧结束后再尝试一次，
@@ -554,7 +551,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
-    // 阶段⑧ — 避免为了“全量访问”多一份卷复制：窗口从 0 开始
+    // 避免为了“全量访问”多一份卷复制：窗口从 0 开始
     // 且无位限制时，直接返回底层 List 的不可变视图。
     if (clampedWindowStartIndex == 0) {
       return displayMessages;
@@ -1018,7 +1015,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.dispose();
   }
 
-  /// 阶段⑰b：按 messageId 渐进式滚动到目标气泡。若已物化在视窗
+  /// 按 messageId 渐进式滚动到目标气泡。若已物化在视窗
   /// 或 cacheExtent 内则直接 `Scrollable.ensureVisible`；若目标
   /// 早于 `_windowStartIndex`（被「Load earlier」窗口剪掉），就
   /// 循环 reveal-older 一段一段把窗口往前推开，直到目标进入物化
@@ -1674,7 +1671,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return null;
   }
 
-  /// 2026-06-07：build 路径上 memoize。按 (session.recentErrors 引用,
+  /// build 路径上 memoize。按 (session.recentErrors 引用,
   /// _dismissedErrorIds 大小, _visibleErrorId) 命中复用：recentErrors 引用
   /// 未变（多数父级 rebuild 不会替换 recentErrors）+ dismissedErrorIds 大小
   /// 未变 + _visibleErrorId 未变即视为输入相同，避免每次 build 都对
@@ -1699,7 +1696,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return result;
   }
 
-  /// 2026-06-07：build 路径上 memoize。visibleMessages 是 sublist 视图，
+  /// build 路径上 memoize。visibleMessages 是 sublist 视图，
   /// 每次 build 都创建新 List 引用，单纯按引用比对无法命中。改用
   /// (displayMessages 引用, windowStart) 作 key 命中，sendPhase 与
   /// allowWhenIdle 作为旁路条件，避免每次 build 都反向遍历
@@ -1807,7 +1804,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final hiddenMessageCount =
         session.hiddenHistoricalMessageCount + clampedWindowStartIndex;
     final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
-    // 阶段㉓d build-stage 同步首屏 fallback —
+    // build-stage 同步首屏 fallback：
     // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
     // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
     // 「displayMessages 非空 → empty short-circuit」连续 K 帧白屏。

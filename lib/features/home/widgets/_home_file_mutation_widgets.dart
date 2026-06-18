@@ -9,7 +9,7 @@ String _fileMutationKind(AiSessionMessage message) =>
 
 const int _kFileMutationUndoConcurrency = 4;
 
-/// 2026-05-03：聚合「单文件 (`file_mutation_path`)」与「多文件
+/// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
 List<String> _fileMutationPaths(AiSessionMessage message) {
   final out = <String>[];
@@ -66,12 +66,12 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   Future<List<FileMutationView>>? _viewsFuture;
   String? _lastSessionId;
   String? _lastToolCallId;
-  // 阶段 ⑨b：批量「全部撤销」并发执行 + 进度提示。
+  // 批量「全部撤销」并发执行 + 进度提示。
   int _bulkUndoTotal = 0;
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
 
-  // 阶段 ⑪e：超过 12 条 view 时，先只展开前 _kInitialReveal 条，
+  // 超过 12 条 view 时，先只展开前 _kInitialReveal 条，
   // 后续点「展开剩余 N 条」按需渲染。避免构造 200+ 个 _FileMutationCardRow
   // （每个含可能巨大的 _InlineDiffPanel build closure）。
   static const int _kInitialReveal = 10;
@@ -186,7 +186,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
   }
 
-  /// 阶段 ⑨b / ⑩e：「全部撤销」并发执行 + 进度提示。
+  /// 「全部撤销」并发执行 + 进度提示。
   /// - 按 `record.filePath` 分组，**同一文件内严格串行**（避免互相
   ///   覆盖 / 竞争同一份磁盘内容）；
   /// - **跨文件最多 4 路并行**；
@@ -272,13 +272,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
   }
 
-  /// 阶段 ⑦c：聚合当前 toolCall 涉及的所有 view 的 before/after 内容，
+  /// 聚合当前 toolCall 涉及的所有 view 的 before/after 内容，
   /// 拼成 `# <path>\n```diff\n<unified diff>\n```` 的合并 markdown 写入剪贴板。
   /// 任意 blob 读取失败的条目以 `<missing>` 占位，保持其它项可用。
   Future<void> _copyAllDiff(List<FileMutationView> views) async {
     if (views.isEmpty) return;
     final ledger = _ctrl(context).toolRuntimeService.mutationLedger;
-    // 阶段 ⑬c：尊重 LedgerConfig.miniDiffMaxBytes——超过阈值时
+    // 尊重 LedgerConfig.miniDiffMaxBytes——超过阈值时
     // 复制出去的合并 diff 也走 mini-diff（仅 +/- 行），避免大文件
     // 把剪贴板/聊天上下文撑爆。
     final config = await ledger.loadConfig();
@@ -318,7 +318,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     );
   }
 
-  /// 阶段 ⑩a：把当前会话的 `sessions/<id>/ledger.jsonl` 在系统文件管理器
+  /// 把当前会话的 `sessions/<id>/ledger.jsonl` 在系统文件管理器
   /// 里高亮（macOS `open -R` / Windows `explorer.exe /select,` /
   /// Linux 退化到打开父目录）。文件不存在时退化到打开 ledger 根目录。
   Future<void> _revealLedgerFile() async {
@@ -338,7 +338,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
   }
 
-  /// 阶段 ⑪a：当前会话维度的 History Inspector dialog。展示该 session
+  /// 当前会话维度的 History Inspector dialog。展示该 session
   /// 下 ledger.jsonl 的全部记录（不局限于当前 toolCall），按 filePath 分
   /// 组并按 createdAt 倒序展示。复用现有 row 视觉，但不带 undo/redo 按钮
   /// （只读概览，避免误操作）。
@@ -380,7 +380,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         // 渲染只读多文件行（保留点击查看 diff 对话框的能力）。
         if (views.isEmpty) {
           if (fallbackPaths.isEmpty) return const SizedBox.shrink();
-          // 阶段 ⑩d：FileMutationCard 走 AppearOnce 入场（fade + 12px 上滑）。
+          // FileMutationCard 走 AppearOnce 入场（fade + 12px 上滑）。
           // AppearOnce 自身在 reduceMotion 时退化为零时长，无需额外 gate。
           return AppearOnce(
             child: _buildLegacyMultiPath(theme, cs, fallbackPaths),
@@ -482,7 +482,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
     final anyUndoable = views.any((v) => v.canUndo);
     final anyRedoable = views.any((v) => v.canRedo);
-    // 阶段 ⑮c：卡内 Cmd/Ctrl+Z 撤销最近一条、Shift+Cmd/Ctrl+Z 重做。
+    // 卡内 Cmd/Ctrl+Z 撤销最近一条、Shift+Cmd/Ctrl+Z 重做。
     // 仅当卡片或其子节点持有焦点时生效，避免与全局快捷键冲突。
     FileMutationView? lastUndoable;
     FileMutationView? lastRedoable;
@@ -590,7 +590,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                               bg: cs.errorContainer.withValues(alpha: 0.55),
                             ),
                           ],
-                          // 阶段 ⑨b：批量撤销进度 chip。
+                          // 批量撤销进度 chip。
                           if (_bulkUndoBusy) ...[
                             const SizedBox(width: 8),
                             SizedBox(
@@ -635,7 +635,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                             )!.fileMutationCopyAllDiff,
                             onTap: () => _copyAllDiff(views),
                           ),
-                          // 阶段 ⑪a：把当前会话所有 ledger 记录（含其他卡未展示的）
+                          // 把当前会话所有 ledger 记录（含其他卡未展示的）
                           // 在 dialog 里按文件分组俯瞰，便于跨 toolCall 排查。
                           _IconActionButton(
                             icon: Icons.history_rounded,
@@ -653,9 +653,9 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                   height: 1,
                   color: cs.outlineVariant.withValues(alpha: 0.45),
                 ),
-                // 阶段 ⑪e：渐进式展开。views 多时只构造前 _revealedCount 条，
+                // 渐进式展开。views 多时只构造前 _revealedCount 条，
                 // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
-                // 阶段 ⑮b：≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
+                // ≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
                 // 入场，与 inspector 同源 _DelayedAppear；reduceMotion 下退化。
                 for (int i = 0; i < views.length && i < _revealedCount; i++)
                   Builder(
@@ -703,7 +703,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               ],
             ),
           ),
-          // 阶段 ⑦e：每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
+          // 每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
           // HighlightPulse 自带 reduceMotion 守门，不需要我们再 gate。
           Positioned(
             top: 0,
@@ -711,7 +711,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             right: 0,
             child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
           ),
-          // 阶段 ⑬b：批量 undo 进行中——卡片整体覆 BackdropFilter blur 6px
+          // 批量 undo 进行中——卡片整体覆 BackdropFilter blur 6px
           // + primary 色 tinted glow，进度环居中。AnimatedSwitcher 220ms 淡入
           // 淡出，reduceMotion 时退化为 0ms。
           Positioned.fill(
@@ -845,7 +845,7 @@ class _FileMutationCardRow extends StatelessWidget {
     }
   }
 
-  /// 阶段 ⑬d：长按 / 右键弹出 ContextMenu，便利动作集中暴露：
+  /// 长按 / 右键弹出 ContextMenu，便利动作集中暴露：
   /// reveal in OS / copy path / copy diff / open inspector / jump-to-toolcall。
   Future<void> _showRowContextMenu(
     BuildContext context, {
@@ -969,7 +969,7 @@ class _FileMutationCardRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 阶段 ⑫a：键盘导航——
+            // 键盘导航——
             // - Up/Down 在 row 间走 Directional focus；
             // - Space 切换 expand；
             // - Enter 打开 legacy diff dialog。
@@ -1006,7 +1006,7 @@ class _FileMutationCardRow extends StatelessWidget {
                 onLongPress: () => _showRowContextMenu(context),
                 onSecondaryTapDown: (d) =>
                     _showRowContextMenu(context, position: d.globalPosition),
-                // 阶段 ⑩c：row hover 背景轻微高亮，让指针落点更清晰。
+                // row hover 背景轻微高亮，让指针落点更清晰。
                 hoverColor: cs.primary.withValues(alpha: 0.05),
                 splashColor: cs.primary.withValues(alpha: 0.10),
                 highlightColor: cs.primary.withValues(alpha: 0.06),
@@ -1035,7 +1035,7 @@ class _FileMutationCardRow extends StatelessWidget {
                         Icon(_kindIcon, size: 14, color: _kindColor(cs)),
                         const SizedBox(width: 6),
                         Expanded(
-                          // 阶段 ⑩b：hover 显示完整路径，右键 / Ctrl-长按复制路径。
+                          // hover 显示完整路径，右键 / Ctrl-长按复制路径。
                           child: Tooltip(
                             message: view.record.filePath,
                             waitDuration: const Duration(milliseconds: 500),
@@ -1193,7 +1193,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
             );
           }
           final diff = unifiedDiffLinesFromText(before, after);
-          // 阶段 ⑪b：复用 _CodeSyntaxHighlighter 给 diff 行加 token 着色。
+          // 复用 _CodeSyntaxHighlighter 给 diff 行加 token 着色。
           // 缓存命中：相同 record（即 sha pair）在同一 brightness 下复用整段
           // TextSpan，rebuild（hover/expand/收起）不再重新 tokenize。
           final brightness = theme.brightness;
@@ -1315,7 +1315,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
   }
 }
 
-/// 阶段 ⑪b：从文件路径推断 highlight.dart 用的语言名（小写）。无后缀
+/// 从文件路径推断 highlight.dart 用的语言名（小写）。无后缀
 /// 或 unknown 后缀返回 null，由 `_CodeSyntaxHighlighter` 退化成纯文本。
 String? _languageFromFilePath(String path) {
   final i = path.lastIndexOf('.');
@@ -1373,7 +1373,7 @@ String? _languageFromFilePath(String path) {
   };
 }
 
-/// 阶段 ⑩b：把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
+/// 把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
 /// / 长按手势调用，因此抽到顶层而非 row state。
 Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
   await Clipboard.setData(ClipboardData(text: filePath));
@@ -1602,7 +1602,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
   }
 }
 
-/// 阶段 ⑪e：FileMutationCard 渐进式展开尾部按钮。
+/// FileMutationCard 渐进式展开尾部按钮。
 /// - 文案 / 图标走当前 ColorScheme，与 row 视觉对齐；
 /// - 提供「展开 +30」与「全部展开」两个动作；
 /// - 触发的是父 setState，无内部状态，纯展示组件。
@@ -1659,7 +1659,7 @@ class _RevealMoreRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 阶段 ⑪a：File Mutation History Inspector dialog
+// File Mutation History Inspector dialog
 // 当前会话级别的全 ledger 俯瞰：跨 toolCall 聚合，按 filePath 分组，每组
 // 内按 createdAt 倒序展示。只读：仅展示 + 复用既有 _FileMutationCardRow
 // 视觉层（但不带 undo/redo callback——传 null/空 op）。
@@ -1683,7 +1683,7 @@ class _FileMutationHistoryInspectorDialogState
   late Future<List<FileMutationView>> _future;
   String _filter = '';
   late final TextEditingController _filterCtrl;
-  // 阶段 ⑫b：单路径 zoom 模式。group header 双击进入，仅展示该 path
+  // 单路径 zoom 模式。group header 双击进入，仅展示该 path
   // 下的所有版本；空字符串表示常规多路径模式。
   String? _zoomedPath;
 
@@ -1752,7 +1752,7 @@ class _FileMutationHistoryInspectorDialogState
                 ),
               ),
             ),
-            // 阶段 ⑫b：zoom 模式提示条 + 退出按钮
+            // zoom 模式提示条 + 退出按钮
             if (_zoomedPath != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -1799,7 +1799,7 @@ class _FileMutationHistoryInspectorDialogState
                               ),
                             )
                             .toList(growable: false);
-                  // 阶段 ⑫b：zoom 模式 → 只保留该路径
+                  // zoom 模式 → 只保留该路径
                   final visible = _zoomedPath == null
                       ? filtered
                       : filtered
@@ -1830,7 +1830,7 @@ class _FileMutationHistoryInspectorDialogState
                         .add(v);
                   }
                   final paths = groups.keys.toList()..sort();
-                  // 阶段 ⑬a：分组 staggered AppearOnce——
+                  // 分组 staggered AppearOnce——
                   // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
                   final reduceMotion = MediaQuery.disableAnimationsOf(context);
                   return ListView.builder(
@@ -1961,7 +1961,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    // 阶段 ⑬e：聚合 +X / -Y 字节增减徽章。
+                    // 聚合 +X / -Y 字节增减徽章。
                     () {
                       var added = 0;
                       var removed = 0;
@@ -2067,7 +2067,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
   }
 }
 
-/// 阶段 ⑮d：inspector 单条记录行——长按 / 右键弹「复制 record JSON」。
+/// inspector 单条记录行——长按 / 右键弹「复制 record JSON」。
 class _InspectorEntryRow extends StatelessWidget {
   const _InspectorEntryRow({required this.view});
   final FileMutationView view;
@@ -2239,22 +2239,22 @@ class _RecordKindBadge extends StatelessWidget {
   }
 }
 
-/// 阶段 ⑫a：FileMutationCard row 键盘 Enter 触发的 Intent。
+/// FileMutationCard row 键盘 Enter 触发的 Intent。
 class _OpenLegacyDialogIntent extends Intent {
   const _OpenLegacyDialogIntent();
 }
 
-/// 阶段 ⑮c：卡内 Cmd/Ctrl+Z 撤销最近一条记录。
+/// 卡内 Cmd/Ctrl+Z 撤销最近一条记录。
 class _UndoLastIntent extends Intent {
   const _UndoLastIntent();
 }
 
-/// 阶段 ⑮c：卡内 Shift+Cmd/Ctrl+Z 重做最近一条记录。
+/// 卡内 Shift+Cmd/Ctrl+Z 重做最近一条记录。
 class _RedoLastIntent extends Intent {
   const _RedoLastIntent();
 }
 
-/// 阶段 ⑮e：inspector 分组卡 hover 微抬升——
+/// inspector 分组卡 hover 微抬升——
 /// 200ms easeOutCubic 边框 / 阴影 fade，reduceMotion 下退化为零时长。
 class _HoverElevateBox extends StatefulWidget {
   const _HoverElevateBox({
@@ -2327,7 +2327,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
   }
 }
 
-/// 阶段 ⑬a：在 [delay] 之前显示透明占位（保持高度通过 child build），
+/// 在 [delay] 之前显示透明占位（保持高度通过 child build），
 /// 之后再用 AppearOnce 包裹 child 实现 staggered fade-in。这里通过
 /// FutureBuilder + KeyedSubtree 让每个分组卡的 enter 动画错峰。
 class _DelayedAppear extends StatefulWidget {
@@ -2362,7 +2362,7 @@ class _DelayedAppearState extends State<_DelayedAppear> {
   }
 }
 
-/// 阶段 ⑬b：批量 undo overlay。BackdropFilter blur 6px + primary 色
+/// 批量 undo overlay。BackdropFilter blur 6px + primary 色
 /// tinted glow 渐变背景 + 圆形进度环 + 「N/M」百分比文案。淡入淡出由
 /// 外层 AnimatedSwitcher 控制。
 class _BulkUndoOverlay extends StatelessWidget {
@@ -2429,7 +2429,7 @@ String _localizedTextStatic(
   return openHandLocalizedText(context, zh: zh, en: en);
 }
 
-/// 阶段 ⑬e：徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。
+/// 徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。
 String _compactBytes(int bytes) {
   if (bytes < 1024) return '${bytes}B';
   if (bytes < 1024 * 1024) {
@@ -2441,7 +2441,7 @@ String _compactBytes(int bytes) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 阶段⑰ —— 本轮文件变动汇总卡（_RoundFileMutationSummaryCard）
+// 本轮文件变动汇总卡（_RoundFileMutationSummaryCard）
 //
 // 当 AssistantTurn 末尾 (`result.toolCalls.isEmpty`) 触发时，controller 已
 // 写入一条 metadata 含 `round_file_mutation_summary == true` 的 status
@@ -2473,18 +2473,18 @@ class _RoundFileMutationSummaryCardState
   Future<List<_RoundSummaryRow>>? _rowsFuture;
   String? _lastSessionId;
   String? _lastMessageId;
-  // 阶段⑰c：批量「撤销本轮」并发执行进度。
+  // 批量「撤销本轮」并发执行进度。
   int _bulkUndoTotal = 0;
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
   final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
-  // 阶段⑰d：折叠记忆 — 跨重建保留每张卡的「哪些组被收起 / 哪些 Diff 被展开」。
+  // 折叠记忆 — 跨重建保留每张卡的「哪些组被收起 / 哪些 Diff 被展开」。
   // key = '${messageId}::${toolName}'，进程级缓存即可，无需持久化到磁盘。
   static final Set<String> _collapsedGroups = <String>{};
   static final Set<String> _expandedDiffRows = <String>{};
-  // 阶段⑱a：按路径前缀的二级分组折叠记忆。key = `${msgId}::${toolName}::${dir}`。
+  // 按路径前缀的二级分组折叠记忆。key = `${msgId}::${toolName}::${dir}`。
   static final Set<String> _collapsedPathGroups = <String>{};
-  // 阶段⑱a：超过 _virtualRowCap 时仅展示前 N 行；记忆"已展开"消息。
+  // 超过 _virtualRowCap 时仅展示前 N 行；记忆"已展开"消息。
   static final Set<String> _expandedFullList = <String>{};
   static const int _virtualRowCap = 30;
   static const int _pathSubgroupThreshold = 8;
@@ -2695,7 +2695,7 @@ class _RoundFileMutationSummaryCardState
 
   String? _jumpingToSourceId;
 
-  /// 阶段⑰c：「全部撤销本轮」批量入口。
+  /// 「全部撤销本轮」批量入口。
   /// 按 filePath 聚合 → 同文件严格串行（避免互相覆盖磁盘内容），
   /// 跨文件 4 路并行；进度打到 header chip 与中央 overlay；完成后
   /// 单次 reload + highlight pulse；任意失败 SnackBar 报最后一次错误。
@@ -2770,7 +2770,7 @@ class _RoundFileMutationSummaryCardState
     }
   }
 
-  /// 阶段⑰d：把本轮全部 ledger 记录序列化为 JSON。
+  /// 把本轮全部 ledger 记录序列化为 JSON。
   /// 弹出系统文件选择器让用户挑选保存位置 / 文件名；保存成功 / 失败均弹
   /// SnackBar 提示。字段直接调 FileMutationRecord.toJson()，再附 toolCallId
   /// / sourceMessageId 让外部审计/对账能完整反查。
@@ -3118,7 +3118,7 @@ class _RoundFileMutationSummaryCardState
                 ),
               ),
             ),
-          // 阶段⑰c：进度 chip — 全部撤销中显示 N/M。
+          // 进度 chip — 全部撤销中显示 N/M。
           if (_bulkUndoBusy) ...[
             SizedBox(
               width: 12,
@@ -3139,7 +3139,7 @@ class _RoundFileMutationSummaryCardState
             ),
             const SizedBox(width: 6),
           ],
-          // 阶段⑰c/⑰d：右侧动作组（按 reduceMotion 透明度逐个淡入由
+          // 右侧动作组（按 reduceMotion 透明度逐个淡入由
           // 上层 HighlightPulse 提供反馈，无需在此再加入场动画）。
           if (rows.isNotEmpty &&
               rows.any((r) => r.view.canUndo) &&
@@ -3183,8 +3183,8 @@ class _RoundFileMutationSummaryCardState
     );
   }
 
-  /// 阶段⑰d：按 `record.toolName` 分组渲染；每组一个可折叠 header。
-  /// 阶段⑱a：组内行数超过 [_pathSubgroupThreshold] 时再按目录前缀做二级分组；
+  /// 按 `record.toolName` 分组渲染；每组一个可折叠 header。
+  /// 组内行数超过 [_pathSubgroupThreshold] 时再按目录前缀做二级分组；
   /// 整体可视行数超过 [_virtualRowCap] 时显示"展开全部 N 行"按钮。
   Widget _buildGroupedBody(
     ThemeData theme,
@@ -3366,7 +3366,7 @@ class _RoundFileMutationSummaryCardState
     );
   }
 
-  /// 阶段⑱a：组内若超阈值 → 按 `_topDir` 二级分桶；否则平铺。
+  /// 组内若超阈值 → 按 `_topDir` 二级分桶；否则平铺。
   void _emitRowsWithOptionalPathSubgroups({
     required ThemeData theme,
     required ColorScheme cs,
@@ -3552,7 +3552,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
           const SizedBox(width: 6),
           if (row.sourceMessageId != null)
             _RoundSummarySourceJumpButton(onTap: onJump),
-          // 阶段⑰d：任意有快照的记录都支持 inline Diff 预览；create/delete
+          // 任意有快照的记录都支持 inline Diff 预览；create/delete
           // 分别以空 before/after 参与 diff，与单个工具调用卡片保持一致。
           if (row.view.record.beforeSha != null ||
               row.view.record.afterSha != null) ...[
@@ -3643,7 +3643,7 @@ class _RoundSummarySourceJumpButton extends StatelessWidget {
   }
 }
 
-/// 阶段⑰d：分组 header — 显示工具名 + 计数 + 折叠箭头。
+/// 分组 header — 显示工具名 + 计数 + 折叠箭头。
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.toolName,
@@ -3710,7 +3710,7 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-/// 阶段⑱a：路径子分组 header — 比 [_GroupHeader] 更轻盈、左侧缩进。
+/// 路径子分组 header — 比 [_GroupHeader] 更轻盈、左侧缩进。
 class _PathSubGroupHeader extends StatelessWidget {
   const _PathSubGroupHeader({
     required this.dir,
@@ -3779,7 +3779,7 @@ class _PathSubGroupHeader extends StatelessWidget {
   }
 }
 
-/// 阶段⑰d：行内 Diff 预览 — lazy 加载 before/after blob，渲染压缩的统一
+/// 行内 Diff 预览 — lazy 加载 before/after blob，渲染压缩的统一
 /// diff 视图（≤ 10 行，超过截断 + 省略提示）。
 class _DiffPreviewBox extends StatefulWidget {
   const _DiffPreviewBox({super.key, required this.record});
@@ -3839,7 +3839,7 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
       }
     }
 
-    // 阶段⑲a：大文件（before+after > 24 KiB）走 isolate 计算 diff，避免
+    // 大文件（before+after > 24 KiB）走 isolate 计算 diff，避免
     // 主线程长卡顿；小文件继续同步直跑（避免 spawn 开销）。
     final totalBytes = before.length + after.length;
     if (totalBytes > 24 * 1024) {
@@ -3960,7 +3960,7 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
   }
 
   Widget _diffLine(ThemeData theme, ColorScheme cs, String line) {
-    // 阶段⑲b：暗色模式下用更亮的前景 + 更柔和的底色，避免对比度暴涨。
+    // 暗色模式下用更亮的前景 + 更柔和的底色，避免对比度暴涨。
     final isDark = theme.brightness == Brightness.dark;
     Color? bg;
     Color fg = cs.onSurface;
@@ -3993,7 +3993,7 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
   }
 }
 
-/// 阶段⑲a：isolate 计算 diff 摘要的入参快照（必须可序列化跨 isolate）。
+/// isolate 计算 diff 摘要的入参快照（必须可序列化跨 isolate）。
 class _DiffComputeArgs {
   const _DiffComputeArgs({
     required this.before,

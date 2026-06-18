@@ -22,7 +22,7 @@ class AiFileHistoryService {
 
   /// 获取历史版本存储目录
   ///
-  /// 2026-05-03 — 默认路径从 `Directory.systemTemp/.openhand-file-history`
+  /// 默认路径从 `Directory.systemTemp/.openhand-file-history`
   /// 切换到 `~/.openhand/file_history/legacy_versions/`，与其他 OpenHand
   /// 应用数据位置保持一致，供全局「数据清理」控制。
   Future<Directory> _getHistoryDir() async {
@@ -220,7 +220,7 @@ class AiFileHistoryService {
     // 返回路径最后一段 + hash，便于人工识别
     final basename = p.basenameWithoutExtension(path);
     final safeBasename = basename.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    // 2026-04-14: 修复边界条件 - 当 basename 为空时使用 'file' 作为前缀
+    // 修复边界条件 - 当 basename 为空时使用 'file' 作为前缀
     final prefix = safeBasename.isEmpty
         ? 'file'
         : safeBasename.substring(0, safeBasename.length.clamp(0, 20));
