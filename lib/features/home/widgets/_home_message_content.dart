@@ -276,11 +276,6 @@ class _StreamingReasoningBody extends StatelessWidget {
 /// 和 WEB 端 REASONING_PREVIEW_MAX_HEIGHT_PX 对齐。
 const double _reasoningPreviewMaxHeight = 142;
 
-/// 2026-05-17 (Bug 5)：transcript 内消息卡片已统一切换到 motion token
-/// （见 `_home_motion_tokens.dart` 的 `cardMotionDurationFor`），原本读取
-/// `SettingsController.dialogAnimationSettings` 的 `_reasoningBodyAnimDuration`
-/// helper 不再被引用，已随本次修复清理。所有调用点请直接使用 motion token。
-
 class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   const _CollapsibleMessageMarkdownBody({
     required this.data,

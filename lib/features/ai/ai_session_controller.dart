@@ -1128,28 +1128,24 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  /// 解析有效字符限速：优先级 session > template > global。
+  /// 解析有效字符限速：优先级 session > global。
   int effectiveStreamCharsPerSecond({
     required String sessionId,
     required AiSessionRuntimeContext runtimeContext,
   }) {
     final session = _sessionStreamThrottleOverrides[sessionId];
     if (session?.charsPerSecond != null) return session!.charsPerSecond!;
-    return runtimeContext.effectiveStreamMaxCharsPerSecond(
-      runtimeContext.templateId,
-    );
+    return runtimeContext.effectiveStreamMaxCharsPerSecond();
   }
 
-  /// 解析有效卡片限速：优先级 session > template > global。
+  /// 解析有效卡片限速：优先级 session > global。
   int effectiveStreamCardsPerSecond({
     required String sessionId,
     required AiSessionRuntimeContext runtimeContext,
   }) {
     final session = _sessionStreamThrottleOverrides[sessionId];
     if (session?.cardsPerSecond != null) return session!.cardsPerSecond!;
-    return runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
-      runtimeContext.templateId,
-    );
+    return runtimeContext.effectiveStreamMaxMessageCardsPerSecond();
   }
 
   /// Read-only accessor used by the self-learning scheduler to query
@@ -4467,14 +4463,10 @@ class AiSessionController extends ChangeNotifier {
           _sessionStreamThrottleOverrides[workingSession.id];
       final effChars =
           sessionThrottleOverride?.charsPerSecond ??
-          runtimeContext.effectiveStreamMaxCharsPerSecond(
-            workingSession.templateId,
-          );
+          runtimeContext.effectiveStreamMaxCharsPerSecond();
       final effCards =
           sessionThrottleOverride?.cardsPerSecond ??
-          runtimeContext.effectiveStreamMaxMessageCardsPerSecond(
-            workingSession.templateId,
-          );
+          runtimeContext.effectiveStreamMaxMessageCardsPerSecond();
       // 2026-05-22 — 多媒体生成模式（图片/视频/音频）旁路所有流式节流：
       // 这些请求走专用 media endpoint，输出是文件/URL 而非真正的文本流，
       // 把它们丢进 charThrottle/cardThrottle 会导致进度/结果以人造节奏

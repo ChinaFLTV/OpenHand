@@ -394,23 +394,13 @@ class AiSessionRuntimeContext {
   final int streamThrottleDurationSeconds;
 
   /// 返回生效的字符节流速率。
-  ///
-  /// 历史上该速率支持「按线程模板覆盖」，[templateIdValue] 入参用于
-  /// 命中模板。从 2026-05 起所有线程会话共用同一组节流参数，模板覆盖
-  /// 已彻底下线，入参被忽略，方法直接返回 [streamMaxCharsPerSecond]。
-  /// 形参与方法签名保留是为了避免一次性把所有调用点炸开，实际值不再
-  /// 被读取——见 ai-throttle-and-ux-fixes/design.md (Bug 2)。
-  @Deprecated('templateId is no longer consulted; use the global rate.')
-  int effectiveStreamMaxCharsPerSecond(String? templateIdValue) {
+  int effectiveStreamMaxCharsPerSecond() {
     if (!streamThrottleEnabled) return 0;
     return streamMaxCharsPerSecond;
   }
 
-  /// 返回生效的卡片节流速率。语义同 [effectiveStreamMaxCharsPerSecond]：
-  /// 模板覆盖已下线，[templateIdValue] 仅作签名兼容保留，方法直接返回
-  /// [streamMaxMessageCardsPerSecond]。
-  @Deprecated('templateId is no longer consulted; use the global rate.')
-  int effectiveStreamMaxMessageCardsPerSecond(String? templateIdValue) {
+  /// 返回生效的卡片节流速率。语义同 [effectiveStreamMaxCharsPerSecond]。
+  int effectiveStreamMaxMessageCardsPerSecond() {
     if (!streamThrottleEnabled) return 0;
     return streamMaxMessageCardsPerSecond;
   }

@@ -3284,12 +3284,10 @@ class WebMessagePlatformService {
       );
       final effChars =
           throttleOverride?.charsPerSecond ??
-          _settingsController.effectiveStreamMaxCharsPerSecond(live.templateId);
+          _settingsController.effectiveStreamMaxCharsPerSecond();
       final effCards =
           throttleOverride?.cardsPerSecond ??
-          _settingsController.effectiveStreamMaxMessageCardsPerSecond(
-            live.templateId,
-          );
+          _settingsController.effectiveStreamMaxMessageCardsPerSecond();
       return <String, Object?>{
         'session': _sessionSummary(
           live,

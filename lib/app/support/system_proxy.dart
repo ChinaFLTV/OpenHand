@@ -46,18 +46,13 @@ class SystemProxyResolver {
 
   AppProxySettings get effectiveSettings => _settings;
 
-  /// 来自设置中心的代理配置变更。立即生效——后续 `findProxyFor` 立刻
-  /// 使用新配置。`settings.mode` 可能是 `manual` 或 `automatic`，本方法
-  /// 都接受；命名沿用历史 API 但日志按实际 mode 输出，避免误导。
+  /// 来自设置中心的代理配置变更。立即生效，后续 `findProxyFor` 立刻
+  /// 使用新配置。`settings.mode` 可为 `manual` 或 `automatic`。
   void applyConfig(AppProxySettings settings) {
     if (_settings == settings) return;
     _settings = settings;
     _revision.value = _revision.value + 1;
   }
-
-  /// Backwards-compatible alias for callers still on the old name.
-  @Deprecated('Use applyConfig instead — accepts both manual & automatic')
-  void applyManualConfig(AppProxySettings settings) => applyConfig(settings);
 
   /// 任何会改变代理决策的事件（applyConfig / 重新探测）后 +1。
   /// 子进程（持久 bash session）等需要在 env 失效时回收的资源

@@ -12,12 +12,6 @@
 ///   - 单 Timer，复杂度 O(1)；
 ///   - 不阻塞 isolate；
 ///   - dispose 时不会泄漏待执行回调。
-///
-/// 2026-05-22 — Bug 1 修复（task 3.1 / 3.2）：[_StreamCharThrottle] 把
-/// 对外接口从 UTF-16 code unit 切换到 grapheme cluster（`package:characters`）。
-/// task 3.2 已经把仓库内全部生产调用点迁移到 [renderableGraphemeCount]；
-/// 旧 `renderableLength` 仅作为 `@Deprecated` 转发保留，等待 task 3.3 / 后续
-/// 兼容窗口结束后整体删除。
 part of '../ai_session_controller.dart';
 
 /// 滑动窗口吞吐采样器，每秒一个桶，桶 0 = 当前秒。
@@ -310,17 +304,6 @@ class _StreamCharThrottle {
     }
     return _emittedGraphemes;
   }
-
-  /// 旧字符长度 API。task 3.1 阶段引入薄转发，task 3.2 已经把所有生产
-  /// 调用点切到 [renderableGraphemeCount]；本接口仅作为 `@Deprecated`
-  /// 兼容层保留，避免外部仓库 / 测试的旧调用一刀切失败。任何新调用都
-  /// 应直接传 grapheme 总数（`text.characters.length`）给
-  /// [renderableGraphemeCount]。
-  @Deprecated(
-    'Use renderableGraphemeCount; counts must be in graphemes (package:characters).',
-  )
-  int renderableLength(int totalSanitizedLength) =>
-      renderableGraphemeCount(totalSanitizedLength);
 
   // ── 显示侧吞吐采样：保留最近 30 秒 grapheme 放出量，O(1) 更新。
   final _displayThroughput = _StreamThroughputSampler();

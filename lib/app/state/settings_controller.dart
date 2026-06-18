@@ -508,22 +508,14 @@ class SettingsController extends ChangeNotifier {
   ///   1) 全局节流总开关关闭 → 0（关闭节流）
   ///   2) 自动模式开启 → 平台预设
   ///   3) 全局值
-  ///
-  /// 历史上 [templateId] 用于「按线程模板覆盖节流参数」，从 2026-05 起
-  /// 所有线程会话共用同一组节流参数，模板覆盖整条数据通路已删除。形参
-  /// 与方法签名保留是为了避免一次性把全部调用点炸开，入参不再被读取。
-  /// 详见 ai-throttle-and-ux-fixes/design.md (Bug 2)。
-  @Deprecated('templateId is no longer consulted; use the global rate.')
-  int effectiveStreamMaxCharsPerSecond(String? templateId) {
+  int effectiveStreamMaxCharsPerSecond() {
     if (!_aiStreamThrottleEnabled) return 0;
     if (_aiStreamThrottleAutoMode) return _autoStreamMaxCharsPerSecond();
     return _aiStreamMaxCharsPerSecond;
   }
 
-  /// 返回生效的卡片节流速率：模板覆盖已下线，[templateId] 仅作签名兼容
-  /// 保留，方法直接返回全局值。语义同 [effectiveStreamMaxCharsPerSecond]。
-  @Deprecated('templateId is no longer consulted; use the global rate.')
-  int effectiveStreamMaxMessageCardsPerSecond(String? templateId) {
+  /// 返回生效的卡片节流速率。语义同 [effectiveStreamMaxCharsPerSecond]。
+  int effectiveStreamMaxMessageCardsPerSecond() {
     if (!_aiStreamThrottleEnabled) return 0;
     if (_aiStreamThrottleAutoMode) {
       return AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto;

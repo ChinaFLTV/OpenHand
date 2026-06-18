@@ -2509,11 +2509,6 @@ class _StreamThrottlePill extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: sessionController.streamThrottleOverrideSignal,
       builder: (context, _, _) {
-        final session = sessionController.sessions.firstWhere(
-          (s) => s.id == sessionId,
-          orElse: () => sessionController.sessions.first,
-        );
-        final templateId = session.templateId;
         final override = sessionController.sessionStreamThrottleOverride(
           sessionId,
         );
@@ -2521,12 +2516,10 @@ class _StreamThrottlePill extends StatelessWidget {
         final effEnabled = override?.enabled ?? globalEnabled;
         final effChars =
             override?.charsPerSecond ??
-            settingsController.effectiveStreamMaxCharsPerSecond(templateId);
+            settingsController.effectiveStreamMaxCharsPerSecond();
         final effCards =
             override?.cardsPerSecond ??
-            settingsController.effectiveStreamMaxMessageCardsPerSecond(
-              templateId,
-            );
+            settingsController.effectiveStreamMaxMessageCardsPerSecond();
         // 2026-05-19 — 胶囊可见性：
         //   * 任何时候只要本会话有运行时覆盖（rate/enabled）→ 显示；
         //   * 否则全局节流处于「开启 + 任一速率 > 0」时也显示；
@@ -2569,11 +2562,8 @@ class _StreamThrottlePill extends StatelessWidget {
             borderRadius: _borderRadius999,
             child: InkWell(
               borderRadius: _borderRadius999,
-              onTap: () => _showStreamThrottleDialog(
-                context,
-                sessionId: sessionId,
-                templateId: templateId,
-              ),
+              onTap: () =>
+                  _showStreamThrottleDialog(context, sessionId: sessionId),
               child: Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -2644,25 +2634,17 @@ class _StreamThrottlePill extends StatelessWidget {
 Future<void> _showStreamThrottleDialog(
   BuildContext context, {
   required String sessionId,
-  required String templateId,
 }) async {
   await showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _StreamThrottleSessionDialog(
-      sessionId: sessionId,
-      templateId: templateId,
-    ),
+    builder: (_) => _StreamThrottleSessionDialog(sessionId: sessionId),
   );
 }
 
 class _StreamThrottleSessionDialog extends StatefulWidget {
-  const _StreamThrottleSessionDialog({
-    required this.sessionId,
-    required this.templateId,
-  });
+  const _StreamThrottleSessionDialog({required this.sessionId});
 
   final String sessionId;
-  final String templateId;
 
   @override
   State<_StreamThrottleSessionDialog> createState() =>
@@ -2711,12 +2693,8 @@ class _StreamThrottleSessionDialogState
     final isZh = openHandIsChineseLocale(context);
     final settings = context.watch<SettingsController>();
     final session = context.watch<AiSessionController>();
-    final globalChars = settings.effectiveStreamMaxCharsPerSecond(
-      widget.templateId,
-    );
-    final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond(
-      widget.templateId,
-    );
+    final globalChars = settings.effectiveStreamMaxCharsPerSecond();
+    final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond();
     // 2026-05-19 — 当前会话「真正生效」的速率：会话级覆盖 > 全局。
     // 弹窗的 "当前生效" 标签和 mini 仪表盘上限都按这个值显示，避免
     // 用户已在文本框里输入了新数字、但标签仍停留在全局值导致的
