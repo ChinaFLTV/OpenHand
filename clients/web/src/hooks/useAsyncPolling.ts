@@ -1,5 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { normalizeDurationMs } from '../shared/util/number';
+import { runWithAbortableTimeout } from '../utils/timed_abort';
 import { useEventCallback } from './useEventCallback';
 
 const MIN_POLL_INTERVAL_MS = 250;
@@ -88,34 +89,27 @@ export function useAsyncPolling(
       const controller = new AbortController();
       activeController = controller;
       const runId = ++activeRunId;
-      const isActive = () =>
-        !stopped &&
-        activeRunId === runId &&
-        !controller.signal.aborted;
-      let timeout: number | null = null;
       try {
-        const runPromise = Promise.resolve(
-          runTask(isActive, controller.signal),
+        await runWithAbortableTimeout(
+          (signal) =>
+            runTask(
+              () =>
+                !stopped &&
+                activeRunId === runId &&
+                !signal.aborted &&
+                !controller.signal.aborted,
+              signal,
+            ),
+          {
+            timeoutMs,
+            signal: controller.signal,
+            createTimeoutError: (durationMs) =>
+              new AsyncPollingTimeoutError(durationMs),
+          },
         );
-        if (timeoutMs > 0 && typeof window !== 'undefined') {
-          await Promise.race([
-            runPromise,
-            new Promise<never>((_, reject) => {
-              timeout = window.setTimeout(() => {
-                controller.abort();
-                reject(new AsyncPollingTimeoutError(timeoutMs));
-              }, timeoutMs);
-            }),
-          ]);
-        } else {
-          await runPromise;
-        }
       } catch (error) {
         if (!stopped) handleError(error);
       } finally {
-        if (timeout != null && typeof window !== 'undefined') {
-          window.clearTimeout(timeout);
-        }
         if (!controller.signal.aborted) {
           controller.abort();
         }

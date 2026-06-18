@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/theme/openhand_status_colors.dart';
+import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
@@ -140,7 +141,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
       _dismissCurrent(reason: SnackBarClosedReason.timeout);
       return;
     }
-    _dismissTimer = Timer(
+    _dismissTimer = startSafeTimer(
       duration,
       () => _dismissCurrent(reason: SnackBarClosedReason.timeout),
     );

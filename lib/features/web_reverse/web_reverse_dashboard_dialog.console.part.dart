@@ -78,7 +78,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       if (_findInList(current, s.entry) == null) {
         s.isExiting = true;
         s.exitTimer?.cancel();
-        s.exitTimer = Timer(_kConsoleExitDuration, () {
+        s.exitTimer = startSafeTimer(_kConsoleExitDuration, () {
           if (!mounted) return;
           setState(() {
             _slots.remove(s);

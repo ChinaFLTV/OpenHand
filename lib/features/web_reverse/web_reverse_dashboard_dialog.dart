@@ -1586,7 +1586,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
     final msg = widget.controller.errorMessage ?? '';
     _lastSeenError = msg;
     if (msg.trim().isEmpty) return;
-    _autoDismissTimer = Timer(_kAutoDismissAfter, () {
+    _autoDismissTimer = startSafeTimer(_kAutoDismissAfter, () {
       if (!mounted) return;
       widget.controller.clearErrorMessage();
     });

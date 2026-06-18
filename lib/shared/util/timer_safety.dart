@@ -2,6 +2,7 @@ import 'dart:async';
 
 const Duration kOpenHandMinPeriodicTimerInterval = Duration(milliseconds: 250);
 const Duration kOpenHandMaxPeriodicTimerInterval = Duration(hours: 24);
+const Duration kOpenHandMaxTimerDelay = Duration(hours: 24);
 const Duration kOpenHandMinPeriodicCallbackTimeout = Duration(milliseconds: 1);
 const Duration kOpenHandMaxPeriodicCallbackTimeout = Duration(hours: 24);
 const Duration kOpenHandFramePeriodicTimerInterval = Duration(milliseconds: 16);
@@ -20,6 +21,35 @@ Duration safePeriodicTimerInterval(
   if (requested < lower) return lower;
   if (requested > upper) return upper;
   return requested;
+}
+
+Duration safeTimerDelay(
+  Duration requested, {
+  Duration min = Duration.zero,
+  Duration max = kOpenHandMaxTimerDelay,
+}) {
+  final lower = min > Duration.zero ? min : Duration.zero;
+  final upper = max < lower ? lower : max;
+  if (requested < lower) return lower;
+  if (requested > upper) return upper;
+  return requested;
+}
+
+Timer startSafeTimer(
+  Duration delay,
+  FutureOr<void> Function() callback, {
+  Duration min = Duration.zero,
+  Duration max = kOpenHandMaxTimerDelay,
+  OpenHandTimerErrorHandler? onError,
+}) {
+  final zone = Zone.current;
+  return Timer(safeTimerDelay(delay, min: min, max: max), () {
+    unawaited(
+      Future<void>.sync(callback).catchError((Object error, StackTrace stack) {
+        _reportTimerError(error, stack, zone, onError);
+      }),
+    );
+  });
 }
 
 Timer startSafePeriodicTimer(

@@ -309,7 +309,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _lastConfiguredSize = logical;
     _lastDpr = dpr;
     _resizeDebouncer?.cancel();
-    _resizeDebouncer = Timer(const Duration(milliseconds: 220), () {
+    _resizeDebouncer = startSafeTimer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
       // 三档优先级：① 设备模拟激活时强制按设备像素，避免画面被拉伸 / 模糊；
       // ② 用户在分辨率下拉手动指定时按它；③ 最后才是面板尺寸自适应。
@@ -859,13 +859,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _persistTabsAndUrls() {
     _metaPersistDebouncer?.cancel();
-    _metaPersistDebouncer = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted) return;
-      final state = context
-          .findAncestorStateOfType<_WebReverseDashboardDialogState>();
-      if (state == null) return;
-      state.persistBrowserPanelState();
-    });
+    _metaPersistDebouncer = startSafeTimer(
+      const Duration(milliseconds: 350),
+      () {
+        if (!mounted) return;
+        final state = context
+            .findAncestorStateOfType<_WebReverseDashboardDialogState>();
+        if (state == null) return;
+        state.persistBrowserPanelState();
+      },
+    );
   }
 
   // ── 页面查找 ──────────────────────────────────────────────────────────
@@ -883,11 +886,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _onFindChanged(String s) {
     _findDebouncer?.cancel();
-    _findDebouncer = Timer(const Duration(milliseconds: 200), () async {
-      final n = await widget.controller.findInPage(s);
-      if (!mounted) return;
-      setState(() => _findMatchCount = n);
-    });
+    _findDebouncer = startSafeTimer(
+      const Duration(milliseconds: 200),
+      () async {
+        final n = await widget.controller.findInPage(s);
+        if (!mounted) return;
+        setState(() => _findMatchCount = n);
+      },
+    );
   }
 
   Future<void> _findNext() async {
@@ -2149,7 +2155,7 @@ class _TabStripState extends State<_TabStrip> {
         // 维持当前快照里的最后一份元数据（含可能已变的 title）。
         closingKept.add(d);
         _closingTimers[d.id]?.cancel();
-        _closingTimers[d.id] = Timer(_closeAnim, () {
+        _closingTimers[d.id] = startSafeTimer(_closeAnim, () {
           if (!mounted) return;
           setState(() {
             _closingIds.remove(d.id);

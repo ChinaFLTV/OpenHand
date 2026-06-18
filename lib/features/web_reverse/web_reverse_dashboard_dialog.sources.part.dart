@@ -400,25 +400,28 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   void _scheduleAutoHover(int line, int column, String text) {
     if (!_lspEnabled || _lsp.status != WebReverseLspStatus.ready) return;
     _hoverDebounce?.cancel();
-    _hoverDebounce = Timer(const Duration(milliseconds: 300), () async {
-      if (!mounted || !_lspEnabled) return;
-      if (_lastSentUri == null) await _pushCurrentToLsp();
-      final uri = _lastSentUri;
-      if (uri == null || !mounted) return;
-      setState(() {
-        _hoverLine = line;
-        _hoverLoading = true;
-        _hoverMarkdown = null;
-      });
-      final md = await _lsp.hover(uri, line, column);
-      if (!mounted) return;
-      // 如果光标已经移开（_hoverLine 不是当前 line），丢弃过期结果。
-      if (_hoverLine != line) return;
-      setState(() {
-        _hoverMarkdown = md;
-        _hoverLoading = false;
-      });
-    });
+    _hoverDebounce = startSafeTimer(
+      const Duration(milliseconds: 300),
+      () async {
+        if (!mounted || !_lspEnabled) return;
+        if (_lastSentUri == null) await _pushCurrentToLsp();
+        final uri = _lastSentUri;
+        if (uri == null || !mounted) return;
+        setState(() {
+          _hoverLine = line;
+          _hoverLoading = true;
+          _hoverMarkdown = null;
+        });
+        final md = await _lsp.hover(uri, line, column);
+        if (!mounted) return;
+        // 如果光标已经移开（_hoverLine 不是当前 line），丢弃过期结果。
+        if (_hoverLine != line) return;
+        setState(() {
+          _hoverMarkdown = md;
+          _hoverLoading = false;
+        });
+      },
+    );
   }
 
   void _clearAutoHover() {
@@ -448,7 +451,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
     _highlightTimer?.cancel();
     setState(() => _highlightedLine = line);
-    _highlightTimer = Timer(const Duration(seconds: 2), () {
+    _highlightTimer = startSafeTimer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() => _highlightedLine = null);
     });

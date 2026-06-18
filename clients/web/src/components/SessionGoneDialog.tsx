@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { runWithTimeout } from '../utils/timed_abort';
 import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DIALOG_OVERLAY_INTENSE_BACKGROUND,
@@ -20,20 +21,9 @@ async function runBeforeNavigate(
   onBeforeNavigate?: () => Promise<void> | void,
 ): Promise<void> {
   if (!onBeforeNavigate || typeof window === 'undefined') return;
-  let timeoutId: number | undefined;
-  const task = Promise.resolve()
-    .then(onBeforeNavigate)
-    .catch(() => undefined);
-  const timeout = new Promise<void>((resolve) => {
-    timeoutId = window.setTimeout(resolve, BEFORE_NAVIGATE_TIMEOUT_MS);
-  });
-  try {
-    await Promise.race([task, timeout]);
-  } finally {
-    if (timeoutId != null) {
-      window.clearTimeout(timeoutId);
-    }
-  }
+  await runWithTimeout(() => Promise.resolve().then(onBeforeNavigate), {
+    timeoutMs: BEFORE_NAVIGATE_TIMEOUT_MS,
+  }).catch(() => undefined);
 }
 
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {

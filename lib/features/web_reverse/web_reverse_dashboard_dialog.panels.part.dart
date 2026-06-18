@@ -4619,7 +4619,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
   void _highlightFromTopList(int idx) {
     _hitTimer?.cancel();
     setState(() => _hitIndex = idx);
-    _hitTimer = Timer(const Duration(milliseconds: 1200), () {
+    _hitTimer = startSafeTimer(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       setState(() => _hitIndex = null);
     });

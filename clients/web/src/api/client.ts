@@ -43,22 +43,10 @@ function createApiAbortSignal(opts: ApiOptions): ApiAbortSignal {
   if (timeoutMs <= 0) {
     return { signal: opts.signal, cleanup: () => {} };
   }
-  const timed = createTimedAbortController(timeoutMs);
-  if (opts.signal == null) {
-    return { signal: timed.controller.signal, cleanup: timed.clear };
-  }
-  if (opts.signal.aborted) {
-    timed.abort();
-    return { signal: timed.controller.signal, cleanup: timed.clear };
-  }
-  const abortTimedRequest = () => timed.abort();
-  opts.signal.addEventListener('abort', abortTimedRequest, { once: true });
+  const timed = createTimedAbortController(timeoutMs, opts.signal);
   return {
     signal: timed.controller.signal,
-    cleanup: () => {
-      opts.signal?.removeEventListener('abort', abortTimedRequest);
-      timed.clear();
-    },
+    cleanup: timed.dispose,
   };
 }
 
