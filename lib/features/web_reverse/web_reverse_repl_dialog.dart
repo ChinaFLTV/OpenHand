@@ -102,8 +102,7 @@ class _ReplDialogState extends State<_ReplDialog> {
     setState(() {
       _historyCursor = next;
       _input.text = h[next];
-      _input.selection =
-          TextSelection.collapsed(offset: _input.text.length);
+      _input.selection = TextSelection.collapsed(offset: _input.text.length);
     });
   }
 
@@ -120,8 +119,7 @@ class _ReplDialogState extends State<_ReplDialog> {
       setState(() {
         _historyCursor = next;
         _input.text = h[next];
-        _input.selection =
-            TextSelection.collapsed(offset: _input.text.length);
+        _input.selection = TextSelection.collapsed(offset: _input.text.length);
       });
     }
   }
@@ -149,115 +147,86 @@ class _ReplDialogState extends State<_ReplDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.terminal_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseReplTitle ?? 'Console REPL',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          loc?.webReverseReplSubtitle ??
-                              'Runtime.evaluate · ↑/↓ history · Ctrl/⌘+Enter run',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _log.isEmpty
-                        ? null
-                        : () => setState(_log.clear),
-                    icon: const Icon(Icons.delete_sweep_rounded),
-                    tooltip: loc?.webReverseReplClear ?? 'Clear log',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.terminal_rounded,
+            title: loc?.webReverseReplTitle ?? 'Console REPL',
+            subtitle:
+                loc?.webReverseReplSubtitle ??
+                'Runtime.evaluate · ↑/↓ history · Ctrl/⌘+Enter run',
+            actions: [
+              IconButton(
+                onPressed: _log.isEmpty ? null : () => setState(_log.clear),
+                icon: const Icon(Icons.delete_sweep_rounded),
+                tooltip: loc?.webReverseReplClear ?? 'Clear log',
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: _log.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseReplEmpty ??
-                            'Type JS below → Ctrl/⌘+Enter to run',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: _log.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseReplEmpty ??
+                          'Type JS below → Ctrl/⌘+Enter to run',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    )
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      itemCount: _log.length,
-                      itemBuilder: (_, i) {
-                        final e = _log[i];
-                        return _LogTile(entry: e, onCopy: _copy, cs: cs);
-                      },
                     ),
+                  )
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    itemCount: _log.length,
+                    itemBuilder: (_, i) {
+                      final e = _log[i];
+                      return _LogTile(entry: e, onCopy: _copy, cs: cs);
+                    },
+                  ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: _ReplInput(
+              controller: _input,
+              busy: _busy,
+              onRun: _run,
+              onHistoryUp: _historyUp,
+              onHistoryDown: _historyDown,
+              hint:
+                  loc?.webReverseReplHint ??
+                  'eg: document.title or await fetch("/api").then(r=>r.json())',
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: _ReplInput(
-                controller: _input,
+          ),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            spacing: 10,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseReplRun ?? 'Run',
+                icon: Icons.play_arrow_rounded,
                 busy: _busy,
-                onRun: _run,
-                onHistoryUp: _historyUp,
-                onHistoryDown: _historyDown,
-                hint: loc?.webReverseReplHint ??
-                    'eg: document.title or await fetch("/api").then(r=>r.json())',
+                onPressed: _busy ? null : _run,
               ),
-            ),
-            buildOpenHandDialogActionsBar(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              spacing: 10,
-              actions: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseReplRun ?? 'Run',
-                  icon: Icons.play_arrow_rounded,
-                  busy: _busy,
-                  onPressed: _busy ? null : _run,
-                ),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.commonClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ],
-        ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.commonClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
 class _LogTile extends StatelessWidget {
-  const _LogTile({
-    required this.entry,
-    required this.onCopy,
-    required this.cs,
-  });
+  const _LogTile({required this.entry, required this.onCopy, required this.cs});
   final _ReplEntry entry;
   final ValueChanged<String> onCopy;
   final ColorScheme cs;
@@ -293,8 +262,11 @@ class _LogTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.copy_rounded,
-                      size: 14, color: cs.onSurfaceVariant),
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -326,8 +298,11 @@ class _LogTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.copy_rounded,
-                      size: 14, color: cs.onSurfaceVariant),
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -366,20 +341,24 @@ class _ReplInput extends StatelessWidget {
       },
       child: Actions(
         actions: {
-          _RunIntent: CallbackAction<_RunIntent>(onInvoke: (_) {
-            if (!busy) onRun();
-            return null;
-          }),
-          _HistUpIntent:
-              CallbackAction<_HistUpIntent>(onInvoke: (_) {
-            onHistoryUp();
-            return null;
-          }),
-          _HistDownIntent:
-              CallbackAction<_HistDownIntent>(onInvoke: (_) {
-            onHistoryDown();
-            return null;
-          }),
+          _RunIntent: CallbackAction<_RunIntent>(
+            onInvoke: (_) {
+              if (!busy) onRun();
+              return null;
+            },
+          ),
+          _HistUpIntent: CallbackAction<_HistUpIntent>(
+            onInvoke: (_) {
+              onHistoryUp();
+              return null;
+            },
+          ),
+          _HistDownIntent: CallbackAction<_HistDownIntent>(
+            onInvoke: (_) {
+              onHistoryDown();
+              return null;
+            },
+          ),
         },
         child: TextField(
           controller: controller,

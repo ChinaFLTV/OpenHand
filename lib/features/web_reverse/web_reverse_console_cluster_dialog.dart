@@ -22,8 +22,7 @@ Future<void> showWebReverseConsoleClusterDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) =>
-        _ConsoleClusterDialog(controller: controller),
+    builder: (_) => _ConsoleClusterDialog(controller: controller),
   );
 }
 
@@ -37,20 +36,15 @@ class _Cluster {
   final String level;
   final String firstLine;
   final List<CdpConsoleEntry> entries = [];
-  DateTime? get first =>
-      entries.isEmpty ? null : entries.first.timestamp;
-  DateTime? get last =>
-      entries.isEmpty ? null : entries.last.timestamp;
+  DateTime? get first => entries.isEmpty ? null : entries.first.timestamp;
+  DateTime? get last => entries.isEmpty ? null : entries.last.timestamp;
 }
 
 class _ConsoleClusterDialog extends StatefulWidget {
-  const _ConsoleClusterDialog({
-    required this.controller,
-  });
+  const _ConsoleClusterDialog({required this.controller});
   final WebReverseSessionController controller;
   @override
-  State<_ConsoleClusterDialog> createState() =>
-      _ConsoleClusterDialogState();
+  State<_ConsoleClusterDialog> createState() => _ConsoleClusterDialogState();
 }
 
 class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
@@ -106,15 +100,15 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
       'lastAt': c.last?.toIso8601String(),
       'samples': c.entries
           .take(20)
-          .map((e) => {
-                'ts': e.timestamp.toIso8601String(),
-                'text': e.text,
-              })
+          .map((e) => {'ts': e.timestamp.toIso8601String(), 'text': e.text})
           .toList(),
     };
     try {
-      await Clipboard.setData(ClipboardData(
-          text: const JsonEncoder.withIndent('  ').convert(payload)));
+      await Clipboard.setData(
+        ClipboardData(
+          text: const JsonEncoder.withIndent('  ').convert(payload),
+        ),
+      );
     } catch (err, st) {
       silentLog('web-reverse', 'console.cluster.copy', err, st);
       return;
@@ -137,77 +131,68 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final clusters = _build();
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 760),
-        child: Column(children: [
-          Padding(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 880,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.bug_report_rounded,
+            title: loc?.webReverseConsoleClusterTitle ?? 'Console Clusters',
+            subtitle:
+                loc?.webReverseConsoleClusterSubtitle(
+                  widget.controller.consoleMessages.length,
+                  clusters.length,
+                ) ??
+                'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
             padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
-            child: Row(children: [
-              Icon(Icons.bug_report_rounded, color: cs.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.webReverseConsoleClusterTitle ??
-                          'Console Clusters',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      loc?.webReverseConsoleClusterSubtitle(
-                            widget.controller.consoleMessages.length,
-                            clusters.length,
-                          ) ??
-                          'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
+            actions: [
               IconButton(
                 onPressed: () => setState(() {}),
                 icon: const Icon(Icons.refresh_rounded),
                 tooltip: loc?.webReverseConsoleClusterRefresh ?? 'Refresh',
               ),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ]),
+            ],
           ),
           Divider(height: 1, color: cs.outlineVariant),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Row(children: [
-              Wrap(spacing: 6, children: [
-                for (final lvl in const ['all', 'error', 'warning', 'info', 'log'])
-                  ChoiceChip(
-                    label: Text(lvl),
-                    selected: _levelFilter == lvl,
-                    onSelected: (_) => setState(() => _levelFilter = lvl),
-                  ),
-              ]),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    hintText:
-                        loc?.webReverseConsoleClusterFilterHint ?? 'filter',
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: (v) => setState(() => _query = v),
+            child: Row(
+              children: [
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final lvl in const [
+                      'all',
+                      'error',
+                      'warning',
+                      'info',
+                      'log',
+                    ])
+                      ChoiceChip(
+                        label: Text(lvl),
+                        selected: _levelFilter == lvl,
+                        onSelected: (_) => setState(() => _levelFilter = lvl),
+                      ),
+                  ],
                 ),
-              ),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText:
+                          loc?.webReverseConsoleClusterFilterHint ?? 'filter',
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: clusters.isEmpty
@@ -216,7 +201,9 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                       loc?.webReverseConsoleClusterNoMatch ??
                           'No matching entries',
                       style: TextStyle(
-                          color: cs.onSurfaceVariant, fontSize: 12),
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -246,75 +233,91 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                               }),
                               child: Padding(
                                 padding: const EdgeInsets.all(10),
-                                child: Row(children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _colorFor(c.level, cs)
-                                          .withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      c.level,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: _colorFor(c.level, cs),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _colorFor(
+                                          c.level,
+                                          cs,
+                                        ).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        c.level,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: _colorFor(c.level, cs),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: cs.primaryContainer
-                                          .withValues(alpha: 0.5),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '× ${c.entries.length}',
-                                      style: const TextStyle(
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cs.primaryContainer.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '× ${c.entries.length}',
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w800,
-                                          fontSize: 11),
+                                          fontSize: 11,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      c.firstLine,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        c.firstLine,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
                                           fontFamily: 'monospace',
-                                          fontSize: 12),
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.copy_rounded,
-                                        size: 16),
-                                    tooltip: loc
-                                            ?.webReverseConsoleClusterCopyJson ??
-                                        'Copy JSON',
-                                    onPressed: () => _copyCluster(c),
-                                  ),
-                                  Icon(
-                                    open
-                                        ? Icons.expand_less_rounded
-                                        : Icons.expand_more_rounded,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ]),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.copy_rounded,
+                                        size: 16,
+                                      ),
+                                      tooltip:
+                                          loc?.webReverseConsoleClusterCopyJson ??
+                                          'Copy JSON',
+                                      onPressed: () => _copyCluster(c),
+                                    ),
+                                    Icon(
+                                      open
+                                          ? Icons.expand_less_rounded
+                                          : Icons.expand_more_rounded,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             if (open)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
-                                    12, 0, 12, 10),
+                                  12,
+                                  0,
+                                  12,
+                                  10,
+                                ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       loc?.webReverseConsoleClusterTimes(
@@ -324,20 +327,24 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                           'first: ${c.first?.toIso8601String()}\nlast: ${c.last?.toIso8601String()}',
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                              color: cs.onSurfaceVariant),
+                                            color: cs.onSurfaceVariant,
+                                          ),
                                     ),
                                     const SizedBox(height: 6),
                                     for (final e in c.entries.take(30))
                                       Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 4),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 4,
+                                        ),
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: cs.surface,
-                                          borderRadius:
-                                              BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
-                                              color: cs.outlineVariant),
+                                            color: cs.outlineVariant,
+                                          ),
                                         ),
                                         child: Column(
                                           crossAxisAlignment:
@@ -357,16 +364,16 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                             SelectableText(
                                               e.text,
                                               style: const TextStyle(
-                                                  fontFamily: 'monospace',
-                                                  fontSize: 11),
+                                                fontFamily: 'monospace',
+                                                fontSize: 11,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                     if (c.entries.length > 30)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.only(top: 4),
                                         child: Text(
                                           loc?.webReverseConsoleClusterMore(
                                                 c.entries.length - 30,
@@ -374,8 +381,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                               '… and ${c.entries.length - 30} more',
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                                  color:
-                                                      cs.onSurfaceVariant),
+                                                color: cs.onSurfaceVariant,
+                                              ),
                                         ),
                                       ),
                                   ],
@@ -391,7 +398,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
             primaryLabel: loc?.commonClose ?? 'Close',
             onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
-        ]),
+        ],
       ),
     );
   }

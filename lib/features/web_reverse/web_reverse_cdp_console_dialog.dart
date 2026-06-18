@@ -142,7 +142,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       return KeyEventResult.ignored;
     }
     final keys = HardwareKeyboard.instance.logicalKeysPressed;
-    final ctrl = keys.contains(LogicalKeyboardKey.controlLeft) ||
+    final ctrl =
+        keys.contains(LogicalKeyboardKey.controlLeft) ||
         keys.contains(LogicalKeyboardKey.controlRight) ||
         keys.contains(LogicalKeyboardKey.metaLeft) ||
         keys.contains(LogicalKeyboardKey.metaRight);
@@ -152,7 +153,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     }
     if (ctrl && e.logicalKey == LogicalKeyboardKey.arrowUp) {
       _loadHistoryAt(
-          (_historyCursor + 1).clamp(0, _cdpConsoleHistory.length - 1));
+        (_historyCursor + 1).clamp(0, _cdpConsoleHistory.length - 1),
+      );
       return KeyEventResult.handled;
     }
     if (ctrl && e.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -193,45 +195,22 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-        child: Focus(
-          onKeyEvent: _onKey,
-          child: Column(children: [
-            Padding(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
+      child: Focus(
+        onKeyEvent: _onKey,
+        child: Column(
+          children: [
+            buildOpenHandToolDialogHeader(
+              context: context,
+              icon: Icons.terminal_rounded,
+              title: loc?.webReverseCdpTitle ?? 'CDP Raw Console',
+              subtitle:
+                  loc?.webReverseCdpSubtitle(_cdpConsoleHistory.length) ??
+                  '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · ${_cdpConsoleHistory.length} entries',
               padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
-              child: Row(children: [
-                Icon(Icons.terminal_rounded, color: cs.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        loc?.webReverseCdpTitle ?? 'CDP Raw Console',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      Text(
-                        loc?.webReverseCdpSubtitle(
-                              _cdpConsoleHistory.length,
-                            ) ??
-                            '⌘/Ctrl+Enter send · Ctrl+↑/↓ history · ${_cdpConsoleHistory.length} entries',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ]),
             ),
             Divider(height: 1, color: cs.outlineVariant),
             Expanded(
@@ -252,13 +231,15 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                 controller: _methodCtl,
                                 autofocus: true,
                                 decoration: InputDecoration(
-                                  labelText: loc?.webReverseCdpMethodLabel ??
-                                      'method',
+                                  labelText:
+                                      loc?.webReverseCdpMethodLabel ?? 'method',
                                   border: const OutlineInputBorder(),
                                   isDense: true,
                                 ),
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 12),
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               TextField(
@@ -266,33 +247,38 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                 focusNode: _paramsFocus,
                                 maxLines: 6,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 11),
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                ),
                                 decoration: const InputDecoration(
                                   labelText: 'params (JSON)',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Row(children: [
-                                Switch(
-                                  value: _useSession,
-                                  onChanged: (v) =>
-                                      setState(() => _useSession = v),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  loc?.webReverseCdpUseSession ??
-                                      'use page session',
-                                  style: theme.textTheme.labelMedium,
-                                ),
-                                const Spacer(),
-                                FilledButton.icon(
-                                  onPressed: _busy ? null : _send,
-                                  icon: const Icon(Icons.send_rounded),
-                                  label: Text(
-                                      loc?.webReverseCdpSend ?? 'Send'),
-                                ),
-                              ]),
+                              Row(
+                                children: [
+                                  Switch(
+                                    value: _useSession,
+                                    onChanged: (v) =>
+                                        setState(() => _useSession = v),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    loc?.webReverseCdpUseSession ??
+                                        'use page session',
+                                    style: theme.textTheme.labelMedium,
+                                  ),
+                                  const Spacer(),
+                                  FilledButton.icon(
+                                    onPressed: _busy ? null : _send,
+                                    icon: const Icon(Icons.send_rounded),
+                                    label: Text(
+                                      loc?.webReverseCdpSend ?? 'Send',
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -304,8 +290,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                   child: Text(
                                     loc?.webReverseCdpNoHistory ?? 'No history',
                                     style: TextStyle(
-                                        color: cs.onSurfaceVariant,
-                                        fontSize: 12),
+                                      color: cs.onSurfaceVariant,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 )
                               : ListView.builder(
@@ -317,50 +304,57 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                       onTap: () => _loadHistoryAt(i),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: picked
-                                              ? cs.primaryContainer
-                                                  .withValues(alpha: 0.3)
+                                              ? cs.primaryContainer.withValues(
+                                                  alpha: 0.3,
+                                                )
                                               : null,
                                           border: Border(
                                             bottom: BorderSide(
-                                                color: cs.outlineVariant),
-                                          ),
-                                        ),
-                                        child: Row(children: [
-                                          Icon(
-                                            h.error == null
-                                                ? Icons.check_circle_rounded
-                                                : Icons.cancel_rounded,
-                                            size: 12,
-                                            color: h.error == null
-                                                ? cs.primary
-                                                : cs.error,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              h.method,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                              color: cs.outlineVariant,
                                             ),
                                           ),
-                                          Text(
-                                            h.timestamp
-                                                .toIso8601String()
-                                                .substring(11, 19),
-                                            style: TextStyle(
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              h.error == null
+                                                  ? Icons.check_circle_rounded
+                                                  : Icons.cancel_rounded,
+                                              size: 12,
+                                              color: h.error == null
+                                                  ? cs.primary
+                                                  : cs.error,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                h.method,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              h.timestamp
+                                                  .toIso8601String()
+                                                  .substring(11, 19),
+                                              style: TextStyle(
                                                 fontSize: 10,
                                                 fontFamily: 'monospace',
-                                                color: cs.onSurfaceVariant),
-                                          ),
-                                        ]),
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     );
                                   },
@@ -377,7 +371,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                             child: Text(
                               loc?.webReverseCdpSendHint ?? 'Send a command',
                               style: TextStyle(
-                                  color: cs.onSurfaceVariant, fontSize: 12),
+                                color: cs.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
                             ),
                           )
                         : _detailFor(_cdpConsoleHistory[_historyCursor]),
@@ -395,7 +391,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                 ),
               ),
             ),
-          ]),
+          ],
         ),
       ),
     );
@@ -409,22 +405,24 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Text(
-              h.method,
-              style: const TextStyle(
+          Row(
+            children: [
+              Text(
+                h.method,
+                style: const TextStyle(
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.w700,
-                  fontSize: 13),
-            ),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              tooltip:
-                  loc?.webReverseCdpCopyResponse ?? 'Copy response',
-              onPressed: () => _copy(h.resultJson ?? h.error ?? ''),
-            ),
-          ]),
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                tooltip: loc?.webReverseCdpCopyResponse ?? 'Copy response',
+                onPressed: () => _copy(h.resultJson ?? h.error ?? ''),
+              ),
+            ],
+          ),
           if (h.paramsJson.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(

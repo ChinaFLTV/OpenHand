@@ -65,21 +65,25 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
       await widget.controller.sendRawCdp(method: 'DOM.enable');
       final r = await widget.controller.sendRawCdp(
         method: 'DOM.performSearch',
-        paramsJson: jsonEncode({'query': q, 'includeUserAgentShadowDOM': false}),
+        paramsJson: jsonEncode({
+          'query': q,
+          'includeUserAgentShadowDOM': false,
+        }),
       );
       if (r == null || r['error'] != null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = loc?.webReverseDomSearchFailed(
-                '${r?['error'] ?? 'unknown'}',
-              ) ??
+          _status =
+              loc?.webReverseDomSearchFailed('${r?['error'] ?? 'unknown'}') ??
               'Failed: ${r?['error'] ?? 'unknown'}';
         });
         return;
       }
       _searchId = '${r['searchId'] ?? ''}';
-      _resultCount = (r['resultCount'] is num) ? (r['resultCount'] as num).toInt() : 0;
+      _resultCount = (r['resultCount'] is num)
+          ? (r['resultCount'] as num).toInt()
+          : 0;
       if (_searchId == null || _searchId!.isEmpty || _resultCount == 0) {
         if (!mounted) return;
         setState(() {
@@ -102,9 +106,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = loc?.webReverseDomSearchGetFailed(
-                '${batch?['error']}',
-              ) ??
+          _status =
+              loc?.webReverseDomSearchGetFailed('${batch?['error']}') ??
               'getSearchResults failed';
         });
         return;
@@ -148,11 +151,12 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
               .where((e) => e.key != 'id' && e.key != 'class')
               .take(4)
               .map((e) {
-            final v = e.value.length > 40
-                ? '${e.value.substring(0, 40)}…'
-                : e.value;
-            return '${e.key}="$v"';
-          }).join(' ');
+                final v = e.value.length > 40
+                    ? '${e.value.substring(0, 40)}…'
+                    : e.value;
+                return '${e.key}="$v"';
+              })
+              .join(' ');
           hits.add(_Hit(nodeId: id, label: label.toString(), detail: detail));
         } catch (e, st) {
           silentLog('web-reverse', 'dom-search.describe', e, st);
@@ -162,10 +166,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
       setState(() {
         _busy = false;
         _hits = hits;
-        _status = loc?.webReverseDomSearchHitCount(
-              _resultCount,
-              hits.length,
-            ) ??
+        _status =
+            loc?.webReverseDomSearchHitCount(_resultCount, hits.length) ??
             'Matched $_resultCount, showing top ${hits.length}';
       });
     } catch (e, st) {
@@ -192,172 +194,148 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.travel_explore_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseDomSearchTitle ??
-                              'DOM Selector Search',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          'DOM.performSearch · CSS / text / XPath',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _queryCtrl,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: loc?.webReverseDomSearchHint ??
-                            'selector / text / XPath, Enter to run',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 820,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.travel_explore_rounded,
+            title: loc?.webReverseDomSearchTitle ?? 'DOM Selector Search',
+            subtitle: 'DOM.performSearch · CSS / text / XPath',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _queryCtrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText:
+                          loc?.webReverseDomSearchHint ??
+                          'selector / text / XPath, Enter to run',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onSubmitted: _busy ? null : (_) => _runSearch(),
                     ),
+                    onSubmitted: _busy ? null : (_) => _runSearch(),
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _runSearch,
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(loc?.webReverseDomSearchRun ?? 'Run'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _runSearch,
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(loc?.webReverseDomSearchRun ?? 'Run'),
+                ),
+              ],
             ),
-            if (_busy)
-              const LinearProgressIndicator(minHeight: 3),
-            Expanded(
-              child: _hits.isEmpty
-                  ? Center(
-                      child: Text(
-                        _status.isEmpty
-                            ? (loc?.webReverseDomSearchExample ??
+          ),
+          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          Expanded(
+            child: _hits.isEmpty
+                ? Center(
+                    child: Text(
+                      _status.isEmpty
+                          ? (loc?.webReverseDomSearchExample ??
                                 'e.g. button[data-action] · #login · //a[contains(@href,"docs")]')
-                            : _status,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                          : _status,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _hits.length,
-                      itemBuilder: (_, i) {
-                        final h = _hits[i];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: cs.outlineVariant),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    SelectableText(
-                                      h.label,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 12,
-                                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: _hits.length,
+                    itemBuilder: (_, i) {
+                      final h = _hits[i];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SelectableText(
+                                    h.label,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
                                     ),
-                                    if (h.detail.isNotEmpty)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 3),
-                                        child: Text(
-                                          h.detail,
-                                          style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 10,
-                                            color: cs.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ),
+                                  ),
+                                  if (h.detail.isNotEmpty)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 3),
                                       child: Text(
-                                        'nodeId=${h.nodeId}',
+                                        h.detail,
                                         style: TextStyle(
                                           fontFamily: 'monospace',
                                           fontSize: 10,
-                                          color: cs.onSurfaceVariant
-                                              .withValues(alpha: 0.7),
+                                          color: cs.onSurfaceVariant,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Text(
+                                      'nodeId=${h.nodeId}',
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 10,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              IconButton(
-                                onPressed: () => _highlight(h.nodeId),
-                                icon: const Icon(Icons.center_focus_strong_rounded),
-                                tooltip: loc?.webReverseDomSearchHighlight ??
-                                    'Highlight in page',
+                            ),
+                            IconButton(
+                              onPressed: () => _highlight(h.nodeId),
+                              icon: const Icon(
+                                Icons.center_focus_strong_rounded,
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            if (_status.isNotEmpty && _hits.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                              tooltip:
+                                  loc?.webReverseDomSearchHighlight ??
+                                  'Highlight in page',
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_status.isNotEmpty && _hits.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
-            buildOpenHandDialogFooter(
-              primaryLabel: loc?.commonClose ?? 'Close',
-              onPrimaryPressed: () => Navigator.of(context).pop(),
             ),
-          ],
-        ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.commonClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
     );
   }
