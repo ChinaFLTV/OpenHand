@@ -6,8 +6,6 @@ void _showDataCleanupSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.show(context, messenger, snackBar);
 }
 
-/// 2026-04-26 — 全局设置 → 应用数据 → 数据清理 UI section。
-///
 /// 这是一个独立的 [StatefulWidget]，自己持有 [DataCleanupService] 实例，
 /// 在 [State.initState] 中触发首次异步测算，避免阻塞 settings 页面构建。
 ///
@@ -845,12 +843,13 @@ class _LedgerAdvancedControls extends StatefulWidget {
 
 class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   final AiFileMutationLedger _ledger = AiFileMutationLedger();
+  final OpenHandDebouncer _saveDebounce = OpenHandDebouncer(
+    delay: const Duration(milliseconds: 350),
+  );
   LedgerConfig? _config;
   LedgerStatsSnapshot? _stats;
-  Timer? _saveDebounce;
   bool _pruneNowBusy = false;
   ({int removed, int bytesFreed})? _lastGcStats;
-  // 阶段 ⑮a：pulse 信号——成功完成 prune 时 +1 触发 HighlightPulse。
   final ValueNotifier<int> _cleanupPulse = ValueNotifier<int>(0);
 
   @override
@@ -869,9 +868,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     setState(() => _stats = stats);
   }
 
-  /// 阶段 ⑦d：手动触发一次 ledger 维护——按当前 days/maxVersions 立刻
-  /// 跑一遍 prune，刷新统计。期间禁用按钮 + 显示进度。
-  /// 阶段 ⑫c：追加一次 GC 并展示 freed blobs 数量与字节数。
+  /// 按当前 days/maxVersions 手动执行一次 ledger 维护并刷新统计。
   Future<void> _pruneNow() async {
     final cfg = _config;
     if (cfg == null) return;
@@ -912,12 +909,12 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
+    _saveDebounce.dispose();
     _cleanupPulse.dispose();
     super.dispose();
   }
 
-  // ─────────────────────── 阶段⑱：跨会话搜索 / 导出 / 导入 ───────────────────
+  // ───────────────────────── 跨会话搜索 / 导出 / 导入 ─────────────────────────
   Future<void> _exportLedgerToClipboard() async {
     final pendingText = _localizedText(
       context,
@@ -1049,11 +1046,9 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   void _scheduleSave(LedgerConfig next) {
     setState(() => _config = next);
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 350), () async {
+    _saveDebounce.schedule(() async {
       await _ledger.saveConfig(next);
       if (!mounted) return;
-      // 配置变更可能触发后续清理；顺手刷新一次统计。
       await _refreshStats();
     });
   }
@@ -1159,8 +1154,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 onChanged: (v) =>
                     _scheduleSave(config.copyWith(autoCleanupDays: v.round())),
               ),
-              // 阶段 ⑬c：mini-diff 阈值（KiB）。在 (阈值, 256 KiB] 区间，
-              // unifiedDiffLineSummary 仅保留 +/- 行。
+              // mini-diff 阈值（KiB）：在 (阈值, 256 KiB] 区间仅保留 +/- 行。
               _SliderRow(
                 label: _localizedText(
                   context,
@@ -1272,7 +1266,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             ],
           ),
         ),
-        // 阶段 ⑮a：成功 prune 后顶部发一次 highlight pulse。
+        // 成功 prune 后顶部发一次 highlight pulse。
         Positioned(
           top: 0,
           left: 0,
@@ -1342,7 +1336,7 @@ class _SliderRow extends StatelessWidget {
   }
 }
 
-/// 阶段⑱：跨会话 ledger 搜索弹窗。
+/// 跨会话 ledger 搜索弹窗。
 class _LedgerSearchDialog extends StatefulWidget {
   const _LedgerSearchDialog({required this.ledger});
   final AiFileMutationLedger ledger;
@@ -1354,12 +1348,13 @@ class _LedgerSearchDialog extends StatefulWidget {
 class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   final TextEditingController _pathCtrl = TextEditingController();
   final TextEditingController _toolCtrl = TextEditingController();
+  final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
+    delay: const Duration(milliseconds: 220),
+  );
   final Set<FileMutationKind> _selectedKinds = <FileMutationKind>{};
-  // 阶段⑱b：时间范围预设。null = 全量；其余按 since 计算。
   _LedgerTimeRange _timeRange = _LedgerTimeRange.all;
   bool _busy = false;
   List<FileMutationView> _results = const <FileMutationView>[];
-  Timer? _searchDebounce;
   int _runToken = 0;
 
   @override
@@ -1373,13 +1368,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   void dispose() {
     _pathCtrl.dispose();
     _toolCtrl.dispose();
-    _searchDebounce?.cancel();
+    _searchDebounce.dispose();
     super.dispose();
   }
 
   void _scheduleSearch() {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 220), _runSearch);
+    _searchDebounce.schedule(_runSearch);
   }
 
   Future<void> _runSearch() async {
@@ -1426,7 +1420,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     );
   }
 
-  /// 阶段⑱b：把当前过滤结果（含 blob）打成 bundle JSON 复制到剪贴板。
+  /// 把当前过滤结果（含 blob）打成 bundle JSON 复制到剪贴板。
   Future<void> _exportFilteredAsBundle() async {
     if (_results.isEmpty) return;
     setState(() => _busy = true);
@@ -1471,272 +1465,263 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final media = MediaQuery.of(context);
-    final maxWidth = media.size.width * 0.72;
-    final maxHeight = media.size.height * 0.72;
-    return Dialog(
+    final maxWidth = (media.size.width * 0.72).clamp(420, 920).toDouble();
+    final maxHeight = (media.size.height * 0.72).clamp(420, 720).toDouble();
+    return buildOpenHandDialog(
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-          // 阶段⑲c：Esc 关闭搜索弹窗。
           const SingleActivator(LogicalKeyboardKey.escape): () =>
               Navigator.of(context).maybePop(),
         },
         child: Focus(
           autofocus: true,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxWidth.clamp(420, 920),
-              maxHeight: maxHeight.clamp(420, 720),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.search_rounded, color: cs.primary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '搜索文件变动 ledger',
-                          en: 'Search file mutation ledger',
-                        ),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _pathCtrl,
-                    onChanged: (_) => _scheduleSearch(),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.folder_outlined, size: 16),
-                      hintText: _localizedText(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.search_rounded, color: cs.primary, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      _localizedText(
                         context,
-                        zh: '路径包含（如 lib/features/...）',
-                        en: 'Path contains (e.g. lib/features/...)',
+                        zh: '搜索文件变动 ledger',
+                        en: 'Search file mutation ledger',
+                      ),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _toolCtrl,
-                    onChanged: (_) => _scheduleSearch(),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.build_rounded, size: 16),
-                      hintText: _localizedText(
-                        context,
-                        zh: '工具名（逗号或空格分隔，如 Edit, Write）',
-                        en: 'Tool names (comma/space separated, e.g. Edit, Write)',
-                      ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _pathCtrl,
+                  onChanged: (_) => _scheduleSearch(),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.folder_outlined, size: 16),
+                    hintText: _localizedText(
+                      context,
+                      zh: '路径包含（如 lib/features/...）',
+                      en: 'Path contains (e.g. lib/features/...)',
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      for (final k in FileMutationKind.values)
-                        FilterChip(
-                          label: Text(k.name),
-                          selected: _selectedKinds.contains(k),
-                          onSelected: (sel) {
-                            setState(() {
-                              if (sel) {
-                                _selectedKinds.add(k);
-                              } else {
-                                _selectedKinds.remove(k);
-                              }
-                            });
-                            _scheduleSearch();
-                          },
-                        ),
-                    ],
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _toolCtrl,
+                  onChanged: (_) => _scheduleSearch(),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.build_rounded, size: 16),
+                    hintText: _localizedText(
+                      context,
+                      zh: '工具名（逗号或空格分隔，如 Edit, Write）',
+                      en: 'Tool names (comma/space separated, e.g. Edit, Write)',
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  // 阶段⑱b：时间范围预设。
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      for (final r in _LedgerTimeRange.values)
-                        ChoiceChip(
-                          label: Text(r.label(context)),
-                          selected: _timeRange == r,
-                          onSelected: (sel) {
-                            if (!sel) return;
-                            setState(() => _timeRange = r);
-                            _scheduleSearch();
-                          },
-                        ),
-                    ],
-                  ),
-                  const Divider(height: 18),
-                  Expanded(
-                    child: _busy
-                        ? Center(
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.8,
-                                color: cs.primary,
-                              ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final k in FileMutationKind.values)
+                      FilterChip(
+                        label: Text(k.name),
+                        selected: _selectedKinds.contains(k),
+                        onSelected: (sel) {
+                          setState(() {
+                            if (sel) {
+                              _selectedKinds.add(k);
+                            } else {
+                              _selectedKinds.remove(k);
+                            }
+                          });
+                          _scheduleSearch();
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // 时间范围预设。
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final r in _LedgerTimeRange.values)
+                      ChoiceChip(
+                        label: Text(r.label(context)),
+                        selected: _timeRange == r,
+                        onSelected: (sel) {
+                          if (!sel) return;
+                          setState(() => _timeRange = r);
+                          _scheduleSearch();
+                        },
+                      ),
+                  ],
+                ),
+                const Divider(height: 18),
+                Expanded(
+                  child: _busy
+                      ? Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.8,
+                              color: cs.primary,
                             ),
-                          )
-                        : _results.isEmpty
-                        ? Center(
-                            child: Text(
-                              _localizedText(
-                                context,
-                                zh: '没有匹配的记录。',
-                                en: 'No matching records.',
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: _results.length,
-                            separatorBuilder: (_, _) =>
-                                Divider(height: 1, color: cs.outlineVariant),
-                            itemBuilder: (ctx, i) {
-                              final v = _results[i];
-                              final r = v.record;
-                              final greyed = v.isEffectivelyUndone;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 5,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: cs.primary.withValues(
-                                          alpha: 0.10,
-                                        ),
-                                        borderRadius: const BorderRadius.all(
-                                          Radius.circular(4),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        r.kind.name,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: cs.primary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      r.toolName,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: cs.onSurfaceVariant,
-                                          ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _PathHighlightText(
-                                        path: r.filePath,
-                                        query: _pathCtrl.text.trim(),
-                                        baseColor: greyed
-                                            ? cs.onSurfaceVariant.withValues(
-                                                alpha: 0.6,
-                                              )
-                                            : cs.onSurface,
-                                        decoration: greyed
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        highlightBg: cs.primary.withValues(
-                                          alpha: 0.18,
-                                        ),
-                                        highlightFg: cs.primary,
-                                        textStyle: theme.textTheme.bodySmall,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      r.createdAt
-                                          .toLocal()
-                                          .toIso8601String()
-                                          .substring(0, 19),
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: cs.onSurfaceVariant,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
-                                            ],
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
                           ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
+                        )
+                      : _results.isEmpty
+                      ? Center(
+                          child: Text(
+                            _localizedText(
+                              context,
+                              zh: '没有匹配的记录。',
+                              en: 'No matching records.',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: _results.length,
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 1, color: cs.outlineVariant),
+                          itemBuilder: (ctx, i) {
+                            final v = _results[i];
+                            final r = v.record;
+                            final greyed = v.isEffectivelyUndone;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 6,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.10),
+                                      borderRadius: const BorderRadius.all(
+                                        Radius.circular(4),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      r.kind.name,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.primary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    r.toolName,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _PathHighlightText(
+                                      path: r.filePath,
+                                      query: _pathCtrl.text.trim(),
+                                      baseColor: greyed
+                                          ? cs.onSurfaceVariant.withValues(
+                                              alpha: 0.6,
+                                            )
+                                          : cs.onSurface,
+                                      decoration: greyed
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      highlightBg: cs.primary.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      highlightFg: cs.primary,
+                                      textStyle: theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    r.createdAt
+                                        .toLocal()
+                                        .toIso8601String()
+                                        .substring(0, 19),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '${_results.length} 条结果',
+                        en: '${_results.length} result(s)',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _results.isEmpty || _busy
+                          ? null
+                          : _exportFilteredAsBundle,
+                      icon: const Icon(Icons.archive_outlined, size: 16),
+                      label: Text(
                         _localizedText(
                           context,
-                          zh: '${_results.length} 条结果',
-                          en: '${_results.length} result(s)',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                          zh: '导出筛选结果（含 blob）',
+                          en: 'Export filtered (with blobs)',
                         ),
                       ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _results.isEmpty || _busy
-                            ? null
-                            : _exportFilteredAsBundle,
-                        icon: const Icon(Icons.archive_outlined, size: 16),
-                        label: Text(
-                          _localizedText(
-                            context,
-                            zh: '导出筛选结果（含 blob）',
-                            en: 'Export filtered (with blobs)',
-                          ),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: _results.isEmpty ? null : _copyResults,
+                      icon: const Icon(Icons.copy_all_rounded, size: 16),
+                      label: Text(
+                        _localizedText(
+                          context,
+                          zh: '复制结果 JSON',
+                          en: 'Copy results JSON',
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      TextButton.icon(
-                        onPressed: _results.isEmpty ? null : _copyResults,
-                        icon: const Icon(Icons.copy_all_rounded, size: 16),
-                        label: Text(
-                          _localizedText(
-                            context,
-                            zh: '复制结果 JSON',
-                            en: 'Copy results JSON',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -1745,7 +1730,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   }
 }
 
-/// 阶段⑱b：路径高亮文字 — 当 `query` 非空时把命中片段着色 + 微底高亮。
+/// 路径高亮文字：当 `query` 非空时把命中片段着色并加微底高亮。
 class _PathHighlightText extends StatelessWidget {
   const _PathHighlightText({
     required this.path,
@@ -1813,7 +1798,7 @@ class _PathHighlightText extends StatelessWidget {
   }
 }
 
-/// 阶段⑱b：搜索时间范围预设。
+/// 搜索时间范围预设。
 enum _LedgerTimeRange {
   all,
   today,

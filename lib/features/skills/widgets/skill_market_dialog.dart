@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
@@ -40,9 +41,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   static const Duration _searchDebounceDuration = Duration(milliseconds: 320);
 
   final TextEditingController _searchController = TextEditingController();
+  final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
+    delay: _searchDebounceDuration,
+  );
   late final SkillMarketClient _marketClient;
 
-  Timer? _searchDebounce;
   int _page = 1;
   int _searchToken = 0;
   String _keyword = '';
@@ -67,7 +70,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
+    _searchDebounce.dispose();
     _marketClient.close();
     _searchController.dispose();
     _installSuccessSignal.dispose();
@@ -78,101 +81,103 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final dialogWidth = size.width < 668
-        ? math.max(320.0, size.width - 24)
-        : math.min(size.width - 48, 1220.0);
-    final dialogHeight = size.height < 608
-        ? math.max(420.0, size.height - 24)
-        : math.min(size.height - 48, 840.0);
+    final compactViewport = size.width < 668 || size.height < 608;
+    final viewportMargin = compactViewport ? 24.0 : 48.0;
+    final safeAreaPadding = compactViewport ? 12.0 : 24.0;
 
     return PopScope(
       canPop: !_isInstalling,
-      child: Dialog(
-        child: SizedBox(
-          width: dialogWidth,
-          height: dialogHeight,
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final compact = constraints.maxWidth < 760;
-                          if (compact) {
-                            return Column(
-                              children: [
-                                SizedBox(
-                                  height: math.min(
-                                    300,
-                                    constraints.maxHeight * 0.44,
-                                  ),
-                                  child: _buildSearchPane(context),
-                                ),
-                                const SizedBox(height: 16),
-                                Expanded(child: _buildDetailPane(context)),
-                              ],
-                            );
-                          }
-
-                          final leftWidth = constraints.maxWidth < 980
-                              ? 340.0
-                              : 392.0;
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 1220,
+        maxHeight: 840,
+        minAvailableWidth: 320,
+        minAvailableHeight: 420,
+        horizontalMargin: viewportMargin,
+        verticalMargin: viewportMargin,
+        safeAreaMinimum: EdgeInsets.all(safeAreaPadding),
+        expandToMax: true,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 18),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 760;
+                        if (compact) {
+                          return Column(
                             children: [
                               SizedBox(
-                                width: leftWidth,
+                                height: math.min(
+                                  300,
+                                  constraints.maxHeight * 0.44,
+                                ),
                                 child: _buildSearchPane(context),
                               ),
-                              const SizedBox(width: 18),
-                              VerticalDivider(
-                                width: 1,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
-                              ),
-                              const SizedBox(width: 18),
+                              const SizedBox(height: 16),
                               Expanded(child: _buildDetailPane(context)),
                             ],
                           );
-                        },
-                      ),
+                        }
+
+                        final leftWidth = constraints.maxWidth < 980
+                            ? 340.0
+                            : 392.0;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: leftWidth,
+                              child: _buildSearchPane(context),
+                            ),
+                            const SizedBox(width: 18),
+                            VerticalDivider(
+                              width: 1,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                            const SizedBox(width: 18),
+                            Expanded(child: _buildDetailPane(context)),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 18),
-                    _buildActions(context),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: IgnorePointer(
-                  child: HighlightPulse(
-                    signal: _installSuccessSignal,
-                    color: OpenHandStatusColors.success,
                   ),
+                  const SizedBox(height: 18),
+                  _buildActions(context),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _installSuccessSignal,
+                  color: OpenHandStatusColors.success,
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: IgnorePointer(
-                  child: HighlightPulse(
-                    signal: _installErrorSignal,
-                    color: OpenHandStatusColors.error,
-                  ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _installErrorSignal,
+                  color: OpenHandStatusColors.error,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -503,8 +508,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     setState(() {
       _searchInput = value;
     });
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(_searchDebounceDuration, () {
+    _searchDebounce.schedule(() {
       if (!mounted) {
         return;
       }
@@ -515,7 +519,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   }
 
   void _handleSearchSubmitted(String value) {
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     setState(() {
       _searchInput = value;
       _keyword = value.trim();
@@ -525,7 +529,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   }
 
   void _clearSearch() {
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     _searchController.clear();
     setState(() {
       _searchInput = '';
@@ -536,7 +540,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   }
 
   void _refreshCurrentSearch() {
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     _marketClient.clearSearchCache();
     unawaited(_runSearch(keepSelection: true));
   }
@@ -769,104 +773,102 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final normalizedPreviewVersion = previewVersion?.trim() ?? '';
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SkillMarketAvatar(
-                    name: skill.displayName,
-                    imageUrl: skill.iconUrl,
-                    size: 52,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _t(context, zh: '确认安装技能', en: 'Confirm Install'),
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          skill.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _InfoChip(
-                    icon: Icons.person_outline_rounded,
-                    label: _t(context, zh: '作者', en: 'Owner'),
-                    value: skill.ownerName.isEmpty ? '-' : skill.ownerName,
-                  ),
-                  if (skill.source.isNotEmpty)
-                    _InfoChip(
-                      icon: Icons.hub_outlined,
-                      label: _t(context, zh: '来源', en: 'Source'),
-                      value: skill.source,
-                    ),
-                  _InfoChip(
-                    icon: Icons.folder_open_rounded,
-                    label: _t(context, zh: '目录', en: 'Directory'),
-                    value: OpenHandPaths.shortenHomePath(storagePath),
-                  ),
-                  if (normalizedPreviewVersion.isNotEmpty)
-                    _InfoChip(
-                      icon: Icons.sell_outlined,
-                      label: _t(context, zh: '预览版本', en: 'Preview'),
-                      value: normalizedPreviewVersion,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                _t(
-                  context,
-                  zh: '将从 SkillHub 下载技能压缩包，并解压到当前全局技能目录。',
-                  en: 'OpenHand will download the skill archive from SkillHub and extract it into the current global skills directory.',
+    return buildOpenHandDialog(
+      maxWidth: 620,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkillMarketAvatar(
+                  name: skill.displayName,
+                  imageUrl: skill.iconUrl,
+                  size: 52,
                 ),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _t(context, zh: '确认安装技能', en: 'Confirm Install'),
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        skill.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    label: l10n.commonCancel,
+              ],
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _InfoChip(
+                  icon: Icons.person_outline_rounded,
+                  label: _t(context, zh: '作者', en: 'Owner'),
+                  value: skill.ownerName.isEmpty ? '-' : skill.ownerName,
+                ),
+                if (skill.source.isNotEmpty)
+                  _InfoChip(
+                    icon: Icons.hub_outlined,
+                    label: _t(context, zh: '来源', en: 'Source'),
+                    value: skill.source,
                   ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    icon: Icons.download_rounded,
-                    label: _t(context, zh: '确认安装', en: 'Install'),
+                _InfoChip(
+                  icon: Icons.folder_open_rounded,
+                  label: _t(context, zh: '目录', en: 'Directory'),
+                  value: OpenHandPaths.shortenHomePath(storagePath),
+                ),
+                if (normalizedPreviewVersion.isNotEmpty)
+                  _InfoChip(
+                    icon: Icons.sell_outlined,
+                    label: _t(context, zh: '预览版本', en: 'Preview'),
+                    value: normalizedPreviewVersion,
                   ),
-                ],
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              _t(
+                context,
+                zh: '将从 SkillHub 下载技能压缩包，并解压到当前全局技能目录。',
+                en: 'OpenHand will download the skill archive from SkillHub and extract it into the current global skills directory.',
               ),
-            ],
-          ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  label: l10n.commonCancel,
+                ),
+                const SizedBox(width: 12),
+                OpenHandDialogActionButton.primary(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: Icons.download_rounded,
+                  label: _t(context, zh: '确认安装', en: 'Install'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

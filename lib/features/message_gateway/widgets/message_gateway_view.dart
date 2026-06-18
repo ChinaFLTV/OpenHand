@@ -592,494 +592,473 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final mediaSize = MediaQuery.sizeOf(context);
-    final dialogMaxHeight = math.min(
-      720.0,
-      math.max(420.0, mediaSize.height - 120),
-    );
-    return SafeArea(
-      minimum: const EdgeInsets.all(18),
-      child: Dialog(
-        insetPadding: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        surfaceTintColor: colorScheme.surfaceTint,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(mediaSize.width - 36, 920),
-            maxHeight: dialogMaxHeight,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  border: Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 920,
+      minAvailableHeight: 420,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      surfaceTintColor: colorScheme.surfaceTint,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(19),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: .14),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.language_rounded,
+                    color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(19),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: .14),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        webMessagePlatformBuiltinName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.language_rounded,
-                        color: colorScheme.onPrimaryContainer,
+                      const SizedBox(height: 4),
+                      Text(
+                        '配置 Web 端可见能力、访问边界与运行保护策略',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            webMessagePlatformBuiltinName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '配置 Web 端可见能力、访问边界与运行保护策略',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton.filledTonal(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  primary: false,
-                  physics: kOpenHandClampingPhysics,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final twoColumns = constraints.maxWidth >= 760;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 10),
+                IconButton.filledTonal(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              primary: false,
+              physics: kOpenHandClampingPhysics,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumns = constraints.maxWidth >= 760;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SwitchGrid(
+                        twoColumns: twoColumns,
                         children: [
-                          _SwitchGrid(
-                            twoColumns: twoColumns,
-                            children: [
-                              _SwitchTile(
-                                label: '是否启用',
-                                value: _enabled,
-                                onChanged: (v) => setState(() => _enabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '冷启动自动启动',
-                                value: _autoStartOnLaunch,
-                                onChanged: (value) =>
-                                    setState(() => _autoStartOnLaunch = value),
-                              ),
-                              _SwitchTile(
-                                label: '配置变更自动重载',
-                                value: _autoReloadOnChange,
-                                onChanged: (value) =>
-                                    setState(() => _autoReloadOnChange = value),
-                              ),
-                              _SwitchTile(
-                                label: '是否开启鉴权',
-                                value: _authEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _authEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否启用遥测',
-                                value: _telemetryEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _telemetryEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否记录日志',
-                                value: _loggingEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _loggingEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否支持运维',
-                                value: _opsEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _opsEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否开启健康检查',
-                                value: _healthEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _healthEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否支持计划模式',
-                                value: _planModeEnabled,
-                                onChanged: (v) =>
-                                    setState(() => _planModeEnabled = v),
-                              ),
-                              _SwitchTile(
-                                label: '是否允许 Web 会话管理',
-                                value: _sessionManagementEnabled,
-                                onChanged: (v) => setState(
-                                  () => _sessionManagementEnabled = v,
+                          _SwitchTile(
+                            label: '是否启用',
+                            value: _enabled,
+                            onChanged: (v) => setState(() => _enabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '冷启动自动启动',
+                            value: _autoStartOnLaunch,
+                            onChanged: (value) =>
+                                setState(() => _autoStartOnLaunch = value),
+                          ),
+                          _SwitchTile(
+                            label: '配置变更自动重载',
+                            value: _autoReloadOnChange,
+                            onChanged: (value) =>
+                                setState(() => _autoReloadOnChange = value),
+                          ),
+                          _SwitchTile(
+                            label: '是否开启鉴权',
+                            value: _authEnabled,
+                            onChanged: (v) => setState(() => _authEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否启用遥测',
+                            value: _telemetryEnabled,
+                            onChanged: (v) =>
+                                setState(() => _telemetryEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否记录日志',
+                            value: _loggingEnabled,
+                            onChanged: (v) =>
+                                setState(() => _loggingEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否支持运维',
+                            value: _opsEnabled,
+                            onChanged: (v) => setState(() => _opsEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否开启健康检查',
+                            value: _healthEnabled,
+                            onChanged: (v) =>
+                                setState(() => _healthEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否支持计划模式',
+                            value: _planModeEnabled,
+                            onChanged: (v) =>
+                                setState(() => _planModeEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否允许 Web 会话管理',
+                            value: _sessionManagementEnabled,
+                            onChanged: (v) =>
+                                setState(() => _sessionManagementEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否支持操作文件',
+                            value: _workspaceFileWriteEnabled,
+                            onChanged: (v) =>
+                                setState(() => _workspaceFileWriteEnabled = v),
+                          ),
+                        ],
+                      ),
+                      AnimatedSwitcher(
+                        duration: openHandMotionDurationMs(context, 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: _autoReloadOnChange
+                            ? const SizedBox.shrink(
+                                key: ValueKey('auto-reload-on'),
+                              )
+                            : const Padding(
+                                key: ValueKey('auto-reload-off'),
+                                padding: EdgeInsets.only(top: 10),
+                                child: _EditorNotice(
+                                  icon: Icons.restart_alt_rounded,
+                                  title: '配置将等待重启生效',
+                                  body:
+                                      '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
                                 ),
                               ),
-                              _SwitchTile(
-                                label: '是否支持操作文件',
-                                value: _workspaceFileWriteEnabled,
-                                onChanged: (v) => setState(
-                                  () => _workspaceFileWriteEnabled = v,
-                                ),
-                              ),
-                            ],
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('基础信息'),
+                      _TextArea(
+                        label: '介绍',
+                        controller: _descriptionController,
+                      ),
+                      _ResponsiveFields(
+                        twoColumns: twoColumns,
+                        children: [
+                          _TextFieldSpec(
+                            label: '监听 IP 地址',
+                            controller: _hostController,
                           ),
-                          AnimatedSwitcher(
-                            duration: openHandMotionDurationMs(context, 220),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            child: _autoReloadOnChange
-                                ? const SizedBox.shrink(
-                                    key: ValueKey('auto-reload-on'),
-                                  )
-                                : const Padding(
-                                    key: ValueKey('auto-reload-off'),
-                                    padding: EdgeInsets.only(top: 10),
-                                    child: _EditorNotice(
-                                      icon: Icons.restart_alt_rounded,
-                                      title: '配置将等待重启生效',
-                                      body:
-                                          '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
-                                    ),
-                                  ),
+                          _TextFieldSpec(
+                            label: '监听端口',
+                            controller: _portController,
+                            keyboardType: TextInputType.number,
                           ),
-                          const SizedBox(height: 18),
-                          const _SectionTitle('基础信息'),
-                          _TextArea(
-                            label: '介绍',
-                            controller: _descriptionController,
+                          _TextFieldSpec(
+                            label: '可接受并发数',
+                            controller: _maxConcurrentController,
+                            keyboardType: TextInputType.number,
                           ),
-                          _ResponsiveFields(
-                            twoColumns: twoColumns,
-                            children: [
-                              _TextFieldSpec(
-                                label: '监听 IP 地址',
-                                controller: _hostController,
-                              ),
-                              _TextFieldSpec(
-                                label: '监听端口',
-                                controller: _portController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '可接受并发数',
-                                controller: _maxConcurrentController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '单消息大小(tokens)',
-                                controller: _singleMessageController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '单会话最大消息数',
-                                controller: _maxMessagesController,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ],
+                          _TextFieldSpec(
+                            label: '单消息大小(tokens)',
+                            controller: _singleMessageController,
+                            keyboardType: TextInputType.number,
                           ),
-                          if (_authEnabled) ...[
-                            const SizedBox(height: 18),
-                            const _SectionTitle('鉴权'),
-                            _ResponsiveFields(
-                              twoColumns: twoColumns,
-                              children: [
-                                _TextFieldSpec(
-                                  label: '用户名',
-                                  controller: _usernameController,
-                                ),
-                                _TextFieldSpec(
-                                  label: '密码',
-                                  controller: _passwordController,
-                                  obscureText: true,
-                                ),
-                              ],
+                          _TextFieldSpec(
+                            label: '单会话最大消息数',
+                            controller: _maxMessagesController,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ],
+                      ),
+                      if (_authEnabled) ...[
+                        const SizedBox(height: 18),
+                        const _SectionTitle('鉴权'),
+                        _ResponsiveFields(
+                          twoColumns: twoColumns,
+                          children: [
+                            _TextFieldSpec(
+                              label: '用户名',
+                              controller: _usernameController,
+                            ),
+                            _TextFieldSpec(
+                              label: '密码',
+                              controller: _passwordController,
+                              obscureText: true,
                             ),
                           ],
-                          const SizedBox(height: 18),
-                          const _SectionTitle('安全控制'),
-                          _MultiSelectDropdown<String>(
-                            label: '可新建的线程模板类型',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final t in widget.controller.templates)
-                                _SelectOption(value: t.id, label: t.name),
-                            ],
-                            selected: _templates,
-                            onChanged: (next) =>
-                                setState(() => _templates = next),
-                          ),
-                          _MultiSelectDropdown<String>(
-                            label: '可用的技能',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final name in widget.controller.skillNames)
-                                _SelectOption(value: name, label: name),
-                            ],
-                            selected: _skills,
-                            onChanged: (next) => setState(() => _skills = next),
-                          ),
-                          _MultiSelectDropdown<String>(
-                            label: '可用的 MCP',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final name
-                                  in widget.controller.mcpServerNames)
-                                _SelectOption(value: name, label: name),
-                            ],
-                            selected: _mcpServers,
-                            onChanged: (next) =>
-                                setState(() => _mcpServers = next),
-                          ),
-                          _MultiSelectDropdown<String>(
-                            label: '可用的记忆',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final id in widget.controller.memoryIds)
-                                _SelectOption(value: id, label: id),
-                            ],
-                            selected: _memories,
-                            onChanged: (next) =>
-                                setState(() => _memories = next),
-                          ),
-                          _MultiSelectDropdown<String>(
-                            label: '可用的内建工具',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final name
-                                  in widget.controller.builtinToolNames)
-                                _SelectOption(value: name, label: name),
-                            ],
-                            selected: _tools,
-                            onChanged: (next) => setState(() => _tools = next),
-                          ),
-                          _MultiSelectDropdown<String>(
-                            label: '可用的用户指令',
-                            emptyMeansAll: true,
-                            noneValue: webGatewayDenyAllSelectionMarker,
-                            options: [
-                              for (final option
-                                  in widget.controller.instructionOptions)
-                                _SelectOption(
-                                  value: option.id,
-                                  label: option.enabled
-                                      ? option.label
-                                      : '${option.label}（已禁用）',
-                                ),
-                            ],
-                            selected: _instructions,
-                            onChanged: (next) =>
-                                setState(() => _instructions = next),
-                          ),
-                          _EnumMultiSelectDropdown<WebGatewayMessageType>(
-                            label: '可发送的消息类型',
-                            values: WebGatewayMessageType.values,
-                            selected: _messageTypes,
-                            labelFor: (v) =>
-                                v == WebGatewayMessageType.text ? '纯文本' : '带附件',
-                            onChanged: (next) =>
-                                setState(() => _messageTypes = next),
-                          ),
-                          _EnumMultiSelectDropdown<WebGatewayConversationMode>(
-                            label: '可使用的对话模式',
-                            values: WebGatewayConversationMode.values,
-                            selected: _modes,
-                            labelFor: _modeLabel,
-                            onChanged: (next) => setState(() => _modes = next),
-                          ),
-                          _ModelMultiSelectField(
-                            label: '可使用的模型',
-                            emptyMeansAll: true,
-                            options: widget.controller.modelOptions,
-                            selected: _models,
-                            onChanged: (next) => setState(() => _models = next),
-                          ),
-                          const SizedBox(height: 18),
-                          const _SectionTitle('项目文件'),
-                          _ResponsiveFields(
-                            twoColumns: twoColumns,
-                            children: [
-                              _TextFieldSpec(
-                                label: '单文件最大(MB)',
-                                controller: _workspaceFileMaxMbController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '允许扩展名(空=全部文本)',
-                                controller: _workspaceFileExtensionsController,
-                              ),
-                              _TextFieldSpec(
-                                label: '上传缓存保留天数',
-                                controller: _uploadCacheRetentionDaysController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '上传缓存上限(MB)',
-                                controller: _uploadCacheMaxMbController,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          const _SectionTitle('健康检查'),
-                          _SwitchTile(
-                            label: '是否跟随重定向',
-                            value: _healthFollowRedirects,
-                            onChanged: (v) =>
-                                setState(() => _healthFollowRedirects = v),
-                          ),
-                          const SizedBox(height: 12),
-                          _ResponsiveFields(
-                            twoColumns: twoColumns,
-                            children: [
-                              _TextFieldSpec(
-                                label: '请求 URL',
-                                controller: _healthPathController,
-                              ),
-                              _TextFieldSpec(
-                                label: '请求方式',
-                                controller: _healthMethodController,
-                              ),
-                              _TextFieldSpec(
-                                label: '超时时间(ms)',
-                                controller: _healthTimeoutController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '期望状态码',
-                                controller: _healthStatusController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '响应断言包含',
-                                controller: _healthContainsController,
-                              ),
-                              _TextFieldSpec(
-                                label: '查询参数(k=v&k2=v2)',
-                                controller: _healthQueryController,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          const _SectionTitle('日志轮转'),
-                          _ResponsiveFields(
-                            twoColumns: twoColumns,
-                            children: [
-                              _TextFieldSpec(
-                                label: '单日志最大(MB)',
-                                controller: _logMaxMbController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '轮转天数',
-                                controller: _logRotationDaysController,
-                                keyboardType: TextInputType.number,
-                              ),
-                              _TextFieldSpec(
-                                label: '最多日志文件数',
-                                controller: _logMaxFilesController,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  border: Border(
-                    top: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: openHandMotionDurationMs(context, 220),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      child: _saveError == null
-                          ? const SizedBox.shrink(key: ValueKey('save-ok'))
-                          : Padding(
-                              key: const ValueKey('save-error'),
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _EditorNotice(
-                                icon: Icons.error_outline_rounded,
-                                title: '保存失败',
-                                body: _saveError!,
-                                error: true,
-                              ),
-                            ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OpenHandDialogActionButton.secondary(
-                          label: '取消',
-                          onPressed: _saving
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                        ),
-                        const SizedBox(width: 12),
-                        OpenHandDialogActionButton.primary(
-                          label: _saving ? '保存中' : '保存配置',
-                          onPressed: _saving ? null : _save,
                         ),
                       ],
+                      const SizedBox(height: 18),
+                      const _SectionTitle('安全控制'),
+                      _MultiSelectDropdown<String>(
+                        label: '可新建的线程模板类型',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final t in widget.controller.templates)
+                            _SelectOption(value: t.id, label: t.name),
+                        ],
+                        selected: _templates,
+                        onChanged: (next) => setState(() => _templates = next),
+                      ),
+                      _MultiSelectDropdown<String>(
+                        label: '可用的技能',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final name in widget.controller.skillNames)
+                            _SelectOption(value: name, label: name),
+                        ],
+                        selected: _skills,
+                        onChanged: (next) => setState(() => _skills = next),
+                      ),
+                      _MultiSelectDropdown<String>(
+                        label: '可用的 MCP',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final name in widget.controller.mcpServerNames)
+                            _SelectOption(value: name, label: name),
+                        ],
+                        selected: _mcpServers,
+                        onChanged: (next) => setState(() => _mcpServers = next),
+                      ),
+                      _MultiSelectDropdown<String>(
+                        label: '可用的记忆',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final id in widget.controller.memoryIds)
+                            _SelectOption(value: id, label: id),
+                        ],
+                        selected: _memories,
+                        onChanged: (next) => setState(() => _memories = next),
+                      ),
+                      _MultiSelectDropdown<String>(
+                        label: '可用的内建工具',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final name in widget.controller.builtinToolNames)
+                            _SelectOption(value: name, label: name),
+                        ],
+                        selected: _tools,
+                        onChanged: (next) => setState(() => _tools = next),
+                      ),
+                      _MultiSelectDropdown<String>(
+                        label: '可用的用户指令',
+                        emptyMeansAll: true,
+                        noneValue: webGatewayDenyAllSelectionMarker,
+                        options: [
+                          for (final option
+                              in widget.controller.instructionOptions)
+                            _SelectOption(
+                              value: option.id,
+                              label: option.enabled
+                                  ? option.label
+                                  : '${option.label}（已禁用）',
+                            ),
+                        ],
+                        selected: _instructions,
+                        onChanged: (next) =>
+                            setState(() => _instructions = next),
+                      ),
+                      _EnumMultiSelectDropdown<WebGatewayMessageType>(
+                        label: '可发送的消息类型',
+                        values: WebGatewayMessageType.values,
+                        selected: _messageTypes,
+                        labelFor: (v) =>
+                            v == WebGatewayMessageType.text ? '纯文本' : '带附件',
+                        onChanged: (next) =>
+                            setState(() => _messageTypes = next),
+                      ),
+                      _EnumMultiSelectDropdown<WebGatewayConversationMode>(
+                        label: '可使用的对话模式',
+                        values: WebGatewayConversationMode.values,
+                        selected: _modes,
+                        labelFor: _modeLabel,
+                        onChanged: (next) => setState(() => _modes = next),
+                      ),
+                      _ModelMultiSelectField(
+                        label: '可使用的模型',
+                        emptyMeansAll: true,
+                        options: widget.controller.modelOptions,
+                        selected: _models,
+                        onChanged: (next) => setState(() => _models = next),
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('项目文件'),
+                      _ResponsiveFields(
+                        twoColumns: twoColumns,
+                        children: [
+                          _TextFieldSpec(
+                            label: '单文件最大(MB)',
+                            controller: _workspaceFileMaxMbController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '允许扩展名(空=全部文本)',
+                            controller: _workspaceFileExtensionsController,
+                          ),
+                          _TextFieldSpec(
+                            label: '上传缓存保留天数',
+                            controller: _uploadCacheRetentionDaysController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '上传缓存上限(MB)',
+                            controller: _uploadCacheMaxMbController,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('健康检查'),
+                      _SwitchTile(
+                        label: '是否跟随重定向',
+                        value: _healthFollowRedirects,
+                        onChanged: (v) =>
+                            setState(() => _healthFollowRedirects = v),
+                      ),
+                      const SizedBox(height: 12),
+                      _ResponsiveFields(
+                        twoColumns: twoColumns,
+                        children: [
+                          _TextFieldSpec(
+                            label: '请求 URL',
+                            controller: _healthPathController,
+                          ),
+                          _TextFieldSpec(
+                            label: '请求方式',
+                            controller: _healthMethodController,
+                          ),
+                          _TextFieldSpec(
+                            label: '超时时间(ms)',
+                            controller: _healthTimeoutController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '期望状态码',
+                            controller: _healthStatusController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '响应断言包含',
+                            controller: _healthContainsController,
+                          ),
+                          _TextFieldSpec(
+                            label: '查询参数(k=v&k2=v2)',
+                            controller: _healthQueryController,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('日志轮转'),
+                      _ResponsiveFields(
+                        twoColumns: twoColumns,
+                        children: [
+                          _TextFieldSpec(
+                            label: '单日志最大(MB)',
+                            controller: _logMaxMbController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '轮转天数',
+                            controller: _logRotationDaysController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _TextFieldSpec(
+                            label: '最多日志文件数',
+                            controller: _logMaxFilesController,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainer,
+              border: Border(
+                top: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AnimatedSwitcher(
+                  duration: openHandMotionDurationMs(context, 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _saveError == null
+                      ? const SizedBox.shrink(key: ValueKey('save-ok'))
+                      : Padding(
+                          key: const ValueKey('save-error'),
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _EditorNotice(
+                            icon: Icons.error_outline_rounded,
+                            title: '保存失败',
+                            body: _saveError!,
+                            error: true,
+                          ),
+                        ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      label: '取消',
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    OpenHandDialogActionButton.primary(
+                      label: _saving ? '保存中' : '保存配置',
+                      onPressed: _saving ? null : _save,
                     ),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1272,104 +1251,91 @@ class _WebGatewayConnectivityDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final mediaSize = MediaQuery.sizeOf(context);
-    final dialogMaxHeight = math.min(
-      700.0,
-      math.max(420.0, mediaSize.height - 120),
-    );
     final result = _result;
     final error = _error;
 
-    return SafeArea(
-      minimum: const EdgeInsets.all(18),
-      child: Dialog(
-        insetPadding: EdgeInsets.zero,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(mediaSize.width - 36, 920),
-            maxHeight: dialogMaxHeight,
-            minHeight: math.min(dialogMaxHeight, 480),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.network_check_rounded,
-                      color: result == null
-                          ? colorScheme.primary
-                          : result.ok
-                          ? const Color(0xFF16A34A)
-                          : colorScheme.error,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('端口连通性测试', style: theme.textTheme.titleMedium),
-                          const SizedBox(height: 2),
-                          Text(
-                            '逐一探测当前可用 IP + 端口入口的 /api/health',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 700,
+      minAvailableHeight: 420,
+      minHeight: 480,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.network_check_rounded,
+                  color: result == null
+                      ? colorScheme.primary
+                      : result.ok
+                      ? const Color(0xFF16A34A)
+                      : colorScheme.error,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('端口连通性测试', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                        '逐一探测当前可用 IP + 端口入口的 /api/health',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    IconButton.filledTonal(
+                      tooltip: '复制结果 JSON',
+                      onPressed: result == null
+                          ? null
+                          : () => _copyResult(result),
+                      icon: const Icon(Icons.content_copy_rounded),
                     ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        IconButton.filledTonal(
-                          tooltip: '复制结果 JSON',
-                          onPressed: result == null
-                              ? null
-                              : () => _copyResult(result),
-                          icon: const Icon(Icons.content_copy_rounded),
-                        ),
-                        IconButton.filledTonal(
-                          tooltip: '重新测试',
-                          onPressed: _running ? null : _run,
-                          icon: _running
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh_rounded),
-                        ),
-                        IconButton.filledTonal(
-                          tooltip: '关闭',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
+                    IconButton.filledTonal(
+                      tooltip: '重新测试',
+                      onPressed: _running ? null : _run,
+                      icon: _running
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded),
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: openHandMotionDurationMs(context, 260),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: error != null
-                      ? _ConnectivityErrorView(error: error)
-                      : result == null
-                      ? const _ConnectivityLoadingView()
-                      : _ConnectivityResultView(result: result),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          const Divider(height: 1),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDurationMs(context, 260),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeInCubic,
+              child: error != null
+                  ? _ConnectivityErrorView(error: error)
+                  : result == null
+                  ? const _ConnectivityLoadingView()
+                  : _ConnectivityResultView(result: result),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1821,9 +1787,10 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   Widget build(BuildContext context) {
     final logs = widget.controller.logs;
     final mediaSize = MediaQuery.sizeOf(context);
-    final dialogMaxHeight = math.min(
-      680.0,
-      math.max(360.0, mediaSize.height - 120),
+    final dialogMaxHeight = resolveOpenHandResponsiveDialogExtent(
+      viewportExtent: mediaSize.height,
+      maxExtent: 680,
+      viewportMargin: 120,
     );
     _lastPageSize = _logPageSize(dialogMaxHeight);
     final visible = _visibleLogs(logs);
@@ -1833,141 +1800,127 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         )
         .length;
     _scheduleRenderedSync(visible);
-    return SafeArea(
-      minimum: const EdgeInsets.all(18),
-      child: Dialog(
-        insetPadding: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(mediaSize.width - 36, 960),
-            maxHeight: dialogMaxHeight,
-            minHeight: math.min(dialogMaxHeight, 480),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 8, 10),
-                child: Row(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 960,
+      maxHeight: 680,
+      minHeight: 480,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 8, 10),
+            child: Row(
+              children: [
+                const Icon(Icons.terminal_rounded),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Web 服务日志',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    const Icon(Icons.terminal_rounded),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Web 服务日志',
-                        style: Theme.of(context).textTheme.titleMedium,
+                    IconButton(
+                      tooltip: '加载历史更多',
+                      onPressed: historicalCount > _historyLimit
+                          ? () => setState(() => _historyLimit += _lastPageSize)
+                          : null,
+                      icon: const Icon(Icons.history_rounded),
+                    ),
+                    IconButton(
+                      tooltip: '加载最新日志',
+                      onPressed: _loadLatestLogs,
+                      icon: const Icon(Icons.new_releases_outlined),
+                    ),
+                    IconButton(
+                      tooltip: _follow ? '取消跟随' : '跟随日志',
+                      onPressed: () => setState(() => _follow = !_follow),
+                      icon: Icon(
+                        _follow
+                            ? Icons.vertical_align_bottom_rounded
+                            : Icons.vertical_align_center_rounded,
                       ),
                     ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        IconButton(
-                          tooltip: '加载历史更多',
-                          onPressed: historicalCount > _historyLimit
-                              ? () => setState(
-                                  () => _historyLimit += _lastPageSize,
-                                )
-                              : null,
-                          icon: const Icon(Icons.history_rounded),
-                        ),
-                        IconButton(
-                          tooltip: '加载最新日志',
-                          onPressed: _loadLatestLogs,
-                          icon: const Icon(Icons.new_releases_outlined),
-                        ),
-                        IconButton(
-                          tooltip: _follow ? '取消跟随' : '跟随日志',
-                          onPressed: () => setState(() => _follow = !_follow),
-                          icon: Icon(
-                            _follow
-                                ? Icons.vertical_align_bottom_rounded
-                                : Icons.vertical_align_center_rounded,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '保存日志到剪贴板',
-                          onPressed: () => _copyLogs(visible),
-                          icon: const Icon(Icons.content_copy_rounded),
-                        ),
-                        IconButton(
-                          tooltip: '导出当前日志',
-                          onPressed: _isExportingLog ? null : _exportCurrentLog,
-                          icon: _isExportingLog
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.save_alt_rounded),
-                        ),
-                        // 清空终端：仅清除当前弹窗内的渲染项，
-                        // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
-                        IconButton(
-                          tooltip: '清空终端（仅清除显示，不删除日志文件）',
-                          onPressed: _clearTerminal,
-                          icon: const Icon(Icons.cleaning_services_outlined),
-                        ),
-                        // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
-                        // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
-                        AnimatedPopupMenuButton<WebGatewayLogLevel>(
-                          tooltip: '日志级别筛选',
-                          icon: const Icon(Icons.filter_list_rounded),
-                          // 返回 null 代表点击了外部区域 / Esc，不需要响应。
-                          onSelected: (level) =>
-                              setState(() => _toggleLogLevel(level)),
-                          // 多选能力：在 itemBuilder 里手搽复选框，
-                          // 点击任一项都在 onSelected 里进行反选。
-                          itemBuilder: (menuContext) => WebGatewayLogLevel
-                              .values
-                              .map(
-                                (level) =>
-                                    CheckedPopupMenuItem<WebGatewayLogLevel>(
-                                      value: level,
-                                      checked: !_hidden.contains(level),
-                                      child: Text(level.name),
-                                    ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        IconButton(
-                          tooltip: '关闭',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
+                    IconButton(
+                      tooltip: '保存日志到剪贴板',
+                      onPressed: () => _copyLogs(visible),
+                      icon: const Icon(Icons.content_copy_rounded),
+                    ),
+                    IconButton(
+                      tooltip: '导出当前日志',
+                      onPressed: _isExportingLog ? null : _exportCurrentLog,
+                      icon: _isExportingLog
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_alt_rounded),
+                    ),
+                    // 清空终端：仅清除当前弹窗内的渲染项，
+                    // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
+                    IconButton(
+                      tooltip: '清空终端（仅清除显示，不删除日志文件）',
+                      onPressed: _clearTerminal,
+                      icon: const Icon(Icons.cleaning_services_outlined),
+                    ),
+                    // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
+                    // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
+                    AnimatedPopupMenuButton<WebGatewayLogLevel>(
+                      tooltip: '日志级别筛选',
+                      icon: const Icon(Icons.filter_list_rounded),
+                      // 返回 null 代表点击了外部区域 / Esc，不需要响应。
+                      onSelected: (level) =>
+                          setState(() => _toggleLogLevel(level)),
+                      // 多选能力：在 itemBuilder 里手搽复选框，
+                      // 点击任一项都在 onSelected 里进行反选。
+                      itemBuilder: (menuContext) => WebGatewayLogLevel.values
+                          .map(
+                            (level) => CheckedPopupMenuItem<WebGatewayLogLevel>(
+                              value: level,
+                              checked: !_hidden.contains(level),
+                              child: Text(level.name),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: Container(
-                  color: const Color(0xFF101218),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _scrollGuard.handleNotification,
-                    child: OpenHandSafeScrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      child: AnimatedList(
-                        key: _listKey,
-                        initialItemCount: _rendered.length,
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-                        itemBuilder: (context, index, animation) =>
-                            _AnimatedLogLine(
-                              entry: _rendered[index],
-                              animation: animation,
-                            ),
-                      ),
-                    ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: Container(
+              color: const Color(0xFF101218),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _scrollGuard.handleNotification,
+                child: OpenHandSafeScrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  child: AnimatedList(
+                    key: _listKey,
+                    initialItemCount: _rendered.length,
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+                    itemBuilder: (context, index, animation) =>
+                        _AnimatedLogLine(
+                          entry: _rendered[index],
+                          animation: animation,
+                        ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -2253,509 +2206,480 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         snapshot.state == WebGatewayRuntimeState.starting ||
         snapshot.state == WebGatewayRuntimeState.stopping;
     final serviceControlsDisabled = _isServiceActing || isTransitioning;
-    final mediaSize = MediaQuery.sizeOf(context);
-    final dialogMaxHeight = math.min(
-      720.0,
-      math.max(420.0, mediaSize.height - 120),
-    );
-    return SafeArea(
-      minimum: const EdgeInsets.all(18),
-      child: Dialog(
-        insetPadding: EdgeInsets.zero,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(mediaSize.width - 36, 1100),
-            maxHeight: dialogMaxHeight,
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 1100,
+      minAvailableHeight: 420,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
+            child: Row(
+              children: [
+                const Icon(Icons.speed_rounded),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Web 服务运维',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
-                child: Row(
+          const Divider(height: 1),
+          Expanded(
+            child: OpenHandSafeScrollbar(
+              controller: _scrollController,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                primary: false,
+                physics: kOpenHandClampingPhysics,
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.speed_rounded),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Web 服务运维',
-                        style: Theme.of(context).textTheme.titleMedium,
+                    AnimatedOpacity(
+                      duration: openHandMotionDurationMs(context, 220),
+                      curve: Curves.easeOutCubic,
+                      opacity: serviceControlsDisabled ? .62 : 1,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: isRunning || serviceControlsDisabled
+                                ? null
+                                : () => _runServiceAction(
+                                    label: '开启',
+                                    action: widget.controller.startService,
+                                  ),
+                            icon: const Icon(Icons.play_arrow_rounded),
+                            label: const Text('开启'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: !isRunning || serviceControlsDisabled
+                                ? null
+                                : () => _runServiceAction(
+                                    label: '关机',
+                                    action: widget.controller.stopService,
+                                  ),
+                            icon: const Icon(Icons.stop_rounded),
+                            label: const Text('关机'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: serviceControlsDisabled
+                                ? null
+                                : () => _runServiceAction(
+                                    label: '重启',
+                                    action: widget.controller.restartService,
+                                  ),
+                            icon: const Icon(Icons.restart_alt_rounded),
+                            label: const Text('重启'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: serviceControlsDisabled
+                                ? null
+                                : () => _runServiceAction(
+                                    label: '配置重载',
+                                    action: widget.controller.reloadConfig,
+                                  ),
+                            icon: const Icon(Icons.sync_rounded),
+                            label: const Text('配置重载'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: serviceControlsDisabled
+                                ? null
+                                : () => _runServiceAction(
+                                    label: '热修复',
+                                    action: widget.controller.hotFix,
+                                  ),
+                            icon: const Icon(Icons.healing_rounded),
+                            label: const Text('热修复'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _isHealthChecking
+                                ? null
+                                : _runOpsHealthCheck,
+                            icon: _isHealthChecking
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.monitor_heart_outlined),
+                            label: const Text('健康诊断'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _runCleanup(
+                                    label: '过期资源',
+                                    action: widget
+                                        .controller
+                                        .cleanupExpiredArtifacts,
+                                  ),
+                            icon: const Icon(Icons.cleaning_services_outlined),
+                            label: const Text('清理过期'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _confirmAndCleanup(
+                                    title: '清空日志',
+                                    message:
+                                        '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                                    label: '日志',
+                                    action: widget.controller.cleanupLogs,
+                                  ),
+                            icon: const Icon(Icons.delete_sweep_outlined),
+                            label: const Text('清空日志'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _isCleaning
+                                ? null
+                                : () => _confirmAndCleanup(
+                                    title: '清空上传缓存',
+                                    message: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
+                                    label: '上传缓存',
+                                    action:
+                                        widget.controller.cleanupUploadCache,
+                                  ),
+                            icon: const Icon(Icons.folder_delete_outlined),
+                            label: const Text('清空缓存'),
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 760 ? 2 : 4;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: columns == 2 ? 2.1 : 2.4,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _MetricTile(
+                              label: '运行状态',
+                              value: _runtimeStateLabel(
+                                context,
+                                snapshot.state,
+                              ),
+                            ),
+                            _MetricTile(
+                              label: '运行时间',
+                              value: _formatDuration(snapshot.uptimeMs),
+                            ),
+                            _MetricTile(
+                              label: 'CPU',
+                              value: snapshot.cpuPercent == null
+                                  ? '不可用'
+                                  : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
+                            ),
+                            _MetricTile(
+                              label: '线程数',
+                              value: snapshot.threadCount?.toString() ?? '不可用',
+                            ),
+                            _MetricTile(
+                              label: '文件句柄',
+                              value:
+                                  snapshot.fileHandleCount?.toString() ?? '不可用',
+                            ),
+                            _MetricTile(
+                              label: 'Swap',
+                              value: snapshot.swapBytes == null
+                                  ? '不可用'
+                                  : _bytes(snapshot.swapBytes!),
+                            ),
+                            _MetricTile(
+                              label: '内存',
+                              value: _bytes(snapshot.currentRssBytes),
+                            ),
+                            _MetricTile(
+                              label: '最大内存',
+                              value: _bytes(snapshot.maxRssBytes),
+                            ),
+                            _MetricTile(
+                              label: '日志磁盘',
+                              value: _bytes(snapshot.logBytes),
+                            ),
+                            _MetricTile(
+                              label: '活动请求',
+                              value: '${snapshot.activeRequests}',
+                            ),
+                            _MetricTile(
+                              label: 'SSE 长连接',
+                              value: '${snapshot.activeSseSubscriptions}',
+                            ),
+                            _MetricTile(
+                              label: '总请求',
+                              value: '${snapshot.totalRequests}',
+                            ),
+                            _MetricTile(
+                              label: '请求/min',
+                              value: _rate(snapshot.requestsPerMinute),
+                            ),
+                            _MetricTile(
+                              label: '错误数',
+                              value: '${snapshot.totalErrors}',
+                            ),
+                            _MetricTile(
+                              label: '错误/min',
+                              value: _rate(snapshot.errorsPerMinute),
+                            ),
+                            _MetricTile(
+                              label: '入流量/min',
+                              value: _bytes(snapshot.bytesInPerMinute.round()),
+                            ),
+                            _MetricTile(
+                              label: '出流量/min',
+                              value: _bytes(snapshot.bytesOutPerMinute.round()),
+                            ),
+                            _MetricTile(
+                              label: '延迟 P95',
+                              value: '${snapshot.latencyStats.p95Ms}ms',
+                            ),
+                            _MetricTile(
+                              label: '延迟 P50',
+                              value: '${snapshot.latencyStats.p50Ms}ms',
+                            ),
+                            _MetricTile(
+                              label: '延迟 P99',
+                              value: '${snapshot.latencyStats.p99Ms}ms',
+                            ),
+                            _MetricTile(
+                              label: '延迟 MAX',
+                              value: '${snapshot.latencyStats.maxMs}ms',
+                            ),
+                            _MetricTile(
+                              label: '延迟样本',
+                              value: '${snapshot.latencyStats.sampleCount}',
+                            ),
+                            _MetricTile(
+                              label: '累计入流量',
+                              value: _bytes(snapshot.totalBytesIn),
+                            ),
+                            _MetricTile(
+                              label: '累计出流量',
+                              value: _bytes(snapshot.totalBytesOut),
+                            ),
+                            _MetricTile(
+                              label: '崩溃数',
+                              value: '${snapshot.crashCount}',
+                            ),
+                            _MetricTile(
+                              label: '重启数',
+                              value: '${snapshot.restartCount}',
+                            ),
+                            _MetricTile(
+                              label: '线程会话',
+                              value: '${snapshot.openSessionCount}',
+                            ),
+                            _MetricTile(
+                              label: '并发水位',
+                              value: _percent(snapshot.activeRequestRatio),
+                            ),
+                          ],
+                        );
+                      },
                     ),
+                    const SizedBox(height: 18),
+                    _OpsHealthCard(snapshot: snapshot),
+                    const SizedBox(height: 18),
+                    _OpsSummaryCard(snapshot: snapshot),
+                    const SizedBox(height: 18),
+                    _NaturalCardGrid(
+                      minTileWidth: 360,
+                      spacing: 12,
+                      maxColumns: 2,
+                      children: [
+                        _OpsBreakdownCard(
+                          title: 'HTTP 状态码分布',
+                          values: snapshot.statusCodeBreakdown,
+                        ),
+                        _OpsBreakdownCard(
+                          title: 'HTTP Method 分布',
+                          values: snapshot.methodBreakdown,
+                        ),
+                        _OpsBreakdownCard(
+                          title: '延迟桶',
+                          values: snapshot.latencyBuckets,
+                        ),
+                        _OpsBreakdownCard(
+                          title: '发送阶段分布',
+                          values: snapshot.sendPhaseBreakdown,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _NaturalCardGrid(
+                      minTileWidth: 360,
+                      spacing: 12,
+                      maxColumns: 2,
+                      children: [
+                        _TopRoutesCard(routes: snapshot.topRoutes),
+                        _RecentErrorsCard(errors: snapshot.recentErrors),
+                        _OpsBreakdownCard(
+                          title: '日志级别分布',
+                          values: snapshot.logLevelBreakdown,
+                          footer: '${snapshot.memoryLogCount} 条内存日志',
+                        ),
+                        _ResourceInventoryCard(snapshot: snapshot),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle('吞吐趋势'),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 720 ? 1 : 2;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _TrendLineChart(
+                              title: '请求/秒',
+                              values: _deltaSeries(
+                                _trend,
+                                (snapshot) => snapshot.totalRequests.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: '错误/秒',
+                              values: _deltaSeries(
+                                _trend,
+                                (snapshot) => snapshot.totalErrors.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: '活动请求',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.activeRequests.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: 'P95 延迟',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.latencyStats.p95Ms.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  '${value.toStringAsFixed(0)}ms',
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle('资源趋势'),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth < 720 ? 1 : 2;
+                        return GridView.count(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _TrendLineChart(
+                              title: 'CPU %',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.cpuPercent,
+                              ),
+                              valueFormatter: (value) =>
+                                  '${value.toStringAsFixed(1)}%',
+                            ),
+                            _TrendLineChart(
+                              title: '内存 RSS',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.currentRssBytes.toDouble(),
+                              ),
+                              valueFormatter: (value) => _bytes(value.round()),
+                            ),
+                            _TrendLineChart(
+                              title: '日志磁盘',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.logBytes.toDouble(),
+                              ),
+                              valueFormatter: (value) => _bytes(value.round()),
+                            ),
+                            _TrendLineChart(
+                              title: '线程数',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.threadCount?.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: '会话数',
+                              values: _series(
+                                _trend,
+                                (snapshot) =>
+                                    snapshot.openSessionCount.toDouble(),
+                              ),
+                              valueFormatter: (value) =>
+                                  value.toStringAsFixed(0),
+                            ),
+                            _TrendLineChart(
+                              title: '入流量/min',
+                              values: _series(
+                                _trend,
+                                (snapshot) => snapshot.bytesInPerMinute,
+                              ),
+                              valueFormatter: (value) => _bytes(value.round()),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    if (cleanupHistory.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const _SectionTitle('清理历史'),
+                      ...cleanupHistory.map(
+                        (entry) => _CleanupHistoryLine(entry: entry),
+                      ),
+                    ],
+                    if (snapshot.lastError.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const _SectionTitle('最近错误'),
+                      SelectableText(snapshot.lastError),
+                    ],
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: OpenHandSafeScrollbar(
-                  controller: _scrollController,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    primary: false,
-                    physics: kOpenHandClampingPhysics,
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedOpacity(
-                          duration: openHandMotionDurationMs(context, 220),
-                          curve: Curves.easeOutCubic,
-                          opacity: serviceControlsDisabled ? .62 : 1,
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              FilledButton.tonalIcon(
-                                onPressed: isRunning || serviceControlsDisabled
-                                    ? null
-                                    : () => _runServiceAction(
-                                        label: '开启',
-                                        action: widget.controller.startService,
-                                      ),
-                                icon: const Icon(Icons.play_arrow_rounded),
-                                label: const Text('开启'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: !isRunning || serviceControlsDisabled
-                                    ? null
-                                    : () => _runServiceAction(
-                                        label: '关机',
-                                        action: widget.controller.stopService,
-                                      ),
-                                icon: const Icon(Icons.stop_rounded),
-                                label: const Text('关机'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: serviceControlsDisabled
-                                    ? null
-                                    : () => _runServiceAction(
-                                        label: '重启',
-                                        action:
-                                            widget.controller.restartService,
-                                      ),
-                                icon: const Icon(Icons.restart_alt_rounded),
-                                label: const Text('重启'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: serviceControlsDisabled
-                                    ? null
-                                    : () => _runServiceAction(
-                                        label: '配置重载',
-                                        action: widget.controller.reloadConfig,
-                                      ),
-                                icon: const Icon(Icons.sync_rounded),
-                                label: const Text('配置重载'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: serviceControlsDisabled
-                                    ? null
-                                    : () => _runServiceAction(
-                                        label: '热修复',
-                                        action: widget.controller.hotFix,
-                                      ),
-                                icon: const Icon(Icons.healing_rounded),
-                                label: const Text('热修复'),
-                              ),
-                              FilledButton.icon(
-                                onPressed: _isHealthChecking
-                                    ? null
-                                    : _runOpsHealthCheck,
-                                icon: _isHealthChecking
-                                    ? const SizedBox.square(
-                                        dimension: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.monitor_heart_outlined),
-                                label: const Text('健康诊断'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: _isCleaning
-                                    ? null
-                                    : () => _runCleanup(
-                                        label: '过期资源',
-                                        action: widget
-                                            .controller
-                                            .cleanupExpiredArtifacts,
-                                      ),
-                                icon: const Icon(
-                                  Icons.cleaning_services_outlined,
-                                ),
-                                label: const Text('清理过期'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: _isCleaning
-                                    ? null
-                                    : () => _confirmAndCleanup(
-                                        title: '清空日志',
-                                        message:
-                                            '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
-                                        label: '日志',
-                                        action: widget.controller.cleanupLogs,
-                                      ),
-                                icon: const Icon(Icons.delete_sweep_outlined),
-                                label: const Text('清空日志'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: _isCleaning
-                                    ? null
-                                    : () => _confirmAndCleanup(
-                                        title: '清空上传缓存',
-                                        message:
-                                            '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
-                                        label: '上传缓存',
-                                        action: widget
-                                            .controller
-                                            .cleanupUploadCache,
-                                      ),
-                                icon: const Icon(Icons.folder_delete_outlined),
-                                label: const Text('清空缓存'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth < 760 ? 2 : 4;
-                            return GridView.count(
-                              crossAxisCount: columns,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                              childAspectRatio: columns == 2 ? 2.1 : 2.4,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: [
-                                _MetricTile(
-                                  label: '运行状态',
-                                  value: _runtimeStateLabel(
-                                    context,
-                                    snapshot.state,
-                                  ),
-                                ),
-                                _MetricTile(
-                                  label: '运行时间',
-                                  value: _formatDuration(snapshot.uptimeMs),
-                                ),
-                                _MetricTile(
-                                  label: 'CPU',
-                                  value: snapshot.cpuPercent == null
-                                      ? '不可用'
-                                      : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
-                                ),
-                                _MetricTile(
-                                  label: '线程数',
-                                  value:
-                                      snapshot.threadCount?.toString() ?? '不可用',
-                                ),
-                                _MetricTile(
-                                  label: '文件句柄',
-                                  value:
-                                      snapshot.fileHandleCount?.toString() ??
-                                      '不可用',
-                                ),
-                                _MetricTile(
-                                  label: 'Swap',
-                                  value: snapshot.swapBytes == null
-                                      ? '不可用'
-                                      : _bytes(snapshot.swapBytes!),
-                                ),
-                                _MetricTile(
-                                  label: '内存',
-                                  value: _bytes(snapshot.currentRssBytes),
-                                ),
-                                _MetricTile(
-                                  label: '最大内存',
-                                  value: _bytes(snapshot.maxRssBytes),
-                                ),
-                                _MetricTile(
-                                  label: '日志磁盘',
-                                  value: _bytes(snapshot.logBytes),
-                                ),
-                                _MetricTile(
-                                  label: '活动请求',
-                                  value: '${snapshot.activeRequests}',
-                                ),
-                                _MetricTile(
-                                  label: 'SSE 长连接',
-                                  value: '${snapshot.activeSseSubscriptions}',
-                                ),
-                                _MetricTile(
-                                  label: '总请求',
-                                  value: '${snapshot.totalRequests}',
-                                ),
-                                _MetricTile(
-                                  label: '请求/min',
-                                  value: _rate(snapshot.requestsPerMinute),
-                                ),
-                                _MetricTile(
-                                  label: '错误数',
-                                  value: '${snapshot.totalErrors}',
-                                ),
-                                _MetricTile(
-                                  label: '错误/min',
-                                  value: _rate(snapshot.errorsPerMinute),
-                                ),
-                                _MetricTile(
-                                  label: '入流量/min',
-                                  value: _bytes(
-                                    snapshot.bytesInPerMinute.round(),
-                                  ),
-                                ),
-                                _MetricTile(
-                                  label: '出流量/min',
-                                  value: _bytes(
-                                    snapshot.bytesOutPerMinute.round(),
-                                  ),
-                                ),
-                                _MetricTile(
-                                  label: '延迟 P95',
-                                  value: '${snapshot.latencyStats.p95Ms}ms',
-                                ),
-                                _MetricTile(
-                                  label: '延迟 P50',
-                                  value: '${snapshot.latencyStats.p50Ms}ms',
-                                ),
-                                _MetricTile(
-                                  label: '延迟 P99',
-                                  value: '${snapshot.latencyStats.p99Ms}ms',
-                                ),
-                                _MetricTile(
-                                  label: '延迟 MAX',
-                                  value: '${snapshot.latencyStats.maxMs}ms',
-                                ),
-                                _MetricTile(
-                                  label: '延迟样本',
-                                  value: '${snapshot.latencyStats.sampleCount}',
-                                ),
-                                _MetricTile(
-                                  label: '累计入流量',
-                                  value: _bytes(snapshot.totalBytesIn),
-                                ),
-                                _MetricTile(
-                                  label: '累计出流量',
-                                  value: _bytes(snapshot.totalBytesOut),
-                                ),
-                                _MetricTile(
-                                  label: '崩溃数',
-                                  value: '${snapshot.crashCount}',
-                                ),
-                                _MetricTile(
-                                  label: '重启数',
-                                  value: '${snapshot.restartCount}',
-                                ),
-                                _MetricTile(
-                                  label: '线程会话',
-                                  value: '${snapshot.openSessionCount}',
-                                ),
-                                _MetricTile(
-                                  label: '并发水位',
-                                  value: _percent(snapshot.activeRequestRatio),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 18),
-                        _OpsHealthCard(snapshot: snapshot),
-                        const SizedBox(height: 18),
-                        _OpsSummaryCard(snapshot: snapshot),
-                        const SizedBox(height: 18),
-                        _NaturalCardGrid(
-                          minTileWidth: 360,
-                          spacing: 12,
-                          maxColumns: 2,
-                          children: [
-                            _OpsBreakdownCard(
-                              title: 'HTTP 状态码分布',
-                              values: snapshot.statusCodeBreakdown,
-                            ),
-                            _OpsBreakdownCard(
-                              title: 'HTTP Method 分布',
-                              values: snapshot.methodBreakdown,
-                            ),
-                            _OpsBreakdownCard(
-                              title: '延迟桶',
-                              values: snapshot.latencyBuckets,
-                            ),
-                            _OpsBreakdownCard(
-                              title: '发送阶段分布',
-                              values: snapshot.sendPhaseBreakdown,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        _NaturalCardGrid(
-                          minTileWidth: 360,
-                          spacing: 12,
-                          maxColumns: 2,
-                          children: [
-                            _TopRoutesCard(routes: snapshot.topRoutes),
-                            _RecentErrorsCard(errors: snapshot.recentErrors),
-                            _OpsBreakdownCard(
-                              title: '日志级别分布',
-                              values: snapshot.logLevelBreakdown,
-                              footer: '${snapshot.memoryLogCount} 条内存日志',
-                            ),
-                            _ResourceInventoryCard(snapshot: snapshot),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        const _SectionTitle('吞吐趋势'),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth < 720 ? 1 : 2;
-                            return GridView.count(
-                              crossAxisCount: columns,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: columns == 1 ? 2.35 : 1.85,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: [
-                                _TrendLineChart(
-                                  title: '请求/秒',
-                                  values: _deltaSeries(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.totalRequests.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      value.toStringAsFixed(0),
-                                ),
-                                _TrendLineChart(
-                                  title: '错误/秒',
-                                  values: _deltaSeries(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.totalErrors.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      value.toStringAsFixed(0),
-                                ),
-                                _TrendLineChart(
-                                  title: '活动请求',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.activeRequests.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      value.toStringAsFixed(0),
-                                ),
-                                _TrendLineChart(
-                                  title: 'P95 延迟',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.latencyStats.p95Ms.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      '${value.toStringAsFixed(0)}ms',
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 18),
-                        const _SectionTitle('资源趋势'),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth < 720 ? 1 : 2;
-                            return GridView.count(
-                              crossAxisCount: columns,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: columns == 1 ? 2.35 : 1.85,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: [
-                                _TrendLineChart(
-                                  title: 'CPU %',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) => snapshot.cpuPercent,
-                                  ),
-                                  valueFormatter: (value) =>
-                                      '${value.toStringAsFixed(1)}%',
-                                ),
-                                _TrendLineChart(
-                                  title: '内存 RSS',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.currentRssBytes.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      _bytes(value.round()),
-                                ),
-                                _TrendLineChart(
-                                  title: '日志磁盘',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) => snapshot.logBytes.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      _bytes(value.round()),
-                                ),
-                                _TrendLineChart(
-                                  title: '线程数',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.threadCount?.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      value.toStringAsFixed(0),
-                                ),
-                                _TrendLineChart(
-                                  title: '会话数',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) =>
-                                        snapshot.openSessionCount.toDouble(),
-                                  ),
-                                  valueFormatter: (value) =>
-                                      value.toStringAsFixed(0),
-                                ),
-                                _TrendLineChart(
-                                  title: '入流量/min',
-                                  values: _series(
-                                    _trend,
-                                    (snapshot) => snapshot.bytesInPerMinute,
-                                  ),
-                                  valueFormatter: (value) =>
-                                      _bytes(value.round()),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        if (cleanupHistory.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          const _SectionTitle('清理历史'),
-                          ...cleanupHistory.map(
-                            (entry) => _CleanupHistoryLine(entry: entry),
-                          ),
-                        ],
-                        if (snapshot.lastError.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          const _SectionTitle('最近错误'),
-                          SelectableText(snapshot.lastError),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -4721,228 +4645,224 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     final totalKeys = _allModelKeys();
     final effectiveSelected = _effectiveSelectedModelKeys();
     final scopeText = query.isEmpty ? '全部模型' : '当前筛选 ${filtered.length} 个模型';
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
+    return buildOpenHandDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 680),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 14, 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(17),
-                    ),
-                    child: Icon(
-                      Icons.hub_outlined,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+      ),
+      maxWidth: 640,
+      maxHeight: 680,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 14, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(17),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('选择可用模型', style: theme.textTheme.titleMedium),
-                        const SizedBox(height: 3),
-                        Text(
-                          '$scopeText · ${_modelSelectionCountText(effectiveSelected.length, totalKeys.length)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Icon(
+                    Icons.hub_outlined,
+                    color: colorScheme.onPrimaryContainer,
                   ),
-                  const SizedBox(width: 8),
-                  _GatewayRoundIconActionButton(
-                    tooltip: query.isEmpty ? '全选' : '当前筛选全选',
-                    icon: Icons.done_all_rounded,
-                    onPressed: visibleKeys.isEmpty
-                        ? null
-                        : () => _selectModelKeys(visibleKeys),
-                  ),
-                  const SizedBox(width: 8),
-                  _GatewayRoundIconActionButton(
-                    tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
-                    icon: Icons.remove_done_rounded,
-                    onPressed: visibleKeys.isEmpty
-                        ? null
-                        : () => _deselectModelKeys(visibleKeys),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.58,
-                  ),
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: '搜索模型',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-                    ),
-                  ),
-                  suffixIcon: _searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清空搜索',
-                          onPressed: _searchController.clear,
-                          icon: const Icon(Icons.clear_rounded),
-                        ),
                 ),
-              ),
-            ),
-            Divider(height: 1, color: colorScheme.outlineVariant),
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        '没有匹配的模型',
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('选择可用模型', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$scopeText · ${_modelSelectionCountText(effectiveSelected.length, totalKeys.length)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                      itemCount: rows.length,
-                      itemBuilder: (context, index) {
-                        final row = rows[index];
-                        if (row is _ProviderGroupHeader) {
-                          final groupKeys = row.options
-                              .map((option) => option.key)
-                              .toSet();
-                          final selectedInGroup = groupKeys
-                              .where(effectiveSelected.contains)
-                              .length;
-                          final allSelected =
-                              selectedInGroup == groupKeys.length;
-                          final noneSelected = selectedInGroup == 0;
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 12, 0, 5),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    row.providerLabel,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: theme
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ),
-                                Text(
-                                  '$selectedInGroup/${groupKeys.length}',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                _GatewayRoundIconActionButton(
-                                  tooltip: '本服务商全选',
-                                  icon: Icons.done_all_rounded,
-                                  onPressed: allSelected
-                                      ? null
-                                      : () => _selectGroup(groupKeys),
-                                ),
-                                const SizedBox(width: 8),
-                                _GatewayRoundIconActionButton(
-                                  tooltip: '本服务商全不选',
-                                  icon: Icons.remove_done_rounded,
-                                  onPressed: noneSelected
-                                      ? null
-                                      : () => _deselectGroup(groupKeys),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        final option = row as WebGatewayModelOption;
-                        final selected = effectiveSelected.contains(option.key);
-                        return CheckboxListTile(
-                          dense: true,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          tileColor: selected
-                              ? colorScheme.primaryContainer.withValues(
-                                  alpha: 0.30,
-                                )
-                              : null,
-                          value: selected,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(
-                            option.modelId,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                          onChanged: (_) => _toggle(option.key),
-                        );
-                      },
-                    ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _GatewayRoundIconActionButton(
+                  tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                  icon: Icons.done_all_rounded,
+                  onPressed: visibleKeys.isEmpty
+                      ? null
+                      : () => _selectModelKeys(visibleKeys),
+                ),
+                const SizedBox(width: 8),
+                _GatewayRoundIconActionButton(
+                  tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                  icon: Icons.remove_done_rounded,
+                  onPressed: visibleKeys.isEmpty
+                      ? null
+                      : () => _deselectModelKeys(visibleKeys),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
             ),
-            Divider(height: 1, color: colorScheme.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _modelSummary(
-                        widget.options,
-                        _selected,
-                        widget.emptyMeansAll,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.58,
+                ),
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: '搜索模型',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                  ),
+                ),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清空搜索',
+                        onPressed: _searchController.clear,
+                        icon: const Icon(Icons.clear_rounded),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    label: '完成',
-                    onPressed: () => Navigator.of(context).pop(_selected),
-                  ),
-                ],
               ),
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Text(
+                      '没有匹配的模型',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      if (row is _ProviderGroupHeader) {
+                        final groupKeys = row.options
+                            .map((option) => option.key)
+                            .toSet();
+                        final selectedInGroup = groupKeys
+                            .where(effectiveSelected.contains)
+                            .length;
+                        final allSelected = selectedInGroup == groupKeys.length;
+                        final noneSelected = selectedInGroup == 0;
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 12, 0, 5),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  row.providerLabel,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '$selectedInGroup/${groupKeys.length}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _GatewayRoundIconActionButton(
+                                tooltip: '本服务商全选',
+                                icon: Icons.done_all_rounded,
+                                onPressed: allSelected
+                                    ? null
+                                    : () => _selectGroup(groupKeys),
+                              ),
+                              const SizedBox(width: 8),
+                              _GatewayRoundIconActionButton(
+                                tooltip: '本服务商全不选',
+                                icon: Icons.remove_done_rounded,
+                                onPressed: noneSelected
+                                    ? null
+                                    : () => _deselectGroup(groupKeys),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final option = row as WebGatewayModelOption;
+                      final selected = effectiveSelected.contains(option.key);
+                      return CheckboxListTile(
+                        dense: true,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        tileColor: selected
+                            ? colorScheme.primaryContainer.withValues(
+                                alpha: 0.30,
+                              )
+                            : null,
+                        value: selected,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(
+                          option.modelId,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        onChanged: (_) => _toggle(option.key),
+                      );
+                    },
+                  ),
+          ),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _modelSummary(
+                      widget.options,
+                      _selected,
+                      widget.emptyMeansAll,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OpenHandDialogActionButton.primary(
+                  label: '完成',
+                  onPressed: () => Navigator.of(context).pop(_selected),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

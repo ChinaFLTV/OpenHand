@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -31,6 +32,21 @@ const EdgeInsets kOpenHandToolDialogHeaderPadding = EdgeInsets.fromLTRB(
   12,
   10,
 );
+const EdgeInsets kOpenHandResponsiveDialogSafeArea = EdgeInsets.all(18);
+
+double resolveOpenHandResponsiveDialogExtent({
+  required double viewportExtent,
+  required double maxExtent,
+  double minAvailableExtent = 0,
+  double viewportMargin = 0,
+}) {
+  final safeMax = _validDialogDimension(maxExtent);
+  final safeMin = _validDialogDimension(minAvailableExtent) ?? 0;
+  final available = viewportExtent.isFinite
+      ? math.max(safeMin, viewportExtent - viewportMargin)
+      : (safeMax ?? safeMin);
+  return safeMax == null ? available : math.min(safeMax, available);
+}
 
 Color resolveAnimatedDialogBarrierColor(
   BuildContext context, {
@@ -595,6 +611,66 @@ Widget buildOpenHandToolDialogShell({
     maxWidth: maxWidth,
     maxHeight: maxHeight,
     child: child,
+  );
+}
+
+Widget buildOpenHandResponsiveDialogShell({
+  required BuildContext context,
+  required Widget child,
+  double maxWidth = kOpenHandToolDialogDefaultMaxWidth,
+  double maxHeight = kOpenHandToolDialogDefaultMaxHeight,
+  double minAvailableWidth = 280,
+  double minAvailableHeight = 360,
+  double minWidth = 0,
+  double minHeight = 0,
+  double horizontalMargin = 36,
+  double verticalMargin = 120,
+  EdgeInsets safeAreaMinimum = kOpenHandResponsiveDialogSafeArea,
+  EdgeInsets insetPadding = EdgeInsets.zero,
+  Color? backgroundColor,
+  Color? surfaceTintColor,
+  ShapeBorder? shape,
+  Clip clipBehavior = Clip.antiAlias,
+  bool expandToMax = false,
+}) {
+  final mediaSize = MediaQuery.sizeOf(context);
+  final effectiveMaxWidth = resolveOpenHandResponsiveDialogExtent(
+    viewportExtent: mediaSize.width,
+    maxExtent: maxWidth,
+    minAvailableExtent: minAvailableWidth,
+    viewportMargin: horizontalMargin,
+  );
+  final effectiveMaxHeight = resolveOpenHandResponsiveDialogExtent(
+    viewportExtent: mediaSize.height,
+    maxExtent: maxHeight,
+    minAvailableExtent: minAvailableHeight,
+    viewportMargin: verticalMargin,
+  );
+  final effectiveMinWidth = math.min(
+    effectiveMaxWidth,
+    _validDialogDimension(minWidth) ?? 0,
+  );
+  final effectiveMinHeight = math.min(
+    effectiveMaxHeight,
+    _validDialogDimension(minHeight) ?? 0,
+  );
+
+  return SafeArea(
+    minimum: safeAreaMinimum,
+    child: buildOpenHandDialog(
+      backgroundColor: backgroundColor,
+      surfaceTintColor: surfaceTintColor,
+      shape: shape,
+      clipBehavior: clipBehavior,
+      insetPadding: insetPadding,
+      width: expandToMax ? effectiveMaxWidth : null,
+      height: expandToMax ? effectiveMaxHeight : null,
+      minWidth: effectiveMinWidth,
+      maxWidth: effectiveMaxWidth,
+      minHeight: effectiveMinHeight,
+      maxHeight: effectiveMaxHeight,
+      child: child,
+    ),
   );
 }
 

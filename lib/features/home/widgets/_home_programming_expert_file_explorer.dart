@@ -44,9 +44,11 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   bool _searchActive = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
+    delay: const Duration(milliseconds: 220),
+  );
   List<_FileNode> _searchResults = const [];
   bool _searchLoading = false;
-  Timer? _searchDebounce;
 
   // Track the currently selected node in the tree (for "Expand Selected").
   String? _selectedNodePath;
@@ -100,7 +102,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
+    _searchDebounce.dispose();
     _treeScrollController.dispose();
     _treeHorizontalScrollController.dispose();
     _searchController.dispose();
@@ -112,7 +114,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     setState(() {
       _searchActive = !_searchActive;
       if (!_searchActive) {
-        _searchDebounce?.cancel();
+        _searchDebounce.cancel();
         _searchController.clear();
         _searchResults = const [];
         _searchLoading = false;
@@ -131,7 +133,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   void _onSearchChanged(String query) {
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) {
       setState(() {
@@ -146,7 +148,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     if (!_searchLoading && mounted) {
       setState(() => _searchLoading = true);
     }
-    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+    _searchDebounce.schedule(() {
       if (mounted) {
         _performSearch(trimmed);
       }
