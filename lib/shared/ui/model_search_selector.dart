@@ -5,6 +5,10 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 
+const double _kModelSearchDialogMaxWidth = 420;
+const double _kModelSearchDialogMaxHeight = 520;
+const double _kModelSearchDialogRadius = 16;
+
 /// Entry representing a single selectable model inside a provider group.
 class ModelEntry {
   const ModelEntry({
@@ -21,6 +25,8 @@ class ModelEntry {
 
   String get searchableText =>
       '$modelId $providerLabel $protocolLabel'.toLowerCase();
+
+  (String, String) get selectionKey => (configId, modelId);
 }
 
 /// A searchable model selection dialog.
@@ -37,33 +43,43 @@ Future<(String, String)?> showModelSearchSelector({
   // Build flat list of entries grouped by provider.
   // Skip providers that have no models at all (empty allModelIds).
   final entries = <ModelEntry>[];
+  final entriesBySelection = <(String, String), ModelEntry>{};
   for (final config in models) {
+    final configId = config.id.trim();
+    if (configId.isEmpty) continue;
+    final providerLabel = config.providerLabel.trim().isEmpty
+        ? configId
+        : config.providerLabel.trim();
+    final protocolLabel = config.protocolType.storageValue;
     final allIds = config.allModelIds;
     if (allIds.isEmpty) {
       // Provider has no models — hide from the selector.
       continue;
     }
     for (final modelId in allIds) {
-      entries.add(
-        ModelEntry(
-          configId: config.id,
-          modelId: modelId,
-          providerLabel: config.providerLabel,
-          protocolLabel: config.protocolType.storageValue,
-        ),
+      final normalizedModelId = modelId.trim();
+      if (normalizedModelId.isEmpty) continue;
+      final entry = ModelEntry(
+        configId: configId,
+        modelId: normalizedModelId,
+        providerLabel: providerLabel,
+        protocolLabel: protocolLabel,
       );
+      if (entriesBySelection.containsKey(entry.selectionKey)) continue;
+      entriesBySelection[entry.selectionKey] = entry;
+      entries.add(entry);
     }
   }
 
   // Build recent entries from persisted selections, validating against current
   // provider configs to prune stale entries.
   final recentEntries = <ModelEntry>[];
+  final seenRecentSelections = <(String, String)>{};
   for (final recent in recentSelections) {
-    final match = entries.where(
-      (e) => e.configId == recent.configId && e.modelId == recent.modelId,
-    );
-    if (match.isNotEmpty) {
-      recentEntries.add(match.first);
+    final selectionKey = (recent.configId.trim(), recent.modelId.trim());
+    final entry = entriesBySelection[selectionKey];
+    if (entry != null && seenRecentSelections.add(selectionKey)) {
+      recentEntries.add(entry);
     }
   }
 
@@ -158,182 +174,162 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               .toList(growable: false);
     final hasAnyModels = widget.entries.isNotEmpty;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ─── Search field ───
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  hintText: isZh ? '搜索模型…' : 'Search models…',
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () => _searchController.clear(),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                        )
-                      : null,
+    return buildOpenHandDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_kModelSearchDialogRadius),
+      ),
+      maxWidth: _kModelSearchDialogMaxWidth,
+      maxHeight: _kModelSearchDialogMaxHeight,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ─── Search field ───
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                hintText: isZh ? '搜索模型…' : 'Search models…',
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
-                style: theme.textTheme.bodyMedium,
-                onSubmitted: (_) {
-                  // Select the first filtered result on Enter.
-                  if (_filtered.isNotEmpty) {
-                    final first = _filtered.first;
-                    Navigator.of(context).pop((first.configId, first.modelId));
-                  }
-                },
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: () => _searchController.clear(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                      )
+                    : null,
+              ),
+              style: theme.textTheme.bodyMedium,
+              onSubmitted: (_) {
+                // Select the first filtered result on Enter.
+                if (_filtered.isNotEmpty) {
+                  final first = _filtered.first;
+                  Navigator.of(context).pop((first.configId, first.modelId));
+                }
+              },
+            ),
+          ),
+          // ─── Result count ───
+          if (_searchController.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  isZh
+                      ? '${_filtered.length} / ${widget.entries.length} 个模型'
+                      : '${_filtered.length} / ${widget.entries.length} models',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
-            // ─── Result count ───
-            if (_searchController.text.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    isZh
-                        ? '${_filtered.length} / ${widget.entries.length} 个模型'
-                        : '${_filtered.length} / ${widget.entries.length} models',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+          const SizedBox(height: 4),
+          // ─── Model list ───
+          Flexible(
+            child: !hasAnyModels
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        isZh ? '暂无可用模型' : 'No available models',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 4),
-            // ─── Model list ───
-            Flexible(
-              child: !hasAnyModels
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          isZh ? '暂无可用模型' : 'No available models',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                  )
+                : _filtered.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        isZh ? '无匹配模型' : 'No matching models',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    )
-                  : _filtered.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          isZh ? '无匹配模型' : 'No matching models',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    children: [
+                      if (recentFiltered.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                          child: Text(
+                            isZh ? '最近使用' : 'Recent',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        if (recentFiltered.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-                            child: Text(
-                              isZh ? '最近使用' : 'Recent',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          for (final entry in recentFiltered)
-                            _ModelTile(
-                              entry: entry,
-                              isActive:
-                                  entry.configId == widget.selectedConfigId &&
-                                  entry.modelId == widget.selectedModelId,
-                              showProviderSubtitle: true,
-                              onTap: () {
-                                Navigator.of(
-                                  context,
-                                ).pop((entry.configId, entry.modelId));
-                              },
-                            ),
-                          const SizedBox(height: 4),
-                        ],
-                        for (
-                          var groupIndex = 0;
-                          groupIndex < grouped.length;
-                          groupIndex++
-                        ) ...[
-                          Builder(
-                            builder: (context) {
-                              final groupKey = grouped.keys.elementAt(
-                                groupIndex,
-                              );
-                              final groupEntries = grouped[groupKey]!;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Provider header.
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      8,
-                                      16,
-                                      2,
-                                    ),
-                                    child: Text(
-                                      groupKey,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                  // Model items.
-                                  for (final entry in groupEntries)
-                                    _ModelTile(
-                                      entry: entry,
-                                      isActive:
-                                          entry.configId ==
-                                              widget.selectedConfigId &&
-                                          entry.modelId ==
-                                              widget.selectedModelId,
-                                      onTap: () {
-                                        Navigator.of(
-                                          context,
-                                        ).pop((entry.configId, entry.modelId));
-                                      },
-                                    ),
-                                ],
-                              );
+                        for (final entry in recentFiltered)
+                          _ModelTile(
+                            entry: entry,
+                            isActive:
+                                entry.configId == widget.selectedConfigId &&
+                                entry.modelId == widget.selectedModelId,
+                            showProviderSubtitle: true,
+                            onTap: () {
+                              Navigator.of(
+                                context,
+                              ).pop((entry.configId, entry.modelId));
                             },
                           ),
-                        ],
+                        const SizedBox(height: 4),
                       ],
-                    ),
-            ),
-          ],
-        ),
+                      for (final group in grouped.entries) ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Provider header.
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                              child: Text(
+                                group.key,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            // Model items.
+                            for (final entry in group.value)
+                              _ModelTile(
+                                entry: entry,
+                                isActive:
+                                    entry.configId == widget.selectedConfigId &&
+                                    entry.modelId == widget.selectedModelId,
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pop((entry.configId, entry.modelId));
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }

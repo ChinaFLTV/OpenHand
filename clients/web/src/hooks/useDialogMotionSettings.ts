@@ -1,5 +1,8 @@
 import { normalizeDurationMs } from '../shared/util/number';
-import { finiteNumberOrNullFromUnknown } from '../shared/util/value';
+import {
+  finiteNumberOrNullFromUnknown,
+  stringFromUnknown,
+} from '../shared/util/value';
 
 export interface ApiDialogAnimationSettings {
   entrance_style?: string;
@@ -43,7 +46,7 @@ export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
 export const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
 export const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';
 
-interface DialogMotionSettings {
+export interface DialogMotionSettings {
   entranceStyle: DialogMotionStyle;
   exitStyle: DialogMotionStyle;
   durationMs: number;
@@ -53,14 +56,14 @@ interface DialogMotionSettings {
 const styleValues = new Set<string>(DIALOG_MOTION_STYLE_VALUES);
 const curveValues = new Set<string>(DIALOG_MOTION_CURVE_VALUES);
 
-const defaultSettings: DialogMotionSettings = {
+export const DEFAULT_DIALOG_MOTION_SETTINGS: DialogMotionSettings = {
   entranceStyle: DIALOG_MOTION_DEFAULT_STYLE,
   exitStyle: DIALOG_MOTION_DEFAULT_STYLE,
   durationMs: DIALOG_MOTION_DEFAULT_DURATION_MS,
   curve: DIALOG_MOTION_DEFAULT_CURVE,
 };
 
-let currentSettings = { ...defaultSettings };
+let currentSettings = { ...DEFAULT_DIALOG_MOTION_SETTINGS };
 
 function isDialogMotionStyle(value: string | undefined): value is DialogMotionStyle {
   return value != null && styleValues.has(value);
@@ -78,7 +81,9 @@ function normalizeStyle(
 }
 
 function normalizeCurve(value: string | undefined): DialogMotionCurve {
-  return isDialogMotionCurve(value) ? value : defaultSettings.curve;
+  return isDialogMotionCurve(value)
+    ? value
+    : DEFAULT_DIALOG_MOTION_SETTINGS.curve;
 }
 
 function normalizeDuration(
@@ -90,11 +95,11 @@ function normalizeDuration(
   if (numericValue == null) {
     return entranceStyle === 'none' && exitStyle === 'none'
       ? 0
-      : defaultSettings.durationMs;
+      : DEFAULT_DIALOG_MOTION_SETTINGS.durationMs;
   }
   if (entranceStyle === 'none' && exitStyle === 'none') return 0;
   return normalizeDurationMs(numericValue, {
-    fallback: defaultSettings.durationMs,
+    fallback: DEFAULT_DIALOG_MOTION_SETTINGS.durationMs,
     min: DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
     max: DIALOG_MOTION_MAX_DURATION_MS,
   });
@@ -152,20 +157,29 @@ export function initDialogMotionSettingsAttribute(): void {
   applyDialogMotionSettingsToDocument();
 }
 
-export function syncRemoteDialogMotionSettings(
+export function normalizeDialogMotionSettings(
   raw: ApiDialogAnimationSettings | null | undefined,
-): void {
+): DialogMotionSettings {
   const entranceStyle = normalizeStyle(
-    raw?.entrance_style,
-    defaultSettings.entranceStyle,
+    stringFromUnknown(raw?.entrance_style, { coerce: false }),
+    DEFAULT_DIALOG_MOTION_SETTINGS.entranceStyle,
   );
-  const exitStyle = normalizeStyle(raw?.exit_style, defaultSettings.exitStyle);
-  currentSettings = {
+  const exitStyle = normalizeStyle(
+    stringFromUnknown(raw?.exit_style, { coerce: false }),
+    DEFAULT_DIALOG_MOTION_SETTINGS.exitStyle,
+  );
+  return {
     entranceStyle,
     exitStyle,
     durationMs: normalizeDuration(raw?.duration_ms, entranceStyle, exitStyle),
-    curve: normalizeCurve(raw?.curve),
+    curve: normalizeCurve(stringFromUnknown(raw?.curve, { coerce: false })),
   };
+}
+
+export function syncRemoteDialogMotionSettings(
+  raw: ApiDialogAnimationSettings | null | undefined,
+): void {
+  currentSettings = normalizeDialogMotionSettings(raw);
   applyDialogMotionSettingsToDocument();
 }
 

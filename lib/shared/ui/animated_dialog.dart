@@ -17,6 +17,10 @@ const double kOpenHandDialogActionSpacing = 8;
 const double kOpenHandModalSheetMaxWidth = 980;
 const double kOpenHandModalSheetDragHandleWidth = 36;
 const double kOpenHandModalSheetDragHandleHeight = 4;
+const EdgeInsets kOpenHandDialogDefaultInsetPadding = EdgeInsets.symmetric(
+  horizontal: 40,
+  vertical: 24,
+);
 
 Color resolveAnimatedDialogBarrierColor(
   BuildContext context, {
@@ -130,6 +134,40 @@ AlertDialog buildOpenHandAlertDialog({
     title: title,
     content: content,
     actions: actions,
+  );
+}
+
+Dialog buildOpenHandDialog({
+  required Widget child,
+  Color? backgroundColor,
+  Color? surfaceTintColor,
+  ShapeBorder? shape,
+  Clip clipBehavior = Clip.antiAlias,
+  EdgeInsets? insetPadding,
+  AlignmentGeometry? alignment,
+  double? width,
+  double? height,
+  double? minWidth,
+  double? maxWidth,
+  double? minHeight,
+  double? maxHeight,
+}) {
+  return Dialog(
+    backgroundColor: backgroundColor,
+    surfaceTintColor: surfaceTintColor,
+    shape: shape,
+    clipBehavior: clipBehavior,
+    insetPadding: insetPadding ?? kOpenHandDialogDefaultInsetPadding,
+    alignment: alignment,
+    child: buildOpenHandDialogConstrainedContent(
+      child: child,
+      width: width,
+      height: height,
+      minWidth: minWidth,
+      maxWidth: maxWidth,
+      minHeight: minHeight,
+      maxHeight: maxHeight,
+    ),
   );
 }
 
@@ -491,41 +529,33 @@ Widget buildOpenHandDialogFormShell({
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  return Dialog(
+  return buildOpenHandDialog(
     backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
     shape:
         shape ??
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kOpenHandDialogFormRadius),
         ),
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth:
-            _validDialogMaxWidth(maxWidth) ?? kOpenHandDialogDefaultMaxWidth,
-      ),
-      child: IntrinsicWidth(
-        child: Padding(
-          padding: padding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Flexible(child: content),
-              const SizedBox(height: 12),
-              buildOpenHandDialogActionsBar(
-                actions: actions,
-                padding: EdgeInsets.zero,
-              ),
-            ],
-          ),
+    maxWidth: _validDialogMaxWidth(maxWidth) ?? kOpenHandDialogDefaultMaxWidth,
+    child: IntrinsicWidth(
+      child: Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Flexible(child: content),
+            const SizedBox(height: 12),
+            buildOpenHandDialogActionsBar(
+              actions: actions,
+              padding: EdgeInsets.zero,
+            ),
+          ],
         ),
       ),
     ),

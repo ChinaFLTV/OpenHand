@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
 /// A single selectable choice displayed to the user.
@@ -70,10 +71,9 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
   String? initialCustomInput,
   bool barrierDismissible = true,
 }) {
-  assert(
-    options.isNotEmpty,
-    'Choice input dialog requires at least one option.',
-  );
+  if (options.isEmpty && !allowCustomInput) {
+    return Future<ChoiceInputResult?>.value();
+  }
   return showAnimatedDialog<ChoiceInputResult>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -144,10 +144,18 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     if (matched != null && matched.value.isNotEmpty) {
       _selectedValue = matched.value;
     } else if (widget.allowCustomInput &&
-        (widget.initialCustomInput?.trim().isNotEmpty ?? false)) {
+        (widget.options.isEmpty ||
+            (widget.initialCustomInput?.trim().isNotEmpty ?? false))) {
       _selectedValue = _customValueSentinel;
-    } else {
+    } else if (widget.options.isNotEmpty) {
       _selectedValue = widget.options.first.value;
+    } else {
+      _selectedValue = '';
+    }
+    if (_selectedValue == _customValueSentinel) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _customFocusNode.requestFocus();
+      });
     }
   }
 
@@ -161,8 +169,8 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   bool get _isCustomSelected => _selectedValue == _customValueSentinel;
 
   bool get _canConfirm {
-    if (!_isCustomSelected) return true;
-    return _customController.text.trim().isNotEmpty;
+    if (_isCustomSelected) return _customController.text.trim().isNotEmpty;
+    return widget.options.any((option) => option.value == _selectedValue);
   }
 
   String _localized({required String zh, required String en}) {
@@ -176,9 +184,14 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
       Navigator.of(context).pop(ChoiceInputResult.custom(trimmed));
       return;
     }
-    final selected = widget.options.firstWhere(
-      (option) => option.value == _selectedValue,
-    );
+    ChoiceInputOption? selected;
+    for (final option in widget.options) {
+      if (option.value == _selectedValue) {
+        selected = option;
+        break;
+      }
+    }
+    if (selected == null) return;
     Navigator.of(context).pop(ChoiceInputResult.option(selected));
   }
 
@@ -194,6 +207,10 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
         _localized(zh: '在此输入你的回答…', en: 'Type your answer here…');
     final confirm = widget.confirmLabel ?? _localized(zh: '确定', en: 'Confirm');
     final cancel = widget.cancelLabel ?? _localized(zh: '取消', en: 'Cancel');
+    final fieldExpandDuration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 220),
+    );
 
     // `MediaQuery.sizeOf` only depends on the `size` aspect, so this dialog
     // does not rebuild on unrelated MediaQuery changes (text scale, viewInsets,
@@ -202,124 +219,119 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final maxDialogWidth = mediaSize.width.clamp(280.0, 560.0);
     final maxContentHeight = mediaSize.height * 0.7;
 
-    return Dialog(
+    return buildOpenHandDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxDialogWidth,
-          maxHeight: maxContentHeight,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      maxWidth: maxDialogWidth,
+      maxHeight: maxContentHeight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.title,
+              style: textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (widget.description != null &&
+                widget.description!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
               Text(
-                widget.title,
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                widget.description!,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-              ),
-              if (widget.description != null &&
-                  widget.description!.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  widget.description!,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final option in widget.options)
-                        _ChoiceTile(
-                          title: option.label,
-                          subtitle: option.description,
-                          selected: _selectedValue == option.value,
-                          onTap: () {
-                            setState(() {
-                              _selectedValue = option.value;
-                            });
-                          },
-                        ),
-                      if (widget.allowCustomInput) ...[
-                        _ChoiceTile(
-                          title: customLabel,
-                          subtitle: _localized(
-                            zh: '选择此项以手动填写内容',
-                            en: 'Pick this to type your own answer',
-                          ),
-                          selected: _isCustomSelected,
-                          onTap: () {
-                            setState(() {
-                              _selectedValue = _customValueSentinel;
-                            });
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) _customFocusNode.requestFocus();
-                            });
-                          },
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeInOutCubic,
-                          alignment: Alignment.topLeft,
-                          child: _isCustomSelected
-                              ? Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: 12,
-                                    right: 4,
-                                    top: 6,
-                                    bottom: 8,
-                                  ),
-                                  child: TextField(
-                                    controller: _customController,
-                                    focusNode: _customFocusNode,
-                                    minLines: 2,
-                                    maxLines: 6,
-                                    textInputAction: TextInputAction.newline,
-                                    onChanged: (_) => setState(() {}),
-                                    decoration: InputDecoration(
-                                      hintText: hintText,
-                                      filled: true,
-                                      fillColor:
-                                          colorScheme.surfaceContainerHigh,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: cancel,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    label: confirm,
-                    onPressed: _canConfirm ? _confirm : null,
-                  ),
-                ],
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final option in widget.options)
+                      _ChoiceTile(
+                        title: option.label,
+                        subtitle: option.description,
+                        selected: _selectedValue == option.value,
+                        onTap: () {
+                          setState(() {
+                            _selectedValue = option.value;
+                          });
+                        },
+                      ),
+                    if (widget.allowCustomInput) ...[
+                      _ChoiceTile(
+                        title: customLabel,
+                        subtitle: _localized(
+                          zh: '选择此项以手动填写内容',
+                          en: 'Pick this to type your own answer',
+                        ),
+                        selected: _isCustomSelected,
+                        onTap: () {
+                          setState(() {
+                            _selectedValue = _customValueSentinel;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) _customFocusNode.requestFocus();
+                          });
+                        },
+                      ),
+                      AnimatedSize(
+                        duration: fieldExpandDuration,
+                        curve: Curves.easeInOutCubic,
+                        alignment: Alignment.topLeft,
+                        child: _isCustomSelected
+                            ? Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 4,
+                                  top: 6,
+                                  bottom: 8,
+                                ),
+                                child: TextField(
+                                  controller: _customController,
+                                  focusNode: _customFocusNode,
+                                  minLines: 2,
+                                  maxLines: 6,
+                                  textInputAction: TextInputAction.newline,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                    hintText: hintText,
+                                    filled: true,
+                                    fillColor: colorScheme.surfaceContainerHigh,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: cancel,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 12),
+                OpenHandDialogActionButton.primary(
+                  label: confirm,
+                  onPressed: _canConfirm ? _confirm : null,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

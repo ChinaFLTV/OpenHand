@@ -13,22 +13,23 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_session_controller.dart';
 
+const double _kRequestBreakpointsDialogMaxWidth = 1040;
+const double _kRequestBreakpointsDialogMaxHeight = 720;
+const double _kRequestBreakpointsDialogRadius = 20;
+const EdgeInsets _kRequestBreakpointsDialogInsetPadding = EdgeInsets.all(24);
+
 Future<void> showWebReverseRequestBreakpointsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _RequestBreakpointsDialog(
-      controller: controller,
-    ),
+    builder: (_) => _RequestBreakpointsDialog(controller: controller),
   );
 }
 
 class _RequestBreakpointsDialog extends StatefulWidget {
-  const _RequestBreakpointsDialog({
-    required this.controller,
-  });
+  const _RequestBreakpointsDialog({required this.controller});
   final WebReverseSessionController controller;
   @override
   State<_RequestBreakpointsDialog> createState() =>
@@ -49,7 +50,8 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     final id = 'bp_${DateTime.now().microsecondsSinceEpoch}';
     final bp = WebReverseRequestBreakpoint(
       id: id,
-      name: AppLocalizations.of(context)?.webReverseReqBpNewBreakpoint ??
+      name:
+          AppLocalizations.of(context)?.webReverseReqBpNewBreakpoint ??
           'New breakpoint',
       enabled: true,
       methodFilter: '',
@@ -87,41 +89,39 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     final loc = AppLocalizations.of(context);
     return AnimatedBuilder(
       animation: widget.controller,
-      builder: (context, _) => Dialog(
+      builder: (context, _) => buildOpenHandDialog(
         backgroundColor: cs.surfaceContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 720),
-          child: Column(
-            children: [
-              _buildHeader(theme, cs, loc),
-              Divider(height: 1, color: cs.outlineVariant),
-              Expanded(
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 340,
-                      child: _buildList(theme, cs, loc),
-                    ),
-                    VerticalDivider(width: 1, color: cs.outlineVariant),
-                    Expanded(
-                      child: _selected == null
-                          ? _buildEmpty(theme, cs, loc)
-                          : _BreakpointEditor(
-                              key: ValueKey(_selected!.id),
-                              breakpoint: _selected!,
-                              onChange: _update,
-                              onDelete: () => _delete(_selected!),
-                            ),
-                    ),
-                  ],
-                ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_kRequestBreakpointsDialogRadius),
+        ),
+        insetPadding: _kRequestBreakpointsDialogInsetPadding,
+        maxWidth: _kRequestBreakpointsDialogMaxWidth,
+        maxHeight: _kRequestBreakpointsDialogMaxHeight,
+        child: Column(
+          children: [
+            _buildHeader(theme, cs, loc),
+            Divider(height: 1, color: cs.outlineVariant),
+            Expanded(
+              child: Row(
+                children: [
+                  SizedBox(width: 340, child: _buildList(theme, cs, loc)),
+                  VerticalDivider(width: 1, color: cs.outlineVariant),
+                  Expanded(
+                    child: _selected == null
+                        ? _buildEmpty(theme, cs, loc)
+                        : _BreakpointEditor(
+                            key: ValueKey(_selected!.id),
+                            breakpoint: _selected!,
+                            onChange: _update,
+                            onDelete: () => _delete(_selected!),
+                          ),
+                  ),
+                ],
               ),
-              Divider(height: 1, color: cs.outlineVariant),
-              _buildHits(theme, cs, loc),
-            ],
-          ),
+            ),
+            Divider(height: 1, color: cs.outlineVariant),
+            _buildHits(theme, cs, loc),
+          ],
         ),
       ),
     );
@@ -141,14 +141,16 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
               children: [
                 Text(
                   loc?.webReverseReqBpTitle ?? 'Request Breakpoints',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   loc?.webReverseReqBpSubtitle ??
                       'Match by URL/body substring → log hit + optional JS eval. Toggle "Intercept" first.',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -192,13 +194,18 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bookmark_add_rounded, size: 40, color: cs.onSurfaceVariant),
+              Icon(
+                Icons.bookmark_add_rounded,
+                size: 40,
+                color: cs.onSurfaceVariant,
+              ),
               const SizedBox(height: 10),
               Text(
                 loc?.webReverseReqBpEmptyHint ??
                     'Click + to add your first breakpoint',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -220,8 +227,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
             borderRadius: BorderRadius.circular(8),
             onTap: () => setState(() => _selected = bp),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 children: [
                   Switch(
@@ -239,8 +245,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                               : bp.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         Text(
                           [
@@ -293,8 +300,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 Text(
                   loc?.webReverseReqBpHitsCount(hits.length) ??
                       'Hits (recent ${hits.length})',
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const Spacer(),
                 if (hits.isNotEmpty)
@@ -311,8 +319,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                 ? Center(
                     child: Text(
                       loc?.webReverseReqBpNoHits ?? 'No hits yet',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -326,8 +335,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: DefaultTextStyle.merge(
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(fontFamily: 'monospace'),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
                           child: Row(
                             children: [
                               SizedBox(
@@ -435,13 +445,15 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
   }
 
   void _commit() {
-    widget.onChange(widget.breakpoint.copyWith(
-      name: _nameCtrl.text,
-      urlContains: _urlCtrl.text,
-      bodyContains: _bodyCtrl.text,
-      evalExpression: _evalCtrl.text,
-      methodFilter: _method,
-    ));
+    widget.onChange(
+      widget.breakpoint.copyWith(
+        name: _nameCtrl.text,
+        urlContains: _urlCtrl.text,
+        bodyContains: _bodyCtrl.text,
+        evalExpression: _evalCtrl.text,
+        methodFilter: _method,
+      ),
+    );
   }
 
   @override
@@ -465,11 +477,18 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           Wrap(
             spacing: 8,
             children: [
-              for (final m in const ['', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+              for (final m in const [
+                '',
+                'GET',
+                'POST',
+                'PUT',
+                'DELETE',
+                'PATCH',
+              ])
                 ChoiceChip(
-                  label: Text(m.isEmpty
-                      ? (loc?.webReverseReqBpAnyMethod ?? 'Any')
-                      : m),
+                  label: Text(
+                    m.isEmpty ? (loc?.webReverseReqBpAnyMethod ?? 'Any') : m,
+                  ),
                   selected: _method == m,
                   onSelected: (_) {
                     setState(() => _method = m);
@@ -503,8 +522,9 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           const SizedBox(height: 16),
           Text(
             loc?.webReverseReqBpEvalOnHit ?? 'Eval on hit (optional)',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 6),
           TextField(
@@ -513,7 +533,8 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             maxLines: 10,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              hintText: loc?.webReverseReqBpEvalHint ??
+              hintText:
+                  loc?.webReverseReqBpEvalHint ??
                   'e.g. debugger; or console.trace("hit", new Error().stack)',
               border: const OutlineInputBorder(),
               isDense: true,
@@ -525,8 +546,8 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               OpenHandDialogActionButton.destructive(
-                label: loc?.webReverseReqBpDeleteBreakpoint ??
-                    'Delete breakpoint',
+                label:
+                    loc?.webReverseReqBpDeleteBreakpoint ?? 'Delete breakpoint',
                 onPressed: widget.onDelete,
               ),
             ],
@@ -536,4 +557,3 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
     );
   }
 }
-

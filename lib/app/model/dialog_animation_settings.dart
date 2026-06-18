@@ -139,7 +139,12 @@ class DialogAnimationSettings {
   static const int defaultDurationMs = 360;
   static const int minAnimatedDurationMs = 80;
   static const int maxDurationMs = 1200;
-  static const DialogAnimationSettings defaults = DialogAnimationSettings();
+  static const DialogAnimationSettings legacyFadeScale =
+      DialogAnimationSettings();
+  static const DialogAnimationSettings defaults = DialogAnimationSettings(
+    entranceStyle: DialogAnimationStyle.springScale,
+    exitStyle: DialogAnimationStyle.springScale,
+  );
 
   final DialogAnimationStyle entranceStyle;
   final DialogAnimationStyle exitStyle;

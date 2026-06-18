@@ -914,7 +914,7 @@ class SettingsStore {
       'dialog_animation_settings',
       fallback: OpenHandMotionDefaults.dialog,
       legacyDefaults: const <DialogAnimationSettings>[
-        DialogAnimationSettings(),
+        DialogAnimationSettings.legacyFadeScale,
         DialogAnimationSettings(
           entranceStyle: DialogAnimationStyle.springScale,
         ),
@@ -925,7 +925,7 @@ class SettingsStore {
       'menu_animation_settings',
       fallback: OpenHandMotionDefaults.menu,
       legacyDefaults: const <DialogAnimationSettings>[
-        DialogAnimationSettings(),
+        DialogAnimationSettings.legacyFadeScale,
         DialogAnimationSettings(
           entranceStyle: DialogAnimationStyle.springScale,
           durationMs: 260,
@@ -957,7 +957,7 @@ class SettingsStore {
       fallback: OpenHandMotionDefaults.panel,
       replaceDisabledWithFallback: true,
       legacyDefaults: const <DialogAnimationSettings>[
-        DialogAnimationSettings(),
+        DialogAnimationSettings.legacyFadeScale,
       ],
     );
     final chipAnimationSettings = _animationSettingsFromStorage(
