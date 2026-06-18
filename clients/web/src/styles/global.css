@@ -306,6 +306,28 @@ html, body, #root {
 .oh-media-card:hover {
   box-shadow: var(--m3-elev-2);
 }
+@keyframes oh-media-result-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.965);
+    filter: saturate(0.9);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(0, -1px, 0) scale(1.012);
+    filter: saturate(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: none;
+  }
+}
+.oh-media-result-card {
+  transform-origin: top left;
+  animation: oh-media-result-enter 420ms var(--oh-motion-spring) both;
+  will-change: transform, opacity;
+}
 
 @keyframes oh-media-generating-sweep {
   0% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: 0.56; }
@@ -337,6 +359,23 @@ html, body, #root {
     inset 0 1px 0 rgba(255,255,255,0.52),
     inset 0 -20px 44px rgba(72,78,91,0.052),
     0 12px 30px rgba(0,0,0,0.052);
+}
+.oh-media-generation-exit-shell {
+  transform-origin: top left;
+  animation: oh-media-generation-exit-collapse 260ms var(--oh-motion-emphasized) both;
+  overflow: clip;
+}
+@keyframes oh-media-generation-exit-collapse {
+  0% {
+    opacity: 1;
+    max-height: 240px;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    transform: translate3d(0, -8px, 0) scale(0.965);
+  }
 }
 .oh-media-generating-placeholder::before {
   content: "";
@@ -438,7 +477,9 @@ html, body, #root {
   .oh-media-generating-placeholder,
   .oh-media-generating-shimmer,
   .oh-media-generating-indicator::before,
-  .oh-media-generating-icon {
+  .oh-media-generating-icon,
+  .oh-media-result-card,
+  .oh-media-generation-exit-shell {
     animation: none;
   }
   .oh-media-generating-shimmer {

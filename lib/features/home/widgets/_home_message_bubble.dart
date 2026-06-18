@@ -3076,7 +3076,17 @@ class _GeneratedMediaLinkCard extends StatefulWidget {
       _GeneratedMediaLinkCardState();
 }
 
-class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
+class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _revealController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+  late final Animation<double> _revealAnimation = CurvedAnimation(
+    parent: _revealController,
+    curve: Curves.easeOutBack,
+  );
+
   // Without this guard, rapid double-clicks on the inline card stacked two
   // identical preview dialogs (each spinning up its own WebView), which
   // pinned the UI thread and leaked event handlers.
@@ -3093,8 +3103,23 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
   @override
   void initState() {
     super.initState();
+    if (WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations) {
+      _revealController.value = 1;
+    } else {
+      _revealController.forward();
+    }
     _syncCachedSource();
     _initVideoThumbnail();
+  }
+
+  @override
+  void dispose() {
+    _revealController.dispose();
+    super.dispose();
   }
 
   @override
@@ -3191,7 +3216,9 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
     final backgroundColor = widget.backgroundColor;
     final isVideo = source.kind == _GeneratedMessageMediaKind.video;
     if (isVideo) {
-      return _buildVideoCard(theme, source, title, textColor, backgroundColor);
+      return _buildResultReveal(
+        _buildVideoCard(theme, source, title, textColor, backgroundColor),
+      );
     }
     const icon = Icons.graphic_eq;
     final label = _localizedText(context, zh: '音频', en: 'Audio');
@@ -3200,67 +3227,96 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
       textColor.withValues(alpha: 0.08),
       backgroundColor,
     );
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Semantics(
-        button: true,
-        label: title,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: _openPreview,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: textColor.withValues(alpha: 0.16)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 26, color: textColor.withValues(alpha: 0.9)),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: textColor,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$label · $detail',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: textColor.withValues(alpha: 0.76),
-                          ),
-                        ),
-                      ],
+    return _buildResultReveal(
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Semantics(
+          button: true,
+          label: title,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: _openPreview,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: textColor.withValues(alpha: 0.16)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 26,
+                      color: textColor.withValues(alpha: 0.9),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.open_in_full_rounded,
-                    size: 18,
-                    color: textColor.withValues(alpha: 0.78),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: textColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$label · $detail',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: textColor.withValues(alpha: 0.76),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.open_in_full_rounded,
+                      size: 18,
+                      color: textColor.withValues(alpha: 0.78),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildResultReveal(Widget child) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return AnimatedBuilder(
+      animation: _revealAnimation,
+      child: child,
+      builder: (context, child) {
+        final raw = _revealAnimation.value;
+        final t = raw.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 10),
+            child: Transform.scale(
+              alignment: Alignment.centerLeft,
+              scale: 0.965 + 0.035 * raw,
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 

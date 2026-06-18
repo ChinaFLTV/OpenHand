@@ -957,7 +957,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
               key={key}
               type="button"
               onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
-              class="oh-media-card oh-media-image-card block rounded-md overflow-hidden oh-tap-press text-left"
+              class="oh-media-card oh-media-result-card oh-media-image-card block rounded-md overflow-hidden oh-tap-press text-left"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
@@ -991,7 +991,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           return (
             <div
               key={key}
-              class="oh-media-card rounded-md overflow-hidden"
+              class="oh-media-card oh-media-result-card rounded-md overflow-hidden"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'black',
@@ -1033,7 +1033,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           return (
             <div
               key={key}
-              class="oh-media-card rounded-md px-3 py-2 flex flex-col gap-2"
+              class="oh-media-card oh-media-result-card rounded-md px-3 py-2 flex flex-col gap-2"
               style={{
                 border: '1px solid var(--m3-outline)',
                 background: 'var(--m3-surface)',
@@ -1071,7 +1071,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
             key={key}
             type="button"
             onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
-            class="oh-media-card text-xs inline-flex items-center gap-2 px-3 py-1.5 rounded-md oh-tap-press"
+            class="oh-media-card oh-media-result-card text-xs inline-flex items-center gap-2 px-3 py-1.5 rounded-md oh-tap-press"
             style={{
               border: '1px solid var(--m3-outline)',
               color: 'var(--m3-on-surface)',

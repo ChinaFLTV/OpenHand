@@ -1929,8 +1929,21 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        final t = value.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 8),
+            child: Transform.scale(
+              alignment: Alignment.centerLeft,
+              scale: 0.97 + 0.03 * value,
+              child: child,
+            ),
+          ),
+        );
+      },
       child: child,
     );
   }

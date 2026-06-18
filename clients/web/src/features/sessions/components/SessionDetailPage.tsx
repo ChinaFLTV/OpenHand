@@ -76,7 +76,7 @@ import { listSkills, type SkillSummary } from '../../../api/toolbox';
 import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from '../../../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
-import { MediaGeneratingPlaceholder } from '../../../components/MediaGeneratingPlaceholder';
+import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '../../../components/MediaGeneratingPlaceholder';
 
 const PAGE_SIZE = 32;
 // 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
@@ -107,6 +107,7 @@ const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
 const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
+type AwaitingCreationMode = Extract<MediaGenerationMode, 'image' | 'video' | 'audio'>;
 
 interface ComposerTriggerDismissal {
   offset: number;
@@ -127,7 +128,7 @@ interface SessionMessageWindowView {
   tailSignature: string;
   latestAssistantMessage: SessionMessage | null;
   latestStreamingTextMessageId: string | null;
-  lastCreationModeAwaitingAssistant: 'image' | 'video' | 'audio' | null;
+  lastCreationModeAwaitingAssistant: AwaitingCreationMode | null;
   hasUserMessage: boolean;
 }
 
@@ -927,8 +928,8 @@ function creationModeFromMessage(message: SessionMessage): string {
 function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowView {
   const ordered = messagesInDisplayOrder(items);
   const idSet = new Set<string>();
-  let lastCreationModeAwaitingAssistant: 'image' | 'video' | 'audio' | null = null;
-  let waitingCreationMode: 'image' | 'video' | 'audio' | null = null;
+  let lastCreationModeAwaitingAssistant: AwaitingCreationMode | null = null;
+  let waitingCreationMode: AwaitingCreationMode | null = null;
   let hasUserMessage = false;
   let latestAssistantMessage: SessionMessage | null = null;
 
@@ -3666,11 +3667,10 @@ export function SessionDetailPage() {
                         </li>
                       ))}
                     </ul>
-                    {responseRunning && messageWindowView.lastCreationModeAwaitingAssistant ? (
-                      <div class="mt-3">
-                        <MediaGeneratingPlaceholder mode={messageWindowView.lastCreationModeAwaitingAssistant} />
-                      </div>
-                    ) : null}
+                    <MediaGeneratingPlaceholderTransition
+                      mode={responseRunning ? messageWindowView.lastCreationModeAwaitingAssistant : null}
+                      className="mt-3"
+                    />
                   </>
                 )}
               </>

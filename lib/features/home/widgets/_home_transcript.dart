@@ -349,6 +349,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool? _cachedCreationRequestAllowWhenIdle;
   AiCreationRequest? _cachedCreationRequest;
   bool _cachedCreationRequestComputed = false;
+  AiCreationRequest? _lastActiveCreationPlaceholder;
+  AiCreationRequest? _retiringCreationPlaceholder;
+  Timer? _retiringCreationPlaceholderTimer;
   List<AiSessionErrorRecord>? _cachedUserVisibleErrorSource;
   int? _cachedUserVisibleErrorDismissedLength;
   String? _cachedUserVisibleErrorVisibleId;
@@ -465,6 +468,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialMaterializationPending = false;
       _materializationTaskQueued = false;
+      _lastActiveCreationPlaceholder = null;
+      _retiringCreationPlaceholder = null;
+      _retiringCreationPlaceholderTimer?.cancel();
+      _retiringCreationPlaceholderTimer = null;
       // 阶段㉓d：双兜底物化 — 在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -1000,6 +1007,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   void dispose() {
+    _retiringCreationPlaceholderTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
     _materializationGeneration += 1;
@@ -1731,6 +1739,41 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return result;
   }
 
+  AiCreationRequest? _syncRetiringCreationPlaceholder({
+    required AiCreationRequest? pendingRequest,
+    required AiCreationRequest? failedRequest,
+  }) {
+    if (pendingRequest != null) {
+      _lastActiveCreationPlaceholder = pendingRequest;
+      _retiringCreationPlaceholder = null;
+      _retiringCreationPlaceholderTimer?.cancel();
+      _retiringCreationPlaceholderTimer = null;
+      return null;
+    }
+    if (failedRequest != null) {
+      _lastActiveCreationPlaceholder = null;
+      _retiringCreationPlaceholder = null;
+      _retiringCreationPlaceholderTimer?.cancel();
+      _retiringCreationPlaceholderTimer = null;
+      return null;
+    }
+    final last = _lastActiveCreationPlaceholder;
+    if (last == null) return _retiringCreationPlaceholder;
+    _lastActiveCreationPlaceholder = null;
+    _retiringCreationPlaceholder = last;
+    _retiringCreationPlaceholderTimer?.cancel();
+    _retiringCreationPlaceholderTimer = Timer(
+      _PendingCreationPlaceholderCard.exitDuration,
+      () {
+        if (!mounted || !identical(_retiringCreationPlaceholder, last)) {
+          return;
+        }
+        setState(() => _retiringCreationPlaceholder = null);
+      },
+    );
+    return last;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -1857,13 +1900,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final suppressGenericErrorBanner = failedCreationRequest != null;
     final errorBannerCount =
         (userVisibleError == null || suppressGenericErrorBanner) ? 0 : 1;
+    final retiringCreationRequest = _syncRetiringCreationPlaceholder(
+      pendingRequest: pendingCreationRequest,
+      failedRequest: failedCreationRequest,
+    );
     final pendingPlaceholderCount = pendingCreationRequest == null ? 0 : 1;
+    final retiringPlaceholderCount = retiringCreationRequest == null ? 0 : 1;
     final failureCardCount = failedCreationRequest == null ? 0 : 1;
     final listItemCount =
         _renderEntries.length +
         hiddenLoadMoreCount +
         errorBannerCount +
         pendingPlaceholderCount +
+        retiringPlaceholderCount +
         failureCardCount;
     final transcriptScrollActive = context
         .select<TranscriptScrollActivity, bool>((activity) => activity.value);
@@ -1951,7 +2000,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         );
                       }
                       if (afterMessagesIndex <
-                          pendingPlaceholderCount + failureCardCount) {
+                          pendingPlaceholderCount + retiringPlaceholderCount) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _PendingCreationPlaceholderCard(
+                            request: retiringCreationRequest!,
+                            exiting: true,
+                          ),
+                        );
+                      }
+                      if (afterMessagesIndex <
+                          pendingPlaceholderCount +
+                              retiringPlaceholderCount +
+                              failureCardCount) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: TweenAnimationBuilder<double>(
@@ -2554,9 +2615,15 @@ AiCreationRequest? _resolvePendingCreationPlaceholder({
 }
 
 class _PendingCreationPlaceholderCard extends StatefulWidget {
-  const _PendingCreationPlaceholderCard({required this.request});
+  const _PendingCreationPlaceholderCard({
+    required this.request,
+    this.exiting = false,
+  });
+
+  static const Duration exitDuration = Duration(milliseconds: 260);
 
   final AiCreationRequest request;
+  final bool exiting;
 
   @override
   State<_PendingCreationPlaceholderCard> createState() =>
@@ -2676,7 +2743,7 @@ class _PendingCreationPlaceholderCardState
         ],
       ),
     );
-    return Align(
+    final card = Align(
       alignment: Alignment.centerLeft,
       child: ClipRRect(
         borderRadius: cardRadius,
@@ -2803,6 +2870,41 @@ class _PendingCreationPlaceholderCardState
           },
         ),
       ),
+    );
+    if (disabledMotion) return card;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<String>(
+        'pending-creation-${widget.request.mode.name}-${widget.exiting ? 'exit' : 'enter'}',
+      ),
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: widget.exiting
+          ? _PendingCreationPlaceholderCard.exitDuration
+          : const Duration(milliseconds: 360),
+      curve: widget.exiting ? Curves.easeInCubic : Curves.easeOutBack,
+      builder: (context, raw, child) {
+        final t = raw.clamp(0.0, 1.0);
+        final visible = widget.exiting ? 1 - t : t;
+        final dy = widget.exiting ? -8.0 * t : 10.0 * (1 - t);
+        final scale = widget.exiting ? 1.0 - 0.035 * t : 0.965 + 0.035 * t;
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topLeft,
+            heightFactor: visible,
+            child: Opacity(
+              opacity: visible,
+              child: Transform.translate(
+                offset: Offset(0, dy),
+                child: Transform.scale(
+                  alignment: Alignment.centerLeft,
+                  scale: scale,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      child: card,
     );
   }
 }

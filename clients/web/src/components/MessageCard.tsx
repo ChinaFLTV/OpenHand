@@ -13,7 +13,7 @@ import type { SessionMessage } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown, looksLikeHtml, openHtmlInNewTab } from './Markdown';
-import { MediaGeneratingPlaceholder } from './MediaGeneratingPlaceholder';
+import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import { MediaPreviewDialog, MessageMedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
@@ -391,6 +391,16 @@ function creationModeData(mode: string): { icon: MessageIconName; label: string 
     default:
       return null;
   }
+}
+
+function mediaGenerationModeFromMetadata(
+  metadata: Record<string, unknown>,
+): MediaGenerationMode | null {
+  const creationRequest = recordOrNullFromUnknown(metadata['creation_request']);
+  const mode = nonEmptyString(creationRequest?.['mode']) || nonEmptyString(metadata['conversation_mode']);
+  return mode === 'image' || mode === 'video' || mode === 'audio' || mode === 'deep_research'
+    ? mode
+    : null;
 }
 
 function creationOptionDetail(options: Record<string, unknown> | null): string {
@@ -1057,6 +1067,10 @@ function MessageCardImpl({
   );
   const activelyStreaming = streaming || booleanFromUnknown(metadata['streaming']);
   const streamingContent = activelyStreaming || recentlyUpdatedContent;
+  const inlineCreationMode =
+    !isUserBubble && activelyStreaming && content.trim().length < 10
+      ? mediaGenerationModeFromMetadata(metadata)
+      : null;
   // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
   // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
   //
@@ -1521,14 +1535,10 @@ function MessageCardImpl({
         </div>
       ) : null}
       {!isUserBubble ? media : null}
-      {!isUserBubble && activelyStreaming && message.content.trim().length < 10 ? (() => {
-        const creationRequest = metadata['creation_request'] as Record<string, unknown> | undefined;
-        const creationMode = (creationRequest?.['mode'] as string) || (metadata['conversation_mode'] as string) || '';
-        if (creationMode === 'image' || creationMode === 'video' || creationMode === 'audio' || creationMode === 'deep_research') {
-          return <MediaGeneratingPlaceholder mode={creationMode as 'image' | 'video' | 'audio' | 'deep_research'} />;
-        }
-        return null;
-      })() : null}
+      <MediaGeneratingPlaceholderTransition
+        mode={inlineCreationMode}
+        className="mt-3"
+      />
     </article>
     {actionsVisible ? (
       <div

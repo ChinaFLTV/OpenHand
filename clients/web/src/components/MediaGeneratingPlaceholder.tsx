@@ -1,19 +1,23 @@
+import { useEffect, useState } from 'preact/hooks';
 import { t } from '../i18n';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
-type CreationMode = 'image' | 'video' | 'audio' | 'deep_research';
+export type MediaGenerationMode = 'image' | 'video' | 'audio' | 'deep_research';
 
 interface MediaGeneratingPlaceholderProps {
-  mode: CreationMode;
+  mode: MediaGenerationMode;
 }
 
-const MODE_CONFIG: Record<CreationMode, { labelKey: string; fallback: string }> = {
+const MEDIA_GENERATION_PLACEHOLDER_EXIT_MS = 260;
+
+const MODE_CONFIG: Record<MediaGenerationMode, { labelKey: string; fallback: string }> = {
   image: { labelKey: 'detail.creation.generatingImage', fallback: '正在生成图片…' },
   video: { labelKey: 'detail.creation.generatingVideo', fallback: '正在生成视频…' },
   audio: { labelKey: 'detail.creation.generatingAudio', fallback: '正在生成音频…' },
   deep_research: { labelKey: 'detail.creation.researching', fallback: '正在深度研究…' },
 };
 
-function MediaGeneratingIcon({ mode }: { mode: CreationMode }) {
+function MediaGeneratingIcon({ mode }: { mode: MediaGenerationMode }) {
   const common = {
     viewBox: '0 0 24 24',
     fill: 'none',
@@ -55,6 +59,46 @@ export function MediaGeneratingPlaceholder({ mode }: MediaGeneratingPlaceholderP
         </span>
         <span class="oh-media-generating-label">{label}</span>
       </div>
+    </div>
+  );
+}
+
+export function MediaGeneratingPlaceholderTransition(props: {
+  mode: MediaGenerationMode | null;
+  className?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [renderedMode, setRenderedMode] = useState<MediaGenerationMode | null>(props.mode);
+  const [exiting, setExiting] = useState(false);
+
+  useEffect(() => {
+    if (props.mode) {
+      setRenderedMode(props.mode);
+      setExiting(false);
+      return undefined;
+    }
+    if (!renderedMode) return undefined;
+    if (reduceMotion) {
+      setRenderedMode(null);
+      setExiting(false);
+      return undefined;
+    }
+    setExiting(true);
+    const timer = window.setTimeout(() => {
+      setRenderedMode(null);
+      setExiting(false);
+    }, MEDIA_GENERATION_PLACEHOLDER_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [props.mode, reduceMotion, renderedMode]);
+
+  if (!renderedMode) return null;
+  const shellClass = [
+    props.className ?? '',
+    exiting ? 'oh-media-generation-exit-shell' : '',
+  ].filter(Boolean).join(' ');
+  return (
+    <div class={shellClass || undefined}>
+      <MediaGeneratingPlaceholder mode={renderedMode} />
     </div>
   );
 }
