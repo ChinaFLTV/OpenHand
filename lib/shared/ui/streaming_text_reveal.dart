@@ -1,12 +1,9 @@
-// 2026-05-24 — 流式消息文本「精灵登场」reveal v2：时间驱动多 delta 级联。
+// Streaming text reveal: time-driven fade bands for independently arriving
+// deltas.
 //
-// v1 用单一 AnimationController 驱动整条波前，新 delta 到达即 forward(from:0)
-// 会强制刷新整条 ShaderMask gradient，导致前一批字符的 fade 被截断，肉眼
-// 看到的就是「一刀切」式追加。v2 改为时间驱动：维护一支 (boundary, t0)
-// 队列，每个 delta 独立计时，新 delta 进入只是「在尾部多一段渐变带」，
-// 旧 delta 的 fade 继续完成。LinearGradient 多 stop 一次性表达整条级联。
-//
-// reduceMotion 与超长文本直接 passthrough，保持零 GPU 开销退路。
+// Each delta gets its own fade window, so newer text can appear without
+// restarting older fades. Reduced motion and very long text fall back to a
+// plain child to avoid unnecessary GPU work.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';

@@ -334,6 +334,16 @@ class AiWebFetchSettings {
     this.scrapling = const AiWebFetchScraplingSettings(),
   });
 
+  /// 默认配置：所有引擎按枚举顺序排列、全部禁用；运行时自动启用 bing+ddg 兜底。
+  factory AiWebFetchSettings.defaults() {
+    return AiWebFetchSettings(
+      engines: [
+        for (final kind in AiWebFetchEngineKind.values)
+          AiWebFetchEngineConfig(kind: kind),
+      ],
+    );
+  }
+
   static const int defaultResultCount = 8;
   static const int minResultCount = 1;
   static const int maxResultCount = 30;
@@ -401,17 +411,6 @@ class AiWebFetchSettings {
   final AiWebFetchScraplingSettings scrapling;
 
   bool get cacheEnabled => cacheTtlSeconds > 0;
-
-  /// 默认配置：所有引擎按枚举顺序排列、全部禁用；运行时自动启用 bing+ddg 兜底。
-  // ignore: sort_constructors_first
-  factory AiWebFetchSettings.defaults() {
-    return AiWebFetchSettings(
-      engines: [
-        for (final kind in AiWebFetchEngineKind.values)
-          AiWebFetchEngineConfig(kind: kind),
-      ],
-    );
-  }
 
   List<AiWebFetchEngineConfig> enabledEnginesInOrder() =>
       engines.where((e) => e.enabled).toList(growable: false);

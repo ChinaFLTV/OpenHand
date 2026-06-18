@@ -244,6 +244,17 @@ class AiWebSearchSettings {
     this.throttlePerMinute = 0,
   });
 
+  /// 默认配置：所有引擎按 [AiWebSearchEngineKind] 顺序枚举出来，全部禁用。
+  /// 当用户全部禁用时，运行期会自动启用 `bing` / `duckduckgo` 兜底。
+  factory AiWebSearchSettings.defaults() {
+    return AiWebSearchSettings(
+      engines: [
+        for (final kind in AiWebSearchEngineKind.values)
+          AiWebSearchEngineConfig(kind: kind),
+      ],
+    );
+  }
+
   static const int defaultResultCount = 8;
   static const int minResultCount = 1;
   static const int maxResultCount = 30;
@@ -324,18 +335,6 @@ class AiWebSearchSettings {
   final int throttlePerMinute;
 
   bool get cacheEnabled => cacheTtlSeconds > 0;
-
-  /// 默认配置：所有引擎按 [AiWebSearchEngineKind] 顺序枚举出来，全部禁用。
-  /// 当用户全部禁用时，运行期会自动启用 `bing` / `duckduckgo` 兜底。
-  // ignore: sort_constructors_first
-  factory AiWebSearchSettings.defaults() {
-    return AiWebSearchSettings(
-      engines: [
-        for (final kind in AiWebSearchEngineKind.values)
-          AiWebSearchEngineConfig(kind: kind),
-      ],
-    );
-  }
 
   /// 把 [engines] 中已启用的部分按当前顺序返回。
   List<AiWebSearchEngineConfig> enabledEnginesInOrder() =>

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -1013,8 +1013,7 @@ String? _findBinEntry(String packageDir) {
 }
 
 void _debugBorrow(String serverName, String message) {
-  if (!kDebugMode) return;
-  debugPrint('[mcp.borrow] $serverName: $message');
+  debugLog('mcp.borrow', '$serverName: $message');
 }
 
 /// 选择 login shell。

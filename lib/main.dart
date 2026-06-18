@@ -99,11 +99,10 @@ Future<void> _bootstrap() async {
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
     if (_shouldSilenceRenderingError(details.exception)) {
-      if (kDebugMode) {
-        debugPrint(
-          '[openhand] swallowed rendering error: ${details.exceptionAsString()}',
-        );
-      }
+      debugLog(
+        'openhand',
+        'swallowed rendering error: ${details.exceptionAsString()}',
+      );
       return;
     }
     // 2026-06-02 — 平台 IME 选区越界断言：framework 在
@@ -113,11 +112,10 @@ Future<void> _bootstrap() async {
     // composer 轻量级 IME 软恢复（unfocus + requestFocus），把脱钩的
     // selection / composing 状态与 controller 重新对齐。
     if (_isComposerImeRangeOverflow(details.exception)) {
-      if (kDebugMode) {
-        debugPrint(
-          '[openhand] swallowed IME range overflow: ${details.exceptionAsString()}',
-        );
-      }
+      debugLog(
+        'openhand',
+        'swallowed IME range overflow: ${details.exceptionAsString()}',
+      );
       _triggerComposerImeSoftRecovery();
       return;
     }
@@ -137,9 +135,7 @@ Future<void> _bootstrap() async {
   // stray FormatException cannot cascade into repeated frame rebuilds.
   PlatformDispatcher.instance.onError = (error, stack) {
     if (_shouldSilenceRenderingError(error)) {
-      if (kDebugMode) {
-        debugPrint('[openhand] swallowed async error: $error');
-      }
+      debugLog('openhand', 'swallowed async error: $error');
       return true;
     }
     if (_isComposerImeRangeOverflow(error)) {
@@ -541,9 +537,7 @@ void _triggerComposerImeSoftRecovery() {
 
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
   if (_shouldSilenceRenderingError(error)) {
-    if (kDebugMode) {
-      debugPrint('[openhand] swallowed zone error: $error');
-    }
+    debugLog('openhand', 'swallowed zone error: $error');
     return;
   }
   if (_isComposerImeRangeOverflow(error)) {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -2031,7 +2031,7 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
 McpStdioMirrorMode? mcpStdioMirrorModeOverride;
 
 /// 镜像源决策最终命中的来源。UI 用它渲染「当前生效」状态行；
-/// `_shouldInjectChinaMirror` 内部也会用它打 debugPrint 让 cold-start 失败时一眼能看出走了哪条路。
+/// `_shouldInjectChinaMirror` 内部也会输出 debug 日志，让 cold-start 失败时一眼能看出走了哪条路。
 enum McpMirrorEffectiveSource {
   /// 环境变量 OPENHAND_MCP_MIRROR=on/1/true
   envOn,
@@ -2101,13 +2101,11 @@ bool _shouldInjectChinaMirror() {
 }
 
 void _debugMcpDiscover(String serverName, String message) {
-  if (!kDebugMode) return;
-  debugPrint('[mcp.discover] $serverName: $message');
+  debugLog('mcp.discover', '$serverName: $message');
 }
 
 void _debugMcpMirror(String message) {
-  if (!kDebugMode) return;
-  debugPrint('[mcp.mirror] $message');
+  debugLog('mcp.mirror', message);
 }
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。

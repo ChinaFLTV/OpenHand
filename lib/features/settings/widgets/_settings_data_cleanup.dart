@@ -1,5 +1,3 @@
-// ignore_for_file: prefer_const_constructors
-
 part of 'settings_view.dart';
 
 void _showDataCleanupSnackBar(BuildContext context, SnackBar snackBar) {
