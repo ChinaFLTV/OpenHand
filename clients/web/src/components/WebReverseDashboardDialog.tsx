@@ -12,6 +12,7 @@
 import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -55,7 +56,7 @@ export function WebReverseDashboardDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: 'var(--m3-scrim-bg)',
         blurPx: 0,

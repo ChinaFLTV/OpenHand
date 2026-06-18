@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
+import { clampNumber } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
   DialogFrame,
@@ -309,8 +310,22 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   onPointerMove={(event) => {
                     const drag = dragRef.current;
                     if (!drag) return;
-                    update('panX', clamp(drag.panX + (event.clientX - drag.x) / previewSize.width, -1.5, 1.5));
-                    update('panY', clamp(drag.panY + (event.clientY - drag.y) / previewSize.height, -1.5, 1.5));
+                    update(
+                      'panX',
+                      clampNumber(
+                        drag.panX + (event.clientX - drag.x) / previewSize.width,
+                        -1.5,
+                        1.5,
+                      ),
+                    );
+                    update(
+                      'panY',
+                      clampNumber(
+                        drag.panY + (event.clientY - drag.y) / previewSize.height,
+                        -1.5,
+                        1.5,
+                      ),
+                    );
                   }}
                   onPointerUp={() => { dragRef.current = null; }}
                   onPointerCancel={() => { dragRef.current = null; }}
@@ -547,9 +562,15 @@ function applyPixelTone(ctx: CanvasRenderingContext2D, width: number, height: nu
       g = g * (1 - denoise) + avg * denoise;
       b = b * (1 - denoise) + avg * denoise;
     }
-    pixels[i] = clamp255(255 * Math.pow(clamp(r, 0, 255) / 255, 1 / gamma));
-    pixels[i + 1] = clamp255(255 * Math.pow(clamp(g, 0, 255) / 255, 1 / gamma));
-    pixels[i + 2] = clamp255(255 * Math.pow(clamp(b, 0, 255) / 255, 1 / gamma));
+    pixels[i] = clamp255(
+      255 * Math.pow(clampNumber(r, 0, 255) / 255, 1 / gamma),
+    );
+    pixels[i + 1] = clamp255(
+      255 * Math.pow(clampNumber(g, 0, 255) / 255, 1 / gamma),
+    );
+    pixels[i + 2] = clamp255(
+      255 * Math.pow(clampNumber(b, 0, 255) / 255, 1 / gamma),
+    );
   }
   ctx.putImageData(data, 0, 0);
   if (settings.dispersion > 0) {
@@ -599,10 +620,6 @@ function replaceExtension(name: string, ext: string): string {
   return clean.replace(/\.[^.]+$/, '') + `.${ext}`;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function clamp255(value: number): number {
-  return Math.round(clamp(value, 0, 255));
+  return Math.round(clampNumber(value, 0, 255));
 }

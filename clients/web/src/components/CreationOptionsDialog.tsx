@@ -4,6 +4,7 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { normalizeInteger } from '../shared/util/number';
 import {
+  DIALOG_OVERLAY_EDGE_SHEET_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -300,7 +301,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
       closing={closing}
       onRequestClose={requestCancel}
       closeOnBackdrop={!closing}
-      overlayClassName="fixed inset-0 flex items-end justify-center"
+      overlayClassName={DIALOG_OVERLAY_EDGE_SHEET_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 32%, transparent)',
         blurPx: 0,

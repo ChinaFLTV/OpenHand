@@ -917,7 +917,6 @@ class SettingsStore {
         DialogAnimationSettings(),
         DialogAnimationSettings(
           entranceStyle: DialogAnimationStyle.springScale,
-          durationMs: 360,
         ),
       ],
     );

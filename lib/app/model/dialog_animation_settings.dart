@@ -136,7 +136,7 @@ class DialogAnimationSettings {
     ).normalized();
   }
 
-  static const int defaultDurationMs = 320;
+  static const int defaultDurationMs = 360;
   static const int minAnimatedDurationMs = 80;
   static const int maxDurationMs = 1200;
   static const DialogAnimationSettings defaults = DialogAnimationSettings();
@@ -235,7 +235,6 @@ class OpenHandMotionDefaults {
   static const DialogAnimationSettings dialog = DialogAnimationSettings(
     entranceStyle: DialogAnimationStyle.springScale,
     exitStyle: DialogAnimationStyle.springScale,
-    durationMs: 360,
   );
 
   static const DialogAnimationSettings menu = DialogAnimationSettings(

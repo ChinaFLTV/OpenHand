@@ -15,6 +15,14 @@ export const DIALOG_OVERLAY_STRONG_BACKGROUND = 'rgba(0,0,0,0.40)';
 export const DIALOG_OVERLAY_INTENSE_BACKGROUND = 'rgba(0,0,0,0.45)';
 export const DIALOG_OVERLAY_INVERSE_BACKGROUND =
   'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)';
+export const DIALOG_OVERLAY_CENTER_CLASS =
+  'fixed inset-0 flex items-center justify-center p-4';
+export const DIALOG_OVERLAY_CENTER_FLUSH_CLASS =
+  'fixed inset-0 flex items-center justify-center';
+export const DIALOG_OVERLAY_CENTER_COMPACT_CLASS =
+  'fixed inset-0 flex items-center justify-center px-4';
+export const DIALOG_OVERLAY_EDGE_SHEET_CLASS =
+  'fixed inset-0 flex items-end justify-center';
 
 export interface DialogOverlayStyleOptions {
   background?: string;
@@ -41,13 +49,19 @@ export function createDialogOverlayStyle({
   blurPx = 2,
   zIndex = DIALOG_OVERLAY_BASE_Z_INDEX,
 }: DialogOverlayStyleOptions = {}): JSX.CSSProperties {
-  const style: JSX.CSSProperties = { background };
-  if (blurPx > 0) {
-    style.backdropFilter = `blur(${blurPx}px)`;
+  const resolvedBackground =
+    typeof background === 'string' && background.trim()
+      ? background
+      : DIALOG_OVERLAY_DEFAULT_BACKGROUND;
+  const safeBlurPx = Number.isFinite(blurPx) ? Math.max(0, blurPx) : 0;
+  const safeZIndex = Number.isFinite(zIndex) && zIndex > 0
+    ? Math.round(zIndex)
+    : DIALOG_OVERLAY_BASE_Z_INDEX;
+  const style: JSX.CSSProperties = { background: resolvedBackground };
+  if (safeBlurPx > 0) {
+    style.backdropFilter = `blur(${safeBlurPx}px)`;
   }
-  if (zIndex != null) {
-    style.zIndex = zIndex;
-  }
+  style.zIndex = safeZIndex;
   return style;
 }
 
@@ -70,7 +84,7 @@ export function DialogFrame({
   closing,
   onRequestClose,
   closeOnBackdrop = true,
-  overlayClassName = 'fixed inset-0 flex items-center justify-center p-4',
+  overlayClassName = DIALOG_OVERLAY_CENTER_CLASS,
   panelClassName = '',
   overlayStyle = DIALOG_OVERLAY_DEFAULT_STYLE,
   panelStyle,

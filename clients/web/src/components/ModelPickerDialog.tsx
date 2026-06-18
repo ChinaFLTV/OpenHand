@@ -11,6 +11,7 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 import {
+  DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -208,7 +209,7 @@ export function ModelPickerDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center"
+      overlayClassName={DIALOG_OVERLAY_CENTER_FLUSH_CLASS}
       overlayStyle={createDialogOverlayStyle({
         zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
       })}

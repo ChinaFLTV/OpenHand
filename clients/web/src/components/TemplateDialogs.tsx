@@ -18,6 +18,7 @@ import { Appear } from './Appear';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
+  DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DIALOG_OVERLAY_LOW_Z_INDEX,
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
@@ -57,7 +58,7 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center px-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_COMPACT_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_STRONG_BACKGROUND,
         zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,

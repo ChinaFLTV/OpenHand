@@ -3,6 +3,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { normalizeDurationMs } from '../shared/util/number';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -61,7 +62,7 @@ export function BusyWaitDialog({
     <DialogFrame
       closing={closing}
       closeOnBackdrop={false}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
       })}

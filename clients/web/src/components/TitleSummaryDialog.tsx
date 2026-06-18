@@ -4,6 +4,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -103,7 +104,7 @@ export function TitleSummaryDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={phase !== 'pending'}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 48%, transparent)',
         blurPx: 6,

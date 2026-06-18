@@ -56,7 +56,16 @@ import { stopTtsPlayback } from '../../../hooks/useTtsSettings';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
-import { DialogFrame, DIALOG_OVERLAY_INTENSE_BACKGROUND, DIALOG_OVERLAY_INVERSE_BACKGROUND, DIALOG_OVERLAY_LOW_Z_INDEX, DIALOG_OVERLAY_SOFT_BACKGROUND, DIALOG_OVERLAY_STRONG_BACKGROUND, createDialogOverlayStyle } from '../../../components/DialogFrame';
+import {
+  DIALOG_OVERLAY_CENTER_CLASS,
+  DIALOG_OVERLAY_INTENSE_BACKGROUND,
+  DIALOG_OVERLAY_INVERSE_BACKGROUND,
+  DIALOG_OVERLAY_LOW_Z_INDEX,
+  DIALOG_OVERLAY_SOFT_BACKGROUND,
+  DIALOG_OVERLAY_STRONG_BACKGROUND,
+  DialogFrame,
+  createDialogOverlayStyle,
+} from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
@@ -4498,7 +4507,7 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_STRONG_BACKGROUND,
       })}
@@ -4593,7 +4602,7 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_SOFT_BACKGROUND,
       })}
@@ -4833,7 +4842,7 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_SOFT_BACKGROUND,
       })}
@@ -5460,7 +5469,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_INVERSE_BACKGROUND,
       })}
@@ -5815,7 +5824,7 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_STRONG_BACKGROUND,
       })}

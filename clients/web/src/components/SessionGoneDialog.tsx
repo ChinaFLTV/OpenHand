@@ -3,6 +3,7 @@ import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
+  DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DIALOG_OVERLAY_INTENSE_BACKGROUND,
   DialogFrame,
   createDialogOverlayStyle,
@@ -69,7 +70,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
     <DialogFrame
       closing={closing}
       closeOnBackdrop={false}
-      overlayClassName="fixed inset-0 flex items-center justify-center px-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_COMPACT_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
       })}

@@ -1,3 +1,6 @@
+import { normalizeDurationMs } from '../shared/util/number';
+import { finiteNumberOrNullFromUnknown } from '../shared/util/value';
+
 export interface ApiDialogAnimationSettings {
   entrance_style?: string;
   exit_style?: string;
@@ -83,22 +86,18 @@ function normalizeDuration(
   entranceStyle: DialogMotionStyle,
   exitStyle: DialogMotionStyle,
 ): number {
-  const numericValue =
-    typeof value === 'string'
-      ? value.trim() === ''
-        ? undefined
-        : Number(value.trim())
-      : value;
-  if (typeof numericValue !== 'number' || !Number.isFinite(numericValue)) {
+  const numericValue = finiteNumberOrNullFromUnknown(value);
+  if (numericValue == null) {
     return entranceStyle === 'none' && exitStyle === 'none'
       ? 0
       : defaultSettings.durationMs;
   }
   if (entranceStyle === 'none' && exitStyle === 'none') return 0;
-  return Math.max(
-    DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
-    Math.min(DIALOG_MOTION_MAX_DURATION_MS, Math.round(numericValue)),
-  );
+  return normalizeDurationMs(numericValue, {
+    fallback: defaultSettings.durationMs,
+    min: DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
+    max: DIALOG_MOTION_MAX_DURATION_MS,
+  });
 }
 
 function curveToCss(curve: DialogMotionCurve): string {
@@ -176,10 +175,11 @@ export function getDialogExitDurationMs(): number {
 
 export function normalizeDialogExitDurationMs(value?: number): number {
   if (currentSettings.exitStyle === 'none') return 0;
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return getDialogExitDurationMs();
-  }
-  return Math.max(0, Math.min(DIALOG_MOTION_MAX_DURATION_MS, Math.round(value)));
+  return normalizeDurationMs(value, {
+    fallback: getDialogExitDurationMs(),
+    min: 0,
+    max: DIALOG_MOTION_MAX_DURATION_MS,
+  });
 }
 
 /// 进场（展开）动画时长：entrance_style=none 时返回 0；否则使用全局 durationMs。

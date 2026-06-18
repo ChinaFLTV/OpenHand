@@ -9,11 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { clampNumber } from '../shared/util/number';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { createTimedAbortController } from '../utils/timed_abort';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
@@ -102,10 +104,6 @@ function usePreviewViewport(): PreviewViewportSize {
     };
   }, []);
   return viewport;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 function computePreviewLayout(
@@ -637,7 +635,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-4"
+      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
       overlayStyle={createDialogOverlayStyle({
         background: 'color-mix(in srgb, black 58%, transparent)',
         blurPx: 10,
