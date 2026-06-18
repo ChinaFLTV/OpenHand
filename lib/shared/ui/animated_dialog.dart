@@ -14,12 +14,22 @@ const double kOpenHandDialogDefaultMaxWidth = 520;
 const double kOpenHandDialogDefaultRadius = 28;
 const double kOpenHandDialogFormRadius = 16;
 const double kOpenHandDialogActionSpacing = 8;
+const double kOpenHandToolDialogRadius = 20;
+const double kOpenHandToolDialogDefaultMaxWidth = 900;
+const double kOpenHandToolDialogDefaultMaxHeight = 720;
 const double kOpenHandModalSheetMaxWidth = 980;
 const double kOpenHandModalSheetDragHandleWidth = 36;
 const double kOpenHandModalSheetDragHandleHeight = 4;
 const EdgeInsets kOpenHandDialogDefaultInsetPadding = EdgeInsets.symmetric(
   horizontal: 40,
   vertical: 24,
+);
+const EdgeInsets kOpenHandToolDialogInsetPadding = EdgeInsets.all(20);
+const EdgeInsets kOpenHandToolDialogHeaderPadding = EdgeInsets.fromLTRB(
+  20,
+  14,
+  12,
+  10,
 );
 
 Color resolveAnimatedDialogBarrierColor(
@@ -558,6 +568,89 @@ Widget buildOpenHandDialogFormShell({
           ],
         ),
       ),
+    ),
+  );
+}
+
+Widget buildOpenHandToolDialogShell({
+  required BuildContext context,
+  required Widget child,
+  double maxWidth = kOpenHandToolDialogDefaultMaxWidth,
+  double maxHeight = kOpenHandToolDialogDefaultMaxHeight,
+  EdgeInsets insetPadding = kOpenHandToolDialogInsetPadding,
+  Color? backgroundColor,
+  ShapeBorder? shape,
+  Clip clipBehavior = Clip.antiAlias,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return buildOpenHandDialog(
+    backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
+    shape:
+        shape ??
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandToolDialogRadius),
+        ),
+    clipBehavior: clipBehavior,
+    insetPadding: insetPadding,
+    maxWidth: maxWidth,
+    maxHeight: maxHeight,
+    child: child,
+  );
+}
+
+Widget buildOpenHandToolDialogHeader({
+  required BuildContext context,
+  required IconData icon,
+  required String title,
+  String? subtitle,
+  List<Widget> actions = const <Widget>[],
+  VoidCallback? onClose,
+  String? closeTooltip,
+  EdgeInsetsGeometry padding = kOpenHandToolDialogHeaderPadding,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final effectiveSubtitle = subtitle?.trim();
+  return Padding(
+    padding: padding,
+    child: Row(
+      children: [
+        Icon(icon, color: colorScheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (effectiveSubtitle != null && effectiveSubtitle.isNotEmpty)
+                Text(
+                  effectiveSubtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        ...actions,
+        IconButton(
+          tooltip:
+              closeTooltip ??
+              MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: onClose ?? () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ],
     ),
   );
 }

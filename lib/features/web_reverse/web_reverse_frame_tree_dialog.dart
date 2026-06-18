@@ -160,106 +160,78 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.account_tree_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseFrameTreeTitle ?? 'Frame Tree',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseFrameTreeSubtitle ??
-                              'Page.getFrameTree · main + nested iframes',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.account_tree_rounded,
+            title: loc?.webReverseFrameTreeTitle ?? 'Frame Tree',
+            subtitle:
+                loc?.webReverseFrameTreeSubtitle ??
+                'Page.getFrameTree · main + nested iframes',
+            actions: [
+              IconButton(
+                onPressed: _busy ? null : _load,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: loc?.webReverseFrameTreeRefresh ?? 'Refresh',
+              ),
+              IconButton(
+                onPressed: _rows.isEmpty ? null : _copyJson,
+                icon: const Icon(Icons.data_object_rounded),
+                tooltip: loc?.webReverseFrameTreeCopyJson ?? 'Copy JSON',
+              ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _err.isEmpty
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    color: cs.errorContainer,
+                    padding: const EdgeInsets.all(10),
+                    child: Text(
+                      _err,
+                      style: TextStyle(color: cs.onErrorContainer),
                     ),
                   ),
-                  IconButton(
-                    onPressed: _busy ? null : _load,
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: loc?.webReverseFrameTreeRefresh ?? 'Refresh',
-                  ),
-                  IconButton(
-                    onPressed: _rows.isEmpty ? null : _copyJson,
-                    icon: const Icon(Icons.data_object_rounded),
-                    tooltip: loc?.webReverseFrameTreeCopyJson ?? 'Copy JSON',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _err.isEmpty
-                  ? const SizedBox(width: double.infinity)
-                  : Container(
-                      width: double.infinity,
-                      color: cs.errorContainer,
-                      padding: const EdgeInsets.all(10),
-                      child: Text(
-                        _err,
-                        style: TextStyle(color: cs.onErrorContainer),
+          ),
+          Expanded(
+            child: _busy
+                ? const Center(child: CircularProgressIndicator())
+                : _rows.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseFrameTreeEmpty ?? 'No frames',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-            ),
-            Expanded(
-              child: _busy
-                  ? const Center(child: CircularProgressIndicator())
-                  : _rows.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseFrameTreeEmpty ?? 'No frames',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      itemCount: _rows.length,
-                      itemBuilder: (_, i) =>
-                          _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
-                    ),
-            ),
-            buildOpenHandDialogFooter(
-              primaryLabel: loc?.commonClose ?? 'Close',
-              onPrimaryPressed: () => Navigator.of(context).pop(),
-              leading: Text(
-                loc?.webReverseFrameTreeCount(_rows.length) ??
-                    '${_rows.length} frames',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    itemCount: _rows.length,
+                    itemBuilder: (_, i) =>
+                        _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
+                  ),
+          ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.commonClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
+            leading: Text(
+              loc?.webReverseFrameTreeCount(_rows.length) ??
+                  '${_rows.length} frames',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

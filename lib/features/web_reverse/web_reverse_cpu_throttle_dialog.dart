@@ -100,142 +100,111 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 540),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 600,
+      maxHeight: 540,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.speed_rounded,
+            title: loc?.webReverseCpuThrottleTitle ?? 'CPU Throttling',
+            subtitle: 'Emulation.setCPUThrottlingRate',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.speed_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseCpuThrottleTitle ?? 'CPU Throttling',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Emulation.setCPUThrottlingRate',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    loc?.webReverseCpuThrottlePresets ?? 'Presets',
+                    style: theme.textTheme.labelLarge,
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _presets
+                        .map(
+                          (p) => ChoiceChip(
+                            label: Text(p.$1),
+                            selected: (_rate - p.$2).abs() < 1e-3,
+                            onSelected: _busy ? null : (_) => _apply(p.$2),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    loc?.webReverseCpuThrottleSliderLabel(
+                          _rate.toStringAsFixed(1),
+                        ) ??
+                        'Slider ${_rate.toStringAsFixed(1)}×',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  Slider(
+                    value: _rate,
+                    min: 1,
+                    max: 20,
+                    divisions: 38,
+                    label: '${_rate.toStringAsFixed(1)}×',
+                    onChanged: _busy ? null : (v) => setState(() => _rate = v),
+                    onChangeEnd: _busy ? null : (v) => _apply(v),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: cs.outlineVariant),
+                    ),
+                    child: Text(
+                      loc?.webReverseCpuThrottleNote ??
+                          'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.webReverseCpuThrottlePresets ?? 'Presets',
-                      style: theme.textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _presets
-                          .map(
-                            (p) => ChoiceChip(
-                              label: Text(p.$1),
-                              selected: (_rate - p.$2).abs() < 1e-3,
-                              onSelected: _busy ? null : (_) => _apply(p.$2),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 22),
-                    Text(
-                      loc?.webReverseCpuThrottleSliderLabel(
-                            _rate.toStringAsFixed(1),
-                          ) ??
-                          'Slider ${_rate.toStringAsFixed(1)}×',
-                      style: theme.textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    Slider(
-                      value: _rate,
-                      min: 1,
-                      max: 20,
-                      divisions: 38,
-                      label: '${_rate.toStringAsFixed(1)}×',
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() => _rate = v),
-                      onChangeEnd: _busy ? null : (v) => _apply(v),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: cs.outlineVariant),
-                      ),
-                      child: Text(
-                        loc?.webReverseCpuThrottleNote ??
-                            'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: _busy ? null : () => _apply(1),
+                  icon: Icons.restore_rounded,
+                  label: loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
                 ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _busy ? null : () => _apply(1),
-                    icon: Icons.restore_rounded,
-                    label: loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
-                  ),
-                  const Spacer(),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.commonClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                const Spacer(),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.commonClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

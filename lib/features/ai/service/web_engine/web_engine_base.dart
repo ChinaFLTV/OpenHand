@@ -61,12 +61,17 @@ abstract class WebEngineBase<
     Object? lastError;
     final maxAttempts = (maxRetries + 1).clamp(1, 8);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (request.cancelSignal != null) {
-        final cancelled = await Future.any([
-          Future.value(false),
-          request.cancelSignal!.then((_) => true),
-        ]);
-        if (cancelled) {
+      if (await _isCancelRequested(request.cancelSignal)) {
+        return buildResult(
+          items: const [],
+          error: 'cancelled',
+          attempts: attempt - 1,
+          elapsedMs: stopwatch.elapsedMilliseconds,
+        );
+      }
+      try {
+        final raw = await _fetchWithCancel(request);
+        if (raw == null) {
           return buildResult(
             items: const [],
             error: 'cancelled',
@@ -74,9 +79,6 @@ abstract class WebEngineBase<
             elapsedMs: stopwatch.elapsedMilliseconds,
           );
         }
-      }
-      try {
-        final raw = await fetch(request).timeout(fetchTimeout);
         return buildResult(
           items: postProcess(raw, request),
           attempts: attempt,
@@ -92,7 +94,18 @@ abstract class WebEngineBase<
             capMs: 4000,
           ),
         );
-        await Future<void>.delayed(backoff);
+        final cancelled = await _waitBackoffOrCancel(
+          request.cancelSignal,
+          backoff,
+        );
+        if (cancelled) {
+          return buildResult(
+            items: const [],
+            error: 'cancelled',
+            attempts: attempt,
+            elapsedMs: stopwatch.elapsedMilliseconds,
+          );
+        }
       }
     }
     return buildResult(
@@ -104,4 +117,42 @@ abstract class WebEngineBase<
       elapsedMs: stopwatch.elapsedMilliseconds,
     );
   }
+
+  Future<bool> _isCancelRequested(Future<void>? cancelSignal) async {
+    if (cancelSignal == null) return false;
+    return Future.any<bool>([
+      cancelSignal.then((_) => true),
+      Future<void>.delayed(Duration.zero).then((_) => false),
+    ]);
+  }
+
+  Future<List<TItem>?> _fetchWithCancel(TRequest request) async {
+    final cancelSignal = request.cancelSignal;
+    final fetchFuture = fetch(request).timeout(fetchTimeout);
+    if (cancelSignal == null) return fetchFuture;
+    final outcome = await Future.any<Object>([
+      cancelSignal.then<Object>((_) => const _WebEngineCancelled()),
+      fetchFuture,
+    ]);
+    return outcome is _WebEngineCancelled ? null : outcome as List<TItem>;
+  }
+
+  Future<bool> _waitBackoffOrCancel(
+    Future<void>? cancelSignal,
+    Duration backoff,
+  ) async {
+    if (backoff <= Duration.zero) return false;
+    if (cancelSignal == null) {
+      await Future<void>.delayed(backoff);
+      return false;
+    }
+    return Future.any<bool>([
+      cancelSignal.then((_) => true),
+      Future<void>.delayed(backoff).then((_) => false),
+    ]);
+  }
+}
+
+class _WebEngineCancelled {
+  const _WebEngineCancelled();
 }

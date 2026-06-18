@@ -79,6 +79,13 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
+function dialogClassNames(...values: Array<string | undefined | false>): string {
+  return values
+    .flatMap((value) => (value ? value.trim().split(/\s+/) : []))
+    .filter(Boolean)
+    .join(' ');
+}
+
 export function DialogFrame({
   children,
   closing,
@@ -94,8 +101,8 @@ export function DialogFrame({
 }: DialogFrameProps) {
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
-  const overlayClass = `${overlayMotionClass} ${overlayClassName}`.trim();
-  const sectionClass = `${panelClass} ${panelClassName}`.trim();
+  const overlayClass = dialogClassNames(overlayMotionClass, overlayClassName);
+  const sectionClass = dialogClassNames(panelClass, panelClassName);
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
     if (closing || !closeOnBackdrop || !onRequestClose || event.target !== event.currentTarget) {
       return;

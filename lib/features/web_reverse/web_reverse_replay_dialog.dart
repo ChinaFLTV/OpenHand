@@ -71,8 +71,13 @@ class _ReplayDialogState extends State<_ReplayDialog> {
 
   Future<void> _runBatch() async {
     final loc = AppLocalizations.of(context);
-    final byId = {for (final e in widget.controller.networkRequests) e.requestId: e};
-    final picks = _selected.map((id) => byId[id]).whereType<CdpNetworkEntry>().toList();
+    final byId = {
+      for (final e in widget.controller.networkRequests) e.requestId: e,
+    };
+    final picks = _selected
+        .map((id) => byId[id])
+        .whereType<CdpNetworkEntry>()
+        .toList();
     if (picks.isEmpty) return;
     setState(() {
       _busy = true;
@@ -126,15 +131,17 @@ class _ReplayDialogState extends State<_ReplayDialog> {
 
   Future<void> _exportJson() async {
     final data = _results.values
-        .map((r) => {
-              'requestId': r.requestId,
-              'method': r.method,
-              'url': r.url,
-              'originalStatus': r.originalStatus,
-              'newStatus': r.newStatus,
-              'bodyPreview': r.bodyPreview,
-              'ok': r.ok,
-            })
+        .map(
+          (r) => {
+            'requestId': r.requestId,
+            'method': r.method,
+            'url': r.url,
+            'originalStatus': r.originalStatus,
+            'newStatus': r.newStatus,
+            'bodyPreview': r.bodyPreview,
+            'ok': r.ok,
+          },
+        )
         .toList();
     final json = const JsonEncoder.withIndent('  ').convert(data);
     try {
@@ -161,273 +168,251 @@ class _ReplayDialogState extends State<_ReplayDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final entries = _entries;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.replay_circle_filled_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseReplayTitle ??
-                              'Network Request Replayer',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          loc?.webReverseReplaySubtitle ??
-                              'multi-select → sequential replay → diff',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _results.isEmpty ? null : _exportJson,
-                    icon: const Icon(Icons.copy_rounded),
-                    tooltip: loc?.webReverseReplayCopyResultsJson ??
-                        'Copy results JSON',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.replay_circle_filled_rounded,
+            title: loc?.webReverseReplayTitle ?? 'Network Request Replayer',
+            subtitle:
+                loc?.webReverseReplaySubtitle ??
+                'multi-select → sequential replay → diff',
+            actions: [
+              IconButton(
+                onPressed: _results.isEmpty ? null : _exportJson,
+                icon: const Icon(Icons.copy_rounded),
+                tooltip:
+                    loc?.webReverseReplayCopyResultsJson ?? 'Copy results JSON',
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: loc?.webReverseReplayFilterByUrl ??
-                            'Filter by URL',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText:
+                          loc?.webReverseReplayFilterByUrl ?? 'Filter by URL',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onChanged: (v) => setState(() => _filter = v.trim()),
                     ),
+                    onChanged: (v) => setState(() => _filter = v.trim()),
                   ),
-                  const SizedBox(width: 10),
-                  TextButton.icon(
-                    onPressed: entries.isEmpty
-                        ? null
-                        : () => setState(() {
-                              _selected
-                                ..clear()
-                                ..addAll(entries.map((e) => e.requestId));
-                            }),
-                    icon: const Icon(Icons.select_all_rounded, size: 18),
-                    label: Text(
-                        loc?.webReverseReplaySelectAll ?? 'Select All'),
-                  ),
-                  TextButton.icon(
-                    onPressed: _selected.isEmpty
-                        ? null
-                        : () => setState(() => _selected.clear()),
-                    icon: const Icon(Icons.deselect_rounded, size: 18),
-                    label: Text(loc?.webReverseReplayClear ?? 'Clear'),
-                  ),
-                ],
-              ),
-            ),
-            if (_busy)
-              LinearProgressIndicator(
-                value: _total == 0 ? 0 : _progress / _total,
-                minHeight: 3,
-              ),
-            Expanded(
-              child: entries.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseReplayEmpty ??
-                            'No HTTP requests in session',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: entries.length,
-                      itemBuilder: (_, i) {
-                        final e = entries[i];
-                        final picked = _selected.contains(e.requestId);
-                        final r = _results[e.requestId];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          decoration: BoxDecoration(
-                            color: picked
-                                ? cs.primaryContainer.withValues(alpha: 0.35)
-                                : cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: picked ? cs.primary : cs.outlineVariant,
-                            ),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: _busy
-                                ? null
-                                : () => setState(() {
-                                      if (picked) {
-                                        _selected.remove(e.requestId);
-                                      } else {
-                                        _selected.add(e.requestId);
-                                      }
-                                    }),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Checkbox(
-                                        value: picked,
-                                        onChanged: _busy
-                                            ? null
-                                            : (v) => setState(() {
-                                                  if (v == true) {
-                                                    _selected
-                                                        .add(e.requestId);
-                                                  } else {
-                                                    _selected
-                                                        .remove(e.requestId);
-                                                  }
-                                                }),
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: cs.secondaryContainer,
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          e.method,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: cs.onSecondaryContainer,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      if (e.statusCode != null)
-                                        Text(
-                                          '${e.statusCode}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: e.isError
-                                                ? cs.error
-                                                : cs.onSurface,
-                                          ),
-                                        ),
-                                      const Spacer(),
-                                      if (r != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: r.ok
-                                                ? cs.tertiaryContainer
-                                                : cs.errorContainer,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            r.newStatus == null
-                                                ? '!'
-                                                : '→ ${r.newStatus}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: r.ok
-                                                  ? cs.onTertiaryContainer
-                                                  : cs.onErrorContainer,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    e.url,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (r != null && r.bodyPreview.isNotEmpty)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        r.bodyPreview,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            buildOpenHandDialogActionsBar(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              leading: Text(
-                _busy
-                    ? (loc?.webReverseReplayProgress(_progress, _total) ??
-                        'Replaying $_progress / $_total')
-                    : (loc?.webReverseReplaySelected(
-                            _selected.length, entries.length) ??
-                        'Selected ${_selected.length} / ${entries.length}'),
-                style: theme.textTheme.labelMedium,
-              ),
-              actions: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseReplayRunBatch ?? 'Run Batch',
-                  icon: Icons.send_rounded,
-                  busy: _busy,
-                  onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
                 ),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseReplayClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
+                const SizedBox(width: 10),
+                TextButton.icon(
+                  onPressed: entries.isEmpty
+                      ? null
+                      : () => setState(() {
+                          _selected
+                            ..clear()
+                            ..addAll(entries.map((e) => e.requestId));
+                        }),
+                  icon: const Icon(Icons.select_all_rounded, size: 18),
+                  label: Text(loc?.webReverseReplaySelectAll ?? 'Select All'),
+                ),
+                TextButton.icon(
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => setState(() => _selected.clear()),
+                  icon: const Icon(Icons.deselect_rounded, size: 18),
+                  label: Text(loc?.webReverseReplayClear ?? 'Clear'),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          if (_busy)
+            LinearProgressIndicator(
+              value: _total == 0 ? 0 : _progress / _total,
+              minHeight: 3,
+            ),
+          Expanded(
+            child: entries.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseReplayEmpty ??
+                          'No HTTP requests in session',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: entries.length,
+                    itemBuilder: (_, i) {
+                      final e = entries[i];
+                      final picked = _selected.contains(e.requestId);
+                      final r = _results[e.requestId];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        decoration: BoxDecoration(
+                          color: picked
+                              ? cs.primaryContainer.withValues(alpha: 0.35)
+                              : cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: picked ? cs.primary : cs.outlineVariant,
+                          ),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: _busy
+                              ? null
+                              : () => setState(() {
+                                  if (picked) {
+                                    _selected.remove(e.requestId);
+                                  } else {
+                                    _selected.add(e.requestId);
+                                  }
+                                }),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Checkbox(
+                                      value: picked,
+                                      onChanged: _busy
+                                          ? null
+                                          : (v) => setState(() {
+                                              if (v == true) {
+                                                _selected.add(e.requestId);
+                                              } else {
+                                                _selected.remove(e.requestId);
+                                              }
+                                            }),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cs.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        e.method,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: cs.onSecondaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (e.statusCode != null)
+                                      Text(
+                                        '${e.statusCode}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: e.isError
+                                              ? cs.error
+                                              : cs.onSurface,
+                                        ),
+                                      ),
+                                    const Spacer(),
+                                    if (r != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: r.ok
+                                              ? cs.tertiaryContainer
+                                              : cs.errorContainer,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          r.newStatus == null
+                                              ? '!'
+                                              : '→ ${r.newStatus}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: r.ok
+                                                ? cs.onTertiaryContainer
+                                                : cs.onErrorContainer,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  e.url,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                                if (r != null && r.bodyPreview.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      r.bodyPreview,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            leading: Text(
+              _busy
+                  ? (loc?.webReverseReplayProgress(_progress, _total) ??
+                        'Replaying $_progress / $_total')
+                  : (loc?.webReverseReplaySelected(
+                          _selected.length,
+                          entries.length,
+                        ) ??
+                        'Selected ${_selected.length} / ${entries.length}'),
+              style: theme.textTheme.labelMedium,
+            ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseReplayRunBatch ?? 'Run Batch',
+                icon: Icons.send_rounded,
+                busy: _busy,
+                onPressed: (_busy || _selected.isEmpty) ? null : _runBatch,
+              ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.webReverseReplayClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
