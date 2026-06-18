@@ -2349,6 +2349,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                       Expanded(
                         child: Text(
                           widget.title,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium,
                         ),
@@ -2416,12 +2417,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                 // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
                 // 由于 SizedBox 的尺寸已经精确等于 BoxFit.contain 后的图片尺寸,
                 // Image 控件内部不会再产生 letterbox 白边。
-                Padding(
-                  padding: const EdgeInsets.all(_kPadding),
-                  child: SizedBox(
-                    width: bodyW,
-                    height: bodyH,
-                    child: _buildPreviewImage(context),
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.all(_kPadding),
+                    child: SizedBox(
+                      width: bodyW,
+                      height: bodyH,
+                      child: _buildPreviewImage(context),
+                    ),
                   ),
                 ),
               ],
