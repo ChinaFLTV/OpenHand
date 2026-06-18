@@ -3318,6 +3318,9 @@ class _MediaPreviewDialog extends StatefulWidget {
   State<_MediaPreviewDialog> createState() => _MediaPreviewDialogState();
 }
 
+const int _kMediaPreviewControlAutoHideMs = 900;
+const int _kMediaPreviewPointerLeaveHideMs = 80;
+
 class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   static const Duration _mediaLoadTimeout = Duration(seconds: 18);
   static const double _kInsetPadding = 24.0;
@@ -3663,7 +3666,8 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
 </div>
 <script>
 (function() {
-  const AUTO_HIDE_MS = 1800;
+  const AUTO_HIDE_MS = $_kMediaPreviewControlAutoHideMs;
+  const POINTER_LEAVE_HIDE_MS = $_kMediaPreviewPointerLeaveHideMs;
   const media = document.getElementById('media');
   const shell = document.getElementById('shell');
   const play = document.getElementById('play');
@@ -3690,6 +3694,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   let hideTimer = 0;
   let dragging = false;
   let volumeActive = false;
+  let pointerInsideShell = true;
   let playbackMode = 'stop';
 
   const icon = {
@@ -3739,6 +3744,17 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         shell.classList.remove('volume-open');
       }
     }, AUTO_HIDE_MS);
+  }
+
+  function hideControlsAfterPointerLeave() {
+    clearHideTimer();
+    if (dragging || volumeActive) return;
+    hideTimer = window.setTimeout(() => {
+      if (!dragging && !volumeActive) {
+        shell.classList.remove('controls-visible');
+        shell.classList.remove('volume-open');
+      }
+    }, POINTER_LEAVE_HIDE_MS);
   }
 
   function showControls(sticky) {
@@ -3794,8 +3810,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     shell.classList.toggle('volume-open', active);
     if (active) {
       showControls(true);
-    } else {
+    } else if (pointerInsideShell) {
       scheduleHide();
+    } else {
+      hideControlsAfterPointerLeave();
     }
   }
 
@@ -3817,7 +3835,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     if (!dragging) return;
     dragging = false;
     progress.releasePointerCapture?.(event.pointerId);
-    scheduleHide();
+    if (pointerInsideShell) {
+      showControls(false);
+    } else {
+      hideControlsAfterPointerLeave();
+    }
   }
 
   ['loadedmetadata', 'canplay', 'playing'].forEach((eventName) => {
@@ -3900,11 +3922,15 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       showControls(true);
     });
   }
-  shell.addEventListener('pointermove', () => showControls(false));
+  shell.addEventListener('pointerenter', () => { pointerInsideShell = true; });
+  shell.addEventListener('pointermove', () => { pointerInsideShell = true; showControls(false); });
   shell.addEventListener('pointerdown', () => showControls(false));
-  shell.addEventListener('pointerleave', () => scheduleHide());
+  shell.addEventListener('pointerleave', () => {
+    pointerInsideShell = false;
+    hideControlsAfterPointerLeave();
+  });
   shell.addEventListener('focusin', (event) => showControls(event.target !== shell));
-  shell.addEventListener('focusout', () => scheduleHide());
+  shell.addEventListener('focusout', hideControlsAfterPointerLeave);
   shell.addEventListener('keydown', (event) => {
     if (event.defaultPrevented) return;
     if (event.key === ' ' || event.key === 'Enter') {
@@ -5604,7 +5630,8 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   </div>
 </div>
 <script>(function(){
-const AUTO_HIDE_MS=1800;
+const AUTO_HIDE_MS=$_kMediaPreviewControlAutoHideMs;
+const POINTER_LEAVE_HIDE_MS=$_kMediaPreviewPointerLeaveHideMs;
 const shell=document.getElementById('shell');
 const v=document.getElementById('media');
 const play=document.getElementById('play');
@@ -5624,6 +5651,7 @@ if(!v){post('error:missing_video');return;}
 let hideTimer=0;
 let dragging=false;
 let volumeActive=false;
+let pointerInsideShell=true;
 let playbackMode='stop';
 const icon={
 play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
@@ -5643,15 +5671,16 @@ function fmt(value){if(!Number.isFinite(value)||value<0)return'00:00';const tota
 function setFill(input,ratio){const value=Math.max(0,Math.min(100,ratio*100));input.style.setProperty('--value',value+'%');}
 function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
 function scheduleHide(){clearHideTimer();if(v.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!v.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
+function hideControlsAfterPointerLeave(){clearHideTimer();if(dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},POINTER_LEAVE_HIDE_MS);}
 function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
 function updatePlay(){play.innerHTML=v.paused?icon.play:icon.pause;play.setAttribute('aria-label',v.paused?'Play':'Pause');play.setAttribute('title',v.paused?'Play':'Pause');if(v.paused||v.ended)showControls(true);else scheduleHide();}
 function updateTime(){const dur=Number.isFinite(v.duration)?v.duration:0;const cur=Number.isFinite(v.currentTime)?v.currentTime:0;current.textContent=fmt(cur);duration.textContent=fmt(dur);const ratio=dur>0?cur/dur:0;progress.value=String(Math.round(ratio*1000));setFill(progress,ratio);}
 function updateVolume(){const muted=v.muted||v.volume<=0;mute.innerHTML=muted?icon.mute:icon.volume;mute.setAttribute('aria-label',muted?'Unmute':'Mute');mute.setAttribute('title',muted?'Unmute':'Mute');volume.value=String(v.muted?0:v.volume);setFill(volume,v.muted?0:v.volume);}
 function updatePlayMode(){const looping=playbackMode==='loop';v.loop=looping;playMode.innerHTML=looping?icon.loop:icon.stopAfter;playMode.classList.toggle('is-active',looping);playMode.setAttribute('aria-label',looping?'Loop playback':'Stop after playback');playMode.setAttribute('title',looping?'Loop playback':'Stop after playback');}
-function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else scheduleHide();}
+function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else if(pointerInsideShell)scheduleHide();else hideControlsAfterPointerLeave();}
 function seekBy(delta){const dur=Number.isFinite(v.duration)?v.duration:0;v.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,v.currentTime+delta));updateTime();showControls(false);}
 function beginDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
-function endDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);scheduleHide();}
+function endDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);if(pointerInsideShell)showControls(false);else hideControlsAfterPointerLeave();}
 let resumed=false;
 function resume(){if(resumed)return;resumed=true;try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(v.duration||Infinity)){v.currentTime=t;}}catch(_){}updateTime();var p=v.play();if(p&&p.catch)p.catch(function(){updatePlay();});}
 v.addEventListener('loadedmetadata',resume);
@@ -5677,9 +5706,10 @@ volume.addEventListener('input',()=>{const next=Math.max(0,Math.min(1,Number(vol
 mute.addEventListener('click',()=>{v.muted=!v.muted;if(!v.muted&&v.volume<=0)v.volume=0.6;updateVolume();setVolumeActive(true);});
 playMode.addEventListener('click',()=>{playbackMode=playbackMode==='loop'?'stop':'loop';updatePlayMode();showControls(true);});
 exit.addEventListener('click',()=>post('close'));
-shell.addEventListener('pointermove',()=>showControls(false));
+shell.addEventListener('pointerenter',()=>{pointerInsideShell=true;});
+shell.addEventListener('pointermove',()=>{pointerInsideShell=true;showControls(false);});
 shell.addEventListener('pointerdown',()=>showControls(false));
-shell.addEventListener('pointerleave',()=>scheduleHide());
+shell.addEventListener('pointerleave',()=>{pointerInsideShell=false;hideControlsAfterPointerLeave();});
 shell.addEventListener('keydown',(event)=>{if(event.defaultPrevented)return;if(event.key===' '||event.key==='Enter'){event.preventDefault();play.click();}else if(event.key==='ArrowLeft'){event.preventDefault();seekBy(-5);}else if(event.key==='ArrowRight'){event.preventDefault();seekBy(5);}else if(event.key.toLowerCase()==='m'){event.preventDefault();mute.click();}});
 document.addEventListener('keydown',(event)=>{if(event.defaultPrevented||event.key!=='Escape')return;event.preventDefault();post('close');},true);
 v.addEventListener('timeupdate',sendTime);
