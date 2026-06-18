@@ -1613,7 +1613,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         left.durationSeconds == right.durationSeconds &&
         left.count == right.count &&
         left.quality == right.quality &&
-        left.style == right.style;
+        left.style == right.style &&
+        left.outputFormat == right.outputFormat &&
+        left.background == right.background &&
+        left.negativePrompt == right.negativePrompt &&
+        left.promptEnhance == right.promptEnhance &&
+        left.watermark == right.watermark &&
+        left.seed == right.seed &&
+        left.resolution == right.resolution &&
+        left.frameRate == right.frameRate &&
+        left.numFrames == right.numFrames &&
+        left.mode == right.mode &&
+        left.voice == right.voice &&
+        left.speed == right.speed &&
+        left.sampleRate == right.sampleRate &&
+        left.bitrate == right.bitrate &&
+        left.volume == right.volume &&
+        left.pitch == right.pitch;
   }
 
   void _syncComposerDraftForSession(String? nextSessionId) {
@@ -4500,10 +4516,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case _CreationMode.none:
         return AiCreationRequest.none;
       case _CreationMode.image:
-        final options =
-            _creationOptions.size != null ||
-                _creationOptions.aspectRatio != null ||
-                _creationOptions.count != 1
+        final options = _creationOptions.hasExplicitOptions
             ? _creationOptions
             : const AiCreationOptions(size: '1024x1024', aspectRatio: '1:1');
         return AiCreationRequest(mode: AiCreationMode.image, options: options);

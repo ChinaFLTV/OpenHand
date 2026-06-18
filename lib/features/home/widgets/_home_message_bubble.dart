@@ -4645,6 +4645,23 @@ class _CreationModeChip extends StatelessWidget {
       if (options.aspectRatio != null) options.aspectRatio!,
       if (options.size != null && options.aspectRatio == null) options.size!,
       if (options.durationSeconds != null) '${options.durationSeconds}s',
+      if (options.resolution != null) options.resolution!,
+      if (options.frameRate != null) '${options.frameRate}fps',
+      if (options.numFrames != null) '${options.numFrames}f',
+      if (options.quality != null) options.quality!,
+      if (options.style != null) options.style!,
+      if (options.outputFormat != null) options.outputFormat!,
+      if (options.background != null) options.background!,
+      if (options.mode != null) options.mode!,
+      if (options.voice != null) options.voice!,
+      if (options.speed != null) '${options.speed}x',
+      if (options.sampleRate != null) '${options.sampleRate}Hz',
+      if (options.bitrate != null) '${options.bitrate! ~/ 1000}kbps',
+      if (options.seed != null) 'seed ${options.seed}',
+      if (options.promptEnhance != null)
+        options.promptEnhance! ? 'prompt+' : 'prompt-',
+      if (options.watermark != null) options.watermark! ? 'watermark' : 'no wm',
+      if (options.negativePrompt != null) 'negative',
       if (options.count != 1) 'x${options.count}',
     ];
     final label = _localizedText(

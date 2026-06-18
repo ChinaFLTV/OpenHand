@@ -166,12 +166,31 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _openai(String id) {
+    const imageParameters = <String>[
+      'prompt',
+      'size',
+      'n',
+      'quality',
+      'style',
+      'output_format',
+      'background',
+      'response_format',
+    ];
+    const videoParameters = <String>['prompt', 'size', 'seconds'];
+    const audioParameters = <String>[
+      'input',
+      'voice',
+      'response_format',
+      'speed',
+    ];
+
     // ── Video / audio generation ─────────────────────────────────────────
     if (id.startsWith('sora')) {
       return _p(
         name: 'Sora',
         desc: 'Video generation model',
         capabilities: _videoGen,
+        supportedParameters: videoParameters,
       );
     }
     if (id.contains('tts') || id.contains('speech')) {
@@ -179,6 +198,7 @@ class AiModelCatalog {
         name: 'OpenAI Audio',
         desc: 'Audio generation model',
         capabilities: _audioGen,
+        supportedParameters: audioParameters,
       );
     }
 
@@ -188,6 +208,7 @@ class AiModelCatalog {
         name: id.startsWith('dall-e') ? 'DALL·E 3' : 'GPT Image',
         desc: 'Image generation model',
         capabilities: _imageGen,
+        supportedParameters: imageParameters,
       );
     }
 
@@ -742,12 +763,40 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _qwen(String id) {
+    const imageParameters = <String>[
+      'prompt',
+      'size',
+      'n',
+      'negative_prompt',
+      'seed',
+      'prompt_extend',
+      'watermark',
+      'response_format',
+    ];
+    const videoParameters = <String>[
+      'input.prompt',
+      'parameters.size',
+      'parameters.duration',
+      'parameters.negative_prompt',
+      'parameters.seed',
+      'parameters.prompt_extend',
+      'parameters.watermark',
+    ];
+    const audioParameters = <String>[
+      'input.text',
+      'parameters.voice',
+      'parameters.format',
+      'parameters.speed',
+      'parameters.sample_rate',
+    ];
+
     // ── Image / video / audio generation ─────────────────────────────────
     if (id.startsWith('qwen-image')) {
       return _p(
         name: 'Qwen Image',
         desc: 'Image generation',
         capabilities: _imageGen,
+        supportedParameters: imageParameters,
       );
     }
     if (id.startsWith('wan')) {
@@ -755,6 +804,7 @@ class AiModelCatalog {
         name: 'Wanxiang',
         desc: 'Video generation',
         capabilities: _videoGen,
+        supportedParameters: videoParameters,
       );
     }
     if (id.startsWith('qwen-tts') ||
@@ -765,6 +815,7 @@ class AiModelCatalog {
         name: 'Qwen Audio',
         desc: 'Audio generation',
         capabilities: _audioGen,
+        supportedParameters: audioParameters,
       );
     }
 
@@ -1335,12 +1386,40 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _seed(String id) {
+    const imageParameters = <String>[
+      'prompt',
+      'size',
+      'aspect_ratio',
+      'negative_prompt',
+      'seed',
+      'watermark',
+      'output_format',
+      'response_format',
+    ];
+    const videoParameters = <String>[
+      'prompt',
+      'aspect_ratio',
+      'size',
+      'duration',
+      'duration_seconds',
+      'resolution',
+      'frame_rate',
+      'fps',
+      'num_frames',
+      'negative_prompt',
+      'seed',
+      'prompt_extend',
+      'watermark',
+      'mode',
+    ];
+
     // ── Image generation ─────────────────────────────────────────────────
     if (id.contains('seedream')) {
       return _p(
         name: 'Seedream',
         desc: 'Image generation',
         capabilities: _imageGen,
+        supportedParameters: imageParameters,
       );
     }
 
@@ -1350,6 +1429,7 @@ class AiModelCatalog {
         name: 'Seedance',
         desc: 'Video generation',
         capabilities: _videoGen,
+        supportedParameters: videoParameters,
       );
     }
 

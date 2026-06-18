@@ -189,6 +189,29 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   late String? _size = widget.initial.size;
   late int? _duration = widget.initial.durationSeconds;
   late int _count = widget.initial.count;
+  late String? _quality = widget.initial.quality;
+  late String? _style = widget.initial.style;
+  late String? _outputFormat = widget.initial.outputFormat;
+  late String? _background = widget.initial.background;
+  late bool? _promptEnhance = widget.initial.promptEnhance;
+  late bool? _watermark = widget.initial.watermark;
+  late String? _resolution = widget.initial.resolution;
+  late int? _frameRate = widget.initial.frameRate;
+  late int? _numFrames = widget.initial.numFrames;
+  late String? _mode = widget.initial.mode;
+  late double? _speed = widget.initial.speed;
+  late int? _sampleRate = widget.initial.sampleRate;
+  late int? _bitrate = widget.initial.bitrate;
+  late double? _volume = widget.initial.volume;
+  late double? _pitch = widget.initial.pitch;
+  late final TextEditingController _negativePromptController =
+      TextEditingController(text: widget.initial.negativePrompt ?? '');
+  late final TextEditingController _seedController = TextEditingController(
+    text: widget.initial.seed?.toString() ?? '',
+  );
+  late final TextEditingController _voiceController = TextEditingController(
+    text: widget.initial.voice ?? '',
+  );
 
   // Mode-specific aspect ratio presets with matching pixel sizes. The 1024
   // baseline is used for image generation; video keeps the aspect strings
@@ -204,6 +227,44 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   static const List<String> _videoRatios = ['16:9', '9:16', '1:1', '4:3'];
   static const List<int> _videoDurations = [3, 5, 8, 10];
   static const List<int> _audioDurations = [5, 10, 20, 30, 60];
+  static const List<String> _imageQualities = [
+    'auto',
+    'standard',
+    'hd',
+    'high',
+  ];
+  static const List<String> _imageStyles = ['natural', 'vivid'];
+  static const List<String> _imageFormats = ['png', 'jpeg', 'webp'];
+  static const List<String> _imageBackgrounds = [
+    'auto',
+    'transparent',
+    'opaque',
+  ];
+  static const List<String> _videoResolutions = ['480p', '720p', '1080p'];
+  static const List<int> _videoFrameRates = [16, 24, 30, 60];
+  static const List<int> _videoFrames = [81, 121, 161, 241, 441];
+  static const List<String> _videoModes = ['keyframes'];
+  static const List<String> _audioFormats = [
+    'mp3',
+    'wav',
+    'opus',
+    'aac',
+    'flac',
+    'pcm',
+  ];
+  static const List<double> _audioSpeeds = [0.75, 1.0, 1.25, 1.5];
+  static const List<int> _audioSampleRates = [16000, 24000, 32000, 44100];
+  static const List<int> _audioBitrates = [64000, 128000, 192000, 256000];
+  static const List<double> _audioVolumes = [0.8, 1.0, 1.2];
+  static const List<double> _audioPitches = [-2.0, 0.0, 2.0];
+
+  @override
+  void dispose() {
+    _negativePromptController.dispose();
+    _seedController.dispose();
+    _voiceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,84 +295,440 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       color: cs.onSurfaceVariant,
       fontWeight: FontWeight.w600,
     );
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 14,
-        bottom: 18 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: cs.outlineVariant.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(999),
+    final maxHeight = math.min(MediaQuery.sizeOf(context).height * 0.82, 760.0);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 14,
+          bottom: 18 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: cs.outlineVariant.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
             ),
+            const SizedBox(height: 16),
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (isImage || isVideo) ...[
+                      _sectionLabel(
+                        context,
+                        _localizedText(context, zh: '宽高比', en: 'Aspect ratio'),
+                        sectionStyle,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (isImage)
+                            for (final preset in _imageRatios)
+                              ChoiceChip(
+                                label: Text(preset.ratio),
+                                selected: _aspectRatio == preset.ratio,
+                                onSelected: (_) => setState(() {
+                                  _aspectRatio = preset.ratio;
+                                  _size = preset.size;
+                                }),
+                              ),
+                          if (isVideo)
+                            for (final ratio in _videoRatios)
+                              ChoiceChip(
+                                label: Text(ratio),
+                                selected: _aspectRatio == ratio,
+                                onSelected: (_) =>
+                                    setState(() => _aspectRatio = ratio),
+                              ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (isVideo || isAudio) ...[
+                      _sectionLabel(
+                        context,
+                        _localizedText(
+                          context,
+                          zh: '时长 (秒)',
+                          en: 'Duration (s)',
+                        ),
+                        sectionStyle,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final d
+                              in (isVideo ? _videoDurations : _audioDurations))
+                            ChoiceChip(
+                              label: Text('${d}s'),
+                              selected: _duration == d,
+                              onSelected: (_) => setState(() => _duration = d),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (isImage) ...[
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(context, zh: '质量', en: 'Quality'),
+                        values: _imageQualities,
+                        selected: _quality,
+                        labelFor: (value) => value,
+                        onSelected: (value) => setState(() => _quality = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(context, zh: '风格', en: 'Style'),
+                        values: _imageStyles,
+                        selected: _style,
+                        labelFor: (value) => value,
+                        onSelected: (value) => setState(() => _style = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '输出格式',
+                          en: 'Output format',
+                        ),
+                        values: _imageFormats,
+                        selected: _outputFormat,
+                        labelFor: (value) => value,
+                        onSelected: (value) =>
+                            setState(() => _outputFormat = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '背景',
+                          en: 'Background',
+                        ),
+                        values: _imageBackgrounds,
+                        selected: _background,
+                        labelFor: (value) => value,
+                        onSelected: (value) =>
+                            setState(() => _background = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                    ],
+                    if (isVideo) ...[
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '分辨率',
+                          en: 'Resolution',
+                        ),
+                        values: _videoResolutions,
+                        selected: _resolution,
+                        labelFor: (value) => value,
+                        onSelected: (value) =>
+                            setState(() => _resolution = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<int>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '帧率',
+                          en: 'Frame rate',
+                        ),
+                        values: _videoFrameRates,
+                        selected: _frameRate,
+                        labelFor: (value) => '$value fps',
+                        onSelected: (value) =>
+                            setState(() => _frameRate = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<int>(
+                        context: context,
+                        title: _localizedText(context, zh: '帧数', en: 'Frames'),
+                        values: _videoFrames,
+                        selected: _numFrames,
+                        labelFor: (value) => '$value',
+                        onSelected: (value) =>
+                            setState(() => _numFrames = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(context, zh: '模式', en: 'Mode'),
+                        values: _videoModes,
+                        selected: _mode,
+                        labelFor: (value) => value,
+                        onSelected: (value) => setState(() => _mode = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                    ],
+                    if (isImage || isVideo) ...[
+                      _triBoolSection(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: 'Prompt 增强',
+                          en: 'Prompt enhance',
+                        ),
+                        value: _promptEnhance,
+                        onChanged: (value) =>
+                            setState(() => _promptEnhance = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _triBoolSection(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '水印',
+                          en: 'Watermark',
+                        ),
+                        value: _watermark,
+                        onChanged: (value) =>
+                            setState(() => _watermark = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _textInput(
+                        context,
+                        label: _localizedText(
+                          context,
+                          zh: '负向提示',
+                          en: 'Negative prompt',
+                        ),
+                        controller: _negativePromptController,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 12),
+                      _textInput(
+                        context,
+                        label: 'Seed',
+                        controller: _seedController,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (isAudio) ...[
+                      _textInput(
+                        context,
+                        label: _localizedText(context, zh: '语音', en: 'Voice'),
+                        controller: _voiceController,
+                      ),
+                      const SizedBox(height: 12),
+                      _choiceSection<String>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '音频格式',
+                          en: 'Audio format',
+                        ),
+                        values: _audioFormats,
+                        selected: _outputFormat,
+                        labelFor: (value) => value,
+                        onSelected: (value) =>
+                            setState(() => _outputFormat = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<double>(
+                        context: context,
+                        title: _localizedText(context, zh: '语速', en: 'Speed'),
+                        values: _audioSpeeds,
+                        selected: _speed,
+                        labelFor: (value) => '${value}x',
+                        onSelected: (value) => setState(() => _speed = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<int>(
+                        context: context,
+                        title: _localizedText(
+                          context,
+                          zh: '采样率',
+                          en: 'Sample rate',
+                        ),
+                        values: _audioSampleRates,
+                        selected: _sampleRate,
+                        labelFor: (value) => '$value',
+                        onSelected: (value) =>
+                            setState(() => _sampleRate = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<int>(
+                        context: context,
+                        title: _localizedText(context, zh: '码率', en: 'Bitrate'),
+                        values: _audioBitrates,
+                        selected: _bitrate,
+                        labelFor: (value) => '${value ~/ 1000} kbps',
+                        onSelected: (value) => setState(() => _bitrate = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<double>(
+                        context: context,
+                        title: _localizedText(context, zh: '音量', en: 'Volume'),
+                        values: _audioVolumes,
+                        selected: _volume,
+                        labelFor: (value) => '${value}x',
+                        onSelected: (value) => setState(() => _volume = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                      _choiceSection<double>(
+                        context: context,
+                        title: _localizedText(context, zh: '音高', en: 'Pitch'),
+                        values: _audioPitches,
+                        selected: _pitch,
+                        labelFor: (value) => value.toStringAsFixed(0),
+                        onSelected: (value) => setState(() => _pitch = value),
+                        sectionStyle: sectionStyle,
+                      ),
+                    ],
+                    _countControl(context, sectionStyle),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _actions(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(
+    BuildContext context,
+    String label,
+    TextStyle? sectionStyle,
+  ) {
+    return Text(label, style: sectionStyle);
+  }
+
+  Widget _choiceSection<T>({
+    required BuildContext context,
+    required String title,
+    required List<T> values,
+    required T? selected,
+    required String Function(T value) labelFor,
+    required ValueChanged<T?> onSelected,
+    required TextStyle? sectionStyle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionLabel(context, title, sectionStyle),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text(_localizedText(context, zh: '默认', en: 'Auto')),
+                selected: selected == null,
+                onSelected: (_) => onSelected(null),
+              ),
+              for (final value in values)
+                ChoiceChip(
+                  label: Text(labelFor(value)),
+                  selected: selected == value,
+                  onSelected: (_) => onSelected(value),
+                ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(title, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 16),
-          if (isImage || isVideo) ...[
-            Text(
-              _localizedText(context, zh: '宽高比', en: 'Aspect ratio'),
-              style: sectionStyle,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (isImage)
-                  for (final preset in _imageRatios)
-                    ChoiceChip(
-                      label: Text(preset.ratio),
-                      selected: _aspectRatio == preset.ratio,
-                      onSelected: (_) => setState(() {
-                        _aspectRatio = preset.ratio;
-                        _size = preset.size;
-                      }),
-                    ),
-                if (isVideo)
-                  for (final ratio in _videoRatios)
-                    ChoiceChip(
-                      label: Text(ratio),
-                      selected: _aspectRatio == ratio,
-                      onSelected: (_) => setState(() => _aspectRatio = ratio),
-                    ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (isVideo || isAudio) ...[
-            Text(
-              _localizedText(context, zh: '时长 (秒)', en: 'Duration (s)'),
-              style: sectionStyle,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final d in (isVideo ? _videoDurations : _audioDurations))
-                  ChoiceChip(
-                    label: Text('${d}s'),
-                    selected: _duration == d,
-                    onSelected: (_) => setState(() => _duration = d),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text(
+        ],
+      ),
+    );
+  }
+
+  Widget _triBoolSection({
+    required BuildContext context,
+    required String title,
+    required bool? value,
+    required ValueChanged<bool?> onChanged,
+    required TextStyle? sectionStyle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionLabel(context, title, sectionStyle),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text(_localizedText(context, zh: '默认', en: 'Auto')),
+                selected: value == null,
+                onSelected: (_) => onChanged(null),
+              ),
+              ChoiceChip(
+                label: Text(_localizedText(context, zh: '开', en: 'On')),
+                selected: value == true,
+                onSelected: (_) => onChanged(true),
+              ),
+              ChoiceChip(
+                label: Text(_localizedText(context, zh: '关', en: 'Off')),
+                selected: value == false,
+                onSelected: (_) => onChanged(false),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _textInput(
+    BuildContext context, {
+    required String label,
+    required TextEditingController controller,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _countControl(BuildContext context, TextStyle? sectionStyle) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionLabel(
+            context,
             _localizedText(context, zh: '数量', en: 'Count'),
-            style: sectionStyle,
+            sectionStyle,
           ),
           const SizedBox(height: 8),
           Row(
@@ -350,49 +767,79 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: Row(
-                      children: [
-                        OpenHandDialogActionButton.secondary(
-                          onPressed: () => Navigator.of(context).pop(),
-                          label: _localizedText(
-                            context,
-                            zh: '取消',
-                            en: 'Cancel',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        OpenHandDialogActionButton.primary(
-                          onPressed: () {
-                            Navigator.of(context).pop(
-                              AiCreationOptions(
-                                size: _size,
-                                aspectRatio: _aspectRatio,
-                                durationSeconds: _duration,
-                                count: _count,
-                              ),
-                            );
-                          },
-                          label: _localizedText(
-                            context,
-                            zh: '确认',
-                            en: 'Confirm',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _actions(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 128),
+          child: OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(context).pop(),
+            label: _localizedText(context, zh: '取消', en: 'Cancel'),
+          ),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 128),
+          child: OpenHandDialogActionButton.primary(
+            onPressed: () => Navigator.of(context).pop(_selectedOptions()),
+            label: _localizedText(context, zh: '确认', en: 'Confirm'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  AiCreationOptions _selectedOptions() {
+    final isImage = widget.mode == _CreationMode.image;
+    final isVideo = widget.mode == _CreationMode.video;
+    final isAudio = widget.mode == _CreationMode.audio;
+    final negativePrompt = _trimmedOrNull(_negativePromptController.text);
+    final voice = _trimmedOrNull(_voiceController.text);
+    return AiCreationOptions(
+      size: isImage ? _size : null,
+      aspectRatio: isAudio ? null : _aspectRatio,
+      durationSeconds: isImage ? null : _duration,
+      count: _count,
+      quality: isImage ? _quality : null,
+      style: isImage ? _style : null,
+      outputFormat: (isImage || isAudio) ? _outputFormat : null,
+      background: isImage ? _background : null,
+      negativePrompt: (isImage || isVideo) ? negativePrompt : null,
+      promptEnhance: (isImage || isVideo) ? _promptEnhance : null,
+      watermark: (isImage || isVideo) ? _watermark : null,
+      seed: (isImage || isVideo)
+          ? _positiveIntOrNull(_seedController.text)
+          : null,
+      resolution: isVideo ? _resolution : null,
+      frameRate: isVideo ? _frameRate : null,
+      numFrames: isVideo ? _numFrames : null,
+      mode: isVideo ? _mode : null,
+      voice: isAudio ? voice : null,
+      speed: isAudio ? _speed : null,
+      sampleRate: isAudio ? _sampleRate : null,
+      bitrate: isAudio ? _bitrate : null,
+      volume: isAudio ? _volume : null,
+      pitch: isAudio ? _pitch : null,
+    );
+  }
+
+  String? _trimmedOrNull(String raw) {
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  int? _positiveIntOrNull(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
   }
 }

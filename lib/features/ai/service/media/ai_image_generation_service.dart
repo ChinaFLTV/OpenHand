@@ -846,6 +846,33 @@ class AiImageGenerationService {
     };
   }
 
+  void _putString(Map<String, Object?> body, String key, String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return;
+    body[key] = trimmed;
+  }
+
+  void _putBool(Map<String, Object?> body, String key, bool? value) {
+    if (value == null) return;
+    body[key] = value;
+  }
+
+  void _putPositiveInt(Map<String, Object?> body, String key, int? value) {
+    if (value == null || value <= 0) return;
+    body[key] = value;
+  }
+
+  void _putPositiveDouble(
+    Map<String, Object?> body,
+    String key,
+    double? value,
+  ) {
+    if (value == null || value <= 0 || value.isNaN || value.isInfinite) {
+      return;
+    }
+    body[key] = value;
+  }
+
   Map<String, Object?> _buildImageBody({
     required String modelId,
     required String prompt,
@@ -889,6 +916,21 @@ class AiImageGenerationService {
     }
     if (options.quality != null) body['quality'] = options.quality;
     if (options.style != null) body['style'] = options.style;
+    if (protocol == AiProtocolType.openai) {
+      final lowerModel = modelId.trim().toLowerCase();
+      if (lowerModel.startsWith('gpt-image')) {
+        _putString(body, 'output_format', options.outputFormat);
+        _putString(body, 'background', options.background);
+      }
+    } else {
+      _putString(body, 'output_format', options.outputFormat);
+      _putString(body, 'background', options.background);
+      _putString(body, 'negative_prompt', options.negativePrompt);
+      _putPositiveInt(body, 'seed', options.seed);
+      _putBool(body, 'prompt_extend', options.promptEnhance);
+      _putBool(body, 'prompt_optimizer', options.promptEnhance);
+      _putBool(body, 'watermark', options.watermark);
+    }
     return body;
   }
 
@@ -916,7 +958,11 @@ class AiImageGenerationService {
         // OpenAI Sora 2: `{model, prompt, seconds, size}` (no `n`).
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
         final size =
-            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+            options.size ??
+            _videoSizeFromAspectRatio(
+              options.aspectRatio,
+              resolution: options.resolution,
+            );
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['seconds'] = options.durationSeconds;
@@ -928,18 +974,26 @@ class AiImageGenerationService {
         return <String, Object?>{
           'model': modelId,
           'prompt': prompt,
-          'prompt_optimizer': true,
+          'prompt_optimizer': options.promptEnhance ?? true,
         };
       case AiProtocolType.qwen:
         // DashScope native shape (works through compatible-mode passthrough):
         //   `{model, input:{prompt}, parameters:{size, duration}}`.
         final parameters = <String, Object?>{};
         final size =
-            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+            options.size ??
+            _videoSizeFromAspectRatio(
+              options.aspectRatio,
+              resolution: options.resolution,
+            );
         if (size != null) parameters['size'] = size;
         if (options.durationSeconds != null) {
           parameters['duration'] = options.durationSeconds;
         }
+        _putString(parameters, 'negative_prompt', options.negativePrompt);
+        _putPositiveInt(parameters, 'seed', options.seed);
+        _putBool(parameters, 'prompt_extend', options.promptEnhance);
+        _putBool(parameters, 'watermark', options.watermark);
         return <String, Object?>{
           'model': modelId,
           'input': <String, Object?>{'prompt': prompt},
@@ -951,16 +1005,21 @@ class AiImageGenerationService {
         // Reference: https://github.com/chenyme/grok2api/blob/main/README.md
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
         final size =
-            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+            options.size ??
+            _videoSizeFromAspectRatio(
+              options.aspectRatio,
+              resolution: options.resolution,
+            );
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['seconds'] = options.durationSeconds;
         }
         // grok2api documents resolution_name (480p|720p) and preset
         // (fun|normal|spicy|custom) — surface via quality/style if set.
-        if (options.quality != null) {
-          body['resolution_name'] = options.quality;
-        }
+        final resolutionName = options.resolution?.trim().isNotEmpty == true
+            ? options.resolution!.trim()
+            : options.quality;
+        _putString(body, 'resolution_name', resolutionName);
         if (options.style != null) {
           body['preset'] = options.style;
         }
@@ -1001,7 +1060,11 @@ class AiImageGenerationService {
           body['aspect_ratio'] = options.aspectRatio;
         }
         final size =
-            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+            options.size ??
+            _videoSizeFromAspectRatio(
+              options.aspectRatio,
+              resolution: options.resolution,
+            );
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['duration'] = options.durationSeconds;
@@ -1009,25 +1072,63 @@ class AiImageGenerationService {
         }
         if (options.quality != null) body['quality'] = options.quality;
         if (options.style != null) body['style'] = options.style;
+        _putString(body, 'negative_prompt', options.negativePrompt);
+        _putPositiveInt(body, 'seed', options.seed);
+        _putBool(body, 'prompt_extend', options.promptEnhance);
+        _putBool(body, 'prompt_optimizer', options.promptEnhance);
+        _putBool(body, 'watermark', options.watermark);
+        _putString(body, 'resolution', options.resolution);
+        _putPositiveInt(body, 'frame_rate', options.frameRate);
+        _putPositiveInt(body, 'fps', options.frameRate);
+        _putPositiveInt(body, 'num_frames', options.numFrames);
+        _putString(body, 'mode', options.mode);
         return body;
     }
   }
 
   /// Maps an aspect ratio to a concrete `WxH` video size for providers that
   /// only accept absolute resolutions (OpenAI Sora, DashScope wan).
-  String? _videoSizeFromAspectRatio(String? ratio) {
+  String? _videoSizeFromAspectRatio(String? ratio, {String? resolution}) {
     if (ratio == null) return null;
+    final preset = resolution?.trim().toLowerCase();
+    if (preset == null || preset.isEmpty || preset == '720p') {
+      switch (ratio.trim()) {
+        case '1:1':
+          return '1024x1024';
+        case '16:9':
+          return '1280x720';
+        case '9:16':
+          return '720x1280';
+        case '4:3':
+          return '1024x768';
+        case '3:4':
+          return '768x1024';
+      }
+      return null;
+    }
+    final height = switch (preset) {
+      '480p' => 480,
+      '1080p' => 1080,
+      _ => 720,
+    };
     switch (ratio.trim()) {
       case '1:1':
-        return '1024x1024';
+        final side = height == 480 ? 512 : (height == 1080 ? 1536 : 1024);
+        return '${side}x$side';
       case '16:9':
-        return '1280x720';
+        final width = ((height * 16 / 9) / 2).round() * 2;
+        return '${width}x$height';
       case '9:16':
-        return '720x1280';
+        final width = height;
+        final portraitHeight = ((height * 16 / 9) / 2).round() * 2;
+        return '${width}x$portraitHeight';
       case '4:3':
-        return '1024x768';
+        final width = ((height * 4 / 3) / 2).round() * 2;
+        return '${width}x$height';
       case '3:4':
-        return '768x1024';
+        final width = height;
+        final portraitHeight = ((height * 4 / 3) / 2).round() * 2;
+        return '${width}x$portraitHeight';
     }
     return null;
   }
@@ -1059,18 +1160,30 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     required List<String> referenceImageDataUrls,
   }) {
+    final frameRate = _agnesFrameRate(options.frameRate);
     final size =
         _parsePixelSize(options.size) ??
-        _agnesVideoSizeFromAspectRatio(options.aspectRatio);
+        _agnesVideoSizeFromAspectRatio(
+          options.aspectRatio,
+          resolution: options.resolution,
+        );
     final body = <String, Object?>{
       'model': modelId,
       'prompt': prompt,
       'height': size.height,
       'width': size.width,
-      'num_frames': _agnesNumFrames(options.durationSeconds),
-      'frame_rate': 24.0,
+      'num_frames': _agnesNumFrames(
+        durationSeconds: options.durationSeconds,
+        frameRate: frameRate,
+        explicitFrames: options.numFrames,
+      ),
+      'frame_rate': frameRate,
     };
-    final mode = options.style?.trim();
+    _putString(body, 'negative_prompt', options.negativePrompt);
+    _putPositiveInt(body, 'seed', options.seed);
+    final mode = (options.mode?.trim().isNotEmpty == true
+        ? options.mode!.trim()
+        : options.style?.trim());
     if (mode != null && mode.isNotEmpty && referenceImageDataUrls.length <= 1) {
       body['mode'] = mode;
     }
@@ -1085,30 +1198,56 @@ class AiImageGenerationService {
     return body;
   }
 
-  _PixelSize _agnesVideoSizeFromAspectRatio(String? ratio) {
+  int _agnesFrameRate(int? value) {
+    if (value == null || value <= 0) return 24;
+    return value.clamp(1, 60).toInt();
+  }
+
+  _PixelSize _agnesVideoSizeFromAspectRatio(
+    String? ratio, {
+    String? resolution,
+  }) {
+    final preset = resolution?.trim().toLowerCase();
+    _PixelSize scale(int width720, int height720) {
+      final multiplier = switch (preset) {
+        '480p' => 2 / 3,
+        '1080p' => 1.5,
+        _ => 1.0,
+      };
+      final width = ((width720 * multiplier) / 8).round() * 8;
+      final height = ((height720 * multiplier) / 8).round() * 8;
+      return _PixelSize(width: math.max(8, width), height: math.max(8, height));
+    }
+
     switch (ratio?.trim()) {
       case '1:1':
-        return const _PixelSize(width: 1024, height: 1024);
+        return scale(1024, 1024);
       case '16:9':
-        return const _PixelSize(width: 1280, height: 720);
+        return scale(1280, 720);
       case '9:16':
-        return const _PixelSize(width: 720, height: 1280);
+        return scale(720, 1280);
       case '4:3':
-        return const _PixelSize(width: 1024, height: 768);
+        return scale(1024, 768);
       case '3:4':
-        return const _PixelSize(width: 768, height: 1024);
+        return scale(768, 1024);
       case '1.5:1':
       case '3:2':
       default:
-        return const _PixelSize(width: 1152, height: 768);
+        return scale(1152, 768);
     }
   }
 
-  int _agnesNumFrames(int? durationSeconds) {
-    if (durationSeconds == null || durationSeconds <= 0) {
-      return 121;
-    }
-    final target = math.min(441, math.max(9, durationSeconds * 24));
+  int _agnesNumFrames({
+    required int? durationSeconds,
+    required int frameRate,
+    required int? explicitFrames,
+  }) {
+    final rawTarget = explicitFrames != null && explicitFrames > 0
+        ? explicitFrames
+        : (durationSeconds == null || durationSeconds <= 0
+              ? 121
+              : durationSeconds * frameRate);
+    final target = math.min(441, math.max(9, rawTarget));
     final steps = ((target - 1) / 8).round();
     return math.min(441, math.max(9, steps * 8 + 1));
   }
@@ -1178,30 +1317,40 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     required AiProtocolType protocol,
   }) {
-    final voice = options.style?.trim().isNotEmpty == true
+    final voice = options.voice?.trim().isNotEmpty == true
+        ? options.voice!.trim()
+        : options.style?.trim().isNotEmpty == true
         ? options.style!.trim()
         : null;
+    final format = options.outputFormat?.trim().isNotEmpty == true
+        ? options.outputFormat!.trim()
+        : 'mp3';
     switch (protocol) {
       case AiProtocolType.openai:
       case AiProtocolType.glm:
         // OpenAI TTS / GLM CogTTS share `/v1/audio/speech` body:
         //   `{model, input, voice, response_format}`.
-        return <String, Object?>{
+        final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
           'voice': voice ?? 'alloy',
-          'response_format': 'mp3',
+          'response_format': format,
         };
+        _putPositiveDouble(body, 'speed', options.speed);
+        return body;
       case AiProtocolType.qwen:
         // Qwen Qwen3-TTS / cosyvoice via DashScope native shape:
         //   `{model, input:{text}, parameters:{voice, format}}`.
+        final parameters = <String, Object?>{
+          if (voice != null) 'voice': voice,
+          'format': format,
+        };
+        _putPositiveDouble(parameters, 'speed', options.speed);
+        _putPositiveInt(parameters, 'sample_rate', options.sampleRate);
         return <String, Object?>{
           'model': modelId,
           'input': <String, Object?>{'text': prompt},
-          'parameters': <String, Object?>{
-            if (voice != null) 'voice': voice,
-            'format': 'mp3',
-          },
+          'parameters': parameters,
         };
       case AiProtocolType.minimax:
         // MiniMax T2A v2 (`/v1/t2a_v2`):
@@ -1212,14 +1361,14 @@ class AiImageGenerationService {
           'text': prompt,
           'voice_setting': <String, Object?>{
             'voice_id': voice ?? 'female-shaonv',
-            'speed': 1.0,
-            'vol': 1.0,
-            'pitch': 0,
+            'speed': options.speed ?? 1.0,
+            'vol': options.volume ?? 1.0,
+            'pitch': options.pitch ?? 0,
           },
           'audio_setting': <String, Object?>{
-            'sample_rate': 32000,
-            'bitrate': 128000,
-            'format': 'mp3',
+            'sample_rate': options.sampleRate ?? 32000,
+            'bitrate': options.bitrate ?? 128000,
+            'format': format,
           },
         };
       case AiProtocolType.seed:
@@ -1247,7 +1396,12 @@ class AiImageGenerationService {
           'model': modelId,
           'input': prompt,
           'voice': voice ?? 'alloy',
-          'response_format': 'mp3',
+          'response_format': format,
+          if (options.speed != null) 'speed': options.speed,
+          if (options.sampleRate != null) 'sample_rate': options.sampleRate,
+          if (options.bitrate != null) 'bitrate': options.bitrate,
+          if (options.volume != null) 'volume': options.volume,
+          if (options.pitch != null) 'pitch': options.pitch,
         };
     }
   }

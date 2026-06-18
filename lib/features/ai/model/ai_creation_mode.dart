@@ -41,6 +41,22 @@ class AiCreationOptions {
     this.count = 1,
     this.quality,
     this.style,
+    this.outputFormat,
+    this.background,
+    this.negativePrompt,
+    this.promptEnhance,
+    this.watermark,
+    this.seed,
+    this.resolution,
+    this.frameRate,
+    this.numFrames,
+    this.mode,
+    this.voice,
+    this.speed,
+    this.sampleRate,
+    this.bitrate,
+    this.volume,
+    this.pitch,
   });
 
   /// e.g. `"1024x1024"`, `"1024x1792"`. Leave `null` to let the provider pick.
@@ -61,6 +77,54 @@ class AiCreationOptions {
   /// Provider-specific style hint (e.g. `"vivid"`, `"natural"`).
   final String? style;
 
+  /// Output container/codec hint (e.g. `"png"`, `"webp"`, `"mp3"`).
+  final String? outputFormat;
+
+  /// Image background hint (e.g. `"auto"`, `"transparent"`, `"opaque"`).
+  final String? background;
+
+  /// Negative prompt for providers that expose explicit avoidance guidance.
+  final String? negativePrompt;
+
+  /// Provider prompt rewriting flag (`prompt_extend` / `prompt_optimizer`).
+  final bool? promptEnhance;
+
+  /// Whether provider-side watermarking should be enabled.
+  final bool? watermark;
+
+  /// Deterministic generation seed where supported.
+  final int? seed;
+
+  /// Resolution preset for video providers (e.g. `"480p"`, `"720p"`).
+  final String? resolution;
+
+  /// Requested video frame rate.
+  final int? frameRate;
+
+  /// Requested video frame count.
+  final int? numFrames;
+
+  /// Provider-specific generation mode (e.g. `"keyframes"`).
+  final String? mode;
+
+  /// TTS voice identifier.
+  final String? voice;
+
+  /// TTS speed multiplier.
+  final double? speed;
+
+  /// Audio sample rate in Hz.
+  final int? sampleRate;
+
+  /// Audio bitrate in bps.
+  final int? bitrate;
+
+  /// Audio volume multiplier where supported.
+  final double? volume;
+
+  /// Audio pitch offset where supported.
+  final double? pitch;
+
   static const AiCreationOptions empty = AiCreationOptions();
 
   AiCreationOptions copyWith({
@@ -70,6 +134,22 @@ class AiCreationOptions {
     int? count,
     String? quality,
     String? style,
+    String? outputFormat,
+    String? background,
+    String? negativePrompt,
+    bool? promptEnhance,
+    bool? watermark,
+    int? seed,
+    String? resolution,
+    int? frameRate,
+    int? numFrames,
+    String? mode,
+    String? voice,
+    double? speed,
+    int? sampleRate,
+    int? bitrate,
+    double? volume,
+    double? pitch,
   }) {
     return AiCreationOptions(
       size: size ?? this.size,
@@ -78,8 +158,26 @@ class AiCreationOptions {
       count: count ?? this.count,
       quality: quality ?? this.quality,
       style: style ?? this.style,
+      outputFormat: outputFormat ?? this.outputFormat,
+      background: background ?? this.background,
+      negativePrompt: negativePrompt ?? this.negativePrompt,
+      promptEnhance: promptEnhance ?? this.promptEnhance,
+      watermark: watermark ?? this.watermark,
+      seed: seed ?? this.seed,
+      resolution: resolution ?? this.resolution,
+      frameRate: frameRate ?? this.frameRate,
+      numFrames: numFrames ?? this.numFrames,
+      mode: mode ?? this.mode,
+      voice: voice ?? this.voice,
+      speed: speed ?? this.speed,
+      sampleRate: sampleRate ?? this.sampleRate,
+      bitrate: bitrate ?? this.bitrate,
+      volume: volume ?? this.volume,
+      pitch: pitch ?? this.pitch,
     );
   }
+
+  bool get hasExplicitOptions => toMetadata().isNotEmpty;
 
   Map<String, Object?> toMetadata() {
     return <String, Object?>{
@@ -89,13 +187,55 @@ class AiCreationOptions {
       if (count != 1) 'count': count,
       if (quality != null) 'quality': quality,
       if (style != null) 'style': style,
+      if (outputFormat != null) 'output_format': outputFormat,
+      if (background != null) 'background': background,
+      if (negativePrompt != null) 'negative_prompt': negativePrompt,
+      if (promptEnhance != null) 'prompt_enhance': promptEnhance,
+      if (watermark != null) 'watermark': watermark,
+      if (seed != null) 'seed': seed,
+      if (resolution != null) 'resolution': resolution,
+      if (frameRate != null) 'frame_rate': frameRate,
+      if (numFrames != null) 'num_frames': numFrames,
+      if (mode != null) 'mode': mode,
+      if (voice != null) 'voice': voice,
+      if (speed != null) 'speed': speed,
+      if (sampleRate != null) 'sample_rate': sampleRate,
+      if (bitrate != null) 'bitrate': bitrate,
+      if (volume != null) 'volume': volume,
+      if (pitch != null) 'pitch': pitch,
     };
   }
 
   static AiCreationOptions fromMetadata(Object? raw) {
     if (raw is! Map) return AiCreationOptions.empty;
-    final map = raw.cast<String, Object?>();
-    int? asInt(Object? v) => v is int ? v : (v is num ? v.toInt() : null);
+    final map = <String, Object?>{};
+    raw.forEach((key, value) {
+      if (key is String) map[key] = value;
+    });
+    int? asInt(Object? v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v.trim());
+      return null;
+    }
+
+    double? asDouble(Object? v) {
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v.trim());
+      return null;
+    }
+
+    bool? asBool(Object? v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      if (v is String) {
+        final normalized = v.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1') return true;
+        if (normalized == 'false' || normalized == '0') return false;
+      }
+      return null;
+    }
+
     String? asString(Object? v) =>
         v is String && v.trim().isNotEmpty ? v : null;
     return AiCreationOptions(
@@ -105,6 +245,26 @@ class AiCreationOptions {
       count: asInt(map['count']) ?? 1,
       quality: asString(map['quality']),
       style: asString(map['style']),
+      outputFormat: asString(map['output_format']),
+      background: asString(map['background']),
+      negativePrompt: asString(map['negative_prompt']),
+      promptEnhance:
+          asBool(map['prompt_enhance']) ??
+          asBool(map['prompt_extend']) ??
+          asBool(map['prompt_optimizer']),
+      watermark: asBool(map['watermark']),
+      seed: asInt(map['seed']),
+      resolution:
+          asString(map['resolution']) ?? asString(map['resolution_name']),
+      frameRate: asInt(map['frame_rate']) ?? asInt(map['fps']),
+      numFrames: asInt(map['num_frames']),
+      mode: asString(map['mode']),
+      voice: asString(map['voice']),
+      speed: asDouble(map['speed']),
+      sampleRate: asInt(map['sample_rate']),
+      bitrate: asInt(map['bitrate']),
+      volume: asDouble(map['volume']) ?? asDouble(map['vol']),
+      pitch: asDouble(map['pitch']),
     );
   }
 }

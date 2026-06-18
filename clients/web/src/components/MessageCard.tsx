@@ -399,15 +399,56 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   const parts: string[] = [];
   const aspectRatio = nonEmptyString(options['aspect_ratio']);
   const size = nonEmptyString(options['size']);
+  const quality = nonEmptyString(options['quality']);
+  const style = nonEmptyString(options['style']);
+  const outputFormat = nonEmptyString(options['output_format']);
+  const background = nonEmptyString(options['background']);
+  const resolution = nonEmptyString(options['resolution']);
+  const mode = nonEmptyString(options['mode']);
+  const voice = nonEmptyString(options['voice']);
   const duration = typeof options['duration_seconds'] === 'number'
     ? Math.round(options['duration_seconds'])
     : Number.parseInt(nonEmptyString(options['duration_seconds']), 10);
   const count = typeof options['count'] === 'number'
     ? Math.round(options['count'])
     : Number.parseInt(nonEmptyString(options['count']), 10);
+  const frameRate = typeof options['frame_rate'] === 'number'
+    ? Math.round(options['frame_rate'])
+    : Number.parseInt(nonEmptyString(options['frame_rate']), 10);
+  const numFrames = typeof options['num_frames'] === 'number'
+    ? Math.round(options['num_frames'])
+    : Number.parseInt(nonEmptyString(options['num_frames']), 10);
+  const seed = typeof options['seed'] === 'number'
+    ? Math.round(options['seed'])
+    : Number.parseInt(nonEmptyString(options['seed']), 10);
+  const speed = typeof options['speed'] === 'number'
+    ? options['speed']
+    : Number.parseFloat(nonEmptyString(options['speed']));
+  const sampleRate = typeof options['sample_rate'] === 'number'
+    ? Math.round(options['sample_rate'])
+    : Number.parseInt(nonEmptyString(options['sample_rate']), 10);
+  const bitrate = typeof options['bitrate'] === 'number'
+    ? Math.round(options['bitrate'])
+    : Number.parseInt(nonEmptyString(options['bitrate']), 10);
   if (aspectRatio) parts.push(aspectRatio);
   else if (size) parts.push(size);
   if (Number.isFinite(duration) && duration > 0) parts.push(`${duration}s`);
+  if (resolution) parts.push(resolution);
+  if (Number.isFinite(frameRate) && frameRate > 0) parts.push(`${frameRate}fps`);
+  if (Number.isFinite(numFrames) && numFrames > 0) parts.push(`${numFrames}f`);
+  if (quality) parts.push(quality);
+  if (style) parts.push(style);
+  if (outputFormat) parts.push(outputFormat);
+  if (background) parts.push(background);
+  if (mode) parts.push(mode);
+  if (voice) parts.push(voice);
+  if (Number.isFinite(speed) && speed > 0) parts.push(`${speed}x`);
+  if (Number.isFinite(sampleRate) && sampleRate > 0) parts.push(`${sampleRate}Hz`);
+  if (Number.isFinite(bitrate) && bitrate > 0) parts.push(`${Math.round(bitrate / 1000)}kbps`);
+  if (Number.isFinite(seed) && seed > 0) parts.push(`seed ${seed}`);
+  if (typeof options['prompt_enhance'] === 'boolean') parts.push(options['prompt_enhance'] ? 'prompt+' : 'prompt-');
+  if (typeof options['watermark'] === 'boolean') parts.push(options['watermark'] ? 'watermark' : 'no wm');
+  if (nonEmptyString(options['negative_prompt'])) parts.push('negative');
   if (Number.isFinite(count) && count > 1) parts.push(`x${count}`);
   return parts.join(' · ');
 }
