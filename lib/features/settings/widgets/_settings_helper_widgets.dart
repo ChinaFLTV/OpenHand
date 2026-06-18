@@ -2333,7 +2333,10 @@ class _AiTtsProviderTextField extends StatefulWidget {
 class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
-  Timer? _debounce;
+  late final OpenHandDebouncer _commitDebouncer = OpenHandDebouncer(
+    delay: _commitDebounceDelay,
+  );
+  static const Duration _commitDebounceDelay = Duration(milliseconds: 420);
   String? _lastCommittedValue;
 
   @override
@@ -2353,7 +2356,7 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _commitDebouncer.dispose();
     _focusNode.removeListener(_handleFocusChanged);
     _focusNode.dispose();
     _controller.dispose();
@@ -2380,12 +2383,11 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   }
 
   void _scheduleCommit(String raw) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 420), () => _commit(raw));
+    _commitDebouncer.schedule(() => _commit(raw));
   }
 
   void _commit(String raw) {
-    _debounce?.cancel();
+    _commitDebouncer.cancel();
     final value = raw.trim();
     if (value == _lastCommittedValue || value == widget.value) return;
     _lastCommittedValue = value;

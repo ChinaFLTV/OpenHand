@@ -13,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../service/hardness_cli_catalog.dart';
 
 class HardnessCliLoginDialog extends StatefulWidget {
@@ -26,6 +27,7 @@ class HardnessCliLoginDialog extends StatefulWidget {
 
 class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   static const int _maxBufferedChars = 120000;
+  static const Duration _noOutputHintDelay = Duration(seconds: 8);
 
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
@@ -109,7 +111,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
 
       // Watchdog: if no output arrives within 8 seconds, show a diagnostic
       // hint so the user is not left staring at a blank screen.
-      _noOutputTimer = Timer(const Duration(seconds: 8), () {
+      _noOutputTimer = startSafeTimer(_noOutputHintDelay, () {
         if (!mounted || _output.isNotEmpty || _finished) return;
         _appendOutput(
           '[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n'

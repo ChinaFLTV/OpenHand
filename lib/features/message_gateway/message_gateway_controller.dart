@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
@@ -92,7 +93,10 @@ class MessageGatewayController extends ManagedChangeNotifier {
   final MessageGatewayStore _store;
   final WebMessagePlatformService _service;
   late final StreamSubscription<WebGatewayLogEntry> _logSub;
-  Timer? _logNotifyTimer;
+  late final OpenHandDebouncer _logNotifyDebouncer = OpenHandDebouncer(
+    delay: _logNotifyDelay,
+  );
+  static const Duration _logNotifyDelay = Duration(milliseconds: 120);
 
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   bool _isLoading = true;
@@ -456,11 +460,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   void _scheduleLogNotify() {
-    if (_logNotifyTimer != null) return;
-    _logNotifyTimer = Timer(const Duration(milliseconds: 120), () {
-      _logNotifyTimer = null;
-      notifyListeners();
-    });
+    _logNotifyDebouncer.scheduleIfIdle(notifyListeners);
   }
 
   /// 注入插件服务控制器到底层 Web 服务（延迟注入，避免循环依赖）。
@@ -470,7 +470,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   @override
   void dispose() {
-    _logNotifyTimer?.cancel();
+    _logNotifyDebouncer.dispose();
     _logSub.cancel();
     _saveSuccessPulse.dispose();
     unawaited(_service.dispose());

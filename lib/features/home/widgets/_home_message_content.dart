@@ -1537,7 +1537,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           : nowMs - _lastMarkdownParseAtMs;
       final remainingMs = _markdownStreamingParseMinIntervalMs - elapsedMs;
       if (remainingMs > 0) {
-        _deferredParseThrottleTimer = Timer(
+        _deferredParseThrottleTimer = startSafeTimer(
           Duration(milliseconds: remainingMs),
           () {
             _deferredParseThrottleTimer = null;
@@ -4403,35 +4403,38 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   void _armInitialRevealFallback() {
     _initialRevealFallbackTimer?.cancel();
     final generation = _loadGeneration;
-    _initialRevealFallbackTimer = Timer(_kInitialRevealFallbackDelay, () {
-      if (!mounted || generation != _loadGeneration || _hasError) {
-        return;
-      }
-      if (_height != null || _heightCache[_heightCacheKey] != null) {
-        return;
-      }
-      final estimated = _estimateHeight();
-      _safeSetState(() {
-        _height = estimated;
-        _heightFromFallback = true;
-      });
-      final controller = _controller;
-      if (controller != null) {
-        unawaited(
-          controller
-              .evaluateJavascript(source: _heightObserverScript)
-              .catchError((Object error, StackTrace stack) {
-                silentLog(
-                  'home_message_content',
-                  'html bubble fallback height probe failed',
-                  error,
-                  stack,
-                );
-                return null;
-              }),
-        );
-      }
-    });
+    _initialRevealFallbackTimer = startSafeTimer(
+      _kInitialRevealFallbackDelay,
+      () {
+        if (!mounted || generation != _loadGeneration || _hasError) {
+          return;
+        }
+        if (_height != null || _heightCache[_heightCacheKey] != null) {
+          return;
+        }
+        final estimated = _estimateHeight();
+        _safeSetState(() {
+          _height = estimated;
+          _heightFromFallback = true;
+        });
+        final controller = _controller;
+        if (controller != null) {
+          unawaited(
+            controller
+                .evaluateJavascript(source: _heightObserverScript)
+                .catchError((Object error, StackTrace stack) {
+                  silentLog(
+                    'home_message_content',
+                    'html bubble fallback height probe failed',
+                    error,
+                    stack,
+                  );
+                  return null;
+                }),
+          );
+        }
+      },
+    );
   }
 
   void _onContentSizeChanged(Size newSize) {
@@ -4489,7 +4492,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           _pendingHeight = next;
           final timer = _heightDebounceTimer;
           if (timer == null || !timer.isActive) {
-            _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
+            _heightDebounceTimer = startSafeTimer(_kHeightDebounceDuration, () {
               if (!mounted) return;
               _heightDebounceTimer = null;
               if (_scrollActive) {
@@ -4521,7 +4524,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _pendingHeight = next;
     final timer = _heightDebounceTimer;
     if (timer == null || !timer.isActive) {
-      _heightDebounceTimer = Timer(_kHeightDebounceDuration, () {
+      _heightDebounceTimer = startSafeTimer(_kHeightDebounceDuration, () {
         if (!mounted) return;
         _heightDebounceTimer = null;
         if (_scrollActive) {

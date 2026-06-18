@@ -112,7 +112,10 @@ class _ProgrammingExpertProjectDialogState
   final TextEditingController _lspController = TextEditingController();
   final Map<String, String> _sdkDraftByLanguage = <String, String>{};
   final Map<String, String> _lspDraftByLanguage = <String, String>{};
-  Timer? _projectRootDraftTimer;
+  late final OpenHandDebouncer _projectRootDraftDebouncer = OpenHandDebouncer(
+    delay: _projectRootDraftDebounce,
+  );
+  static const Duration _projectRootDraftDebounce = Duration(milliseconds: 220);
   bool _suspendProjectRootDraftListener = false;
   bool _suspendToolchainDraftListener = false;
   String? _autoSelectedLanguage;
@@ -130,7 +133,7 @@ class _ProgrammingExpertProjectDialogState
 
   @override
   void dispose() {
-    _projectRootDraftTimer?.cancel();
+    _projectRootDraftDebouncer.dispose();
     _pathController.removeListener(_handleProjectRootTextChanged);
     _sdkController.removeListener(_handleToolchainDraftChanged);
     _lspController.removeListener(_handleToolchainDraftChanged);
@@ -144,11 +147,7 @@ class _ProgrammingExpertProjectDialogState
     if (_suspendProjectRootDraftListener) {
       return;
     }
-    _projectRootDraftTimer?.cancel();
-    _projectRootDraftTimer = Timer(
-      const Duration(milliseconds: 220),
-      _syncProjectRootDraftState,
-    );
+    _projectRootDraftDebouncer.schedule(_syncProjectRootDraftState);
   }
 
   void _handleToolchainDraftChanged() {

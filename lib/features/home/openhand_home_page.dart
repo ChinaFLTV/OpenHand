@@ -70,6 +70,7 @@ import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
@@ -222,7 +223,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 2026-05-26 — 420→800 ms：极慢速触控板滚动时单 tick 间隔可超 420 ms，
   // 导致宽限期在两 tick 间过期→_userScrollInProgress 抖回 false→自动跟随
   // 抢一帧 jumpTo 把视口拽回底部→用户再拉回→往复振荡抽搐。
-  Timer? _userScrollGraceTimer;
+  late final OpenHandDebouncer _userScrollGraceDebouncer = OpenHandDebouncer(
+    delay: _userScrollEndGraceDuration,
+  );
   static const Duration _userScrollEndGraceDuration = Duration(
     milliseconds: 800,
   );
@@ -283,7 +286,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // Persisted record for the last HE session (survives app restarts).
   final HardnessSessionStore _hardnessSessionStore = HardnessSessionStore();
   HardnessSessionRecord? _persistedHardnessSession;
-  Timer? _hardnessSessionSaveTimer;
+  late final OpenHandDebouncer _hardnessSessionSaveDebouncer =
+      OpenHandDebouncer(delay: _hardnessSessionPersistenceDebounce);
   HardnessPhase? _lastHardnessAwaitingApprovalPhase;
 
   // Active Web Reverse Expert sessions, keyed by session id. Each holds a
@@ -292,14 +296,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, WebReverseSessionController>{};
   final Map<String, String> _webReverseRuntimeMetadataSignatures =
       <String, String>{};
-  Timer? _webReverseRuntimeMetadataTimer;
+  late final OpenHandDebouncer _webReverseRuntimeMetadataDebouncer =
+      OpenHandDebouncer(delay: _webReverseRuntimeMetadataDebounce);
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
   final List<String> _openFilePaths = [];
   String? _activeFilePath;
   String? _editorTabsSessionId;
-  Timer? _editorTabsSaveTimer;
+  late final OpenHandDebouncer _editorTabsSaveDebouncer = OpenHandDebouncer(
+    delay: _editorTabsPersistenceDebounce,
+  );
 
   void _toggleFileExplorer() {
     setState(() => _fileExplorerVisible = !_fileExplorerVisible);
@@ -350,10 +357,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _scheduleEditorTabsPersistence() {
-    _editorTabsSaveTimer?.cancel();
-    _editorTabsSaveTimer = Timer(const Duration(milliseconds: 500), () {
-      _persistEditorTabs();
-    });
+    _editorTabsSaveDebouncer.schedule(_persistEditorTabs);
   }
 
   Future<void> _persistEditorTabs() async {
@@ -416,7 +420,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _syncEditorTabsForSession(String? sessionId) {
     if (_editorTabsSessionId == sessionId) return;
     // Persist current tabs before switching.
-    _editorTabsSaveTimer?.cancel();
+    _editorTabsSaveDebouncer.cancel();
     if (_editorTabsSessionId != null) {
       unawaited(_persistEditorTabs());
     }
@@ -655,8 +659,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final pendingHardnessRecord = _persistedHardnessSession;
       if (pendingHardnessRecord != null) {
         // Cancel debounced timer and flush immediately.
-        _hardnessSessionSaveTimer?.cancel();
-        _hardnessSessionSaveTimer = null;
+        _hardnessSessionSaveDebouncer.cancel();
         unawaited(
           _hardnessSessionStore.save(pendingHardnessRecord).catchError((_) {}),
         );
@@ -723,11 +726,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ctrl.dispose();
     }
     _webReverseControllers.clear();
-    _webReverseRuntimeMetadataTimer?.cancel();
-    _webReverseRuntimeMetadataTimer = null;
+    _webReverseRuntimeMetadataDebouncer.cancel();
     _webReverseRuntimeMetadataSignatures.clear();
-    _hardnessSessionSaveTimer?.cancel();
-    _editorTabsSaveTimer?.cancel();
+    _hardnessSessionSaveDebouncer.cancel();
+    _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
     if (_editorTabsSessionId != null) {
       unawaited(_persistEditorTabs().catchError((_) {}));
@@ -758,8 +760,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _composerController.dispose();
     _messageScrollController.dispose();
     _navigationWidthNotifier.dispose();
-    _userScrollGraceTimer?.cancel();
-    _userScrollGraceTimer = null;
+    _userScrollGraceDebouncer.dispose();
     _transcriptScrollActivity.dispose();
     super.dispose();
   }
@@ -796,8 +797,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// 标记用户正在主动滚动；取消任何待执行的 scroll-end 宽限计时。
   void _markUserScrollInProgress() {
-    _userScrollGraceTimer?.cancel();
-    _userScrollGraceTimer = null;
+    _userScrollGraceDebouncer.cancel();
     _userScrollInProgress = true;
     // 2026-06-07：广播给订阅者（如 `_HtmlBubbleWebView`），让其在
     // 用户滚动期间冻结高度应用，避免异步测高把 viewport 拽回底部。
@@ -838,9 +838,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 可能紧跟到来。在 [_userScrollEndGraceDuration] 内若有新的滚动活动，
   /// `_markUserScrollInProgress` 会取消本计时器；超时未续期则真正放手。
   void _scheduleUserScrollEndGrace() {
-    _userScrollGraceTimer?.cancel();
-    _userScrollGraceTimer = Timer(_userScrollEndGraceDuration, () {
-      _userScrollGraceTimer = null;
+    _userScrollGraceDebouncer.schedule(() {
       if (!mounted) {
         return;
       }
@@ -3055,9 +3053,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _scheduleWebReverseRuntimeMetadataSync() {
-    _webReverseRuntimeMetadataTimer?.cancel();
-    _webReverseRuntimeMetadataTimer = Timer(
-      const Duration(milliseconds: 500),
+    _webReverseRuntimeMetadataDebouncer.schedule(
       _syncWebReverseRuntimeMetadata,
     );
   }
@@ -3328,13 +3324,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     HardnessSessionRecord record, {
     bool immediate = false,
   }) {
-    _hardnessSessionSaveTimer?.cancel();
+    _hardnessSessionSaveDebouncer.cancel();
     if (immediate) {
       unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
       return;
     }
-    _hardnessSessionSaveTimer = Timer(_hardnessSessionPersistenceDebounce, () {
-      _hardnessSessionSaveTimer = null;
+    _hardnessSessionSaveDebouncer.schedule(() {
       unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
     });
   }
@@ -6075,7 +6070,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.dispose();
-    _hardnessSessionSaveTimer?.cancel();
+    _hardnessSessionSaveDebouncer.cancel();
     setState(() {
       _activeHardnessOrchestrator = null;
       _activeHardnessConfig = null;

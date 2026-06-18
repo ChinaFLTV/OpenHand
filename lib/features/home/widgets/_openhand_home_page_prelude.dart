@@ -47,9 +47,11 @@ const int _resumeAutoFollowStabilizationFrameCount = 2;
 // blank delay.
 const int _transcriptPreparationFrameBudget = 6;
 const Duration _transcriptPreparationHardTimeout = Duration(milliseconds: 1600);
+const Duration _editorTabsPersistenceDebounce = Duration(milliseconds: 500);
 const Duration _hardnessSessionPersistenceDebounce = Duration(
   milliseconds: 320,
 );
+const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
 const int _disabledSwitchBookkeepingDurationMs = 200;
 const double _workspacePaneFadeScaleBegin = 0.985;

@@ -292,6 +292,8 @@ class _HighlightedCodePanel extends StatefulWidget {
 }
 
 class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
+  static const Duration _codeActionResetDelay = Duration(milliseconds: 1600);
+
   TextSpan? _highlightedSpan;
   int? _highlightSignature;
   bool _copied = false;
@@ -767,7 +769,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         ),
       ),
     );
-    _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+    _copiedResetTimer = startSafeTimer(_codeActionResetDelay, () {
       if (!mounted) {
         return;
       }
@@ -843,7 +845,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           ),
         ),
       );
-      _downloadedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+      _downloadedResetTimer = startSafeTimer(_codeActionResetDelay, () {
         if (!mounted) {
           return;
         }
@@ -2243,6 +2245,8 @@ class _MermaidDiagramView extends StatefulWidget {
 }
 
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
+  static const Duration _mermaidLoadTimeout = Duration(seconds: 60);
+
   final GlobalKey _interactiveRegionKey = GlobalKey();
   WebViewController? _controller;
   bool _isReady = false;
@@ -2437,7 +2441,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       // 关键：Mermaid 11.x min.js ~3.3MB 解析 + 初始化在慢机器上可能 > 18s，
       // 把看门狗延长到 60s；同时引入 _MermaidLoadPhase 阶段反馈，用户
       // 至少能看到"解析中 / 渲染中"提示而不是直接黑屏 18s。
-      _loadWatchdog = Timer(const Duration(seconds: 60), () {
+      _loadWatchdog = startSafeTimer(_mermaidLoadTimeout, () {
         if (!mounted) return;
         // 只有当 rendered 与 bridge ready 都还没到时，才判为超时。
         // 单一信号到达意味着 WebView 至少部分可用，再写超时会把可用链路标坏。

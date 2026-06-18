@@ -10,6 +10,69 @@ const Duration kOpenHandFramePeriodicTimerInterval = Duration(milliseconds: 16);
 typedef OpenHandTimerErrorHandler =
     void Function(Object error, StackTrace stackTrace);
 
+class OpenHandDebouncer {
+  OpenHandDebouncer({
+    required Duration delay,
+    Duration minDelay = Duration.zero,
+    Duration maxDelay = kOpenHandMaxTimerDelay,
+    OpenHandTimerErrorHandler? onError,
+  }) : _delay = delay,
+       _minDelay = minDelay,
+       _maxDelay = maxDelay,
+       _onError = onError;
+
+  final Duration _delay;
+  final Duration _minDelay;
+  final Duration _maxDelay;
+  final OpenHandTimerErrorHandler? _onError;
+  Timer? _timer;
+
+  bool get isActive => _timer?.isActive ?? false;
+
+  void schedule(
+    FutureOr<void> Function() callback, {
+    Duration? delay,
+    OpenHandTimerErrorHandler? onError,
+  }) {
+    cancel();
+    _timer = _start(callback, delay: delay, onError: onError);
+  }
+
+  bool scheduleIfIdle(
+    FutureOr<void> Function() callback, {
+    Duration? delay,
+    OpenHandTimerErrorHandler? onError,
+  }) {
+    if (isActive) return false;
+    _timer = _start(callback, delay: delay, onError: onError);
+    return true;
+  }
+
+  void cancel() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void dispose() => cancel();
+
+  Timer _start(
+    FutureOr<void> Function() callback, {
+    Duration? delay,
+    OpenHandTimerErrorHandler? onError,
+  }) {
+    return startSafeTimer(
+      delay ?? _delay,
+      () async {
+        _timer = null;
+        await callback();
+      },
+      min: _minDelay,
+      max: _maxDelay,
+      onError: onError ?? _onError,
+    );
+  }
+}
+
 Duration safePeriodicTimerInterval(
   Duration requested, {
   Duration min = kOpenHandMinPeriodicTimerInterval,

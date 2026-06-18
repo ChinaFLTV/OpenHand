@@ -283,7 +283,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   void _scheduleSelectionToggle() {
     _pendingSelectionToggleTimer?.cancel();
-    _pendingSelectionToggleTimer = Timer(_selectionToggleDelay, () {
+    _pendingSelectionToggleTimer = startSafeTimer(_selectionToggleDelay, () {
       _pendingSelectionToggleTimer = null;
       if (!mounted) return;
       if (widget.isSelected) {
@@ -1011,7 +1011,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               if (_layoutChangeThrottleTimer?.isActive ?? false) {
                 return false;
               }
-              _layoutChangeThrottleTimer = Timer(
+              _layoutChangeThrottleTimer = startSafeTimer(
                 const Duration(milliseconds: 200),
                 () {},
               );
@@ -1474,7 +1474,16 @@ class _MessageActionButton extends StatelessWidget {
 
 const Duration _mediaClipboardOperationTimeout = Duration(seconds: 15);
 const Duration _mediaClipboardNetworkTimeout = Duration(seconds: 25);
-const int _imageClipboardMaxBytes = 64 * 1024 * 1024;
+const Duration _remoteMediaOpenTimeout = Duration(seconds: 20);
+const Duration _remoteMediaHeaderTimeout = Duration(seconds: 30);
+const Duration _remoteMediaChunkTimeout = Duration(seconds: 30);
+const Duration _remoteImageDownloadTimeout = Duration(minutes: 5);
+const Duration _remoteAudioDownloadTimeout = Duration(minutes: 5);
+const Duration _remoteVideoDownloadTimeout = Duration(minutes: 20);
+const int _imageClipboardMaxBytes = 64 * kBytesPerMiB;
+const int _remoteImageDownloadMaxBytes = 256 * kBytesPerMiB;
+const int _remoteAudioDownloadMaxBytes = 256 * kBytesPerMiB;
+const int _remoteVideoDownloadMaxBytes = 2 * kBytesPerGiB;
 
 void _showMediaClipboardSnack(
   BuildContext context, {
@@ -1568,6 +1577,145 @@ Future<Uint8List> _downloadClipboardBytes(
       bytes.add(chunk);
     }
     return bytes.takeBytes();
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _downloadRemoteUriToFile({
+  required Uri uri,
+  required String destination,
+  required String resourceLabel,
+  required Duration totalTimeout,
+  required int maxBytes,
+  String? expectedPrimaryType,
+  bool allowOctetStream = true,
+  Future<void>? cancelSignal,
+}) async {
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' && scheme != 'https') {
+    throw FileSystemException(
+      'Unsupported $resourceLabel URI scheme: ${uri.scheme}',
+      uri.toString(),
+    );
+  }
+
+  final client = SystemProxyResolver.instance.createRawHttpClient(
+    connectionTimeout: _remoteMediaOpenTimeout,
+  );
+  var cancelled = false;
+  if (cancelSignal != null) {
+    unawaited(
+      cancelSignal
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              silentLog(
+                'home_message_bubble',
+                'remote media cancel signal',
+                error,
+                stack,
+              );
+            },
+          )
+          .whenComplete(() {
+            cancelled = true;
+            client.close(force: true);
+          }),
+    );
+  }
+
+  try {
+    final request = await client.getUrl(uri).timeout(_remoteMediaOpenTimeout);
+    if (cancelled) {
+      throw const _MediaDownloadCancelled();
+    }
+    final response = await request.close().timeout(_remoteMediaHeaderTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException(
+        'HTTP ${response.statusCode} while downloading $resourceLabel.',
+        uri: uri,
+      );
+    }
+    final contentType = response.headers.contentType;
+    if (expectedPrimaryType != null &&
+        contentType != null &&
+        contentType.primaryType != expectedPrimaryType &&
+        (!allowOctetStream ||
+            contentType.mimeType != 'application/octet-stream')) {
+      throw HttpException(
+        'Unexpected content type: ${contentType.mimeType}',
+        uri: uri,
+      );
+    }
+    if (response.contentLength > maxBytes) {
+      throw FileSystemException(
+        '$resourceLabel download exceeded size limit.',
+        destination,
+      );
+    }
+
+    final outputFile = File(destination);
+    final output = outputFile.openWrite();
+    final deadline = DateTime.now().add(totalTimeout);
+    var receivedBytes = 0;
+    var outputClosed = false;
+
+    Future<void> closeOutput() async {
+      if (outputClosed) return;
+      outputClosed = true;
+      await output.close();
+    }
+
+    try {
+      await for (final chunk in response.timeout(_remoteMediaChunkTimeout)) {
+        if (cancelled) {
+          throw const _MediaDownloadCancelled();
+        }
+        if (DateTime.now().isAfter(deadline)) {
+          throw TimeoutException(
+            '$resourceLabel download exceeded time limit.',
+          );
+        }
+        receivedBytes += chunk.length;
+        if (receivedBytes > maxBytes) {
+          throw FileSystemException(
+            '$resourceLabel download exceeded size limit.',
+            destination,
+          );
+        }
+        output.add(chunk);
+      }
+      await output.flush();
+    } catch (error, stack) {
+      try {
+        await closeOutput();
+      } catch (closeError, closeStack) {
+        silentLog(
+          'home_message_bubble',
+          'close failed $resourceLabel download stream',
+          closeError,
+          closeStack,
+        );
+      }
+      try {
+        if (await outputFile.exists()) {
+          await outputFile.delete();
+        }
+      } on FileSystemException catch (cleanupError, cleanupStack) {
+        silentLog(
+          'home_message_bubble',
+          'delete partial $resourceLabel download',
+          cleanupError,
+          cleanupStack,
+        );
+      }
+      Error.throwWithStackTrace(error, stack);
+    } finally {
+      if (!outputClosed) {
+        await output.close();
+      }
+    }
   } finally {
     client.close(force: true);
   }
@@ -2778,53 +2926,15 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   }
 
   Future<void> _downloadRemoteImage(Uri sourceUri, String destination) async {
-    final scheme = sourceUri.scheme.toLowerCase();
-    if (scheme != 'http' && scheme != 'https') {
-      throw FileSystemException(
-        'Unsupported image URI scheme: ${sourceUri.scheme}',
-        sourceUri.toString(),
-      );
-    }
-
-    final client = SystemProxyResolver.instance.createRawHttpClient(
-      connectionTimeout: const Duration(seconds: 20),
+    await _downloadRemoteUriToFile(
+      uri: sourceUri,
+      destination: destination,
+      resourceLabel: 'image',
+      totalTimeout: _remoteImageDownloadTimeout,
+      maxBytes: _remoteImageDownloadMaxBytes,
+      expectedPrimaryType: 'image',
+      allowOctetStream: false,
     );
-    try {
-      final request = await client
-          .getUrl(sourceUri)
-          .timeout(const Duration(seconds: 20));
-      final response = await request.close().timeout(
-        const Duration(seconds: 30),
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException(
-          'HTTP ${response.statusCode} while downloading image.',
-          uri: sourceUri,
-        );
-      }
-      final contentType = response.headers.contentType;
-      if (contentType != null && contentType.primaryType != 'image') {
-        throw HttpException(
-          'Unexpected content type: ${contentType.mimeType}',
-          uri: sourceUri,
-        );
-      }
-
-      final output = File(destination).openWrite();
-      try {
-        // Cap idle gap between TCP chunks at 30s and total body read at
-        // 5min so a malicious / stalled origin cannot hang the bubble
-        // forever.
-        await output
-            .addStream(response.timeout(const Duration(seconds: 30)))
-            .timeout(const Duration(minutes: 5));
-        await output.flush();
-      } finally {
-        await output.close();
-      }
-    } finally {
-      client.close(force: true);
-    }
   }
 }
 
@@ -3451,7 +3561,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       OpenHandMotionSettingsScope.dialog,
     );
     _bootstrapMediaPage();
-    _loadTimeoutTimer = Timer(_mediaLoadTimeout, () {
+    _loadTimeoutTimer = startSafeTimer(_mediaLoadTimeout, () {
       if (!mounted || _mediaReady) return;
       setState(() {
         _loadError = _localizedText(
@@ -4763,113 +4873,20 @@ Future<void> _downloadRemoteMedia(
   String destination, {
   Future<void>? cancelSignal,
 }) async {
-  final scheme = source.uri.scheme.toLowerCase();
-  if (scheme != 'http' && scheme != 'https') {
-    throw FileSystemException(
-      'Unsupported media URI scheme: ${source.uri.scheme}',
-      source.uri.toString(),
-    );
-  }
-  final client = SystemProxyResolver.instance.createRawHttpClient(
-    connectionTimeout: const Duration(seconds: 20),
+  final isVideo = source.kind == _GeneratedMessageMediaKind.video;
+  await _downloadRemoteUriToFile(
+    uri: source.uri,
+    destination: destination,
+    resourceLabel: isVideo ? 'video' : 'audio',
+    totalTimeout: isVideo
+        ? _remoteVideoDownloadTimeout
+        : _remoteAudioDownloadTimeout,
+    maxBytes: isVideo
+        ? _remoteVideoDownloadMaxBytes
+        : _remoteAudioDownloadMaxBytes,
+    expectedPrimaryType: isVideo ? 'video' : 'audio',
+    cancelSignal: cancelSignal,
   );
-  var cancelled = false;
-  cancelSignal?.whenComplete(() {
-    cancelled = true;
-    client.close(force: true);
-  });
-  try {
-    final request = await client
-        .getUrl(source.uri)
-        .timeout(const Duration(seconds: 20));
-    final response = await request.close().timeout(const Duration(seconds: 30));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'HTTP ${response.statusCode} while downloading media.',
-        uri: source.uri,
-      );
-    }
-    final contentType = response.headers.contentType;
-    final expectedPrimary = source.kind == _GeneratedMessageMediaKind.video
-        ? 'video'
-        : 'audio';
-    if (contentType != null &&
-        contentType.primaryType != expectedPrimary &&
-        contentType.mimeType != 'application/octet-stream') {
-      throw HttpException(
-        'Unexpected content type: ${contentType.mimeType}',
-        uri: source.uri,
-      );
-    }
-    final maxBytes = source.kind == _GeneratedMessageMediaKind.video
-        ? 2 * 1024 * 1024 * 1024
-        : 256 * 1024 * 1024;
-    final downloadDeadline = DateTime.now().add(
-      source.kind == _GeneratedMessageMediaKind.video
-          ? const Duration(minutes: 20)
-          : const Duration(minutes: 5),
-    );
-    final outputFile = File(destination);
-    final output = outputFile.openWrite();
-    var receivedBytes = 0;
-    var outputClosed = false;
-
-    Future<void> closeOutput() async {
-      if (outputClosed) return;
-      outputClosed = true;
-      await output.close();
-    }
-
-    try {
-      await for (final chunk in response.timeout(const Duration(seconds: 30))) {
-        if (cancelled) {
-          throw const _MediaDownloadCancelled();
-        }
-        if (DateTime.now().isAfter(downloadDeadline)) {
-          throw TimeoutException('Media download exceeded time limit.');
-        }
-        receivedBytes += chunk.length;
-        if (receivedBytes > maxBytes) {
-          throw FileSystemException(
-            'Media download exceeded size limit.',
-            destination,
-          );
-        }
-        output.add(chunk);
-      }
-      await output.flush();
-    } catch (error, stack) {
-      try {
-        await closeOutput();
-      } catch (closeError, closeStack) {
-        silentLog(
-          'home_message_bubble',
-          'close failed media download stream',
-          closeError,
-          closeStack,
-        );
-      }
-      try {
-        if (await outputFile.exists()) {
-          await outputFile.delete();
-        }
-      } on FileSystemException catch (cleanupError, cleanupStack) {
-        silentLog(
-          'home_message_bubble',
-          'delete partial media download',
-          cleanupError,
-          cleanupStack,
-        );
-      }
-      Error.throwWithStackTrace(error, stack);
-    } finally {
-      if (!outputClosed) {
-        await output.close();
-      }
-    }
-  } finally {
-    client.close(force: true);
-  }
 }
 
 const Set<String> _videoMediaExtensions = <String>{
@@ -5288,6 +5305,8 @@ class _VideoThumbnailCaptureHost extends StatefulWidget {
 
 class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     with WidgetsBindingObserver {
+  static const Duration _thumbnailCaptureTimeout = Duration(seconds: 18);
+
   WebViewController? _controller;
   String? _tempHtmlPath;
   bool _slotHeld = false;
@@ -5318,7 +5337,7 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     }
     if (_watchdogPausedForLifecycle && _watchdog == null) {
       _watchdogPausedForLifecycle = false;
-      _watchdog = Timer(const Duration(seconds: 18), () {
+      _watchdog = startSafeTimer(_thumbnailCaptureTimeout, () {
         if (!_done) _finish(null);
       });
     }
@@ -5352,7 +5371,7 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
       }
       // Watchdog: if no message arrives within the budget, bail out so
       // the slot is released and the card stops trying for this session.
-      _watchdog = Timer(const Duration(seconds: 18), () {
+      _watchdog = startSafeTimer(_thumbnailCaptureTimeout, () {
         if (!_done) _finish(null);
       });
       setState(() {});
@@ -5412,8 +5431,13 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
         try {
           final f = File(temp);
           if (await f.exists()) await f.delete();
-        } catch (_) {
-          // best effort
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            'delete temp video thumbnail capture file',
+            error,
+            stack,
+          );
         }
       });
     }
@@ -5436,8 +5460,13 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
           try {
             final f = File(temp);
             if (await f.exists()) await f.delete();
-          } catch (_) {
-            // best effort
+          } catch (error, stack) {
+            silentLog(
+              'home_message_bubble',
+              'delete temp video thumbnail capture file',
+              error,
+              stack,
+            );
           }
         });
       }

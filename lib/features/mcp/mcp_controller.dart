@@ -104,7 +104,9 @@ class McpController extends ChangeNotifier {
   DateTime? _lastBatchProbeAt;
   static const int _maxRecentProbeRecords = 30;
   Future<void> _operationQueue = Future<void>.value();
-  Timer? _pageActivationWorkTimer;
+  late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
+    delay: _pageActivationWorkDelay,
+  );
   Timer? _healthCheckTimer;
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
 
@@ -255,7 +257,7 @@ class McpController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
-    _pageActivationWorkTimer?.cancel();
+    _pageActivationWorkDebouncer.dispose();
     _healthCheckTimer?.cancel();
     _cancelQueuedAutoProbeSlots();
     try {
@@ -283,7 +285,7 @@ class McpController extends ChangeNotifier {
     if (_isPageActive) {
       _schedulePageActivationWork();
     } else {
-      _pageActivationWorkTimer?.cancel();
+      _pageActivationWorkDebouncer.cancel();
       _cancelQueuedAutoProbeSlots();
       _invalidateToolRefreshGenerations();
       _invalidateHealthCheckGenerations();
@@ -292,9 +294,7 @@ class McpController extends ChangeNotifier {
   }
 
   void _schedulePageActivationWork() {
-    _pageActivationWorkTimer?.cancel();
-    _pageActivationWorkTimer = Timer(_pageActivationWorkDelay, () {
-      _pageActivationWorkTimer = null;
+    _pageActivationWorkDebouncer.schedule(() {
       if (_isDisposed || !_isPageActive) {
         return;
       }
