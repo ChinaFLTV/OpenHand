@@ -572,8 +572,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        if (heAnnotation != null && heAnnotation.hasAnnotations)
-          _HardnessAnnotationCapsuleRow(annotation: heAnnotation),
         Container(
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -718,43 +716,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     else if (isSelfLearning)
                       ClipRect(child: _SelfLearningCard(message: message))
                     else if (isUser)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (attachments.isNotEmpty) ...[
-                            _MessageAttachmentSummaryBlock(
-                              attachments: attachments,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              onAttachmentTap: (attachment) =>
-                                  _openAttachment(context, attachment),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                          _PlainTextMessageBody(
-                            data: effectiveContent.isEmpty
-                                ? ' '
-                                : effectiveContent,
-                            textColor: textColor,
-                            backgroundColor: backgroundColor,
-                            style: markdownStyleSheet.styleSheet.p,
-                          ),
-                        ],
+                      _PlainTextMessageBody(
+                        data: effectiveContent.isEmpty ? ' ' : effectiveContent,
+                        textColor: textColor,
+                        backgroundColor: backgroundColor,
+                        style: markdownStyleSheet.styleSheet.p,
                       )
                     else
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (attachments.isNotEmpty) ...[
-                            _MessageAttachmentSummaryBlock(
-                              attachments: attachments,
-                              textColor: textColor,
-                              backgroundColor: backgroundColor,
-                              onAttachmentTap: (attachment) =>
-                                  _openAttachment(context, attachment),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
                           // 2026-06-07：撤回 IndexedStack 改回 ternary。
                           // IndexedStack 的 StackFit.loose 让容器高度始终
                           // 等于最大子项（WebView 的 estimatedHeight ~ 800px），
@@ -871,16 +842,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ],
                         ],
                       ),
-                    if (isUser)
-                      _UserMessageCapsuleRow(
-                        creationRequest: AiCreationRequest.fromMetadata(
-                          message.metadata[AiCreationRequest.metadataKey],
-                        ),
-                        skillMetadata:
-                            message.metadata[aiUserSkillSelectionMetadataKey],
-                        attachments: attachments,
-                        textColor: textColor,
-                      ),
                   ],
                 );
                 final allowBubbleSizeMotion =
@@ -921,6 +882,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
           animateEntrance: widget.animateActionPanelEntrance,
           onEntranceConsumed: widget.onActionPanelEntranceConsumed,
           message: message,
+          attachments: attachments,
+          hardnessAnnotation: heAnnotation,
           textColor: textColor,
           showModelLabel: !isUser,
           actions: [
@@ -1218,6 +1181,8 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
     required this.onEntranceConsumed,
     required this.actions,
     required this.message,
+    required this.attachments,
+    required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
   });
@@ -1229,6 +1194,8 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
   final ValueChanged<int> onEntranceConsumed;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
+  final List<AiMessageAttachment> attachments;
+  final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
 
@@ -1264,6 +1231,8 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
                   onEntranceConsumed: onEntranceConsumed,
                   actions: actions,
                   message: message,
+                  attachments: attachments,
+                  hardnessAnnotation: hardnessAnnotation,
                   textColor: textColor,
                   showModelLabel: showModelLabel,
                 ),
@@ -1336,6 +1305,8 @@ class _SelectedMessageActionPanel extends StatefulWidget {
     required this.onEntranceConsumed,
     required this.actions,
     required this.message,
+    required this.attachments,
+    required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
   });
@@ -1346,6 +1317,8 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   final ValueChanged<int> onEntranceConsumed;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
+  final List<AiMessageAttachment> attachments;
+  final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
 
@@ -1438,6 +1411,8 @@ class _SelectedMessageActionPanelState
           const SizedBox(height: 6),
           _SelectedMessageContextRow(
             message: widget.message,
+            attachments: widget.attachments,
+            hardnessAnnotation: widget.hardnessAnnotation,
             textColor: widget.textColor,
             alignEnd: widget.alignEnd,
             showModelLabel: widget.showModelLabel,
@@ -1493,81 +1468,6 @@ class _MessageActionButton extends StatelessWidget {
         softWrap: false,
         overflow: TextOverflow.fade,
       ),
-    );
-  }
-}
-
-class _MessageAttachmentSummaryBlock extends StatelessWidget {
-  const _MessageAttachmentSummaryBlock({
-    required this.attachments,
-    required this.textColor,
-    required this.backgroundColor,
-    this.onAttachmentTap,
-  });
-
-  final List<AiMessageAttachment> attachments;
-  final Color textColor;
-  final Color backgroundColor;
-  final void Function(AiMessageAttachment attachment)? onAttachmentTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: attachments
-          .map(
-            (attachment) => MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  _BubbleHtmlInteractiveScope.maybeOf(
-                    context,
-                  )?.markInteractiveTap();
-                  onAttachmentTap?.call(attachment);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                      textColor.withValues(alpha: 0.08),
-                      backgroundColor,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: textColor.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _iconForAttachmentKind(attachment.kind),
-                        size: 16,
-                        color: textColor.withValues(alpha: 0.88),
-                      ),
-                      const SizedBox(width: 8),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 280),
-                        child: Text(
-                          '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: textColor.withValues(alpha: 0.88),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(growable: false),
     );
   }
 }
@@ -4301,26 +4201,48 @@ const Set<String> _audioMediaExtensions = <String>{
   '.flac',
 };
 
-/// Small capsule rendered directly under a user message timestamp when the
-/// message was sent with a non-text creation mode (image / video / audio / deep
-/// research). Lets the reader tell at a glance what action the message is
-/// asking for even after the composer chip is gone.
+/// Context capsules shown in the focused message action panel's second row.
+/// Keeps message cards focused on message content while preserving mode, skill,
+/// attachment, model, and timestamp metadata next to the selected message.
 class _SelectedMessageContextRow extends StatelessWidget {
   const _SelectedMessageContextRow({
     required this.message,
+    required this.attachments,
+    required this.hardnessAnnotation,
     required this.textColor,
     required this.alignEnd,
     required this.showModelLabel,
   });
 
   final AiSessionMessage message;
+  final List<AiMessageAttachment> attachments;
+  final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool alignEnd;
   final bool showModelLabel;
 
   @override
   Widget build(BuildContext context) {
+    final creationRequest = AiCreationRequest.fromMetadata(
+      message.metadata[AiCreationRequest.metadataKey],
+    );
+    final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
     final capsules = <Widget>[
+      if (creationRequest.isActive)
+        _CreationModeChip(request: creationRequest, textColor: textColor),
+      if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
+        _UserSkillSelectionChip(metadata: skillMetadata, textColor: textColor),
+      if (hardnessAnnotation != null && hardnessAnnotation!.hasAnnotations)
+        ..._HardnessAnnotationContextCapsules.build(
+          context,
+          annotation: hardnessAnnotation!,
+          textColor: textColor,
+        ),
+      for (final attachment in attachments)
+        _AttachmentReferenceCapsule(
+          attachment: attachment,
+          textColor: textColor,
+        ),
       if (showModelLabel &&
           message.modelLabel != null &&
           message.modelLabel!.trim().isNotEmpty)
@@ -4345,49 +4267,58 @@ class _SelectedMessageContextRow extends StatelessWidget {
   }
 }
 
-class _UserMessageCapsuleRow extends StatelessWidget {
-  const _UserMessageCapsuleRow({
-    required this.creationRequest,
-    required this.skillMetadata,
-    required this.attachments,
-    required this.textColor,
-  });
+class _HardnessAnnotationContextCapsules {
+  const _HardnessAnnotationContextCapsules._();
 
-  final AiCreationRequest creationRequest;
-  final Object? skillMetadata;
-  final List<AiMessageAttachment> attachments;
-  final Color textColor;
+  static List<Widget> build(
+    BuildContext context, {
+    required _HeAnnotation annotation,
+    required Color textColor,
+  }) {
+    return <Widget>[
+      if (annotation.agentRole != null)
+        _MessageContextCapsule(
+          icon: Icons.person_pin_rounded,
+          label: _localizedText(
+            context,
+            zh: '角色 · ${_roleLabel(annotation, isZh: true)}${_agentSuffix(annotation)}',
+            en: 'Role · ${_roleLabel(annotation, isZh: false)}${_agentSuffix(annotation)}',
+          ),
+          textColor: textColor,
+        ),
+      if (annotation.phase != null)
+        _MessageContextCapsule(
+          icon: _hePhaseIcons[annotation.phase] ?? Icons.timelapse_rounded,
+          label: _localizedText(
+            context,
+            zh: '阶段 · ${_phaseLabel(annotation, isZh: true)}',
+            en: 'Phase · ${_phaseLabel(annotation, isZh: false)}',
+          ),
+          textColor: textColor,
+        ),
+    ];
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final skillName = _UserSkillSelectionChip.nameFromMetadata(skillMetadata);
-    final attachmentCapsules = _AttachmentCapsuleData.fromAttachments(
-      context,
-      attachments,
-    );
-    if (!creationRequest.isActive &&
-        skillName.isEmpty &&
-        attachmentCapsules.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          if (creationRequest.isActive)
-            _CreationModeChip(request: creationRequest, textColor: textColor),
-          if (skillName.isNotEmpty)
-            _UserSkillSelectionChip(
-              metadata: skillMetadata,
-              textColor: textColor,
-            ),
-          for (final capsule in attachmentCapsules)
-            _AttachmentKindCapsule(data: capsule, textColor: textColor),
-        ],
-      ),
-    );
+  static String _roleLabel(_HeAnnotation annotation, {required bool isZh}) {
+    final role = annotation.agentRole;
+    if (role == null) return '';
+    return isZh
+        ? (_heRoleDisplayZh[role] ?? role)
+        : (_heRoleDisplayEn[role] ?? role);
+  }
+
+  static String _phaseLabel(_HeAnnotation annotation, {required bool isZh}) {
+    final phase = annotation.phase;
+    if (phase == null) return '';
+    return isZh
+        ? (_hePhaseDisplayZh[phase] ?? phase)
+        : (_hePhaseDisplayEn[phase] ?? phase);
+  }
+
+  static String _agentSuffix(_HeAnnotation annotation) {
+    final agentId = annotation.agentId;
+    if (agentId == null || agentId.trim().isEmpty) return '';
+    return ' · ${agentId.trim()}';
   }
 }
 
@@ -4397,29 +4328,68 @@ class _MessageContextCapsule extends StatelessWidget {
     required this.label,
     required this.textColor,
     this.leading,
+    this.maxLabelWidth,
+    this.onPressed,
   });
 
   final IconData icon;
   final String label;
   final Color textColor;
   final Widget? leading;
+  final double? maxLabelWidth;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final style = _messageActionChipStyle(context);
     final iconColor = style.iconColor?.resolve(const <WidgetState>{});
-    return IgnorePointer(
-      child: OutlinedButton.icon(
-        onPressed: () {},
-        style: style,
-        icon: leading ?? Icon(icon, size: 16, color: iconColor),
-        label: Text(
-          label,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.fade,
-        ),
-      ),
+    final labelWidget = maxLabelWidth == null
+        ? Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.fade)
+        : ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxLabelWidth!),
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+    final button = OutlinedButton.icon(
+      onPressed: () {
+        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+        onPressed?.call();
+      },
+      style: style,
+      icon: leading ?? Icon(icon, size: 16, color: iconColor),
+      label: labelWidget,
+    );
+    if (onPressed != null) {
+      return button;
+    }
+    return IgnorePointer(child: button);
+  }
+}
+
+class _AttachmentReferenceCapsule extends StatelessWidget {
+  const _AttachmentReferenceCapsule({
+    required this.attachment,
+    required this.textColor,
+  });
+
+  final AiMessageAttachment attachment;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MessageContextCapsule(
+      icon: _iconForAttachmentKind(attachment.kind),
+      label:
+          '${attachment.name.trim().isNotEmpty ? attachment.name.trim() : _localizedText(context, zh: '附件', en: 'Attachment')} · ${aiFormatBytes(attachment.sizeBytes)}',
+      textColor: textColor,
+      maxLabelWidth: 280,
+      onPressed: () {
+        unawaited(_openAttachment(context, attachment));
+      },
     );
   }
 }
@@ -4477,10 +4447,8 @@ class _CreationModeChip extends StatelessWidget {
   }
 }
 
-/// Capsule rendered under a user message timestamp when the message was
+/// Context capsule shown in the focused action panel when the message was
 /// submitted with an explicit local-skill selection (e.g. `/caveman`).
-/// Mirrors [_CreationModeChip] so the transcript conveys at a glance which
-/// skill was activated for the turn.
 class _UserSkillSelectionChip extends StatelessWidget {
   const _UserSkillSelectionChip({
     required this.metadata,
@@ -4540,80 +4508,6 @@ class _UserSkillSelectionChip extends StatelessWidget {
       );
     }
     return null;
-  }
-}
-
-class _AttachmentKindCapsule extends StatelessWidget {
-  const _AttachmentKindCapsule({required this.data, required this.textColor});
-
-  final _AttachmentCapsuleData data;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return _MessageContextCapsule(
-      icon: data.icon,
-      label: data.label,
-      textColor: textColor,
-    );
-  }
-}
-
-class _AttachmentCapsuleData {
-  const _AttachmentCapsuleData({required this.icon, required this.label});
-
-  factory _AttachmentCapsuleData.fromKind(
-    BuildContext context, {
-    required AiAttachmentKind kind,
-    required int count,
-  }) {
-    final (icon, labelZh, labelEn) = switch (kind) {
-      AiAttachmentKind.image => (Icons.image_outlined, '图片', 'Image'),
-      AiAttachmentKind.text => (Icons.description_outlined, '文本', 'Text'),
-      AiAttachmentKind.spreadsheet => (
-        Icons.table_chart_outlined,
-        '表格',
-        'Spreadsheet',
-      ),
-      AiAttachmentKind.pdf => (Icons.picture_as_pdf_outlined, 'PDF', 'PDF'),
-      AiAttachmentKind.binary => (
-        Icons.insert_drive_file_outlined,
-        '文件',
-        'File',
-      ),
-    };
-    final base = _localizedText(
-      context,
-      zh: '附件 · $labelZh',
-      en: 'Attachment · $labelEn',
-    );
-    return _AttachmentCapsuleData(
-      icon: icon,
-      label: count > 1 ? '$base · x$count' : base,
-    );
-  }
-
-  final IconData icon;
-  final String label;
-
-  static List<_AttachmentCapsuleData> fromAttachments(
-    BuildContext context,
-    List<AiMessageAttachment> attachments,
-  ) {
-    if (attachments.isEmpty) return const <_AttachmentCapsuleData>[];
-    final counts = <AiAttachmentKind, int>{};
-    for (final attachment in attachments) {
-      counts[attachment.kind] = (counts[attachment.kind] ?? 0) + 1;
-    }
-    return [
-      for (final kind in AiAttachmentKind.values)
-        if ((counts[kind] ?? 0) > 0)
-          _AttachmentCapsuleData.fromKind(
-            context,
-            kind: kind,
-            count: counts[kind]!,
-          ),
-    ];
   }
 }
 
