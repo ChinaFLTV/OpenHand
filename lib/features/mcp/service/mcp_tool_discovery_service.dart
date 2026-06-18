@@ -259,17 +259,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     // 如果 process manager 中没有该服务的进程，先启动一个并等待握手完成。
     final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
     if (processInfo.isStopped) {
-      _debugMcpDiscover(server.name, 'starting process via manager');
       await McpStdioProcessManager.instance.startServer(server);
     }
 
-    _debugMcpDiscover(server.name, 'attempting borrowSession');
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
-    _debugMcpDiscover(
-      server.name,
-      'borrowSession result=${managedSession != null ? "OK" : "NULL"}',
-    );
     if (managedSession != null) {
       try {
         return _listTools(
@@ -290,7 +284,6 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     // 兜底：borrowSession 失败（进程启动失败/握手超时），回退到独立进程。
-    _debugMcpDiscover(server.name, 'FALLBACK to independent process');
     final session = await _initializeStdioSession(server);
     try {
       return _listTools(
@@ -2031,7 +2024,6 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
 McpStdioMirrorMode? mcpStdioMirrorModeOverride;
 
 /// 镜像源决策最终命中的来源。UI 用它渲染「当前生效」状态行；
-/// `_shouldInjectChinaMirror` 内部也会输出 debug 日志，让 cold-start 失败时一眼能看出走了哪条路。
 enum McpMirrorEffectiveSource {
   /// 环境变量 OPENHAND_MCP_MIRROR=on/1/true
   envOn,
@@ -2088,24 +2080,7 @@ McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
 /// 让中国大陆用户开箱即用，又给海外/已配企业镜像/手动覆盖三种诉求都留口子。
 bool _shouldInjectChinaMirror() {
   final source = resolveMcpMirrorEffectiveSource();
-  // cold-start 失败排查时，能在 stderr 里直接看到走了哪条决策路径 +
-  // locale 是什么。仅 debug 构建输出，避免生产运行时噪声。
-  _debugMcpMirror(
-    'decision=${source.name} '
-    'inject=${source.injects} '
-    'env=${Platform.environment['OPENHAND_MCP_MIRROR'] ?? ''} '
-    'setting=${mcpStdioMirrorModeOverride?.storageValue ?? 'null'} '
-    'locale=${Platform.localeName}',
-  );
   return source.injects;
-}
-
-void _debugMcpDiscover(String serverName, String message) {
-  debugLog('mcp.discover', '$serverName: $message');
-}
-
-void _debugMcpMirror(String message) {
-  debugLog('mcp.mirror', message);
 }
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。

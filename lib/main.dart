@@ -64,17 +64,11 @@ Future<void> main() async {
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
-  // 2026-05-18 — 在 binding 初始化之后立刻启动 FPS 监视器，节流自动
-  // 模式与 UI 卡顿降级会读它的 recentFps 数值。
+  // 节流自动模式与 UI 卡顿降级会读取 recentFps。
   OpenHandFpsMonitor.instance.start();
 
-  // 2026-05-19 —— IMK 全局输入死锁防御网：应用主进程被 SIGINT / SIGTERM
-  // 杀掉时，先把所有登记在册的 osascript / LSP / mitmdump / npm 子进程
-  // 一并 SIGTERM→SIGKILL，避免 macOS 上残留的 osascript 子进程继续向
-  // 其他 GUI 应用投递 Apple Events、把 IMK 上下文留在 stale 状态，导致
-  // 下次重启应用后全局 TextField 拒绝输入 / 复制 / 粘贴。配套
-  // `AppLifecycleListener.onExitRequested`（在 OpenHandApp 内）覆盖
-  // 正常退出路径；这里只接管异常 / 强杀路径。
+  // 异常退出时先清理登记过的子进程，避免残留进程继续持有系统输入上下文。
+  // 正常退出由 OpenHandApp 内的 AppLifecycleListener 处理。
   if (!Platform.isWindows) {
     for (final sig in <ProcessSignal>[
       ProcessSignal.sigint,
@@ -99,23 +93,10 @@ Future<void> _bootstrap() async {
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
     if (_shouldSilenceRenderingError(details.exception)) {
-      debugLog(
-        'openhand',
-        'swallowed rendering error: ${details.exceptionAsString()}',
-      );
       return;
     }
-    // 2026-06-02 — 平台 IME 选区越界断言：framework 在
-    // `TextInputClient.updateEditingState` 解析出
-    // `Range start N is out of text of length M` 时，捕获后既会
-    // `FlutterError.reportError` 又会 rethrow。此处吞掉红屏并触发
-    // composer 轻量级 IME 软恢复（unfocus + requestFocus），把脱钩的
-    // selection / composing 状态与 controller 重新对齐。
+    // 平台 IME 选区越界断言会在 reportError 后再次抛出；这里转为轻量恢复。
     if (_isComposerImeRangeOverflow(details.exception)) {
-      debugLog(
-        'openhand',
-        'swallowed IME range overflow: ${details.exceptionAsString()}',
-      );
       _triggerComposerImeSoftRecovery();
       return;
     }
@@ -135,7 +116,6 @@ Future<void> _bootstrap() async {
   // stray FormatException cannot cascade into repeated frame rebuilds.
   PlatformDispatcher.instance.onError = (error, stack) {
     if (_shouldSilenceRenderingError(error)) {
-      debugLog('openhand', 'swallowed async error: $error');
       return true;
     }
     if (_isComposerImeRangeOverflow(error)) {
@@ -205,8 +185,7 @@ Future<void> _bootstrap() async {
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
-  // 2026-05-24 — 预加载输出格式控制 Prompt 片段（fire-and-forget），
-  // 实际渲染时 AiPromptBuilder 同步读取已缓存内容；未就绪时回退到内置兜底。
+  // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
   unawaited(AiOutputFormatPrompts.ensureLoaded());
   // 2026-05-03: kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
@@ -217,25 +196,19 @@ Future<void> _bootstrap() async {
   final settingsController = await settingsControllerFuture;
   final hooks = await hooksModuleFuture;
   developer.Timeline.finishSync();
-  // 2026-05-03 — settings 加载完成后立刻把代理偏好同步给 resolver；
-  // 后续设置变更通过 listener 同步，全程不需要重启。
+  // 设置变更通过 listener 同步给代理 resolver，全程不需要重启。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   settingsController.addListener(() {
     SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   });
-  // 2026-05-18 — 节流配置自动同步：开机后 1s 静默 pull，配置变更
-  // debounce 5s 自动 push；provider != custom 或 endpoint 空时是 noop。
+  // 节流配置自动同步：开机静默 pull，配置变更后 debounce push。
   ThrottleAutoSyncService(settingsController: settingsController).start();
-  // 2026-05-04 — stdio MCP 镜像源模式（auto / forceOn / forceOff）。
-  // 用一个简单 top-level 变量同步给 mcp_tool_discovery_service，
-  // 避免给已稳定的 service 强行喂 SettingsController 依赖。
+  // 用 top-level 变量把 stdio MCP 镜像源模式同步给 discovery service。
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   settingsController.addListener(() {
     mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   });
-  // 2026-04-25 Hermes Talker — expose a late-bound MemoryController handle to
-  // AiSessionController so the Memory builtin tool (self-learning sub-agent)
-  // can reach the real controller once it finishes loading.
+  // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
@@ -261,25 +234,13 @@ Future<void> _bootstrap() async {
   unawaited(skills.controller.refresh());
   final mcp = await mcpModuleFuture;
   unawaited(mcp.controller.refresh());
-  // 2026-04-25 boot perf — MemoryController is only consumed inside
-  // user-action code paths (`_buildRuntimeContext` + self-learning sub-agent
-  // tools), never at first paint of the home shell. Construct it
-  // synchronously and refresh in the background so its sqlite load no
-  // longer sits on the boot critical path.
+  // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
   unawaited(memory.controller.refresh());
-  // 2026-04-25 boot perf — CronsController only matters once the user opens
-  // the Crons view OR a scheduled tick fires. Construct it synchronously so
-  // we can register the Hermes Talker agent handler before runApp, then run
-  // the sqlite load + scheduler startup in the background. The agent
-  // handler is a plain field setter and does not require initialize() to
-  // have completed.
+  // CronsController 先注册 agent handler，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
-  // 2026-04-25 — InstructionsController: 与 memory 同样“非首屏关键路径”，
-  // 同步构造 + 后台 refresh，确保启动期间不阻塞首帧。
-  // 2026-05-16 — 经 InstructionsModule.bootstrap 装配（即时完成的 Future，
-  // 保留懒初始化语义）。
+  // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
   unawaited(instructions.controller.refresh());
   final appInfo = await appInfoFuture;
@@ -296,15 +257,7 @@ Future<void> _bootstrap() async {
   // hit WebSearch/WebFetch. Best-effort — failures fall back to DIRECT.
   unawaited(systemProxyFuture);
 
-  // 2026-04-25 Hermes Talker — bootstrap the self-learning scheduler + runner
-  // and register the `agent` cron handler so the system-managed
-  // `self_learning.hermes_talker` entry can fire every 5 minutes.
-  //
-  // The dispatcher runs a restricted sub-agent: it exposes ONLY the `Memory`
-  // and `SkillManager` built-in tools to the model and drives a streaming
-  // tool-call loop so the LLM can actually persist memory / profile / skill
-  // changes (not just summarise them). Text + reasoning deltas are piped
-  // into the self-learning card for live observability.
+  // 自学习调度器只暴露 Memory / SkillManager 工具，并把流式过程写入自学习卡片。
   final selfLearningChatClient = AiChatService();
   final selfLearningRunner = SelfLearningRunner(
     sessionController: aiSessionController,
@@ -350,8 +303,7 @@ Future<void> _bootstrap() async {
       return AgentHandlerResult(stdout: stdout, appContext: appContext);
     }
     if (entry.tags.contains(CronsController.mcpKeywordIndexTag)) {
-      // 2026-05-04 — MCP 关键词倒排索引定时重建。复用 McpController 单飞构建器，
-      // 与 UI 入口共享同一份磁盘缓存。失败由调度器统一记录，不需在此抛错。
+      // 复用 McpController 单飞构建器，与 UI 入口共享同一份磁盘缓存。
       try {
         await mcp.controller.ensureKeywordIndexLoaded();
         final result = await mcp.controller.buildKeywordIndex();
@@ -380,7 +332,6 @@ Future<void> _bootstrap() async {
     );
     SelfLearningRunner.streamFlushIntervalMs =
         settingsController.selfLearningStreamFlushIntervalMs;
-    // 2026-05-04 — 同步 MCP 关键词倒排索引调度，复用同一条系统 cron 条目。
     unawaited(
       cronsController.updateMcpKeywordIndexSchedule(
         mode: settingsController.mcpKeywordIndexUpdateMode,
@@ -394,11 +345,7 @@ Future<void> _bootstrap() async {
   // 启动期同步一次，避免首次 listener 触发前的 race。
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
-  // Kick off the deferred cron init AFTER the agent handler is registered so
-  // any immediate scheduler tick post-init can dispatch correctly.
-  // 2026-05-04 — 串接：cron init 完成后立刻把当前设置项推一次到 MCP 关键词
-  // 索引系统 cron 条目（listener 仅在 setter 触发，启动期需要主动同步一次）；
-  // 同时启动期惰性加载磁盘缓存，避免首次手动构建命中 disk-empty。
+  // agent handler 注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
   unawaited(mcp.controller.ensureKeywordIndexLoaded());
   unawaited(() async {
     await cronsController.initialize();
@@ -426,8 +373,7 @@ Future<void> _bootstrap() async {
   unawaited(pluginService.controller.initialize());
   messageGateway.controller.pluginServiceController = pluginService.controller;
 
-  // 2026-04-25 — 冷启动后异步触发一次 cron 历史清理（single-flight，
-  // 永不抛异常，超时兜底 30s），不干扰主路径与 UI 启动。
+  // 冷启动后异步触发一次 cron 历史清理，不干扰 UI 启动。
   unawaited(
     runCronHistoryCleanupOnce(
       settings: settingsController,
@@ -507,10 +453,7 @@ bool _shouldSilencePrintLine(String line) {
       line.contains('FormatException: Invalid radix-16 number');
 }
 
-/// 2026-06-02 — 识别 `TextEditingValue.fromJSON` / `TextRange` 选区越界断言。
-/// framework 抛出的文案是 `Range start N is out of text of length M`，
-/// 必伴随 `TextInputClient.updateEditingState` 上下文（来自
-/// `_loudlyHandleTextInputInvocation`）。命中即交给 composer 软恢复处理。
+/// 识别 TextInput 选区越界断言，命中即交给 composer 软恢复处理。
 bool _isComposerImeRangeOverflow(Object error) {
   if (error is AssertionError) {
     final message = error.message?.toString() ?? '';
@@ -523,10 +466,7 @@ bool _isComposerImeRangeOverflow(Object error) {
       str.contains('is out of text of length');
 }
 
-/// 2026-06-02 — 触发 composer 的轻量级 IME 软恢复。注册在
-/// [InputRepairService] 上的钩子由 home page 在 `initState` 里挂上，做
-/// `unfocus → scheduleMicrotask → requestFocus` 的最小重置，避免每次
-/// 越界都跑 `InputRepairService.repair()` 的全流程。
+/// 触发 composer 的轻量级 IME 软恢复，避免每次越界都跑完整 repair 流程。
 void _triggerComposerImeSoftRecovery() {
   try {
     InputRepairService.instance.triggerSoftRecovery();
@@ -537,7 +477,6 @@ void _triggerComposerImeSoftRecovery() {
 
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
   if (_shouldSilenceRenderingError(error)) {
-    debugLog('openhand', 'swallowed zone error: $error');
     return;
   }
   if (_isComposerImeRangeOverflow(error)) {

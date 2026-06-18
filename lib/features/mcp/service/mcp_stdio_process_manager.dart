@@ -316,12 +316,10 @@ class McpStdioProcessManager extends ChangeNotifier {
     _ManagedProcess? managed = _processes[serverName];
     // 完全不存在 entry — 调用方应先触发 startServer
     if (managed == null) {
-      _debugBorrow(serverName, 'no entry in _processes, returning null');
       return null;
     }
     // 已停止（非启动中）— 没有可复用的进程
     if (managed.info.isStopped && managed.process == null) {
-      _debugBorrow(serverName, 'stopped and no process, returning null');
       return null;
     }
 
@@ -329,36 +327,23 @@ class McpStdioProcessManager extends ChangeNotifier {
     //   a) 进程刚 startServer，process 字段还是 null（同步占位阶段）
     //   b) 进程已启动，但 handshake 还在进行（initialize 回环）
     final deadline = DateTime.now().add(_handshakeWaitTimeout);
-    var waitIterations = 0;
     while (!managed!.handshakeCompleted || managed.process == null) {
       if (DateTime.now().isAfter(deadline)) {
-        _debugBorrow(
-          serverName,
-          'handshake wait timeout after ${waitIterations * 200}ms',
-        );
         return null;
       }
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      waitIterations++;
       managed = _processes[serverName];
       if (managed == null) {
-        _debugBorrow(serverName, 'entry removed during wait');
         return null;
       }
       if (managed.info.isStopped && managed.process == null) {
-        _debugBorrow(serverName, 'became stopped during wait');
         return null;
       }
     }
 
     if (managed.responseRouter == null) {
-      _debugBorrow(serverName, 'responseRouter is null, returning null');
       return null;
     }
-    _debugBorrow(
-      serverName,
-      'SUCCESS, borrowing session (waited ${waitIterations * 200}ms)',
-    );
     _sessionBorrowCount[serverName] =
         (_sessionBorrowCount[serverName] ?? 0) + 1;
     return ManagedStdioSession._(managed.process!, managed.responseRouter!);
@@ -1010,10 +995,6 @@ String? _findBinEntry(String packageDir) {
     );
   }
   return null;
-}
-
-void _debugBorrow(String serverName, String message) {
-  debugLog('mcp.borrow', '$serverName: $message');
 }
 
 /// 选择 login shell。

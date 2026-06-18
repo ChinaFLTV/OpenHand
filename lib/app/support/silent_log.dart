@@ -26,11 +26,3 @@ void silentLog(String tag, String where, Object error, [StackTrace? stack]) {
     debugPrint('[$tag] swallowed: $where -> $error');
   }
 }
-
-@pragma('vm:prefer-inline')
-void debugLog(String tag, String message) {
-  if (!kDebugMode) {
-    return;
-  }
-  debugPrint('[$tag] $message');
-}
