@@ -9,10 +9,12 @@ import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../util/byte_size_format.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'motion_preference.dart';
 import 'openhand_snack_bar.dart';
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
@@ -174,6 +176,10 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       rawViewport.height * kOpenHandDialogViewportFraction,
     );
     final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final isZh = openHandIsChineseLocale(context);
 
     final maxDialogW = math.max(
@@ -298,6 +304,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                             filePath: widget.filePath,
                             mimeType: widget.mimeType,
                             kind: widget.kind,
+                            motionDurationMs: motionSettings.disablesAnimation
+                                ? 0
+                                : motionSettings.duration.inMilliseconds,
+                            motionCurveCss: _dialogCurveToCss(
+                              motionSettings.curve,
+                            ),
                           ),
                   ),
                 ),
@@ -571,7 +583,8 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
 
 /// 用 webview 内嵌一个最小化的 `<audio>` / `<video>` 播放器。
 /// 内存 bytes 走 data URL（< 8MB）或写 temp 文件后转 file URL；
-/// 网络 URL 直接挂到 `src`。WebView 的内置控件已经覆盖播放 / 进度 / 全屏。
+/// 网络 URL 直接挂到 `src`。播放控件使用自定义 overlay，进退场动效跟随
+/// App 弹窗动效时长和曲线，避免浏览器原生 controls 生硬闪现。
 class _MediaPlayerSurface extends StatefulWidget {
   const _MediaPlayerSurface({
     required this.bytes,
@@ -579,6 +592,8 @@ class _MediaPlayerSurface extends StatefulWidget {
     required this.filePath,
     required this.mimeType,
     required this.kind,
+    required this.motionDurationMs,
+    required this.motionCurveCss,
   });
 
   final Uint8List? bytes;
@@ -586,12 +601,19 @@ class _MediaPlayerSurface extends StatefulWidget {
   final String? filePath;
   final String? mimeType;
   final MediaPreviewKind kind;
+  final int motionDurationMs;
+  final String motionCurveCss;
 
   @override
   State<_MediaPlayerSurface> createState() => _MediaPlayerSurfaceState();
 }
 
 class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
+  static const int _kInlineDataUrlMaxBytes = 8 * kBytesPerMiB;
+  static const int _kControlsAutoHideMs = 2600;
+  static const String _kDefaultControlMotionCurveCss =
+      'cubic-bezier(0.215, 0.61, 0.355, 1)';
+
   WebViewController? _controller;
   String? _tempHtmlPath;
   String? _tempMediaPath;
@@ -618,7 +640,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         src = Uri.file(widget.filePath!).toString();
       } else if (widget.bytes != null) {
         // 大文件走 temp 文件，小文件直接 data:
-        if (widget.bytes!.lengthInBytes <= 8 * kBytesPerMiB) {
+        if (widget.bytes!.lengthInBytes <= _kInlineDataUrlMaxBytes) {
           src = 'data:$mime;base64,${base64Encode(widget.bytes!)}';
         } else {
           final dir = Directory.systemTemp;
@@ -634,17 +656,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         setState(() => _error = 'no source');
         return;
       }
-      final tag = widget.kind == MediaPreviewKind.video ? 'video' : 'audio';
-      final html =
-          '''
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-html,body{margin:0;padding:0;background:#0f0f10;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
-$tag{width:100%;max-height:100%;outline:none;border-radius:10px;background:#000}
-</style></head><body>
-<$tag controls autoplay src="${_jsEscape(src)}"></$tag>
-</body></html>
-''';
+      final html = _buildPlayerHtml(src: src);
       final dir = Directory.systemTemp;
       final f = File(
         '${dir.path}/oh-media-host-${DateTime.now().microsecondsSinceEpoch}.html',
@@ -664,8 +676,298 @@ $tag{width:100%;max-height:100%;outline:none;border-radius:10px;background:#000}
     }
   }
 
-  String _jsEscape(String s) =>
-      s.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  String _htmlAttributeEscape(String value) => value
+      .replaceAll('&', '&amp;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+  String _buildPlayerHtml({required String src}) {
+    final tag = widget.kind == MediaPreviewKind.video ? 'video' : 'audio';
+    final isAudio = widget.kind == MediaPreviewKind.audio;
+    final durationMs = widget.motionDurationMs
+        .clamp(0, DialogAnimationSettings.maxDurationMs)
+        .toInt();
+    final controlsClass = isAudio ? ' audio-mode' : '';
+    final safeCurve = widget.motionCurveCss.trim().isEmpty
+        ? _kDefaultControlMotionCurveCss
+        : widget.motionCurveCss.trim();
+    return '''
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$safeCurve;--oh-control-bg:rgba(18,18,20,.72);--oh-control-border:rgba(255,255,255,.14);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff}
+html,body{margin:0;padding:0;background:#0f0f10;height:100%;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button,input{font:inherit}
+.media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#0f0f10;user-select:none;overflow:hidden;isolation:isolate}
+.media-shell video{width:100%;height:100%;object-fit:contain;background:#000;border-radius:10px}
+.media-shell audio{display:none}
+.audio-art{display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;width:100%;height:100%;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.14),transparent 32%),linear-gradient(135deg,#15171b,#050506)}
+.audio-mode .audio-art{display:flex}
+.audio-icon{width:72px;height:72px;border-radius:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.10);box-shadow:0 22px 48px rgba(0,0,0,.30);font-size:34px}
+.audio-label{max-width:min(520px,80%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.74)}
+.scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.48),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
+.media-shell:not(.controls-visible) .scrim{opacity:0}
+.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 40px);max-width:760px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(18px) scale(.965);filter:blur(3px)}
+.control-button{width:28px;height:28px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
+.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
+.control-button:active{transform:scale(.92)}
+.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
+.seek-button svg{width:21px;height:21px}
+.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
+.progress{flex:1 1 180px;min-width:96px}
+.volume-panel{position:absolute;right:18px;top:16px;z-index:6;display:flex;align-items:center;gap:8px;min-height:40px;padding:10px 12px;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:top right;transform:translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible):not(.volume-open) .volume-panel{opacity:0;pointer-events:none;transform:translateY(-10px) scale(.94);filter:blur(3px)}
+.volume{width:132px}
+input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
+input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
+.audio-mode .control-bar{bottom:18px}
+.no-motion *{transition-duration:0ms!important;animation:none!important}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.volume{width:96px}.time{min-width:42px}}
+@media (max-width:420px){.seek-button{display:none}.control-bar{width:calc(100% - 20px)}.time{min-width:40px}.progress{min-width:64px}.volume-panel{right:10px;top:10px}.volume{width:84px}}
+</style></head><body>
+<div id="shell" class="media-shell controls-visible$controlsClass${durationMs == 0 ? ' no-motion' : ''}" tabindex="0">
+  <div class="audio-art"><div class="audio-icon">♪</div><div class="audio-label">Media preview</div></div>
+  <$tag id="media" preload="metadata" autoplay playsinline src="${_htmlAttributeEscape(src)}"></$tag>
+  <div class="scrim"></div>
+  <div class="volume-panel" id="volumePanel">
+    <input id="volume" class="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+    <button id="mute" class="control-button" type="button" aria-label="Mute"></button>
+  </div>
+  <div class="control-bar" id="controls">
+    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds"></button>
+    <button id="play" class="control-button" type="button" aria-label="Play"></button>
+    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds"></button>
+    <span id="current" class="time">00:00</span>
+    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+    <span id="duration" class="time">00:00</span>
+    <button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen"></button>
+  </div>
+</div>
+<script>
+(() => {
+  const AUTO_HIDE_MS = $_kControlsAutoHideMs;
+  const shell = document.getElementById('shell');
+  const media = document.getElementById('media');
+  const play = document.getElementById('play');
+  const rewind = document.getElementById('rewind');
+  const forward = document.getElementById('forward');
+  const progress = document.getElementById('progress');
+  const current = document.getElementById('current');
+  const duration = document.getElementById('duration');
+  const volume = document.getElementById('volume');
+  const mute = document.getElementById('mute');
+  const fullscreen = document.getElementById('fullscreen');
+  const volumePanel = document.getElementById('volumePanel');
+  let hideTimer = 0;
+  let dragging = false;
+  let volumeActive = false;
+
+  const icon = {
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+    mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    volume: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    rewind: '<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+    forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+    fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+
+  rewind.innerHTML = icon.rewind;
+  forward.innerHTML = icon.forward;
+  fullscreen.innerHTML = icon.fullscreen;
+
+  function formatTime(value) {
+    if (!Number.isFinite(value) || value < 0) return '00:00';
+    const total = Math.floor(value);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return hours > 0
+      ? hours + ':' + pad(minutes) + ':' + pad(seconds)
+      : pad(minutes) + ':' + pad(seconds);
+  }
+
+  function setRangeFill(input, ratio) {
+    const value = Math.max(0, Math.min(100, ratio * 100));
+    input.style.setProperty('--value', value + '%');
+  }
+
+  function updatePlayState() {
+    play.innerHTML = media.paused ? icon.play : icon.pause;
+    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
+    if (media.paused || media.ended) {
+      showControls(true);
+    } else {
+      scheduleHide();
+    }
+  }
+
+  function updateTime() {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+    current.textContent = formatTime(cur);
+    duration.textContent = formatTime(dur);
+    const ratio = dur > 0 ? cur / dur : 0;
+    progress.value = String(Math.round(ratio * 1000));
+    setRangeFill(progress, ratio);
+  }
+
+  function updateVolume() {
+    const muted = media.muted || media.volume <= 0;
+    mute.innerHTML = muted ? icon.mute : icon.volume;
+    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+    volume.value = String(media.muted ? 0 : media.volume);
+    setRangeFill(volume, media.muted ? 0 : media.volume);
+  }
+
+  function clearHideTimer() {
+    if (hideTimer) window.clearTimeout(hideTimer);
+    hideTimer = 0;
+  }
+
+  function showControls(sticky = false) {
+    shell.classList.add('controls-visible');
+    if (sticky) {
+      clearHideTimer();
+      return;
+    }
+    scheduleHide();
+  }
+
+  function scheduleHide() {
+    clearHideTimer();
+    if (media.paused || dragging || volumeActive) return;
+    hideTimer = window.setTimeout(() => {
+      if (!media.paused && !dragging && !volumeActive) {
+        shell.classList.remove('controls-visible');
+        shell.classList.remove('volume-open');
+      }
+    }, AUTO_HIDE_MS);
+  }
+
+  function beginProgressDrag(event) {
+    dragging = true;
+    progress.setPointerCapture?.(event.pointerId);
+    showControls(true);
+  }
+
+  function endProgressDrag(event) {
+    if (!dragging) return;
+    dragging = false;
+    progress.releasePointerCapture?.(event.pointerId);
+    scheduleHide();
+  }
+
+  function setVolumeActive(active) {
+    volumeActive = active;
+    shell.classList.toggle('volume-open', active);
+    if (active) {
+      showControls(true);
+    } else {
+      scheduleHide();
+    }
+  }
+
+  function seekBy(delta) {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    const next = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
+    media.currentTime = next;
+    updateTime();
+    showControls();
+  }
+
+  play.addEventListener('click', () => {
+    if (media.paused) {
+      media.play().catch(() => showControls(true));
+    } else {
+      media.pause();
+    }
+    showControls(true);
+  });
+  rewind.addEventListener('click', () => seekBy(-15));
+  forward.addEventListener('click', () => seekBy(15));
+  progress.addEventListener('pointerdown', beginProgressDrag);
+  progress.addEventListener('pointerup', endProgressDrag);
+  progress.addEventListener('pointercancel', endProgressDrag);
+  progress.addEventListener('input', () => {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    if (dur > 0) media.currentTime = (Number(progress.value) / 1000) * dur;
+    updateTime();
+    showControls(true);
+  });
+  volumePanel.addEventListener('pointerenter', () => setVolumeActive(true));
+  volumePanel.addEventListener('pointerleave', () => setVolumeActive(false));
+  volumePanel.addEventListener('pointerdown', () => setVolumeActive(true));
+  volumePanel.addEventListener('pointerup', () => setVolumeActive(false));
+  volumePanel.addEventListener('pointercancel', () => setVolumeActive(false));
+  volumePanel.addEventListener('focusin', () => setVolumeActive(true));
+  volumePanel.addEventListener('focusout', () => setVolumeActive(false));
+  volume.addEventListener('input', () => {
+    const next = Math.max(0, Math.min(1, Number(volume.value)));
+    media.volume = Number.isFinite(next) ? next : 1;
+    media.muted = media.volume <= 0;
+    updateVolume();
+    shell.classList.add('volume-open');
+    showControls(volumeActive);
+  });
+  mute.addEventListener('click', () => {
+    media.muted = !media.muted;
+    if (!media.muted && media.volume <= 0) media.volume = 0.6;
+    updateVolume();
+    shell.classList.add('volume-open');
+    showControls(volumeActive);
+  });
+  fullscreen.addEventListener('click', () => {
+    const target = shell;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+    } else {
+      target.requestFullscreen?.().catch(() => {});
+    }
+    showControls();
+  });
+  shell.addEventListener('pointermove', () => showControls());
+  shell.addEventListener('pointerdown', () => showControls());
+  shell.addEventListener('pointerleave', () => scheduleHide());
+  shell.addEventListener('focusin', (event) => showControls(event.target !== shell));
+  shell.addEventListener('focusout', () => scheduleHide());
+  shell.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented) return;
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault();
+      play.click();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      seekBy(-5);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      seekBy(5);
+    } else if (event.key.toLowerCase() === 'm') {
+      event.preventDefault();
+      mute.click();
+    }
+  });
+  media.addEventListener('loadedmetadata', updateTime);
+  media.addEventListener('durationchange', updateTime);
+  media.addEventListener('timeupdate', updateTime);
+  media.addEventListener('play', updatePlayState);
+  media.addEventListener('pause', updatePlayState);
+  media.addEventListener('ended', () => { updatePlayState(); showControls(true); });
+  media.addEventListener('volumechange', updateVolume);
+  window.addEventListener('beforeunload', clearHideTimer);
+  updatePlayState();
+  updateTime();
+  updateVolume();
+  media.play?.().catch(() => updatePlayState());
+})();
+</script>
+</body></html>
+''';
+  }
 
   @override
   void dispose() {
@@ -718,3 +1020,13 @@ Future<void> showMediaPreviewDialog(
 }) {
   return showAnimatedDialog<void>(context: context, builder: builder);
 }
+
+String _dialogCurveToCss(DialogAnimationCurve curve) => switch (curve) {
+  DialogAnimationCurve.easeInOut => 'ease-in-out',
+  DialogAnimationCurve.easeOut => 'ease-out',
+  DialogAnimationCurve.easeOutCubic => 'cubic-bezier(0.215, 0.61, 0.355, 1)',
+  DialogAnimationCurve.easeInOutCubicEmphasized => 'cubic-bezier(0.2, 0, 0, 1)',
+  DialogAnimationCurve.elasticOut => 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  DialogAnimationCurve.bounceOut => 'cubic-bezier(0.22, 1.45, 0.36, 1)',
+  DialogAnimationCurve.decelerate => 'cubic-bezier(0, 0, 0.2, 1)',
+};
