@@ -2179,7 +2179,15 @@ class _AdaptivePreviewDialogMetrics {
   }
 }
 
-/// Full-screen image preview dialog with zoom and pan support.
+Size _adaptivePreviewDialogViewport(BuildContext context) {
+  final viewport = MediaQuery.sizeOf(context);
+  return Size(
+    viewport.width * kOpenHandDialogViewportFraction,
+    viewport.height * kOpenHandDialogViewportFraction,
+  );
+}
+
+/// Adaptive image preview dialog with zoom and pan support.
 ///
 /// 弹窗体积根据图片自身的宽高比动态贴合, 四周保留统一的 [_kPadding]
 /// 留白, 与 WEB 端 `MediaPreviewDialog` (clients/web/.../MessageMedia.tsx)
@@ -2292,7 +2300,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final viewport = MediaQuery.sizeOf(context);
+    final viewport = _adaptivePreviewDialogViewport(context);
     _scheduleHeaderHeightSync();
 
     final natural = _naturalSize;
@@ -2321,6 +2329,11 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       },
       child: Dialog(
         insetPadding: const EdgeInsets.all(_kInsetPadding),
+        constraints: BoxConstraints(
+          minWidth: metrics.dialogWidth,
+          maxWidth: metrics.dialogWidth,
+          maxHeight: metrics.maxDialogHeight,
+        ),
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
@@ -2414,13 +2427,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                   // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
                   // SizedBox 尺寸等于媒体实际显示尺寸, Image 内部不会再产生
                   // 固定容器导致的左右或上下 letterbox 留白。
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.all(_kPadding),
-                      child: SizedBox(
-                        width: metrics.contentWidth,
-                        height: metrics.contentHeight,
-                        child: _buildPreviewImage(context),
+                  Padding(
+                    padding: const EdgeInsets.all(_kPadding),
+                    child: SizedBox(
+                      width: metrics.contentWidth,
+                      height: metrics.contentHeight,
+                      child: _buildPreviewImage(
+                        context,
+                        Size(metrics.contentWidth, metrics.contentHeight),
                       ),
                     ),
                   ),
@@ -2524,11 +2538,13 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     }
   }
 
-  Widget _buildPreviewImage(BuildContext context) {
+  Widget _buildPreviewImage(BuildContext context, Size displaySize) {
     final sourceFilePath = widget.filePath;
     if (sourceFilePath != null) {
       return Image.file(
         File(sourceFilePath),
+        width: displaySize.width,
+        height: displaySize.height,
         fit: BoxFit.contain,
         frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
         errorBuilder: (context, error, stackTrace) =>
@@ -2544,6 +2560,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     final urlString = sourceUri.toString();
     return Image.network(
       urlString,
+      width: displaySize.width,
+      height: displaySize.height,
       fit: BoxFit.contain,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         // 网络图片帧解码完成 → 触发后台缓存, 下次可直接走本地文件。
@@ -3605,7 +3623,7 @@ $mediaTag
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isVideo = widget.source.kind == _GeneratedMessageMediaKind.video;
-    final viewport = MediaQuery.sizeOf(context);
+    final viewport = _adaptivePreviewDialogViewport(context);
     final metrics = isVideo
         ? _AdaptivePreviewDialogMetrics.fromAspectRatio(
             viewport: viewport,
@@ -3659,6 +3677,11 @@ $mediaTag
           autofocus: true,
           child: Dialog(
             insetPadding: const EdgeInsets.all(_kInsetPadding),
+            constraints: BoxConstraints(
+              minWidth: metrics.dialogWidth,
+              maxWidth: metrics.dialogWidth,
+              maxHeight: metrics.maxDialogHeight,
+            ),
             backgroundColor: colorScheme.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -3773,37 +3796,33 @@ $mediaTag
                         ),
                       ),
                       const Divider(height: 1),
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsets.all(_kContentPadding),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              width: metrics.contentWidth,
-                              height: metrics.contentHeight,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Positioned.fill(
-                                    child: WebViewWidget(
-                                      controller: _controller,
+                      Padding(
+                        padding: const EdgeInsets.all(_kContentPadding),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: metrics.contentWidth,
+                            height: metrics.contentHeight,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Positioned.fill(
+                                  child: WebViewWidget(controller: _controller),
+                                ),
+                                if (!_pageLoaded ||
+                                    (!_mediaReady && _loadError == null))
+                                  const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.6,
                                     ),
                                   ),
-                                  if (!_pageLoaded ||
-                                      (!_mediaReady && _loadError == null))
-                                    const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.6,
-                                      ),
-                                    ),
-                                  if (_loadError != null)
-                                    _MediaLoadFallback(
-                                      message: _loadError!,
-                                      onOpenExternal: () =>
-                                          _openInSystemPlayer(context),
-                                    ),
-                                ],
-                              ),
+                                if (_loadError != null)
+                                  _MediaLoadFallback(
+                                    message: _loadError!,
+                                    onOpenExternal: () =>
+                                        _openInSystemPlayer(context),
+                                  ),
+                              ],
                             ),
                           ),
                         ),

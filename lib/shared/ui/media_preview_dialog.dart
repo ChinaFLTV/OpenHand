@@ -168,7 +168,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final viewport = MediaQuery.sizeOf(context);
+    final rawViewport = MediaQuery.sizeOf(context);
+    final viewport = Size(
+      rawViewport.width * kOpenHandDialogViewportFraction,
+      rawViewport.height * kOpenHandDialogViewportFraction,
+    );
     final disableAnim = MediaQuery.disableAnimationsOf(context);
     final isZh = openHandIsChineseLocale(context);
 
@@ -218,6 +222,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     return Dialog(
       backgroundColor: cs.surface,
       insetPadding: const EdgeInsets.all(_kInsetPadding),
+      constraints: BoxConstraints(
+        minWidth: dialogW,
+        maxWidth: dialogW,
+        maxHeight: maxDialogH,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: AnimatedSize(
@@ -281,7 +290,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                     child: isImage
                         ? InteractiveViewer(
                             maxScale: 6,
-                            child: _buildImage(context),
+                            child: _buildImage(context, Size(bodyW, bodyH)),
                           )
                         : _MediaPlayerSurface(
                             bytes: widget.bytes,
@@ -513,10 +522,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     );
   }
 
-  Widget _buildImage(BuildContext context) {
+  Widget _buildImage(BuildContext context, Size displaySize) {
     if (widget.bytes != null) {
       return Image.memory(
         widget.bytes!,
+        width: displaySize.width,
+        height: displaySize.height,
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
@@ -524,6 +535,8 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     if (widget.networkUrl != null) {
       return Image.network(
         widget.networkUrl!,
+        width: displaySize.width,
+        height: displaySize.height,
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
@@ -531,6 +544,8 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     if (widget.filePath != null) {
       return Image.file(
         File(widget.filePath!),
+        width: displaySize.width,
+        height: displaySize.height,
         fit: BoxFit.contain,
         errorBuilder: (c, _, _) => _errorBox(c),
       );
