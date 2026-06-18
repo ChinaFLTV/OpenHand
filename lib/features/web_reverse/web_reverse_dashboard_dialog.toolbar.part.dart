@@ -438,9 +438,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (!mounted) return;
       final mode = await showAnimatedDialog<String>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(isZh ? '加载 HAR' : 'Load HAR'),
           content: Text(
             isZh
@@ -509,7 +507,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       aRaw = await openFile(acceptedTypeGroups: const [typeGroup]);
       if (aRaw == null) return;
       bRaw = await openFile(acceptedTypeGroups: const [typeGroup]);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'openFile har diff',
+        error,
+        stack,
+      );
+    }
     if (aRaw == null || bRaw == null || !context.mounted) return;
     final a = aRaw;
     final b = bRaw;
@@ -665,7 +670,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     final filtered = _filteredNetworkEntries(ctrl);
     showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
           isZh ? '批量操作（${filtered.length} 条）' : 'Batch (${filtered.length})',
         ),

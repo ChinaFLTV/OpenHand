@@ -102,6 +102,27 @@ const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const Curve _kSwitchOutCurve = Curves.easeInCubic;
 
+String _formatHeaderLines(Map<String, String> headers) {
+  if (headers.isEmpty) return '';
+  return headers.entries
+      .map((entry) => '${entry.key}: ${entry.value}')
+      .join('\n');
+}
+
+Map<String, String> _parseHeaderLines(String text) {
+  final headers = <String, String>{};
+  for (final rawLine in const LineSplitter().convert(text)) {
+    final line = rawLine.trim();
+    if (line.isEmpty) continue;
+    final separator = line.indexOf(':');
+    if (separator <= 0) continue;
+    final name = line.substring(0, separator).trim();
+    if (name.isEmpty) continue;
+    headers[name] = line.substring(separator + 1).trim();
+  }
+  return headers;
+}
+
 /// Web 逆向 CDP 仪表盘弹窗。
 ///
 /// 核心 tab：

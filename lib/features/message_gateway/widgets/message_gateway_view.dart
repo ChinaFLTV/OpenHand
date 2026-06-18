@@ -2766,26 +2766,14 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     required String label,
     required Future<WebGatewayCleanupResult> Function() action,
   }) async {
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(false),
-            label: '取消',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(true),
-            label: '确认清理',
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      cancelLabel: '取消',
+      confirmLabel: '确认清理',
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await _runCleanup(label: label, action: action);
     }
   }

@@ -106,6 +106,10 @@ AlertDialog buildOpenHandAlertDialog({
   Widget? title,
   Widget? content,
   List<Widget>? actions,
+  Color? backgroundColor,
+  Color? surfaceTintColor,
+  ShapeBorder? shape,
+  EdgeInsetsGeometry? titlePadding,
   MainAxisAlignment actionsAlignment = MainAxisAlignment.center,
   OverflowBarAlignment actionsOverflowAlignment = OverflowBarAlignment.center,
   double? actionsOverflowButtonSpacing,
@@ -113,6 +117,10 @@ AlertDialog buildOpenHandAlertDialog({
   EdgeInsetsGeometry? contentPadding,
 }) {
   return AlertDialog(
+    backgroundColor: backgroundColor,
+    surfaceTintColor: surfaceTintColor,
+    shape: shape,
+    titlePadding: titlePadding,
     actionsAlignment: actionsAlignment,
     actionsOverflowAlignment: actionsOverflowAlignment,
     actionsOverflowButtonSpacing: actionsOverflowButtonSpacing,

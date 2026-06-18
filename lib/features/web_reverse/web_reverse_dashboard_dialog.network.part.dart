@@ -1,5 +1,10 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+const double _kReplayResultDialogWidth = 640;
+const double _kReplayResultDialogHeight = 360;
+const Duration _kReplaySnackBarDuration = Duration(seconds: 2);
+const Duration _kReplayCopySnackBarDuration = Duration(seconds: 1);
+
 /// Network 资源类型过滤——对标 Chrome DevTools 顶部的 All / Fetch+XHR / JS / CSS
 /// / Img / Media / Manifest / WS / Wasm / Doc / Other 按钮组。
 ///
@@ -697,78 +702,101 @@ class _NetworkRow extends StatelessWidget {
   }
 
   Future<void> _replayWithOverridesAndShow(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     final overrides =
         await showAnimatedDialog<({String url, Map<String, String> headers})>(
           context: context,
           builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
         );
     if (overrides == null || !context.mounted) return;
-    showOpenHandLoadingDialog(context: context);
-    final r = await controller.replayRequest(
-      entry,
+    await _runReplayAndShow(
+      context,
       overrideUrl: overrides.url,
       overrideHeaders: overrides.headers,
-    );
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
-    if (r == null) {
-      OpenHandSnackBar.showErrorOn(
-        context,
-        messenger,
-        isZh ? '重放失败' : 'Replay failed',
-        duration: const Duration(seconds: 2),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    await showOpenHandInfoDialog(
-      context: context,
-      title: isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
-      closeLabel: isZh ? '关闭' : 'Close',
-      content: SizedBox(
-        width: 640,
-        height: 360,
-        child: SingleChildScrollView(
-          child: SelectableText(
-            r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-      ),
     );
   }
 
   Future<void> _replayAndShow(BuildContext context) async {
+    await _runReplayAndShow(context);
+  }
+
+  Future<void> _runReplayAndShow(
+    BuildContext context, {
+    String? overrideUrl,
+    Map<String, String>? overrideHeaders,
+  }) async {
     final messenger = ScaffoldMessenger.of(context);
-    // 显示一个"重放中"占位 dialog，结束后用结果替换。
-    showOpenHandLoadingDialog(context: context);
-    final r = await controller.replayRequest(entry);
+    final result = await _replayRequestWithLoading(
+      context,
+      overrideUrl: overrideUrl,
+      overrideHeaders: overrideHeaders,
+    );
     if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
-    if (r == null) {
+    if (result == null) {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
         isZh ? '重放失败' : 'Replay failed',
-        duration: const Duration(seconds: 2),
+        duration: _kReplaySnackBarDuration,
       );
       return;
     }
-    await showAnimatedDialog<void>(
+    await _showReplayResultDialog(context, messenger, result);
+  }
+
+  Future<({int status, String body})?> _replayRequestWithLoading(
+    BuildContext context, {
+    String? overrideUrl,
+    Map<String, String>? overrideHeaders,
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(
+      showOpenHandLoadingDialog(
+        context: context,
+        message: isZh ? '重放中...' : 'Replaying...',
+      ),
+    );
+    try {
+      return await controller.replayRequest(
+        entry,
+        overrideUrl: overrideUrl,
+        overrideHeaders: overrideHeaders,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'replay network row',
+        error,
+        stack,
+      );
+      return null;
+    } finally {
+      if (navigator.mounted) {
+        navigator.pop();
+      }
+    }
+  }
+
+  Future<void> _showReplayResultDialog(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    ({int status, String body}) result,
+  ) {
+    final body = result.body;
+    final bodyText = body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : body;
+    return showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
+      builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
-          isZh ? '重放结果（HTTP ${r.status}）' : 'Replay (HTTP ${r.status})',
+          isZh
+              ? '重放结果（HTTP ${result.status}）'
+              : 'Replay (HTTP ${result.status})',
         ),
         content: SizedBox(
-          width: 640,
-          height: 360,
+          width: _kReplayResultDialogWidth,
+          height: _kReplayResultDialogHeight,
           child: SingleChildScrollView(
             child: SelectableText(
-              r.body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : r.body,
+              bodyText,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
@@ -776,13 +804,13 @@ class _NetworkRow extends StatelessWidget {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: r.body));
+              await Clipboard.setData(ClipboardData(text: body));
               if (!dialogContext.mounted) return;
               OpenHandSnackBar.showSuccessOn(
                 dialogContext,
                 messenger,
                 isZh ? '响应体已复制' : 'Body copied',
-                duration: const Duration(seconds: 1),
+                duration: _kReplayCopySnackBarDuration,
               );
             },
             label: isZh ? '复制响应体' : 'Copy body',
@@ -969,9 +997,7 @@ class _PendingFetchBanner extends StatelessWidget {
       final isZh = this.isZh;
       final action = await showAnimatedDialog<String>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(isZh ? '处理拦截请求' : 'Handle intercepted request'),
           content: SizedBox(
             width: 520,
@@ -1030,89 +1056,98 @@ class _PendingFetchBanner extends StatelessWidget {
     final methodCtrl = TextEditingController(text: p.method);
     final headersCtrl = TextEditingController(); // 一行 key:value
     final bodyCtrl = TextEditingController();
-    final result = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: urlCtrl,
-                  decoration: const InputDecoration(labelText: 'URL'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: methodCtrl,
-                  decoration: const InputDecoration(labelText: 'Method'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: headersCtrl,
-                  maxLines: 6,
-                  minLines: 3,
-                  decoration: InputDecoration(
-                    labelText: isZh
-                        ? 'Headers（每行 Key: Value，留空则保持原样）'
-                        : 'Headers (Key: Value per line; empty = keep original)',
+    try {
+      final result = await showAnimatedDialog<bool>(
+        context: context,
+        builder: (dialogContext) => buildOpenHandAlertDialog(
+          title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(labelText: 'URL'),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: bodyCtrl,
-                  maxLines: 6,
-                  minLines: 3,
-                  decoration: InputDecoration(
-                    labelText: isZh
-                        ? 'Body（留空则保持原样）'
-                        : 'Body (empty = keep original)',
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: methodCtrl,
+                    decoration: const InputDecoration(labelText: 'Method'),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: headersCtrl,
+                    maxLines: 6,
+                    minLines: 3,
+                    decoration: InputDecoration(
+                      labelText: isZh
+                          ? 'Headers（每行 Key: Value，留空则保持原样）'
+                          : 'Headers (Key: Value per line; empty = keep original)',
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: bodyCtrl,
+                    maxLines: 6,
+                    minLines: 3,
+                    decoration: InputDecoration(
+                      labelText: isZh
+                          ? 'Body（留空则保持原样）'
+                          : 'Body (empty = keep original)',
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: isZh ? '取消' : 'Cancel',
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: isZh ? '放行' : 'Send',
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: isZh ? '放行' : 'Send',
-          ),
-        ],
-      ),
-    );
-    if (result != true) return;
-    final headersRaw = headersCtrl.text.trim();
-    Map<String, String>? headers;
-    if (headersRaw.isNotEmpty) {
-      headers = <String, String>{};
-      for (final line in headersRaw.split('\n')) {
-        final idx = line.indexOf(':');
-        if (idx <= 0) continue;
-        headers[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-      }
+      );
+      if (result != true) return;
+      final headersRaw = headersCtrl.text.trim();
+      final headers = headersRaw.isEmpty ? null : _parseHeaderLines(headersRaw);
+      final body = bodyCtrl.text;
+      final bodyB64 = body.isEmpty ? null : base64Encode(utf8.encode(body));
+      await controller.continueFetchRequestEdited(
+        p.requestId,
+        url: urlCtrl.text.trim().isEmpty ? null : urlCtrl.text.trim(),
+        method: methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
+        headers: headers,
+        postDataBase64: bodyB64,
+      );
+    } finally {
+      urlCtrl.dispose();
+      methodCtrl.dispose();
+      headersCtrl.dispose();
+      bodyCtrl.dispose();
     }
-    final body = bodyCtrl.text;
-    final bodyB64 = body.isEmpty ? null : base64Encode(utf8.encode(body));
-    await controller.continueFetchRequestEdited(
-      p.requestId,
-      url: urlCtrl.text.trim().isEmpty ? null : urlCtrl.text.trim(),
-      method: methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
-      headers: headers,
-      postDataBase64: bodyB64,
-    );
   }
 }
 
@@ -1138,9 +1173,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
     super.initState();
     _urlCtrl = TextEditingController(text: widget.entry.url);
     _headersCtrl = TextEditingController(
-      text: widget.entry.requestHeaders.entries
-          .map((e) => '${e.key}: ${e.value}')
-          .join('\n'),
+      text: _formatHeaderLines(widget.entry.requestHeaders),
     );
   }
 
@@ -1187,19 +1220,10 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {
-            final headers = <String, String>{};
-            for (final line in _headersCtrl.text.split('\n')) {
-              final trimmed = line.trim();
-              if (trimmed.isEmpty) continue;
-              final idx = trimmed.indexOf(':');
-              if (idx <= 0) continue;
-              headers[trimmed.substring(0, idx).trim()] = trimmed
-                  .substring(idx + 1)
-                  .trim();
-            }
-            Navigator.of(
-              context,
-            ).pop((url: _urlCtrl.text.trim(), headers: headers));
+            Navigator.of(context).pop((
+              url: _urlCtrl.text.trim(),
+              headers: _parseHeaderLines(_headersCtrl.text),
+            ));
           },
           label: isZh ? '重放' : 'Replay',
         ),

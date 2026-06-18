@@ -34,34 +34,67 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   // 用户在 UI 上勾选 chip 后调用 setEventListenerBreakpoint。
   static const Map<String, List<String>> _kEventCategories = {
     'Mouse': [
-      'click', 'auxclick', 'dblclick', 'mousedown', 'mouseup',
-      'mouseenter', 'mouseleave', 'mousemove', 'mouseover', 'mouseout',
-      'contextmenu', 'wheel',
+      'click',
+      'auxclick',
+      'dblclick',
+      'mousedown',
+      'mouseup',
+      'mouseenter',
+      'mouseleave',
+      'mousemove',
+      'mouseover',
+      'mouseout',
+      'contextmenu',
+      'wheel',
     ],
     'Keyboard': ['keydown', 'keypress', 'keyup'],
     'Touch': ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
     'Pointer': [
-      'pointerdown', 'pointerup', 'pointermove', 'pointerover',
-      'pointerout', 'pointerenter', 'pointerleave', 'pointercancel',
+      'pointerdown',
+      'pointerup',
+      'pointermove',
+      'pointerover',
+      'pointerout',
+      'pointerenter',
+      'pointerleave',
+      'pointercancel',
     ],
     'Control': [
-      'focus', 'blur', 'change', 'input', 'submit', 'reset',
-      'select', 'invalid',
+      'focus',
+      'blur',
+      'change',
+      'input',
+      'submit',
+      'reset',
+      'select',
+      'invalid',
     ],
     'Clipboard': ['copy', 'cut', 'paste'],
     'DOM Mutation': [
-      'DOMNodeInserted', 'DOMNodeRemoved', 'DOMAttrModified',
+      'DOMNodeInserted',
+      'DOMNodeRemoved',
+      'DOMAttrModified',
       'DOMCharacterDataModified',
     ],
     'Timer': ['timer:setTimeout', 'timer:setInterval'],
-    'Animation': ['animationstart', 'animationend', 'animationiteration',
-        'transitionstart', 'transitionend'],
+    'Animation': [
+      'animationstart',
+      'animationend',
+      'animationiteration',
+      'transitionstart',
+      'transitionend',
+    ],
     'Load': ['load', 'beforeunload', 'unload', 'DOMContentLoaded'],
     'Worker': ['message', 'messageerror'],
     'XHR': ['xhrSend', 'xhrReadyStateChange'],
     'Drag/Drop': [
-      'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave',
-      'dragover', 'drop',
+      'drag',
+      'dragstart',
+      'dragend',
+      'dragenter',
+      'dragleave',
+      'dragover',
+      'drop',
     ],
   };
 
@@ -87,8 +120,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   }
 
   Future<void> _removeSourceBp(({String url, int line}) b) async {
-    final ok = await widget.controller
-        .removeBreakpointAt(url: b.url, line: b.line);
+    final ok = await widget.controller.removeBreakpointAt(
+      url: b.url,
+      line: b.line,
+    );
     if (!mounted) return;
     if (ok) {
       widget.onPersist();
@@ -105,77 +140,80 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   // 重建），结果通过 _safeNotify → addListener → setState 刷新 UI。
   Future<void> _editSourceBpCondition(({String url, int line}) b) async {
     final isZh = widget.isZh;
-    final existing =
-        widget.controller.breakpointCondition(url: b.url, line: b.line);
-    final ctrl = TextEditingController(text: existing);
-    final value = await showAnimatedDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          title: Text(isZh ? '编辑条件断点' : 'Edit conditional breakpoint'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isZh
-                      ? '当表达式求值为真时才暂停。留空则改回普通断点。\n'
-                          '表达式在断点所在栈帧的作用域内求值。'
-                      : 'Pause only when the expression is truthy. Leave empty to revert to a plain breakpoint.\n'
-                          'Evaluated in the frame scope where the breakpoint fires.',
-                  style: Theme.of(dialogContext).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '${b.url}  line ${b.line + 1}',
-                  style: Theme.of(dialogContext)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(
-                        fontFamily: 'monospace',
-                        color: Theme.of(dialogContext)
-                            .colorScheme
-                            .onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  maxLines: 4,
-                  minLines: 2,
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 13),
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    hintText: isZh
-                        ? '例如：count > 100 && user.id === 42'
-                        : 'e.g. count > 100 && user.id === 42',
-                    isDense: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              label: isZh ? '取消' : 'Cancel',
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-            OpenHandDialogActionButton.primary(
-              label: isZh ? '保存' : 'Save',
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(ctrl.text),
-            ),
-          ],
-        );
-      },
+    final existing = widget.controller.breakpointCondition(
+      url: b.url,
+      line: b.line,
     );
-    ctrl.dispose();
+    final ctrl = TextEditingController(text: existing);
+    String? value;
+    try {
+      value = await showAnimatedDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return buildOpenHandAlertDialog(
+            title: Text(isZh ? '编辑条件断点' : 'Edit conditional breakpoint'),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isZh
+                        ? '当表达式求值为真时才暂停。留空则改回普通断点。\n'
+                              '表达式在断点所在栈帧的作用域内求值。'
+                        : 'Pause only when the expression is truthy. Leave empty to revert to a plain breakpoint.\n'
+                              'Evaluated in the frame scope where the breakpoint fires.',
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${b.url}  line ${b.line + 1}',
+                    style: Theme.of(dialogContext).textTheme.labelSmall
+                        ?.copyWith(
+                          fontFamily: 'monospace',
+                          color: Theme.of(
+                            dialogContext,
+                          ).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    maxLines: 4,
+                    minLines: 2,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      hintText: isZh
+                          ? '例如：count > 100 && user.id === 42'
+                          : 'e.g. count > 100 && user.id === 42',
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: isZh ? '取消' : 'Cancel',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              OpenHandDialogActionButton.primary(
+                label: isZh ? '保存' : 'Save',
+                onPressed: () => Navigator.of(dialogContext).pop(ctrl.text),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      ctrl.dispose();
+    }
     if (!mounted || value == null) return;
     final newId = await widget.controller.setBreakpointCondition(
       url: b.url,
@@ -274,8 +312,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   Future<void> _addDomBp() async {
     final sel = _domSelectorCtrl.text.trim();
     if (sel.isEmpty) return;
-    final ok = await widget.controller
-        .addDomBreakpoint(selector: sel, type: _domType);
+    final ok = await widget.controller.addDomBreakpoint(
+      selector: sel,
+      type: _domType,
+    );
     if (!mounted) return;
     if (ok) {
       _domSelectorCtrl.clear();
@@ -291,8 +331,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   }
 
   Future<void> _removeDomBp(({String selector, String type}) b) async {
-    final ok = await widget.controller
-        .removeDomBreakpoint(selector: b.selector, type: b.type);
+    final ok = await widget.controller.removeDomBreakpoint(
+      selector: b.selector,
+      type: b.type,
+    );
     if (ok && mounted) widget.onPersist();
   }
 
@@ -304,10 +346,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     final ok = await widget.controller.setCspViolationBreakpoints(next);
     if (!mounted) return;
     if (!ok) {
-      OpenHandSnackBar.showError(
-        context,
-        widget.isZh ? '设置失败' : 'Set failed',
-      );
+      OpenHandSnackBar.showError(context, widget.isZh ? '设置失败' : 'Set failed');
     } else {
       widget.onPersist();
     }
@@ -367,8 +406,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
             title: paused == null
                 ? (isZh ? '执行控制（运行中）' : 'Execution (running)')
                 : (isZh
-                    ? '执行控制（已暂停 · ${paused.reason}）'
-                    : 'Execution (paused · ${paused.reason})'),
+                      ? '执行控制（已暂停 · ${paused.reason}）'
+                      : 'Execution (paused · ${paused.reason})'),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -385,19 +424,24 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                 ),
                 OutlinedButton.icon(
                   onPressed: paused == null ? null : _stepInto,
-                  icon: const Icon(Icons.subdirectory_arrow_right_rounded,
-                      size: 18),
+                  icon: const Icon(
+                    Icons.subdirectory_arrow_right_rounded,
+                    size: 18,
+                  ),
                   label: Text(isZh ? '单步进入' : 'Step into'),
                 ),
                 OutlinedButton.icon(
                   onPressed: paused == null ? null : _stepOut,
-                  icon: const Icon(Icons.subdirectory_arrow_left_rounded,
-                      size: 18),
+                  icon: const Icon(
+                    Icons.subdirectory_arrow_left_rounded,
+                    size: 18,
+                  ),
                   label: Text(isZh ? '单步跳出' : 'Step out'),
                 ),
                 if (paused != null && paused.callFrames.isNotEmpty)
                   Tooltip(
-                    message: paused.callFrames.first['functionName']?.toString() ??
+                    message:
+                        paused.callFrames.first['functionName']?.toString() ??
                         '<anonymous>',
                     child: Chip(
                       avatar: const Icon(Icons.layers_rounded, size: 14),
@@ -426,7 +470,8 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                               ? '到 Sources 面板点击行号下断点。'
                               : 'Toggle breakpoints by clicking line numbers in Sources.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant),
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     )
@@ -441,8 +486,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                             tooltip: b.url,
                             onTap: () => widget.onJumpToSource(b.url, b.line),
                             onDelete: () => _removeSourceBp(b),
-                            condition: widget.controller
-                                .breakpointCondition(url: b.url, line: b.line),
+                            condition: widget.controller.breakpointCondition(
+                              url: b.url,
+                              line: b.line,
+                            ),
                             onEditCondition: () => _editSourceBpCondition(b),
                           ),
                       ],
@@ -483,7 +530,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
           const SizedBox(height: 12),
           _SectionCard(
             icon: Icons.cloud_download_outlined,
-            title: isZh ? 'XHR / fetch 断点（URL 子串匹配）' : 'XHR / fetch breakpoints (URL substring)',
+            title: isZh
+                ? 'XHR / fetch 断点（URL 子串匹配）'
+                : 'XHR / fetch breakpoints (URL substring)',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -519,8 +568,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
                             isZh ? '尚未添加。' : 'None yet.',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         )
                       : Column(
@@ -555,8 +605,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                     padding: const EdgeInsets.only(top: 6, bottom: 4),
                     child: Text(
                       entry.key,
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   Wrap(
@@ -565,7 +616,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                     children: [
                       for (final evt in entry.value)
                         FilterChip(
-                          label: Text(evt, style: const TextStyle(fontSize: 12)),
+                          label: Text(
+                            evt,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                           selected: elBps.contains(evt),
                           onSelected: (_) => _toggleEventListener(evt),
                         ),
@@ -590,8 +644,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                         decoration: InputDecoration(
                           isDense: true,
                           border: const OutlineInputBorder(),
-                          labelText:
-                              isZh ? 'CSS 选择器（如 #root）' : 'CSS selector (e.g. #root)',
+                          labelText: isZh
+                              ? 'CSS 选择器（如 #root）'
+                              : 'CSS selector (e.g. #root)',
                         ),
                         onSubmitted: (_) => _addDomBp(),
                       ),
@@ -601,14 +656,17 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                       value: _domType,
                       items: const [
                         DropdownMenuItem(
-                            value: 'subtree-modified',
-                            child: Text('subtree-modified')),
+                          value: 'subtree-modified',
+                          child: Text('subtree-modified'),
+                        ),
                         DropdownMenuItem(
-                            value: 'attribute-modified',
-                            child: Text('attribute-modified')),
+                          value: 'attribute-modified',
+                          child: Text('attribute-modified'),
+                        ),
                         DropdownMenuItem(
-                            value: 'node-removed',
-                            child: Text('node-removed')),
+                          value: 'node-removed',
+                          child: Text('node-removed'),
+                        ),
                       ],
                       onChanged: (v) {
                         if (v != null) setState(() => _domType = v);
@@ -631,8 +689,9 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
                             isZh ? '尚未添加。' : 'None yet.',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         )
                       : Column(
@@ -692,10 +751,11 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                         _globalListeners == null
                             ? (isZh ? '点击右侧按钮抓取一次。' : 'Click to fetch.')
                             : (isZh
-                                ? '共 ${_globalListeners!.length} 个监听器'
-                                : '${_globalListeners!.length} listeners'),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                                  ? '共 ${_globalListeners!.length} 个监听器'
+                                  : '${_globalListeners!.length} listeners'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     FilledButton.tonalIcon(
@@ -712,34 +772,38 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (_globalListeners != null && _globalListeners!.isNotEmpty)
-                  ...[
-                    for (final l in _globalListeners!)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          children: [
-                            Icon(Icons.bolt_rounded,
-                                size: 14, color: cs.tertiary),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${l['type']}'
-                                '${l['useCapture'] == true ? ' · capture' : ''}'
-                                '${l['passive'] == true ? ' · passive' : ''}'
-                                '${l['once'] == true ? ' · once' : ''}',
-                                style: theme.textTheme.bodySmall,
-                              ),
+                if (_globalListeners != null &&
+                    _globalListeners!.isNotEmpty) ...[
+                  for (final l in _globalListeners!)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.bolt_rounded,
+                            size: 14,
+                            color: cs.tertiary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${l['type']}'
+                              '${l['useCapture'] == true ? ' · capture' : ''}'
+                              '${l['passive'] == true ? ' · passive' : ''}'
+                              '${l['once'] == true ? ' · once' : ''}',
+                              style: theme.textTheme.bodySmall,
                             ),
-                            Text(
-                              '${l['scriptId'] ?? ''}:${l['lineNumber'] ?? ''}',
-                              style: theme.textTheme.labelSmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                          Text(
+                            '${l['scriptId'] ?? ''}:${l['lineNumber'] ?? ''}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                  ],
+                    ),
+                ],
               ],
             ),
           ),
@@ -779,8 +843,9 @@ class _SectionCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -835,14 +900,16 @@ class _BpRow extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (subtitle != null)
                   Text(
                     subtitle!,
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 if (hasCondition)
                   // 已设条件：把表达式以小字 + monospace 直接渲染出来，便于
@@ -866,9 +933,7 @@ class _BpRow extends StatelessWidget {
             IconButton(
               tooltip: hasCondition ? 'Edit condition' : 'Add condition',
               icon: Icon(
-                hasCondition
-                    ? Icons.tune_rounded
-                    : Icons.edit_note_rounded,
+                hasCondition ? Icons.tune_rounded : Icons.edit_note_rounded,
                 size: 16,
                 color: hasCondition ? cs.primary : cs.onSurfaceVariant,
               ),

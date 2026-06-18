@@ -5708,9 +5708,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        return buildOpenHandAlertDialog(
           title: Text(_localizedText(context, zh: '反馈信息', en: 'Feedback Info')),
           content: SelectableText(
             _localizedText(

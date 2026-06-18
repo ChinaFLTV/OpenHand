@@ -801,76 +801,71 @@ Future<void> _showExtraHeadersDialog(
   bool isZh,
 ) async {
   final ctrlText = TextEditingController(
-    text: ctrl.extraHeaders.entries
-        .map((e) => '${e.key}: ${e.value}')
-        .join('\n'),
+    text: _formatHeaderLines(ctrl.extraHeaders),
   );
   final messenger = ScaffoldMessenger.of(context);
-  final ok = await showAnimatedDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(isZh ? '持久注入 Headers' : 'Persistent Headers'),
-      content: SizedBox(
-        width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isZh
-                  ? '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。'
-                  : 'One header per line in `Key: Value` form; empty to clear.',
-              style: Theme.of(dialogContext).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: ctrlText,
-              maxLines: 10,
-              minLines: 5,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-          ],
+  try {
+    final ok = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandAlertDialog(
+        title: Text(isZh ? '持久注入 Headers' : 'Persistent Headers'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isZh
+                    ? '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。'
+                    : 'One header per line in `Key: Value` form; empty to clear.',
+                style: Theme.of(dialogContext).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: ctrlText,
+                maxLines: 10,
+                minLines: 5,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+            ],
+          ),
         ),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            label: isZh ? '取消' : 'Cancel',
+          ),
+          OpenHandDialogActionButton.primary(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            label: isZh ? '保存' : 'Save',
+          ),
+        ],
       ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          label: isZh ? '取消' : 'Cancel',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          label: isZh ? '保存' : 'Save',
-        ),
-      ],
-    ),
-  );
-  if (ok != true) return;
-  final headers = <String, String>{};
-  for (final line in ctrlText.text.split('\n')) {
-    final idx = line.indexOf(':');
-    if (idx <= 0) continue;
-    headers[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-  }
-  final saved = await ctrl.setExtraHttpHeaders(headers);
-  if (!context.mounted) return;
-  if (saved) {
-    OpenHandSnackBar.showSuccessOn(
-      context,
-      messenger,
-      isZh
-          ? '已注入 ${headers.length} 个 Header'
-          : 'Injected ${headers.length} headers',
     );
-  } else {
-    OpenHandSnackBar.showErrorOn(
-      context,
-      messenger,
-      isZh ? '保存失败' : 'Save failed',
-      duration: const Duration(seconds: 2),
-    );
+    if (ok != true) return;
+    final headers = _parseHeaderLines(ctrlText.text);
+    final saved = await ctrl.setExtraHttpHeaders(headers);
+    if (!context.mounted) return;
+    if (saved) {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        isZh
+            ? '已注入 ${headers.length} 个 Header'
+            : 'Injected ${headers.length} headers',
+      );
+    } else {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? '保存失败' : 'Save failed',
+        duration: const Duration(seconds: 2),
+      );
+    }
+  } finally {
+    ctrlText.dispose();
   }
 }
 
@@ -883,111 +878,134 @@ Future<void> _showCdpPaletteDialog(
   final params = TextEditingController(text: '{}');
   final result = ValueNotifier<String?>(null);
   final useSession = ValueNotifier<bool>(true);
-  await showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
-      content: SizedBox(
-        width: 640,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: method,
-                decoration: const InputDecoration(
-                  labelText: 'Method',
-                  hintText: 'Network.getAllCookies / DOM.querySelector',
-                  border: OutlineInputBorder(),
-                ),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: params,
-                maxLines: 8,
-                minLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Params (JSON)',
-                  border: OutlineInputBorder(),
-                ),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
-              ),
-              const SizedBox(height: 6),
-              ValueListenableBuilder(
-                valueListenable: useSession,
-                builder: (_, v, _) => SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    isZh
-                        ? '在当前 Page 会话内执行（关掉则用 Browser 根 session）'
-                        : 'Use current page session (off = browser root session)',
+  try {
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandAlertDialog(
+        title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
+        content: SizedBox(
+          width: 640,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: method,
+                  decoration: const InputDecoration(
+                    labelText: 'Method',
+                    hintText: 'Network.getAllCookies / DOM.querySelector',
+                    border: OutlineInputBorder(),
                   ),
-                  value: v,
-                  onChanged: (n) => useSession.value = n,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              ValueListenableBuilder(
-                valueListenable: result,
-                builder: (_, v, _) => v == null
-                    ? const SizedBox.shrink()
-                    : Container(
-                        constraints: const BoxConstraints(maxHeight: 300),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            dialogContext,
-                          ).colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                const SizedBox(height: 8),
+                TextField(
+                  controller: params,
+                  maxLines: 8,
+                  minLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Params (JSON)',
+                    border: OutlineInputBorder(),
+                  ),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ValueListenableBuilder(
+                  valueListenable: useSession,
+                  builder: (_, v, _) => SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      isZh
+                          ? '在当前 Page 会话内执行（关掉则用 Browser 根 session）'
+                          : 'Use current page session (off = browser root session)',
+                    ),
+                    value: v,
+                    onChanged: (n) => useSession.value = n,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ValueListenableBuilder(
+                  valueListenable: result,
+                  builder: (_, v, _) => v == null
+                      ? const SizedBox.shrink()
+                      : Container(
+                          constraints: const BoxConstraints(maxHeight: 300),
+                          decoration: BoxDecoration(
                             color: Theme.of(
                               dialogContext,
-                            ).colorScheme.outlineVariant,
+                            ).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(
+                                dialogContext,
+                              ).colorScheme.outlineVariant,
+                            ),
                           ),
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        child: SingleChildScrollView(
-                          child: SelectableText(
-                            v,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
+                          padding: const EdgeInsets.all(10),
+                          child: SingleChildScrollView(
+                            child: SelectableText(
+                              v,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            label: isZh ? '关闭' : 'Close',
+          ),
+          OpenHandDialogActionButton.primary(
+            onPressed: () async {
+              final m = method.text.trim();
+              if (m.isEmpty) return;
+              try {
+                final r = await ctrl.sendRawCdp(
+                  method: m,
+                  paramsJson: params.text,
+                  useSession: useSession.value,
+                );
+                if (!dialogContext.mounted) return;
+                result.value = r == null
+                    ? '(null)'
+                    : const JsonEncoder.withIndent('  ').convert(r);
+              } catch (error, stack) {
+                silentLog(
+                  'web_reverse_dashboard_dialog',
+                  'send raw cdp',
+                  error,
+                  stack,
+                );
+                if (!dialogContext.mounted) return;
+                result.value = isZh ? '执行失败：$error' : 'Run failed: $error';
+              }
+            },
+            label: isZh ? '执行' : 'Run',
+          ),
+        ],
       ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          label: isZh ? '关闭' : 'Close',
-        ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () async {
-            final m = method.text.trim();
-            if (m.isEmpty) return;
-            final r = await ctrl.sendRawCdp(
-              method: m,
-              paramsJson: params.text,
-              useSession: useSession.value,
-            );
-            result.value = r == null
-                ? '(null)'
-                : const JsonEncoder.withIndent('  ').convert(r);
-          },
-          label: isZh ? '执行' : 'Run',
-        ),
-      ],
-    ),
-  );
+    );
+  } finally {
+    method.dispose();
+    params.dispose();
+    result.dispose();
+    useSession.dispose();
+  }
 }
 
 Future<void> _copyRecentRequestsForAi(
@@ -1069,9 +1087,7 @@ Future<void> _showDiffPicker(
   await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (_, setState) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
+      builder: (_, setState) => buildOpenHandAlertDialog(
         title: Text(isZh ? '选择两个请求对比' : 'Pick two requests'),
         content: SizedBox(
           width: 640,
@@ -1252,9 +1268,7 @@ Future<void> _showServiceWorkersDialog(
   if (!context.mounted) return;
   await showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    builder: (dialogContext) => buildOpenHandAlertDialog(
       title: Text(isZh ? 'Service Workers' : 'Service Workers'),
       content: SizedBox(
         width: 560,
@@ -1385,27 +1399,16 @@ Future<void> _toggleMitmproxyBridge(
   final exe = await WebReverseMitmproxyBridge.detectMitmdump();
   if (exe == null) {
     if (!context.mounted) return;
-    await showAnimatedDialog<void>(
+    await showOpenHandInfoDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? '未检测到 mitmdump' : 'mitmdump not found'),
-        content: Text(
-          isZh
-              ? '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
-                    '并把 mitmdump 加入 PATH。\n\n'
-                    '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
-              : 'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
-                    'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '关闭' : 'Close',
-          ),
-        ],
-      ),
+      title: isZh ? '未检测到 mitmdump' : 'mitmdump not found',
+      closeLabel: isZh ? '关闭' : 'Close',
+      message: isZh
+          ? '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
+                '并把 mitmdump 加入 PATH。\n\n'
+                '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
+          : 'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
+                'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
     );
     return;
   }
@@ -2374,94 +2377,104 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
   final input = TextEditingController();
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
-  await showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
-      title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
-      content: SizedBox(
-        width: 760,
-        height: 520,
-        child: Column(
-          children: [
-            Text(
-              isZh
-                  ? '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。'
-                  : 'Paste obfuscated JS, then click Deobfuscate. Requires Node.js + npm; uses npx webcrack.',
-              style: Theme.of(dialogContext).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: TextField(
-                controller: input,
-                maxLines: null,
-                expands: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'paste obfuscated js…',
-                ),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+  try {
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandAlertDialog(
+        title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
+        content: SizedBox(
+          width: 760,
+          height: 520,
+          child: Column(
+            children: [
+              Text(
+                isZh
+                    ? '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。'
+                    : 'Paste obfuscated JS, then click Deobfuscate. Requires Node.js + npm; uses npx webcrack.',
+                style: Theme.of(dialogContext).textTheme.bodySmall,
               ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ValueListenableBuilder<String?>(
-                valueListenable: output,
-                builder: (_, v, _) => Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      dialogContext,
-                    ).colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Theme.of(dialogContext).colorScheme.outlineVariant,
-                    ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: TextField(
+                  controller: input,
+                  maxLines: null,
+                  expands: true,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'paste obfuscated js…',
                   ),
-                  padding: const EdgeInsets.all(10),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      v ??
-                          (isZh
-                              ? '反混淆结果会显示在这里。'
-                              : 'Deobfuscated result appears here.'),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11.5,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: output,
+                  builder: (_, v, _) => Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        dialogContext,
+                      ).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(
+                          dialogContext,
+                        ).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        v ??
+                            (isZh
+                                ? '反混淆结果会显示在这里。'
+                                : 'Deobfuscated result appears here.'),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11.5,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          label: isZh ? '关闭' : 'Close',
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: running,
-          builder: (_, busy, _) => OpenHandDialogActionButton.primary(
-            onPressed: busy
-                ? null
-                : () async {
-                    if (input.text.trim().isEmpty) return;
-                    running.value = true;
-                    final r = await _runWebcrack(input.text);
-                    running.value = false;
-                    output.value = r;
-                  },
-            label: busy
-                ? (isZh ? '处理中…' : 'Working…')
-                : (isZh ? '反混淆' : 'Deobfuscate'),
+            ],
           ),
         ),
-      ],
-    ),
-  );
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            label: isZh ? '关闭' : 'Close',
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: running,
+            builder: (_, busy, _) => OpenHandDialogActionButton.primary(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (input.text.trim().isEmpty) return;
+                      running.value = true;
+                      final result = await _runWebcrack(input.text);
+                      if (!dialogContext.mounted) return;
+                      running.value = false;
+                      output.value = result;
+                    },
+              label: busy
+                  ? (isZh ? '处理中…' : 'Working…')
+                  : (isZh ? '反混淆' : 'Deobfuscate'),
+            ),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    input.dispose();
+    output.dispose();
+    running.dispose();
+  }
 }
 
 Future<String> _runWebcrack(String src) async {
@@ -2506,7 +2519,14 @@ Future<String> _runWebcrack(String src) async {
   } finally {
     try {
       await tmpDir.delete(recursive: true);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'delete webcrack temp',
+        error,
+        stack,
+      );
+    }
   }
 }
 
@@ -2736,9 +2756,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
     _patternCtrl = TextEditingController(text: widget.initial.urlPattern);
     _replaceCtrl = TextEditingController(text: widget.initial.replaceUrl ?? '');
     _headersCtrl = TextEditingController(
-      text: widget.initial.headerOverrides.entries
-          .map((e) => '${e.key}: ${e.value}')
-          .join('\n'),
+      text: _formatHeaderLines(widget.initial.headerOverrides),
     );
     _enabled = widget.initial.enabled;
     _block = widget.initial.block;
@@ -2755,9 +2773,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
   @override
   Widget build(BuildContext context) {
     final isZh = widget.isZh;
-    return AlertDialog(
-      actionsAlignment: MainAxisAlignment.center,
-      actionsOverflowAlignment: OverflowBarAlignment.center,
+    return buildOpenHandAlertDialog(
       title: Text(isZh ? '编辑规则' : 'Edit rule'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -2812,16 +2828,6 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {
-            final headers = <String, String>{};
-            for (final line in _headersCtrl.text.split('\n')) {
-              final trimmed = line.trim();
-              if (trimmed.isEmpty) continue;
-              final idx = trimmed.indexOf(':');
-              if (idx <= 0) continue;
-              headers[trimmed.substring(0, idx).trim()] = trimmed
-                  .substring(idx + 1)
-                  .trim();
-            }
             Navigator.of(context).pop(
               WebReverseInterceptRule(
                 urlPattern: _patternCtrl.text.trim(),
@@ -2830,7 +2836,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                 replaceUrl: _replaceCtrl.text.trim().isEmpty
                     ? null
                     : _replaceCtrl.text.trim(),
-                headerOverrides: headers,
+                headerOverrides: _parseHeaderLines(_headersCtrl.text),
               ),
             );
           },

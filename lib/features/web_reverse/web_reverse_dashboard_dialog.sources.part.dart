@@ -265,119 +265,120 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       text: cur?.args.isEmpty ?? true ? '--stdio' : cur!.args.join(' '),
     );
     final preset = ValueNotifier<String?>(null);
-    final result = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowAlignment: OverflowBarAlignment.center,
-        title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isZh
-                    ? '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：'
-                    : 'Specify LSP server command (must be on PATH). Presets:',
-                style: Theme.of(dialogContext).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              ValueListenableBuilder<String?>(
-                valueListenable: preset,
-                builder: (_, sel, _) => Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    for (final p in _lspPresets)
-                      ChoiceChip(
-                        label: Text(p.label),
-                        selected: sel == p.label,
-                        onSelected: (_) {
-                          preset.value = p.label;
-                          cmdCtrl.text = p.cmd;
-                          argsCtrl.text = p.args.join(' ');
-                        },
-                      ),
-                  ],
+    try {
+      final result = await showAnimatedDialog<bool>(
+        context: context,
+        builder: (dialogContext) => buildOpenHandAlertDialog(
+          title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isZh
+                      ? '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：'
+                      : 'Specify LSP server command (must be on PATH). Presets:',
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: cmdCtrl,
-                decoration: InputDecoration(
-                  isDense: true,
-                  labelText: isZh ? '命令' : 'Command',
-                  border: const OutlineInputBorder(),
+                const SizedBox(height: 8),
+                ValueListenableBuilder<String?>(
+                  valueListenable: preset,
+                  builder: (_, sel, _) => Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final p in _lspPresets)
+                        ChoiceChip(
+                          label: Text(p.label),
+                          selected: sel == p.label,
+                          onSelected: (_) {
+                            preset.value = p.label;
+                            cmdCtrl.text = p.cmd;
+                            argsCtrl.text = p.args.join(' ');
+                          },
+                        ),
+                    ],
+                  ),
                 ),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: argsCtrl,
-                decoration: InputDecoration(
-                  isDense: true,
-                  labelText: isZh ? '参数（空格分隔）' : 'Args (space separated)',
-                  border: const OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: cmdCtrl,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: isZh ? '命令' : 'Command',
+                    border: const OutlineInputBorder(),
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isZh
-                    ? '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
-                          '• typescript-language-server：npm i -g typescript typescript-language-server\n'
-                          '• vtsls：npm i -g @vtsls/language-server\n'
-                          '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
-                          '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
-                    : 'Restart applies on save. Install hints:\n'
-                          '• typescript-language-server: npm i -g typescript typescript-language-server\n'
-                          '• vtsls: npm i -g @vtsls/language-server\n'
-                          '• deno lsp: brew install deno → cmd=deno args=lsp\n'
-                          '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
-                style: Theme.of(
-                  dialogContext,
-                ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
-              ),
-            ],
+                const SizedBox(height: 8),
+                TextField(
+                  controller: argsCtrl,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: isZh ? '参数（空格分隔）' : 'Args (space separated)',
+                    border: const OutlineInputBorder(),
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isZh
+                      ? '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
+                            '• typescript-language-server：npm i -g typescript typescript-language-server\n'
+                            '• vtsls：npm i -g @vtsls/language-server\n'
+                            '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
+                            '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
+                      : 'Restart applies on save. Install hints:\n'
+                            '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                            '• vtsls: npm i -g @vtsls/language-server\n'
+                            '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                            '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                  style: Theme.of(
+                    dialogContext,
+                  ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: isZh ? '取消' : 'Cancel',
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: isZh ? '保存' : 'Save',
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            label: isZh ? '取消' : 'Cancel',
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-          ),
-          OpenHandDialogActionButton.primary(
-            label: isZh ? '保存' : 'Save',
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
-      ),
-    );
-    cmdCtrl.dispose();
-    argsCtrl.dispose();
-    preset.dispose();
-    if (result != true || !mounted) return;
-    final cmd = cmdCtrl.text.trim();
-    final args = argsCtrl.text
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((s) => s.isNotEmpty)
-        .toList(growable: false);
-    if (cmd.isEmpty) return;
-    dashboardState?.persistLspConfig(command: cmd, args: args);
-    // 重启：先 stop 旧 server（如果运行中），切回 disabled 状态等用户主动开。
-    if (_lspEnabled) {
-      await _lsp.stop();
-      setState(() => _lspEnabled = false);
-      // 提示用户需要再次点击 LSP 启用以走新配置。
-      if (mounted) {
-        OpenHandSnackBar.showInfo(
-          context,
-          isZh ? '已保存。点击 LSP 胶囊以新命令重启。' : 'Saved. Tap LSP chip to restart.',
-        );
+      );
+      if (result != true || !mounted) return;
+      final cmd = cmdCtrl.text.trim();
+      final args = argsCtrl.text
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((s) => s.isNotEmpty)
+          .toList(growable: false);
+      if (cmd.isEmpty) return;
+      dashboardState?.persistLspConfig(command: cmd, args: args);
+      // 重启：先 stop 旧 server（如果运行中），切回 disabled 状态等用户主动开。
+      if (_lspEnabled) {
+        await _lsp.stop();
+        setState(() => _lspEnabled = false);
+        // 提示用户需要再次点击 LSP 启用以走新配置。
+        if (mounted) {
+          OpenHandSnackBar.showInfo(
+            context,
+            isZh ? '已保存。点击 LSP 胶囊以新命令重启。' : 'Saved. Tap LSP chip to restart.',
+          );
+        }
       }
+    } finally {
+      cmdCtrl.dispose();
+      argsCtrl.dispose();
+      preset.dispose();
     }
   }
 

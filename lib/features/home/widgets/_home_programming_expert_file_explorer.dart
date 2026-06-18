@@ -8344,9 +8344,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        return buildOpenHandAlertDialog(
           title: Text(
             isZh ? '文件未保存' : 'Unsaved Changes',
             style: theme.textTheme.titleMedium,
@@ -9306,9 +9304,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final selected = await showAnimatedDialog<AiLspCodeAction>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          actionsAlignment: MainAxisAlignment.center,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
+        return buildOpenHandAlertDialog(
           title: Text(title),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460, maxHeight: 320),
