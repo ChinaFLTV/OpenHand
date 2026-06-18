@@ -81,7 +81,7 @@ Research ──▶ Synthesis ──▶ Implementation ──▶ Verification
 <adaptive_complexity>
 | 任务类型 | 工作流 |
 |---|---|
-| 简单查询 / 单点编辑 | 直接动作，跳过 TodoWrite |
+| 低风险小范围任务 | 最小工具集 + 必要验证，可跳过 TodoWrite |
 | 多文件 / 多步实现 | 完整四阶段循环 + TodoWrite |
 | 高风险 / 大规模重构 | 详细规划 + 增量验证 + 中途汇报 |
 </adaptive_complexity>

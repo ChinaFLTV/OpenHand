@@ -4047,6 +4047,7 @@ class AiSessionController extends ChangeNotifier {
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
             breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
+            sessionAffinityKey: workingSession.id,
           ),
           onRequestStarted: previewRequestStartTelemetry,
         );
@@ -10497,11 +10498,22 @@ $tail''';
     Map<String, int> preRequestTimingsMs = const <String, int>{},
     required String userMessageId,
   }) {
-    final metadata = _buildRequestStartTelemetryMetadata(
-      telemetry: telemetry,
-      runtimeContext: runtimeContext,
-      preRequestTimingsMs: preRequestTimingsMs,
-    );
+    if (!runtimeContext.telemetryDebugEnabled || userMessageId.isEmpty) {
+      return session;
+    }
+    final metadata = <String, Object?>{
+      ..._buildRequestStartTelemetryMetadata(
+        telemetry: telemetry,
+        runtimeContext: runtimeContext,
+        preRequestTimingsMs: preRequestTimingsMs,
+      ),
+      if (telemetry.requestBody != null)
+        ..._requestPayloadPrefixTelemetry(
+          session: session,
+          userMessageId: userMessageId,
+          requestBody: telemetry.requestBody!,
+        ),
+    };
     if (metadata.isEmpty || userMessageId.isEmpty) {
       return session;
     }
@@ -10556,6 +10568,95 @@ $tail''';
       if (paths.isNotEmpty)
         'request_cache_control_marker_paths': paths.take(8).toList(),
     };
+  }
+
+  Map<String, Object?> _requestPayloadPrefixTelemetry({
+    required AiSession session,
+    required String userMessageId,
+    required Map<String, Object?> requestBody,
+  }) {
+    final currentJson = jsonEncode(requestBody);
+    final currentHash = _stableFnv32Hex(currentJson);
+    final previousUser = _previousUserMessageForTelemetry(
+      session: session,
+      userMessageId: userMessageId,
+    );
+    final previousPayload = previousUser == null
+        ? null
+        : _metadataMap(previousUser.metadata['request_payload']);
+    if (previousPayload == null) {
+      return <String, Object?>{
+        'request_payload_json_length': currentJson.length,
+        'request_payload_hash': currentHash,
+        'request_payload_prefix_probe_complete': false,
+      };
+    }
+    final previousJson = jsonEncode(previousPayload);
+    final lcp = _longestCommonPrefixLength(previousJson, currentJson);
+    final previousLength = previousJson.length;
+    final ratio = previousLength <= 0 ? 0.0 : lcp / previousLength;
+    // When a chat request is prefix-extending, the previous JSON usually only
+    // differs at its final closing `]}` because new assistant/user turns are
+    // inserted before those delimiters. Allow a small delimiter margin.
+    final continuityThreshold = math.max(0, previousLength - 4);
+    return <String, Object?>{
+      'request_payload_json_length': currentJson.length,
+      'request_payload_hash': currentHash,
+      'previous_request_payload_hash': _stableFnv32Hex(previousJson),
+      'previous_request_payload_json_length': previousLength,
+      'request_payload_lcp_chars': lcp,
+      'request_payload_lcp_previous_ratio': ratio.clamp(0.0, 1.0),
+      'request_payload_prefix_continuity': lcp >= continuityThreshold,
+      'request_payload_prefix_probe_complete': true,
+    };
+  }
+
+  AiSessionMessage? _previousUserMessageForTelemetry({
+    required AiSession session,
+    required String userMessageId,
+  }) {
+    final startIndex = session.messages.indexWhere(
+      (message) => message.id == userMessageId,
+    );
+    if (startIndex <= 0) {
+      return null;
+    }
+    for (var index = startIndex - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  Map<String, Object?>? _metadataMap(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return null;
+  }
+
+  int _longestCommonPrefixLength(String previous, String current) {
+    final maxLength = math.min(previous.length, current.length);
+    var index = 0;
+    while (index < maxLength &&
+        previous.codeUnitAt(index) == current.codeUnitAt(index)) {
+      index += 1;
+    }
+    return index;
+  }
+
+  String _stableFnv32Hex(String content) {
+    var hash = 0x811c9dc5;
+    for (final codeUnit in content.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
   }
 
   AiSession _applyPromptInlinedRuntimeRemindersToUserMessage({

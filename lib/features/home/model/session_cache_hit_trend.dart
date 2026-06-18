@@ -466,11 +466,22 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       toolCatalogHash.isEmpty ||
       previousToolCatalogHash.isEmpty ||
       toolCatalogHash == previousToolCatalogHash;
+  final requestPrefixContinuity = firstBool([
+    primaryMetadata['request_payload_prefix_continuity'],
+    relatedMetadata['request_payload_prefix_continuity'],
+  ]);
+  final requestPrefixProbeComplete = firstBool([
+    primaryMetadata['request_payload_prefix_probe_complete'],
+    relatedMetadata['request_payload_prefix_probe_complete'],
+  ]);
+  final requestPrefixStable =
+      !requestPrefixProbeComplete || requestPrefixContinuity;
   final shortIdleAutoCacheMissSuspected =
       !requiresExplicitCacheControls &&
       !ttlSuspected &&
       stablePrefixUnchanged &&
       toolCatalogStable &&
+      requestPrefixStable &&
       idleGapSeconds != null &&
       idleGapSeconds >= kShortAutoCacheIdleGapSeconds &&
       hitRatio < kPartialAutoCacheHitRatioThreshold;
@@ -486,6 +497,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       idleGapSeconds != null &&
       idleGapSeconds < 3600 &&
       ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
+          (requestPrefixProbeComplete && !requestPrefixContinuity) ||
           (toolCatalogHash.isNotEmpty &&
               previousToolCatalogHash.isNotEmpty &&
               toolCatalogHash != previousToolCatalogHash) ||

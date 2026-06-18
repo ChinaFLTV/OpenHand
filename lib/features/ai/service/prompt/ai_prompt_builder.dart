@@ -708,6 +708,12 @@ class AiPromptBuilder {
           cacheControlStrategy == 'explicit_cache_control'
       ..['cache_provider_automatic'] =
           cacheControlStrategy == 'provider_automatic'
+      ..['cache_session_affinity_enabled'] =
+          runtimeContext.aiInputCacheEnabled &&
+          cacheControlStrategy == 'provider_automatic'
+      ..['cache_session_affinity_hash'] = _promptFingerprint(
+        'openhand-cache-affinity\n${session.id}',
+      )
       ..['stable_cache_key'] = stableCacheKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
@@ -1386,7 +1392,7 @@ class AiPromptBuilder {
         buffer.writeln(
           'Choose tools by task fit, not by trial order. '
           'Use a skill only when the user explicitly selected it or the request clearly needs that skill\'s specialized workflow. '
-          'For greetings, casual chat, simple answers, or underspecified creative requests, answer directly or ask the missing question without loading a skill. '
+          'When no listed capability is required, stay on the base instructions and ask only for missing requirements that block the response. '
           'Prefer MCP when it is the clearest live data/action surface; use builtin tools for local files, shell, search, and routine implementation.',
         );
       }

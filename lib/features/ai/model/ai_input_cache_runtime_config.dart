@@ -13,6 +13,7 @@ class AiInputCacheRuntimeConfig {
     required this.updateInterval,
     required this.breakpointCount,
     this.breakpointPositions = const <double>[],
+    this.sessionAffinityKey = '',
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -37,5 +38,11 @@ class AiInputCacheRuntimeConfig {
   /// 自动布点。最后一个断点恒位于消息流末尾。
   final List<double> breakpointPositions;
 
+  /// Stable per-session key used by OpenAI-compatible adapters to provide a
+  /// provider-side cache/routing hint without exposing user identity.
+  final String sessionAffinityKey;
+
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
+
+  bool get hasSessionAffinityKey => sessionAffinityKey.trim().isNotEmpty;
 }
