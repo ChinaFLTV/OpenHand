@@ -15,6 +15,11 @@ import '../model/plugin_info.dart';
 class PluginScannerService {
   PluginScannerService();
 
+  Future<_PythonRuntimeScan?>? _pythonRuntimeProbe;
+  final Map<String, Future<String?>> _brewLatestVersionProbes =
+      <String, Future<String?>>{};
+  Future<String?>? _latestPipVersionProbe;
+
   static String _pickShell() {
     final shell = Platform.environment['SHELL'];
     if (shell != null && shell.isNotEmpty) return shell;
@@ -137,6 +142,16 @@ class PluginScannerService {
     return match?.group(0);
   }
 
+  static Object? _decodeOptionalJson(String output) {
+    final trimmed = output.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      return jsonDecode(trimmed);
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<String?> _queryLatestNodeVersion({
     required String installedVersion,
     String? releaseHint,
@@ -172,25 +187,15 @@ class PluginScannerService {
       'curl -fsSL https://nodejs.org/dist/index.json',
     );
     if (result.exitCode != 0) return null;
-    try {
-      final decoded = jsonDecode(result.stdout.toString());
-      if (decoded is! List) return null;
-      for (final entry in decoded) {
-        if (entry is! Map<String, Object?>) continue;
-        final version = entry['version'];
-        if (version is! String || !_isNodeVersion(version)) continue;
-        final lts = entry['lts'];
-        final isLts = lts is String && lts.isNotEmpty;
-        if (preferLts ? isLts : !isLts) return version;
-      }
-    } catch (error, stack) {
-      silentLog(
-        'plugin_scanner_service',
-        'parse latest Node release',
-        error,
-        stack,
-      );
-      return null;
+    final decoded = _decodeOptionalJson(result.stdout.toString());
+    if (decoded is! List) return null;
+    for (final entry in decoded) {
+      if (entry is! Map<String, Object?>) continue;
+      final version = entry['version'];
+      if (version is! String || !_isNodeVersion(version)) continue;
+      final lts = entry['lts'];
+      final isLts = lts is String && lts.isNotEmpty;
+      if (preferLts ? isLts : !isLts) return version;
     }
     return null;
   }
@@ -284,50 +289,58 @@ class PluginScannerService {
   }
 
   Future<String?> _queryBrewLatestVersion(String formula) async {
+    final normalizedFormula = formula.trim();
+    if (normalizedFormula.isEmpty) return null;
+    final active = _brewLatestVersionProbes[normalizedFormula];
+    if (active != null) return active;
+    late final Future<String?> probe;
+    probe = _queryBrewLatestVersionUncached(normalizedFormula).whenComplete(() {
+      if (identical(_brewLatestVersionProbes[normalizedFormula], probe)) {
+        _brewLatestVersionProbes.remove(normalizedFormula);
+      }
+    });
+    _brewLatestVersionProbes[normalizedFormula] = probe;
+    return probe;
+  }
+
+  Future<String?> _queryBrewLatestVersionUncached(String formula) async {
     final result = await _shellRun('brew info --json=v2 $formula');
     if (result.exitCode != 0) return null;
-    try {
-      final decoded = jsonDecode(result.stdout.toString());
-      final formulae = decoded is Map<String, Object?>
-          ? decoded['formulae']
-          : null;
-      if (formulae is! List || formulae.isEmpty) return null;
-      final item = formulae.first;
-      if (item is! Map<String, Object?>) return null;
-      final versions = item['versions'];
-      if (versions is! Map<String, Object?>) return null;
-      final stable = versions['stable'];
-      return stable is String && stable.isNotEmpty ? stable : null;
-    } catch (error, stack) {
-      silentLog(
-        'plugin_scanner_service',
-        'parse latest python formula',
-        error,
-        stack,
-      );
-      return null;
-    }
+    final decoded = _decodeOptionalJson(result.stdout.toString());
+    final formulae = decoded is Map<String, Object?>
+        ? decoded['formulae']
+        : null;
+    if (formulae is! List || formulae.isEmpty) return null;
+    final item = formulae.first;
+    if (item is! Map<String, Object?>) return null;
+    final versions = item['versions'];
+    if (versions is! Map<String, Object?>) return null;
+    final stable = versions['stable'];
+    return stable is String && stable.isNotEmpty ? stable : null;
   }
 
   Future<String?> _queryLatestPipVersion() async {
+    final active = _latestPipVersionProbe;
+    if (active != null) return active;
+    late final Future<String?> probe;
+    probe = _queryLatestPipVersionUncached().whenComplete(() {
+      if (identical(_latestPipVersionProbe, probe)) {
+        _latestPipVersionProbe = null;
+      }
+    });
+    _latestPipVersionProbe = probe;
+    return probe;
+  }
+
+  Future<String?> _queryLatestPipVersionUncached() async {
     final result = await _shellRun('curl -fsSL https://pypi.org/pypi/pip/json');
     if (result.exitCode != 0) return null;
-    try {
-      final decoded = jsonDecode(result.stdout.toString());
-      if (decoded is! Map<String, Object?>) return null;
-      final info = decoded['info'];
-      if (info is! Map<String, Object?>) return null;
-      final version = info['version'];
-      return version is String && version.isNotEmpty ? version : null;
-    } catch (error, stack) {
-      silentLog(
-        'plugin_scanner_service',
-        'parse latest pip version',
-        error,
-        stack,
-      );
-      return null;
-    }
+    final decoded = _decodeOptionalJson(result.stdout.toString());
+    if (decoded is! Map<String, Object?>) return null;
+    final info = decoded['info'];
+    if (info is! Map<String, Object?>) return null;
+    final version = info['version'];
+    return version is String && version.isNotEmpty ? version : null;
   }
 
   static String? _extractFirstSemver(String output, {String? prefix}) {
@@ -445,6 +458,40 @@ class PluginScannerService {
     return null;
   }
 
+  Future<_PythonRuntimeScan?> _resolvePythonRuntime() {
+    final active = _pythonRuntimeProbe;
+    if (active != null) return active;
+    late final Future<_PythonRuntimeScan?> probe;
+    probe = _resolvePythonRuntimeUncached().whenComplete(() {
+      if (identical(_pythonRuntimeProbe, probe)) {
+        _pythonRuntimeProbe = null;
+      }
+    });
+    _pythonRuntimeProbe = probe;
+    return probe;
+  }
+
+  Future<_PythonRuntimeScan?> _resolvePythonRuntimeUncached() async {
+    final pyenvAvailable = await _isPyenvAvailable();
+    final runtime = pyenvAvailable
+        ? await _resolvePyenvPython()
+        : await _resolveShellPython();
+    return runtime ?? await _resolveShellPython();
+  }
+
+  PluginInfo _pythonInfoFromRuntime(_PythonRuntimeScan? runtime) {
+    if (runtime == null) return _pythonNotInstalled;
+    return PluginInfo(
+      id: 'python',
+      name: 'Python',
+      description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
+      status: PluginStatus.installed,
+      installedVersion: runtime.version,
+      latestVersion: runtime.latestVersion,
+      installPath: runtime.executable,
+    );
+  }
+
   Future<PluginInfo> scanNodeJs() async {
     try {
       final nvm = await _resolveNvmDirect();
@@ -513,64 +560,49 @@ class PluginScannerService {
 
   Future<PluginInfo> scanPython() async {
     try {
-      final pyenvAvailable = await _isPyenvAvailable();
-      final runtime = pyenvAvailable
-          ? await _resolvePyenvPython()
-          : await _resolveShellPython();
-      final resolvedRuntime = runtime ?? await _resolveShellPython();
-      if (resolvedRuntime == null) return _pythonNotInstalled;
-      return PluginInfo(
-        id: 'python',
-        name: 'Python',
-        description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
-        status: PluginStatus.installed,
-        installedVersion: resolvedRuntime.version,
-        latestVersion: resolvedRuntime.latestVersion,
-        installPath: resolvedRuntime.executable,
-      );
+      return _pythonInfoFromRuntime(await _resolvePythonRuntime());
     } catch (e) {
       silentLog('PluginScanner', 'scanPython', e);
     }
     return _pythonNotInstalled;
   }
 
+  Future<PluginInfo> _scanPipWithRuntime(_PythonRuntimeScan? runtime) async {
+    if (runtime == null) return _pipNotInstalled;
+    final pipVersionResult = await runTrackedProcessOrFailed(
+      runtime.executable,
+      ['-m', 'pip', '--version'],
+      timeout: const Duration(seconds: 8),
+      tag: 'plugin_scanner.pip_probe',
+      environment: _proxyEnv(),
+    );
+    if (pipVersionResult.exitCode != 0) {
+      return _pipNotInstalled;
+    }
+    final version = _extractPipVersion(
+      '${pipVersionResult.stdout}\n${pipVersionResult.stderr}',
+    );
+    if (version == null) return _pipNotInstalled;
+    final latestVersion = switch (runtime.source) {
+      _PythonRuntimeSource.pyenv => await _queryLatestPipVersion(),
+      _ => null,
+    };
+    return PluginInfo(
+      id: 'pip',
+      name: 'pip',
+      description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
+      status: PluginStatus.installed,
+      installedVersion: version,
+      latestVersion: latestVersion,
+      installPath: runtime.executable,
+      dependencies: const ['python'],
+      supportsUninstall: false,
+    );
+  }
+
   Future<PluginInfo> scanPip() async {
     try {
-      final pyenvAvailable = await _isPyenvAvailable();
-      final runtime = pyenvAvailable
-          ? await _resolvePyenvPython()
-          : await _resolveShellPython();
-      final resolvedRuntime = runtime ?? await _resolveShellPython();
-      if (resolvedRuntime == null) return _pipNotInstalled;
-      final pipVersionResult = await runTrackedProcessOrFailed(
-        resolvedRuntime.executable,
-        ['-m', 'pip', '--version'],
-        timeout: const Duration(seconds: 8),
-        tag: 'plugin_scanner.pip_probe',
-        environment: _proxyEnv(),
-      );
-      if (pipVersionResult.exitCode != 0) {
-        return _pipNotInstalled;
-      }
-      final version = _extractPipVersion(
-        '${pipVersionResult.stdout}\n${pipVersionResult.stderr}',
-      );
-      if (version == null) return _pipNotInstalled;
-      final latestVersion = switch (resolvedRuntime.source) {
-        _PythonRuntimeSource.pyenv => await _queryLatestPipVersion(),
-        _ => null,
-      };
-      return PluginInfo(
-        id: 'pip',
-        name: 'pip',
-        description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
-        status: PluginStatus.installed,
-        installedVersion: version,
-        latestVersion: latestVersion,
-        installPath: resolvedRuntime.executable,
-        dependencies: const ['python'],
-        supportsUninstall: false,
-      );
+      return _scanPipWithRuntime(await _resolvePythonRuntime());
     } catch (e) {
       silentLog('PluginScanner', 'scanPip', e);
     }
@@ -655,16 +687,25 @@ class PluginScannerService {
   );
 
   Future<List<PluginInfo>> scanAll() async {
-    final results = await Future.wait([
-      scanNodeJs(),
-      scanPlaywright(),
-      scanPython(),
-      scanPip(),
-    ]);
-    final nodeJs = results[0];
-    final playwright = results[1];
-    final python = results[2];
-    final pip = results[3];
+    final nodeFuture = scanNodeJs();
+    final playwrightFuture = scanPlaywright();
+    final pythonRuntimeFuture = _resolvePythonRuntime();
+    final nodeJs = await nodeFuture;
+    final playwright = await playwrightFuture;
+    _PythonRuntimeScan? pythonRuntime;
+    try {
+      pythonRuntime = await pythonRuntimeFuture;
+    } catch (error, stack) {
+      silentLog('PluginScanner', 'resolvePythonRuntime', error, stack);
+    }
+    final python = _pythonInfoFromRuntime(pythonRuntime);
+    PluginInfo pip;
+    try {
+      pip = await _scanPipWithRuntime(pythonRuntime);
+    } catch (error, stack) {
+      silentLog('PluginScanner', 'scanPip', error, stack);
+      pip = _pipNotInstalled;
+    }
     final updatedNodeJs = nodeJs.copyWith(
       dependents: playwright.isInstalled ? const ['playwright'] : const [],
     );

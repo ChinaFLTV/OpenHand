@@ -24,6 +24,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool _isOperating = false;
   String? _checkingPluginId;
   String? _errorMessage;
+  Future<void>? _refreshAllPluginsFuture;
   final List<String> _operationLogs = [];
   final ChangePulse _operationSuccessPulse = ChangePulse();
 
@@ -44,22 +45,29 @@ class PluginServiceController extends ManagedChangeNotifier {
   }
 
   /// 初始化：扫描本机已安装的插件。
-  Future<void> initialize() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-    try {
-      _plugins = await _scanner.scanAll();
-    } catch (e) {
-      _errorMessage = '$e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  Future<void> initialize() {
+    return _refreshAllPlugins();
   }
 
   /// 重新扫描所有插件状态。
-  Future<void> rescan() async {
+  Future<void> rescan() {
+    return _refreshAllPlugins();
+  }
+
+  Future<void> _refreshAllPlugins() {
+    final active = _refreshAllPluginsFuture;
+    if (active != null) return active;
+    late final Future<void> refresh;
+    refresh = _refreshAllPluginsUncached().whenComplete(() {
+      if (identical(_refreshAllPluginsFuture, refresh)) {
+        _refreshAllPluginsFuture = null;
+      }
+    });
+    _refreshAllPluginsFuture = refresh;
+    return refresh;
+  }
+
+  Future<void> _refreshAllPluginsUncached() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
