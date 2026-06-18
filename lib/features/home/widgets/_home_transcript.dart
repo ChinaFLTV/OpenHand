@@ -2566,7 +2566,7 @@ class _PendingCreationPlaceholderCard extends StatefulWidget {
 class _PendingCreationPlaceholderCardState
     extends State<_PendingCreationPlaceholderCard>
     with SingleTickerProviderStateMixin {
-  static const Duration _sweepDuration = Duration(milliseconds: 1750);
+  static const Duration _sweepDuration = Duration(milliseconds: 2600);
 
   late final AnimationController _sweepController = AnimationController(
     vsync: this,
@@ -2646,7 +2646,7 @@ class _PendingCreationPlaceholderCardState
                   ? 0.55
                   : 0.54 +
                         (math.sin(_sweepController.value * math.pi * 2) + 1) *
-                            0.08;
+                            0.045;
               return Transform.scale(
                 scale: scale,
                 child: Icon(
@@ -2676,10 +2676,16 @@ class _PendingCreationPlaceholderCardState
           animation: _sweepController,
           child: content,
           builder: (context, child) {
-            final sweepStart = disabledMotion
-                ? -0.35
-                : -1.55 + _sweepController.value * 3.1;
-            final sweepEnd = sweepStart + 0.9;
+            final phase = Curves.easeInOutCubicEmphasized.transform(
+              _sweepController.value,
+            );
+            final sweepOffset = disabledMotion ? -64.0 : -250.0 + phase * 560;
+            final sweepOpacity = disabledMotion
+                ? 0.0
+                : math
+                      .sin(_sweepController.value * math.pi)
+                      .clamp(0.0, 1.0)
+                      .toDouble();
             return DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: cardRadius,
@@ -2702,19 +2708,51 @@ class _PendingCreationPlaceholderCardState
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment(sweepStart, -0.22),
-                          end: Alignment(sweepEnd, 0.18),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                           colors: [
-                            Colors.transparent,
                             Colors.white.withValues(
-                              alpha: disabledMotion ? 0.18 : 0.50,
+                              alpha: disabledMotion ? 0.035 : 0.055,
                             ),
                             Colors.transparent,
+                            cs.onSurfaceVariant.withValues(
+                              alpha: disabledMotion ? 0.018 : 0.03,
+                            ),
                           ],
-                          stops: const [0.08, 0.48, 0.92],
+                          stops: const [0.0, 0.48, 1.0],
                         ),
                       ),
                     ),
+                    if (!disabledMotion)
+                      Opacity(
+                        opacity: sweepOpacity,
+                        child: Transform.translate(
+                          offset: Offset(sweepOffset, 0),
+                          child: Transform.rotate(
+                            angle: -0.24,
+                            child: Center(
+                              child: SizedBox(
+                                width: 126,
+                                height: 340,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.white.withValues(alpha: 0.018),
+                                        Colors.white.withValues(alpha: 0.115),
+                                        Colors.white.withValues(alpha: 0.022),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.0, 0.28, 0.52, 0.74, 1.0],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     child ?? const SizedBox.shrink(),
                   ],
                 ),
