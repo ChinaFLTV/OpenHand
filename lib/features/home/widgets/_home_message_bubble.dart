@@ -2067,6 +2067,118 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
   }
 }
 
+class _AdaptivePreviewDialogMetrics {
+  const _AdaptivePreviewDialogMetrics({
+    required this.maxDialogWidth,
+    required this.maxDialogHeight,
+    required this.dialogWidth,
+    required this.contentWidth,
+    required this.contentHeight,
+  });
+
+  final double maxDialogWidth;
+  final double maxDialogHeight;
+  final double dialogWidth;
+  final double contentWidth;
+  final double contentHeight;
+
+  static _AdaptivePreviewDialogMetrics fromAspectRatio({
+    required Size viewport,
+    required double insetPadding,
+    required double chromeHeight,
+    required double contentPadding,
+    required double minDialogWidth,
+    required Size fallbackContentSize,
+    double? aspectRatio,
+    double minViewportHeight = 200,
+  }) {
+    final maxDialogWidth = math.max(
+      minDialogWidth,
+      viewport.width - insetPadding * 2,
+    );
+    final maxDialogHeight = math.max(
+      minViewportHeight,
+      viewport.height - insetPadding * 2,
+    );
+    final maxContentWidth = math.max(0.0, maxDialogWidth - contentPadding * 2);
+    final maxContentHeight = math.max(
+      0.0,
+      maxDialogHeight - chromeHeight - contentPadding * 2,
+    );
+
+    double contentWidth;
+    double contentHeight;
+    final ratio = aspectRatio;
+    if (ratio != null && ratio.isFinite && ratio > 0) {
+      contentWidth = maxContentWidth;
+      contentHeight = contentWidth / ratio;
+      if (contentHeight > maxContentHeight) {
+        contentHeight = maxContentHeight;
+        contentWidth = contentHeight * ratio;
+      }
+    } else {
+      final scale = math.min(
+        maxContentWidth / math.max(1.0, fallbackContentSize.width),
+        maxContentHeight / math.max(1.0, fallbackContentSize.height),
+      );
+      final safeScale = scale.isFinite ? math.min(1.0, scale) : 1.0;
+      contentWidth = fallbackContentSize.width * safeScale;
+      contentHeight = fallbackContentSize.height * safeScale;
+    }
+
+    final dialogWidth = (contentWidth + contentPadding * 2)
+        .clamp(minDialogWidth, maxDialogWidth)
+        .toDouble();
+    return _AdaptivePreviewDialogMetrics(
+      maxDialogWidth: maxDialogWidth,
+      maxDialogHeight: maxDialogHeight,
+      dialogWidth: dialogWidth,
+      contentWidth: math.max(0.0, contentWidth),
+      contentHeight: math.max(0.0, contentHeight),
+    );
+  }
+
+  static _AdaptivePreviewDialogMetrics fixedContent({
+    required Size viewport,
+    required double insetPadding,
+    required double chromeHeight,
+    required double contentPadding,
+    required double minDialogWidth,
+    required Size contentSize,
+    double minViewportHeight = 200,
+  }) {
+    final maxDialogWidth = math.max(
+      minDialogWidth,
+      viewport.width - insetPadding * 2,
+    );
+    final maxDialogHeight = math.max(
+      minViewportHeight,
+      viewport.height - insetPadding * 2,
+    );
+    final maxContentWidth = math.max(0.0, maxDialogWidth - contentPadding * 2);
+    final maxContentHeight = math.max(
+      0.0,
+      maxDialogHeight - chromeHeight - contentPadding * 2,
+    );
+    final contentWidth = contentSize.width
+        .clamp(0.0, maxContentWidth)
+        .toDouble();
+    final contentHeight = contentSize.height
+        .clamp(0.0, maxContentHeight)
+        .toDouble();
+    final dialogWidth = (contentWidth + contentPadding * 2)
+        .clamp(minDialogWidth, maxDialogWidth)
+        .toDouble();
+    return _AdaptivePreviewDialogMetrics(
+      maxDialogWidth: maxDialogWidth,
+      maxDialogHeight: maxDialogHeight,
+      dialogWidth: dialogWidth,
+      contentWidth: contentWidth,
+      contentHeight: contentHeight,
+    );
+  }
+}
+
 /// Full-screen image preview dialog with zoom and pan support.
 ///
 /// 弹窗体积根据图片自身的宽高比动态贴合, 四周保留统一的 [_kPadding]
@@ -2180,41 +2292,18 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     final colorScheme = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
 
-    // 弹窗的最大可用尺寸 (扣除两侧 inset)。
-    final maxDialogW = math.max(
-      _kMinDialogW,
-      viewport.width - _kInsetPadding * 2,
-    );
-    final maxDialogH = math.max(200.0, viewport.height - _kInsetPadding * 2);
-    // body (图片显示区) 的最大可用尺寸: 扣除头部 + 分隔线 + 四周统一 padding。
-    final maxBodyW = math.max(0.0, maxDialogW - _kPadding * 2);
-    final maxBodyH = math.max(
-      0.0,
-      maxDialogH - _kHeaderEstimate - _kDividerH - _kPadding * 2,
-    );
-
-    double bodyW;
-    double bodyH;
     final natural = _naturalSize;
-    if (natural != null && natural.width > 0 && natural.height > 0) {
-      // 等比缩放至 maxBodyW × maxBodyH 的最大内接矩形, 与 BoxFit.contain 等价,
-      // 但宽高直接落到外层 SizedBox 上, 因此四周不会出现 letterbox 白边。
-      final ratio = natural.width / natural.height;
-      bodyW = maxBodyW;
-      bodyH = bodyW / ratio;
-      if (bodyH > maxBodyH) {
-        bodyH = maxBodyH;
-        bodyW = bodyH * ratio;
-      }
-    } else {
-      // 加载中 / 来源缺失时给一个相对小的方形占位, 避免一开始就撑满弹窗,
-      // 等真实尺寸到位后由 AnimatedSize 平滑过渡到目标体积。
-      final side = math.min(_kFallbackSide, math.min(maxBodyW, maxBodyH));
-      bodyW = math.max(0.0, side);
-      bodyH = math.max(0.0, side);
-    }
-
-    final dialogW = (bodyW + _kPadding * 2).clamp(_kMinDialogW, maxDialogW);
+    final metrics = _AdaptivePreviewDialogMetrics.fromAspectRatio(
+      viewport: viewport,
+      insetPadding: _kInsetPadding,
+      chromeHeight: _kHeaderEstimate + _kDividerH,
+      contentPadding: _kPadding,
+      minDialogWidth: _kMinDialogW,
+      fallbackContentSize: const Size.square(_kFallbackSide),
+      aspectRatio: natural != null && natural.width > 0 && natural.height > 0
+          ? natural.width / natural.height
+          : null,
+    );
 
     return Focus(
       autofocus: true,
@@ -2231,103 +2320,107 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: maxDialogW,
-            maxHeight: maxDialogH,
-          ),
-          child: SizedBox(
-            width: dialogW,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 头部标题栏。
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium,
+        child: AnimatedSize(
+          duration: cardMotionDurationFor(context, expanding: true),
+          curve: kCardMotionCurve,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: metrics.maxDialogWidth,
+              maxHeight: metrics.maxDialogHeight,
+            ),
+            child: SizedBox(
+              width: metrics.dialogWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 头部标题栏。
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
                         ),
-                      ),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.open_in_new_rounded,
-                            color: colorScheme.onSurfaceVariant,
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.open_in_new_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '使用系统应用打开',
+                              en: 'Open with System App',
+                            ),
+                            onPressed: () => _openInSystemApp(context),
                           ),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '使用系统应用打开',
-                            en: 'Open with System App',
-                          ),
-                          onPressed: () => _openInSystemApp(context),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.content_copy_outlined,
-                            color: colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.content_copy_outlined,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '复制图片',
+                              en: 'Copy Image',
+                            ),
+                            onPressed: _isCopying
+                                ? null
+                                : () => _copyImageToClipboard(context),
                           ),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '复制图片',
-                            en: 'Copy Image',
-                          ),
-                          onPressed: _isCopying
-                              ? null
-                              : () => _copyImageToClipboard(context),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.download_rounded,
-                            color: colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.download_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '保存到本地',
+                              en: 'Save to disk',
+                            ),
+                            onPressed: () => _saveImageAs(context),
                           ),
-                          tooltip: _localizedText(
-                            context,
-                            zh: '保存到本地',
-                            en: 'Save to disk',
-                          ),
-                          onPressed: () => _saveImageAs(context),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      MicroPressFeedback(
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
                           ),
-                          onPressed: () => Navigator.of(context).pop(),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
-                // 由于 SizedBox 的尺寸已经精确等于 BoxFit.contain 后的图片尺寸,
-                // Image 控件内部不会再产生 letterbox 白边。
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.all(_kPadding),
-                    child: SizedBox(
-                      width: bodyW,
-                      height: bodyH,
-                      child: _buildPreviewImage(context),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const Divider(height: 1),
+                  // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
+                  // SizedBox 尺寸等于媒体实际显示尺寸, Image 内部不会再产生
+                  // 固定容器导致的左右或上下 letterbox 留白。
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.all(_kPadding),
+                      child: SizedBox(
+                        width: metrics.contentWidth,
+                        height: metrics.contentHeight,
+                        child: _buildPreviewImage(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -3191,12 +3284,20 @@ class _MediaPreviewDialog extends StatefulWidget {
 
 class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   static const Duration _mediaLoadTimeout = Duration(seconds: 18);
+  static const double _kInsetPadding = 24.0;
+  static const double _kContentPadding = 12.0;
+  static const double _kHeaderEstimate = 74.0;
+  static const double _kDividerH = 1.0;
+  static const double _kMinDialogW = 360.0;
+  static const double _kFallbackVideoAspectRatio = 16 / 9;
+  static const Size _kAudioContentSize = Size(640, 126);
 
   late final WebViewController _controller;
   Timer? _loadTimeoutTimer;
   bool _pageLoaded = false;
   bool _mediaReady = false;
   String? _loadError;
+  Size? _naturalMediaSize;
   // Reentrancy guards: rapid double-taps on the system-player / save buttons
   // were spawning duplicate downloads to the same destination, corrupting
   // the output file and pinning the WebView event loop.
@@ -3384,6 +3485,22 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       }
       return;
     }
+    if (value.startsWith('size:')) {
+      final parts = value.substring(5).split(':');
+      if (parts.length == 2) {
+        final width = double.tryParse(parts[0]);
+        final height = double.tryParse(parts[1]);
+        if (width != null && height != null && width > 0 && height > 0) {
+          final previous = _naturalMediaSize;
+          if (previous == null ||
+              previous.width != width ||
+              previous.height != height) {
+            setState(() => _naturalMediaSize = Size(width, height));
+          }
+        }
+      }
+      return;
+    }
   }
 
   String _buildMediaHtml({String? localOverride}) {
@@ -3425,8 +3542,17 @@ $mediaTag
     }
   };
   ['loadedmetadata', 'canplay', 'playing'].forEach((eventName) => {
-    media.addEventListener(eventName, () => post(eventName));
+    media.addEventListener(eventName, () => {
+      post(eventName);
+      reportSize();
+    });
   });
+  function reportSize() {
+    if (!media || media.tagName !== 'VIDEO') return;
+    const w = media.videoWidth || 0;
+    const h = media.videoHeight || 0;
+    if (w > 0 && h > 0) post('size:' + w + ':' + h);
+  }
   media.addEventListener('error', () => {
     const err = media.error ? String(media.error.code) : 'unknown';
     post('error:' + err);
@@ -3459,9 +3585,30 @@ $mediaTag
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isVideo = widget.source.kind == _GeneratedMessageMediaKind.video;
-    final mediaHeight = isVideo
-        ? MediaQuery.sizeOf(context).height * 0.68
-        : 126.0;
+    final viewport = MediaQuery.sizeOf(context);
+    final metrics = isVideo
+        ? _AdaptivePreviewDialogMetrics.fromAspectRatio(
+            viewport: viewport,
+            insetPadding: _kInsetPadding,
+            chromeHeight: _kHeaderEstimate + _kDividerH,
+            contentPadding: _kContentPadding,
+            minDialogWidth: _kMinDialogW,
+            fallbackContentSize: const Size(960, 540),
+            aspectRatio:
+                _naturalMediaSize != null &&
+                    _naturalMediaSize!.width > 0 &&
+                    _naturalMediaSize!.height > 0
+                ? _naturalMediaSize!.width / _naturalMediaSize!.height
+                : _kFallbackVideoAspectRatio,
+          )
+        : _AdaptivePreviewDialogMetrics.fixedContent(
+            viewport: viewport,
+            insetPadding: _kInsetPadding,
+            chromeHeight: _kHeaderEstimate + _kDividerH,
+            contentPadding: _kContentPadding,
+            minDialogWidth: _kMinDialogW,
+            contentSize: _kAudioContentSize,
+          );
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
@@ -3486,149 +3633,158 @@ $mediaTag
           focusNode: _dialogFocus,
           autofocus: true,
           child: Dialog(
-            insetPadding: const EdgeInsets.all(24),
+            insetPadding: const EdgeInsets.all(_kInsetPadding),
             backgroundColor: colorScheme.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: math.min(
-                  MediaQuery.sizeOf(context).width * 0.92,
-                  960,
+            clipBehavior: Clip.antiAlias,
+            child: AnimatedSize(
+              duration: cardMotionDurationFor(context, expanding: true),
+              curve: kCardMotionCurve,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: metrics.maxDialogWidth,
+                  maxHeight: metrics.maxDialogHeight,
                 ),
-                maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isVideo ? Icons.videocam_outlined : Icons.audiotrack,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.open_in_new_rounded,
+                child: SizedBox(
+                  width: metrics.dialogWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isVideo
+                                  ? Icons.videocam_outlined
+                                  : Icons.audiotrack,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: _localizedText(
-                              context,
-                              zh: '使用系统播放器打开',
-                              en: 'Open with System Player',
-                            ),
-                            onPressed: () => _openInSystemPlayer(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.content_copy_outlined,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            tooltip: _localizedText(
-                              context,
-                              zh: '复制媒体',
-                              en: 'Copy Media',
-                            ),
-                            onPressed: _isCopyingMedia
-                                ? null
-                                : () => _copyMediaToClipboard(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        if (isVideo) ...[
-                          MicroPressFeedback(
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.fullscreen_rounded,
-                                color: colorScheme.onSurfaceVariant,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                widget.title,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium,
                               ),
-                              tooltip: _localizedText(
-                                context,
-                                zh: '全屏沉浸播放',
-                                en: 'Fullscreen playback',
+                            ),
+                            MicroPressFeedback(
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.open_in_new_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                tooltip: _localizedText(
+                                  context,
+                                  zh: '使用系统播放器打开',
+                                  en: 'Open with System Player',
+                                ),
+                                onPressed: () => _openInSystemPlayer(context),
                               ),
-                              onPressed: () => _enterFullscreen(context),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.download_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            tooltip: _localizedText(
-                              context,
-                              zh: '保存到本地',
-                              en: 'Save to disk',
-                            ),
-                            onPressed: () => _saveMediaAs(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        MicroPressFeedback(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(
-                          height: mediaHeight,
-                          width: double.infinity,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: WebViewWidget(controller: _controller),
+                            const SizedBox(width: 4),
+                            MicroPressFeedback(
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.content_copy_outlined,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                tooltip: _localizedText(
+                                  context,
+                                  zh: '复制媒体',
+                                  en: 'Copy Media',
+                                ),
+                                onPressed: _isCopyingMedia
+                                    ? null
+                                    : () => _copyMediaToClipboard(context),
                               ),
-                              if (!_pageLoaded ||
-                                  (!_mediaReady && _loadError == null))
-                                const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.6,
+                            ),
+                            const SizedBox(width: 4),
+                            if (isVideo) ...[
+                              MicroPressFeedback(
+                                child: IconButton(
+                                  icon: Icon(
+                                    Icons.fullscreen_rounded,
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
+                                  tooltip: _localizedText(
+                                    context,
+                                    zh: '全屏沉浸播放',
+                                    en: 'Fullscreen playback',
+                                  ),
+                                  onPressed: () => _enterFullscreen(context),
                                 ),
-                              if (_loadError != null)
-                                _MediaLoadFallback(
-                                  message: _loadError!,
-                                  onOpenExternal: () =>
-                                      _openInSystemPlayer(context),
-                                ),
+                              ),
+                              const SizedBox(width: 4),
                             ],
+                            MicroPressFeedback(
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.download_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                tooltip: _localizedText(
+                                  context,
+                                  zh: '保存到本地',
+                                  en: 'Save to disk',
+                                ),
+                                onPressed: () => _saveMediaAs(context),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            MicroPressFeedback(
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.all(_kContentPadding),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: metrics.contentWidth,
+                              height: metrics.contentHeight,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Positioned.fill(
+                                    child: WebViewWidget(
+                                      controller: _controller,
+                                    ),
+                                  ),
+                                  if (!_pageLoaded ||
+                                      (!_mediaReady && _loadError == null))
+                                    const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.6,
+                                      ),
+                                    ),
+                                  if (_loadError != null)
+                                    _MediaLoadFallback(
+                                      message: _loadError!,
+                                      onOpenExternal: () =>
+                                          _openInSystemPlayer(context),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

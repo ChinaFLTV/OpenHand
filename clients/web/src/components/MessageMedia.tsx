@@ -4,6 +4,7 @@
 // 路径不直接发给 <img src=>: 走 /api/sessions/<id>/asset?path=...&token=...
 // 由 service 端基于 session 消息 metadata 白名单放行。
 
+import type { JSX } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
@@ -45,9 +46,135 @@ const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 120_000;
 const MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS = 30_000;
+const PREVIEW_VIEWPORT_GAP = 16;
+const PREVIEW_CONTENT_PADDING = 12;
+const PREVIEW_HEADER_ESTIMATE = 66;
+const PREVIEW_MIN_PANEL_WIDTH = 360;
+const PREVIEW_FALLBACK_IMAGE_SIDE = 320;
+const PREVIEW_FALLBACK_VIDEO_RATIO = 16 / 9;
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
+
+interface PreviewNaturalSize {
+  width: number;
+  height: number;
+}
+
+interface PreviewViewportSize {
+  width: number;
+  height: number;
+}
+
+interface PreviewLayout {
+  maxPanelWidth: number;
+  maxPanelHeight: number;
+  panelWidth: number;
+  stageHeight?: number;
+  contentWidth?: number;
+  contentHeight?: number;
+}
+
+function readPreviewViewport(): PreviewViewportSize {
+  if (typeof window === 'undefined') return { width: 1280, height: 800 };
+  return {
+    width: Math.max(1, window.innerWidth || 1),
+    height: Math.max(1, window.innerHeight || 1),
+  };
+}
+
+function usePreviewViewport(): PreviewViewportSize {
+  const [viewport, setViewport] = useState<PreviewViewportSize>(() => readPreviewViewport());
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let frame = 0;
+    const update = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        setViewport(readPreviewViewport());
+      });
+    };
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+  return viewport;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function computePreviewLayout(
+  kind: MediaKind,
+  naturalSize: PreviewNaturalSize | null,
+  viewport: PreviewViewportSize,
+): PreviewLayout {
+  const maxPanelWidth = Math.max(PREVIEW_MIN_PANEL_WIDTH, viewport.width - PREVIEW_VIEWPORT_GAP * 2);
+  const maxPanelHeight = Math.max(220, viewport.height - PREVIEW_VIEWPORT_GAP * 2);
+  const maxContentWidth = Math.max(1, maxPanelWidth - PREVIEW_CONTENT_PADDING * 2);
+  const maxContentHeight = Math.max(
+    1,
+    maxPanelHeight - PREVIEW_HEADER_ESTIMATE - PREVIEW_CONTENT_PADDING * 2,
+  );
+
+  if (kind === 'image' || kind === 'video') {
+    if (kind === 'image' && !naturalSize) {
+      const side = Math.min(PREVIEW_FALLBACK_IMAGE_SIDE, maxContentWidth, maxContentHeight);
+      return {
+        maxPanelWidth,
+        maxPanelHeight,
+        panelWidth: clampNumber(
+          side + PREVIEW_CONTENT_PADDING * 2,
+          PREVIEW_MIN_PANEL_WIDTH,
+          maxPanelWidth,
+        ),
+        stageHeight: side + PREVIEW_CONTENT_PADDING * 2,
+        contentWidth: side,
+        contentHeight: side,
+      };
+    }
+    const fallbackRatio = kind === 'image' ? 1 : PREVIEW_FALLBACK_VIDEO_RATIO;
+    const ratio = naturalSize && naturalSize.width > 0 && naturalSize.height > 0
+      ? naturalSize.width / naturalSize.height
+      : fallbackRatio;
+    let contentWidth = maxContentWidth;
+    let contentHeight = contentWidth / ratio;
+    if (contentHeight > maxContentHeight) {
+      contentHeight = maxContentHeight;
+      contentWidth = contentHeight * ratio;
+    }
+    const panelWidth = clampNumber(
+      contentWidth + PREVIEW_CONTENT_PADDING * 2,
+      PREVIEW_MIN_PANEL_WIDTH,
+      maxPanelWidth,
+    );
+    return {
+      maxPanelWidth,
+      maxPanelHeight,
+      panelWidth,
+      stageHeight: contentHeight + PREVIEW_CONTENT_PADDING * 2,
+      contentWidth,
+      contentHeight,
+    };
+  }
+
+  const targetWidth = kind === 'audio' ? 680 : 640;
+  const contentWidth = Math.min(targetWidth, maxContentWidth);
+  return {
+    maxPanelWidth,
+    maxPanelHeight,
+    panelWidth: clampNumber(
+      contentWidth + PREVIEW_CONTENT_PADDING * 2,
+      PREVIEW_MIN_PANEL_WIDTH,
+      maxPanelWidth,
+    ),
+    contentWidth,
+  };
+}
 
 function mediaKindFromPath(path: string, hintKind?: string): MediaKind {
   const lower = path.toLowerCase();
@@ -352,6 +479,19 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
   const copyAbortRef = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [naturalSize, setNaturalSize] = useState<PreviewNaturalSize | null>(null);
+  const viewport = usePreviewViewport();
+  const layout = useMemo(
+    () => computePreviewLayout(item.kind, naturalSize, viewport),
+    [item.kind, naturalSize, viewport],
+  );
+  const rememberNaturalSize = useCallback((width: number, height: number) => {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    setNaturalSize((current) => {
+      if (current && current.width === width && current.height === height) return current;
+      return { width, height };
+    });
+  }, []);
   const abortSave = useCallback(() => {
     saveAbortRef.current?.abort();
     saveAbortRef.current = null;
@@ -368,6 +508,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     onBeforeClose: abortTransfers,
   });
   useEffect(() => () => abortTransfers(), [abortTransfers]);
+  useEffect(() => setNaturalSize(null), [item.kind, item.path, url]);
   const requestFullscreen = async () => {
     try {
       await stageRef.current?.requestFullscreen?.();
@@ -442,6 +583,24 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
   };
 
   if (typeof document === 'undefined') return null;
+  const panelTransition =
+    'width var(--oh-dialog-duration) var(--oh-dialog-curve), height var(--oh-dialog-duration) var(--oh-dialog-curve), max-height var(--oh-dialog-duration) var(--oh-dialog-curve)';
+  const stageStyle: JSX.CSSProperties = {
+    background: item.kind === 'audio' ? 'var(--m3-surface)' : 'var(--m3-surface-container)',
+    padding: `${PREVIEW_CONTENT_PADDING}px`,
+    flex: '0 0 auto',
+    transition: panelTransition,
+  };
+  if (layout.stageHeight != null) {
+    stageStyle.height = `${layout.stageHeight}px`;
+  }
+  const mediaBoxStyle: JSX.CSSProperties = {
+    display: 'block',
+    width: `${layout.contentWidth ?? 1}px`,
+  };
+  if (layout.contentHeight != null) {
+    mediaBoxStyle.height = `${layout.contentHeight}px`;
+  }
   return (
     <DialogFrame
       closing={closing}
@@ -452,15 +611,18 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
         blurPx: 10,
         zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
       })}
-      panelClassName="w-full max-w-5xl rounded-m3-lg overflow-hidden"
+      panelClassName="rounded-m3-lg overflow-hidden"
       panelStyle={{
+        width: `${layout.panelWidth}px`,
+        maxWidth: `${layout.maxPanelWidth}px`,
         background: 'var(--m3-surface-container)',
         color: 'var(--m3-on-surface)',
         boxShadow: 'var(--m3-elev-4)',
         border: '1px solid var(--m3-outline)',
-        maxHeight: '92vh',
+        maxHeight: `${layout.maxPanelHeight}px`,
         display: 'flex',
         flexDirection: 'column',
+        transition: panelTransition,
       }}
       ariaLabel={item.name}
     >
@@ -510,18 +672,19 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
         </header>
         <div
           ref={stageRef}
-          class="flex-1 min-h-0 flex items-center justify-center"
-          style={{
-            background: item.kind === 'audio' ? 'var(--m3-surface)' : 'var(--m3-surface-container)',
-            padding: item.kind === 'audio' ? '32px' : '12px',
-          }}
+          class="min-h-0 flex items-center justify-center"
+          style={stageStyle}
         >
           {item.kind === 'image' ? (
             <img
               src={url}
               alt={item.name}
               decoding="async"
-              style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain' }}
+              onLoad={(event) => {
+                const img = event.currentTarget;
+                rememberNaturalSize(img.naturalWidth, img.naturalHeight);
+              }}
+              style={{ ...mediaBoxStyle, objectFit: 'contain' }}
             />
           ) : item.kind === 'video' ? (
             <video
@@ -529,15 +692,19 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
               controls
               autoPlay
               preload="metadata"
-              style={{ width: '100%', maxHeight: '76vh', background: 'black' }}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget;
+                rememberNaturalSize(video.videoWidth, video.videoHeight);
+              }}
+              style={{ ...mediaBoxStyle, objectFit: 'contain', background: 'black' }}
             />
           ) : item.kind === 'audio' ? (
-            <div class="w-full max-w-2xl rounded-m3-md p-4" style={{ background: 'var(--m3-surface-container-high)' }}>
+            <div class="w-full rounded-m3-md p-4" style={{ background: 'var(--m3-surface-container-high)' }}>
               <p class="text-sm font-medium truncate mb-3">{item.name}</p>
               <audio src={url} controls autoPlay preload="metadata" style={{ width: '100%' }} />
             </div>
           ) : (
-            <div class="w-full max-w-2xl rounded-m3-md p-5" style={{ background: 'var(--m3-surface-container-high)' }}>
+            <div class="w-full rounded-m3-md p-5" style={{ background: 'var(--m3-surface-container-high)' }}>
               <div class="flex items-start gap-3">
                 <div
                   class="shrink-0 rounded-m3-md p-3"
