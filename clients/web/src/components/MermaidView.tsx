@@ -262,8 +262,7 @@ export function MermaidView({ source }: MermaidViewProps) {
         textOk ? '当前浏览器不支持图像复制，已复制 SVG 文本' : '复制图像失败，请检查浏览器权限',
         { tone: textOk ? 'success' : 'error' },
       );
-    } catch (err) {
-      console.error('[mermaid] copy image failed', err);
+    } catch {
       showSnackbar('复制图像失败，请检查浏览器权限', { tone: 'error' });
     }
   }
@@ -281,7 +280,6 @@ export function MermaidView({ source }: MermaidViewProps) {
       showSnackbar('SVG 已导出', { tone: 'success' });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.error('[mermaid] download svg failed', err);
       showSnackbar('导出 SVG 失败', { tone: 'error' });
     }
   }
@@ -299,7 +297,6 @@ export function MermaidView({ source }: MermaidViewProps) {
       showSnackbar('PNG 已导出', { tone: 'success' });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.error('[mermaid] download png failed', err);
       const message = err instanceof Error ? err.message : String(err);
       showSnackbar(`导出 PNG 失败 (${message})`, { tone: 'error' });
     }

@@ -1,6 +1,5 @@
 // OpsPage —— 运行时仪表盘 + 资源清理。对应后端 /api/ops & /api/ops/cleanup*
 //
-// 一比一对齐 legacy SPA：
 // - 顶部状态徽章 + 刷新按钮 + 自动刷新切换（5s）
 // - 网格指标：state / uptime / 请求 / 错误 / 字节 / 进程 RSS / 文件句柄 …
 // - 清理面板：target=all/logs/uploads + expired_only 复选框 + 历史列表

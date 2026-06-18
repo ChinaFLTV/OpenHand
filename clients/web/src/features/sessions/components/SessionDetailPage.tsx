@@ -32,6 +32,7 @@ import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
+import { basenameFromPath } from '../../../shared/util/path';
 import {
   arrayFromUnknown,
   finiteNumberFromUnknown,
@@ -69,7 +70,6 @@ import {
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
-import { streamDebugLog } from '../../../utils/stream_debug';
 import { createTimedAbortController } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
 import { listSkills, type SkillSummary } from '../../../api/toolbox';
@@ -861,11 +861,6 @@ interface EditableAttachmentAsset {
   mime?: string;
 }
 
-function basename(path: string): string {
-  const i = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return i >= 0 ? path.slice(i + 1) : path;
-}
-
 function pushEditableAttachmentAsset(out: EditableAttachmentAsset[], rawPath: unknown, rawName?: unknown, rawMime?: unknown): void {
   if (typeof rawPath !== 'string') return;
   const path = rawPath.trim();
@@ -874,7 +869,7 @@ function pushEditableAttachmentAsset(out: EditableAttachmentAsset[], rawPath: un
   }
   out.push({
     path,
-    name: typeof rawName === 'string' && rawName.trim() ? rawName.trim() : basename(path),
+    name: typeof rawName === 'string' && rawName.trim() ? rawName.trim() : basenameFromPath(path),
     mime: typeof rawMime === 'string' && rawMime.trim() ? rawMime.trim() : undefined,
   });
 }
@@ -1952,21 +1947,6 @@ export function SessionDetailPage() {
     lastTailIdRef.current = tail.id;
     lastTailSignatureRef.current = tailSignature;
     const shouldFollow = shouldFollowPinnedMessages();
-    streamDebugLog('session:tail-follow', 'tail-follow', {
-      sessionId,
-      tailId: tail.id,
-      tailKind: tail.kind,
-      tailRole: tail.role,
-      tailLength: tail.content?.length ?? tail.character_count ?? 0,
-      tailChanged,
-      tailContentChanged,
-      autoFollow,
-      autoFollowPaused,
-      shouldFollow,
-      scrollTop: mainRef.current?.scrollTop ?? null,
-      scrollHeight: mainRef.current?.scrollHeight ?? null,
-      clientHeight: mainRef.current?.clientHeight ?? null,
-    });
     if (shouldFollow) {
       // 流式追加（tailContentChanged）一律走 'auto' 即时钉底；只有切换会话或新建消息这种
       // 一次性大跳跃才偶尔用 smooth，避免每个 token 都触发 smooth 缓动堆叠。
@@ -2357,27 +2337,6 @@ export function SessionDetailPage() {
         const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
-        const tail = snap.messages.length > 0 ? snap.messages[snap.messages.length - 1] : null;
-        streamDebugLog('session:snapshot', 'snapshot', {
-          sessionId: eventSessionId,
-          messages: snap.messages.length,
-          total: snap.session.message_count ?? snap.messages.length,
-          sendPhase: snap.send_phase,
-          tailId: tail?.id ?? null,
-          tailKind: tail?.kind ?? null,
-          tailRole: tail?.role ?? null,
-          tailLength: tail?.content?.length ?? tail?.character_count ?? 0,
-          canStop: snap.can_stop,
-          throttle: snap.effective_stream_throttle
-            ? {
-                chars: snap.effective_stream_throttle.chars_per_second,
-                cards: snap.effective_stream_throttle.cards_per_second,
-                enabled: snap.effective_stream_throttle.enabled,
-                durationExpired: snap.effective_stream_throttle.duration_expired,
-                wasInitiallyThrottled: snap.effective_stream_throttle.was_initially_throttled,
-              }
-            : null,
-        });
         // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
         // 仅末尾消息的 content 变长（流式 token），就只复用前缀对象 + 重建末尾对象，
         // 让 Preact 的 keyed reconciliation 跳过前缀，每帧仅 patch 一个气泡。
@@ -3545,15 +3504,6 @@ export function SessionDetailPage() {
 
   const responseRunning = isRunningPhase(sendPhase);
   const [stableResponseRunning, setStableResponseRunning] = useState(responseRunning);
-  useEffect(() => {
-    streamDebugLog('session:response-running', 'response-running', {
-      sessionId,
-      sendPhase,
-      responseRunning,
-      stableResponseRunning,
-      messages: sortedMessages.length,
-    });
-  }, [responseRunning, sendPhase, sessionId, sortedMessages.length, stableResponseRunning]);
   useEffect(() => {
     if (responseRunning) {
       setStableResponseRunning(true);

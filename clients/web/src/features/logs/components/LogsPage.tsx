@@ -1,6 +1,5 @@
 // LogsPage —— 日志查看 + 整包导出。对应后端 /api/logs & /api/logs/export
 //
-// 一比一对齐 legacy SPA：
 // - 顶部 toolbar：分页 + 日志级别筛选（前端再过滤，因 service 不接受 level 参数）
 // - 列表 virtual-scroll 替代物：CSS max-height + overflow（实测 1k 条 OK；
 //   service 端硬编码 limit≤2000）

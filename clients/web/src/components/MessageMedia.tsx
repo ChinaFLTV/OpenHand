@@ -9,7 +9,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { clampNumber } from '../shared/util/number';
+import { basenameFromPath } from '../shared/util/path';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
@@ -190,11 +192,6 @@ function mediaKindFromPath(path: string, hintKind?: string): MediaKind {
   return 'file';
 }
 
-function basename(path: string): string {
-  const i = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return i >= 0 ? path.slice(i + 1) : path;
-}
-
 function firstNonEmptyString(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
@@ -216,26 +213,13 @@ function pushString(
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return;
   }
-  const name = displayName?.trim() || basename(path);
+  const name = displayName?.trim() || basenameFromPath(path);
   out.push({
     path,
     name,
     kind: mediaKindFromPath(`${path} ${name}`, hintKind),
     hintLabel: hintKind,
   });
-}
-
-function normalizeMarkdownDestination(raw: string): string {
-  let value = raw.trim();
-  if (value.startsWith('<')) {
-    const close = value.indexOf('>');
-    if (close > 0) return value.slice(1, close).trim();
-  }
-  const title = value.match(/\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$/);
-  if (title?.index != null) {
-    value = value.slice(0, title.index).trim();
-  }
-  return value;
 }
 
 function isGeneratedInlineMediaPath(path: string): boolean {

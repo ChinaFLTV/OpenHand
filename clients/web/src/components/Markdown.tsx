@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
 import 'katex/dist/katex.min.css';
@@ -158,18 +159,7 @@ class MarkdownFrameScheduler {
 }
 const markdownFrameScheduler = new MarkdownFrameScheduler();
 
-export function normalizeMarkdownDestination(raw: string): string {
-  let value = raw.trim();
-  if (value.startsWith('<')) {
-    const close = value.indexOf('>');
-    if (close > 0) return value.slice(1, close).trim();
-  }
-  const title = value.match(/\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$/);
-  if (title?.index != null) {
-    value = value.slice(0, title.index).trim();
-  }
-  return value;
-}
+export { normalizeMarkdownDestination };
 
 export function isLocalMediaReference(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;

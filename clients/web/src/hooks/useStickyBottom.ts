@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
-import { streamDebugLog } from '../utils/stream_debug';
 
 export function useStickyBottom<T extends HTMLElement>(
   signal: string | number,
@@ -29,24 +28,10 @@ export function useStickyBottom<T extends HTMLElement>(
 
   useLayoutEffect(() => {
     const element = ref.current;
-    if (!enabled || !element || !pinnedRef.current) {
-      streamDebugLog('sticky-bottom', 'sticky-bottom-skip', {
-        enabled,
-        hasElement: !!element,
-        pinned: pinnedRef.current,
-        signalLength: typeof signal === 'string' ? signal.length : signal,
-      }, 700);
-      return;
-    }
+    if (!enabled || !element || !pinnedRef.current) return;
     const pin = () => {
       programmaticUntilRef.current = Date.now() + 120;
       element.scrollTop = element.scrollHeight;
-      streamDebugLog('sticky-bottom', 'sticky-bottom-pin', {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight,
-        signalLength: typeof signal === 'string' ? signal.length : signal,
-      }, 700);
     };
     pin();
     const frame = requestAnimationFrame(pin);
