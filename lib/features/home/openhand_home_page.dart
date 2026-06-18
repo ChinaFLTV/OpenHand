@@ -1433,6 +1433,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 sessionId,
                 nextMessage.text,
                 nextMessage.attachments,
+                creationRequest: nextMessage.creationRequest,
                 additionalSystemReminders: nextMessage.systemReminders,
                 selectedSkillMetadata: nextMessage.skillMetadata,
               ),
@@ -1567,12 +1568,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     String? sessionId, {
     String? text,
     List<_ComposerAttachmentDraft>? attachments,
+    AiCreationRequest? creationRequest,
   }) {
     final resolvedText = text ?? _composerController.text;
     final resolvedAttachments = List<_ComposerAttachmentDraft>.from(
       attachments ?? _pendingAttachments,
     );
-    if (resolvedText.trim().isEmpty && resolvedAttachments.isEmpty) {
+    final resolvedCreationRequest =
+        creationRequest ?? _creationRequestFromComposer(_creationMode);
+    if (resolvedText.trim().isEmpty &&
+        resolvedAttachments.isEmpty &&
+        !resolvedCreationRequest.isActive) {
       _removeComposerDraftForSession(sessionId);
       return;
     }
@@ -1581,6 +1587,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     )] = _ComposerDraftState(
       text: resolvedText,
       attachments: resolvedAttachments,
+      creationRequest: resolvedCreationRequest,
     );
   }
 
@@ -1600,6 +1607,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return true;
   }
 
+  bool _sameCreationOptions(AiCreationOptions left, AiCreationOptions right) {
+    return left.size == right.size &&
+        left.aspectRatio == right.aspectRatio &&
+        left.durationSeconds == right.durationSeconds &&
+        left.count == right.count &&
+        left.quality == right.quality &&
+        left.style == right.style;
+  }
+
   void _syncComposerDraftForSession(String? nextSessionId) {
     if (_activeComposerSessionId == nextSessionId) {
       return;
@@ -1609,6 +1625,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentAttachments = List<_ComposerAttachmentDraft>.from(
       _pendingAttachments,
     );
+    final currentCreationRequest = _creationRequestFromComposer(_creationMode);
     final shouldTransferDetachedDraft =
         (previousSessionId?.trim().isEmpty ?? true) &&
         (nextSessionId?.trim().isNotEmpty ?? false) &&
@@ -1625,6 +1642,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         nextSessionId,
         text: currentText,
         attachments: currentAttachments,
+        creationRequest: currentCreationRequest,
       );
       _removeComposerDraftForSession(null);
     } else if (!shouldPreserveSubmittingDraft) {
@@ -1632,6 +1650,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         previousSessionId,
         text: currentText,
         attachments: currentAttachments,
+        creationRequest: currentCreationRequest,
       );
     }
     _activeComposerSessionId = nextSessionId;
@@ -1653,23 +1672,37 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final nextText = nextDraft?.text ?? '';
     final nextAttachments =
         nextDraft?.attachments ?? const <_ComposerAttachmentDraft>[];
+    final nextCreationRequest =
+        nextDraft?.creationRequest ?? AiCreationRequest.none;
+    final nextCreationState = _composerCreationStateFromRequest(
+      nextCreationRequest,
+    );
     final attachmentsChanged = !_sameComposerAttachments(
       _pendingAttachments,
       nextAttachments,
     );
+    final creationChanged =
+        _creationMode != nextCreationState.mode ||
+        !_sameCreationOptions(_creationOptions, nextCreationState.options);
     if (_composerController.text != nextText) {
       _replaceComposerText(nextText);
     }
+    final hasRestoredDraft =
+        nextText.trim().isNotEmpty ||
+        nextAttachments.isNotEmpty ||
+        nextCreationRequest.isActive;
     if (!attachmentsChanged &&
-        (!(nextText.trim().isNotEmpty || nextAttachments.isNotEmpty) ||
-            !_composerCollapsed)) {
+        !creationChanged &&
+        (!hasRestoredDraft || !_composerCollapsed)) {
       return;
     }
     setState(() {
       _pendingAttachments = List<_ComposerAttachmentDraft>.from(
         nextAttachments,
       );
-      if (nextText.trim().isNotEmpty || nextAttachments.isNotEmpty) {
+      _creationMode = nextCreationState.mode;
+      _creationOptions = nextCreationState.options;
+      if (hasRestoredDraft) {
         _composerCollapsed = false;
       }
     });
@@ -4175,12 +4208,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required String sessionId,
     required String prompt,
     required List<_ComposerAttachmentDraft> pendingAttachments,
+    required AiCreationRequest creationRequest,
     required List<String> additionalSystemReminders,
     required Map<String, Object?>? selectedSkillMetadata,
   }) {
     final queued = _QueuedMessage(
       text: prompt,
       attachments: pendingAttachments,
+      creationRequest: creationRequest,
       systemReminders: additionalSystemReminders,
       skillMetadata: selectedSkillMetadata,
     );
@@ -4190,6 +4225,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _queuedMessagesBySessionId[sessionId] = q;
       _replaceComposerText('');
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
+      _creationMode = _CreationMode.none;
+      _creationOptions = AiCreationOptions.empty;
       if (!_composerCollapsed) {
         _composerFocusNode.requestFocus();
       }
@@ -4263,6 +4300,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: existingSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
+        creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
       );
@@ -4419,6 +4457,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: targetSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
+        creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
       );
@@ -4481,6 +4520,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case _CreationMode.deepResearch:
         return const AiCreationRequest(mode: AiCreationMode.deepResearch);
     }
+  }
+
+  _CreationMode _composerModeFromCreationRequest(AiCreationRequest request) {
+    return switch (request.mode) {
+      AiCreationMode.none => _CreationMode.none,
+      AiCreationMode.image => _CreationMode.image,
+      AiCreationMode.video => _CreationMode.video,
+      AiCreationMode.audio => _CreationMode.audio,
+      AiCreationMode.deepResearch => _CreationMode.deepResearch,
+    };
+  }
+
+  ({_CreationMode mode, AiCreationOptions options})
+  _composerCreationStateFromRequest(AiCreationRequest request) {
+    final mode = _composerModeFromCreationRequest(request);
+    if (mode == _CreationMode.none) {
+      return (mode: _CreationMode.none, options: AiCreationOptions.empty);
+    }
+    return (mode: mode, options: request.options);
   }
 
   /// Returns a mode-appropriate default [AiCreationOptions] blob, used as a
@@ -4575,6 +4633,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       targetSessionId,
       text: prompt,
       attachments: pendingAttachments,
+      creationRequest: creationRequest,
     );
 
     setState(() {
@@ -4645,6 +4704,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             sessionId: targetSessionId,
             prompt: prompt,
             attachments: pendingAttachments,
+            creationRequest: creationRequest,
           );
         }
         final errorMessage = sessionController.lastErrorMessageForSession(
@@ -4688,6 +4748,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           sessionId: targetSessionId,
           prompt: prompt,
           attachments: pendingAttachments,
+          creationRequest: creationRequest,
         );
       }
       if (mounted) {
@@ -5025,18 +5086,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required String sessionId,
     required String prompt,
     required List<_ComposerAttachmentDraft> attachments,
+    required AiCreationRequest creationRequest,
   }) {
     _storeComposerDraftForSession(
       sessionId,
       text: prompt,
       attachments: attachments,
+      creationRequest: creationRequest,
     );
     if (sessionController.currentSessionId != sessionId) {
       return;
     }
     _replaceComposerText(prompt);
+    final creationState = _composerCreationStateFromRequest(creationRequest);
     setState(() {
       _pendingAttachments = List<_ComposerAttachmentDraft>.from(attachments);
+      _creationMode = creationState.mode;
+      _creationOptions = creationState.options;
       _composerCollapsed = false;
     });
   }
@@ -6337,11 +6403,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     }
+    final creationState = _composerCreationStateFromRequest(
+      result.creationRequest,
+    );
 
     setState(() {
       _selectedSection = AppSection.workspace;
       _composerCollapsed = false;
       _pendingAttachments = restoredAttachments;
+      _creationMode = creationState.mode;
+      _creationOptions = creationState.options;
     });
     unawaited(
       _composerPanelState?.restoreSelectedSkillFromMetadata(
@@ -6953,6 +7024,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 q[index] = _QueuedMessage(
                   text: trimmed,
                   attachments: q[index].attachments,
+                  creationRequest: q[index].creationRequest,
                   systemReminders: q[index].systemReminders,
                   skillMetadata: q[index].skillMetadata,
                 );

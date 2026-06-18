@@ -1,22 +1,29 @@
 part of '../openhand_home_page.dart';
 
 class _ComposerDraftState {
-  const _ComposerDraftState({required this.text, required this.attachments});
+  const _ComposerDraftState({
+    required this.text,
+    required this.attachments,
+    this.creationRequest = AiCreationRequest.none,
+  });
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
+  final AiCreationRequest creationRequest;
 }
 
 class _QueuedMessage {
   const _QueuedMessage({
     required this.text,
     required this.attachments,
+    this.creationRequest = AiCreationRequest.none,
     this.systemReminders = const <String>[],
     this.skillMetadata,
   });
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
+  final AiCreationRequest creationRequest;
   final List<String> systemReminders;
   final Map<String, Object?>? skillMetadata;
 }

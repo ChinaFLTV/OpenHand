@@ -3085,6 +3085,7 @@ class AiSessionController extends ChangeNotifier {
     ({
       String content,
       List<AiMessageAttachment> attachments,
+      AiCreationRequest creationRequest,
       Map<String, Object?>? selectedSkillMetadata,
     })?
   >
@@ -3145,6 +3146,9 @@ class AiSessionController extends ChangeNotifier {
       return (
         content: editingMessage.content,
         attachments: attachments,
+        creationRequest: AiCreationRequest.fromMetadata(
+          editingMessage.metadata[AiCreationRequest.metadataKey],
+        ),
         selectedSkillMetadata: selectedSkillMetadata,
       );
     });
