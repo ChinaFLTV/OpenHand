@@ -3340,7 +3340,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _isSaving = false;
   bool _isOpeningExternal = false;
   bool _isCopyingMedia = false;
+  bool _isEnteringFullscreen = false;
   bool _disposed = false;
+  bool _mediaBootstrapStarted = false;
+  DialogAnimationSettings _playerMotionSettings =
+      DialogAnimationSettings.defaults;
   final GlobalKey _headerKey = GlobalKey();
   double? _measuredHeaderHeight;
   // Cancel signal for the in-flight save. Completed when the user dismisses
@@ -3391,6 +3395,20 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     if (!Platform.isMacOS) {
       _controller.setBackgroundColor(Colors.transparent);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _dialogFocus.requestFocus();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_mediaBootstrapStarted) return;
+    _mediaBootstrapStarted = true;
+    _playerMotionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     _bootstrapMediaPage();
     _loadTimeoutTimer = Timer(_mediaLoadTimeout, () {
       if (!mounted || _mediaReady) return;
@@ -3401,9 +3419,6 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
           en: 'Loading timed out. Open with the system player instead.',
         );
       });
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _dialogFocus.requestFocus();
     });
   }
 
@@ -3501,6 +3516,16 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   void _handleMediaMessage(JavaScriptMessage message) {
     if (!mounted) return;
     final value = message.message.trim();
+    if (value == 'close') {
+      _requestClose();
+      return;
+    }
+    if (value == 'fullscreen') {
+      if (widget.source.kind == _GeneratedMessageMediaKind.video) {
+        unawaited(_enterFullscreen(context));
+      }
+      return;
+    }
     if (value == 'ready' || value == 'canplay' || value == 'loadedmetadata') {
       _loadTimeoutTimer?.cancel();
       setState(() {
@@ -3541,6 +3566,13 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     }
   }
 
+  void _requestClose() {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    unawaited(Navigator.of(context).maybePop());
+  }
+
   String _buildMediaHtml({String? localOverride}) {
     final rawSource = localOverride != null
         ? Uri.file(localOverride).toString()
@@ -3553,35 +3585,246 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     final escapedMime = const HtmlEscape(
       HtmlEscapeMode.attribute,
     ).convert(mimeType);
+    final durationMs = _playerMotionSettings.duration.inMilliseconds;
+    final motionCurve = _mediaPreviewDialogCurveToCss(
+      _playerMotionSettings.curve,
+    );
+    final motionClass = durationMs == 0 ? ' no-motion' : '';
+    final modeClass = isVideo ? ' video-mode' : ' audio-mode';
     final mediaTag = isVideo
-        ? '<video id="media" controls playsinline preload="metadata"><source src="$source" type="$escapedMime"></video>'
-        : '<audio id="media" controls preload="metadata"><source src="$source" type="$escapedMime"></audio>';
+        ? '<video id="media" playsinline preload="metadata" disableRemotePlayback><source src="$source" type="$escapedMime"></video>'
+        : '<audio id="media" preload="metadata"><source src="$source" type="$escapedMime"></audio>';
+    final fullscreenButton = isVideo
+        ? '<button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen" title="Fullscreen"></button>'
+        : '';
     return '''
 <!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: transparent; }
-body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-video { width: 100%; height: 100%; max-height: 100vh; background: #000; object-fit: contain; }
-audio { width: min(680px, calc(100vw - 24px)); }
+:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(26,22,20,.76);--oh-control-border:rgba(255,255,255,.12);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.18);--oh-track-fill:#fff}
+html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button,input{font:inherit}
+.media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;user-select:none;overflow:hidden;isolation:isolate}
+.media-shell video{width:100%;height:100%;max-height:100vh;background:#000;object-fit:contain;border-radius:0}
+.media-shell audio{display:none}
+.audio-art{display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;width:100%;height:100%;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.14),transparent 32%),linear-gradient(135deg,#16181c,#050506)}
+.audio-mode .audio-art{display:flex}
+.audio-icon{width:76px;height:76px;border-radius:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.10);box-shadow:0 22px 48px rgba(0,0,0,.30);font-size:34px}
+.audio-label{max-width:min(520px,80%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.74)}
+.scrim{position:absolute;inset:auto 0 0;height:40%;background:linear-gradient(to top,rgba(0,0,0,.48),rgba(0,0,0,.18),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
+.media-shell:not(.controls-visible) .scrim{opacity:0}
+.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 42px);max-width:830px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(24px) scale(.94);filter:blur(4px)}
+.control-button{width:29px;height:29px;min-width:29px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
+.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
+.control-button.is-active{background:rgba(255,255,255,.20)}
+.control-button:active{transform:scale(.92)}
+.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
+.seek-button svg{width:21px;height:21px}
+.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
+.progress{flex:1 1 180px;min-width:96px}
+.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.volume-popover{position:absolute;left:50%;bottom:39px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
+.volume{width:118px}
+.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
+input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
+input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
+.no-motion *{transition-duration:0ms!important;animation:none!important}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
+@media (max-width:460px){.seek-button{display:none}.control-bar{width:calc(100% - 18px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
 </style>
 </head>
 <body>
-$mediaTag
+<div id="shell" class="media-shell controls-visible$modeClass$motionClass" tabindex="0">
+  <div class="audio-art"><div class="audio-icon">♪</div><div class="audio-label">Media preview</div></div>
+  $mediaTag
+  <div class="scrim"></div>
+  <div class="control-bar" id="controls">
+    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
+    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
+    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
+    <span id="current" class="time">00:00</span>
+    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+    <span id="duration" class="time">00:00</span>
+    <div class="volume-group" id="volumeGroup">
+      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
+      <div class="volume-popover">
+        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+      </div>
+    </div>
+    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
+    $fullscreenButton
+  </div>
+</div>
 <script>
 (function() {
+  const AUTO_HIDE_MS = 1800;
   const media = document.getElementById('media');
+  const shell = document.getElementById('shell');
+  const play = document.getElementById('play');
+  const rewind = document.getElementById('rewind');
+  const forward = document.getElementById('forward');
+  const progress = document.getElementById('progress');
+  const current = document.getElementById('current');
+  const duration = document.getElementById('duration');
+  const volume = document.getElementById('volume');
+  const mute = document.getElementById('mute');
+  const volumeGroup = document.getElementById('volumeGroup');
+  const playMode = document.getElementById('playMode');
+  const fullscreen = document.getElementById('fullscreen');
   window.media = media;
   const post = (value) => {
     if (window.OpenHandMedia && window.OpenHandMedia.postMessage) {
       window.OpenHandMedia.postMessage(value);
     }
   };
+  if (!media) {
+    post('error:missing_media');
+    return;
+  }
+  let hideTimer = 0;
+  let dragging = false;
+  let volumeActive = false;
+  let playbackMode = 'stop';
+
+  const icon = {
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+    mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    volume: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    rewind: '<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+    forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+    loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+
+  rewind.innerHTML = icon.rewind;
+  forward.innerHTML = icon.forward;
+  if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
+
+  function formatTime(value) {
+    if (!Number.isFinite(value) || value < 0) return '00:00';
+    const total = Math.floor(value);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return hours > 0
+      ? hours + ':' + pad(minutes) + ':' + pad(seconds)
+      : pad(minutes) + ':' + pad(seconds);
+  }
+
+  function setRangeFill(input, ratio) {
+    const value = Math.max(0, Math.min(100, ratio * 100));
+    input.style.setProperty('--value', value + '%');
+  }
+
+  function clearHideTimer() {
+    if (hideTimer) window.clearTimeout(hideTimer);
+    hideTimer = 0;
+  }
+
+  function scheduleHide() {
+    clearHideTimer();
+    if (media.paused || dragging || volumeActive) return;
+    hideTimer = window.setTimeout(() => {
+      if (!media.paused && !dragging && !volumeActive) {
+        shell.classList.remove('controls-visible');
+        shell.classList.remove('volume-open');
+      }
+    }, AUTO_HIDE_MS);
+  }
+
+  function showControls(sticky) {
+    shell.classList.add('controls-visible');
+    if (sticky) {
+      clearHideTimer();
+      return;
+    }
+    scheduleHide();
+  }
+
+  function updatePlayState() {
+    play.innerHTML = media.paused ? icon.play : icon.pause;
+    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
+    play.setAttribute('title', media.paused ? 'Play' : 'Pause');
+    if (media.paused || media.ended) {
+      showControls(true);
+    } else {
+      scheduleHide();
+    }
+  }
+
+  function updateTime() {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+    current.textContent = formatTime(cur);
+    duration.textContent = formatTime(dur);
+    const ratio = dur > 0 ? cur / dur : 0;
+    progress.value = String(Math.round(ratio * 1000));
+    setRangeFill(progress, ratio);
+  }
+
+  function updateVolume() {
+    const muted = media.muted || media.volume <= 0;
+    mute.innerHTML = muted ? icon.mute : icon.volume;
+    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+    mute.setAttribute('title', muted ? 'Unmute' : 'Mute');
+    volume.value = String(media.muted ? 0 : media.volume);
+    setRangeFill(volume, media.muted ? 0 : media.volume);
+  }
+
+  function updatePlayMode() {
+    const looping = playbackMode === 'loop';
+    media.loop = looping;
+    playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
+    playMode.classList.toggle('is-active', looping);
+    playMode.setAttribute('aria-label', looping ? 'Loop playback' : 'Stop after playback');
+    playMode.setAttribute('title', looping ? 'Loop playback' : 'Stop after playback');
+  }
+
+  function setVolumeActive(active) {
+    volumeActive = active;
+    shell.classList.toggle('volume-open', active);
+    if (active) {
+      showControls(true);
+    } else {
+      scheduleHide();
+    }
+  }
+
+  function seekBy(delta) {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    const next = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
+    media.currentTime = next;
+    updateTime();
+    showControls();
+  }
+
+  function beginProgressDrag(event) {
+    dragging = true;
+    progress.setPointerCapture?.(event.pointerId);
+    showControls(true);
+  }
+
+  function endProgressDrag(event) {
+    if (!dragging) return;
+    dragging = false;
+    progress.releasePointerCapture?.(event.pointerId);
+    scheduleHide();
+  }
+
   ['loadedmetadata', 'canplay', 'playing'].forEach((eventName) => {
     media.addEventListener(eventName, () => {
       post(eventName);
+      updateTime();
+      updatePlayState();
       reportSize();
     });
   });
@@ -3595,8 +3838,6 @@ $mediaTag
     const err = media.error ? String(media.error.code) : 'unknown';
     post('error:' + err);
   });
-  // Throttled time reporting so Dart can hand the resume timestamp to
-  // the fullscreen route without flooding the JS bridge.
   let lastSent = -1;
   function sendTime() {
     const t = media.currentTime || 0;
@@ -3605,9 +3846,100 @@ $mediaTag
       post('time:' + t.toFixed(3));
     }
   }
+  play.addEventListener('click', () => {
+    if (media.paused) {
+      media.play().catch(() => showControls(true));
+    } else {
+      media.pause();
+    }
+    showControls(true);
+  });
+  rewind.addEventListener('click', () => seekBy(-15));
+  forward.addEventListener('click', () => seekBy(15));
+  progress.addEventListener('pointerdown', beginProgressDrag);
+  progress.addEventListener('pointerup', endProgressDrag);
+  progress.addEventListener('pointercancel', endProgressDrag);
+  progress.addEventListener('input', () => {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    if (dur > 0) media.currentTime = (Number(progress.value) / 1000) * dur;
+    updateTime();
+    showControls(true);
+  });
+  volumeGroup.addEventListener('pointerenter', () => setVolumeActive(true));
+  volumeGroup.addEventListener('pointerleave', () => setVolumeActive(false));
+  volumeGroup.addEventListener('pointerdown', () => setVolumeActive(true));
+  volumeGroup.addEventListener('pointerup', () => setVolumeActive(false));
+  volumeGroup.addEventListener('pointercancel', () => setVolumeActive(false));
+  volumeGroup.addEventListener('focusin', () => setVolumeActive(true));
+  volumeGroup.addEventListener('focusout', (event) => {
+    if (!event.relatedTarget || !volumeGroup.contains(event.relatedTarget)) {
+      setVolumeActive(false);
+    }
+  });
+  volume.addEventListener('input', () => {
+    const next = Math.max(0, Math.min(1, Number(volume.value)));
+    media.volume = Number.isFinite(next) ? next : 1;
+    media.muted = media.volume <= 0;
+    updateVolume();
+    setVolumeActive(true);
+  });
+  mute.addEventListener('click', () => {
+    media.muted = !media.muted;
+    if (!media.muted && media.volume <= 0) media.volume = 0.6;
+    updateVolume();
+    setVolumeActive(true);
+  });
+  playMode.addEventListener('click', () => {
+    playbackMode = playbackMode === 'loop' ? 'stop' : 'loop';
+    updatePlayMode();
+    showControls(true);
+  });
+  if (fullscreen) {
+    fullscreen.addEventListener('click', () => {
+      post('fullscreen');
+      showControls(true);
+    });
+  }
+  shell.addEventListener('pointermove', () => showControls(false));
+  shell.addEventListener('pointerdown', () => showControls(false));
+  shell.addEventListener('pointerleave', () => scheduleHide());
+  shell.addEventListener('focusin', (event) => showControls(event.target !== shell));
+  shell.addEventListener('focusout', () => scheduleHide());
+  shell.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented) return;
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault();
+      play.click();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      seekBy(-5);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      seekBy(5);
+    } else if (event.key.toLowerCase() === 'm') {
+      event.preventDefault();
+      mute.click();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented || event.key !== 'Escape') return;
+    event.preventDefault();
+    post('close');
+  }, true);
   media.addEventListener('timeupdate', sendTime);
+  media.addEventListener('timeupdate', updateTime);
   media.addEventListener('pause', sendTime);
+  media.addEventListener('pause', updatePlayState);
+  media.addEventListener('play', updatePlayState);
   media.addEventListener('seeked', sendTime);
+  media.addEventListener('seeked', updateTime);
+  media.addEventListener('ended', () => { sendTime(); updatePlayState(); showControls(true); });
+  media.addEventListener('volumechange', updateVolume);
+  window.addEventListener('beforeunload', clearHideTimer);
+  updatePlayMode();
+  updatePlayState();
+  updateTime();
+  updateVolume();
   setTimeout(() => {
     if (!media || media.readyState === 0) post('error:timeout');
   }, ${_mediaLoadTimeout.inMilliseconds});
@@ -3910,6 +4242,8 @@ $mediaTag
   }
 
   Future<void> _enterFullscreen(BuildContext context) async {
+    if (_isEnteringFullscreen) return;
+    _isEnteringFullscreen = true;
     // Capture the navigator before the async pause so we don't reference
     // a possibly-stale BuildContext after the await.
     final navigator = Navigator.of(context, rootNavigator: true);
@@ -3919,66 +4253,71 @@ $mediaTag
     } catch (_) {
       settingsController = null;
     }
-    // Pause the underlying preview before we hand control to the
-    // fullscreen route so the user never hears two audio tracks at once.
     try {
-      await _controller.runJavaScript(
-        'try{if(window.media){window.media.pause();}}catch(_){}',
-      );
-    } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'media preview: pause-on-fullscreen failed',
-        error,
-        stack,
-      );
-    }
-    if (!mounted) return;
-    DialogAnimationSettings settings;
-    try {
-      settings =
-          settingsController?.dialogAnimationSettings ??
-          DialogAnimationSettings.defaults;
-    } catch (_) {
-      settings = DialogAnimationSettings.defaults;
-    }
-    final returnedTime = await navigator.push<double>(
-      PageRouteBuilder<double>(
-        fullscreenDialog: true,
-        transitionDuration: settings.duration,
-        reverseTransitionDuration: settings.duration * 0.85,
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            _FullscreenVideoPage(
-              source: widget.source,
-              title: widget.title,
-              initialTime: _currentTime,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return buildAnimationStyleTransition(
-            animation: animation,
-            settings: settings,
-            child: child,
-          );
-        },
-      ),
-    );
-    if (!mounted) return;
-    if (returnedTime != null && returnedTime >= 0) {
-      _currentTime = returnedTime;
+      // Pause the underlying preview before we hand control to the
+      // fullscreen route so the user never hears two audio tracks at once.
       try {
-        // Seek the preview to the same point the user left fullscreen at;
-        // we deliberately do NOT auto-resume — the user can press play.
         await _controller.runJavaScript(
-          'try{if(window.media){window.media.currentTime=${returnedTime.toStringAsFixed(3)};}}catch(_){}',
+          'try{if(window.media){window.media.pause();}}catch(_){}',
         );
       } catch (error, stack) {
         silentLog(
           'home_message_bubble',
-          'media preview: resume-from-fullscreen seek failed',
+          'media preview: pause-on-fullscreen failed',
           error,
           stack,
         );
       }
+      if (!mounted) return;
+      DialogAnimationSettings settings;
+      try {
+        settings =
+            settingsController?.dialogAnimationSettings ??
+            DialogAnimationSettings.defaults;
+      } catch (_) {
+        settings = DialogAnimationSettings.defaults;
+      }
+      final returnedTime = await navigator.push<double>(
+        PageRouteBuilder<double>(
+          fullscreenDialog: true,
+          transitionDuration: settings.duration,
+          reverseTransitionDuration: settings.duration * 0.85,
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              _FullscreenVideoPage(
+                source: widget.source,
+                title: widget.title,
+                initialTime: _currentTime,
+                motionSettings: settings,
+              ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return buildAnimationStyleTransition(
+              animation: animation,
+              settings: settings,
+              child: child,
+            );
+          },
+        ),
+      );
+      if (!mounted) return;
+      if (returnedTime != null && returnedTime >= 0) {
+        _currentTime = returnedTime;
+        try {
+          // Seek the preview to the same point the user left fullscreen at;
+          // we deliberately do NOT auto-resume — the user can press play.
+          await _controller.runJavaScript(
+            'try{if(window.media){window.media.currentTime=${returnedTime.toStringAsFixed(3)};}}catch(_){}',
+          );
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            'media preview: resume-from-fullscreen seek failed',
+            error,
+            stack,
+          );
+        }
+      }
+    } finally {
+      if (!_disposed) _isEnteringFullscreen = false;
     }
   }
 
@@ -4127,6 +4466,18 @@ class _MediaLoadFallback extends StatelessWidget {
     );
   }
 }
+
+String _mediaPreviewDialogCurveToCss(
+  DialogAnimationCurve curve,
+) => switch (curve) {
+  DialogAnimationCurve.easeInOut => 'ease-in-out',
+  DialogAnimationCurve.easeOut => 'ease-out',
+  DialogAnimationCurve.easeOutCubic => 'cubic-bezier(0.215, 0.61, 0.355, 1)',
+  DialogAnimationCurve.easeInOutCubicEmphasized => 'cubic-bezier(0.2, 0, 0, 1)',
+  DialogAnimationCurve.elasticOut => 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  DialogAnimationCurve.bounceOut => 'cubic-bezier(0.22, 1.45, 0.36, 1)',
+  DialogAnimationCurve.decelerate => 'cubic-bezier(0, 0, 0.2, 1)',
+};
 
 _GeneratedMediaSource? _resolveGeneratedMediaSource(
   String href,
@@ -5087,11 +5438,13 @@ class _FullscreenVideoPage extends StatefulWidget {
   const _FullscreenVideoPage({
     required this.source,
     required this.title,
+    required this.motionSettings,
     this.initialTime = 0,
   });
 
   final _GeneratedMediaSource source;
   final String title;
+  final DialogAnimationSettings motionSettings;
   final double initialTime;
 
   @override
@@ -5104,6 +5457,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   bool _ready = false;
   String? _loadError;
   double _currentTime = 0;
+  bool _exiting = false;
   // Focus node owns the keyboard route so ESC exits fullscreen without
   // requiring the user to first click into the WebView surface.
   final FocusNode _focusNode = FocusNode(debugLabel: 'fullscreen-video');
@@ -5138,7 +5492,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
   void _onJsMessage(JavaScriptMessage message) {
     final value = message.message.trim();
-    if (value.startsWith('time:')) {
+    if (value == 'close') {
+      _exit();
+    } else if (value.startsWith('time:')) {
       final parsed = double.tryParse(value.substring(5));
       if (parsed != null && parsed >= 0) {
         _currentTime = parsed;
@@ -5191,24 +5547,155 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     final initial = widget.initialTime > 0
         ? widget.initialTime.toStringAsFixed(3)
         : '0';
+    final durationMs = widget.motionSettings.duration.inMilliseconds;
+    final motionCurve = _mediaPreviewDialogCurveToCss(
+      widget.motionSettings.curve,
+    );
+    final motionClass = durationMs == 0 ? ' no-motion' : '';
     return '''
-<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{width:100vw;height:100vh;background:#000;object-fit:contain}</style></head><body>
-<video id="media" controls autoplay playsinline preload="auto"><source src="$src" type="$mime"></video>
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>
+:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(18,18,20,.76);--oh-control-border:rgba(255,255,255,.14);--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff}
+html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button,input{font:inherit}
+.media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;user-select:none;overflow:hidden;isolation:isolate}
+video{width:100vw;height:100vh;background:#000;object-fit:contain}
+.scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.52),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
+.media-shell:not(.controls-visible) .scrim{opacity:0}
+.control-bar{position:absolute;left:50%;bottom:18px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 48px);max-width:900px;min-height:50px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(26px) scale(.94);filter:blur(4px)}
+.control-button{width:30px;height:30px;min-width:30px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
+.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
+.control-button.is-active{background:rgba(255,255,255,.20)}
+.control-button:active{transform:scale(.92)}
+.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
+.seek-button svg{width:21px;height:21px}
+.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
+.progress{flex:1 1 220px;min-width:96px}
+.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.volume-popover{position:absolute;left:50%;bottom:40px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
+.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
+input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
+input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
+.no-motion *{transition-duration:0ms!important;animation:none!important}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
+@media (max-width:460px){.seek-button{display:none}.control-bar{width:calc(100% - 18px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
+</style></head><body>
+<div id="shell" class="media-shell controls-visible$motionClass" tabindex="0">
+  <video id="media" autoplay playsinline preload="auto" disableRemotePlayback><source src="$src" type="$mime"></video>
+  <div class="scrim"></div>
+  <div class="control-bar" id="controls">
+    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
+    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
+    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
+    <span id="current" class="time">00:00</span>
+    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+    <span id="duration" class="time">00:00</span>
+    <div class="volume-group" id="volumeGroup">
+      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
+      <div class="volume-popover">
+        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+      </div>
+    </div>
+    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
+    <button id="exit" class="control-button" type="button" aria-label="Exit fullscreen" title="Exit fullscreen"></button>
+  </div>
+</div>
 <script>(function(){
-var v=document.getElementById('media');
+const AUTO_HIDE_MS=1800;
+const shell=document.getElementById('shell');
+const v=document.getElementById('media');
+const play=document.getElementById('play');
+const rewind=document.getElementById('rewind');
+const forward=document.getElementById('forward');
+const progress=document.getElementById('progress');
+const current=document.getElementById('current');
+const duration=document.getElementById('duration');
+const volume=document.getElementById('volume');
+const mute=document.getElementById('mute');
+const volumeGroup=document.getElementById('volumeGroup');
+const playMode=document.getElementById('playMode');
+const exit=document.getElementById('exit');
+window.media=v;
 function post(m){try{if(window.OpenHandFs&&window.OpenHandFs.postMessage){window.OpenHandFs.postMessage(String(m));}}catch(_){}}
-var resumed=false;
-function resume(){
-  if(resumed)return;resumed=true;
-  try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(v.duration||Infinity)){v.currentTime=t;}}catch(_){}}
+if(!v){post('error:missing_video');return;}
+let hideTimer=0;
+let dragging=false;
+let volumeActive=false;
+let playbackMode='stop';
+const icon={
+play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+mute:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+volume:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+rewind:'<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+forward:'<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+loop:'<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+stopAfter:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+exit:'<svg viewBox="0 0 24 24"><path d="M9 5H5v4M15 5h4v4M19 15v4h-4M5 15v4h4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9l-5-5M15 9l5-5M15 15l5 5M9 15l-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>'
+};
+rewind.innerHTML=icon.rewind;
+forward.innerHTML=icon.forward;
+exit.innerHTML=icon.exit;
+function fmt(value){if(!Number.isFinite(value)||value<0)return'00:00';const total=Math.floor(value);const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;const pad=(n)=>String(n).padStart(2,'0');return h>0?h+':'+pad(m)+':'+pad(s):pad(m)+':'+pad(s);}
+function setFill(input,ratio){const value=Math.max(0,Math.min(100,ratio*100));input.style.setProperty('--value',value+'%');}
+function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
+function scheduleHide(){clearHideTimer();if(v.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!v.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
+function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
+function updatePlay(){play.innerHTML=v.paused?icon.play:icon.pause;play.setAttribute('aria-label',v.paused?'Play':'Pause');play.setAttribute('title',v.paused?'Play':'Pause');if(v.paused||v.ended)showControls(true);else scheduleHide();}
+function updateTime(){const dur=Number.isFinite(v.duration)?v.duration:0;const cur=Number.isFinite(v.currentTime)?v.currentTime:0;current.textContent=fmt(cur);duration.textContent=fmt(dur);const ratio=dur>0?cur/dur:0;progress.value=String(Math.round(ratio*1000));setFill(progress,ratio);}
+function updateVolume(){const muted=v.muted||v.volume<=0;mute.innerHTML=muted?icon.mute:icon.volume;mute.setAttribute('aria-label',muted?'Unmute':'Mute');mute.setAttribute('title',muted?'Unmute':'Mute');volume.value=String(v.muted?0:v.volume);setFill(volume,v.muted?0:v.volume);}
+function updatePlayMode(){const looping=playbackMode==='loop';v.loop=looping;playMode.innerHTML=looping?icon.loop:icon.stopAfter;playMode.classList.toggle('is-active',looping);playMode.setAttribute('aria-label',looping?'Loop playback':'Stop after playback');playMode.setAttribute('title',looping?'Loop playback':'Stop after playback');}
+function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else scheduleHide();}
+function seekBy(delta){const dur=Number.isFinite(v.duration)?v.duration:0;v.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,v.currentTime+delta));updateTime();showControls(false);}
+function beginDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
+function endDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);scheduleHide();}
+let resumed=false;
+function resume(){if(resumed)return;resumed=true;try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(v.duration||Infinity)){v.currentTime=t;}}catch(_){}updateTime();var p=v.play();if(p&&p.catch)p.catch(function(){updatePlay();});}
 v.addEventListener('loadedmetadata',resume);
 v.addEventListener('canplay',resume);
 v.addEventListener('error',function(){post('error:video_load');});
 var lastSent=-1;
 function sendTime(){var t=v.currentTime||0;if(Math.abs(t-lastSent)>=0.2){lastSent=t;post('time:'+t.toFixed(3));}}
+play.addEventListener('click',()=>{if(v.paused){v.play().catch(()=>showControls(true));}else{v.pause();}showControls(true);});
+rewind.addEventListener('click',()=>seekBy(-15));
+forward.addEventListener('click',()=>seekBy(15));
+progress.addEventListener('pointerdown',beginDrag);
+progress.addEventListener('pointerup',endDrag);
+progress.addEventListener('pointercancel',endDrag);
+progress.addEventListener('input',()=>{const dur=Number.isFinite(v.duration)?v.duration:0;if(dur>0)v.currentTime=(Number(progress.value)/1000)*dur;updateTime();showControls(true);});
+volumeGroup.addEventListener('pointerenter',()=>setVolumeActive(true));
+volumeGroup.addEventListener('pointerleave',()=>setVolumeActive(false));
+volumeGroup.addEventListener('pointerdown',()=>setVolumeActive(true));
+volumeGroup.addEventListener('pointerup',()=>setVolumeActive(false));
+volumeGroup.addEventListener('pointercancel',()=>setVolumeActive(false));
+volumeGroup.addEventListener('focusin',()=>setVolumeActive(true));
+volumeGroup.addEventListener('focusout',(event)=>{if(!event.relatedTarget||!volumeGroup.contains(event.relatedTarget)){setVolumeActive(false);}});
+volume.addEventListener('input',()=>{const next=Math.max(0,Math.min(1,Number(volume.value)));v.volume=Number.isFinite(next)?next:1;v.muted=v.volume<=0;updateVolume();setVolumeActive(true);});
+mute.addEventListener('click',()=>{v.muted=!v.muted;if(!v.muted&&v.volume<=0)v.volume=0.6;updateVolume();setVolumeActive(true);});
+playMode.addEventListener('click',()=>{playbackMode=playbackMode==='loop'?'stop':'loop';updatePlayMode();showControls(true);});
+exit.addEventListener('click',()=>post('close'));
+shell.addEventListener('pointermove',()=>showControls(false));
+shell.addEventListener('pointerdown',()=>showControls(false));
+shell.addEventListener('pointerleave',()=>scheduleHide());
+shell.addEventListener('keydown',(event)=>{if(event.defaultPrevented)return;if(event.key===' '||event.key==='Enter'){event.preventDefault();play.click();}else if(event.key==='ArrowLeft'){event.preventDefault();seekBy(-5);}else if(event.key==='ArrowRight'){event.preventDefault();seekBy(5);}else if(event.key.toLowerCase()==='m'){event.preventDefault();mute.click();}});
+document.addEventListener('keydown',(event)=>{if(event.defaultPrevented||event.key!=='Escape')return;event.preventDefault();post('close');},true);
 v.addEventListener('timeupdate',sendTime);
+v.addEventListener('timeupdate',updateTime);
 v.addEventListener('pause',sendTime);
+v.addEventListener('pause',updatePlay);
+v.addEventListener('play',updatePlay);
 v.addEventListener('seeked',sendTime);
+v.addEventListener('seeked',updateTime);
+v.addEventListener('ended',()=>{sendTime();updatePlay();showControls(true);});
+v.addEventListener('volumechange',updateVolume);
+window.addEventListener('beforeunload',clearHideTimer);
+updatePlayMode();
+updatePlay();
+updateTime();
+updateVolume();
 })();</script>
 </body></html>
 ''';
@@ -5216,10 +5703,12 @@ v.addEventListener('seeked',sendTime);
 
   void _exit() {
     if (!mounted) return;
+    if (_exiting) return;
+    _exiting = true;
     // Stop playback synchronously-as-possible so the user does not hear
     // residual audio while the route pops. We fire the JS pause first,
     // then pop — the controller is still attached at this point.
-    _stopPlaybackBestEffort();
+    unawaited(_stopPlaybackBestEffort());
     Navigator.of(context).maybePop<double>(_currentTime);
   }
 
