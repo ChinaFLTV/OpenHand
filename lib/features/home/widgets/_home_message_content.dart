@@ -1759,7 +1759,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       final urlString = uri.toString();
       final previewTitle = label.isEmpty ? urlString : label;
       // 检查是否已有本地缓存 (上次网络加载成功后后台缓存的副本)。
-      final cachedPath = MediaCacheService.instance.cachedPathForUrl(urlString);
+      final cachedPath = MediaCacheService.instance.cachedPathForUrl(
+        urlString,
+        kind: MediaCacheKind.image,
+      );
       if (cachedPath != null && _cachedMarkdownImageFileExists(cachedPath)) {
         return _wrapMarkdownImageTap(
           semanticsLabel: previewTitle,
@@ -1806,7 +1809,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               // 图片帧解码完成 → 触发后台缓存。
               if (frame != null) {
-                MediaCacheService.instance.cacheInBackground(urlString);
+                MediaCacheService.instance.cacheInBackground(
+                  urlString,
+                  kind: MediaCacheKind.image,
+                );
               }
               return _fadeInImageFrameBuilder(
                 context,

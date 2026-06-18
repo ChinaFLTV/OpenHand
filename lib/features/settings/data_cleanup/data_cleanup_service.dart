@@ -64,19 +64,19 @@ class DataCleanupService {
   // 体积探测
   // ---------------------------------------------------------------------------
 
-  /// 多媒体附件总大小：扫描每个会话目录下的 `attachments/` 子目录 +
-  /// 旧版 `~/.openhand/sessions/attachments/` 的统一目录 +
-  /// 网络多媒体本地缓存 (`openhand_media` 临时目录)。
+  /// 多媒体附件总大小：扫描每个会话目录下的 `attachments/` 子目录、
+  /// 旧版 `~/.openhand/sessions/attachments/`、旧临时 `openhand_media`
+  /// 以及持久网络多媒体缓存 `~/.openhand/cache/media/`。
   Future<DataCleanupSizeReport> measureMultimedia() async {
     final attachmentsReport = await compute(
       _isolateMeasureAttachments,
       OpenHandPaths.defaultSessionsDirectoryPath(),
     );
-    // 网络多媒体缓存目录体积。
-    final mediaCacheBytes = await MediaCacheService.totalCacheBytes();
+    final mediaCacheReport = await MediaCacheService.measureCache();
     return DataCleanupSizeReport(
-      bytes: attachmentsReport.bytes + mediaCacheBytes,
-      itemCount: attachmentsReport.itemCount,
+      bytes: attachmentsReport.bytes + mediaCacheReport.bytes,
+      itemCount:
+          (attachmentsReport.itemCount ?? 0) + mediaCacheReport.fileCount,
     );
   }
 
@@ -90,12 +90,13 @@ class DataCleanupService {
     return dbReport + fsReport;
   }
 
-  /// 应用缓存目录。
+  /// 应用缓存目录。多媒体缓存由 [measureMultimedia] 单独统计，避免
+  /// `wipeAll` 汇总时重复计入。
   Future<DataCleanupSizeReport> measureAppCache() {
-    return compute(
-      _isolateMeasureDirectory,
+    return compute(_isolateMeasureDirectoryExcluding, <String>[
       OpenHandPaths.defaultCacheDirectoryPath(),
-    );
+      MediaCacheService.cacheDirectoryPath,
+    ]);
   }
 
   /// 日志数据：cron 历史行体积 + 日志目录。
@@ -315,10 +316,10 @@ class DataCleanupService {
     await WebSearchTelemetryStore.instance.clearAll();
     await WebFetchCacheStore.instance.clearAll();
     await WebFetchTelemetryStore.instance.clearAll();
-    await compute(
-      _isolateDeleteDirectoryContents,
+    await compute(_isolateDeleteDirectoryContentsExcluding, <String>[
       OpenHandPaths.defaultCacheDirectoryPath(),
-    );
+      MediaCacheService.cacheDirectoryPath,
+    ]);
   }
 
   /// 清空 cron 执行历史 + 日志目录。
@@ -624,6 +625,17 @@ DataCleanupSizeReport _isolateMeasureDirectory(String dir) {
   return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
 }
 
+DataCleanupSizeReport _isolateMeasureDirectoryExcluding(List<String> args) {
+  if (args.isEmpty) return DataCleanupSizeReport.empty;
+  final root = Directory(args.first);
+  if (!root.existsSync()) {
+    return DataCleanupSizeReport.empty;
+  }
+  final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
+  final stats = _walkDirectoryStats(root, excludedRoots: excludedRoots);
+  return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
+}
+
 DataCleanupSizeReport _isolateMeasureFile(String path) {
   final file = File(path);
   if (!file.existsSync()) {
@@ -709,6 +721,37 @@ void _isolateDeleteDirectoryContents(String dir) {
   }
 }
 
+void _isolateDeleteDirectoryContentsExcluding(List<String> args) {
+  if (args.isEmpty) return;
+  final dir = args.first;
+  if (!_isSafeDeleteTarget(dir)) {
+    return;
+  }
+  final root = Directory(dir);
+  if (!root.existsSync()) {
+    return;
+  }
+  final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      if (_isExcludedPath(entity.path, excludedRoots)) {
+        continue;
+      }
+      try {
+        if (entity is Directory) {
+          _deleteDirectoryTreeExcluding(entity, excludedRoots);
+        } else {
+          entity.deleteSync();
+        }
+      } catch (error, stack) {
+        silentLog('data_cleanup', 'delete dir entry excluding', error, stack);
+      }
+    }
+  } catch (error, stack) {
+    silentLog('data_cleanup', 'list dir contents excluding', error, stack);
+  }
+}
+
 /// 防误删兜底：拒绝任何看起来像系统根 / HOME 根 / OpenHand 根的路径。
 /// 即使上层逻辑出 bug 把 `/` 或 `~/.openhand` 传进来，也不会引发灾难。
 ///
@@ -770,12 +813,18 @@ class _DirStats {
   final int files;
 }
 
-_DirStats _walkDirectoryStats(Directory dir) {
+_DirStats _walkDirectoryStats(
+  Directory dir, {
+  List<String> excludedRoots = const <String>[],
+}) {
   int bytes = 0;
   int files = 0;
   try {
     for (final entity in dir.listSync(recursive: true, followLinks: false)) {
       if (entity is! File) {
+        continue;
+      }
+      if (_isExcludedPath(entity.path, excludedRoots)) {
         continue;
       }
       try {
@@ -791,4 +840,46 @@ _DirStats _walkDirectoryStats(Directory dir) {
     silentLog('data_cleanup', 'walk dir list', error, stack);
   }
   return _DirStats(bytes: bytes, files: files);
+}
+
+bool _isExcludedPath(String path, List<String> excludedRoots) {
+  if (excludedRoots.isEmpty) return false;
+  final normalized = p.normalize(path);
+  for (final root in excludedRoots) {
+    if (root.isEmpty) continue;
+    if (normalized == root || p.isWithin(root, normalized)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _containsExcludedPath(Directory dir, List<String> excludedRoots) {
+  if (excludedRoots.isEmpty) return false;
+  final normalized = p.normalize(dir.path);
+  for (final root in excludedRoots) {
+    if (root.isEmpty) continue;
+    if (normalized == root || p.isWithin(normalized, root)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void _deleteDirectoryTreeExcluding(Directory dir, List<String> excludedRoots) {
+  if (_isExcludedPath(dir.path, excludedRoots)) return;
+  if (!_containsExcludedPath(dir, excludedRoots)) {
+    dir.deleteSync(recursive: true);
+    return;
+  }
+  for (final entity in dir.listSync(followLinks: false)) {
+    if (_isExcludedPath(entity.path, excludedRoots)) {
+      continue;
+    }
+    if (entity is Directory) {
+      _deleteDirectoryTreeExcluding(entity, excludedRoots);
+    } else {
+      entity.deleteSync();
+    }
+  }
 }

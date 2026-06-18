@@ -394,6 +394,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                     label: _localizedText(context, zh: '源语言', en: 'Source'),
                     value: settings.sourceLanguage,
                     options: _translationLanguageDropdownOptions(
+                      context,
                       AiTranslationProviderCatalogs.sourceLanguageOptions,
                     ),
                     onChanged: (value) =>
@@ -417,6 +418,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                     label: _localizedText(context, zh: '目标语言', en: 'Target'),
                     value: settings.targetLanguage,
                     options: _translationLanguageDropdownOptions(
+                      context,
                       AiTranslationProviderCatalogs.targetLanguageOptions,
                     ),
                     onChanged: (value) =>
@@ -2207,7 +2209,10 @@ class _AiTtsDropdown extends StatelessWidget {
       value: value,
       options: [
         for (final option in options)
-          _SettingsStringDropdownOption(option.value, option.label),
+          _SettingsStringDropdownOption(
+            option.value,
+            _localizedTtsCatalogOptionLabel(context, option),
+          ),
       ],
       onChanged: onChanged,
     );
@@ -2268,7 +2273,7 @@ class _SettingsStringDropdown extends StatelessWidget {
               normalized,
               normalized.isEmpty
                   ? _localizedText(context, zh: '默认', en: 'Default')
-                  : normalized,
+                  : _humanizedDropdownValue(context, normalized),
             ),
           ]
         : hasValue || normalized.isEmpty
@@ -2278,8 +2283,8 @@ class _SettingsStringDropdown extends StatelessWidget {
               normalized,
               _localizedText(
                 context,
-                zh: '当前配置：$normalized',
-                en: 'Current: $normalized',
+                zh: '当前配置：${_humanizedDropdownValue(context, normalized)}',
+                en: 'Current: ${_humanizedDropdownValue(context, normalized)}',
               ),
             ),
             ...options,
@@ -2525,12 +2530,152 @@ class _AiTtsStepperButton extends StatelessWidget {
 }
 
 List<_SettingsStringDropdownOption> _translationLanguageDropdownOptions(
+  BuildContext context,
   List<AiTranslationCatalogOption> options,
 ) {
   return [
     for (final option in options)
-      _SettingsStringDropdownOption(option.value, option.label),
+      _SettingsStringDropdownOption(
+        option.value,
+        _localizedLanguageCodeLabel(
+          context,
+          option.value,
+          fallback: option.label,
+        ),
+      ),
   ];
+}
+
+String _localizedTtsCatalogOptionLabel(
+  BuildContext context,
+  AiTtsCatalogOption option,
+) {
+  final languageLabel = _localizedLanguageCodeLabel(
+    context,
+    option.value,
+    fallback: '',
+  );
+  if (languageLabel.isNotEmpty) return languageLabel;
+  return _localizedVoiceLabel(context, option.label);
+}
+
+String _humanizedDropdownValue(BuildContext context, String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) {
+    return _localizedText(context, zh: '默认', en: 'Default');
+  }
+  final languageLabel = _localizedLanguageCodeLabel(
+    context,
+    normalized,
+    fallback: '',
+  );
+  if (languageLabel.isNotEmpty) return languageLabel;
+  final humanized = normalized
+      .replaceFirst(
+        RegExp(
+          r'^(?:zh-CN|zh-TW|en-US|en-GB|ja-JP|ko-KR|fr-FR|de-DE|[a-z]{2})[-_]',
+          caseSensitive: false,
+        ),
+        '',
+      )
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .replaceAll(RegExp(r'\bbigtts\b', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return _localizedVoiceLabel(
+    context,
+    humanized.isEmpty ? normalized : humanized,
+  );
+}
+
+String _localizedLanguageCodeLabel(
+  BuildContext context,
+  String value, {
+  required String fallback,
+}) {
+  final normalized = value.trim();
+  final label = switch (normalized) {
+    'auto' => (zh: '自动检测', en: 'Auto detect'),
+    'zh' || 'zh-CN' || 'zh-CHS' => (zh: '简体中文', en: 'Simplified Chinese'),
+    'zh-TW' => (zh: '繁体中文', en: 'Traditional Chinese'),
+    'en' => (zh: '英语', en: 'English'),
+    'en-US' => (zh: '英语（美国）', en: 'English (US)'),
+    'en-GB' => (zh: '英语（英国）', en: 'English (UK)'),
+    'ja' || 'ja-JP' => (zh: '日语', en: 'Japanese'),
+    'ko' || 'ko-KR' => (zh: '韩语', en: 'Korean'),
+    'fr' || 'fr-FR' => (zh: '法语', en: 'French'),
+    'de' || 'de-DE' => (zh: '德语', en: 'German'),
+    'es' => (zh: '西班牙语', en: 'Spanish'),
+    'ru' => (zh: '俄语', en: 'Russian'),
+    'it' => (zh: '意大利语', en: 'Italian'),
+    'pt' => (zh: '葡萄牙语', en: 'Portuguese'),
+    'vi' => (zh: '越南语', en: 'Vietnamese'),
+    'th' => (zh: '泰语', en: 'Thai'),
+    'id' => (zh: '印度尼西亚语', en: 'Indonesian'),
+    'ar' => (zh: '阿拉伯语', en: 'Arabic'),
+    'tr' => (zh: '土耳其语', en: 'Turkish'),
+    'hi' => (zh: '印地语', en: 'Hindi'),
+    'he' => (zh: '希伯来语', en: 'Hebrew'),
+    'nl' => (zh: '荷兰语', en: 'Dutch'),
+    'pl' => (zh: '波兰语', en: 'Polish'),
+    'sv' => (zh: '瑞典语', en: 'Swedish'),
+    'da' => (zh: '丹麦语', en: 'Danish'),
+    _ => null,
+  };
+  if (label != null) {
+    return _localizedText(context, zh: label.zh, en: label.en);
+  }
+  return _stripTrailingLanguageCode(fallback);
+}
+
+String _localizedVoiceLabel(BuildContext context, String rawLabel) {
+  final trimmed = rawLabel.trim();
+  if (trimmed.isEmpty) return trimmed;
+  final exact = switch (trimmed) {
+    '自动匹配系统默认音色' => (zh: '自动匹配系统默认音色', en: 'Auto system voice'),
+    '有道默认发音人' => (zh: '有道默认发音人', en: 'Youdao default voice'),
+    _ => null,
+  };
+  if (exact != null) {
+    return _localizedText(context, zh: exact.zh, en: exact.en);
+  }
+  const suffixes = <String, ({String zh, String en})>{
+    'English Female': (zh: '英语女声', en: 'English female voice'),
+    'English Male': (zh: '英语男声', en: 'English male voice'),
+    'English': (zh: '英语', en: 'English'),
+    '中文女声': (zh: '中文女声', en: 'Chinese female voice'),
+    '中文男声': (zh: '中文男声', en: 'Chinese male voice'),
+    '繁中女声': (zh: '繁体中文女声', en: 'Traditional Chinese female voice'),
+    '日本語': (zh: '日语', en: 'Japanese'),
+    '女声': (zh: '女声', en: 'Female voice'),
+    '男声': (zh: '男声', en: 'Male voice'),
+    '童声': (zh: '童声', en: 'Child voice'),
+  };
+  for (final entry in suffixes.entries) {
+    final suffix = entry.key;
+    final marker = ' - $suffix';
+    if (trimmed.endsWith(marker)) {
+      final prefix = trimmed
+          .substring(0, trimmed.length - marker.length)
+          .trim();
+      final localizedSuffix = _localizedText(
+        context,
+        zh: entry.value.zh,
+        en: entry.value.en,
+      );
+      return prefix.isEmpty ? localizedSuffix : '$prefix - $localizedSuffix';
+    }
+  }
+  return _stripTrailingLanguageCode(trimmed);
+}
+
+String _stripTrailingLanguageCode(String label) {
+  return label
+      .replaceFirst(
+        RegExp(r'\s+(?:[a-z]{2,3}(?:-[A-Z]{2,4})?|zh-[A-Z]{2,4})$'),
+        '',
+      )
+      .trim();
 }
 
 String _translationProviderLabel(

@@ -12,6 +12,8 @@ abstract final class OpenHandPaths {
   static const String defaultSessionAttachmentsDirectoryLabel =
       '~/.openhand/sessions/attachments';
   static const String defaultCacheDirectoryLabel = '~/.openhand/cache';
+  static const String defaultMediaCacheDirectoryLabel =
+      '~/.openhand/cache/media';
   static const String defaultLogsDirectoryLabel = '~/.openhand/logs';
   static const String defaultMessageGatewayDirectoryLabel =
       '~/.openhand/message_gateway';
@@ -89,6 +91,15 @@ abstract final class OpenHandPaths {
   /// absent on a fresh install.
   static String defaultCacheDirectoryPath() {
     return p.join(defaultRootDirectoryPath(), 'cache');
+  }
+
+  /// Persistent cache for remote AI media URLs (images / videos / audio).
+  ///
+  /// This is deliberately nested under the app cache root while data-cleanup
+  /// treats it as multimedia data, so users can audit and clear generated media
+  /// cache without wiping unrelated worker caches.
+  static String defaultMediaCacheDirectoryPath() {
+    return p.join(defaultCacheDirectoryPath(), 'media');
   }
 
   static String defaultMessageGatewayDirectoryPath() {

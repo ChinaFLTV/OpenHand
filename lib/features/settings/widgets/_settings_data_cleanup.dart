@@ -45,6 +45,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   /// `null` 表示尚未测算或测算失败。
   int? _webSearchCacheBytes;
   int? _webFetchCacheBytes;
+  int? _mediaCacheBytes;
 
   @override
   void didChangeDependencies() {
@@ -149,6 +150,17 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           silentLog('data_cleanup', 'measure/webFetchCache', e, st);
           if (!mounted || token != _measureToken) return;
           setState(() => _webFetchCacheBytes = 0);
+        }
+      }(),
+      () async {
+        try {
+          final stats = await MediaCacheService.measureCache();
+          if (!mounted || token != _measureToken) return;
+          setState(() => _mediaCacheBytes = stats.bytes);
+        } catch (e, st) {
+          silentLog('data_cleanup', 'measure/mediaCache', e, st);
+          if (!mounted || token != _measureToken) return;
+          setState(() => _mediaCacheBytes = 0);
         }
       }(),
     ]);
@@ -283,40 +295,52 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     await _measureAll();
   }
 
-  String? _buildAppCacheBreakdown(BuildContext context) {
-    String lineFor({
-      required int? bytes,
-      required String zhLabel,
-      required String enLabel,
-    }) {
-      if (bytes == null) {
-        return _localizedText(
-          context,
-          zh: '其中 $zhLabel 缓存：测算中…',
-          en: '$enLabel cache: measuring…',
-        );
-      }
-      if (bytes <= 0) {
-        return _localizedText(
-          context,
-          zh: '其中 $zhLabel 缓存：0 B',
-          en: '$enLabel cache: 0 B',
-        );
-      }
-      final human = formatHumanBytes(bytes);
+  String _cacheBreakdownLine({
+    required BuildContext context,
+    required int? bytes,
+    required String zhLabel,
+    required String enLabel,
+  }) {
+    if (bytes == null) {
       return _localizedText(
         context,
-        zh: '其中 $zhLabel 缓存：$human',
-        en: '$enLabel cache: $human',
+        zh: '其中 $zhLabel 缓存：测算中…',
+        en: '$enLabel cache: measuring…',
       );
     }
+    if (bytes <= 0) {
+      return _localizedText(
+        context,
+        zh: '其中 $zhLabel 缓存：0 B',
+        en: '$enLabel cache: 0 B',
+      );
+    }
+    final human = formatHumanBytes(bytes);
+    return _localizedText(
+      context,
+      zh: '其中 $zhLabel 缓存：$human',
+      en: '$enLabel cache: $human',
+    );
+  }
 
-    final searchLine = lineFor(
+  String? _buildMultimediaBreakdown(BuildContext context) {
+    return _cacheBreakdownLine(
+      context: context,
+      bytes: _mediaCacheBytes,
+      zhLabel: '网络多媒体',
+      enLabel: 'Remote media',
+    );
+  }
+
+  String? _buildAppCacheBreakdown(BuildContext context) {
+    final searchLine = _cacheBreakdownLine(
+      context: context,
       bytes: _webSearchCacheBytes,
       zhLabel: 'WebSearch',
       enLabel: 'WebSearch',
     );
-    final fetchLine = lineFor(
+    final fetchLine = _cacheBreakdownLine(
+      context: context,
       bytes: _webFetchCacheBytes,
       zhLabel: 'WebFetch',
       enLabel: 'WebFetch',
@@ -350,9 +374,15 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
               isMeasuring: _measuringCategories.contains(category),
               isCleaning: _cleaningCategories.contains(category),
               isDestructive: category == DataCleanupCategory.wipeAll,
-              breakdown: category == DataCleanupCategory.appCache
-                  ? _buildAppCacheBreakdown(context)
-                  : null,
+              breakdown: switch (category) {
+                DataCleanupCategory.multimedia => _buildMultimediaBreakdown(
+                  context,
+                ),
+                DataCleanupCategory.appCache => _buildAppCacheBreakdown(
+                  context,
+                ),
+                _ => null,
+              },
               onClean: () => _onCleanPressed(category),
             ),
             if (category != DataCleanupCategory.values.last)
@@ -674,10 +704,14 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
     case DataCleanupCategory.multimedia:
       return _localizedText(
         context,
-        zh: '会话附件（图片、文档等）。清理后历史消息中的附件会显示为缺失。',
+        zh:
+            '会话附件、旧临时生成媒体与 ~/.openhand/cache/media/ 网络多媒体缓存。'
+            '清理后历史消息中的本地附件会显示为缺失，网络媒体会重新下载缓存。',
         en:
-            'Session attachments (images, documents). After cleanup, '
-            'attachments in older messages will appear as missing.',
+            'Session attachments, legacy generated media temp files, and the '
+            '~/.openhand/cache/media/ remote media cache. Local attachments in '
+            'older messages will appear as missing; remote media will cache '
+            'again on next load.',
       );
     case DataCleanupCategory.sessions:
       return _localizedText(
@@ -690,8 +724,10 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
     case DataCleanupCategory.appCache:
       return _localizedText(
         context,
-        zh: '~/.openhand/cache/ 目录下的临时缓存文件。',
-        en: 'Temporary cache files under ~/.openhand/cache/.',
+        zh: '~/.openhand/cache/ 下的临时缓存文件，不包含由“多媒体数据”单独管理的媒体缓存。',
+        en:
+            'Temporary cache files under ~/.openhand/cache/, excluding media '
+            'cache managed by "Multimedia Data".',
       );
     case DataCleanupCategory.logs:
       return _localizedText(

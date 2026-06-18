@@ -2566,7 +2566,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         // 网络图片帧解码完成 → 触发后台缓存, 下次可直接走本地文件。
         if (frame != null) {
-          MediaCacheService.instance.cacheInBackground(urlString);
+          MediaCacheService.instance.cacheInBackground(
+            urlString,
+            kind: MediaCacheKind.image,
+          );
         }
         return _SafeMarkdownBodyState._fadeInImageFrameBuilder(
           context,
@@ -2832,13 +2835,16 @@ class _GeneratedMediaSource {
     required this.kind,
     required this.uri,
     this.filePath,
+    this.originalUri,
   });
 
   final _GeneratedMessageMediaKind kind;
   final Uri uri;
   final String? filePath;
+  final Uri? originalUri;
 
   bool get isLocalFile => filePath != null;
+  Uri get displayUri => originalUri ?? uri;
 }
 
 class _GeneratedMediaLinkSyntax extends md.InlineSyntax {
@@ -2969,10 +2975,15 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
   // capture is pending or when the source is remote / not a video.
   String? _videoThumbPath;
   bool _videoCaptureRequested = false;
+  _GeneratedMediaSource? _cachedSource;
+  int _cacheRequestSerial = 0;
+
+  _GeneratedMediaSource get _effectiveSource => _cachedSource ?? widget.source;
 
   @override
   void initState() {
     super.initState();
+    _syncCachedSource();
     _initVideoThumbnail();
   }
 
@@ -2980,15 +2991,50 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
   void didUpdateWidget(covariant _GeneratedMediaLinkCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source.filePath != widget.source.filePath ||
+        oldWidget.source.uri != widget.source.uri ||
         oldWidget.source.kind != widget.source.kind) {
+      _cacheRequestSerial++;
+      _cachedSource = null;
       _videoThumbPath = null;
       _videoCaptureRequested = false;
+      _syncCachedSource();
       _initVideoThumbnail();
     }
   }
 
-  Future<void> _initVideoThumbnail() async {
+  void _syncCachedSource() {
     final source = widget.source;
+    if (source.filePath != null) return;
+    final url = source.uri.toString();
+    final cacheKind = _mediaCacheKindForGeneratedMedia(source.kind);
+    final cachedPath = MediaCacheService.instance.cachedPathForUrl(
+      url,
+      kind: cacheKind,
+    );
+    if (cachedPath != null) {
+      _cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
+      return;
+    }
+    final serial = ++_cacheRequestSerial;
+    unawaited(
+      MediaCacheService.instance.ensureCached(url, kind: cacheKind).then((
+        cachedPath,
+      ) {
+        if (!mounted || serial != _cacheRequestSerial || cachedPath == null) {
+          return;
+        }
+        setState(() {
+          _cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
+          _videoThumbPath = null;
+          _videoCaptureRequested = false;
+        });
+        _initVideoThumbnail();
+      }),
+    );
+  }
+
+  Future<void> _initVideoThumbnail() async {
+    final source = _effectiveSource;
     if (source.kind != _GeneratedMessageMediaKind.video) return;
     final path = source.filePath;
     if (path == null) return;
@@ -3019,7 +3065,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
       await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) =>
-            _MediaPreviewDialog(source: widget.source, title: widget.title),
+            _MediaPreviewDialog(source: _effectiveSource, title: widget.title),
       );
     } finally {
       if (mounted) _dialogOpen = false;
@@ -3029,7 +3075,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final source = widget.source;
+    final source = _effectiveSource;
     final title = widget.title;
     final textColor = widget.textColor;
     final backgroundColor = widget.backgroundColor;
@@ -3039,11 +3085,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
     }
     const icon = Icons.graphic_eq;
     final label = _localizedText(context, zh: '音频', en: 'Audio');
-    final detail = source.isLocalFile
-        ? p.basename(source.filePath!)
-        : source.uri.host.isEmpty
-        ? source.uri.toString()
-        : source.uri.host;
+    final detail = _generatedMediaSourceDetail(source);
     final cardColor = Color.alphaBlend(
       textColor.withValues(alpha: 0.08),
       backgroundColor,
@@ -3119,11 +3161,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
     Color textColor,
     Color backgroundColor,
   ) {
-    final detail = source.isLocalFile
-        ? p.basename(source.filePath!)
-        : source.uri.host.isEmpty
-        ? source.uri.toString()
-        : source.uri.host;
+    final detail = _generatedMediaSourceDetail(source);
     final cardColor = Color.alphaBlend(
       textColor.withValues(alpha: 0.08),
       backgroundColor,
@@ -4396,10 +4434,31 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       final cancel = Completer<void>();
       _saveCancel = cancel;
       try {
+        final cacheKind = _mediaCacheKindForGeneratedMedia(widget.source.kind);
+        final cachedPath = MediaCacheService.instance.cachedPathForUrl(
+          widget.source.uri.toString(),
+          kind: cacheKind,
+        );
+        if (cachedPath != null) {
+          final cachedFile = File(cachedPath);
+          if (await cachedFile.exists()) {
+            await cachedFile.copy(location.path);
+            showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
+            return;
+          }
+        }
         await _downloadRemoteMedia(
           widget.source,
           location.path,
           cancelSignal: cancel.future,
+        );
+        unawaited(
+          MediaCacheService.instance.importFile(
+            widget.source.uri.toString(),
+            location.path,
+            kind: cacheKind,
+            mimeType: _mimeTypeForGeneratedMedia(widget.source),
+          ),
         );
         showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
       } finally {
@@ -4420,22 +4479,18 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   }
 
   String _suggestedSaveName() {
+    final originalUri = widget.source.originalUri;
+    if (originalUri != null) {
+      final basename = _basenameFromMediaUri(originalUri);
+      if (basename != null) return basename;
+    }
     final filePath = widget.source.filePath;
     if (filePath != null) {
       final basename = p.basename(filePath).trim();
       if (basename.isNotEmpty) return basename;
     }
-    final decodedPath = () {
-      try {
-        return Uri.decodeFull(widget.source.uri.path);
-      } catch (_) {
-        return widget.source.uri.path;
-      }
-    }();
-    final basename = p.basename(decodedPath).trim();
-    if (basename.isNotEmpty && basename != '/' && basename != '.') {
-      return basename;
-    }
+    final basename = _basenameFromMediaUri(widget.source.uri);
+    if (basename != null) return basename;
     final prefix = widget.source.kind == _GeneratedMessageMediaKind.video
         ? 'video'
         : 'audio';
@@ -4444,6 +4499,21 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         : '.mp3';
     return '$prefix-${DateTime.now().millisecondsSinceEpoch}$ext';
   }
+}
+
+String? _basenameFromMediaUri(Uri uri) {
+  final decodedPath = () {
+    try {
+      return Uri.decodeFull(uri.path);
+    } catch (_) {
+      return uri.path;
+    }
+  }();
+  final basename = p.basename(decodedPath).trim();
+  if (basename.isNotEmpty && basename != '/' && basename != '.') {
+    return basename;
+  }
+  return null;
 }
 
 class _MediaLoadFallback extends StatelessWidget {
@@ -4600,14 +4670,48 @@ _GeneratedMessageMediaKind? _generatedMediaKindFromStorage(String? value) {
 
 String _generatedMediaFallbackTitle(_GeneratedMediaSource source) {
   final filePath = source.filePath;
-  if (filePath != null) return p.basename(filePath);
-  final basename = p.basename(source.uri.path).trim();
+  if (filePath != null && source.originalUri == null) {
+    return p.basename(filePath);
+  }
+  final displayUri = source.displayUri;
+  final basename = p.basename(displayUri.path).trim();
   if (basename.isNotEmpty && basename != '/' && basename != '.') {
     return basename;
   }
   return source.kind == _GeneratedMessageMediaKind.video
       ? 'AI Generated Video'
       : 'AI Generated Audio';
+}
+
+String _generatedMediaSourceDetail(_GeneratedMediaSource source) {
+  final originalUri = source.originalUri;
+  if (originalUri != null) {
+    return originalUri.host.isEmpty ? originalUri.toString() : originalUri.host;
+  }
+  final filePath = source.filePath;
+  if (filePath != null) return p.basename(filePath);
+  return source.uri.host.isEmpty ? source.uri.toString() : source.uri.host;
+}
+
+_GeneratedMediaSource _cachedGeneratedMediaSource(
+  _GeneratedMediaSource source,
+  String cachedPath,
+) {
+  return _GeneratedMediaSource(
+    kind: source.kind,
+    uri: Uri.file(cachedPath),
+    filePath: cachedPath,
+    originalUri: source.originalUri ?? source.uri,
+  );
+}
+
+MediaCacheKind _mediaCacheKindForGeneratedMedia(
+  _GeneratedMessageMediaKind kind,
+) {
+  return switch (kind) {
+    _GeneratedMessageMediaKind.video => MediaCacheKind.video,
+    _GeneratedMessageMediaKind.audio => MediaCacheKind.audio,
+  };
 }
 
 String _mimeTypeForGeneratedMedia(_GeneratedMediaSource source) {

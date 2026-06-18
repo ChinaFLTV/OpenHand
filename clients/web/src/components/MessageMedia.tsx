@@ -50,6 +50,14 @@ const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 120_000;
 const MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS = 30_000;
+const REMOTE_MEDIA_CACHE_NAME = 'openhand-remote-media-v1';
+const REMOTE_MEDIA_CACHE_TIMEOUT_MS = 120_000;
+const REMOTE_MEDIA_CACHE_MAX_BYTES: Record<MediaKind, number> = {
+  image: 64 * 1024 * 1024,
+  audio: 256 * 1024 * 1024,
+  video: 512 * 1024 * 1024,
+  file: 0,
+};
 const PREVIEW_VIEWPORT_GAP = 16;
 const PREVIEW_CONTENT_PADDING = 12;
 const PREVIEW_HEADER_ESTIMATE = 66;
@@ -416,6 +424,70 @@ function mediaKindLabel(kind: MediaKind): string {
   }
 }
 
+function canCacheRemoteMedia(item: MediaItem, url: string): boolean {
+  if (!item.isDirectUrl || item.kind === 'file') return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  return typeof window !== 'undefined' && typeof window.caches !== 'undefined';
+}
+
+function isCacheableMediaResponse(item: MediaItem, response: Response): boolean {
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+  if (contentType) {
+    if (item.kind === 'image' && !contentType.startsWith('image/')) return false;
+    if (item.kind === 'video' && !contentType.startsWith('video/')) return false;
+    if (item.kind === 'audio' && !contentType.startsWith('audio/')) return false;
+  }
+  const rawLength = response.headers.get('content-length');
+  if (rawLength) {
+    const length = Number(rawLength);
+    if (Number.isFinite(length) && length > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
+      return false;
+    }
+  } else if (item.kind === 'video') {
+    return false;
+  }
+  return true;
+}
+
+async function objectUrlFromCachedResponse(
+  item: MediaItem,
+  response: Response,
+): Promise<string | null> {
+  const blob = await response.blob();
+  if (blob.size <= 0 || blob.size > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
+    return null;
+  }
+  return URL.createObjectURL(blob);
+}
+
+async function resolveBrowserCachedMediaUrl(
+  item: MediaItem,
+  url: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  if (!canCacheRemoteMedia(item, url)) return null;
+  const cache = await window.caches.open(REMOTE_MEDIA_CACHE_NAME);
+  const cached = await cache.match(url);
+  if (cached) {
+    return objectUrlFromCachedResponse(item, cached);
+  }
+
+  const response = await fetch(url, { credentials: 'same-origin', signal });
+  if (!response.ok || !isCacheableMediaResponse(item, response)) {
+    return null;
+  }
+  const blob = await response.blob();
+  if (signal.aborted || blob.size <= 0 || blob.size > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
+    return null;
+  }
+  const headers = new Headers();
+  headers.set('content-type', blob.type || response.headers.get('content-type') || 'application/octet-stream');
+  headers.set('content-length', String(blob.size));
+  headers.set('x-openhand-source-url', url);
+  await cache.put(url, new Response(blob, { headers }));
+  return URL.createObjectURL(blob);
+}
+
 function MediaKindIcon({ kind, size = 16 }: { kind: MediaKind; size?: number }) {
   const common = {
     width: size,
@@ -765,6 +837,65 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
     url: item.isDirectUrl ? item.path : buildSessionAssetUrl(sessionId, item.path),
     key: `${item.path}:${idx}`,
   })), [items, sessionId]);
+  const [cachedEntryUrls, setCachedEntryUrls] = useState<Record<string, string>>({});
+  const browserObjectUrlsRef = useRef<Record<string, string>>({});
+  useEffect(() => () => {
+    for (const objectUrl of Object.values(browserObjectUrlsRef.current)) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    browserObjectUrlsRef.current = {};
+  }, []);
+  useEffect(() => {
+    if (entries.length === 0) {
+      setCachedEntryUrls({});
+      return;
+    }
+    let disposed = false;
+    const timedControllers: ReturnType<typeof createTimedAbortController>[] = [];
+    setCachedEntryUrls({});
+    for (const entry of entries) {
+      if (!canCacheRemoteMedia(entry.item, entry.url)) continue;
+      const timed = createTimedAbortController(REMOTE_MEDIA_CACHE_TIMEOUT_MS);
+      timedControllers.push(timed);
+      resolveBrowserCachedMediaUrl(entry.item, entry.url, timed.controller.signal)
+        .then((objectUrl) => {
+          timed.clear();
+          if (!objectUrl) return;
+          if (disposed) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          const previous = browserObjectUrlsRef.current[entry.key];
+          if (previous && previous !== objectUrl) {
+            URL.revokeObjectURL(previous);
+          }
+          browserObjectUrlsRef.current[entry.key] = objectUrl;
+          setCachedEntryUrls((current) => (
+            current[entry.key] === objectUrl
+              ? current
+              : { ...current, [entry.key]: objectUrl }
+          ));
+        })
+        .catch(() => {
+          timed.clear();
+        });
+    }
+    return () => {
+      disposed = true;
+      for (const timed of timedControllers) {
+        timed.abort();
+        timed.dispose();
+      }
+      for (const objectUrl of Object.values(browserObjectUrlsRef.current)) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      browserObjectUrlsRef.current = {};
+    };
+  }, [entries]);
+  const effectiveEntries = useMemo<MediaEntry[]>(() => entries.map((entry) => ({
+    ...entry,
+    url: cachedEntryUrls[entry.key] ?? entry.url,
+  })), [cachedEntryUrls, entries]);
   const [preview, setPreview] = useState<{ item: MediaItem; url: string } | null>(null);
   if (items.length === 0) return null;
   const resolvedPresentation = presentation === 'auto'
@@ -781,7 +912,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           class="oh-user-attachment-list"
           aria-label={t('message.context.kind.attachment', '附件')}
         >
-          {entries.map(({ item, url, key }) => {
+          {effectiveEntries.map(({ item, url, key }) => {
             const label = attachmentLabel(item);
             const content = (
               <>
@@ -819,7 +950,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
   return (
     <>
     <div class="mt-3 flex flex-col gap-2">
-      {entries.map(({ item, url, key }) => {
+      {effectiveEntries.map(({ item, url, key }) => {
         if (item.kind === 'image') {
           return (
             <button

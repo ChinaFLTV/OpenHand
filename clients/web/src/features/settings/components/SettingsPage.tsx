@@ -80,6 +80,95 @@ function languageLabel(code: string): string {
   return LANG_LABEL[code] ?? code;
 }
 
+function ttsLanguageLabel(value: string): string | null {
+  switch (value.trim()) {
+    case 'zh':
+    case 'zh-CN':
+    case 'zh-CHS':
+      return t('settings.language.simplifiedChinese', '简体中文');
+    case 'zh-TW':
+      return t('settings.language.traditionalChinese', '繁體中文');
+    case 'en':
+      return t('settings.language.english', 'English');
+    case 'en-US':
+      return t('settings.language.englishUs', '英语（美国）');
+    case 'en-GB':
+      return t('settings.language.englishUk', '英语（英国）');
+    case 'ja':
+    case 'ja-JP':
+      return t('settings.language.japanese', '日语');
+    case 'ko':
+    case 'ko-KR':
+      return t('settings.language.korean', '韩语');
+    case 'fr':
+    case 'fr-FR':
+      return t('settings.language.french', '法语');
+    case 'de':
+    case 'de-DE':
+      return t('settings.language.german', '德语');
+    case 'es':
+      return t('settings.language.spanish', '西班牙语');
+    case 'ru':
+      return t('settings.language.russian', '俄语');
+    default:
+      return null;
+  }
+}
+
+function stripTrailingLanguageCode(label: string): string {
+  return label
+    .replace(/\s+(?:[a-z]{2,3}(?:-[A-Z]{2,4})?|zh-[A-Z]{2,4})$/, '')
+    .trim();
+}
+
+function localizedVoiceLabel(label: string): string {
+  const trimmed = label.trim();
+  if (trimmed === '自动匹配系统默认音色') {
+    return t('settings.tts.voice.autoSystem', '自动匹配系统默认音色');
+  }
+  if (trimmed === '有道默认发音人') {
+    return t('settings.tts.voice.youdaoDefault', '有道默认发音人');
+  }
+  const suffixes: Array<[string, string]> = [
+    ['English Female', t('settings.tts.voice.englishFemale', '英语女声')],
+    ['English Male', t('settings.tts.voice.englishMale', '英语男声')],
+    ['English', t('settings.tts.voice.english', '英语')],
+    ['中文女声', t('settings.tts.voice.chineseFemale', '中文女声')],
+    ['中文男声', t('settings.tts.voice.chineseMale', '中文男声')],
+    ['繁中女声', t('settings.tts.voice.traditionalChineseFemale', '繁体中文女声')],
+    ['日本語', t('settings.tts.voice.japanese', '日语')],
+    ['女声', t('settings.tts.voice.female', '女声')],
+    ['男声', t('settings.tts.voice.male', '男声')],
+    ['童声', t('settings.tts.voice.child', '童声')],
+  ];
+  for (const [suffix, localized] of suffixes) {
+    const marker = ` - ${suffix}`;
+    if (trimmed.endsWith(marker)) {
+      const prefix = trimmed.slice(0, -marker.length).trim();
+      return prefix ? `${prefix} - ${localized}` : localized;
+    }
+  }
+  return stripTrailingLanguageCode(trimmed);
+}
+
+function displayTtsOptionLabel(option: TtsCatalogOption): string {
+  return ttsLanguageLabel(option.value) ?? localizedVoiceLabel(option.label);
+}
+
+function displayCurrentTtsValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return t('settings.tts.default', '默认');
+  const language = ttsLanguageLabel(trimmed);
+  if (language) return language;
+  const humanized = trimmed
+    .replace(/^(?:zh-CN|zh-TW|en-US|en-GB|ja-JP|ko-KR|fr-FR|de-DE|[a-z]{2})[-_]/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\bbigtts\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return localizedVoiceLabel(humanized || trimmed);
+}
+
 function normalizedThreshold(input: string, prefs: RemotePreferences): number | null {
   const parsed = finiteNumberOrNullFromUnknown(input);
   if (parsed == null) return null;
@@ -434,7 +523,7 @@ export function SettingsPage() {
   const languageOptions = prefs?.language_options.map((code) => ({
     value: code,
     label: languageLabel(code),
-    description: code,
+    description: t('settings.language.optionDesc', '界面语言'),
   })) ?? [];
 
   return (
@@ -533,7 +622,7 @@ export function SettingsPage() {
                   <SettingRow
                     title={t('settings.language.title', '界面语言')}
                     description={t('settings.language.desc', 'Web / App 共用同一个语言，修改后立即生效，后续会话沿用此语言。')}
-                    meta={<SavingPill active={savingKey === 'language_storage_value'} value={prefs.locale} />}
+                    meta={<SavingPill active={savingKey === 'language_storage_value'} value={languageLabel(prefs.language_storage_value)} />}
                   >
                     <div class="oh-settings-control-row">
                       <MenuSelect
@@ -544,7 +633,6 @@ export function SettingsPage() {
                         disabled={savingKey === 'language_storage_value'}
                         ariaLabel={t('settings.language.title', '界面语言')}
                       />
-                      <span class="oh-settings-inline-note">{prefs.language_storage_value}</span>
                     </div>
                   </SettingRow>
                 </Appear>
@@ -1132,11 +1220,15 @@ function SelectSetting(props: {
   onCommit: (value: string) => void;
 }) {
   const normalized = props.value.trim();
-  const hasCurrent = props.options.some((option) => option.value === normalized);
+  const displayOptions = props.options.map((option) => ({
+    ...option,
+    label: displayTtsOptionLabel(option),
+  }));
+  const hasCurrent = displayOptions.some((option) => option.value === normalized);
   const options = hasCurrent || normalized.length === 0
-    ? props.options
-    : [{ value: normalized, label: `${t('settings.tts.current', '当前配置')}：${normalized}` }, ...props.options];
-  const safeOptions = options.length > 0 ? options : [{ value: normalized, label: normalized || t('settings.tts.default', '默认') }];
+    ? displayOptions
+    : [{ value: normalized, label: `${t('settings.tts.current', '当前配置')}：${displayCurrentTtsValue(normalized)}` }, ...displayOptions];
+  const safeOptions = options.length > 0 ? options : [{ value: normalized, label: displayCurrentTtsValue(normalized) }];
   const value = safeOptions.some((option) => option.value === normalized)
     ? normalized
     : safeOptions[0]?.value ?? '';

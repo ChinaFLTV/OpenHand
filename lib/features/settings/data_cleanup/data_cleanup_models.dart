@@ -10,14 +10,14 @@ import '../../../shared/util/byte_size_format.dart';
 /// 数据清理分类。每一项都对应"全局设置 → 应用数据 → 数据清理"面板里的
 /// 一行。**枚举顺序就是 UI 顺序**，`wipeAll` 必须放在最后。
 enum DataCleanupCategory {
-  /// 多媒体附件文件（图片、文档等会话附件）。
+  /// 多媒体附件与远程媒体缓存（图片、视频、音频、文档等）。
   multimedia,
 
   /// 会话本身：sqlite 中的 `sessions` / `messages` 行 + 旧版 JSON 文件。
   /// 不包含附件，附件由 [multimedia] 单独管理，保证两个分类互不重叠。
   sessions,
 
-  /// 应用缓存目录（`~/.openhand/cache/`）。
+  /// 应用缓存目录（`~/.openhand/cache/`，不含单独归类的媒体缓存）。
   appCache,
 
   /// 日志数据：cron 执行历史 + `~/.openhand/logs/`。
