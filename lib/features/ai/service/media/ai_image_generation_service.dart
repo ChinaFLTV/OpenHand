@@ -450,6 +450,7 @@ class AiImageGenerationService {
     final useMultipart = _videoEndpointWantsMultipart(
       kind: kind,
       protocol: model.protocolType,
+      modelId: modelId,
     );
     final startedAt = DateTime.now().toUtc();
     final http.Response response;
@@ -773,8 +774,14 @@ class AiImageGenerationService {
   bool _videoEndpointWantsMultipart({
     required _GeneratedMediaKind kind,
     required AiProtocolType protocol,
+    required String modelId,
   }) {
     if (!kind.isVideo) return false;
+    // Agnes exposes an OpenAI-shaped `/v1/videos` URL, and users may
+    // reasonably configure it under the generic OpenAI-compatible protocol.
+    // Its video endpoint is JSON-only: multipart would stringify numeric
+    // fields such as `frame_rate`, which Agnes' Go backend rejects.
+    if (_usesAgnesMediaApi(protocol, modelId)) return false;
     // Both OpenAI Sora 2 and grok2api expose `POST /v1/videos` as multipart
     // form-data — JSON body yields `model/prompt missing, input: None`.
     return protocol == AiProtocolType.openai || protocol == AiProtocolType.grok;
@@ -1061,7 +1068,7 @@ class AiImageGenerationService {
       'height': size.height,
       'width': size.width,
       'num_frames': _agnesNumFrames(options.durationSeconds),
-      'frame_rate': 24,
+      'frame_rate': 24.0,
     };
     final mode = options.style?.trim();
     if (mode != null && mode.isNotEmpty && referenceImageDataUrls.length <= 1) {
@@ -1726,6 +1733,7 @@ class AiImageGenerationService {
       if (kind.isVideo &&
           (protocol == AiProtocolType.openai ||
               protocol == AiProtocolType.grok) &&
+          !_usesAgnesMediaApi(protocol, modelId) &&
           _isTerminalSuccessStatus(status)) {
         final contentMarkdown = await _downloadSoraStyleVideoContent(
           operationUrl: operationUrl,
