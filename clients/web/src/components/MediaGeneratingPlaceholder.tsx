@@ -48,8 +48,10 @@ export function MediaGeneratingPlaceholder({ mode }: MediaGeneratingPlaceholderP
     >
       <div class="oh-media-generating-shimmer" />
       <div class="oh-media-generating-content">
-        <span class="oh-media-generating-icon">
-          <MediaGeneratingIcon mode={mode} />
+        <span class="oh-media-generating-indicator" aria-hidden="true">
+          <span class="oh-media-generating-icon">
+            <MediaGeneratingIcon mode={mode} />
+          </span>
         </span>
         <span class="oh-media-generating-label">{label}</span>
       </div>

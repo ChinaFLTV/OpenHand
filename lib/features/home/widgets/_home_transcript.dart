@@ -2566,11 +2566,11 @@ class _PendingCreationPlaceholderCard extends StatefulWidget {
 class _PendingCreationPlaceholderCardState
     extends State<_PendingCreationPlaceholderCard>
     with SingleTickerProviderStateMixin {
-  static const Duration _sweepDuration = Duration(milliseconds: 2200);
+  static const Duration _motionDuration = Duration(milliseconds: 1400);
 
-  late final AnimationController _sweepController = AnimationController(
+  late final AnimationController _motionController = AnimationController(
     vsync: this,
-    duration: _sweepDuration,
+    duration: _motionDuration,
   );
 
   @override
@@ -2581,17 +2581,17 @@ class _PendingCreationPlaceholderCardState
 
   @override
   void dispose() {
-    _sweepController.dispose();
+    _motionController.dispose();
     super.dispose();
   }
 
   void _syncMotionPreference() {
     final disabled = MediaQuery.disableAnimationsOf(context);
     if (disabled) {
-      _sweepController.stop();
-      _sweepController.value = 0;
-    } else if (!_sweepController.isAnimating) {
-      _sweepController.repeat();
+      _motionController.stop();
+      _motionController.value = 0;
+    } else if (!_motionController.isAnimating) {
+      _motionController.repeat();
     }
   }
 
@@ -2640,27 +2640,32 @@ class _PendingCreationPlaceholderCardState
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedBuilder(
-            animation: _sweepController,
+            animation: _motionController,
             builder: (context, child) {
               final scale = disabledMotion
                   ? 1.0
-                  : 1.0 + math.sin(_sweepController.value * math.pi * 2) * 0.02;
+                  : 1.0 +
+                        math.sin(_motionController.value * math.pi * 2) * 0.018;
               final opacity = disabledMotion
                   ? 0.68
                   : 0.62 +
-                        (math.sin(_sweepController.value * math.pi * 2) + 1) *
+                        (math.sin(_motionController.value * math.pi * 2) + 1) *
                             0.07;
               return Transform.scale(
                 scale: scale,
-                child: Icon(
-                  icon,
-                  size: 40,
-                  color: cs.onSurfaceVariant.withValues(alpha: opacity),
+                child: _GeneratingMediaIndicator(
+                  icon: icon,
+                  progress: disabledMotion ? 0 : _motionController.value,
+                  color: cs.onSurfaceVariant,
+                  surfaceColor: baseColor,
+                  isDark: isDark,
+                  iconOpacity: opacity,
+                  animate: !disabledMotion,
                 ),
               );
             },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
@@ -2676,23 +2681,11 @@ class _PendingCreationPlaceholderCardState
       child: ClipRRect(
         borderRadius: cardRadius,
         child: AnimatedBuilder(
-          animation: _sweepController,
+          animation: _motionController,
           child: content,
           builder: (context, child) {
-            final phase = Curves.easeInOutCubicEmphasized.transform(
-              _sweepController.value,
-            );
-            final sweepOffset = disabledMotion ? -96.0 : -340.0 + phase * 680;
-            final sweepOpacity = disabledMotion
-                ? 0.0
-                : math
-                      .pow(
-                        math
-                            .sin(_sweepController.value * math.pi)
-                            .clamp(0.0, 1.0),
-                        0.58,
-                      )
-                      .toDouble();
+            final phase = disabledMotion ? 0.0 : _motionController.value;
+            final drift = math.sin(phase * math.pi * 2);
             return DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: cardRadius,
@@ -2742,7 +2735,10 @@ class _PendingCreationPlaceholderCardState
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: RadialGradient(
-                          center: const Alignment(-0.42, -0.52),
+                          center: Alignment(
+                            disabledMotion ? -0.42 : -0.42 + drift * 0.08,
+                            disabledMotion ? -0.52 : -0.52 + drift * 0.04,
+                          ),
                           radius: 0.82,
                           colors: [
                             Colors.white.withValues(
@@ -2753,6 +2749,32 @@ class _PendingCreationPlaceholderCardState
                             Colors.transparent,
                           ],
                           stops: const [0.0, 1.0],
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: disabledMotion
+                          ? Offset.zero
+                          : Offset(drift * 7, -drift * 4),
+                      child: Transform.scale(
+                        scale: disabledMotion ? 1 : 1.0 + drift.abs() * 0.035,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              center: const Alignment(0.18, 0.18),
+                              radius: 0.52,
+                              colors: [
+                                Colors.white.withValues(
+                                  alpha: isDark ? 0.035 : 0.085,
+                                ),
+                                cs.onSurfaceVariant.withValues(
+                                  alpha: isDark ? 0.018 : 0.026,
+                                ),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.46, 1.0],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -2773,83 +2795,6 @@ class _PendingCreationPlaceholderCardState
                         ),
                       ),
                     ),
-                    if (!disabledMotion)
-                      Opacity(
-                        opacity: sweepOpacity,
-                        child: Transform.translate(
-                          offset: Offset(sweepOffset, 0),
-                          child: Transform.rotate(
-                            angle: -0.24,
-                            child: Center(
-                              child: SizedBox(
-                                width: 208,
-                                height: 360,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 208,
-                                      height: 360,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.transparent,
-                                              cs.onSurfaceVariant.withValues(
-                                                alpha: isDark ? 0.018 : 0.026,
-                                              ),
-                                              Colors.white.withValues(
-                                                alpha: isDark ? 0.10 : 0.18,
-                                              ),
-                                              Colors.white.withValues(
-                                                alpha: isDark ? 0.22 : 0.34,
-                                              ),
-                                              Colors.white.withValues(
-                                                alpha: isDark ? 0.11 : 0.19,
-                                              ),
-                                              cs.onSurfaceVariant.withValues(
-                                                alpha: isDark ? 0.02 : 0.03,
-                                              ),
-                                              Colors.transparent,
-                                            ],
-                                            stops: const [
-                                              0.0,
-                                              0.18,
-                                              0.38,
-                                              0.50,
-                                              0.62,
-                                              0.82,
-                                              1.0,
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: 44,
-                                      height: 360,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.transparent,
-                                              Colors.white.withValues(
-                                                alpha: isDark ? 0.20 : 0.42,
-                                              ),
-                                              Colors.transparent,
-                                            ],
-                                            stops: const [0.0, 0.50, 1.0],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     child ?? const SizedBox.shrink(),
                   ],
                 ),
@@ -2859,6 +2804,162 @@ class _PendingCreationPlaceholderCardState
         ),
       ),
     );
+  }
+}
+
+class _GeneratingMediaIndicator extends StatelessWidget {
+  const _GeneratingMediaIndicator({
+    required this.icon,
+    required this.progress,
+    required this.color,
+    required this.surfaceColor,
+    required this.isDark,
+    required this.iconOpacity,
+    required this.animate,
+  });
+
+  final IconData icon;
+  final double progress;
+  final Color color;
+  final Color surfaceColor;
+  final bool isDark;
+  final double iconOpacity;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 70,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.12),
+                  radius: 0.82,
+                  colors: [
+                    Colors.white.withValues(alpha: isDark ? 0.08 : 0.44),
+                    surfaceColor.withValues(alpha: 0.58),
+                    color.withValues(alpha: isDark ? 0.05 : 0.035),
+                  ],
+                  stops: const [0.0, 0.64, 1.0],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: isDark ? 0.03 : 0.32),
+                    offset: const Offset(0, 1),
+                    spreadRadius: -1,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: isDark ? 0.16 : 0.045,
+                    ),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _GeneratingMediaRingPainter(
+                progress: progress,
+                color: color,
+                isDark: isDark,
+                animate: animate,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.all(9),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: isDark ? 0.11 : 0.08),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Icon(icon, size: 34, color: color.withValues(alpha: iconOpacity)),
+        ],
+      ),
+    );
+  }
+}
+
+class _GeneratingMediaRingPainter extends CustomPainter {
+  const _GeneratingMediaRingPainter({
+    required this.progress,
+    required this.color,
+    required this.isDark,
+    required this.animate,
+  });
+
+  final double progress;
+  final Color color;
+  final bool isDark;
+  final bool animate;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2 - 2.2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round
+      ..color = color.withValues(alpha: isDark ? 0.17 : 0.13);
+    canvas.drawCircle(center, radius, basePaint);
+
+    final rotation = animate ? progress * math.pi * 2 : 0.0;
+    final activePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.4
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: -math.pi / 2,
+        endAngle: math.pi * 1.5,
+        transform: GradientRotation(rotation),
+        colors: [
+          Colors.transparent,
+          color.withValues(alpha: isDark ? 0.12 : 0.10),
+          color.withValues(alpha: isDark ? 0.46 : 0.52),
+          Colors.white.withValues(alpha: isDark ? 0.36 : 0.70),
+          color.withValues(alpha: isDark ? 0.18 : 0.16),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.24, 0.46, 0.56, 0.72, 1.0],
+      ).createShader(rect);
+    canvas.drawCircle(center, radius, activePaint);
+
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: isDark ? 0.18 : 0.42);
+    canvas.drawArc(
+      rect,
+      rotation - math.pi / 2,
+      math.pi * 0.42,
+      false,
+      arcPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GeneratingMediaRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.isDark != isDark ||
+        oldDelegate.animate != animate;
   }
 }
 

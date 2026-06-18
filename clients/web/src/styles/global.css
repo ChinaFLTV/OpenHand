@@ -308,17 +308,18 @@ html, body, #root {
 }
 
 @keyframes oh-media-generating-sweep {
-  0% { transform: translate3d(-118%, 0, 0) rotate(12deg); opacity: 0; }
-  14% { opacity: 0.82; }
-  48% { opacity: 0.92; }
-  78% { opacity: 0.66; }
-  100% { transform: translate3d(118%, 0, 0) rotate(12deg); opacity: 0; }
+  0% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: 0.56; }
+  50% { transform: translate3d(3%, 2%, 0) scale(1.04); opacity: 0.72; }
+  100% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: 0.56; }
+}
+@keyframes oh-media-generating-ring {
+  to { transform: rotate(360deg); }
 }
 @keyframes oh-media-generating-breathe {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.62; }
-  50% { transform: translate3d(0, -1px, 0) scale(1.025); opacity: 0.76; }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.68; }
+  50% { transform: translate3d(0, -1px, 0) scale(1.035); opacity: 0.82; }
 }
-/* 多媒体生成占位卡片 — 灰阶扫光 shimmer */
+/* 多媒体生成占位卡片 — ChatGPT 风格中心进度环 */
 .oh-media-generating-placeholder {
   position: relative;
   width: 280px;
@@ -327,50 +328,35 @@ html, body, #root {
   border: 1px solid var(--m3-outline-variant, rgba(0,0,0,0.08));
   overflow: hidden;
   background:
-    radial-gradient(circle at 28% 20%, rgba(255,255,255,0.42), transparent 34%),
-    linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 42%, rgba(82,88,101,0.075) 100%),
+    radial-gradient(circle at 50% 42%, rgba(255,255,255,0.42), transparent 32%),
+    radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 30%),
+    linear-gradient(145deg, rgba(255,255,255,0.18) 0%, transparent 44%, rgba(72,78,91,0.07) 100%),
     var(--m3-surface-container-highest, #f0f0f0);
   animation: oh-appear-pop 360ms var(--oh-motion-spring) both;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.46),
-    inset 0 -22px 46px rgba(82,88,101,0.055),
-    0 12px 30px rgba(0,0,0,0.055);
+    inset 0 1px 0 rgba(255,255,255,0.52),
+    inset 0 -20px 44px rgba(72,78,91,0.052),
+    0 12px 30px rgba(0,0,0,0.052);
 }
 .oh-media-generating-placeholder::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(255,255,255,0.13) 0%,
-    rgba(255,255,255,0.035) 36%,
-    rgba(74,80,94,0.045) 100%
-  );
+  background:
+    radial-gradient(circle at 42% 38%, rgba(255,255,255,0.28), transparent 20%),
+    radial-gradient(circle at 60% 56%, rgba(82,88,101,0.045), transparent 26%);
   pointer-events: none;
 }
 .oh-media-generating-shimmer {
   position: absolute;
-  inset: -58% -86%;
+  inset: -12%;
   background:
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(74,80,94,0.025) 28%,
-      rgba(255,255,255,0.16) 40%,
-      rgba(255,255,255,0.36) 50%,
-      rgba(255,255,255,0.16) 60%,
-      rgba(74,80,94,0.028) 72%,
-      transparent 100%
-    ),
-    linear-gradient(
-      90deg,
-      transparent 46%,
-      rgba(255,255,255,0.46) 50%,
-      transparent 54%
-    );
+    radial-gradient(circle at 40% 38%, rgba(255,255,255,0.36), transparent 20%),
+    radial-gradient(circle at 62% 58%, rgba(82,88,101,0.07), transparent 26%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.18), transparent 34%);
   pointer-events: none;
-  filter: blur(0.15px);
-  animation: oh-media-generating-sweep 2200ms var(--oh-motion-emphasized) infinite;
+  filter: blur(10px);
+  animation: oh-media-generating-sweep 4600ms var(--oh-motion-emphasized) infinite;
   will-change: transform, opacity;
 }
 .oh-media-generating-content {
@@ -381,7 +367,50 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
+}
+.oh-media-generating-indicator {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255,255,255,0.44), rgba(255,255,255,0.10) 64%, rgba(76,82,94,0.035) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.54),
+    inset 0 -10px 22px rgba(76,82,94,0.055),
+    0 10px 24px rgba(0,0,0,0.045);
+}
+.oh-media-generating-indicator::before,
+.oh-media-generating-indicator::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.oh-media-generating-indicator::before {
+  inset: 0;
+  background: conic-gradient(
+    from -90deg,
+    transparent 0deg,
+    rgba(89,95,108,0.12) 70deg,
+    rgba(89,95,108,0.58) 142deg,
+    rgba(255,255,255,0.68) 176deg,
+    rgba(89,95,108,0.16) 226deg,
+    transparent 310deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: oh-media-generating-ring 1400ms linear infinite;
+}
+.oh-media-generating-indicator::after {
+  inset: 9px;
+  border: 1px solid rgba(89,95,108,0.09);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
 }
 .oh-media-generating-icon {
   width: 42px;
@@ -392,11 +421,11 @@ html, body, #root {
   color: var(--m3-on-surface-variant, #666);
   opacity: 0.68;
   filter: drop-shadow(0 1px 0 rgba(255,255,255,0.26));
-  animation: oh-media-generating-breathe 2200ms var(--oh-motion-spring) infinite;
+  animation: oh-media-generating-breathe 1400ms var(--oh-motion-spring) infinite;
 }
 .oh-media-generating-icon svg {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   display: block;
 }
 .oh-media-generating-label {
@@ -408,12 +437,13 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .oh-media-generating-placeholder,
   .oh-media-generating-shimmer,
+  .oh-media-generating-indicator::before,
   .oh-media-generating-icon {
     animation: none;
   }
   .oh-media-generating-shimmer {
-    opacity: 0.16;
-    transform: translate3d(0, 0, 0) rotate(13deg);
+    opacity: 0.46;
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
