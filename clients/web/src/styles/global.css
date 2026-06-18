@@ -307,6 +307,16 @@ html, body, #root {
   box-shadow: var(--m3-elev-2);
 }
 
+@keyframes oh-media-generating-sweep {
+  0% { transform: translate3d(-140%, 0, 0) skewX(-18deg); opacity: 0; }
+  12% { opacity: 0.82; }
+  58% { opacity: 0.74; }
+  100% { transform: translate3d(150%, 0, 0) skewX(-18deg); opacity: 0; }
+}
+@keyframes oh-media-generating-breathe {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.54; }
+  50% { transform: translate3d(0, -1px, 0) scale(1.035); opacity: 0.72; }
+}
 /* 多媒体生成占位卡片 — 灰阶扫光 shimmer */
 .oh-media-generating-placeholder {
   position: relative;
@@ -317,19 +327,22 @@ html, body, #root {
   overflow: hidden;
   background: var(--m3-surface-container-highest, #f0f0f0);
   animation: oh-appear-pop 360ms var(--oh-motion-spring) both;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 10px 28px rgba(0,0,0,0.05);
 }
 .oh-media-generating-shimmer {
   position: absolute;
-  inset: 0;
+  inset: -18% -42%;
   background: linear-gradient(
-    105deg,
+    100deg,
     transparent 0%,
-    transparent calc(var(--shimmer-x, -100%) + 0%),
-    rgba(255,255,255,0.45) calc(var(--shimmer-x, -100%) + 40%),
-    transparent calc(var(--shimmer-x, -100%) + 80%),
-    transparent 100%
+    rgba(255,255,255,0.05) 31%,
+    rgba(255,255,255,0.66) 47%,
+    rgba(255,255,255,0.18) 58%,
+    transparent 76%
   );
   pointer-events: none;
+  animation: oh-media-generating-sweep 1750ms var(--oh-motion-emphasized) infinite;
+  will-change: transform, opacity;
 }
 .oh-media-generating-content {
   position: relative;
@@ -342,13 +355,35 @@ html, body, #root {
   gap: 10px;
 }
 .oh-media-generating-icon {
-  font-size: 36px;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m3-on-surface-variant, #666);
   opacity: 0.55;
+  animation: oh-media-generating-breathe 1750ms var(--oh-motion-spring) infinite;
+}
+.oh-media-generating-icon svg {
+  width: 42px;
+  height: 42px;
+  display: block;
 }
 .oh-media-generating-label {
   font-size: 13px;
   color: var(--m3-on-surface-variant, #666);
   font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-media-generating-placeholder,
+  .oh-media-generating-shimmer,
+  .oh-media-generating-icon {
+    animation: none;
+  }
+  .oh-media-generating-shimmer {
+    opacity: 0.24;
+    transform: translate3d(0, 0, 0) skewX(-18deg);
+  }
 }
 
 /* 生成选项弹窗 chip 样式 */

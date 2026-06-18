@@ -43,7 +43,7 @@ function handleGlobalDialogEscape(event: KeyboardEvent): void {
 
 function ensureDialogEscapeListener(): void {
   if (dialogEscapeListenerAttached || typeof window === 'undefined') return;
-  window.addEventListener('keydown', handleGlobalDialogEscape);
+  window.addEventListener('keydown', handleGlobalDialogEscape, true);
   dialogEscapeListenerAttached = true;
 }
 
@@ -55,7 +55,7 @@ function detachDialogEscapeListenerIfIdle(): void {
   ) {
     return;
   }
-  window.removeEventListener('keydown', handleGlobalDialogEscape);
+  window.removeEventListener('keydown', handleGlobalDialogEscape, true);
   dialogEscapeListenerAttached = false;
 }
 

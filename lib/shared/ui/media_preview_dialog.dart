@@ -666,6 +666,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(const Color(0xFF0F0F10))
+        ..addJavaScriptChannel(
+          'OpenHandMediaPreview',
+          onMessageReceived: (_) => _requestDialogClose(),
+        )
         ..loadFile(f.path);
       if (!mounted) return;
       setState(() => _controller = controller);
@@ -681,6 +685,13 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       .replaceAll('"', '&quot;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
+
+  void _requestDialogClose() {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    unawaited(Navigator.of(context).maybePop());
+  }
 
   String _buildPlayerHtml({required String src}) {
     final tag = widget.kind == MediaPreviewKind.video ? 'video' : 'audio';
@@ -707,35 +718,34 @@ button,input{font:inherit}
 .audio-label{max-width:min(520px,80%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.74)}
 .scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.48),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
 .media-shell:not(.controls-visible) .scrim{opacity:0}
-.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 40px);max-width:760px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(18px) scale(.965);filter:blur(3px)}
+.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 40px);max-width:820px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(24px) scale(.94);filter:blur(4px)}
 .control-button{width:28px;height:28px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
 .control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
+.control-button.is-active{background:rgba(255,255,255,.20)}
 .control-button:active{transform:scale(.92)}
 .control-button svg{width:18px;height:18px;display:block;fill:currentColor}
 .seek-button svg{width:21px;height:21px}
 .time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
 .progress{flex:1 1 180px;min-width:96px}
-.volume-panel{position:absolute;right:18px;top:16px;z-index:6;display:flex;align-items:center;gap:8px;min-height:40px;padding:10px 12px;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:top right;transform:translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.media-shell:not(.controls-visible):not(.volume-open) .volume-panel{opacity:0;pointer-events:none;transform:translateY(-10px) scale(.94);filter:blur(3px)}
-.volume{width:132px}
+.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.volume-popover{position:absolute;left:50%;bottom:38px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
+.volume{width:118px}
+.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
 input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
 input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
 input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
 .audio-mode .control-bar{bottom:18px}
 .no-motion *{transition-duration:0ms!important;animation:none!important}
-@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.volume{width:96px}.time{min-width:42px}}
-@media (max-width:420px){.seek-button{display:none}.control-bar{width:calc(100% - 20px)}.time{min-width:40px}.progress{min-width:64px}.volume-panel{right:10px;top:10px}.volume{width:84px}}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
+@media (max-width:420px){.seek-button{display:none}.control-bar{width:calc(100% - 20px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
 </style></head><body>
 <div id="shell" class="media-shell controls-visible$controlsClass${durationMs == 0 ? ' no-motion' : ''}" tabindex="0">
   <div class="audio-art"><div class="audio-icon">♪</div><div class="audio-label">Media preview</div></div>
   <$tag id="media" preload="metadata" autoplay playsinline src="${_htmlAttributeEscape(src)}"></$tag>
   <div class="scrim"></div>
-  <div class="volume-panel" id="volumePanel">
-    <input id="volume" class="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
-    <button id="mute" class="control-button" type="button" aria-label="Mute"></button>
-  </div>
   <div class="control-bar" id="controls">
     <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds"></button>
     <button id="play" class="control-button" type="button" aria-label="Play"></button>
@@ -743,6 +753,13 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     <span id="current" class="time">00:00</span>
     <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
     <span id="duration" class="time">00:00</span>
+    <div class="volume-group" id="volumeGroup">
+      <button id="mute" class="control-button" type="button" aria-label="Mute"></button>
+      <div class="volume-popover" id="volumePopover">
+        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+      </div>
+    </div>
+    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback"></button>
     <button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen"></button>
   </div>
 </div>
@@ -759,11 +776,13 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   const duration = document.getElementById('duration');
   const volume = document.getElementById('volume');
   const mute = document.getElementById('mute');
+  const volumeGroup = document.getElementById('volumeGroup');
+  const playMode = document.getElementById('playMode');
   const fullscreen = document.getElementById('fullscreen');
-  const volumePanel = document.getElementById('volumePanel');
   let hideTimer = 0;
   let dragging = false;
   let volumeActive = false;
+  let playbackMode = 'stop';
 
   const icon = {
     play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
@@ -772,12 +791,18 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     volume: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
     rewind: '<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
     forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+    loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
     fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   rewind.innerHTML = icon.rewind;
   forward.innerHTML = icon.forward;
   fullscreen.innerHTML = icon.fullscreen;
+
+  function requestClose() {
+    try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {}
+  }
 
   function formatTime(value) {
     if (!Number.isFinite(value) || value < 0) return '00:00';
@@ -822,6 +847,15 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
     volume.value = String(media.muted ? 0 : media.volume);
     setRangeFill(volume, media.muted ? 0 : media.volume);
+  }
+
+  function updatePlayMode() {
+    const looping = playbackMode === 'loop';
+    media.loop = looping;
+    playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
+    playMode.classList.toggle('is-active', looping);
+    playMode.setAttribute('aria-label', looping ? 'Loop playback' : 'Stop after playback');
+    playMode.setAttribute('title', looping ? 'Loop playback' : 'Stop after playback');
   }
 
   function clearHideTimer() {
@@ -899,13 +933,17 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     updateTime();
     showControls(true);
   });
-  volumePanel.addEventListener('pointerenter', () => setVolumeActive(true));
-  volumePanel.addEventListener('pointerleave', () => setVolumeActive(false));
-  volumePanel.addEventListener('pointerdown', () => setVolumeActive(true));
-  volumePanel.addEventListener('pointerup', () => setVolumeActive(false));
-  volumePanel.addEventListener('pointercancel', () => setVolumeActive(false));
-  volumePanel.addEventListener('focusin', () => setVolumeActive(true));
-  volumePanel.addEventListener('focusout', () => setVolumeActive(false));
+  volumeGroup.addEventListener('pointerenter', () => setVolumeActive(true));
+  volumeGroup.addEventListener('pointerleave', () => setVolumeActive(false));
+  volumeGroup.addEventListener('pointerdown', () => setVolumeActive(true));
+  volumeGroup.addEventListener('pointerup', () => setVolumeActive(false));
+  volumeGroup.addEventListener('pointercancel', () => setVolumeActive(false));
+  volumeGroup.addEventListener('focusin', () => setVolumeActive(true));
+  volumeGroup.addEventListener('focusout', (event) => {
+    if (!event.relatedTarget || !volumeGroup.contains(event.relatedTarget)) {
+      setVolumeActive(false);
+    }
+  });
   volume.addEventListener('input', () => {
     const next = Math.max(0, Math.min(1, Number(volume.value)));
     media.volume = Number.isFinite(next) ? next : 1;
@@ -919,7 +957,12 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     if (!media.muted && media.volume <= 0) media.volume = 0.6;
     updateVolume();
     shell.classList.add('volume-open');
-    showControls(volumeActive);
+    setVolumeActive(true);
+  });
+  playMode.addEventListener('click', () => {
+    playbackMode = playbackMode === 'loop' ? 'stop' : 'loop';
+    updatePlayMode();
+    showControls(true);
   });
   fullscreen.addEventListener('click', () => {
     const target = shell;
@@ -937,7 +980,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   shell.addEventListener('focusout', () => scheduleHide());
   shell.addEventListener('keydown', (event) => {
     if (event.defaultPrevented) return;
-    if (event.key === ' ' || event.key === 'Enter') {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      requestClose();
+    } else if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
       play.click();
     } else if (event.key === 'ArrowLeft') {
@@ -951,6 +997,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       mute.click();
     }
   });
+  document.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented || event.key !== 'Escape') return;
+    event.preventDefault();
+    requestClose();
+  }, true);
   media.addEventListener('loadedmetadata', updateTime);
   media.addEventListener('durationchange', updateTime);
   media.addEventListener('timeupdate', updateTime);
@@ -959,6 +1010,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   media.addEventListener('ended', () => { updatePlayState(); showControls(true); });
   media.addEventListener('volumechange', updateVolume);
   window.addEventListener('beforeunload', clearHideTimer);
+  updatePlayMode();
   updatePlayState();
   updateTime();
   updateVolume();

@@ -2553,10 +2553,47 @@ AiCreationRequest? _resolvePendingCreationPlaceholder({
   return request;
 }
 
-class _PendingCreationPlaceholderCard extends StatelessWidget {
+class _PendingCreationPlaceholderCard extends StatefulWidget {
   const _PendingCreationPlaceholderCard({required this.request});
 
   final AiCreationRequest request;
+
+  @override
+  State<_PendingCreationPlaceholderCard> createState() =>
+      _PendingCreationPlaceholderCardState();
+}
+
+class _PendingCreationPlaceholderCardState
+    extends State<_PendingCreationPlaceholderCard>
+    with SingleTickerProviderStateMixin {
+  static const Duration _sweepDuration = Duration(milliseconds: 1750);
+
+  late final AnimationController _sweepController = AnimationController(
+    vsync: this,
+    duration: _sweepDuration,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotionPreference();
+  }
+
+  @override
+  void dispose() {
+    _sweepController.dispose();
+    super.dispose();
+  }
+
+  void _syncMotionPreference() {
+    final disabled = MediaQuery.disableAnimationsOf(context);
+    if (disabled) {
+      _sweepController.stop();
+      _sweepController.value = 0;
+    } else if (!_sweepController.isAnimating) {
+      _sweepController.repeat();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2569,7 +2606,7 @@ class _PendingCreationPlaceholderCard extends StatelessWidget {
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.25 : 0.18,
     );
-    final (icon, labelZh, labelEn) = switch (request.mode) {
+    final (icon, labelZh, labelEn) = switch (widget.request.mode) {
       AiCreationMode.image => (
         Icons.image_outlined,
         '正在生成图片…',
@@ -2593,34 +2630,97 @@ class _PendingCreationPlaceholderCard extends StatelessWidget {
       AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
     };
     final label = _localizedText(context, zh: labelZh, en: labelEn);
+    final disabledMotion = MediaQuery.disableAnimationsOf(context);
+    final cardRadius = BorderRadius.circular(26);
+    final content = Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _sweepController,
+            builder: (context, child) {
+              final scale = disabledMotion
+                  ? 1.0
+                  : 1.0 + math.sin(_sweepController.value * math.pi * 2) * 0.02;
+              final opacity = disabledMotion
+                  ? 0.55
+                  : 0.54 +
+                        (math.sin(_sweepController.value * math.pi * 2) + 1) *
+                            0.08;
+              return Transform.scale(
+                scale: scale,
+                child: Icon(
+                  icon,
+                  size: 40,
+                  color: cs.onSurfaceVariant.withValues(alpha: opacity),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        width: 280,
-        height: 220,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: borderColor),
-          color: baseColor,
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 40,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+      child: ClipRRect(
+        borderRadius: cardRadius,
+        child: AnimatedBuilder(
+          animation: _sweepController,
+          child: content,
+          builder: (context, child) {
+            final sweepStart = disabledMotion
+                ? -0.35
+                : -1.55 + _sweepController.value * 3.1;
+            final sweepEnd = sweepStart + 0.9;
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: cardRadius,
+                border: Border.all(color: borderColor),
+                color: baseColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: isDark ? 0.10 : 0.05),
+                    blurRadius: 28,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
+              child: SizedBox(
+                width: 280,
+                height: 220,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment(sweepStart, -0.22),
+                          end: Alignment(sweepEnd, 0.18),
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(
+                              alpha: disabledMotion ? 0.18 : 0.50,
+                            ),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.08, 0.48, 0.92],
+                        ),
+                      ),
+                    ),
+                    child ?? const SizedBox.shrink(),
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
