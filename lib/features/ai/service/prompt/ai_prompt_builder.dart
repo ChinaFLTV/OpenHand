@@ -4570,20 +4570,21 @@ $content
         });
       case 'notebookedit':
         final notebookPath = '${arguments['notebook_path'] ?? ''}'.trim();
+        final editMode = '${arguments['edit_mode'] ?? ''}'.trim();
         final newSource = '${arguments['new_source'] ?? ''}';
         return jsonEncode(<String, Object?>{
           'notebook_path': notebookPath,
           if ('${arguments['cell_id'] ?? ''}'.trim().isNotEmpty)
             'cell_id': '${arguments['cell_id'] ?? ''}'.trim(),
-          if ('${arguments['edit_mode'] ?? ''}'.trim().isNotEmpty)
-            'edit_mode': '${arguments['edit_mode'] ?? ''}'.trim(),
+          if (editMode.isNotEmpty) 'edit_mode': editMode,
           if ('${arguments['cell_type'] ?? ''}'.trim().isNotEmpty)
             'cell_type': '${arguments['cell_type'] ?? ''}'.trim(),
-          'new_source': _omittedPayloadSummary(
-            newSource.length,
-            targetPath: notebookPath,
-            action: 'notebook_edit',
-          ),
+          if (editMode.toLowerCase() != 'delete')
+            'new_source': _omittedPayloadSummary(
+              newSource.length,
+              targetPath: notebookPath,
+              action: 'notebook_edit',
+            ),
         });
       case 'bash':
         // 2026-04-27 (修复): 之前对"写文件类 Bash"完全省略命令体，导致模型

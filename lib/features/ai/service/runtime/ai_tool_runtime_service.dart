@@ -2131,20 +2131,38 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.notebookEdit,
       name: 'NotebookEdit',
-      description: 'Edit a Jupyter notebook cell.',
+      description:
+          'Edit a Jupyter notebook cell. `new_source` is used for replace/insert and ignored for delete.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'notebook_path': <String, Object?>{'type': 'string'},
-          'cell_id': <String, Object?>{'type': 'string'},
-          'new_source': <String, Object?>{'type': 'string'},
-          'cell_type': <String, Object?>{'type': 'string'},
+          'notebook_path': <String, Object?>{
+            'type': 'string',
+            'description': 'Absolute path to the .ipynb file.',
+          },
+          'cell_id': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Target cell id. Required for replace/delete; optional insertion anchor for insert.',
+          },
+          'new_source': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Replacement or inserted cell source. Required for replace/insert; ignored for delete.',
+          },
+          'cell_type': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['code', 'markdown', 'raw'],
+            'description':
+                'Cell type override. Required for insert; optional for replace.',
+          },
           'edit_mode': <String, Object?>{
             'type': 'string',
             'enum': <String>['replace', 'insert', 'delete'],
+            'description': 'Defaults to replace.',
           },
         },
-        'required': <String>['notebook_path', 'new_source'],
+        'required': <String>['notebook_path'],
         'additionalProperties': false,
       },
     ),

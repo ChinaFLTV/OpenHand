@@ -200,8 +200,9 @@ class AiNotebookEditTool extends AiTool {
         'tool_source': 'builtin',
         'file_mutation_kind': 'notebook_edit',
         'file_mutation_path': notebookPath,
-        'file_mutation_new_source_char_count': newSource.length,
         'file_mutation_edit_mode': editMode,
+        if (editMode != 'delete')
+          'file_mutation_new_source_char_count': newSource.length,
         if (cellId.isNotEmpty) 'file_mutation_cell_id': cellId,
         if (cellType.isNotEmpty) 'file_mutation_cell_type': cellType,
         if (versionId != null) 'file_mutation_history_version_id': versionId,
