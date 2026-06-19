@@ -296,6 +296,25 @@ void main() {
         AiBuiltinToolKind.askUserChoice,
       );
     });
+
+    test('Grep exposes Claude-style context and offset parameters', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Grep')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+
+      expect(definition, isNotNull);
+      expect(properties?['context'], containsPair('type', 'integer'));
+      expect(properties?['offset'], containsPair('type', 'integer'));
+    });
   });
 
   group('AiToolRuntimeService Bash background alias', () {

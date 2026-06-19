@@ -2303,10 +2303,19 @@ class AiToolRuntimeService {
           '-B': <String, Object?>{'type': 'integer'},
           '-A': <String, Object?>{'type': 'integer'},
           '-C': <String, Object?>{'type': 'integer'},
+          'context': <String, Object?>{
+            'type': 'integer',
+            'description': 'Claude-style alias for -C context lines.',
+          },
           '-n': <String, Object?>{'type': 'boolean'},
           '-i': <String, Object?>{'type': 'boolean'},
           'type': <String, Object?>{'type': 'string'},
           'head_limit': <String, Object?>{'type': 'integer'},
+          'offset': <String, Object?>{
+            'type': 'integer',
+            'description':
+                'Skip the first N output lines or entries before applying head_limit.',
+          },
           'multiline': <String, Object?>{'type': 'boolean'},
         },
         'required': <String>['pattern'],

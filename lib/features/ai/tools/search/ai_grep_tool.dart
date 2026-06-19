@@ -43,12 +43,14 @@ class AiGrepTool extends AiTool {
     final outputMode = '${args['output_mode'] ?? 'files_with_matches'}'.trim();
     final before = AiToolUtils.readInt(args['-B']);
     final after = AiToolUtils.readInt(args['-A']);
-    final contextLines = AiToolUtils.readInt(args['-C']);
-    final showLineNumbers = args['-n'] == true;
-    final caseInsensitive = args['-i'] == true;
+    final contextLines =
+        AiToolUtils.readInt(args['-C']) ?? AiToolUtils.readInt(args['context']);
+    final showLineNumbers = AiToolUtils.readBool(args['-n']) == true;
+    final caseInsensitive = AiToolUtils.readBool(args['-i']) == true;
     final type = '${args['type'] ?? ''}'.trim();
     final headLimit = AiToolUtils.readInt(args['head_limit']);
-    final multiline = args['multiline'] == true;
+    final offset = AiToolUtils.readInt(args['offset']) ?? 0;
+    final multiline = AiToolUtils.readBool(args['multiline']) == true;
 
     // 查找 rg 可执行文件（优先使用应用内嵌入的 vendor/ripgrep；
     // 仅当应用打包损坏导致内嵌二进制丢失时才会回退到系统 PATH）。
@@ -149,8 +151,15 @@ class AiGrepTool extends AiTool {
       var output = rgResult.stdout.trimRight();
       if (output.isEmpty) {
         output = outputMode == 'count' ? '(zero matches)' : '(no matches)';
-      } else if (headLimit != null && headLimit > 0) {
-        output = output.split('\n').take(headLimit).join('\n');
+      } else if (offset > 0 || (headLimit != null && headLimit > 0)) {
+        final lines = output.split('\n');
+        final offsetLines = offset > 0 ? lines.skip(offset) : lines;
+        output = headLimit != null && headLimit > 0
+            ? offsetLines.take(headLimit).join('\n')
+            : offsetLines.join('\n');
+        if (output.isEmpty) {
+          output = '(no matches after offset)';
+        }
       }
       if (output.length > AiToolUtils.maxSearchOutputCharacters) {
         output =
