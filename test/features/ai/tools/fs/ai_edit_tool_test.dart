@@ -27,6 +27,84 @@ void main() {
       }
     });
 
+    test(
+      'mutation tools resolve relative paths from the working directory',
+      () async {
+        final originalWorkingDirectory = Directory.current.path;
+        addTearDown(() {
+          Directory.current = originalWorkingDirectory;
+        });
+        Directory.current = tempDir.path;
+
+        final editPath = AiToolUtils.resolvePath('edit.txt');
+        final editFile = File(editPath);
+        await editFile.writeAsString('alpha\n');
+        final editResult = await AiEditTool().execute(
+          _context(
+            toolName: 'Edit',
+            arguments: <String, Object?>{
+              'file_path': 'edit.txt',
+              'old_string': 'alpha',
+              'new_string': 'beta',
+            },
+            previouslyReadFiles: <String>{editPath},
+          ),
+        );
+
+        final multiEditPath = AiToolUtils.resolvePath('multi.txt');
+        final multiEditFile = File(multiEditPath);
+        await multiEditFile.writeAsString('one\ntwo\n');
+        final multiEditResult = await AiMultiEditTool().execute(
+          _context(
+            toolName: 'MultiEdit',
+            arguments: <String, Object?>{
+              'file_path': 'multi.txt',
+              'edits': <Object?>[
+                <String, Object?>{'old_string': 'one', 'new_string': 'uno'},
+                <String, Object?>{'old_string': 'two', 'new_string': 'dos'},
+              ],
+            },
+            previouslyReadFiles: <String>{multiEditPath},
+          ),
+        );
+
+        final applyPath = AiToolUtils.resolvePath('apply.txt');
+        final applyFile = File(applyPath);
+        await applyFile.writeAsString('red\nblue\n');
+        final applyResult = await AiApplyFileDiffsTool().execute(
+          _context(
+            toolName: 'ApplyFileDiffs',
+            arguments: <String, Object?>{
+              'diffs': <Object?>[
+                <String, Object?>{
+                  'file_path': 'apply.txt',
+                  'hunks': <Object?>[
+                    <String, Object?>{
+                      'old_string': 'red',
+                      'new_string': 'green',
+                    },
+                  ],
+                },
+              ],
+            },
+            previouslyReadFiles: <String>{applyPath},
+          ),
+        );
+
+        expect(editResult.status.storageValue, 'success');
+        expect(await editFile.readAsString(), 'beta\n');
+        expect(editResult.metadata['file_mutation_path'], editPath);
+        expect(multiEditResult.status.storageValue, 'success');
+        expect(await multiEditFile.readAsString(), 'uno\ndos\n');
+        expect(multiEditResult.metadata['file_mutation_path'], multiEditPath);
+        expect(applyResult.status.storageValue, 'success');
+        expect(await applyFile.readAsString(), 'green\nblue\n');
+        expect(applyResult.metadata['file_mutation_paths'], <String>[
+          applyPath,
+        ]);
+      },
+    );
+
     test('creates a missing file when old_string is empty', () async {
       final file = File('${tempDir.path}/created.txt');
 

@@ -40,6 +40,8 @@ const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
 const String _toolOutputRecoveryHintRerunNarrower = 'rerun_with_narrower_query';
 const String _toolOutputRecoveryHintReadPersisted = 'read_persisted_output';
 const String _toolOutputPersistenceFormatText = 'text';
+const String _filePathResolvedAgainstCwdDescription =
+    'The absolute or relative file path. Relative paths are resolved against the working directory.';
 
 class AiResolvedToolCatalog {
   const AiResolvedToolCatalog({
@@ -2438,14 +2440,13 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.read,
       name: 'Read',
       description:
-          'Read a local file from disk. The file_path MUST be an absolute path (starting with /).',
+          'Read a local file from disk. Accepts absolute or relative file_path values and resolves them against the working directory.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'file_path': <String, Object?>{
             'type': 'string',
-            'description':
-                'The absolute file path to read (must start with /).',
+            'description': _filePathResolvedAgainstCwdDescription,
           },
           'offset': <String, Object?>{
             'type': 'integer',
@@ -2471,14 +2472,13 @@ class AiToolRuntimeService {
       name: 'Edit',
       description:
           'Perform an exact string replacement in a file. '
-          'The file_path MUST be an absolute path (starting with /).',
+          'Accepts absolute or relative file_path values and resolves them against the working directory.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'file_path': <String, Object?>{
             'type': 'string',
-            'description':
-                'The absolute file path to edit (must start with /).',
+            'description': _filePathResolvedAgainstCwdDescription,
           },
           'old_string': <String, Object?>{
             'type': 'string',
@@ -2504,15 +2504,14 @@ class AiToolRuntimeService {
       name: 'MultiEdit',
       description:
           'Perform multiple exact string replacements in a file. '
-          'The file_path MUST be an absolute path (starting with /). '
+          'Accepts absolute or relative file_path values and resolves them against the working directory. '
           'For a new or empty file, the first edit may use empty old_string to seed the file content.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'file_path': <String, Object?>{
             'type': 'string',
-            'description':
-                'The absolute file path to edit (must start with /).',
+            'description': _filePathResolvedAgainstCwdDescription,
           },
           'edits': <String, Object?>{
             'type': 'array',
@@ -2549,7 +2548,7 @@ class AiToolRuntimeService {
           'Each diff has `file_path` + `hunks` (array of {old_string, new_string, replace_all?}). '
           'Plans all hunks in memory and collects all confirmations before writing; if any hunk fails or confirmation is denied, no file is written. '
           'If a write or verification fails after writing starts, previously written files are rolled back best-effort. '
-          'file_path MUST be absolute. Up to 32 files per call.',
+          'Accepts absolute or relative file_path values and resolves them against the working directory. Up to 32 files per call.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2558,7 +2557,10 @@ class AiToolRuntimeService {
             'items': <String, Object?>{
               'type': 'object',
               'properties': <String, Object?>{
-                'file_path': <String, Object?>{'type': 'string'},
+                'file_path': <String, Object?>{
+                  'type': 'string',
+                  'description': _filePathResolvedAgainstCwdDescription,
+                },
                 'hunks': <String, Object?>{
                   'type': 'array',
                   'items': <String, Object?>{
@@ -2834,10 +2836,22 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'file_path': <String, Object?>{
             'type': 'string',
-            'description': 'Absolute or relative path to the file to delete.',
+            'description': _filePathResolvedAgainstCwdDescription,
+          },
+          'target_file': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Legacy alias for file_path. Prefer file_path for new calls.',
           },
         },
-        'required': <String>['file_path'],
+        'anyOf': <Object>[
+          <String, Object?>{
+            'required': <String>['file_path'],
+          },
+          <String, Object?>{
+            'required': <String>['target_file'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

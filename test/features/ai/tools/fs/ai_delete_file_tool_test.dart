@@ -28,6 +28,35 @@ void main() {
       }
     });
 
+    test(
+      'deletes relative target_file alias from the working directory',
+      () async {
+        final originalWorkingDirectory = Directory.current.path;
+        addTearDown(() {
+          Directory.current = originalWorkingDirectory;
+        });
+        Directory.current = tempDir.path;
+
+        final file = File('${tempDir.path}/sample.txt');
+        await file.writeAsString('alpha\n');
+        final tracker = AiFileTrackerService();
+        await tracker.recordFileRead(file.path);
+
+        final result = await AiDeleteFileTool().execute(
+          _context(
+            filePath: 'sample.txt',
+            pathArgumentName: 'target_file',
+            previouslyReadFiles: <String>{file.path},
+            fileTracker: tracker,
+          ),
+        );
+
+        expect(result.status.storageValue, 'success');
+        expect(await file.exists(), isFalse);
+        expect(result.metadata['file_mutation_path'], file.path);
+      },
+    );
+
     test('rejects delete when file changed after tracked read', () async {
       final file = File('${tempDir.path}/sample.txt');
       await file.writeAsString('alpha\n');
@@ -137,6 +166,7 @@ void main() {
 
 AiToolExecutionContext _context({
   required String filePath,
+  String pathArgumentName = 'file_path',
   required Set<String> previouslyReadFiles,
   required AiFileTrackerService fileTracker,
   AiFileHistoryService? fileHistory,
@@ -150,9 +180,9 @@ AiToolExecutionContext _context({
     toolCall: AiToolCall(
       id: 'delete-stale',
       name: 'DeleteFile',
-      arguments: jsonEncode(<String, Object?>{'file_path': filePath}),
+      arguments: jsonEncode(<String, Object?>{pathArgumentName: filePath}),
     ),
-    decodedArguments: <String, Object?>{'file_path': filePath},
+    decodedArguments: <String, Object?>{pathArgumentName: filePath},
     model: _testModel,
     previouslyReadFiles: previouslyReadFiles,
     denyCommandRules: const <Never>[],

@@ -406,6 +406,41 @@ void main() {
       expect('${properties?['file_path']}', isNot(contains('must start')));
     });
 
+    test('file tools document cwd-relative path resolution', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      for (final name in <String>[
+        'Read',
+        'Edit',
+        'MultiEdit',
+        'ApplyFileDiffs',
+      ]) {
+        final definition = catalog.find(name)?.definition;
+
+        expect(definition?.description, contains('absolute or relative'));
+        expect(definition?.description, contains('working directory'));
+        expect('${definition?.parameters}', isNot(contains('must start')));
+      }
+
+      final deleteDefinition = catalog.find('DeleteFile')?.definition;
+      final deleteProperties =
+          deleteDefinition?.parameters['properties'] as Map?;
+      final deleteAnyOf = deleteDefinition?.parameters['anyOf'];
+
+      expect('${deleteProperties?['file_path']}', contains('Relative paths'));
+      expect('${deleteProperties?['target_file']}', contains('Legacy alias'));
+      expect('$deleteAnyOf', contains('file_path'));
+      expect('$deleteAnyOf', contains('target_file'));
+    });
+
     test('Read exposes Claude-style PDF pages parameter', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),

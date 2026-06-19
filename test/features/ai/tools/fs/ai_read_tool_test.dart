@@ -11,6 +11,37 @@ import 'package:openhand/features/ai/tools/fs/ai_read_tool.dart';
 
 void main() {
   group('AiReadTool', () {
+    test('resolves relative file paths from the working directory', () async {
+      final originalWorkingDirectory = Directory.current.path;
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        Directory.current = originalWorkingDirectory;
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      Directory.current = tempDir.path;
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\nbeta\n');
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-relative-path',
+          filePath: 'sample.txt',
+          offset: 1,
+          limit: 2,
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(result.stdout, contains('   1\talpha'));
+      expect(result.metadata['read_file_path'], endsWith('/sample.txt'));
+    });
+
     test('offset is interpreted as a 1-based starting line', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_read_tool_test_',
