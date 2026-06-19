@@ -1105,6 +1105,33 @@ class AiToolUtils {
   /// 2026-04-29 — Group B: 调用方可传 [timeoutMs] 覆盖默认值。
   static const int _writeConfirmationTimeoutMs = 300000;
 
+  static Map<String, Object?> _writeConfirmationMetadata(
+    Map<String, Object?> metadata,
+    BashCommandApprovalDecision decision, {
+    bool missingCallback = false,
+  }) {
+    final decisionValue = switch (decision) {
+      BashCommandApprovalDecision.approved => 'approved',
+      BashCommandApprovalDecision.rejected => 'rejected',
+      BashCommandApprovalDecision.dismissed => 'dismissed',
+      BashCommandApprovalDecision.timedOut => 'timed_out',
+      BashCommandApprovalDecision.cancelled => 'cancelled',
+    };
+    return <String, Object?>{
+      ...metadata,
+      'write_confirmation_decision': decisionValue,
+      if (decision == BashCommandApprovalDecision.rejected)
+        'write_confirmation_rejected': true,
+      if (decision == BashCommandApprovalDecision.dismissed)
+        'write_confirmation_dismissed': true,
+      if (decision == BashCommandApprovalDecision.timedOut)
+        'write_confirmation_timed_out': true,
+      if (decision == BashCommandApprovalDecision.cancelled)
+        'write_confirmation_cancelled': true,
+      if (missingCallback) 'write_confirmation_missing_callback': true,
+    };
+  }
+
   /// 请求用户确认写操作。
   ///
   /// 当 [requireWriteConfirmation] 为 true 且 [confirmWriteCommand] 回调存在时，
@@ -1146,7 +1173,11 @@ class AiToolUtils {
         command: commandForResult,
         workingDirectory: workingDirectory,
         writeAnalysisReason: writeAnalysisReason,
-        metadata: metadata,
+        metadata: _writeConfirmationMetadata(
+          metadata,
+          BashCommandApprovalDecision.rejected,
+          missingCallback: true,
+        ),
       );
     }
 
@@ -1196,7 +1227,10 @@ class AiToolUtils {
         writeAnalysisReason:
             writeAnalysisReason ??
             'builtin file mutation tool requires confirmation',
-        metadata: metadata,
+        metadata: _writeConfirmationMetadata(
+          metadata,
+          BashCommandApprovalDecision.timedOut,
+        ),
       );
     }
 
@@ -1211,7 +1245,10 @@ class AiToolUtils {
           command: commandForResult,
           workingDirectory: workingDirectory,
           writeAnalysisReason: writeAnalysisReason,
-          metadata: metadata,
+          metadata: _writeConfirmationMetadata(
+            metadata,
+            BashCommandApprovalDecision.rejected,
+          ),
         );
       case BashCommandApprovalDecision.dismissed:
         return rejectedWriteResult(
@@ -1222,7 +1259,10 @@ class AiToolUtils {
           command: commandForResult,
           workingDirectory: workingDirectory,
           writeAnalysisReason: writeAnalysisReason,
-          metadata: metadata,
+          metadata: _writeConfirmationMetadata(
+            metadata,
+            BashCommandApprovalDecision.dismissed,
+          ),
         );
       case BashCommandApprovalDecision.timedOut:
         return AiToolExecutionResult(
@@ -1238,16 +1278,29 @@ class AiToolUtils {
           writeAnalysisReason:
               writeAnalysisReason ??
               'builtin file mutation tool requires confirmation',
-          metadata: metadata,
+          metadata: _writeConfirmationMetadata(
+            metadata,
+            BashCommandApprovalDecision.timedOut,
+          ),
         );
       case BashCommandApprovalDecision.cancelled:
-        return cancelledResult(
+        return AiToolExecutionResult(
+          status: BashToolExecutionStatus.cancelled,
           command: commandForResult,
+          workingDirectory: workingDirectory,
+          stdout: '',
+          stderr: '写操作确认在用户表态前被取消。本次工具调用未执行，后续不要假定文件已被修改。',
           durationMs: 0,
-          metadata: <String, Object?>{
-            ...metadata,
-            'write_confirmation_cancelled': true,
-          },
+          resultText:
+              'status: cancelled\nreason: Write confirmation was cancelled before a decision.',
+          isWriteCommand: true,
+          writeAnalysisReason:
+              writeAnalysisReason ??
+              'builtin file mutation tool requires confirmation',
+          metadata: _writeConfirmationMetadata(
+            metadata,
+            BashCommandApprovalDecision.cancelled,
+          ),
         );
     }
   }
