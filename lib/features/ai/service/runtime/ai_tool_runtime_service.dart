@@ -2003,22 +2003,50 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.bash,
       name: 'Bash',
       description:
-          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
+          'Execute a shell command in a subprocess. Use command (Claude-style) or cmd for the command string and optionally working_directory/cwd for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
           'For code/text search, prefer the dedicated Grep tool (which is backed by the application-bundled ripgrep binary) over shelling out to `grep`/`rg`. '
           'If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'cmd': <String, Object?>{'type': 'string'},
+          'command': <String, Object?>{
+            'type': 'string',
+            'description': 'Command to execute. Claude-style alias for cmd.',
+          },
+          'cmd': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Command to execute. Kept for OpenHand compatibility.',
+          },
           'working_directory': <String, Object?>{'type': 'string'},
+          'cwd': <String, Object?>{
+            'type': 'string',
+            'description': 'Working directory. Alias for working_directory.',
+          },
           'timeout': <String, Object?>{'type': 'integer'},
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'description': 'Timeout in milliseconds. Alias for timeout.',
+          },
+          'description': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional concise active-voice description of what this command does.',
+          },
           'run_in_background': <String, Object?>{
             'type': 'boolean',
             'description':
                 'When true, route this command to BashBackground start and return a background handle instead of waiting for completion.',
           },
         },
-        'required': <String>['cmd'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['command'],
+          },
+          <String, Object?>{
+            'required': <String>['cmd'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

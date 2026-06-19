@@ -152,7 +152,7 @@ void main() {
   });
 
   group('AiToolRuntimeService builtin schemas', () {
-    test('Bash accepts Claude-style run_in_background input', () {
+    test('Bash accepts Claude-style command input', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
         hookService: AiNoopClaudeHookService(),
@@ -169,10 +169,20 @@ void main() {
 
       expect(definition, isNotNull);
       expect(properties, isA<Map>());
+      final schemaProperties = properties as Map;
+      expect(schemaProperties['command'], containsPair('type', 'string'));
+      expect(schemaProperties['cmd'], containsPair('type', 'string'));
+      expect(schemaProperties['cwd'], containsPair('type', 'string'));
+      expect(schemaProperties['timeout_ms'], containsPair('type', 'integer'));
+      expect(schemaProperties['description'], containsPair('type', 'string'));
       expect(
-        (properties as Map)['run_in_background'],
+        schemaProperties['run_in_background'],
         containsPair('type', 'boolean'),
       );
+      final anyOf = parameters?['anyOf'];
+      expect(anyOf, isA<List>());
+      expect('$anyOf', contains('command'));
+      expect('$anyOf', contains('cmd'));
     });
 
     test('Task accepts omitted subagent type input', () {
@@ -224,6 +234,43 @@ void main() {
   });
 
   group('AiToolRuntimeService Bash background alias', () {
+    test('executes Claude-style command field', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final result = await runtime.execute(
+        sessionId: 'runtime-bash-command-alias-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-command-1',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'command': 'printf claude-command',
+            'cwd': '/tmp',
+            'timeout_ms': 5000,
+            'description': 'Print command alias marker',
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.command, 'printf claude-command');
+      expect(result.stdout.trimRight(), 'claude-command');
+    });
+
     test('routes run_in_background to BashBackground start', () async {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
