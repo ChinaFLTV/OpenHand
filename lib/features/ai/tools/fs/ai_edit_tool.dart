@@ -111,13 +111,15 @@ class AiEditTool extends AiTool {
     if (!replacement.success) {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
     }
-    await AiToolUtils.writeTextFileSafely(file, replacement.content);
-
-    // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
-    await AiToolUtils.updateTrackerAfterMutation(
-      filePath: filePath,
+    final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+      toolName: 'Edit',
+      file: file,
+      content: replacement.content,
+      previouslyReadFiles: context.previouslyReadFiles,
+      requireExistingFileRead: true,
       fileTracker: fileTracker,
     );
+    if (guardedWrite != null) return guardedWrite;
 
     // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;

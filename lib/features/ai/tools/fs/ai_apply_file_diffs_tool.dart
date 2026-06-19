@@ -184,17 +184,30 @@ class AiApplyFileDiffsTool extends AiTool {
         );
       }
       try {
-        await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
+        final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+          toolName: 'ApplyFileDiffs',
+          file: plan.file,
+          content: plan.newContent,
+          previouslyReadFiles: context.previouslyReadFiles,
+          requireExistingFileRead: plan.existed,
+          fileTracker: fileTracker,
+        );
+        if (guardedWrite != null) {
+          final rollback = await _rollbackAppliedPlans(
+            applied,
+            fileTracker: fileTracker,
+          );
+          return AiToolUtils.invalidResult(
+            'ApplyFileDiffs',
+            'Write guard rejected ${plan.filePath}: ${guardedWrite.stderr}$rollback',
+          );
+        }
         applied.add(
           _AppliedFileDiff(
             plan: plan,
             versionId: versionId,
             beforeContentForLedger: beforeContentForLedger,
           ),
-        );
-        await AiToolUtils.updateTrackerAfterMutation(
-          filePath: plan.filePath,
-          fileTracker: fileTracker,
         );
       } catch (error) {
         final rollback = await _rollbackAppliedPlans(

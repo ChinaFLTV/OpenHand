@@ -641,6 +641,44 @@ class AiToolUtils {
     }
   }
 
+  /// Performs the last read-before-write guard immediately before writing.
+  ///
+  /// Tools may still run an earlier validation to fail fast. This final guard
+  /// stays adjacent to the disk write so confirmation dialogs, history capture,
+  /// or ledger reads cannot leave a stale write window unprotected.
+  static Future<AiToolExecutionResult?> writeTextFileWithMutationGuard({
+    required String toolName,
+    required File file,
+    required String content,
+    required Set<String> previouslyReadFiles,
+    required bool requireExistingFileRead,
+    AiFileTrackerService? fileTracker,
+  }) async {
+    if (!requireExistingFileRead && await file.exists()) {
+      return invalidResult(
+        toolName,
+        '$toolName expected to create a new file, but the target now exists. '
+        'Read the file before overwriting it: ${file.path}',
+      );
+    }
+
+    final readValidation = await validateReadBeforeMutation(
+      toolName: toolName,
+      filePath: file.path,
+      previouslyReadFiles: previouslyReadFiles,
+      requireExistingFileRead: requireExistingFileRead,
+      fileTracker: fileTracker,
+    );
+    if (readValidation != null) return readValidation;
+
+    await writeTextFileSafely(file, content);
+    await updateTrackerAfterMutation(
+      filePath: file.path,
+      fileTracker: fileTracker,
+    );
+    return null;
+  }
+
   static Future<void> _copyExistingFileMode(
     File sourceFile,
     File targetFile,

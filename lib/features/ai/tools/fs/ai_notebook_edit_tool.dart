@@ -164,16 +164,15 @@ class AiNotebookEditTool extends AiTool {
         cells[index] = updatedCell;
     }
     notebook['cells'] = cells;
-    await AiToolUtils.writeTextFileSafely(
-      file,
-      const JsonEncoder.withIndent('  ').convert(notebook),
-    );
-
-    // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
-    await AiToolUtils.updateTrackerAfterMutation(
-      filePath: notebookPath,
+    final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+      toolName: 'NotebookEdit',
+      file: file,
+      content: const JsonEncoder.withIndent('  ').convert(notebook),
+      previouslyReadFiles: context.previouslyReadFiles,
+      requireExistingFileRead: true,
       fileTracker: fileTracker,
     );
+    if (guardedWrite != null) return guardedWrite;
 
     // 2026-05-03: ledger 记录双快照
     final afterContentForLedger = await AiToolUtils.readFileContentForLedger(
