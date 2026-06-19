@@ -51,6 +51,26 @@ void main() {
       expect(await file.readAsString(), 'omega\n');
     });
 
+    test('rejects oversized generated content', () async {
+      final file = File('${tempDir.path}/oversized.txt');
+
+      final result = await AiWriteTool().execute(
+        _context(
+          filePath: file.path,
+          content: _oversizedGeneratedText(),
+          previouslyReadFiles: const <String>{},
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(
+        result.stderr,
+        contains('content exceeds the maximum allowed size'),
+      );
+      expect(await file.exists(), isFalse);
+    });
+
     test('rechecks stale state immediately before writing', () async {
       final file = File('${tempDir.path}/sample.txt');
       await file.writeAsString('alpha\n');
@@ -132,6 +152,9 @@ AiToolExecutionContext _context({
     },
   );
 }
+
+String _oversizedGeneratedText() =>
+    ''.padRight(AiToolUtils.maxGeneratedTextPayloadCharacters + 1, 'x');
 
 class _MutatingFileHistoryService extends AiFileHistoryService {
   _MutatingFileHistoryService({required this.content, required this.modified});

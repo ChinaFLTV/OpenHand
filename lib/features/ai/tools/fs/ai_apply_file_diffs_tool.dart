@@ -135,6 +135,14 @@ class AiApplyFileDiffsTool extends AiTool {
         final oldString = '${hunk['old_string'] ?? ''}';
         final newString = '${hunk['new_string'] ?? ''}';
         final replaceAll = hunk['replace_all'] == true;
+        final payloadSizeValidation =
+            AiToolUtils.validateGeneratedTextPayloadSize(
+              toolName: 'ApplyFileDiffs',
+              fieldName: 'diffs[$i].hunks[$hunkIndex].new_string',
+              value: newString,
+            );
+        if (payloadSizeValidation != null) return payloadSizeValidation;
+
         final sequentialValidation = AiToolUtils.validateSequentialEditTarget(
           oldString: oldString,
           previousNewStrings: appliedNewStrings,

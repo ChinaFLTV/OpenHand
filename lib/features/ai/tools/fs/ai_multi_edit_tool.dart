@@ -33,6 +33,24 @@ class AiMultiEditTool extends AiTool {
         'MultiEdit requires a non-empty edits array.',
       );
     }
+    for (var editIndex = 0; editIndex < edits.length; editIndex++) {
+      final rawEdit = edits[editIndex];
+      if (rawEdit is! Map) {
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'edits[$editIndex] must be an object.',
+        );
+      }
+      final edit = Map<String, Object?>.from(rawEdit);
+      final payloadSizeValidation =
+          AiToolUtils.validateGeneratedTextPayloadSize(
+            toolName: 'MultiEdit',
+            fieldName: 'edits[$editIndex].new_string',
+            value: '${edit['new_string'] ?? ''}',
+          );
+      if (payloadSizeValidation != null) return payloadSizeValidation;
+    }
+
     final file = File(filePath);
     final bool fileExists = await file.exists();
 

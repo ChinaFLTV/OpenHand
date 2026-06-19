@@ -28,6 +28,13 @@ class AiEditTool extends AiTool {
         'Edit requires a non-empty file_path.',
       );
     }
+    final payloadSizeValidation = AiToolUtils.validateGeneratedTextPayloadSize(
+      toolName: 'Edit',
+      fieldName: 'new_string',
+      value: newString,
+    );
+    if (payloadSizeValidation != null) return payloadSizeValidation;
+
     final filePath = AiToolUtils.resolvePath(rawFilePath);
     if (oldString == newString) {
       return AiToolUtils.invalidResult(

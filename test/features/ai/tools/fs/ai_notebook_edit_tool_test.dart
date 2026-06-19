@@ -43,6 +43,7 @@ void main() {
           'nbformat_minor': 5,
         }),
       );
+      final oversizedSource = _oversizedGeneratedText();
 
       final result = await AiNotebookEditTool().execute(
         AiToolExecutionContext(
@@ -58,12 +59,14 @@ void main() {
               'notebook_path': notebook.path,
               'cell_id': 'remove',
               'edit_mode': 'delete',
+              'new_source': oversizedSource,
             }),
           ),
           decodedArguments: <String, Object?>{
             'notebook_path': notebook.path,
             'cell_id': 'remove',
             'edit_mode': 'delete',
+            'new_source': oversizedSource,
           },
           model: _testModel,
           previouslyReadFiles: <String>{notebook.path},
@@ -82,6 +85,72 @@ void main() {
       final cells = (updated as Map<String, Object?>)['cells'] as List;
       expect(cells, hasLength(1));
       expect((cells.single as Map)['id'], 'keep');
+    });
+
+    test('rejects oversized generated source for replace', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_notebook_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final notebook = File('${tempDir.path}/sample.ipynb');
+      final originalContent = const JsonEncoder.withIndent('  ').convert(
+        <String, Object?>{
+          'cells': <Object?>[
+            <String, Object?>{
+              'cell_type': 'code',
+              'id': 'cell-1',
+              'metadata': <String, Object?>{},
+              'source': 'print(1)\n',
+            },
+          ],
+          'metadata': <String, Object?>{},
+          'nbformat': 4,
+          'nbformat_minor': 5,
+        },
+      );
+      await notebook.writeAsString(originalContent);
+
+      final oversizedSource = _oversizedGeneratedText();
+      final result = await AiNotebookEditTool().execute(
+        AiToolExecutionContext(
+          sessionId: 'test-session',
+          catalog: const AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[],
+            toolsByName: <String, AiResolvedTool>{},
+          ),
+          toolCall: AiToolCall(
+            id: 'notebook-oversized-source',
+            name: 'NotebookEdit',
+            arguments: jsonEncode(<String, Object?>{
+              'notebook_path': notebook.path,
+              'cell_id': 'cell-1',
+              'new_source': oversizedSource,
+            }),
+          ),
+          decodedArguments: <String, Object?>{
+            'notebook_path': notebook.path,
+            'cell_id': 'cell-1',
+            'new_source': oversizedSource,
+          },
+          model: _testModel,
+          previouslyReadFiles: <String>{notebook.path},
+          denyCommandRules: const <Never>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: null,
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(
+        result.stderr,
+        contains('new_source exceeds the maximum allowed size'),
+      );
+      expect(await notebook.readAsString(), originalContent);
     });
 
     test('rejects oversized notebooks before reading content', () async {
@@ -138,6 +207,9 @@ void main() {
     });
   });
 }
+
+String _oversizedGeneratedText() =>
+    ''.padRight(AiToolUtils.maxGeneratedTextPayloadCharacters + 1, 'x');
 
 const AiModelConfig _testModel = AiModelConfig(
   id: 'test',

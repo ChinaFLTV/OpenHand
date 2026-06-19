@@ -25,6 +25,7 @@ class AiToolUtils {
   static const int maxBinaryPreviewBytes = 32;
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
+  static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
 
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
@@ -572,6 +573,20 @@ class AiToolUtils {
       stderr: message,
       durationMs: 0,
       resultText: 'status: invalid_arguments\nerror: $message',
+    );
+  }
+
+  static AiToolExecutionResult? validateGeneratedTextPayloadSize({
+    required String toolName,
+    required String fieldName,
+    required String value,
+  }) {
+    if (value.length <= maxGeneratedTextPayloadCharacters) return null;
+    return invalidResult(
+      toolName,
+      '$fieldName exceeds the maximum allowed size '
+      '(${value.length} chars, limit $maxGeneratedTextPayloadCharacters). '
+      'Split the generated content into smaller edits or files.',
     );
   }
 

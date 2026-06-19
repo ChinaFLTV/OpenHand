@@ -46,6 +46,28 @@ void main() {
       expect(await file.readAsString(), 'hello\n');
     });
 
+    test('rejects oversized generated replacement', () async {
+      final file = File('${tempDir.path}/oversized.txt');
+
+      final result = await AiEditTool().execute(
+        _context(
+          toolName: 'Edit',
+          arguments: <String, Object?>{
+            'file_path': file.path,
+            'old_string': '',
+            'new_string': _oversizedGeneratedText(),
+          },
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(
+        result.stderr,
+        contains('new_string exceeds the maximum allowed size'),
+      );
+      expect(await file.exists(), isFalse);
+    });
+
     test('replaces an existing empty file when old_string is empty', () async {
       final file = File('${tempDir.path}/empty.txt');
       await file.writeAsString('');
@@ -190,6 +212,42 @@ void main() {
       expect(await file.readAsString(), 'one\r\ntwo\r\n');
     });
 
+    test('rejects oversized generated edit payload', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_multi_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+
+      final result = await AiMultiEditTool().execute(
+        _context(
+          toolName: 'MultiEdit',
+          arguments: <String, Object?>{
+            'file_path': file.path,
+            'edits': <Object?>[
+              <String, Object?>{
+                'old_string': 'alpha',
+                'new_string': _oversizedGeneratedText(),
+              },
+            ],
+          },
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(
+        result.stderr,
+        contains('edits[0].new_string exceeds the maximum allowed size'),
+      );
+      expect(await file.readAsString(), 'alpha\n');
+    });
+
     test('rejects edits that retarget a previous new_string', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_multi_edit_tool_test_',
@@ -268,6 +326,49 @@ void main() {
       expect(await file.readAsString(), 'alpha\nbeta\n');
     });
 
+    test('rejects oversized generated hunk payload', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_apply_file_diffs_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+
+      final result = await AiApplyFileDiffsTool().execute(
+        _context(
+          toolName: 'ApplyFileDiffs',
+          arguments: <String, Object?>{
+            'diffs': <Object?>[
+              <String, Object?>{
+                'file_path': file.path,
+                'hunks': <Object?>[
+                  <String, Object?>{
+                    'old_string': 'alpha',
+                    'new_string': _oversizedGeneratedText(),
+                  },
+                ],
+              },
+            ],
+          },
+          previouslyReadFiles: <String>{file.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(
+        result.stderr,
+        contains(
+          'diffs[0].hunks[0].new_string exceeds the maximum allowed size',
+        ),
+      );
+      expect(await file.readAsString(), 'alpha\n');
+    });
+
     test('rejects hunks that retarget a previous new_string', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_apply_file_diffs_tool_test_',
@@ -336,6 +437,9 @@ AiToolExecutionContext _context({
     confirmWriteCommand: null,
   );
 }
+
+String _oversizedGeneratedText() =>
+    ''.padRight(AiToolUtils.maxGeneratedTextPayloadCharacters + 1, 'x');
 
 const AiModelConfig _testModel = AiModelConfig(
   id: 'test',

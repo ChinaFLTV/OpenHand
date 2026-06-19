@@ -51,6 +51,15 @@ class AiNotebookEditTool extends AiTool {
         'NotebookEdit cell_type must be code, markdown, or raw when provided.',
       );
     }
+    if (editMode != 'delete') {
+      final payloadSizeValidation =
+          AiToolUtils.validateGeneratedTextPayloadSize(
+            toolName: 'NotebookEdit',
+            fieldName: 'new_source',
+            value: newSource,
+          );
+      if (payloadSizeValidation != null) return payloadSizeValidation;
+    }
 
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
