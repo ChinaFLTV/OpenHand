@@ -15,7 +15,8 @@ import '../ai_tool_utils.dart';
 ///
 /// 与 [AiMultiEditTool] 的差异：
 /// - MultiEdit 一次只能改 1 个文件；ApplyFileDiffs 改多个。
-/// - 计划阶段 → 写入阶段两段执行：任一文件的任一 hunk 不匹配，整体不写入。
+/// - 计划阶段 → 确认阶段 → 写入阶段：任一 hunk 不匹配或确认被拒，整体不写入。
+/// - 写入阶段若中途失败，会尽力把已写文件回滚到原始内容。
 /// - 用于跨文件的小规模重构（重命名 / 接口签名调整 / 同步配置）。
 ///
 /// 输入 schema：
@@ -98,10 +99,10 @@ class AiApplyFileDiffsTool extends AiTool {
       );
       if (readValidation != null) return readValidation;
 
-      String content;
+      String originalContent;
       if (exists) {
         try {
-          content = await file.readAsString();
+          originalContent = await file.readAsString();
         } on FormatException {
           return AiToolUtils.invalidResult(
             'ApplyFileDiffs',
@@ -109,11 +110,11 @@ class AiApplyFileDiffsTool extends AiTool {
           );
         }
       } else {
-        content = '';
+        originalContent = '';
       }
-      var creating = !exists;
-      var hunkIndex = 0;
-      for (final rawHunk in hunks) {
+      var content = originalContent;
+      for (var hunkIndex = 0; hunkIndex < hunks.length; hunkIndex++) {
+        final rawHunk = hunks[hunkIndex];
         if (rawHunk is! Map) {
           return AiToolUtils.invalidResult(
             'ApplyFileDiffs',
@@ -124,17 +125,12 @@ class AiApplyFileDiffsTool extends AiTool {
         final oldString = '${hunk['old_string'] ?? ''}';
         final newString = '${hunk['new_string'] ?? ''}';
         final replaceAll = hunk['replace_all'] == true;
-        if (oldString.isEmpty && creating) {
-          content = newString;
-          creating = false;
-          hunkIndex += 1;
-          continue;
-        }
-        final replacement = AiToolUtils.replaceOnceOrAll(
+        final replacement = AiToolUtils.applyExactStringEdit(
           content: content,
           oldString: oldString,
           newString: newString,
           replaceAll: replaceAll,
+          allowCreationFromEmptyOldString: !exists && hunkIndex == 0,
         );
         if (!replacement.success) {
           return AiToolUtils.invalidResult(
@@ -143,21 +139,20 @@ class AiApplyFileDiffsTool extends AiTool {
           );
         }
         content = replacement.content;
-        hunkIndex += 1;
       }
       plans.add(
         _FileDiffPlan(
           filePath: filePath,
           file: file,
           existed: exists,
+          originalContent: originalContent,
           newContent: content,
           hunkCount: hunks.length,
         ),
       );
     }
 
-    // ── 阶段 2：单文件确认 + 写入（任一确认拒绝则中止后续） ──
-    final results = <_FileDiffResult>[];
+    // ── 阶段 2：先收齐所有确认；任一拒绝则不写任何文件 ──
     for (final plan in plans) {
       final confirmation = await AiToolUtils.requestWriteConfirmation(
         toolName: 'ApplyFileDiffs',
@@ -170,7 +165,11 @@ class AiApplyFileDiffsTool extends AiTool {
         timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
       );
       if (confirmation != null) return confirmation;
+    }
 
+    // ── 阶段 3：写入；失败时尽力回滚已写文件 ──
+    final applied = <_AppliedFileDiff>[];
+    for (final plan in plans) {
       String? versionId;
       String? beforeContentForLedger;
       if (plan.existed) {
@@ -184,29 +183,59 @@ class AiApplyFileDiffsTool extends AiTool {
           plan.filePath,
         );
       }
-      await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
-      await AiToolUtils.updateTrackerAfterMutation(
-        filePath: plan.filePath,
-        fileTracker: fileTracker,
-      );
+      try {
+        await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
+        applied.add(
+          _AppliedFileDiff(
+            plan: plan,
+            versionId: versionId,
+            beforeContentForLedger: beforeContentForLedger,
+          ),
+        );
+        await AiToolUtils.updateTrackerAfterMutation(
+          filePath: plan.filePath,
+          fileTracker: fileTracker,
+        );
+      } catch (error) {
+        final rollback = await _rollbackAppliedPlans(
+          applied,
+          fileTracker: fileTracker,
+        );
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'Write failed for ${plan.filePath}: $error$rollback',
+        );
+      }
 
       // 写后读回校验
       String verify;
       try {
         verify = await plan.file.readAsString();
       } catch (e) {
+        final rollback = await _rollbackAppliedPlans(
+          applied,
+          fileTracker: fileTracker,
+        );
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',
-          'File was written but verification read failed for ${plan.filePath}: $e',
+          'File was written but verification read failed for ${plan.filePath}: $e$rollback',
         );
       }
       if (verify != plan.newContent) {
+        final rollback = await _rollbackAppliedPlans(
+          applied,
+          fileTracker: fileTracker,
+        );
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',
-          'Verification mismatch after write for ${plan.filePath}.',
+          'Verification mismatch after write for ${plan.filePath}.$rollback',
         );
       }
-      // 2026-05-03: 每文件独立写入 ledger（before 已捕获、after 取写后内容）
+    }
+
+    final results = <_FileDiffResult>[];
+    for (final item in applied) {
+      final plan = item.plan;
       final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
         ledger: mutationLedger,
         sessionId: context.sessionId,
@@ -214,14 +243,14 @@ class AiApplyFileDiffsTool extends AiTool {
         toolName: 'ApplyFileDiffs',
         filePath: plan.filePath,
         kind: plan.existed ? FileMutationKind.modify : FileMutationKind.create,
-        beforeContent: beforeContentForLedger,
-        afterContent: verify,
+        beforeContent: item.beforeContentForLedger,
+        afterContent: plan.newContent,
       );
       results.add(
         _FileDiffResult(
           filePath: plan.filePath,
           hunkCount: plan.hunkCount,
-          versionId: versionId,
+          versionId: item.versionId,
           ledgerRecordId: ledgerRecordId,
         ),
       );
@@ -258,8 +287,44 @@ class AiApplyFileDiffsTool extends AiTool {
         'file_mutation_ledger_record_ids': <String, String?>{
           for (final r in results) r.filePath: r.ledgerRecordId,
         },
+        'file_mutation_transactional_write': true,
       },
     );
+  }
+
+  Future<String> _rollbackAppliedPlans(
+    List<_AppliedFileDiff> applied, {
+    required AiFileTrackerService? fileTracker,
+  }) async {
+    if (applied.isEmpty) {
+      return ' No files had been written yet.';
+    }
+    final restored = <String>[];
+    final failed = <String>[];
+    for (final item in applied.reversed) {
+      final plan = item.plan;
+      try {
+        if (plan.existed) {
+          await AiToolUtils.writeTextFileSafely(
+            plan.file,
+            plan.originalContent,
+          );
+        } else if (await plan.file.exists()) {
+          await plan.file.delete();
+        }
+        await AiToolUtils.updateTrackerAfterMutation(
+          filePath: plan.filePath,
+          fileTracker: fileTracker,
+        );
+        restored.add(plan.filePath);
+      } catch (error) {
+        failed.add('${plan.filePath} ($error)');
+      }
+    }
+    if (failed.isEmpty) {
+      return ' Rolled back ${restored.length} previously written file${restored.length == 1 ? '' : 's'}.';
+    }
+    return ' Rollback attempted: restored ${restored.length}; failed ${failed.length}: ${failed.join('; ')}.';
   }
 }
 
@@ -268,14 +333,28 @@ class _FileDiffPlan {
     required this.filePath,
     required this.file,
     required this.existed,
+    required this.originalContent,
     required this.newContent,
     required this.hunkCount,
   });
   final String filePath;
   final File file;
   final bool existed;
+  final String originalContent;
   final String newContent;
   final int hunkCount;
+}
+
+class _AppliedFileDiff {
+  _AppliedFileDiff({
+    required this.plan,
+    required this.versionId,
+    required this.beforeContentForLedger,
+  });
+
+  final _FileDiffPlan plan;
+  final String? versionId;
+  final String? beforeContentForLedger;
 }
 
 class _FileDiffResult {

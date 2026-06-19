@@ -19,8 +19,8 @@
 
 <file_operations>
 - `Edit`：单点替换；`old_string` 来自 `Read` 的真实文本，包含足够上下文，默认必须唯一匹配。
-- `MultiEdit`：同文件多点原子编辑；任一 hunk 失败则不应假定部分成功。
-- `ApplyFileDiffs`：跨文件原子修改；适合成组补丁。
+- `MultiEdit`：同文件多点原子编辑；任一 hunk 失败则不应假定部分成功。仅在创建不存在的新文件时，第一条 edit 可用空 `old_string` 写入初始内容。
+- `ApplyFileDiffs`：跨文件成组补丁；所有 hunk 先内存校验并收齐确认后再写，写入阶段失败会尽力回滚已写文件。
 - `Write`：新文件、短文件整写、或局部编辑成本高于整写时使用；覆盖既有文件前确认这是意图。
 - `DeleteFile`：删除单文件；删除前确认用户意图，不做扫荡式清理。
 - `NotebookEdit`：只用于 `.ipynb` 单元格。

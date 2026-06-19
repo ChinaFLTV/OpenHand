@@ -95,31 +95,30 @@ class AiMultiEditTool extends AiTool {
       initialContent = '';
     }
     var content = initialContent;
-    var isCreatingFile = !fileExists;
-    for (final rawEdit in edits) {
+    for (var editIndex = 0; editIndex < edits.length; editIndex++) {
+      final rawEdit = edits[editIndex];
       if (rawEdit is! Map) {
         return AiToolUtils.invalidResult(
           'MultiEdit',
-          'Each edit must be an object.',
+          'edits[$editIndex] must be an object.',
         );
       }
       final edit = Map<String, Object?>.from(rawEdit);
       final oldString = '${edit['old_string'] ?? ''}';
       final newString = '${edit['new_string'] ?? ''}';
       final replaceAll = edit['replace_all'] == true;
-      if (oldString.isEmpty && isCreatingFile) {
-        content = newString;
-        isCreatingFile = false;
-        continue;
-      }
-      final replacement = AiToolUtils.replaceOnceOrAll(
+      final replacement = AiToolUtils.applyExactStringEdit(
         content: content,
         oldString: oldString,
         newString: newString,
         replaceAll: replaceAll,
+        allowCreationFromEmptyOldString: !fileExists && editIndex == 0,
       );
       if (!replacement.success) {
-        return AiToolUtils.invalidResult('MultiEdit', replacement.errorMessage);
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'edits[$editIndex] failed: ${replacement.errorMessage}',
+        );
       }
       content = replacement.content;
     }

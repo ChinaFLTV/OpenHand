@@ -386,6 +386,40 @@ class AiToolUtils {
     );
   }
 
+  static ReplacementResult applyExactStringEdit({
+    required String content,
+    required String oldString,
+    required String newString,
+    required bool replaceAll,
+    required bool allowCreationFromEmptyOldString,
+  }) {
+    if (oldString.isEmpty) {
+      if (!allowCreationFromEmptyOldString) {
+        return const ReplacementResult.failure(
+          'old_string must not be empty. Empty old_string is only allowed as '
+          'the first edit when creating a new file.',
+        );
+      }
+      if (replaceAll) {
+        return const ReplacementResult.failure(
+          'replace_all is not valid when old_string is empty for file creation.',
+        );
+      }
+      return ReplacementResult.success(newString);
+    }
+    if (oldString == newString) {
+      return const ReplacementResult.failure(
+        'old_string and new_string must differ.',
+      );
+    }
+    return replaceOnceOrAll(
+      content: content,
+      oldString: oldString,
+      newString: newString,
+      replaceAll: replaceAll,
+    );
+  }
+
   static AiToolExecutionResult invalidResult(String command, String message) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.invalidArguments,

@@ -1840,7 +1840,8 @@ class AiToolRuntimeService {
           },
           'old_string': <String, Object?>{
             'type': 'string',
-            'description': 'The exact text to find and replace.',
+            'description':
+                'The exact text to find and replace. Must be non-empty and match exactly once unless replace_all is true.',
           },
           'new_string': <String, Object?>{
             'type': 'string',
@@ -1861,7 +1862,8 @@ class AiToolRuntimeService {
       name: 'MultiEdit',
       description:
           'Perform multiple exact string replacements in a file. '
-          'The file_path MUST be an absolute path (starting with /).',
+          'The file_path MUST be an absolute path (starting with /). '
+          'For a new file only, the first edit may use empty old_string to seed the file content.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1875,9 +1877,17 @@ class AiToolRuntimeService {
             'items': <String, Object?>{
               'type': 'object',
               'properties': <String, Object?>{
-                'old_string': <String, Object?>{'type': 'string'},
+                'old_string': <String, Object?>{
+                  'type': 'string',
+                  'description':
+                      'Exact text to replace. Empty old_string is allowed only for the first edit when creating a new file.',
+                },
                 'new_string': <String, Object?>{'type': 'string'},
-                'replace_all': <String, Object?>{'type': 'boolean'},
+                'replace_all': <String, Object?>{
+                  'type': 'boolean',
+                  'description':
+                      'If true, replace every occurrence. Not valid with empty old_string.',
+                },
               },
               'required': <String>['old_string', 'new_string'],
               'additionalProperties': false,
@@ -1895,7 +1905,8 @@ class AiToolRuntimeService {
           'Apply hunk-level edits across multiple files in one atomic call. '
           'Use when a single logical change touches >1 file (rename, signature update, config sync). '
           'Each diff has `file_path` + `hunks` (array of {old_string, new_string, replace_all?}). '
-          'Plans all hunks in memory first; if any hunk fails to match, no file is written. '
+          'Plans all hunks in memory and collects all confirmations before writing; if any hunk fails or confirmation is denied, no file is written. '
+          'If a write or verification fails after writing starts, previously written files are rolled back best-effort. '
           'file_path MUST be absolute. Up to 32 files per call.',
       parameters: const <String, Object?>{
         'type': 'object',
@@ -1911,9 +1922,17 @@ class AiToolRuntimeService {
                   'items': <String, Object?>{
                     'type': 'object',
                     'properties': <String, Object?>{
-                      'old_string': <String, Object?>{'type': 'string'},
+                      'old_string': <String, Object?>{
+                        'type': 'string',
+                        'description':
+                            'Exact text to replace. Empty old_string is allowed only for the first hunk when creating a new file.',
+                      },
                       'new_string': <String, Object?>{'type': 'string'},
-                      'replace_all': <String, Object?>{'type': 'boolean'},
+                      'replace_all': <String, Object?>{
+                        'type': 'boolean',
+                        'description':
+                            'If true, replace every occurrence. Not valid with empty old_string.',
+                      },
                     },
                     'required': <String>['old_string', 'new_string'],
                     'additionalProperties': false,
