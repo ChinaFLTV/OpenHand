@@ -2255,7 +2255,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Désactivé par défaut. Ne se déclenche que sur les résultats réels failed/timed_out ; ne réessaiera pas les arguments invalides ou les appels refusés.';
+      'Désactivé par défaut. Ne réessaie que les outils sans effet de bord lors de vrais résultats failed/timed_out ; jamais les arguments invalides, appels refusés, commandes d’écriture, modifications de fichiers, processus en arrière-plan, changements de compétence ou écritures mémoire.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

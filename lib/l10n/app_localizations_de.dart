@@ -2238,7 +2238,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Standardmäßig aus. Wird nur bei echten failed/timed_out-Ergebnissen ausgelöst; ungültige Argumente oder abgelehnte Aufrufe werden nicht erneut versucht.';
+      'Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

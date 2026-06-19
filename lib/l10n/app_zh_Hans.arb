@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "失败/超时自动重试",
-  "builtinToolRetryBody": "默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。",
+  "builtinToolRetryBody": "默认关闭。仅对无副作用工具的真正失败 (failed/timed_out) 自动重试；不会重试参数错误、被拒绝调用、写命令、文件编辑、后台进程、技能变更或记忆写入。",
   "builtinToolMaxRetriesLabel": "最大重试次数 (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

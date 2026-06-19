@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "Bei Fehlschlag / Timeout erneut versuchen",
-  "builtinToolRetryBody": "Standardmäßig aus. Wird nur bei echten failed/timed_out-Ergebnissen ausgelöst; ungültige Argumente oder abgelehnte Aufrufe werden nicht erneut versucht.",
+  "builtinToolRetryBody": "Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.",
   "builtinToolMaxRetriesLabel": "Max. Wiederholungen (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

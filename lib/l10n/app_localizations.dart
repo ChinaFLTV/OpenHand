@@ -4037,7 +4037,7 @@ abstract class AppLocalizations {
   /// No description provided for @builtinToolRetryBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。'**
+  /// **'默认关闭。仅对无副作用工具的真正失败 (failed/timed_out) 自动重试；不会重试参数错误、被拒绝调用、写命令、文件编辑、后台进程、技能变更或记忆写入。'**
   String get builtinToolRetryBody;
 
   /// No description provided for @builtinToolMaxRetriesLabel.

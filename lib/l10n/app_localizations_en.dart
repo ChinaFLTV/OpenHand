@@ -2210,7 +2210,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Off by default. Only triggers on real failed/timed_out outcomes; will not retry invalid arguments or denied calls.';
+      'Off by default. Only retries side-effect-free tools on real failed/timed_out outcomes; never retries invalid arguments, denied calls, write commands, file edits, background processes, skill changes, or memory writes.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

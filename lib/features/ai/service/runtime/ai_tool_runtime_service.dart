@@ -232,6 +232,19 @@ class AiToolRuntimeService {
     );
   }
 
+  static const Set<AiBuiltinToolKind> _nonRetryableSideEffectBuiltinKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.bash,
+        AiBuiltinToolKind.bashBackground,
+        AiBuiltinToolKind.edit,
+        AiBuiltinToolKind.multiEdit,
+        AiBuiltinToolKind.applyFileDiffs,
+        AiBuiltinToolKind.write,
+        AiBuiltinToolKind.notebookEdit,
+        AiBuiltinToolKind.deleteFile,
+        AiBuiltinToolKind.skillManager,
+      };
+
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
   final McpToolDiscoveryService _mcpToolService;
@@ -701,9 +714,8 @@ class AiToolRuntimeService {
     // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
     //   • timeout: Duration(seconds: cfg.effectiveTimeoutSeconds) 包裹 future；
-    //   • retry: 在 retryOnFailure=true 且 maxRetries>0 时，针对**真正失败**
-    //     （TimeoutException / 抛出异常 / status=failed/timed_out）的情况
-    //     重跑——但跳过 invalid_arguments / 已被用户拒绝执行等"非瞬时"失败。
+    //   • retry: 仅对无副作用工具的瞬时失败启用。写文件、Bash、后台进程、
+    //     技能管理、Memory 写入等可能产生副作用的调用不自动重放，避免重复写入。
     final builtinCfg = resolvedTool.builtinConfig;
     // MCP servers can become unresponsive (network hang, server crash, slow
     // remote tool). Without a guard, `_executeMcpTool` would await the
@@ -751,7 +763,15 @@ class AiToolRuntimeService {
 
     bool isRetryableResult(AiToolExecutionResult r) {
       // 仅在用户启用 retry-on-failure 时判定。
-      if (builtinCfg == null || !builtinCfg.retryOnFailure) return false;
+      if (!_retryEnabled(builtinCfg)) return false;
+      if (_retrySuppressionReason(
+            tool: resolvedTool,
+            decodedArguments: decodedArguments,
+            result: r,
+          ) !=
+          null) {
+        return false;
+      }
       switch (r.status) {
         case BashToolExecutionStatus.failed:
         case BashToolExecutionStatus.timedOut:
@@ -809,17 +829,33 @@ class AiToolRuntimeService {
         try {
           attemptResult = await dispatchWithTimeout();
           if (!isRetryableResult(attemptResult) || attempts > maxRetries) {
+            attemptResult = _annotateRetrySuppressionIfNeeded(
+              tool: resolvedTool,
+              decodedArguments: decodedArguments,
+              result: attemptResult,
+              builtinConfig: builtinCfg,
+            );
             break;
           }
         } catch (error) {
-          if (builtinCfg == null ||
-              !builtinCfg.retryOnFailure ||
-              attempts > maxRetries) {
+          if (!_retryEnabled(builtinCfg) ||
+              attempts > maxRetries ||
+              _retrySuppressionReason(
+                    tool: resolvedTool,
+                    decodedArguments: decodedArguments,
+                  ) !=
+                  null) {
             attemptResult = _toolExecutionErrorResult(
               tool: resolvedTool,
               fallbackWorkingDirectory: hookWorkingDirectory,
               error: error,
               durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+            );
+            attemptResult = _annotateRetrySuppressionIfNeeded(
+              tool: resolvedTool,
+              decodedArguments: decodedArguments,
+              result: attemptResult,
+              builtinConfig: builtinCfg,
             );
             break;
           }
@@ -940,6 +976,78 @@ class AiToolRuntimeService {
         'tool_output_budget_chars': maxToolOutputChars,
       },
     );
+  }
+
+  bool _retryEnabled(AiBuiltinToolConfig? config) {
+    return config != null &&
+        config.retryOnFailure &&
+        config.effectiveMaxRetries > 0;
+  }
+
+  AiToolExecutionResult _annotateRetrySuppressionIfNeeded({
+    required AiResolvedTool tool,
+    required Map<String, Object?> decodedArguments,
+    required AiToolExecutionResult result,
+    required AiBuiltinToolConfig? builtinConfig,
+  }) {
+    if (!_retryEnabled(builtinConfig)) return result;
+    if (!_isRetryableFailureStatus(result.status)) return result;
+    final reason = _retrySuppressionReason(
+      tool: tool,
+      decodedArguments: decodedArguments,
+      result: result,
+    );
+    if (reason == null) return result;
+    return AiToolUtils.withMergedMetadata(result, <String, Object?>{
+      'retry_suppressed': true,
+      'retry_suppressed_reason': reason,
+    });
+  }
+
+  bool _isRetryableFailureStatus(BashToolExecutionStatus status) {
+    return status == BashToolExecutionStatus.failed ||
+        status == BashToolExecutionStatus.timedOut;
+  }
+
+  String? _retrySuppressionReason({
+    required AiResolvedTool tool,
+    required Map<String, Object?> decodedArguments,
+    AiToolExecutionResult? result,
+  }) {
+    if (tool.source == AiRuntimeToolSource.builtin &&
+        _builtinToolCallMayHaveSideEffects(tool, decodedArguments)) {
+      return 'builtin_tool_may_have_side_effects';
+    }
+    if (result != null && _toolResultHasMutationSignal(result)) {
+      return 'tool_result_has_mutation_signal';
+    }
+    return null;
+  }
+
+  bool _builtinToolCallMayHaveSideEffects(
+    AiResolvedTool tool,
+    Map<String, Object?> decodedArguments,
+  ) {
+    final kind = tool.builtinKind;
+    if (kind == null) return false;
+    if (_nonRetryableSideEffectBuiltinKinds.contains(kind)) return true;
+    final registeredTool = _toolRegistry.getTool(kind);
+    if (registeredTool?.isDestructive == true) return true;
+    if (kind == AiBuiltinToolKind.memory) {
+      final action = '${decodedArguments['action'] ?? ''}'.trim().toLowerCase();
+      return action.isNotEmpty && action != 'list';
+    }
+    return false;
+  }
+
+  bool _toolResultHasMutationSignal(AiToolExecutionResult result) {
+    if (result.isWriteCommand) return true;
+    final metadata = result.metadata;
+    return metadata['file_mutation_kind'] != null ||
+        metadata['file_mutation_path'] != null ||
+        metadata['file_mutation_paths'] != null ||
+        metadata['file_mutation_ledger_record_id'] != null ||
+        metadata['file_mutation_ledger_record_ids'] != null;
   }
 
   /// 退化版 ledger 记录：当上游工具只返回 `file_mutation_path(s)`，

@@ -145,8 +145,9 @@ class AiBuiltinToolConfig {
   final bool? requireConfirmation;
 
   /// 失败或超时后是否自动重试。默认 false。
-  /// 仅在工具调用产生明确失败状态（status=failed/timed_out 或抛出异常）
-  /// 时才会触发重试；invalid_arguments / 已确认拒绝执行等状态不会重试。
+  /// 仅用于无副作用工具的瞬时失败；写文件、Bash、后台进程、技能管理、
+  /// Memory 写入等可能产生副作用的调用会由运行时禁止自动重放。
+  /// invalid_arguments / 已确认拒绝执行等状态不会重试。
   final bool retryOnFailure;
 
   /// 最多重试次数（不含首次执行）。范围 [0, [maxRetriesUpperBound]]。

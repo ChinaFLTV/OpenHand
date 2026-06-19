@@ -2118,7 +2118,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      '既定はオフ。実際の failed/timed_out のみ再試行されます。引数不正や拒否された呼び出しは再試行しません。';
+      '既定はオフ。副作用のないツールで実際の failed/timed_out の場合のみ再試行します。引数不正、拒否された呼び出し、書き込みコマンド、ファイル編集、バックグラウンドプロセス、スキル変更、メモリ書き込みは再試行しません。';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

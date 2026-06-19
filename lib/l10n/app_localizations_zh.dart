@@ -2089,7 +2089,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      '默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。';
+      '默认关闭。仅对无副作用工具的真正失败 (failed/timed_out) 自动重试；不会重试参数错误、被拒绝调用、写命令、文件编辑、后台进程、技能变更或记忆写入。';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {
@@ -9972,7 +9972,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get builtinToolRetryBody =>
-      '默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。';
+      '默认关闭。仅对无副作用工具的真正失败 (failed/timed_out) 自动重试；不会重试参数错误、被拒绝调用、写命令、文件编辑、后台进程、技能变更或记忆写入。';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {
@@ -17854,7 +17854,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get builtinToolRetryBody =>
-      '預設關閉。僅對真正失敗 (failed/timed_out) 觸發，不會重試參數錯誤或被拒絕的呼叫。';
+      '預設關閉。僅對無副作用工具的真正失敗 (failed/timed_out) 自動重試；不會重試參數錯誤、被拒絕呼叫、寫入命令、檔案編輯、背景程序、技能變更或記憶寫入。';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {
