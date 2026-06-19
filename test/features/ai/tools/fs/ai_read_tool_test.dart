@@ -42,6 +42,24 @@ void main() {
       expect(result.metadata['read_file_path'], endsWith('/sample.txt'));
     });
 
+    test('rejects special device paths before filesystem reading', () async {
+      for (final path in <String>['/dev/zero', '/proc/self/fd/0']) {
+        final result = await AiReadTool().execute(
+          _context(
+            id: 'read-blocked-device-$path',
+            filePath: path,
+            offset: 1,
+            limit: 2,
+            fileTracker: AiFileTrackerService(),
+          ),
+        );
+
+        expect(result.status.storageValue, 'invalid_arguments');
+        expect(result.stderr, contains('special device path'));
+        expect(result.stderr, isNot(contains('File does not exist')));
+      }
+    });
+
     test('offset is interpreted as a 1-based starting line', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_read_tool_test_',

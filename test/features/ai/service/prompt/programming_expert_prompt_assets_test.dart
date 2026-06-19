@@ -43,6 +43,7 @@ void main() {
       expect(developer, contains('ToolSearch'));
       expect(developer, contains('select:<exact_name>'));
       expect(developer, contains('PDF 可传 Claude 风格 `pages`'));
+      expect(developer, contains('会拒绝可能阻塞或无限输出的特殊设备路径'));
       expect(developer, contains('`verify` 子代理规则'));
       expect(developer, contains('VERDICT: PASS'));
       expect(developer, contains('tool_output_persisted_path'));

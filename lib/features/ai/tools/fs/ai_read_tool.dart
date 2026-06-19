@@ -20,6 +20,21 @@ class AiReadTool extends AiTool {
   static const String _unchangedSinceLastReadMessage =
       'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
 
+  static const Set<String> _blockedDeviceReadPaths = <String>{
+    '/dev/zero',
+    '/dev/random',
+    '/dev/urandom',
+    '/dev/full',
+    '/dev/stdin',
+    '/dev/tty',
+    '/dev/console',
+    '/dev/stdout',
+    '/dev/stderr',
+    '/dev/fd/0',
+    '/dev/fd/1',
+    '/dev/fd/2',
+  };
+
   final AiFileReadRenderer _renderer;
 
   @override
@@ -37,6 +52,12 @@ class AiReadTool extends AiTool {
       );
     }
     final filePath = AiToolUtils.resolvePath(rawFilePath);
+    if (_isBlockedDeviceReadPath(filePath)) {
+      return AiToolUtils.invalidResult(
+        'Read',
+        'Refused to read special device path that may block, never reach EOF, or produce infinite output: $filePath',
+      );
+    }
     final file = File(filePath);
     if (!await file.exists()) {
       return AiToolUtils.invalidResult(
@@ -256,6 +277,13 @@ class AiReadTool extends AiTool {
         'Invalid PDF pages range "$raw". Use "1", "1-5", or comma-separated ranges up to $_maxPdfPageRangeCount pages.',
       ),
     );
+  }
+
+  bool _isBlockedDeviceReadPath(String filePath) {
+    final normalized = p.normalize(filePath);
+    if (_blockedDeviceReadPaths.contains(normalized)) return true;
+    if (!normalized.startsWith('/proc/')) return false;
+    return RegExp(r'/fd/[0-2]$').hasMatch(normalized);
   }
 }
 

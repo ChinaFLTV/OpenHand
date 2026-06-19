@@ -465,6 +465,7 @@ void main() {
       final properties = definition?.parameters['properties'] as Map?;
 
       expect(definition, isNotNull);
+      expect(definition?.description, contains('special device paths'));
       expect(properties?['pages'], containsPair('type', 'string'));
     });
   });

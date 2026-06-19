@@ -2440,7 +2440,8 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.read,
       name: 'Read',
       description:
-          'Read a local file from disk. Accepts absolute or relative file_path values and resolves them against the working directory.',
+          'Read a local file from disk. Accepts absolute or relative file_path values and resolves them against the working directory. '
+          'Refuses special device paths that may block or produce infinite output.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
