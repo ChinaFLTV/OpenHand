@@ -28,7 +28,7 @@ class AiToolUtils {
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
 
   static int _safeWriteArtifactCounter = 0;
-  static final Map<String, Future<void>> _textWriteLocks =
+  static final Map<String, Future<void>> _fileMutationLocks =
       <String, Future<void>>{};
 
   static String defaultWorkingDirectory() {
@@ -765,7 +765,7 @@ class AiToolUtils {
   }
 
   static Future<void> writeTextFileSafely(File file, String content) async {
-    await _runWithTextWriteLock(
+    await _runWithFileMutationLock(
       file,
       () => _writeTextFileSafelyUnlocked(file, content),
     );
@@ -817,7 +817,7 @@ class AiToolUtils {
     required bool requireExistingFileRead,
     AiFileTrackerService? fileTracker,
   }) async {
-    return _runWithTextWriteLock(file, () async {
+    return _runWithFileMutationLock(file, () async {
       final entityType = await FileSystemEntity.type(
         file.path,
         followLinks: false,
@@ -855,27 +855,27 @@ class AiToolUtils {
     });
   }
 
-  static Future<T> _runWithTextWriteLock<T>(
+  static Future<T> _runWithFileMutationLock<T>(
     File file,
     Future<T> Function() operation,
   ) async {
-    final key = await _textWriteLockKey(file);
-    final previous = _textWriteLocks[key] ?? Future<void>.value();
+    final key = await _fileMutationLockKey(file);
+    final previous = _fileMutationLocks[key] ?? Future<void>.value();
     final gate = Completer<void>();
     final gateFuture = gate.future;
-    _textWriteLocks[key] = gateFuture;
+    _fileMutationLocks[key] = gateFuture;
     try {
       await previous.catchError((Object _, StackTrace _) {});
       return await operation();
     } finally {
       if (!gate.isCompleted) gate.complete();
-      if (identical(_textWriteLocks[key], gateFuture)) {
-        _textWriteLocks.remove(key);
+      if (identical(_fileMutationLocks[key], gateFuture)) {
+        _fileMutationLocks.remove(key);
       }
     }
   }
 
-  static Future<String> _textWriteLockKey(File file) async {
+  static Future<String> _fileMutationLockKey(File file) async {
     final rawPath = p.normalize(file.absolute.path);
     try {
       final entityType = await FileSystemEntity.type(
@@ -960,37 +960,39 @@ class AiToolUtils {
     required Set<String> previouslyReadFiles,
     AiFileTrackerService? fileTracker,
   }) async {
-    final readValidation = await validateReadBeforeMutation(
-      toolName: toolName,
-      filePath: file.path,
-      previouslyReadFiles: previouslyReadFiles,
-      fileTracker: fileTracker,
-    );
-    if (readValidation != null) return readValidation;
-
-    final entityType = await FileSystemEntity.type(
-      file.path,
-      followLinks: false,
-    );
-    if (entityType == FileSystemEntityType.notFound) {
-      return invalidResult(
-        toolName,
-        '$toolName target no longer exists before deletion. Re-read the path before retrying: ${file.path}',
+    return _runWithFileMutationLock(file, () async {
+      final readValidation = await validateReadBeforeMutation(
+        toolName: toolName,
+        filePath: file.path,
+        previouslyReadFiles: previouslyReadFiles,
+        fileTracker: fileTracker,
       );
-    }
-    if (entityType == FileSystemEntityType.directory) {
-      return invalidResult(
-        toolName,
-        '$toolName refuses to delete a directory: ${file.path}',
-      );
-    }
+      if (readValidation != null) return readValidation;
 
-    await file.delete();
-    await updateTrackerAfterMutation(
-      filePath: file.path,
-      fileTracker: fileTracker,
-    );
-    return null;
+      final entityType = await FileSystemEntity.type(
+        file.path,
+        followLinks: false,
+      );
+      if (entityType == FileSystemEntityType.notFound) {
+        return invalidResult(
+          toolName,
+          '$toolName target no longer exists before deletion. Re-read the path before retrying: ${file.path}',
+        );
+      }
+      if (entityType == FileSystemEntityType.directory) {
+        return invalidResult(
+          toolName,
+          '$toolName refuses to delete a directory: ${file.path}',
+        );
+      }
+
+      await file.delete();
+      await updateTrackerAfterMutation(
+        filePath: file.path,
+        fileTracker: fileTracker,
+      );
+      return null;
+    });
   }
 
   static Future<void> _copyExistingFileMode(

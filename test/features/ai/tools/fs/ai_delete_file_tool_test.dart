@@ -8,6 +8,7 @@ import 'package:openhand/features/ai/service/fs/ai_file_history_service.dart';
 import 'package:openhand/features/ai/service/fs/ai_file_tracker_service.dart';
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 import 'package:openhand/features/ai/tools/ai_tool_execution_context.dart';
+import 'package:openhand/features/ai/tools/ai_tool_utils.dart';
 import 'package:openhand/features/ai/tools/fs/ai_delete_file_tool.dart';
 
 void main() {
@@ -99,6 +100,38 @@ void main() {
       expect(result.stderr, contains('Re-read the file before editing'));
       expect(await file.readAsString(), 'external\n');
     });
+
+    test('serializes delete and write final guards per file path', () async {
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+      final tracker = _ObservingFileTrackerService(
+        delay: const Duration(milliseconds: 50),
+      );
+      await tracker.recordFileRead(file.path);
+
+      final results = await Future.wait(<Future<AiToolExecutionResult?>>[
+        AiToolUtils.deleteFileWithMutationGuard(
+          toolName: 'DeleteFile',
+          file: file,
+          previouslyReadFiles: <String>{file.path},
+          fileTracker: tracker,
+        ),
+        AiToolUtils.writeTextFileWithMutationGuard(
+          toolName: 'Write',
+          file: file,
+          content: 'replacement\n',
+          previouslyReadFiles: <String>{file.path},
+          requireExistingFileRead: true,
+          fileTracker: tracker,
+        ),
+      ]);
+
+      expect(tracker.maxConcurrentValidations, 1);
+      expect(results, everyElement(isNull));
+      if (await file.exists()) {
+        expect(await file.readAsString(), 'replacement\n');
+      }
+    });
   });
 }
 
@@ -159,6 +192,28 @@ class _MutatingFileHistoryService extends AiFileHistoryService {
     await file.writeAsString(content);
     await file.setLastModified(modified);
     return 'mutated-during-history';
+  }
+}
+
+class _ObservingFileTrackerService extends AiFileTrackerService {
+  _ObservingFileTrackerService({required this.delay});
+
+  final Duration delay;
+  int _activeValidations = 0;
+  int maxConcurrentValidations = 0;
+
+  @override
+  Future<String?> validateSafeToWrite(String filePath) async {
+    _activeValidations += 1;
+    if (_activeValidations > maxConcurrentValidations) {
+      maxConcurrentValidations = _activeValidations;
+    }
+    try {
+      await Future<void>.delayed(delay);
+      return await super.validateSafeToWrite(filePath);
+    } finally {
+      _activeValidations -= 1;
+    }
   }
 }
 
