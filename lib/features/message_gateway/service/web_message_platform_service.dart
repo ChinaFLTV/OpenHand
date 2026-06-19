@@ -4887,6 +4887,7 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
       autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
+      autoTitleFetchMode: _settingsController.aiAutoTitleFetchMode,
       autoTitleMaxRetryCount: _settingsController.aiAutoTitleMaxRetryCount,
       streamMaxCharsPerSecond: _settingsController.aiStreamMaxCharsPerSecond,
       streamMaxMessageCardsPerSecond:

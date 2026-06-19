@@ -7973,7 +7973,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsConfigureDefaultBehaviourForNewSessions.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。'**
+  /// **'配置新会话的默认行为，包括超时时间、标题获取、默认模式与权限。'**
   String get settingsConfigureDefaultBehaviourForNewSessions;
 
   /// No description provided for @settingsSendTimeoutS.
@@ -8021,14 +8021,38 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAutoTitle.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'自动标题'**
+  /// **'自动获取标题'**
   String get settingsAutoTitle;
 
   /// No description provided for @settingsWhenEnabledATitleIsAutomatically.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'开启后，新会话发送首条消息时将自动生成会话标题。'**
+  /// **'开启后，新会话发送首条有效文本消息时将自动获取会话标题。'**
   String get settingsWhenEnabledATitleIsAutomatically;
+
+  /// No description provided for @settingsTitleFetchMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'获取标题方式'**
+  String get settingsTitleFetchMode;
+
+  /// No description provided for @settingsTitleFetchModeDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'异步不会阻塞首轮回复；同步会先获取标题，再发送首轮 AI 请求。'**
+  String get settingsTitleFetchModeDescription;
+
+  /// No description provided for @settingsTitleFetchModeAsync.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'异步'**
+  String get settingsTitleFetchModeAsync;
+
+  /// No description provided for @settingsTitleFetchModeSync.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'同步'**
+  String get settingsTitleFetchModeSync;
 
   /// No description provided for @settingsDefaultSessionMode.
   ///

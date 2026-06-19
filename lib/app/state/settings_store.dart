@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_auto_title_fetch_mode.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
@@ -265,6 +266,7 @@ class SettingsStore {
       // 持久化层不再写出 `ai_stream_throttle_template_overrides`；
       // read 路径会静默丢弃任何老 doc 上的同名字段。
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
+      'ai_auto_title_fetch_mode': snapshot.aiAutoTitleFetchMode.storageValue,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
       'ai_default_full_access_permission':
           snapshot.aiDefaultFullAccessPermission,
@@ -824,6 +826,9 @@ class SettingsStore {
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
+    final aiAutoTitleFetchMode = AiAutoTitleFetchMode.fromStorage(
+      '${json['ai_auto_title_fetch_mode'] ?? ''}',
+    );
     final rawDefaultSessionMode = '${json['ai_default_session_mode'] ?? ''}'
         .trim();
     final aiDefaultSessionMode = rawDefaultSessionMode == 'plan'
@@ -1185,6 +1190,7 @@ class SettingsStore {
       // 2026-05-22 — v3 schema 起，`aiStreamThrottleTemplateOverrides`
       // 字段已从 AppSettingsSnapshot 上移除（task 4.1），此处不再透传。
       aiAutoTitleEnabled: aiAutoTitleEnabled,
+      aiAutoTitleFetchMode: aiAutoTitleFetchMode,
       aiDefaultSessionMode: aiDefaultSessionMode,
       aiDefaultFullAccessPermission: aiDefaultFullAccessPermission,
       aiModels: aiModels,

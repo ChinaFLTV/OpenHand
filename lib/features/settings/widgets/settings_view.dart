@@ -2158,16 +2158,53 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsAutoTitle,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsWhenEnabledATitleIsAutomatically,
+                title: l10n.settingsAutoTitle,
+                subtitle: l10n.settingsWhenEnabledATitleIsAutomatically,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: _SettingsSwitch(
                     value: settingsController.aiAutoTitleEnabled,
                     onChanged: (value) =>
                         settingsController.updateAiAutoTitleEnabled(value),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.settingsTitleFetchMode,
+                subtitle: l10n.settingsTitleFetchModeDescription,
+                controlMaxWidth: 360,
+                control: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<AiAutoTitleFetchMode>(
+                    segments: [
+                      ButtonSegment<AiAutoTitleFetchMode>(
+                        value: AiAutoTitleFetchMode.asynchronous,
+                        icon: const Icon(Icons.bolt_outlined),
+                        label: Text(
+                          l10n.settingsTitleFetchModeAsync,
+                          softWrap: false,
+                        ),
+                      ),
+                      ButtonSegment<AiAutoTitleFetchMode>(
+                        value: AiAutoTitleFetchMode.synchronous,
+                        icon: const Icon(Icons.sync_rounded),
+                        label: Text(
+                          l10n.settingsTitleFetchModeSync,
+                          softWrap: false,
+                        ),
+                      ),
+                    ],
+                    selected: {settingsController.aiAutoTitleFetchMode},
+                    onSelectionChanged: settingsController.aiAutoTitleEnabled
+                        ? (selection) async {
+                            if (selection.isEmpty) return;
+                            final mode = selection.first;
+                            await settingsController.updateAiAutoTitleFetchMode(
+                              mode,
+                            );
+                          }
+                        : null,
                   ),
                 ),
               ),

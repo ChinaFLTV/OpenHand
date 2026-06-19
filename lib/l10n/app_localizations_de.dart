@@ -4457,7 +4457,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      'Standardverhalten für neue Sitzungen konfigurieren, einschließlich Timeouts, Auto-Titel, Standardmodus und Berechtigungen.';
+      'Standardverhalten für neue Sitzungen konfigurieren, einschließlich Timeouts, Titelabruf, Standardmodus und Berechtigungen.';
 
   @override
   String get settingsSendTimeoutS => 'Sende-Timeout (s)';
@@ -4484,11 +4484,24 @@ class AppLocalizationsDe extends AppLocalizations {
       'Maximale Leerlauf-Wartezeit zwischen Stream-Chunks. Bei Überschreitung führt dies zu „Request timed out.“. Standard: 120 s.';
 
   @override
-  String get settingsAutoTitle => 'Auto-Titel';
+  String get settingsAutoTitle => 'Automatischer Titelabruf';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      'Wenn aktiviert, wird nach der ersten Nachricht in einer neuen Sitzung automatisch ein Titel generiert.';
+      'Wenn aktiviert, wird nach der ersten gültigen Textnachricht in einer neuen Sitzung automatisch ein Sitzungstitel abgerufen.';
+
+  @override
+  String get settingsTitleFetchMode => 'Titelabrufmodus';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      'Asynchron blockiert die erste Antwort nicht; synchron ruft den Titel ab, bevor die erste KI-Anfrage gesendet wird.';
+
+  @override
+  String get settingsTitleFetchModeAsync => 'Asynchron';
+
+  @override
+  String get settingsTitleFetchModeSync => 'Synchron';
 
   @override
   String get settingsDefaultSessionMode => 'Standard-Sitzungsmodus';

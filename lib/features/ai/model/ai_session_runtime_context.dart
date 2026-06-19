@@ -5,6 +5,7 @@ import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../skills/index.dart';
 import 'ai_allow_command_rule.dart';
+import 'ai_auto_title_fetch_mode.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
@@ -155,6 +156,7 @@ class AiSessionRuntimeContext {
     this.streamThrottleAutoMode = false,
     this.streamThrottleDurationSeconds = 0,
     this.autoTitleEnabled = true,
+    this.autoTitleFetchMode = AiAutoTitleFetchMode.asynchronous,
     this.autoTitleMaxRetryCount = 5,
     this.telemetryDebugEnabled = false,
     this.telemetryCaptureRawPayload = true,
@@ -408,6 +410,9 @@ class AiSessionRuntimeContext {
   /// Whether to auto-generate session titles.
   final bool autoTitleEnabled;
 
+  /// How automatic title generation is scheduled for the first text turn.
+  final AiAutoTitleFetchMode autoTitleFetchMode;
+
   /// 线程会话标题获取最大重试次数。
   final int autoTitleMaxRetryCount;
 
@@ -510,6 +515,7 @@ class AiSessionRuntimeContext {
       'chat_max_stream_line_buffer_bytes': chatMaxStreamLineBufferBytes,
       'fallback_title_max_characters': fallbackTitleMaxCharacters,
       'generated_title_max_characters': generatedTitleMaxCharacters,
+      'auto_title_fetch_mode': autoTitleFetchMode.storageValue,
       'minimum_meaningful_title_characters': minimumMeaningfulTitleCharacters,
       'minimum_meaningful_latin_title_words': minimumMeaningfulLatinTitleWords,
       'max_skill_content_length': maxSkillContentLength,

@@ -4477,7 +4477,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      'Configurez le comportement par défaut des nouvelles sessions, notamment les délais, le titre automatique, le mode par défaut et les autorisations.';
+      'Configurez le comportement par défaut des nouvelles sessions, notamment les délais, la récupération du titre, le mode par défaut et les autorisations.';
 
   @override
   String get settingsSendTimeoutS => 'Délai d’envoi (s)';
@@ -4504,11 +4504,24 @@ class AppLocalizationsFr extends AppLocalizations {
       'Attente d’inactivité maximale entre les blocs de flux. Au-delà, cela provoque « Request timed out. ». Par défaut : 120 s.';
 
   @override
-  String get settingsAutoTitle => 'Titre automatique';
+  String get settingsAutoTitle => 'Récupération auto du titre';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      'Lorsqu’activé, un titre est automatiquement généré après le premier message d’une nouvelle session.';
+      'Lorsqu’activé, un titre de session est récupéré après le premier message texte valide d’une nouvelle session.';
+
+  @override
+  String get settingsTitleFetchMode => 'Mode de récupération du titre';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      'Asynchrone ne bloque pas la première réponse ; synchrone récupère le titre avant d’envoyer la première requête IA.';
+
+  @override
+  String get settingsTitleFetchModeAsync => 'Asynchrone';
+
+  @override
+  String get settingsTitleFetchModeSync => 'Synchrone';
 
   @override
   String get settingsDefaultSessionMode => 'Mode de session par défaut';

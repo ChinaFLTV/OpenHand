@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_auto_title_fetch_mode.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
@@ -187,6 +188,7 @@ class SettingsController extends ChangeNotifier {
        _aiStreamThrottleConfigUpdatedAtMs =
            snapshot.aiStreamThrottleConfigUpdatedAtMs,
        _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled,
+       _aiAutoTitleFetchMode = snapshot.aiAutoTitleFetchMode,
        _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
        _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
@@ -323,6 +325,7 @@ class SettingsController extends ChangeNotifier {
   String _aiStreamThrottleCloudSyncToken;
   int _aiStreamThrottleConfigUpdatedAtMs;
   bool _aiAutoTitleEnabled;
+  AiAutoTitleFetchMode _aiAutoTitleFetchMode;
   String _aiDefaultSessionMode;
   bool _aiDefaultFullAccessPermission;
   List<AiModelConfig> _aiModels;
@@ -549,6 +552,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
+  AiAutoTitleFetchMode get aiAutoTitleFetchMode => _aiAutoTitleFetchMode;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
   bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
   String get displayUserMemoryFilePath =>
@@ -1867,6 +1871,16 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiAutoTitleFetchMode(AiAutoTitleFetchMode value) async {
+    return _commitMutation(() {
+      if (_aiAutoTitleFetchMode == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAutoTitleFetchMode = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateAiAutoTitleMaxRetryCount(int value) async {
     final clamped = value.clamp(
       AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
@@ -2758,6 +2772,7 @@ class SettingsController extends ChangeNotifier {
       aiStreamThrottleCloudSyncToken: _aiStreamThrottleCloudSyncToken,
       aiStreamThrottleConfigUpdatedAtMs: _aiStreamThrottleConfigUpdatedAtMs,
       aiAutoTitleEnabled: _aiAutoTitleEnabled,
+      aiAutoTitleFetchMode: _aiAutoTitleFetchMode,
       aiDefaultSessionMode: _aiDefaultSessionMode,
       aiDefaultFullAccessPermission: _aiDefaultFullAccessPermission,
       aiModels: List<AiModelConfig>.from(_aiModels),
@@ -2898,6 +2913,7 @@ class SettingsController extends ChangeNotifier {
     _aiStreamThrottleConfigUpdatedAtMs =
         snapshot.aiStreamThrottleConfigUpdatedAtMs;
     _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
+    _aiAutoTitleFetchMode = snapshot.aiAutoTitleFetchMode;
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);

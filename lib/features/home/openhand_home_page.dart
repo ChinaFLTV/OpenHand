@@ -3828,6 +3828,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
+      autoTitleFetchMode: settingsController.aiAutoTitleFetchMode,
       autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
@@ -4098,6 +4099,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamMaxMessageCardsPerSecond:
           settingsController.aiStreamMaxMessageCardsPerSecond,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
+      autoTitleFetchMode: settingsController.aiAutoTitleFetchMode,
       autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,

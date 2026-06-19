@@ -4256,7 +4256,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      '新しいセッションのデフォルト動作（タイムアウト、自動タイトル、デフォルトモード、権限など）を設定します。';
+      '新しいセッションのデフォルト動作（タイムアウト、タイトル取得、デフォルトモード、権限など）を設定します。';
 
   @override
   String get settingsSendTimeoutS => '送信タイムアウト (秒)';
@@ -4283,11 +4283,24 @@ class AppLocalizationsJa extends AppLocalizations {
       'ストリームチャンク間の最大アイドル待機時間。これを超えると「Request timed out.」となります。既定値：120 秒。';
 
   @override
-  String get settingsAutoTitle => '自動タイトル';
+  String get settingsAutoTitle => 'タイトルの自動取得';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      '有効にすると、新しいセッションの最初のメッセージの後にタイトルが自動生成されます。';
+      '有効にすると、新しいセッションの最初の有効なテキストメッセージ後にセッションタイトルを自動取得します。';
+
+  @override
+  String get settingsTitleFetchMode => 'タイトル取得方式';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      '非同期は最初の返信をブロックしません。同期は最初の AI リクエストを送信する前にタイトルを取得します。';
+
+  @override
+  String get settingsTitleFetchModeAsync => '非同期';
+
+  @override
+  String get settingsTitleFetchModeSync => '同期';
 
   @override
   String get settingsDefaultSessionMode => 'デフォルトセッションモード';

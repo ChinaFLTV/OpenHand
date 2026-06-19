@@ -10,6 +10,7 @@ import '../../../instructions/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_attachment.dart';
+import '../../model/ai_auto_title_fetch_mode.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
@@ -297,7 +298,7 @@ class AiPromptBuilder {
           latestUserMessage: latestUserMessage,
         );
     // 2026-05-30 — metadata 中删除「纯遥测」字段：
-    //   * session_title / session_updated_at：UI 元数据，模型无消费但会每轮变。
+    //   * session_updated_at：UI 元数据，模型无消费但会每轮变。
     //   * session_total_token_count / session_prompt_token_count /
     //     session_completion_token_count / session_message_counts：纯统计每轮
     //     抖动，模型不需要也用不到。
@@ -401,6 +402,15 @@ class AiPromptBuilder {
           staticSessionState[entry.key] = entry.value;
         } else {
           dynamicSessionState[entry.key] = entry.value;
+        }
+      }
+      final promptSessionTitle = _promptSessionTitleForMetadata(session);
+      if (promptSessionTitle != null) {
+        if (runtimeContext.autoTitleFetchMode ==
+            AiAutoTitleFetchMode.synchronous) {
+          staticSessionState['session_title'] = promptSessionTitle;
+        } else {
+          dynamicSessionState['session_title'] = promptSessionTitle;
         }
       }
     }
@@ -1113,6 +1123,18 @@ class AiPromptBuilder {
     return snapshot;
   }
 
+  String? _promptSessionTitleForMetadata(AiSession session) {
+    final title = session.title.trim();
+    if (title.isEmpty) {
+      return null;
+    }
+    if (!session.isTitleManuallyEdited &&
+        session.autoTitleGeneratedAt == null) {
+      return null;
+    }
+    return title;
+  }
+
   Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
@@ -1154,6 +1176,12 @@ class AiPromptBuilder {
           .workspaceInstructionDocuments
           .map((item) => item.path)
           .toList(growable: false);
+    }
+
+    final promptSessionTitle = _promptSessionTitleForMetadata(session);
+    if (promptSessionTitle != null &&
+        runtimeContext.autoTitleFetchMode == AiAutoTitleFetchMode.synchronous) {
+      staticState['session_title'] = promptSessionTitle;
     }
 
     // 2026-06-08 — 当前应用主题配置注入 [3s]，供所有模板的 AI 生成富文本内容
@@ -1207,12 +1235,19 @@ class AiPromptBuilder {
     final dynamicState = <String, Object?>{};
 
     // 2026-05-30 — 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
-    // - session.title：纯 UI 元数据，模型不消费；首轮后自动改名会单次击穿前缀缓存。
-    //   ⇒ 不进 [3d]。
+    // - session.title：同步获取时可进入 [3s]；异步获取会在首轮后变化，只允许进入
+    //   [3d]，避免击穿稳定前缀。
     // - session.mode：默认 chat 不写入；仅切到 plan 时显式标记，避免常态污染。
     // - 当前日期 / git 信息：见 [3s] / 工具调用兜底，[3d] 不再注入。
     if (session.mode != AiSessionMode.chat) {
       dynamicState['mode'] = session.mode.storageValue;
+    }
+
+    final promptSessionTitle = _promptSessionTitleForMetadata(session);
+    if (promptSessionTitle != null &&
+        runtimeContext.autoTitleFetchMode ==
+            AiAutoTitleFetchMode.asynchronous) {
+      dynamicState['session_title'] = promptSessionTitle;
     }
 
     // 2026-05-30 — 仅在真实存在压缩点（active=true）时注入 rehydration 块。

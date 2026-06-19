@@ -19,6 +19,7 @@ import '../hooks/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
+import 'model/ai_auto_title_fetch_mode.dart';
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
 import 'model/ai_input_cache_policy.dart';
@@ -276,10 +277,6 @@ class AiSessionController extends ChangeNotifier {
   static int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
-  static const Duration _automaticCacheBackgroundQuietPeriod = Duration(
-    seconds: 45,
-  );
-  static const Duration _automaticCacheBackgroundMaxWait = Duration(minutes: 3);
   // Sora-style media generation endpoints poll until the task finishes.
   // Real-world durations: image ~30s-2min, video ~3-15min, audio ~1-3min.
   // These timeouts must dwarf `connectTimeoutSeconds` so the polling loop
@@ -3663,8 +3660,41 @@ class AiSessionController extends ChangeNotifier {
                   preparedUserTurnWithMetadata.userMessage.content,
             );
             _replaceSessionInMemory(sessionWithFirstContent);
-            unawaited(_commitSessionLocked(sessionWithFirstContent));
+            final committedFirstContent = await _commitSessionLocked(
+              sessionWithFirstContent,
+            );
+            if (committedFirstContent) {
+              session = sessionWithFirstContent;
+            }
           }
+        }
+
+        final shouldFetchTitleSynchronously =
+            shouldScheduleAutoTitle &&
+            runtimeContext.autoTitleFetchMode ==
+                AiAutoTitleFetchMode.synchronous;
+        if (shouldFetchTitleSynchronously) {
+          final syncTitleStopwatch = Stopwatch()..start();
+          await _generateAutoTitle(
+            sessionId: session.id,
+            sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
+            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
+            model: model,
+            allowRetryAfterIdle: false,
+          );
+          sendPreflightTimingsMs['auto_title_sync'] =
+              syncTitleStopwatch.elapsedMilliseconds;
+          session = _sessionById(session.id) ?? session;
+        }
+        if (shouldScheduleAutoTitle &&
+            runtimeContext.autoTitleFetchMode ==
+                AiAutoTitleFetchMode.asynchronous) {
+          _scheduleAutoTitleGeneration(
+            sessionId: session.id,
+            sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
+            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
+            model: model,
+          );
         }
 
         final succeeded = await _runAssistantConversation(
@@ -3678,19 +3708,6 @@ class AiSessionController extends ChangeNotifier {
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
         );
-        if (succeeded && shouldScheduleAutoTitle) {
-          final inputCachePolicy = AiInputCachePolicy.resolve(
-            model: model,
-            runtimeContext: runtimeContext,
-          );
-          _scheduleAutoTitleGeneration(
-            sessionId: session.id,
-            sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
-            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
-            model: model,
-            deferForInputCache: inputCachePolicy.defersBackgroundRequests,
-          );
-        }
         return succeeded;
       } catch (error) {
         _debugSessionLog(resolvedSessionId, 'send_message_failed error=$error');
@@ -7846,7 +7863,8 @@ $tail''';
           userMessage: editedMessage,
           shouldGenerateTitle:
               !updatedSession.isTitleManuallyEdited &&
-              visibleUserMessageCount == 1,
+              visibleUserMessageCount == 1 &&
+              editedMessage.content.trim().isNotEmpty,
           importedAttachments: false,
         );
       }
@@ -7905,7 +7923,9 @@ $tail''';
       session: updatedSession,
       userMessage: userMessage,
       shouldGenerateTitle:
-          !updatedSession.isTitleManuallyEdited && isFirstVisibleUserMessage,
+          !updatedSession.isTitleManuallyEdited &&
+          isFirstVisibleUserMessage &&
+          content.trim().isNotEmpty,
       importedAttachments: attachments.isNotEmpty,
     );
   }
@@ -8079,21 +8099,11 @@ $tail''';
     required String sourceMessageId,
     required String sourceContent,
     required AiModelConfig model,
-    required bool deferForInputCache,
   }) {
     unawaited(() async {
       try {
         if (_isDisposed) {
           return;
-        }
-        if (deferForInputCache) {
-          final ready = await _waitForAutomaticCacheBackgroundQuietPeriod(
-            sessionId: sessionId,
-            sourceMessageId: sourceMessageId,
-          );
-          if (!ready || _isDisposed) {
-            return;
-          }
         }
         await _generateAutoTitle(
           sessionId: sessionId,
@@ -8110,50 +8120,6 @@ $tail''';
         );
       }
     }());
-  }
-
-  Future<bool> _waitForAutomaticCacheBackgroundQuietPeriod({
-    required String sessionId,
-    required String sourceMessageId,
-  }) async {
-    final stopwatch = Stopwatch()..start();
-    var lastUserMessageCount = _visibleUserMessageCount(sessionId);
-    while (stopwatch.elapsed < _automaticCacheBackgroundMaxWait) {
-      await Future<void>.delayed(_automaticCacheBackgroundQuietPeriod);
-      if (_isDisposed) {
-        return false;
-      }
-      final session = _sessionById(sessionId);
-      if (session == null ||
-          session.isTitleManuallyEdited ||
-          session.autoTitleGeneratedAt != null ||
-          (session.autoTitleSourceMessageId != null &&
-              session.autoTitleSourceMessageId != sourceMessageId)) {
-        return false;
-      }
-      final currentUserMessageCount = _visibleUserMessageCount(sessionId);
-      if (currentUserMessageCount != lastUserMessageCount) {
-        lastUserMessageCount = currentUserMessageCount;
-        continue;
-      }
-      if (sendPhaseForSession(sessionId) == AiSendPhase.idle) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  int _visibleUserMessageCount(String sessionId) {
-    final session = _sessionById(sessionId);
-    if (session == null) {
-      return 0;
-    }
-    return session.messages
-        .where(
-          (message) =>
-              !message.isDeleted && message.kind == AiSessionMessageKind.user,
-        )
-        .length;
   }
 
   // Total attempts (preferred + retries) before falling back to a

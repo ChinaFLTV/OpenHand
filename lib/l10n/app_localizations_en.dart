@@ -4412,7 +4412,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      'Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.';
+      'Configure default behaviour for new sessions, including timeouts, title fetching, default mode, and permissions.';
 
   @override
   String get settingsSendTimeoutS => 'Send Timeout (s)';
@@ -4439,11 +4439,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Maximum idle wait between stream chunks. Exceeding this causes \"Request timed out.\". Default: 120 s.';
 
   @override
-  String get settingsAutoTitle => 'Auto Title';
+  String get settingsAutoTitle => 'Auto Title Fetch';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      'When enabled, a title is automatically generated after the first message in a new session.';
+      'When enabled, a session title is fetched after the first valid text message in a new session.';
+
+  @override
+  String get settingsTitleFetchMode => 'Title Fetch Mode';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      'Async does not block the first reply; sync fetches the title before sending the first AI request.';
+
+  @override
+  String get settingsTitleFetchModeAsync => 'Async';
+
+  @override
+  String get settingsTitleFetchModeSync => 'Sync';
 
   @override
   String get settingsDefaultSessionMode => 'Default Session Mode';

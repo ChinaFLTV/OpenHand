@@ -4191,7 +4191,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+      '配置新会话的默认行为，包括超时时间、标题获取、默认模式与权限。';
 
   @override
   String get settingsSendTimeoutS => '发送超时（秒）';
@@ -4218,11 +4218,24 @@ class AppLocalizationsZh extends AppLocalizations {
       '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
 
   @override
-  String get settingsAutoTitle => '自动标题';
+  String get settingsAutoTitle => '自动获取标题';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      '开启后，新会话发送首条消息时将自动生成会话标题。';
+      '开启后，新会话发送首条有效文本消息时将自动获取会话标题。';
+
+  @override
+  String get settingsTitleFetchMode => '获取标题方式';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      '异步不会阻塞首轮回复；同步会先获取标题，再发送首轮 AI 请求。';
+
+  @override
+  String get settingsTitleFetchModeAsync => '异步';
+
+  @override
+  String get settingsTitleFetchModeSync => '同步';
 
   @override
   String get settingsDefaultSessionMode => '默认会话模式';
@@ -12061,7 +12074,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+      '配置新会话的默认行为，包括超时时间、标题获取、默认模式与权限。';
 
   @override
   String get settingsSendTimeoutS => '发送超时（秒）';
@@ -12088,11 +12101,24 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
 
   @override
-  String get settingsAutoTitle => '自动标题';
+  String get settingsAutoTitle => '自动获取标题';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      '开启后，新会话发送首条消息时将自动生成会话标题。';
+      '开启后，新会话发送首条有效文本消息时将自动获取会话标题。';
+
+  @override
+  String get settingsTitleFetchMode => '获取标题方式';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      '异步不会阻塞首轮回复；同步会先获取标题，再发送首轮 AI 请求。';
+
+  @override
+  String get settingsTitleFetchModeAsync => '异步';
+
+  @override
+  String get settingsTitleFetchModeSync => '同步';
 
   @override
   String get settingsDefaultSessionMode => '默认会话模式';
@@ -19930,7 +19956,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsConfigureDefaultBehaviourForNewSessions =>
-      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+      '配置新會話的預設行為，包括逾時時間、標題取得、預設模式與權限。';
 
   @override
   String get settingsSendTimeoutS => '发送超时（秒）';
@@ -19957,11 +19983,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
 
   @override
-  String get settingsAutoTitle => '自动标题';
+  String get settingsAutoTitle => '自動取得標題';
 
   @override
   String get settingsWhenEnabledATitleIsAutomatically =>
-      '开启后，新会话发送首条消息时将自动生成会话标题。';
+      '開啟後，新會話送出第一則有效文字訊息時會自動取得會話標題。';
+
+  @override
+  String get settingsTitleFetchMode => '取得標題方式';
+
+  @override
+  String get settingsTitleFetchModeDescription =>
+      '非同步不會阻塞首輪回覆；同步會先取得標題，再送出首輪 AI 請求。';
+
+  @override
+  String get settingsTitleFetchModeAsync => '非同步';
+
+  @override
+  String get settingsTitleFetchModeSync => '同步';
 
   @override
   String get settingsDefaultSessionMode => '默认会话模式';

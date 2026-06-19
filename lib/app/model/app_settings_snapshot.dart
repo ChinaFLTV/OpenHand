@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_auto_title_fetch_mode.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
@@ -87,6 +88,7 @@ class AppSettingsSnapshot {
       aiFallbackTitleMaxCharacters: defaultAiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters: defaultAiGeneratedTitleMaxCharacters,
       aiAutoTitleMaxRetryCount: defaultAiAutoTitleMaxRetryCount,
+      aiAutoTitleFetchMode: defaultAiAutoTitleFetchMode,
       aiMinimumMeaningfulTitleCharacters:
           defaultAiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords:
@@ -196,6 +198,7 @@ class AppSettingsSnapshot {
     required this.aiFallbackTitleMaxCharacters,
     required this.aiGeneratedTitleMaxCharacters,
     required this.aiAutoTitleMaxRetryCount,
+    required this.aiAutoTitleFetchMode,
     required this.aiMinimumMeaningfulTitleCharacters,
     required this.aiMinimumMeaningfulLatinTitleWords,
     required this.aiMaxSkillContentLength,
@@ -487,6 +490,8 @@ class AppSettingsSnapshot {
   static const int defaultAiAutoTitleMaxRetryCount = 5;
   static const int minAiAutoTitleMaxRetryCount = 0;
   static const int maxAiAutoTitleMaxRetryCount = 20;
+  static const AiAutoTitleFetchMode defaultAiAutoTitleFetchMode =
+      AiAutoTitleFetchMode.asynchronous;
   static const int defaultAiMinimumMeaningfulTitleCharacters = 4;
   static const int minAiMinimumMeaningfulTitleCharacters = 1;
   static const int maxAiMinimumMeaningfulTitleCharacters = 50;
@@ -757,6 +762,9 @@ class AppSettingsSnapshot {
   /// Group D — 线程会话标题获取最大重试次数。
   final int aiAutoTitleMaxRetryCount;
 
+  /// Group D — 标题获取方式。
+  final AiAutoTitleFetchMode aiAutoTitleFetchMode;
+
   /// Group D — 有效中文标题最小字符数。
   final int aiMinimumMeaningfulTitleCharacters;
 
@@ -958,6 +966,7 @@ class AppSettingsSnapshot {
     int? aiFallbackTitleMaxCharacters,
     int? aiGeneratedTitleMaxCharacters,
     int? aiAutoTitleMaxRetryCount,
+    AiAutoTitleFetchMode? aiAutoTitleFetchMode,
     int? aiMinimumMeaningfulTitleCharacters,
     int? aiMinimumMeaningfulLatinTitleWords,
     int? aiMaxSkillContentLength,
@@ -1123,6 +1132,7 @@ class AppSettingsSnapshot {
           aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
       aiAutoTitleMaxRetryCount:
           aiAutoTitleMaxRetryCount ?? this.aiAutoTitleMaxRetryCount,
+      aiAutoTitleFetchMode: aiAutoTitleFetchMode ?? this.aiAutoTitleFetchMode,
       aiMinimumMeaningfulTitleCharacters:
           aiMinimumMeaningfulTitleCharacters ??
           this.aiMinimumMeaningfulTitleCharacters,
