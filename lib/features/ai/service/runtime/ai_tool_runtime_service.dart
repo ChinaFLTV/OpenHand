@@ -2594,17 +2594,17 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.write,
       name: 'Write',
       description:
-          'Create or overwrite a file on disk. The file_path MUST be an absolute path (starting with /). '
+          'Create or overwrite a file on disk. Accepts absolute or relative file_path values and resolves them against the working directory. '
           'Parent directories are created automatically if they do not exist. '
           'Arguments must be a flat JSON object with exactly two string keys. '
-          'Example: {"file_path":"/tmp/hello.txt","content":"hello world"}',
+          'Example: {"file_path":"src/hello.txt","content":"hello world"}',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'file_path': <String, Object?>{
             'type': 'string',
             'description':
-                'The absolute file path to write to (must start with /). Example: /Users/name/project/file.md',
+                'The absolute or relative file path to write to. Relative paths are resolved against the working directory.',
           },
           'content': <String, Object?>{
             'type': 'string',

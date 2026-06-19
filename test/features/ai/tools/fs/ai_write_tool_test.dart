@@ -14,17 +14,41 @@ import 'package:openhand/features/ai/tools/fs/ai_write_tool.dart';
 void main() {
   group('AiWriteTool', () {
     late Directory tempDir;
+    late String originalWorkingDirectory;
 
     setUp(() async {
+      originalWorkingDirectory = Directory.current.path;
       tempDir = await Directory.systemTemp.createTemp(
         'openhand_write_tool_test_',
       );
     });
 
     tearDown(() async {
+      Directory.current = originalWorkingDirectory;
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    });
+
+    test('writes relative paths and creates parent directories', () async {
+      Directory.current = tempDir.path;
+
+      final result = await AiWriteTool().execute(
+        _context(
+          filePath: 'nested/generated.txt',
+          content: 'hello\n',
+          previouslyReadFiles: const <String>{},
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      final file = File('${tempDir.path}/nested/generated.txt');
+      expect(result.status.storageValue, 'success');
+      expect(await file.readAsString(), 'hello\n');
+      expect(
+        result.metadata['file_mutation_path'],
+        endsWith('/nested/generated.txt'),
+      );
     });
 
     test('rejects overwrite when file changed after tracked read', () async {

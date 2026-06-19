@@ -31,6 +31,8 @@ void main() {
       expect(developer, contains('`Edit`：精确替换'));
       expect(developer, contains('replace_all: true'));
       expect(developer, contains('`LS`：列目录；`path` 可省略默认 cwd'));
+      expect(developer, contains('`Write`：新文件'));
+      expect(developer, contains('父目录会自动创建'));
       expect(developer, contains('`LSP`：类型化语言'));
       expect(developer, contains('Claude 风格 `filePath`'));
       expect(developer, contains('ToolSearch'));

@@ -386,6 +386,26 @@ void main() {
       expect('$anyOf', contains('file_path'));
     });
 
+    test('Write documents relative paths and parent directory creation', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Write')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+
+      expect(definition?.description, contains('absolute or relative'));
+      expect(definition?.description, contains('Parent directories'));
+      expect('${properties?['file_path']}', contains('Relative paths'));
+      expect('${properties?['file_path']}', isNot(contains('must start')));
+    });
+
     test('Read exposes Claude-style PDF pages parameter', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
