@@ -17,7 +17,9 @@ abstract final class AiPlanApprovalDetector {
   ///     ("继续", "好", "OK", "yes", …), return `true`. Exact matching is
   ///     critical here — `contains` would let "继续观察" or "OK 但是…" be
   ///     misclassified as approval.
-  ///  2. Otherwise scan for any longer phrase ("do it", "去写吧", …) via
+  ///  2. Reject explicit negation / wait instructions before phrase matching.
+  ///     This keeps "do not approve" / "先别执行" from opening execution tools.
+  ///  3. Otherwise scan for any longer phrase ("do it", "去写吧", …) via
   ///     `contains`, where the surrounding context is unambiguous enough to
   ///     tolerate substring matching.
   static bool looksLikePlanApproval(String content) {
@@ -26,6 +28,9 @@ abstract final class AiPlanApprovalDetector {
       return false;
     }
     final compactReply = normalized.replaceAll(_punctuationPattern, '');
+    if (_containsNegativePlanAction(normalized, compactReply)) {
+      return false;
+    }
     if (_standaloneApprovalReplies.contains(compactReply)) {
       return true;
     }
@@ -35,6 +40,10 @@ abstract final class AiPlanApprovalDetector {
   static bool looksLikePlanExecutionContinuation(String content) {
     final normalized = content.trim().toLowerCase();
     if (normalized.isEmpty) {
+      return false;
+    }
+    final compactReply = normalized.replaceAll(_punctuationPattern, '');
+    if (_containsNegativePlanAction(normalized, compactReply)) {
       return false;
     }
     return _executionContinuationPhrases.any(normalized.contains);
@@ -48,6 +57,10 @@ abstract final class AiPlanApprovalDetector {
     if (normalized.isEmpty) {
       return false;
     }
+    final compactReply = normalized.replaceAll(_punctuationPattern, '');
+    if (_containsNegativePlanAction(normalized, compactReply)) {
+      return false;
+    }
     if (_recoveryContinuationPhrases.any(normalized.contains)) {
       return true;
     }
@@ -56,6 +69,72 @@ abstract final class AiPlanApprovalDetector {
   }
 
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
+
+  static bool _containsNegativePlanAction(
+    String normalized,
+    String compactReply,
+  ) {
+    return _negativePlanActionPhrases.any(normalized.contains) ||
+        _negativePlanActionCompactFragments.any(compactReply.contains);
+  }
+
+  static const List<String> _negativePlanActionPhrases = <String>[
+    "don't approve",
+    'dont approve',
+    'do not approve',
+    'not approve',
+    'not approved',
+    'disapprove',
+    "don't proceed",
+    'dont proceed',
+    'do not proceed',
+    "don't continue",
+    'dont continue',
+    'do not continue',
+    "don't start",
+    'dont start',
+    'do not start',
+    "don't implement",
+    'dont implement',
+    'do not implement',
+    'not yet',
+    'wait first',
+    'hold on',
+    'hold off',
+    'stop now',
+    'stop here',
+    'stop execution',
+    'cancel it',
+    'cancel plan',
+    'cancel execution',
+  ];
+
+  static const List<String> _negativePlanActionCompactFragments = <String>[
+    '不批准',
+    '不同意',
+    '不通过',
+    '不要执行',
+    '别执行',
+    '先别执行',
+    '暂不执行',
+    '不要开始',
+    '别开始',
+    '先别开始',
+    '不要实现',
+    '别实现',
+    '不要写',
+    '别写',
+    '不要做',
+    '别做',
+    '别继续',
+    '等一下',
+    '等等',
+    '先等',
+    '先暂停',
+    '暂停一下',
+    '取消计划',
+    '取消执行',
+  ];
 
   /// Bare-equality approvals. Must match the FULL compact reply.
   static const Set<String> _standaloneApprovalReplies = <String>{
