@@ -35,6 +35,7 @@ import {
 } from '../hooks/useStreamingReveal';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
+import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -711,7 +712,7 @@ function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[]
   return chips;
 }
 
-function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolean): string {
+function messageSizeMotionSignal(message: SessionMessage): string {
   const metadata = message.metadata ?? {};
   return [
     message.id,
@@ -719,7 +720,6 @@ function messageSizeMotionSignal(message: SessionMessage, actionsVisible: boolea
     message.kind,
     textLayoutMotionSignal(message.content ?? ''),
     numberLayoutMotionSignal(message.character_count),
-    actionsVisible ? 1 : 0,
     booleanFromUnknown(metadata['tool_arguments_streaming']) ? 1 : 0,
     stringFromUnknown(metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status']),
     textLayoutMotionSignal(stringFromUnknown(metadata['tool_execution_stdout'])),
@@ -1180,6 +1180,16 @@ function MessageCardImpl({
     onFork,
   );
   const actionsVisible = hasAnyAction && active;
+  const actionPanelMotion = useDelayedVisibility({ initiallyOpen: actionsVisible });
+  useLayoutEffect(() => {
+    if (actionsVisible) {
+      actionPanelMotion.show();
+    } else {
+      actionPanelMotion.hide();
+    }
+  }, [actionsVisible, actionPanelMotion.hide, actionPanelMotion.show]);
+  const renderActionPanel = actionPanelMotion.visible;
+  const actionPanelInteractive = actionsVisible && !actionPanelMotion.closing;
   // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
   // 优先级：metadata.content_format > global contentFormat。
   const effectiveFormat = (
@@ -1227,8 +1237,9 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = `${messageSizeMotionSignal(message, actionsVisible)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
-  // 外层卡片只承接折叠 / 展开 / 操作栏显隐这类语义级尺寸变化。
+  const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
+  // 正文卡片只承接折叠 / 展开 / 原始内容切换这类语义级尺寸变化。
+  // 操作面板使用自己的布局槽动画，避免裁剪已加载的媒体节点。
   // 流式正文自身在 StreamingMarkdownReveal / StreamingPlainTextReveal 内
   // 用可见文本信号做局部高度 FLIP，避免整张卡被高频 WAAPI 裁剪。
   const cardRef = useMessageSizeMotion(
@@ -1268,109 +1279,113 @@ function MessageCardImpl({
 
   return (
     <>
-    <div
-      ref={cardRef}
-      class={`oh-message-card-frame ${isUserBubble ? 'is-user' : 'is-other'}`}
-      style={{
-        transformOrigin: isUserBubble ? 'right top' : 'left top',
-      }}
-    >
-    <article
-      class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
-      style={{
-        display: 'block',
-        width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
-        maxWidth: bubbleMaxWidth,
-        marginLeft: isUserBubble ? 'auto' : '0',
-        marginRight: isUserBubble ? '0' : 'auto',
-        background: style.background,
-        color: style.color,
-        boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
-        border: style.border,
-        cursor: hasAnyAction ? 'pointer' : 'default',
-        overflowWrap: 'anywhere',
-        transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
-      }}
-      onPointerDown={(ev) => {
-        if (!hasAnyAction) return;
-        const target = ev.target as HTMLElement;
-        if (
-          target.closest(
-            'button,a,input,textarea,select,[role="button"],.oh-message-badge-toggle',
-          )
-        ) {
-          cardPointerDownRef.current = null;
-          return;
-        }
-        if (ev.button !== 0) {
-          cardPointerDownRef.current = null;
-          return;
-        }
-        cardPointerDownRef.current = {
-          x: ev.clientX,
-          y: ev.clientY,
-          at: typeof performance !== 'undefined' ? performance.now() : Date.now(),
-        };
-      }}
-      onClick={(ev) => {
-        if (!hasAnyAction) return;
-        // 点击交互元素（按钮 / 链接 / 输入框）时不切换 selection。
-        const target = ev.target as HTMLElement;
-        if (target.closest('button,a,input,textarea,select,[role="button"]')) return;
-        // 卡片左上方折叠胶囊整体（含胶囊容器留白）不参与
-        // 选中切换，只处理胶囊自身的展开/折叠。胶囊点击通过
-        // handleBadgeToggle 的 stopPropagation 已经吞掉，但胶囊周围的
-        // 容器 padding/margin 仍可能命中 article onClick，这里再补一刀。
-        if (target.closest('.oh-message-badge-toggle')) return;
-        // 点击图片时打开预览而非切换 selection。
-        if (target.tagName === 'IMG' || target.closest('img')) {
-          const img = (target.tagName === 'IMG' ? target : target.closest('img')) as HTMLImageElement | null;
-          if (img?.src) {
-            ev.stopPropagation();
-            const src = img.src;
-            const alt = img.alt || '';
-            // 从 URL 中提取文件名用于展示。
-            let name = alt;
-            if (!name) {
-              try {
-                const pathname = new URL(src).pathname;
-                const lastSlash = pathname.lastIndexOf('/');
-                name = lastSlash >= 0 ? decodeURIComponent(pathname.slice(lastSlash + 1)) : 'image';
-              } catch {
-                name = 'image';
+      <div class={`oh-message-card-frame ${isUserBubble ? 'is-user' : 'is-other'}`}>
+        <div
+          ref={cardRef}
+          class="oh-message-card-body-motion"
+          style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
+        >
+          <article
+            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
+            style={{
+              display: 'block',
+              width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
+              maxWidth: bubbleMaxWidth,
+              marginLeft: isUserBubble ? 'auto' : '0',
+              marginRight: isUserBubble ? '0' : 'auto',
+              background: style.background,
+              color: style.color,
+              boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
+              border: style.border,
+              cursor: hasAnyAction ? 'pointer' : 'default',
+              overflowWrap: 'anywhere',
+              transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
+            }}
+            onPointerDown={(ev) => {
+              if (!hasAnyAction) return;
+              const target = ev.target as HTMLElement;
+              if (
+                target.closest(
+                  'button,a,input,textarea,select,[role="button"],.oh-message-badge-toggle,[data-message-media-interactive="true"]',
+                )
+              ) {
+                cardPointerDownRef.current = null;
+                return;
               }
-            }
-            setInlineImagePreview({
-              item: { path: src, name, kind: 'image' },
-              url: src,
-            });
-            return;
-          }
-        }
-        // 双击代码块选中文本时也不切换。
-        const sel = typeof window !== 'undefined' ? window.getSelection() : null;
-        if (sel && sel.toString().length > 0) return;
-        const pointerDown = cardPointerDownRef.current;
-        cardPointerDownRef.current = null;
-        if (pointerDown != null) {
-          const now = typeof performance !== 'undefined'
-            ? performance.now()
-            : Date.now();
-          const elapsed = now - pointerDown.at;
-          const movement = Math.hypot(
-            ev.clientX - pointerDown.x,
-            ev.clientY - pointerDown.y,
-          );
-          if (
-            elapsed > MESSAGE_CARD_TAP_MAX_MS ||
-            movement > MESSAGE_CARD_TAP_MAX_DISTANCE_PX
-          ) {
-            return;
-          }
-        }
-        onActiveChange?.(message, !active);
-      }}
-    >
+              if (ev.button !== 0) {
+                cardPointerDownRef.current = null;
+                return;
+              }
+              cardPointerDownRef.current = {
+                x: ev.clientX,
+                y: ev.clientY,
+                at: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+              };
+            }}
+            onClick={(ev) => {
+              if (!hasAnyAction) return;
+              const target = ev.target as HTMLElement;
+              if (
+                target.closest(
+                  'button,a,input,textarea,select,[role="button"],[data-message-media-interactive="true"],video,audio',
+                )
+              ) {
+                return;
+              }
+              // 卡片左上方折叠胶囊整体（含胶囊容器留白）不参与
+              // 选中切换，只处理胶囊自身的展开/折叠。胶囊点击通过
+              // handleBadgeToggle 的 stopPropagation 已经吞掉，但胶囊周围的
+              // 容器 padding/margin 仍可能命中 article onClick，这里再补一刀。
+              if (target.closest('.oh-message-badge-toggle')) return;
+              // 点击图片时打开预览而非切换 selection。
+              if (target.tagName === 'IMG' || target.closest('img')) {
+                const img = (target.tagName === 'IMG' ? target : target.closest('img')) as HTMLImageElement | null;
+                if (img?.src) {
+                  ev.stopPropagation();
+                  const src = img.src;
+                  const alt = img.alt || '';
+                  // 从 URL 中提取文件名用于展示。
+                  let name = alt;
+                  if (!name) {
+                    try {
+                      const pathname = new URL(src).pathname;
+                      const lastSlash = pathname.lastIndexOf('/');
+                      name = lastSlash >= 0 ? decodeURIComponent(pathname.slice(lastSlash + 1)) : 'image';
+                    } catch {
+                      name = 'image';
+                    }
+                  }
+                  setInlineImagePreview({
+                    item: { path: src, name, kind: 'image' },
+                    url: src,
+                  });
+                  return;
+                }
+              }
+              // 双击代码块选中文本时也不切换。
+              const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+              if (sel && sel.toString().length > 0) return;
+              const pointerDown = cardPointerDownRef.current;
+              cardPointerDownRef.current = null;
+              if (pointerDown != null) {
+                const now = typeof performance !== 'undefined'
+                  ? performance.now()
+                  : Date.now();
+                const elapsed = now - pointerDown.at;
+                const movement = Math.hypot(
+                  ev.clientX - pointerDown.x,
+                  ev.clientY - pointerDown.y,
+                );
+                if (
+                  elapsed > MESSAGE_CARD_TAP_MAX_MS ||
+                  movement > MESSAGE_CARD_TAP_MAX_DISTANCE_PX
+                ) {
+                  return;
+                }
+              }
+              onActiveChange?.(message, !active);
+            }}
+          >
       {shouldRenderHeader ? (
         <header class="oh-message-card-header flex items-center gap-3 text-xs mb-2 opacity-90">
           <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
@@ -1535,90 +1550,121 @@ function MessageCardImpl({
         </div>
       ) : null}
       {!isUserBubble ? media : null}
-      <MediaGeneratingPlaceholderTransition
-        mode={inlineCreationMode}
-        className="mt-3"
-      />
-    </article>
-    {actionsVisible ? (
-      <div
-        class={`oh-message-selected-panel ${isUserBubble ? 'is-user' : 'is-other'} oh-soft-replace`}
-        data-message-action-panel="true"
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-        style={{
-          maxWidth: bubbleMaxWidth,
-          marginLeft: isUserBubble ? 'auto' : '0',
-          marginRight: isUserBubble ? '0' : 'auto',
-        }}
-      >
-        <div class="oh-message-action-row">
-          {onCopy ? (
-            <ActionBtn icon="copy" label={t('common.copy')} onClick={() => onCopy(message)} />
-          ) : null}
-          {canReadMessage ? (
-            <ActionBtn
-              icon={ttsPlaying ? 'stop' : 'speech'}
-              label={ttsPlaying
-                ? t('message.tts.stop', '停止')
-                : t('message.tts.read', '朗读')}
-              onClick={() => {
-                void toggleTtsPlayback(message.id, content, ttsSettings);
-              }}
+            <MediaGeneratingPlaceholderTransition
+              mode={inlineCreationMode}
+              className="mt-3"
             />
-          ) : null}
-          {onEdit && message.role === 'user' ? (
-            <ActionBtn icon="edit" label={t('common.edit')} onClick={() => onEdit(message)} />
-          ) : null}
-          {onAudit ? (
-            <ActionBtn icon="audit" label={t('common.audit')} onClick={() => onAudit(message)} />
-          ) : null}
-          {onFork ? (
-            <ActionBtn icon="fork" label={t('common.fork', '派生')} onClick={() => onFork(message)} />
-          ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' ? (
-            <ActionBtn
-              icon={showRawContent ? 'codeOff' : 'code'}
-              label={showRawContent
-                ? t('message.showRendered', '显示渲染')
-                : t('message.showRaw', '显示原始')}
-              onClick={() => setShowRawContent((v) => !v)}
-            />
-          ) : null}
-          {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && effectiveFormat === 'html' ? (
-            <ActionBtn
-              icon="globe"
-              label={t('message.openInBrowser', '浏览器打开')}
-              onClick={() => openHtmlInNewTab(content)}
-            />
-          ) : null}
-          {onDelete ? (
-            <ActionBtn
-              icon="trash"
-              label={t('common.delete')}
-              onClick={() => onDelete(message)}
-            />
-          ) : null}
-          {onDeleteAfter ? (
-            <ActionBtn
-              icon="cascade"
-              label={t('common.deleteAfter')}
-              onClick={() => onDeleteAfter(message)}
-            />
-          ) : null}
+          </article>
         </div>
-        {selectedInfoChips.length > 0 ? (
-          <div class="oh-message-selected-info-row">
-            {selectedInfoChips.map((chip) => <SelectedInfoChip key={chip.key} chip={chip} />)}
+        {renderActionPanel ? (
+          <div
+            class={`oh-message-selected-panel-slot ${isUserBubble ? 'is-user' : 'is-other'} ${actionPanelInteractive ? 'is-visible' : 'is-hidden'}`}
+            data-message-action-panel="true"
+            aria-hidden={actionPanelInteractive ? 'false' : 'true'}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+            style={{
+              maxWidth: bubbleMaxWidth,
+              marginLeft: isUserBubble ? 'auto' : '0',
+              marginRight: isUserBubble ? '0' : 'auto',
+            }}
+          >
+            <div class="oh-message-selected-panel-clip">
+              <div class={`oh-message-selected-panel ${isUserBubble ? 'is-user' : 'is-other'}`}>
+                <div class="oh-message-action-row">
+                  {onCopy ? (
+                    <ActionBtn
+                      icon="copy"
+                      label={t('common.copy')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onCopy(message)}
+                    />
+                  ) : null}
+                  {canReadMessage ? (
+                    <ActionBtn
+                      icon={ttsPlaying ? 'stop' : 'speech'}
+                      label={ttsPlaying
+                        ? t('message.tts.stop', '停止')
+                        : t('message.tts.read', '朗读')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => {
+                        void toggleTtsPlayback(message.id, content, ttsSettings);
+                      }}
+                    />
+                  ) : null}
+                  {onEdit && message.role === 'user' ? (
+                    <ActionBtn
+                      icon="edit"
+                      label={t('common.edit')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onEdit(message)}
+                    />
+                  ) : null}
+                  {onAudit ? (
+                    <ActionBtn
+                      icon="audit"
+                      label={t('common.audit')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onAudit(message)}
+                    />
+                  ) : null}
+                  {onFork ? (
+                    <ActionBtn
+                      icon="fork"
+                      label={t('common.fork', '派生')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onFork(message)}
+                    />
+                  ) : null}
+                  {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' ? (
+                    <ActionBtn
+                      icon={showRawContent ? 'codeOff' : 'code'}
+                      label={showRawContent
+                        ? t('message.showRendered', '显示渲染')
+                        : t('message.showRaw', '显示原始')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => setShowRawContent((v) => !v)}
+                    />
+                  ) : null}
+                  {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && effectiveFormat === 'html' ? (
+                    <ActionBtn
+                      icon="globe"
+                      label={t('message.openInBrowser', '浏览器打开')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => openHtmlInNewTab(content)}
+                    />
+                  ) : null}
+                  {onDelete ? (
+                    <ActionBtn
+                      icon="trash"
+                      label={t('common.delete')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onDelete(message)}
+                    />
+                  ) : null}
+                  {onDeleteAfter ? (
+                    <ActionBtn
+                      icon="cascade"
+                      label={t('common.deleteAfter')}
+                      disabled={!actionPanelInteractive}
+                      onClick={() => onDeleteAfter(message)}
+                    />
+                  ) : null}
+                </div>
+                {selectedInfoChips.length > 0 ? (
+                  <div class="oh-message-selected-info-row">
+                    {selectedInfoChips.map((chip) => <SelectedInfoChip key={chip.key} chip={chip} />)}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
       </div>
-    ) : null}
-    </div>
     {inlineImagePreview ? (
       <MediaPreviewDialog
         item={inlineImagePreview.item}
@@ -1650,17 +1696,21 @@ function SelectedInfoChip({ chip }: { chip: MessageContextChip }) {
 function ActionBtn({
   icon,
   label,
+  disabled = false,
   onClick,
 }: {
   icon: MessageIconName;
   label: string;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
+        if (disabled) return;
         onClick();
       }}
       class="oh-tap-press oh-message-action-button"

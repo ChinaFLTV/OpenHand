@@ -593,8 +593,43 @@ html, body, #root {
   width: 100%;
 }
 
+.oh-message-card-body-motion {
+  display: block;
+  width: 100%;
+}
+
+.oh-message-selected-panel-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translate3d(0, 5px, 0) scale(0.975);
+  transform-origin: top left;
+  transition:
+    grid-template-rows var(--oh-dialog-duration) var(--oh-dialog-curve),
+    opacity var(--oh-dialog-duration) var(--oh-dialog-curve),
+    transform var(--oh-dialog-duration) var(--oh-dialog-curve);
+  pointer-events: none;
+  will-change: grid-template-rows, transform, opacity;
+}
+
+.oh-message-selected-panel-slot.is-user {
+  transform-origin: top right;
+}
+
+.oh-message-selected-panel-slot.is-visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  pointer-events: auto;
+}
+
+.oh-message-selected-panel-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .oh-message-selected-panel {
-  margin-top: 7px;
+  padding-top: 7px;
   color: var(--m3-on-surface);
   display: flex;
   flex-direction: column;

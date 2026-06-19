@@ -67,6 +67,38 @@ const PREVIEW_FALLBACK_VIDEO_RATIO = 16 / 9;
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
+const MEDIA_METADATA_KIND_BY_KEY: Record<string, MediaKind> = {
+  image_path: 'image',
+  image_paths: 'image',
+  generated_image_path: 'image',
+  generated_image_paths: 'image',
+  video_path: 'video',
+  video_paths: 'video',
+  generated_video_path: 'video',
+  generated_video_paths: 'video',
+  audio_path: 'audio',
+  audio_paths: 'audio',
+  generated_audio_path: 'audio',
+  generated_audio_paths: 'audio',
+  media_path: 'file',
+  media_paths: 'file',
+};
+const MEDIA_METADATA_KEYS = Object.keys(MEDIA_METADATA_KIND_BY_KEY);
+const MEDIA_ATTACHMENT_SIGNATURE_KEYS = [
+  'storage_path',
+  'path',
+  'file_path',
+  'original_source_path',
+  'kind',
+  'type',
+  'mime_type',
+  'mime',
+  'content_type',
+  'name',
+  'file_name',
+  'original_name',
+  'filename',
+] as const;
 
 interface PreviewNaturalSize {
   width: number;
@@ -327,26 +359,11 @@ function collectMedia(message: SessionMessage): MediaItem[] {
         }
       }
     }
-    const KEY_MAP: Record<string, MediaKind> = {
-      image_path: 'image',
-      image_paths: 'image',
-      generated_image_path: 'image',
-      generated_image_paths: 'image',
-      video_path: 'video',
-      video_paths: 'video',
-      generated_video_path: 'video',
-      generated_video_paths: 'video',
-      audio_path: 'audio',
-      audio_paths: 'audio',
-      generated_audio_path: 'audio',
-      generated_audio_paths: 'audio',
-      media_path: 'file',
-      media_paths: 'file',
-    };
-    for (const key of Object.keys(KEY_MAP)) {
+    for (const key of MEDIA_METADATA_KEYS) {
       const v = meta[key];
-      if (typeof v === 'string') pushString(out, v, KEY_MAP[key]);
-      else if (Array.isArray(v)) for (const e of v) pushString(out, e, KEY_MAP[key]);
+      const kind = MEDIA_METADATA_KIND_BY_KEY[key];
+      if (typeof v === 'string') pushString(out, v, kind);
+      else if (Array.isArray(v)) for (const e of v) pushString(out, e, kind);
     }
   }
   collectMarkdownMedia(message, out);
@@ -357,6 +374,33 @@ function collectMedia(message: SessionMessage): MediaItem[] {
     seen.add(m.path);
     return true;
   });
+}
+
+function mediaMetadataSignature(meta: Record<string, unknown> | undefined): string {
+  if (!meta) return '';
+  const parts: unknown[] = [];
+  const attachments = meta['attachments'];
+  if (Array.isArray(attachments)) {
+    parts.push([
+      'attachments',
+      attachments.map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (!entry || typeof entry !== 'object') return null;
+        const record = entry as Record<string, unknown>;
+        return MEDIA_ATTACHMENT_SIGNATURE_KEYS.map((key) => record[key] ?? null);
+      }),
+    ]);
+  }
+  for (const key of MEDIA_METADATA_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(meta, key)) {
+      parts.push([key, meta[key]]);
+    }
+  }
+  try {
+    return JSON.stringify(parts);
+  } catch {
+    return parts.map((entry) => String(entry)).join('|');
+  }
 }
 
 /// 从 markdown 内容中移除已被 collectMedia 收集为 MediaItem 的网络媒体引用,
@@ -830,7 +874,14 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
 }
 
 export function MessageMedia({ message, sessionId, presentation = 'auto' }: MessageMediaProps) {
-  const items = useMemo(() => collectMedia(message), [message]);
+  const metadataSignature = useMemo(
+    () => mediaMetadataSignature(message.metadata),
+    [message.metadata],
+  );
+  const items = useMemo(
+    () => collectMedia(message),
+    [message.id, message.content, metadataSignature],
+  );
   const entries = useMemo<MediaEntry[]>(() => items.map((item, idx) => ({
     item,
     // 网络 URL 直接使用, 本地路径走 session asset 代理。
@@ -991,6 +1042,9 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           return (
             <div
               key={key}
+              data-message-media-interactive="true"
+              onPointerDown={(ev) => { ev.stopPropagation(); }}
+              onClick={(ev) => { ev.stopPropagation(); }}
               class="oh-media-card oh-media-result-card rounded-md overflow-hidden"
               style={{
                 border: '1px solid var(--m3-outline)',
@@ -1033,6 +1087,9 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           return (
             <div
               key={key}
+              data-message-media-interactive="true"
+              onPointerDown={(ev) => { ev.stopPropagation(); }}
+              onClick={(ev) => { ev.stopPropagation(); }}
               class="oh-media-card oh-media-result-card rounded-md px-3 py-2 flex flex-col gap-2"
               style={{
                 border: '1px solid var(--m3-outline)',

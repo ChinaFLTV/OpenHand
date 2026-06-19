@@ -2243,10 +2243,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             ),
                           )
                         : bubble;
-                    final entrySizeDuration =
-                        isSelected && !transcriptScrollActive
-                        ? cardMotionDurationFor(context, expanding: true)
-                        : Duration.zero;
+                    // The selected action panel owns its height transition.
+                    // Wrapping the whole transcript entry in another
+                    // AnimatedSize makes media cards relayout twice and can
+                    // show as a brief flicker on video/image previews.
+                    const entrySizeDuration = Duration.zero;
                     return maybeAnimatedSize(
                       key: ValueKey<String>('transcript-entry-${message.id}'),
                       duration: entrySizeDuration,

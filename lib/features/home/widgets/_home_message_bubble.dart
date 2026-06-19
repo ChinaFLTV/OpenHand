@@ -846,15 +846,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 );
                 final allowBubbleSizeMotion =
                     !widget.transcriptScrollActive &&
-                    (widget.isSelected ||
-                        _reasoningExpandedOverride != null ||
+                    (_reasoningExpandedOverride != null ||
                         _assistantResponseExpandedOverride != null ||
                         _showRawContent != widget.initiallyShowRawContent);
                 final bubbleSizeDuration = allowBubbleSizeMotion
                     ? cardMotionDurationFor(
                         context,
                         expanding:
-                            widget.isSelected ||
                             (_reasoningExpandedOverride != null &&
                                 reasoningExpanded) ||
                             (_assistantResponseExpandedOverride != null &&
@@ -3194,6 +3192,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   }
 
   Future<void> _openPreview() async {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
     if (_dialogOpen) return;
     _dialogOpen = true;
     try {
