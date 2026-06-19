@@ -110,6 +110,10 @@ class AiSessionStore {
     );
   }
 
+  String sessionToolResultsDirectoryPath(String sessionId) {
+    return p.join(sessionDirectoryPath(sessionId), 'tool-results');
+  }
+
   /// Modern per-session attachments directory used by the new attachment
   /// storage layout: `~/.openhand/sessions/{sessionId}/attachments/`.
   ///

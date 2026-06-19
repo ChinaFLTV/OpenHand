@@ -6,6 +6,7 @@ import 'dart:ui' show FlutterView, PlatformDispatcher;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
@@ -141,6 +142,9 @@ class AiSessionController extends ChangeNotifier {
       'forked_from_original_message_id';
   static const String _forkedFromOriginalMessageCreatedAtKey =
       'forked_from_original_message_created_at';
+  static const String _toolCallIdMetadataKey = 'tool_call_id';
+  static const String _toolOutputPersistedPathMetadataKey =
+      'tool_output_persisted_path';
   static const String _telemetryInFlightKey = 'telemetry_in_flight';
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
     _editRollbackMarkerKey,
@@ -256,6 +260,8 @@ class AiSessionController extends ChangeNotifier {
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
+            toolOutputDirectoryProvider:
+                resolvedStore.sessionToolResultsDirectoryPath,
           ),
       attachmentService:
           attachmentService ??
@@ -2837,11 +2843,92 @@ class AiSessionController extends ChangeNotifier {
         metadata[aiSessionMessageAttachmentsMetadataKey] =
             AiMessageAttachment.listToMetadata(copiedAttachments);
       }
+      await _copyPersistedToolOutputForFork(
+        metadata,
+        targetSessionId: targetSessionId,
+        targetMessageId: forkedMessageId,
+      );
       forkedMessages.add(
         sourceMessage.copyWith(id: forkedMessageId, metadata: metadata),
       );
     }
     return List<AiSessionMessage>.unmodifiable(forkedMessages);
+  }
+
+  Future<void> _copyPersistedToolOutputForFork(
+    Map<String, Object?> metadata, {
+    required String targetSessionId,
+    required String targetMessageId,
+  }) async {
+    final sourcePath = '${metadata[_toolOutputPersistedPathMetadataKey] ?? ''}'
+        .trim();
+    if (sourcePath.isEmpty) {
+      return;
+    }
+    final sourceFile = File(sourcePath);
+    if (!await sourceFile.exists()) {
+      return;
+    }
+    final targetDirectory = Directory(
+      _store.sessionToolResultsDirectoryPath(targetSessionId),
+    );
+    final targetName = _forkedToolOutputFileName(
+      metadata: metadata,
+      sourcePath: sourcePath,
+      targetMessageId: targetMessageId,
+    );
+    final targetFile = File(p.join(targetDirectory.path, targetName));
+    if (p.equals(p.normalize(sourceFile.path), p.normalize(targetFile.path))) {
+      metadata[_toolOutputPersistedPathMetadataKey] = targetFile.path;
+      return;
+    }
+    try {
+      await targetDirectory.create(recursive: true);
+      if (!await targetFile.exists()) {
+        await sourceFile.copy(targetFile.path);
+      }
+      metadata[_toolOutputPersistedPathMetadataKey] = targetFile.path;
+      metadata['tool_output_full_content_available'] = true;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'copy fork persisted tool output',
+        error,
+        stack,
+      );
+    }
+  }
+
+  String _forkedToolOutputFileName({
+    required Map<String, Object?> metadata,
+    required String sourcePath,
+    required String targetMessageId,
+  }) {
+    final toolCallId = '${metadata[_toolCallIdMetadataKey] ?? ''}'.trim();
+    final stem = _safeForkToolOutputStorageIdentifier(
+      toolCallId.isEmpty ? targetMessageId : toolCallId,
+    );
+    final extension = _safeForkToolOutputExtension(sourcePath);
+    return '$stem$extension';
+  }
+
+  String _safeForkToolOutputStorageIdentifier(String raw) {
+    final normalized = raw
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    if (normalized.isEmpty || normalized == '.' || normalized == '..') {
+      return 'tool_result';
+    }
+    return normalized;
+  }
+
+  String _safeForkToolOutputExtension(String sourcePath) {
+    final extension = p.extension(sourcePath).trim();
+    if (RegExp(r'^\.[A-Za-z0-9]+$').hasMatch(extension)) {
+      return extension;
+    }
+    return '.txt';
   }
 
   Map<String, Object?> _forkedMessageMetadata({
