@@ -3252,6 +3252,9 @@ $tail''';
           message.metadata,
         );
         final gateDescriptorParts = _toolGateDescriptorParts(message.metadata);
+        final outputDescriptorParts = _toolOutputDescriptorParts(
+          message.metadata,
+        );
         final pathHint = _fileContextAnchorPathPreview(message);
         final snippet = _firstNonEmptyLine(message.content, 160);
         final descriptor = <String>[
@@ -3260,6 +3263,7 @@ $tail''';
           if (writeConfirmationDecision.isNotEmpty)
             'write_confirmation=$writeConfirmationDecision',
           ...gateDescriptorParts,
+          ...outputDescriptorParts,
           if (command.isNotEmpty) 'cmd=${_truncate(command, 60)}',
           if (pathHint.isNotEmpty) 'path=$pathHint',
         ].join(' · ');
@@ -4495,6 +4499,7 @@ $content
     return <String>[
       ..._writeConfirmationSummaryLines(metadata),
       ..._planGateSummaryLines(metadata),
+      ..._toolOutputBudgetSummaryLines(metadata),
     ];
   }
 
@@ -4577,6 +4582,50 @@ $content
       parts.add('catalog_empty=true');
     }
     return parts;
+  }
+
+  List<String> _toolOutputBudgetSummaryLines(Map<String, Object?> metadata) {
+    if (metadata['tool_output_truncated'] != true) {
+      return const <String>[];
+    }
+    final lines = <String>['tool_output_truncated: true'];
+    for (final entry in const <({String key, String label})>[
+      (
+        key: 'tool_output_original_length',
+        label: 'tool_output_original_length',
+      ),
+      (key: 'tool_output_budget_chars', label: 'tool_output_budget_chars'),
+      (key: 'tool_output_included_chars', label: 'tool_output_included_chars'),
+      (key: 'tool_output_omitted_chars', label: 'tool_output_omitted_chars'),
+    ]) {
+      final value = _metadataPositiveInt(metadata[entry.key]);
+      if (value != null) {
+        lines.add('${entry.label}: $value');
+      }
+    }
+    return lines;
+  }
+
+  List<String> _toolOutputDescriptorParts(Map<String, Object?> metadata) {
+    if (metadata['tool_output_truncated'] != true) {
+      return const <String>[];
+    }
+    final original = _metadataPositiveInt(
+      metadata['tool_output_original_length'],
+    );
+    final budget = _metadataPositiveInt(metadata['tool_output_budget_chars']);
+    if (original != null && budget != null) {
+      return <String>['output_truncated=$original/$budget'];
+    }
+    return const <String>['output_truncated=true'];
+  }
+
+  int? _metadataPositiveInt(Object? raw) {
+    if (raw is int && raw > 0) return raw;
+    if (raw is num && raw > 0) return raw.toInt();
+    final parsed = int.tryParse('${raw ?? ''}'.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
   }
 
   /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果

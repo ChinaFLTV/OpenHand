@@ -253,6 +253,64 @@ void main() {
     });
 
     test(
+      'preserves tool output budget truncation in compressed transcript',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'Summarize the large command output',
+            createdAt: now,
+          ),
+          AiSessionMessage.toolResult(
+            id: 't1',
+            content: 'Short visible prefix from a much larger tool result.',
+            createdAt: now.add(const Duration(seconds: 1)),
+            metadata: const <String, Object?>{
+              'tool_name': 'Bash',
+              'status': 'success',
+              'tool_output_truncated': true,
+              'tool_output_original_length': 120000,
+              'tool_output_budget_chars': 20000,
+              'tool_output_included_chars': 19800,
+              'tool_output_omitted_chars': 100200,
+            },
+          ),
+        ];
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Tool truncation compression session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final turns = const AiPromptBuilder().buildCompressionPrompt(
+          templateBundle: _testBundle,
+          template: _testTemplate,
+          session: session,
+          runtimeContext: _testRuntimeContext,
+          messagesToCompress: messages,
+          previousCompressionPoint: null,
+        );
+
+        final content = turns.last.content;
+        expect(content, contains('tool_output_truncated: true'));
+        expect(content, contains('tool_output_original_length: 120000'));
+        expect(content, contains('tool_output_budget_chars: 20000'));
+        expect(content, contains('tool_output_included_chars: 19800'));
+        expect(content, contains('tool_output_omitted_chars: 100200'));
+      },
+    );
+
+    test(
       'surfaces write confirmation decision in post-compact focus context',
       () {
         final now = DateTime.utc(2026, 6, 19, 8);
@@ -425,6 +483,73 @@ void main() {
       expect(focusContext, contains('unsupported_tool=Patch'));
       expect(focusContext, contains('catalog_empty=true'));
     });
+
+    test(
+      'surfaces tool output budget truncation in post-compact focus context',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[
+          AiSessionMessage.toolResult(
+            id: 't1',
+            content: 'Short visible prefix from a much larger tool result.',
+            createdAt: now,
+            metadata: const <String, Object?>{
+              'tool_name': 'Bash',
+              'status': 'success',
+              'tool_output_truncated': true,
+              'tool_output_original_length': 120000,
+              'tool_output_budget_chars': 20000,
+              'tool_output_included_chars': 19800,
+              'tool_output_omitted_chars': 100200,
+            },
+          ),
+          AiSessionMessage.compressionPoint(
+            id: 'c1',
+            content: 'Checkpoint after truncated tool output.',
+            createdAt: now.add(const Duration(seconds: 1)),
+            metadata: const <String, Object?>{},
+          ),
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'What happened before compaction?',
+            createdAt: now.add(const Duration(seconds: 2)),
+          ),
+        ];
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Tool truncation focus context session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final result = const AiPromptBuilder().buildSessionPrompt(
+          templateBundle: _testBundle,
+          session: session,
+          model: _testModel,
+          runtimeContext: _testRuntimeContext,
+          memoryEntries: const <Never>[],
+          sessionMessages: messages,
+          latestUserMessageId: 'u1',
+        );
+        final focusContext = result.messages
+            .map((turn) => turn.content)
+            .firstWhere(
+              (content) =>
+                  content.startsWith(AiPromptSectionHeaders.focusContext),
+            );
+
+        expect(focusContext, contains('Bash · status=success'));
+        expect(focusContext, contains('output_truncated=120000/20000'));
+      },
+    );
   });
 }
 

@@ -147,6 +147,73 @@ void main() {
       },
     );
   });
+
+  group('AiToolRuntimeService output budget', () {
+    test('annotates truncated tool output with structured metadata', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      )..maxToolOutputChars = 320;
+      const definition = AiToolDefinition(
+        name: 'Bash',
+        description: 'Run bash',
+        parameters: <String, Object?>{
+          'type': 'object',
+          'properties': <String, Object?>{
+            'cmd': <String, Object?>{'type': 'string'},
+            'working_directory': <String, Object?>{'type': 'string'},
+          },
+          'required': <String>['cmd'],
+          'additionalProperties': false,
+        },
+      );
+      const catalog = AiResolvedToolCatalog(
+        definitions: <AiToolDefinition>[definition],
+        toolsByName: <String, AiResolvedTool>{
+          'Bash': AiResolvedTool(
+            name: 'Bash',
+            definition: definition,
+            source: AiRuntimeToolSource.builtin,
+            builtinKind: AiBuiltinToolKind.bash,
+          ),
+        },
+      );
+
+      final result = await runtime.execute(
+        sessionId: 'runtime-output-budget-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-1',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'cmd': 'yes x | head -c 800',
+            'working_directory': '/tmp',
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.resultText, contains('[Output truncated:'));
+      expect(result.metadata['tool_output_truncated'], isTrue);
+      expect(result.metadata['tool_output_budget_chars'], 320);
+      final originalLength =
+          result.metadata['tool_output_original_length'] as int;
+      final includedChars =
+          result.metadata['tool_output_included_chars'] as int;
+      final omittedChars = result.metadata['tool_output_omitted_chars'] as int;
+      expect(originalLength, greaterThan(320));
+      expect(includedChars, greaterThan(0));
+      expect(omittedChars, greaterThan(0));
+      expect(includedChars + omittedChars, originalLength);
+    });
+  });
 }
 
 const AiModelConfig _testModel = AiModelConfig(

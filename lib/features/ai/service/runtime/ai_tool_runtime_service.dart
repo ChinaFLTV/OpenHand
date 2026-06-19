@@ -947,8 +947,8 @@ class AiToolRuntimeService {
     }
     final notice =
         '\n\n[Output truncated: result exceeded the $maxToolOutputChars-character tool output budget. '
-        'Only the first $maxToolOutputChars characters are included. '
-        'Use more targeted commands or file offsets to read the remaining content.]';
+        'Only a leading payload segment is included. Use more targeted '
+        'commands or file offsets to read the remaining content.]';
     // Reserve room for the notice so the final string never exceeds the
     // declared budget. Floor at 100 chars of payload to keep something
     // useful even if the configured budget is unusually small.
@@ -959,6 +959,7 @@ class AiToolRuntimeService {
       0,
       payloadCap < rawResult.length ? payloadCap : rawResult.length,
     );
+    final omittedChars = rawResult.length - truncated.length;
     final truncatedResult = '$truncated$notice';
     String capStream(String value) {
       if (value.length <= maxToolOutputChars) return value;
@@ -986,6 +987,8 @@ class AiToolRuntimeService {
         'tool_output_truncated': true,
         'tool_output_original_length': rawResult.length,
         'tool_output_budget_chars': maxToolOutputChars,
+        'tool_output_included_chars': truncated.length,
+        'tool_output_omitted_chars': omittedChars,
       },
     );
   }
