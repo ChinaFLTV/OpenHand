@@ -6425,9 +6425,7 @@ class AiSessionController extends ChangeNotifier {
       if (decoded is! Map) {
         return false;
       }
-      final subagentType = AiTaskTool.canonicalSubagentType(
-        '${decoded['subagent_type'] ?? ''}',
-      );
+      final subagentType = AiTaskTool.resolveSubagentTypeFromArguments(decoded);
       return subagentType != null &&
           AiTaskTool.readOnlyParallelSubagentTypes.contains(subagentType);
     } catch (error, stackTrace) {

@@ -75,6 +75,21 @@ class AiTaskTool extends AiTool {
     return subagentDescriptions.containsKey(normalized) ? normalized : null;
   }
 
+  static String requestedSubagentTypeFromArguments(
+    Map<Object?, Object?> arguments,
+  ) {
+    final rawSubagentType =
+        '${arguments['subagent_type'] ?? arguments['subagentType'] ?? ''}'
+            .trim();
+    return rawSubagentType.isEmpty ? defaultSubagentType : rawSubagentType;
+  }
+
+  static String? resolveSubagentTypeFromArguments(
+    Map<Object?, Object?> arguments,
+  ) {
+    return canonicalSubagentType(requestedSubagentTypeFromArguments(arguments));
+  }
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.task;
 
@@ -84,20 +99,14 @@ class AiTaskTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final description = '${args['description'] ?? ''}'.trim();
     final prompt = '${args['prompt'] ?? ''}'.trim();
-    final rawSubagentType =
-        '${args['subagent_type'] ?? args['subagentType'] ?? ''}'.trim();
-    final subagentType = rawSubagentType.isEmpty
-        ? defaultSubagentType
-        : rawSubagentType;
+    final subagentType = requestedSubagentTypeFromArguments(args);
     if (description.isEmpty || prompt.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
         'Task requires non-empty description and prompt.',
       );
     }
-    final canonicalSubagentType = AiTaskTool.canonicalSubagentType(
-      subagentType,
-    );
+    final canonicalSubagentType = resolveSubagentTypeFromArguments(args);
     if (canonicalSubagentType == null) {
       return AiToolUtils.invalidResult(
         _toolName,

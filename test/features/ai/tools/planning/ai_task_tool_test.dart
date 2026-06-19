@@ -15,6 +15,37 @@ import 'package:openhand/features/ai/tools/planning/ai_task_tool.dart';
 
 void main() {
   group('AiTaskTool', () {
+    test('resolves effective subagent type from compatible arguments', () {
+      expect(
+        AiTaskTool.requestedSubagentTypeFromArguments(
+          const <String, Object?>{},
+        ),
+        AiTaskTool.defaultSubagentType,
+      );
+      expect(
+        AiTaskTool.resolveSubagentTypeFromArguments(const <String, Object?>{}),
+        'general-purpose',
+      );
+      expect(
+        AiTaskTool.resolveSubagentTypeFromArguments(const <String, Object?>{
+          'subagent_type': ' Research ',
+        }),
+        'research',
+      );
+      expect(
+        AiTaskTool.resolveSubagentTypeFromArguments(const <String, Object?>{
+          'subagentType': 'summarize',
+        }),
+        'summarize',
+      );
+      expect(
+        AiTaskTool.resolveSubagentTypeFromArguments(const <String, Object?>{
+          'subagent_type': 'unknown',
+        }),
+        isNull,
+      );
+    });
+
     test('defaults omitted subagent type to general-purpose', () async {
       final chatClient = _FakeChatClient(
         completion: const AiChatCompletion(reply: 'general task done'),
