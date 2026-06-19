@@ -16,7 +16,7 @@ class AiLspTool extends AiTool {
   AiBuiltinToolKind get kind => AiBuiltinToolKind.lsp;
 
   @override
-  List<String> get aliases => const <String>['Lsp'];
+  List<String> get aliases => const <String>['LSP', 'Lsp'];
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
@@ -24,12 +24,12 @@ class AiLspTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     final operation = '${args['operation'] ?? ''}'.trim();
-    final filePath = '${args['file_path'] ?? ''}'.trim();
+    final filePath = '${args['filePath'] ?? args['file_path'] ?? ''}'.trim();
 
     if (operation.isEmpty || filePath.isEmpty) {
       return AiToolUtils.invalidResult(
-        'Lsp',
-        'operation and file_path are required.',
+        'LSP',
+        'operation and filePath (or file_path) are required.',
       );
     }
 
@@ -48,7 +48,7 @@ class AiLspTool extends AiTool {
       );
       final rendered = _renderOperationResult(operation, rawResult);
       return AiToolUtils.simpleSuccessResult(
-        command: 'Lsp $operation',
+        command: 'LSP $operation',
         output: rendered,
         durationMs: startedAt.elapsedMilliseconds,
         workingDirectory: p.dirname(resolvedPath),
@@ -56,7 +56,7 @@ class AiLspTool extends AiTool {
     } catch (error) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
-        command: 'Lsp $operation',
+        command: 'LSP $operation',
         workingDirectory: p.dirname(resolvedPath),
         stdout: '',
         stderr: '$error',

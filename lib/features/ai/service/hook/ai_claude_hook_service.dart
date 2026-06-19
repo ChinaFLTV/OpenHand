@@ -337,10 +337,19 @@ class AiClaudeHookService {
     if (pattern.isEmpty) {
       return true;
     }
+    final values = value
+        .split('\n')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (values.isEmpty) {
+      values.add('');
+    }
     try {
-      return RegExp(pattern).hasMatch(value);
+      final regex = RegExp(pattern);
+      return values.any(regex.hasMatch);
     } on FormatException {
-      return pattern == value;
+      return values.any((item) => pattern == item);
     }
   }
 

@@ -103,7 +103,7 @@ void main() {
       expect(planMode['exit_plan_mode_available'], isTrue);
       expect(
         planMode['planning_tool_names'],
-        containsAll(<String>['Lsp', 'CodebaseSearch']),
+        containsAll(<String>['LSP', 'CodebaseSearch']),
       );
       expect(
         planMode['tool_gate_reason'],

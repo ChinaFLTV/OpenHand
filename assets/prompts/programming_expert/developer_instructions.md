@@ -16,7 +16,7 @@
 - `Glob`：按模式发现文件，`path` 只能是目录；返回相对路径，默认最多 100 条，截断时缩小目录或 pattern。
 - `LS`：列目录；`path` 可省略默认 cwd，可相对/绝对，目标必须是目录；`ignore` 支持 glob；写入新路径前先确认父目录。
 - `CodebaseSearch`：自然语言语义探索；精确关键词优先 `Grep`。
-- `Lsp`：类型化语言里的定义、引用、hover、诊断优先走它。
+- `LSP`：类型化语言里的定义、引用、hover、诊断优先走它；优先用 Claude 风格 `filePath`，旧 `file_path` 仍兼容。
 </read_and_search>
 
 <file_operations>

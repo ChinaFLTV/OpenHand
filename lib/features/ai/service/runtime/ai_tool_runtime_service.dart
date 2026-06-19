@@ -721,11 +721,12 @@ class AiToolRuntimeService {
       parameters: resolvedTool.definition.parameters,
     );
     final hookToolName = _hookToolName(resolvedTool);
+    final hookMatcherValue = _hookMatcherValue(resolvedTool, hookToolName);
     final hookWorkingDirectory = _hookWorkingDirectory(decodedArguments);
     final preHookResult = await _hookService.runHooks(
       eventName: 'PreToolUse',
       sessionId: sessionId,
-      matcherValue: hookToolName,
+      matcherValue: hookMatcherValue,
       cwd: hookWorkingDirectory,
       payload: _toolHookPayload(
         eventName: 'PreToolUse',
@@ -935,7 +936,7 @@ class AiToolRuntimeService {
             ? 'PostToolUse'
             : 'PostToolUseFailure',
         sessionId: sessionId,
-        matcherValue: hookToolName,
+        matcherValue: hookMatcherValue,
         cwd: rawResult.workingDirectory.trim().isEmpty
             ? hookWorkingDirectory
             : rawResult.workingDirectory,
@@ -1606,7 +1607,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.webFetch => 'WebFetch',
       AiBuiltinToolKind.todoWrite => 'TodoWrite',
       AiBuiltinToolKind.webSearch => 'WebSearch',
-      AiBuiltinToolKind.lsp => 'Lsp',
+      AiBuiltinToolKind.lsp => 'LSP',
       AiBuiltinToolKind.codebaseSearch => 'CodebaseSearch',
       AiBuiltinToolKind.git => 'Git',
       AiBuiltinToolKind.deleteFile => 'DeleteFile',
@@ -1616,6 +1617,13 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.toolSearch => 'ToolSearch',
       AiBuiltinToolKind.memory => 'Memory',
       null => tool.name,
+    };
+  }
+
+  String _hookMatcherValue(AiResolvedTool tool, String hookToolName) {
+    return switch (tool.builtinKind) {
+      AiBuiltinToolKind.lsp => '$hookToolName\nLsp',
+      _ => hookToolName,
     };
   }
 
@@ -2241,7 +2249,7 @@ class AiToolRuntimeService {
     ),
     _builtinTool(
       kind: AiBuiltinToolKind.lsp,
-      name: 'Lsp',
+      name: 'LSP',
       description:
           'Code intelligence (definitions, references, symbols, hover) based on LSP.',
       parameters: const <String, Object?>{
@@ -2264,7 +2272,13 @@ class AiToolRuntimeService {
           },
           'file_path': <String, Object?>{
             'type': 'string',
-            'description': 'The absolute or relative path to the file',
+            'description':
+                'OpenHand alias for filePath. The absolute or relative path to the file',
+          },
+          'filePath': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Claude-style file path field. The absolute or relative path to the file',
           },
           'line': <String, Object?>{
             'type': 'integer',
@@ -2276,7 +2290,15 @@ class AiToolRuntimeService {
                 'The character offset (1-based, as shown in editors)',
           },
         },
-        'required': <String>['operation', 'file_path', 'line', 'character'],
+        'required': <String>['operation', 'line', 'character'],
+        'anyOf': <Object>[
+          <String, Object?>{
+            'required': <String>['filePath'],
+          },
+          <String, Object?>{
+            'required': <String>['file_path'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

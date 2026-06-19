@@ -4,11 +4,12 @@ import 'package:openhand/features/ai/service/runtime/ai_plan_mode_tool_gate.dart
 void main() {
   group('AiPlanModeToolGate', () {
     test('allows direct read-only code intelligence tools while planning', () {
+      expect(AiPlanModeToolGate.isPlanningTool('LSP'), isTrue);
       expect(AiPlanModeToolGate.isPlanningTool('Lsp'), isTrue);
       expect(AiPlanModeToolGate.isPlanningTool('CodebaseSearch'), isTrue);
       expect(
         AiPlanModeToolGate.isAllowedPlanningTool(
-          'Lsp',
+          'LSP',
           allowExitPlanMode: false,
         ),
         isTrue,
@@ -45,7 +46,7 @@ void main() {
       expect(
         AiPlanModeToolGate.hasExecutionTool(<String>[
           'Read',
-          'Lsp',
+          'LSP',
           'CodebaseSearch',
           'TodoWrite',
         ]),

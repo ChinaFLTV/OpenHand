@@ -11,7 +11,7 @@ abstract final class AiPlanModeToolGate {
     'Grep',
     'LS',
     'Read',
-    'Lsp',
+    'LSP',
     'CodebaseSearch',
     'WebFetch',
     'WebSearch',

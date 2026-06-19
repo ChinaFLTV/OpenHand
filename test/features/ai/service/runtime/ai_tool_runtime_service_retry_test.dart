@@ -362,6 +362,30 @@ void main() {
       }
     });
 
+    test('LSP exposes Claude-style name and filePath alias', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('LSP')?.definition;
+      final legacyDefinition = catalog.find('Lsp')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+      final anyOf = definition?.parameters['anyOf'];
+
+      expect(definition?.name, 'LSP');
+      expect(legacyDefinition?.name, 'LSP');
+      expect(properties?['filePath'], containsPair('type', 'string'));
+      expect(properties?['file_path'], containsPair('type', 'string'));
+      expect('$anyOf', contains('filePath'));
+      expect('$anyOf', contains('file_path'));
+    });
+
     test('Read exposes Claude-style PDF pages parameter', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
