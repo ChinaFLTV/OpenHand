@@ -421,6 +421,12 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   });
 
   static const int _toolSequenceRepairSummaryMaxChars = 4000;
+  static const String _systemReminderHeader = '# System Reminder';
+  static const String _systemReminderTag = '[system_reminder]';
+  static const String _toolExchangeRepairedTag = '[tool_exchange_repaired]';
+  static const String _toolExchangeRepairTruncatedTag =
+      '[tool_exchange_repair_truncated]';
+  static const String _orphanToolResultTag = '[orphan_tool_result]';
 
   @override
   final AiProtocolType protocolType;
@@ -679,40 +685,30 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   static String _messageRole(Map<String, Object?> message) {
-    return '${message['role'] ?? ''}'.trim();
+    return _trimmedField(message, 'role');
   }
 
   static List<Map<String, Object?>> _openAiToolCalls(
     Map<String, Object?> message,
   ) {
-    final rawToolCalls = message['tool_calls'];
-    if (rawToolCalls is! List) return const <Map<String, Object?>>[];
-    return rawToolCalls
-        .map((item) {
-          if (item is Map<String, Object?>) return item;
-          if (item is Map) return Map<String, Object?>.from(item);
-          return null;
-        })
-        .whereType<Map<String, Object?>>()
-        .toList(growable: false);
+    return _mapListFromObject(message['tool_calls']);
   }
 
   static String _openAiToolCallId(Map<String, Object?> toolCall) {
-    return '${toolCall['id'] ?? ''}'.trim();
+    return _trimmedField(toolCall, 'id');
   }
 
   static bool _isSystemReminderMessage(Map<String, Object?> message) {
     return _messageRole(message) == 'system' &&
-        '${message['content'] ?? ''}'.trim().startsWith('# System Reminder');
+        _trimmedField(message, 'content').startsWith(_systemReminderHeader);
   }
 
   static String _systemReminderText(Map<String, Object?> message) {
-    final content = '${message['content'] ?? ''}'.trim();
-    const header = '# System Reminder';
-    final body = content.startsWith(header)
-        ? content.substring(header.length).trim()
+    final content = _trimmedField(message, 'content');
+    final body = content.startsWith(_systemReminderHeader)
+        ? content.substring(_systemReminderHeader.length).trim()
         : content;
-    return body.isEmpty ? '[system_reminder]' : '[system_reminder] $body';
+    return body.isEmpty ? _systemReminderTag : '$_systemReminderTag $body';
   }
 
   static Map<String, Object?> _mergedAssistantToolCallMessage(
@@ -721,7 +717,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   ) {
     final merged = Map<String, Object?>.from(assistantMessages.first);
     final content = assistantMessages
-        .map((message) => '${message['content'] ?? ''}'.trim())
+        .map((message) => _trimmedField(message, 'content'))
         .where((item) => item.isNotEmpty)
         .join('\n\n');
     merged['content'] = content;
@@ -733,7 +729,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     Map<String, Object?> toolMessage,
     List<String> systemReminders,
   ) {
-    final content = '${toolMessage['content'] ?? ''}'.trim();
+    final content = _trimmedField(toolMessage, 'content');
     toolMessage['content'] = <String>[
       if (content.isNotEmpty) content,
       ...systemReminders.where((item) => item.trim().isNotEmpty),
@@ -749,58 +745,75 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     required List<String> systemReminders,
   }) {
     final lines = <String>[
-      '[tool_exchange_repaired]',
+      _toolExchangeRepairedTag,
       if (missingToolCallIds.isNotEmpty)
         'missing_tool_call_ids: ${missingToolCallIds.join(', ')}',
       for (final message in assistantMessages)
-        if ('${message['content'] ?? ''}'.trim().isNotEmpty)
-          '${message['content']}'.trim(),
+        if (_trimmedField(message, 'content').isNotEmpty)
+          _trimmedField(message, 'content'),
       for (final toolCall in toolCalls)
         'Tool call: ${_openAiToolCallName(toolCall)} (${_openAiToolCallId(toolCall)})',
       ...systemReminders,
       for (final toolMessage in toolMessages)
         _orphanToolMessageText(toolMessage),
     ];
-    return <String, Object?>{
-      'role': 'assistant',
-      'content': _boundedRepairSummary(lines.join('\n')),
-    };
+    return _assistantTextMessage(lines.join('\n'));
   }
 
   static Map<String, Object?> _assistantSummaryForOrphanToolMessage(
     Map<String, Object?> toolMessage,
   ) {
-    return <String, Object?>{
-      'role': 'assistant',
-      'content': _boundedRepairSummary(_orphanToolMessageText(toolMessage)),
-    };
+    return _assistantTextMessage(_orphanToolMessageText(toolMessage));
   }
 
   static String _openAiToolCallName(Map<String, Object?> toolCall) {
-    final function = toolCall['function'];
-    if (function is Map<String, Object?>) {
-      return '${function['name'] ?? 'tool'}'.trim();
-    }
-    if (function is Map) {
-      return '${function['name'] ?? 'tool'}'.trim();
-    }
-    return 'tool';
+    final function = _mapFromObject(toolCall['function']);
+    if (function == null) return 'tool';
+    final name = _trimmedField(function, 'name');
+    return name.isEmpty ? 'tool' : name;
   }
 
   static String _orphanToolMessageText(Map<String, Object?> toolMessage) {
-    final toolCallId = '${toolMessage['tool_call_id'] ?? ''}'.trim();
-    final content = '${toolMessage['content'] ?? ''}'.trim();
+    final toolCallId = _trimmedField(toolMessage, 'tool_call_id');
+    final content = _trimmedField(toolMessage, 'content');
     return <String>[
-      '[orphan_tool_result]',
+      _orphanToolResultTag,
       if (toolCallId.isNotEmpty) 'tool_call_id: $toolCallId',
       if (content.isNotEmpty) content,
     ].join('\n');
   }
 
+  static Map<String, Object?> _assistantTextMessage(String content) {
+    return <String, Object?>{
+      'role': 'assistant',
+      'content': _boundedRepairSummary(content),
+    };
+  }
+
   static String _boundedRepairSummary(String value) {
     final trimmed = value.trim();
     if (trimmed.length <= _toolSequenceRepairSummaryMaxChars) return trimmed;
-    return '${trimmed.substring(0, _toolSequenceRepairSummaryMaxChars)}\n[tool_exchange_repair_truncated]';
+    return '${trimmed.substring(0, _toolSequenceRepairSummaryMaxChars)}\n$_toolExchangeRepairTruncatedTag';
+  }
+
+  static String _trimmedField(Map<String, Object?> map, String key) {
+    return '${map[key] ?? ''}'.trim();
+  }
+
+  static Map<String, Object?>? _mapFromObject(Object? value) {
+    if (value is Map<String, Object?>) return value;
+    if (value is Map) return Map<String, Object?>.from(value);
+    return null;
+  }
+
+  static List<Map<String, Object?>> _mapListFromObject(Object? value) {
+    if (value is! List) return const <Map<String, Object?>>[];
+    final maps = <Map<String, Object?>>[];
+    for (final item in value) {
+      final map = _mapFromObject(item);
+      if (map != null) maps.add(map);
+    }
+    return maps;
   }
 
   /// Merges consecutive messages that share the `system` role into a single
